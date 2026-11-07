@@ -132,7 +132,7 @@ git,test-util` passed at the developer run on the fix-round head. PR 25 CI
 evidence at `92b3d05` (fix-round code head): sc-agent CI run 42386842485
 (test on ubuntu-24.04, macos-15 and windows-2022, python ×3, rustdoc,
 dependency gates, sc-treesitter feature matrix, coverage) and sc-publish
-dry-run run 42386842465, all green; the parent confirms the final head.
+dry-run run 42386842465, all green. Final head `641856f`: sc-agent CI run 42387849824 and sc-publish dry-run run 42387849809, all 11 checks green (parent-confirmed, QA-2).
 A local `cargo publish --dry-run` in a reused `target/` can compile a stale
 cached `sc-agent-types 0.1.0` (cargo treats registry-sourced builds as
 immutable); a fresh `CARGO_TARGET_DIR` passes, as CI does. r-3c owns no ADR text and flips no `(Proposed,

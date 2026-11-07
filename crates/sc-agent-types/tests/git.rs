@@ -30,14 +30,25 @@ fn git(dir: &Path, args: &[&str]) {
         .args(["-c", "commit.gpgsign=false", "-c", &hooks])
         .args(args)
         .env("GIT_CONFIG_GLOBAL", null_device())
+        .env("GIT_CONFIG_SYSTEM", null_device())
         .env("GIT_CONFIG_NOSYSTEM", "1")
-        .env("GIT_TERMINAL_PROMPT", "0")
-        // Same hook-inherited variables the production helper removes (FTQ-001).
-        .env_remove("GIT_DIR")
-        .env_remove("GIT_WORK_TREE")
-        .env_remove("GIT_INDEX_FILE")
-        .env_remove("GIT_OBJECT_DIRECTORY")
-        .env_remove("GIT_ALTERNATE_OBJECT_DIRECTORIES");
+        .env("GIT_TERMINAL_PROMPT", "0");
+    // Hook-inherited and config-injecting variables (same list as the
+    // sc-treesitter test support), plus the host's default object format.
+    for var in [
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        "GIT_COMMON_DIR",
+        "GIT_PREFIX",
+        "GIT_CONFIG_PARAMETERS",
+        "GIT_CONFIG_COUNT",
+        "GIT_DEFAULT_HASH",
+    ] {
+        command.env_remove(var);
+    }
     let output = deadline::spawn_with_deadline(&mut command, None);
     assert!(
         output.status.success(),
@@ -48,7 +59,8 @@ fn git(dir: &Path, args: &[&str]) {
 
 fn repo() -> (tempfile::TempDir, RepoRoot) {
     let dir = tempfile::tempdir().expect("temp");
-    git(dir.path(), &["init", "-q"]);
+    // Explicit SHA-1 repo: the empty-blob id below is the SHA-1 one.
+    git(dir.path(), &["init", "-q", "--object-format=sha1"]);
     std::fs::create_dir(dir.path().join("src")).expect("src");
     std::fs::write(dir.path().join("src/a.py"), b"x = 1\n\xff raw bytes\n").expect("file");
     git(dir.path(), &["add", "-A"]);
