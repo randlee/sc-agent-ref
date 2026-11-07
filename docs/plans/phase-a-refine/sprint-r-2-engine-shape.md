@@ -1,7 +1,7 @@
 ---
 id: r-2
 phase: r
-status: in-review
+status: complete # merged PR 27 (38b4ce6), QA-2 PASS 3f66e7b
 closure_type: boundary
 target_boundary: jev-check
 track: runtime
