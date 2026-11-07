@@ -54,7 +54,7 @@ alongside `sc-ai`. Direct dependencies of every crate are listed in its
 
 The target graph is in [`plans/phase-a-refine/plan.md`](plans/phase-a-refine/plan.md)
 ("Crate graph after A.1"). r-3b replaces this paragraph with that graph when
-`sc-agent-compose` and `workspace-tests` land.
+`sc-jev-host` and `workspace-tests` land.
 
 **Jev API:** All TypeSafe Jev HTTP lives in **`sc-jev`** (REQ-SAG-0110).  
 **Trait boundary:** `JudgeBackend` and shared domain types live in
@@ -690,7 +690,7 @@ Depends on **`sc-jev-check`** + full `sc-observability`, not on `sc-jev` directl
 
 **Status:** Proposed (Phase A.1) — lands in r-3b.
 
-- (Proposed, r-3b) `sc-ai` depends on `sc-agent-compose` (observability adapter, path policy)
+- (Proposed, r-3b) `sc-ai` depends on `sc-jev-host` (observability adapter, path policy)
   and `sc-jev-check`. Argv parsing uses clap derive behind the default `cli`
   feature. There is still no network code in the binary crate. It no longer
   depends on `sc-observability` directly (ADR-SAG-0013 amendment).
@@ -707,10 +707,10 @@ or canonicalization.
 
 **Status:** Proposed (Phase A.1) — lands in r-3b.
 
-- (Proposed, r-3b) The wheel's path is PyO3 → `sc-agent-compose` →
+- (Proposed, r-3b) The wheel's path is PyO3 → `sc-jev-host` →
   `sc-jev-check`. `sc-jev-py` keeps only argument conversion, the GIL release
   and exception mapping; path policy, logging adapter and run wiring are
-  `sc-agent-compose`'s (`PathPolicy::python()`).
+  `sc-jev-host`'s (`PathPolicy::python()`).
 
 ## ADR-SAG-0018 — sc-publish kit owns release surface
 
@@ -767,7 +767,7 @@ preflight CI, and publish dry-run).
 
 **Status:** Proposed (Phase A.1) — lands in r-3b.
 
-- (Proposed, r-3b) Published library crates gain `sc-agent-compose`
+- (Proposed, r-3b) Published library crates gain `sc-jev-host`
   (internal support, owner decision 2026-11-06), published directly after
   `sc-jev-check`. `workspace-tests` is `publish = false`. No crate is
   published to crates.io until r-5 (D9) lands (plan.md decision (c)).
@@ -780,7 +780,7 @@ preflight CI, and publish dry-run).
   published second, directly after `sc-agent-types` (its only workspace
   dependency). crates.io order: `sc-agent-types`, `sc-decision-schema`,
   `sc-agent-secrets`, `sc-agent-http`, `sc-jev`, `sc-jev-backends`,
-  `sc-jev-check`, `sc-agent-compose`, `sc-treesitter`, `sc-ai`. No crate is
+  `sc-jev-check`, `sc-jev-host`, `sc-treesitter`, `sc-ai`. No crate is
   published to crates.io until r-5 (D9) lands (unchanged).
 
 ## ADR-SAG-0015 — Subjects artifact outside the judge
@@ -815,7 +815,7 @@ composition roots is ADR-SAG-0021.
 **Status:** Proposed (Phase A.1) — lands in r-3b.
 
 - (Proposed, r-3b) The sentence "Composition roots `sc-ai` and `sc-jev-py`
-  link full `sc-observability`" is superseded: `sc-agent-compose` is the only
+  link full `sc-observability`" is superseded: `sc-jev-host` is the only
   crate that links `sc-observability` (`sc-lint.toml` ownership record) and
   holds the one `SessionLog` adapter; both roots use it.
 
@@ -894,13 +894,13 @@ the module** and drop the types dependency if possible (bead:
 **Status:** Proposed (Phase A.1) — lands in r-3b.
 
 - (Proposed, r-3b) "Do not publish a separate observability crate" and "no
-  extra crate" are superseded for `sc-agent-compose`: the `sc-observability`
+  extra crate" are superseded for `sc-jev-host`: the `sc-observability`
   adapter lives once in that crate, which is published to crates.io as
   internal support, `=`-pinned by `sc-ai` and `sc-jev-py`, with no semver
   promise of its own (owner decision 2026-11-06; ADR-SAG-0026). The port
   stays in `sc-agent-types`.
 - (Proposed, r-3b) This ADR is retitled "v2 shim in sc-agent-types; adapter
-  in sc-agent-compose" (heading and ADR index title cell), since "(no extra
+  in sc-jev-host" (heading and ADR index title cell), since "(no extra
   crate)" no longer holds.
 
 ### Amendment (Phase A.1, r-7)
@@ -1133,7 +1133,7 @@ Proposed and lands in r-3b.
   fails on any `=` requirement in any `Cargo.toml` whose crate is not on it.
   NFR-SAG-0004. Reasons: `sc-observability` — v2 shim alignment;
   `tree-sitter`, `tree-sitter-python`, `tree-sitter-rust` — output
-  determinism; `sc-agent-compose` — lockstep internal support (owner
+  determinism; `sc-jev-host` — lockstep internal support (owner
   decision 2026-11-06), in force from r-3b (subsection below; before the
   crate exists no `Cargo.toml` names it). `sc-observability-types` is not on
   the list: r-1 removed its only user and its root entry. The script reads
@@ -1145,7 +1145,7 @@ Proposed and lands in r-3b.
   tree-sitter
   tree-sitter-python
   tree-sitter-rust
-  sc-agent-compose
+  sc-jev-host
   <!-- lockstep-pins:end -->
 
 - (Active, r-4) Global allocators and argv parsers are linked only by
@@ -1161,7 +1161,7 @@ Proposed and lands in r-3b.
 
 **Status:** Proposed (Phase A.1) — lands in r-3b.
 
-- (Proposed, r-3b) The intra-workspace `sc-agent-compose` dependency of
+- (Proposed, r-3b) The intra-workspace `sc-jev-host` dependency of
   `sc-ai` and `sc-jev-py` is `=`-pinned (it is already on the list above);
   `check-exact-pins.sh` re-runs green with the pin present.
 
@@ -1318,7 +1318,7 @@ r-3b sets the line above to "Active". HTTP half amends ADR-SAG-0006, 0007,
 
 **Status:** Proposed (Phase A.1) — lands in r-3b.
 
-- (Proposed, r-3b) `sc-agent-compose` owns the `sc-observability` adapter,
+- (Proposed, r-3b) `sc-jev-host` owns the `sc-observability` adapter,
   `PathPolicy` (one data type; `cli()` and `python()` presets encode
   ADR-SAG-0021 per root, unchanged), `ComposeInputs`, `run_from` and
   `ask_from`. **Decided (owner, 2026-11-06):** it is published to crates.io
@@ -1336,7 +1336,7 @@ r-3b sets the line above to "Active". HTTP half amends ADR-SAG-0006, 0007,
 - (Proposed, r-3b) Environment ownership: API-key environment and `.env`
   reading belongs to `sc-jev-check` (`BackendRegistry::from_env` via
   `sc-agent-secrets`); log and session path environment variables belong to
-  `PathPolicy` in `sc-agent-compose`. No other crate reads either set.
+  `PathPolicy` in `sc-jev-host`. No other crate reads either set.
 
 ### Amendment (Phase A.1, r-7)
 
@@ -1499,7 +1499,7 @@ r-3b sets the line above to "Active". HTTP half amends ADR-SAG-0006, 0007,
   REQ-SAG-0109.
 - (Proposed, r-3b) **Dev-only edges.** It has no normal dependencies. Its
   dev-dependencies are exactly `sc-agent-types` (`features = ["git"]`),
-  `sc-jev-check`, `sc-agent-compose`, `serde_json`, `tempfile`. Whether
+  `sc-jev-check`, `sc-jev-host`, `serde_json`, `tempfile`. Whether
   `sc-boundary` checks dev edges is settled in wave 1 by r-1's spike and
   recorded in `boundaries/README.md`; if it does not, `cargo-tree-gates.sh`
   polices the exact dev set.
@@ -1645,7 +1645,7 @@ subsection in each). Owner decisions 2026-11-07.
 - (Proposed, r-6) Every `judge` and `ask` send, `Ok` or `Failed`, emits
   exactly one row; a backend refused before send (`NotSent`) emits none; a
   session-save failure emits none of its own. The row goes through
-  `SharedSessionLog` as `LogEvent` fields and the `sc-agent-compose` v2
+  `SharedSessionLog` as `LogEvent` fields and the `sc-jev-host` v2
   adapter writes it as `fields{}` verbatim (no bespoke writer).
 - (Proposed, r-6) Session ids are ULIDs (`ulid`, core dependency of
   `sc-agent-types`); the session document is version 3 (ADR-SAG-0008 r-6).

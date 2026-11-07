@@ -21,7 +21,7 @@ sprint doc, `arch` = `docs/architecture.md`, `req` = `docs/requirements.md`).
 | extensibility-qa | 8 | 7 | 1 | 0 |
 | **Total** | **106** | **99** | **3** | **4** |
 
-Owner decisions: (a) publish `sc-agent-compose` — decided 2026-11-06; (b)
+Owner decisions: (a) publish `sc-jev-host` — decided 2026-11-06; (b)
 busy-retry numbers — decided 2026-11-07; (c) D9 payload shape — still pending
 (blocked on the vendor). Partially declined items (RBQA-F004, RBQA-F005, RBQA-F006, RSH-006) count as
 applied because the finding's required outcome is met; the declined part and
@@ -87,7 +87,7 @@ its reason are named in the row.
 | Id | Disposition | Where |
 | --- | --- | --- |
 | REQ-QA-001 | applied — ARCHC-006, ARCHP-009 in "does not close" with Phase B rationale; ARCHC-010 owned by r-1; phase-level closure table | plan "Findings closure" |
-| REQ-QA-002 | owner decision (decided 2026-11-06) — publish `sc-agent-compose` as internal support | plan (a); arch ADR-0026, 0016, 0017, 0023; r-3b |
+| REQ-QA-002 | owner decision (decided 2026-11-06) — publish `sc-jev-host` as internal support | plan (a); arch ADR-0026, 0016, 0017, 0023; r-3b |
 | REQ-QA-003 | applied — section-scoped ownership in every sprint | plan conventions |
 | REQ-QA-004 | applied — r-3 disjoint from r-2 (r-1 fixed the ctor contract) | r-1 D1.7; r-3 |
 | REQ-QA-005 | applied — consumer behaviour moved to r-3b, which follows r-2b | r-2b, r-3b |

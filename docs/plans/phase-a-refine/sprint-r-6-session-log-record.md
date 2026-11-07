@@ -97,10 +97,10 @@ owned_paths:
   - "crates/sc-jev-check/tests/repo.rs (new)"
   - "crates/sc-jev-check/tests/session.rs#v2 document invalid"
   - "crates/sc-jev-check/tests/sessions_exact.rs#ULID names, rows without secrets"
-  - "crates/sc-agent-compose/src/obs.rs"
-  - "crates/sc-agent-compose/src/compose.rs#ComposeInputs::project, repo resolution (the file defining ComposeInputs)"
-  - "crates/sc-agent-compose/tests/obs.rs"
-  - "crates/sc-agent-compose/tests/log_context.rs (new)"
+  - "crates/sc-jev-host/src/obs.rs"
+  - "crates/sc-jev-host/src/compose.rs#ComposeInputs::project, repo resolution (the file defining ComposeInputs)"
+  - "crates/sc-jev-host/tests/obs.rs"
+  - "crates/sc-jev-host/tests/log_context.rs (new)"
   - "crates/sc-ai/Cargo.toml#-uuid"
   - "crates/sc-ai/src/**#--project flag, ULID --session-id, help text"
   - "crates/sc-ai/tests/cli.rs#--project and ULID cases"
@@ -122,7 +122,7 @@ owned_paths:
   - "docs/sc-agent-types/**#ULID, sc-sha, LogEvent fields"
   - "docs/sc-agent-http/**#digest recording"
   - "docs/sc-jev-check/**#REQ-SAG-0600, 0610, 0611 rows; row emission; discover_main_repo_root"
-  - "docs/sc-agent-compose/**#log context (repo, project)"
+  - "docs/sc-jev-host/**#log context (repo, project)"
   - "docs/sc-ai/**#--project; NFR-SAG-0003 row"
   - "docs/sc-jev-py/**#project kwarg"
 ---
@@ -252,7 +252,7 @@ Every deliverable below lands production-ready for the scope this sprint claims;
   sends of one session may differ; r-7 keeps `project` on `answers`), caller
   text, stored as given and **not scrubbed** (documented in the CLI and
   Python docs and in ADR-SAG-0031).
-- `sc-agent-compose` (`compose.rs`): `ComposeInputs::project(..)` setter;
+- `sc-jev-host` (`compose.rs`): `ComposeInputs::project(..)` setter;
   `run_from`/`ask_from` resolve `repo` with `discover_main_repo_root(cwd)`
   and pass `LogContext { repo, project }` through
   `RunConfig::log_context(..)`, so neither consumer builds log context.
@@ -274,7 +274,7 @@ Every deliverable below lands production-ready for the scope this sprint claims;
   `fields`). The emitter passes `row.to_fields()`. This is a stable-surface
   change of `observability::v2` (ADR-SAG-0027/0016 r-6 amendments). The port
   stays in `sc-agent-types`; it does not name the row type.
-- `sc-agent-compose` `obs`: the adapter copies `event.fields()` into the v2
+- `sc-jev-host` `obs`: the adapter copies `event.fields()` into the v2
   `fields{}` verbatim; envelope `target` `jev.session`, `action` from
   `operation`, envelope `outcome` stays `null`. No bespoke writer
   (ADR-SAG-0013).
@@ -359,7 +359,7 @@ impl RunConfig {
     pub fn log_context(self, context: LogContext) -> Self; // unset: repo = discover_main_repo_root(repo_root), project = None
 }
 
-// sc-agent-compose
+// sc-jev-host
 impl ComposeInputs {
     #[must_use]
     pub fn project(self, project: ProjectLabel) -> Self;
@@ -379,15 +379,15 @@ Each named test prints `1 passed`; the scrum-master rejects `0 passed`.
 | --- | --- |
 | req:REQ-SAG-0612 | `cargo test -p sc-agent-types --test ids -- test_session_id_is_ulid --exact` (round-trip through `Display`/`FromStr`/serde; UUID string refused); `cargo test -p sc-jev-check --features test-util --test session -- test_v2_session_document_is_invalid --exact`; `cargo test -p sc-ai --features test-util --test cli -- test_cli_uuid_session_id_is_input_invalid --exact` (one `ScAgentErrorResponse` line, `INPUT_INVALID`, fix hint mentions ULID, exit 2); `uv run --directory tests/fixtures/jev-python pytest -q tests/test_run_check_and_ask.py::test_uuid_session_id_is_input_invalid` |
 | req:REQ-SAG-0613 | `cargo test -p sc-agent-http --features test-util --test trace -- test_request_sha256_is_digest_of_sent_body --exact`; `cargo test -p sc-agent-http --features test-util --test trace -- test_request_sha256_recorded_once_across_retries --exact`; `cargo test -p sc-agent-http --features test-util --test trace -- test_cancel_before_first_send_records_nothing --exact`; `cargo test -p sc-jev-check --features test-util --test session_log -- test_ok_row_request_sha256_is_sent_body_digest --exact`; `cargo test -p sc-jev-check --features test-util --test session_log -- test_failed_before_body_row_has_null_request_sha256 --exact`; `cargo test -p sc-jev-check --features test-util --test session_log -- test_multi_backend_rows_carry_own_request_sha256 --exact` (two scripted backends send different bodies; each row carries its own backend's digest). The backend hand-off is r-7's required `SendTrace` parameter (compiler-enforced) |
-| req:REQ-SAG-0614 | `cargo test -p sc-jev-check --test repo -- test_main_repo_root_resolves_worktree --exact`; `cargo test -p sc-jev-check --test repo -- test_main_repo_root_outside_git_is_cwd --exact`; `cargo test -p sc-jev-check --test repo -- test_main_repo_root_separate_git_dir_falls_back_to_toplevel --exact`; `cargo test -p sc-agent-compose --test log_context -- test_log_context_repo_is_main_repo_paths_stay_on_worktree --exact` (run from a linked worktree with `PathPolicy::cli()`: the session file is under `<worktree>/.sc-ai/sessions`, the log under `<worktree>/.sc-ai/logs/sc-ai.log.jsonl`, and the row's `repo` is the main repository) |
+| req:REQ-SAG-0614 | `cargo test -p sc-jev-check --test repo -- test_main_repo_root_resolves_worktree --exact`; `cargo test -p sc-jev-check --test repo -- test_main_repo_root_outside_git_is_cwd --exact`; `cargo test -p sc-jev-check --test repo -- test_main_repo_root_separate_git_dir_falls_back_to_toplevel --exact`; `cargo test -p sc-jev-host --test log_context -- test_log_context_repo_is_main_repo_paths_stay_on_worktree --exact` (run from a linked worktree with `PathPolicy::cli()`: the session file is under `<worktree>/.sc-ai/sessions`, the log under `<worktree>/.sc-ai/logs/sc-ai.log.jsonl`, and the row's `repo` is the main repository) |
 | req:REQ-SAG-0615 | `cargo test -p sc-ai --features test-util --test cli -- test_cli_project_flag_reaches_log --exact`; `cargo test -p sc-ai --features test-util --test cli -- test_cli_project_over_limit_is_input_invalid --exact`; `uv run --directory tests/fixtures/jev-python pytest -q tests/test_run_check_and_ask.py::test_project_kwarg_reaches_log tests/test_run_check_and_ask.py::test_project_kwarg_control_char_is_input_invalid` prints `2 passed` |
 | req:REQ-SAG-0616 | `cargo test -p sc-jev-check --features test-util --test session_log -- test_failed_row_carries_model_id --exact` (the row's `model_id` is the backend's `model_id()`, `Failed` included); r-7's `model_id()` tests are regression |
-| req:REQ-SAG-0617 | `cargo test -p sc-jev-check --features test-util --test session_log -- test_one_row_per_send_failed_included_not_sent_none --exact`; `cargo test -p sc-agent-compose --test obs -- test_log_line_fields_is_one_session_log_row --exact` (every line's `fields` passes `SessionLogRow::try_from_fields`, carries `send_outcome`, envelope `outcome` is `null`; matches `session-event.json`); log-write policy (D6): `cargo test -p sc-jev-check --features test-util --test session_log -- test_rejected_log_row_keeps_run_ok --exact` |
+| req:REQ-SAG-0617 | `cargo test -p sc-jev-check --features test-util --test session_log -- test_one_row_per_send_failed_included_not_sent_none --exact`; `cargo test -p sc-jev-host --test obs -- test_log_line_fields_is_one_session_log_row --exact` (every line's `fields` passes `SessionLogRow::try_from_fields`, carries `send_outcome`, envelope `outcome` is `null`; matches `session-event.json`); log-write policy (D6): `cargo test -p sc-jev-check --features test-util --test session_log -- test_rejected_log_row_keeps_run_ok --exact` |
 | req:REQ-SAG-0618 | D0: `cargo test -p sc-agent-types --test ids -- test_sha256_reference_vectors --exact`; `cargo tree -p sc-agent-types -e normal --depth 1 \| grep -qE '(^\|[^[:alnum:]_-])sc-sha v[0-9]'` succeeds and `! cargo tree -p sc-agent-types -e normal --depth 1 \| grep -qE '(^\|[^[:alnum:]_-])(sha2\|uuid) v[0-9]'` succeeds; `cargo test -p workspace-tests --test jev_cross_impl` and `cargo test -p sc-treesitter` green with unchanged digests |
 | req:REQ-SAG-0600 (amended) | `cargo test -p sc-jev-check --features test-util --test sessions_exact -- test_session_file_named_by_ulid_mode_0600_expiry --exact` (ULID file name, mode 0600 on Unix, expiry from `created_at`) |
 | req:REQ-SAG-0611 (amended) | `cargo test -p sc-jev-check --features test-util --test session_log -- test_every_row_carries_context --exact` (every row, `judge` and `ask`, `ok` and `failed`, carries `session_id`, `repo`, `project`, `model_id`, `prompt_sha256`); `cargo test -p sc-jev-check --features test-util --test session_log -- test_row_has_no_body_prompt_or_key_bytes --exact` |
 | adr:ADR-SAG-0031 | Wiring subsection Active (r-6); index row `Active (r-7 storage schema, r-6 wiring)`; r-6 subsections in 0008, 0013, 0016, 0026, 0027 and their markers Active |
-| boundary:session-log | Regression: `just test` plus the `required-features` runs `cargo test -p sc-jev-check --features test-util`, `cargo test -p sc-ai --features test-util`, `cargo test -p sc-jev --features test-util`, `cargo test -p sc-agent-http --features test-util`, `cargo test -p sc-decision-schema --features test-util`; `cargo test -p sc-agent-compose --test log_context -- test_log_and_session_paths_unchanged_with_ulid_names --exact` (NFR-SAG-0003, ADR-SAG-0021); NFR-SAG-0004 `bash .github/scripts/check-exact-pins.sh`; REQ-SAG-0107 `cargo hack check -p sc-agent-types --feature-powerset --no-dev-deps` |
+| boundary:session-log | Regression: `just test` plus the `required-features` runs `cargo test -p sc-jev-check --features test-util`, `cargo test -p sc-ai --features test-util`, `cargo test -p sc-jev --features test-util`, `cargo test -p sc-agent-http --features test-util`, `cargo test -p sc-decision-schema --features test-util`; `cargo test -p sc-jev-host --test log_context -- test_log_and_session_paths_unchanged_with_ulid_names --exact` (NFR-SAG-0003, ADR-SAG-0021); NFR-SAG-0004 `bash .github/scripts/check-exact-pins.sh`; REQ-SAG-0107 `cargo hack check -p sc-agent-types --feature-powerset --no-dev-deps` |
 
 ## Required validation
 

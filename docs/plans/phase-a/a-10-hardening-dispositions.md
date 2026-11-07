@@ -189,7 +189,7 @@ the same area, the authorising routine id is named.
 | Decision | Code changed? | Notes |
 | --- | --- | --- |
 | D1 backend openness | No | `BackendId` / `BackendKeyId` gained `FromStr`, `key_id`, `is_llm` under routine **RBP-F004 / ARCHE-010 / ARCHC-022**; no `#[non_exhaustive]`, no variants, no capabilities. `FromStr` follows the documented `Display` spelling. |
-| D2 shared consumer logic | No | QA-004 adapters and QA-007 repo discovery stay per crate and are documented/tested as such; no `sc-agent-compose`, no engine API change. |
+| D2 shared consumer logic | No | QA-004 adapters and QA-007 repo discovery stay per crate and are documented/tested as such; no `sc-jev-host`, no engine API change. |
 | D3 multi-backend semantics | No | Untouched. |
 | D4 session store shape | No | **CR-015 / RSH-004** hardened file writes only; no trait or registry change. |
 | D5 one HTTP layer | No | **QA-003 / ARCHC-013** interim: one `retry_policy.rs` copied verbatim, now byte-compared by a test; no `sc-agent-http`. |

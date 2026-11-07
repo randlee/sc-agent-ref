@@ -94,7 +94,7 @@ ARCH-001 (phase-end), RBP-F001 (a-9), ARCH-002 (phase-end), ARCH-006
    markers `<!-- lockstep-pins:start -->` and `<!-- lockstep-pins:end -->`,
    one crate name per line: `sc-observability` (v2 shim alignment),
    `tree-sitter`, `tree-sitter-python`, `tree-sitter-rust` (output
-   determinism, Phase A resolved decision 3), `sc-agent-compose`
+   determinism, Phase A resolved decision 3), `sc-jev-host`
    (intra-workspace lockstep; in force from r-3b). `sc-observability-types`
    is **not** on the list: r-1 removes its only user and its root entry.
    `mimalloc = "0.1.52"`; add `clap = { version = "4", features = ["derive"] }`.

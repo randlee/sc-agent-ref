@@ -1389,11 +1389,10 @@ dependencies = [
  "mimalloc",
  "sc-agent-types",
  "sc-jev-check",
- "sc-observability",
+ "sc-jev-host",
  "serde",
  "serde_json",
  "tempfile",
- "uuid",
 ]
 
 [[package]]
@@ -1428,6 +1427,17 @@ dependencies = [
  "serde_json",
  "tempfile",
  "toml",
+]
+
+[[package]]
+name = "sc-jev-host"
+version = "0.1.0"
+dependencies = [
+ "sc-agent-types",
+ "sc-jev-check",
+ "sc-observability",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]
@@ -2273,6 +2283,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23b97319f7b8343df12cc98938e5c3eb436064524c8d2b4e30a1d3a36eecdf81"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "workspace-tests"
+version = "0.1.0"
+dependencies = [
+ "sc-agent-types",
+ "sc-jev-check",
+ "sc-jev-host",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]
