@@ -17,7 +17,7 @@ fn null_device() -> &'static str {
     if cfg!(windows) { "NUL" } else { "/dev/null" }
 }
 
-use sc_agent_types::git::{discover_toplevel, read_at_rev};
+use sc_agent_types::git::{MAX_INPUT_BYTES, discover_toplevel, hash_blob, read_at_rev};
 use sc_agent_types::{RepoRelativePath, RepoRoot, Rev};
 
 fn git(dir: &Path, args: &[&str]) {
@@ -30,14 +30,25 @@ fn git(dir: &Path, args: &[&str]) {
         .args(["-c", "commit.gpgsign=false", "-c", &hooks])
         .args(args)
         .env("GIT_CONFIG_GLOBAL", null_device())
+        .env("GIT_CONFIG_SYSTEM", null_device())
         .env("GIT_CONFIG_NOSYSTEM", "1")
-        .env("GIT_TERMINAL_PROMPT", "0")
-        // Same hook-inherited variables the production helper removes (FTQ-001).
-        .env_remove("GIT_DIR")
-        .env_remove("GIT_WORK_TREE")
-        .env_remove("GIT_INDEX_FILE")
-        .env_remove("GIT_OBJECT_DIRECTORY")
-        .env_remove("GIT_ALTERNATE_OBJECT_DIRECTORIES");
+        .env("GIT_TERMINAL_PROMPT", "0");
+    // Hook-inherited and config-injecting variables (same list as the
+    // sc-treesitter test support), plus the host's default object format.
+    for var in [
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        "GIT_COMMON_DIR",
+        "GIT_PREFIX",
+        "GIT_CONFIG_PARAMETERS",
+        "GIT_CONFIG_COUNT",
+        "GIT_DEFAULT_HASH",
+    ] {
+        command.env_remove(var);
+    }
     let output = deadline::spawn_with_deadline(&mut command, None);
     assert!(
         output.status.success(),
@@ -48,7 +59,8 @@ fn git(dir: &Path, args: &[&str]) {
 
 fn repo() -> (tempfile::TempDir, RepoRoot) {
     let dir = tempfile::tempdir().expect("temp");
-    git(dir.path(), &["init", "-q"]);
+    // Explicit SHA-1 repo: the empty-blob id below is the SHA-1 one.
+    git(dir.path(), &["init", "-q", "--object-format=sha1"]);
     std::fs::create_dir(dir.path().join("src")).expect("src");
     std::fs::write(dir.path().join("src/a.py"), b"x = 1\n\xff raw bytes\n").expect("file");
     git(dir.path(), &["add", "-A"]);
@@ -127,4 +139,60 @@ fn test_discover_toplevel_from_subdirectory() {
     );
     let outside = tempfile::tempdir().expect("outside");
     assert_eq!(discover_toplevel(outside.path()).expect("not a repo"), None);
+}
+
+/// `hash_blob` gives the id git stored for the same bytes, in both object
+/// formats, ignores clean filters, and writes nothing to the object database.
+#[test]
+fn test_hash_blob_matches_stored_blob() {
+    let (dir, root) = repo();
+    let stored =
+        read_at_rev(&root, &Rev::new("HEAD"), &path("src/a.py"), MAX_INPUT_BYTES).expect("read");
+    let hashed = hash_blob(&root, stored.bytes()).expect("hash");
+    assert_eq!(&hashed, stored.sha());
+    // The empty blob id is fixed for SHA-1 repositories.
+    let empty = hash_blob(&root, b"").expect("empty");
+    assert_eq!(empty.as_str(), "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391");
+    let objects = dir
+        .path()
+        .join(".git/objects/e6/9de29bb2d1d6434b8b29ae775ad8c2e48c5391");
+    assert!(!objects.exists(), "hash_blob must not write objects");
+
+    // `text` would normalise CRLF on a filtered hash; --no-filters keeps the
+    // raw bytes, so the id differs from the LF-only content.
+    std::fs::write(dir.path().join(".gitattributes"), "*.py text eol=lf\n").expect("attrs");
+    let crlf = hash_blob(&root, b"x = 1\r\n").expect("crlf");
+    let lf = hash_blob(&root, b"x = 1\n").expect("lf");
+    assert_ne!(crlf, lf, "clean filters must not apply");
+
+    let sha256 = tempfile::tempdir().expect("temp");
+    git(sha256.path(), &["init", "-q", "--object-format=sha256"]);
+    let sha256_root = discover_toplevel(sha256.path())
+        .expect("discover")
+        .expect("inside a repo");
+    let id = hash_blob(&sha256_root, b"x = 1\n").expect("sha256 hash");
+    assert_eq!(id.as_str().len(), 64, "{id}");
+}
+
+/// A large input (bigger than any pipe buffer) is written and hashed.
+#[test]
+fn test_hash_blob_large_input() {
+    let (_dir, root) = repo();
+    let bytes = vec![b'#'; 1024 * 1024];
+    let id = hash_blob(&root, &bytes).expect("hash");
+    assert_eq!(id.as_str().len(), 40);
+}
+
+/// Outside a repository git fails; the detail carries git's own reason.
+#[test]
+fn test_hash_blob_failure_is_extraction_failed() {
+    let outside = tempfile::tempdir().expect("outside");
+    let missing = outside.path().join("no-such-dir");
+    let error = hash_blob(&RepoRoot::new(&missing), b"x").expect_err("no dir");
+    assert_eq!(error.code(), "EXTRACTION_FAILED");
+    assert!(
+        error.fix_hint().contains("git hash-object failed"),
+        "{}",
+        error.fix_hint()
+    );
 }
