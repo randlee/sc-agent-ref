@@ -1255,8 +1255,7 @@ r-3b sets the line above to "Active". HTTP half amends ADR-SAG-0006, 0007,
 
 - (Proposed, r-7) Compose-half type note: `JudgeOutcome` is owned by
   `sc-decision-schema` (ADR-SAG-0030), not `sc-agent-types`. Compose does
-  not re-export it; the `cargo tree -d` gate keeps one version of
-  `sc-decision-schema` in the `sc-ai` and `sc-jev-py` graphs.
+  not re-export it.
 - (Proposed, r-7) HTTP half: `HttpRequest` carries an optional `SendTrace`
   (`with_trace`, `trace`); `sc-jev` and `sc-jev-backends` attach the
   `JudgeRequest`'s trace. Recording into it is r-6.
@@ -1479,7 +1478,9 @@ Owner decisions 2026-11-07.
 - (Proposed, r-7) **Model catalog** (`sc-agent-types`). `ModelId` is an open
   enum: known variants that track recent releases plus `Other(string)`, so a
   model released after the build still parses, is sent verbatim and is
-  logged. `Display`, `FromStr` and serde use the model string. `MODELS` is
+  logged. `Display`, `FromStr` and serde use the model string. The unknown
+  form (`UnknownModel`) has no public constructor, so `Other` never holds a
+  known model string and one model always logs one way. `MODELS` is
   the in-crate table; `ModelAliases::builtin().latest("jev" | "haiku" |
   "luna" | …)` returns the newest model for an alias, and
   `with_override` (from `check.toml` `[models]`) replaces it. Backends hold

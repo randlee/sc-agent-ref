@@ -89,7 +89,7 @@ owned_paths:
   - "crates/sc-agent-types/src/test_util.rs (deleted: moved)"
   - "crates/sc-agent-types/src/ids.rs#QuestionId, ChoiceId (removed: moved)"
   - "crates/sc-agent-types/src/catalog.rs#BackendDescriptor::default_model_alias"
-  - "crates/sc-agent-types/src/models.rs (new: ModelId, ModelFamily, ModelDescriptor, MODELS, ModelAliases)"
+  - "crates/sc-agent-types/src/models.rs (new: ModelId, UnknownModel, ModelFamily, ModelDescriptor, MODELS, ModelAliases)"
   - "crates/sc-agent-types/src/trace.rs (new: SendTrace)"
   - "crates/sc-agent-types/tests/judge.rs (deleted: moved)"
   - "crates/sc-agent-types/tests/mock.rs (deleted: moved)"
@@ -147,7 +147,7 @@ owned_paths:
   - "release/sc-publish-consumer-input.json"
   - "release/** and .github/workflows/*-publish.yml, release*.yml, prerelease-archive.yml, sc-publish-dry-run.yml (rendered by install.py; parent runs the kit install)"
   - "scripts/sc-publish-dry-run.sh#package list"
-  - ".github/scripts/cargo-tree-gates.sh#sc-decision-schema feature row and -d row; sc-agent-types feature rows (judge removed)"
+  - ".github/scripts/cargo-tree-gates.sh#sc-decision-schema feature row; sc-agent-types feature rows (judge removed)"
   - ".github/workflows/sc-agent-ci.yml#feature-powerset and isolated per-library build rows"
   - "docs/architecture.md#ADR-SAG-0030 (Status line and bullet markers, except the jev::v1 bullet, r-5)"
   - "docs/architecture.md#ADR index row ADR-SAG-0030 (Status cell: r-7 part)"
@@ -286,7 +286,7 @@ Every deliverable below lands production-ready for the scope this sprint claims;
    ```
 
    Edits to other manifests: `sc-agent-types` facade drops the moved items
-   and gains `ModelId`, `ModelFamily`, `ModelDescriptor`, `MODELS`,
+   and gains `ModelId`, `UnknownModel`, `ModelFamily`, `ModelDescriptor`, `MODELS`,
    `ModelAliases`, `SendTrace`; its `allowed_dependents` gains
    `sc-decision-schema`. `sc-jev`, `sc-jev-backends`, `sc-jev-check`,
    `sc-agent-compose`, `sc-ai`, `sc-jev-py`, `workspace-tests` gain
@@ -323,11 +323,10 @@ Every deliverable below lands production-ready for the scope this sprint claims;
    `.github/workflows/sc-agent-ci.yml` adds
    `cargo hack check -p sc-decision-schema --feature-powerset --no-dev-deps`
    and `cargo build -p sc-decision-schema --lib` to the isolated
-   per-library rows. `.github/scripts/cargo-tree-gates.sh` adds two rows:
+   per-library rows. `.github/scripts/cargo-tree-gates.sh` adds one row:
    `sc-decision-schema` `-e normal,features -i sc-agent-types` must not
    show features `secret`, `obs`, `git` or `default` (the feature leak the
-   manifest cannot see), and `sc-decision-schema` joins the `sc-ai` /
-   `sc-jev-py` `-e normal -d` duplicate-version row. The `sc-agent-http` and
+   manifest cannot see). The `sc-agent-http` and
    `sc-treesitter` feature rows drop `judge` from their forbidden-feature
    lists (the feature no longer exists). Forbidden crate edges are the
    manifest's job (D1.3, sc-boundary), not tree rows.
@@ -524,11 +523,15 @@ dependency or writer lands in A.1.
 
 1. New private module `models` in `sc-agent-types` (crate-root
    re-exports, like `catalog`): `ModelId` (known variants `Jev1_13_0`,
-   `ClaudeHaiku5_5`, `Gpt6Luna`, plus `Other(Arc<str>)`), so a model
+   `ClaudeHaiku5_5`, `Gpt6Luna`, plus `Other(UnknownModel)`), so a model
    released after the build parses, is sent verbatim and is logged.
    `Display`, `FromStr` and serde use the model string (`jev-1.13.0`,
-   `claude-haiku-5-5`, `gpt-6-luna`); parsing a known string gives the known
-   variant, never `Other`. `ModelId::family() -> ModelFamily`.
+   `claude-haiku-5-5`, `gpt-6-luna`). `UnknownModel` has a private field and
+   no public constructor: the only ways to get one are `ModelId::from_str`
+   (which returns the known variant for a known string, so `Other` never
+   holds a known string and derived `PartialEq`/`Hash` stay correct) and
+   `ModelId::fallback_for(BackendId)` (D7.5). `ModelId::family() ->
+   ModelFamily`.
 2. `MODELS` (model string, family, alias, release date) and `ModelAliases`
    (`builtin()`, `latest(alias)` for `"jev"`, `"haiku"`, `"luna"`,
    `with_override`). `BackendDescriptor` gains `default_model_alias()`
@@ -552,8 +555,11 @@ dependency or writer lands in A.1.
    each backend crate") is corrected to name the catalog.
 5. **`JudgeBackend::model_id()`**, a provided method (ADR-SAG-0009: new
    methods have default bodies) returning the catalog's `latest` for the
-   descriptor's `default_model_alias`, else `ModelId::Other(<backend
-   name>)`. `JevClient` (`check.rs`) returns its `JevConfig` model; the
+   descriptor's `default_model_alias`, else
+   `ModelId::fallback_for(self.id())` (infallible: an `Other` holding the
+   backend id string, which is never a model string;
+   `test_backend_catalog_roundtrip` keeps every built-in backend off this
+   path). `JevClient` (`check.rs`) returns its `JevConfig` model; the
    Haiku and Luna backends (`backend.rs`) return the model they send;
    `MockJudgeBackend::with_model_id` and the scripted backends report one.
    r-6 writes it into every row.
@@ -571,22 +577,19 @@ dependency or writer lands in A.1.
    recording in `send_with_busy_retry` and reads it into the row. This
    gives r-5 and r-6 disjoint files in wave 6.
 
-### D9 — ADR text flips
+### D9 — ADR text flips (one pass)
 
-Flip, in `docs/architecture.md`: ADR-SAG-0030 (Status line; every bullet
-marker except the "Jev API structs" bullet, which stays `(Proposed, r-5)`,
-and the "Scope context" bullet, which keeps its `(Recorded; open owner
-item)` marker so the CLI-wrapper question stays visibly open; index Status
-cell `Active (r-7); jev::v1 Proposed (r-5)`), ADR-SAG-0031's "Storage
-schema" subsection (its Status line and markers; ADR-level Status becomes
-"Active (storage schema, r-7); wiring Proposed (r-6)" and the index Status
-cell the same), and the r-7 amendment subsections in ADR-SAG-0005, 0009,
-0016, 0017, 0019, 0022, 0026, 0027 with their index markers
-`ADR-SAG-0030 (Active, r-7)`. Rewrite the "Phase A.1 crate graph"
-paragraph's "Trait boundary" sentence to: "`JudgeBackend` and the decision
-types live in `sc-decision-schema`; ids, errors and the backend and model
-catalogs live in `sc-agent-types` (ADR-SAG-0030)." r-7 changes markers and
-Status lines only, plus any wording the implementation proves wrong.
+In one edit of `docs/architecture.md`, set every `(Proposed, r-7)` marker
+and r-7 Status text to Active: the ADR-SAG-0030 Status line, bullets and
+index cell (`Active (r-7); jev::v1 Proposed (r-5)`; the "Jev API structs"
+bullet stays `(Proposed, r-5)` and the "Scope context" bullet keeps
+`(Recorded; open owner item)`), the ADR-SAG-0031 "Storage schema"
+subsection (ADR-level Status "Active (storage schema, r-7); wiring
+Proposed (r-6)"), and the one r-7 amendment note in each ADR it amends,
+with its index marker. Rewrite the "Phase A.1 crate graph" paragraph's
+"Trait boundary" sentence to: "`JudgeBackend` and the decision types live
+in `sc-decision-schema`; ids, errors and the backend and model catalogs
+live in `sc-agent-types` (ADR-SAG-0030)."
 
 ## Explicit code samples (signatures are binding; bodies are not)
 
@@ -600,11 +603,15 @@ pub enum ModelId {
     Jev1_13_0,        // "jev-1.13.0"
     ClaudeHaiku5_5,   // "claude-haiku-5-5"  (today's HAIKU_MODEL)
     Gpt6Luna,         // "gpt-6-luna"        (today's LUNA_MODEL)
-    Other(Arc<str>),  // any other valid model string; never a known string
+    Other(UnknownModel), // any other valid model string; never a known string
 }
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct UnknownModel(Arc<str>);   // private field; no public constructor
+impl UnknownModel { pub fn as_str(&self) -> &str; }
 impl ModelId {
     pub fn as_str(&self) -> &str;
     pub fn family(&self) -> ModelFamily;
+    pub fn fallback_for(backend: BackendId) -> Self;   // Other(backend id string); infallible
 }
 impl fmt::Display for ModelId { /* as_str() */ }
 impl FromStr for ModelId { type Err = JevError; /* known -> variant, else Other; empty or control char -> INPUT_INVALID */ }
@@ -615,7 +622,9 @@ impl FromStr for ModelId { type Err = JevError; /* known -> variant, else Other;
 pub enum ModelFamily { TypeSafeJev, AnthropicClaude, OpenAiGpt, Local, Unknown }
 
 #[derive(Debug, Clone, Copy)]
-pub struct ModelDescriptor { /* private: model, family, alias, released ("YYYY-MM-DD") */ }
+pub struct ModelDescriptor {        // private fields, all &'static str except family
+    model: &'static str, family: ModelFamily, alias: &'static str, released: &'static str, // "YYYY-MM-DD"
+}
 impl ModelDescriptor {
     pub fn model(&self) -> ModelId;
     pub fn family(&self) -> ModelFamily;
@@ -683,7 +692,7 @@ pub trait JudgeBackend: Send + Sync {
     fn model_id(&self) -> ModelId {
         ModelAliases::builtin()
             .latest(self.id().descriptor().default_model_alias())
-            .unwrap_or_else(|| ModelId::Other(Arc::from(self.id().to_string())))
+            .unwrap_or_else(|| ModelId::fallback_for(self.id()))
     }
 }
 
@@ -773,15 +782,14 @@ Each named test prints `1 passed`; the scrum-master rejects `0 passed`.
 | req:REQ-SAG-0144 | `cargo test -p sc-decision-schema --test llm -- test_llm_output_is_decision_answers --exact` (a valid reply gives `DecisionAnswers`; each of the four D4.2 cases gives `RESPONSE_INVALID` with today's message); `cargo test -p sc-jev-backends --test llm` green |
 | req:REQ-SAG-0145 | `cargo test -p sc-decision-schema --test variants -- test_canonical_variant_is_identity --exact`; `cargo test -p sc-decision-schema --test variants -- test_every_model_family_maps_to_a_known_schema --exact` |
 | req:REQ-SAG-0146 | `cargo test -p sc-decision-schema --test session_log -- test_session_log_row_matches_ddl --exact`; `cargo test -p sc-decision-schema --test session_log -- test_fields_roundtrip --exact` (every fixture line); `cargo test -p sc-decision-schema --test session_log -- test_unknown_or_missing_key_rejected --exact`; `uv run --directory tests/fixtures/jev-python pytest -q tests/test_session_log_sqlite.py::test_fixture_loads_into_sqlite` (Python `sqlite3` executes `schema.sql`, loads all six fixture lines, the CHECK constraints accept them, and the two rows of one session keep their own `project`) |
-| req:REQ-SAG-0147 | `cargo test -p sc-agent-types --test models -- test_known_models_roundtrip --exact`; `cargo test -p sc-agent-types --test models -- test_unknown_model_string_parses_as_other --exact`; `cargo test -p sc-jev-backends --test llm -- test_unknown_model_override_is_sent_verbatim --exact` |
+| req:REQ-SAG-0147 | `cargo test -p sc-agent-types --test models -- test_known_models_roundtrip --exact` (every `MODELS` string parses to its known variant, never `Other`, and round-trips through `Display`/serde); `cargo test -p sc-agent-types --test models -- test_unknown_model_string_parses_as_other --exact` (an unknown string built through `FromStr` is `Other`, keeps its text, and an empty or control-character string is `INPUT_INVALID`); `cargo test -p sc-jev-backends --test llm -- test_unknown_model_override_is_sent_verbatim --exact` |
 | req:REQ-SAG-0148 | `cargo test -p sc-agent-types --test models -- test_latest_alias_lookup --exact`; `cargo test -p sc-agent-types --test models -- test_alias_override_wins --exact`; `cargo test -p sc-agent-types --test ids -- test_backend_catalog_roundtrip --exact` (every descriptor's `default_model_alias()` resolves); `cargo test -p sc-jev-check --features test-util --test models -- test_check_toml_models_override_reaches_backend --exact`; `cargo test -p sc-jev-check --features test-util --test models -- test_unknown_model_alias_is_config_invalid --exact`; `model_id()` (D7.5): `cargo test -p sc-decision-schema --features test-util --test mock -- test_model_id_default_from_catalog --exact`, `cargo test -p sc-jev --test catalog -- test_jev_model_id_is_configured_model --exact`, `cargo test -p sc-jev-backends --test llm -- test_llm_model_id_is_configured_model --exact` |
 | req:REQ-SAG-0613 (seam) | `cargo test -p sc-agent-types --test trace -- test_send_trace_first_write_wins --exact`; `cargo test -p sc-jev --test send_trace -- test_jev_attaches_request_trace --exact` and `cargo test -p sc-jev-backends --test send_trace -- test_llm_attaches_request_trace --exact` (the `HttpRequest` a recording transport captures carries the `JudgeRequest`'s trace: a digest recorded through the captured `HttpRequest::trace()` is visible through the originating `JudgeRequest::send_trace()`) |
 | req:REQ-SAG-0103 (amended) | Rows in `docs/requirements.md` and `docs/sc-agent-types/requirements.md` flipped; the moved contract tests pass in their new crate (REQ-SAG-0141 row) |
 | req:REQ-SAG-0107 (amended) | `cargo hack check -p sc-agent-types --feature-powerset --no-dev-deps`; `cargo hack check -p sc-decision-schema --feature-powerset --no-dev-deps`; `cargo test -p sc-agent-types --test features` green |
 | req:REQ-SAG-0130 (amended, r-7 bullet) | `release/sc-publish-consumer-input.json` lists `sc-decision-schema` with `publish_order: 2`; after the parent's `install.py` run, `bash scripts/sc-publish-dry-run.sh` exits 0 and packages `sc-decision-schema` second |
-| adr:ADR-SAG-0030 | ADR and index row as D9; the eight r-7 amendment subsections and markers Active; "Trait boundary" sentence rewritten |
-| adr:ADR-SAG-0031 | "Storage schema" subsection Active (r-7); ADR Status "Active (storage schema, r-7); wiring Proposed (r-6)"; wiring subsection untouched |
-| boundary:decision-schema | Regression: `just test` green, plus the `required-features` targets it skips: `cargo test -p sc-jev-check --features test-util`, `cargo test -p sc-ai --features test-util`, `cargo test -p sc-jev --features test-util`, `cargo test -p sc-jev-backends --features test-util`. These cover REQ-SAG-0102, 0104, 0105, 0106, 0109, 0400, 0500, 0501, 0602, 0603, 0606, 0607, 0610, 0611, 0620, 0700, 0701, 0710, 0800–0802 (the `just test` Python layer), NFR-SAG-0001 and NFR-SAG-0002 with their existing targets; REQ-SAG-0131/0132 by the dry-run script; NFR-SAG-0004 by `bash .github/scripts/check-exact-pins.sh` |
+| adr (D9) | No `(Proposed, r-7)` marker remains in `docs/architecture.md` |
+| boundary:decision-schema | Regression: `just test` plus the `required-features` runs `cargo test -p sc-jev-check --features test-util`, `cargo test -p sc-ai --features test-util`, `cargo test -p sc-jev --features test-util`, `cargo test -p sc-jev-backends --features test-util` |
 
 ## Required validation
 
