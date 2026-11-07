@@ -18,7 +18,7 @@ All modules are private; the crate root re-exports the public items, plus the
 | `request` | `HttpRequest`, `HttpResponse`, `Method`, `HeaderName`, `SecretHeader`, `Endpoint` | Values with private fields, constructors and accessors. `HttpRequest::new(method, endpoint, body: Arc<[u8]>)`, `with_header`, `with_secret`; `HttpResponse::new(status, headers, body)`, `status`, `header` (case-insensitive), `body`, `into_body`. `HeaderName` is a `&'static str` RFC 9110 token (`const fn new`). `Endpoint::parse` accepts only `https://` URLs |
 | `transport` | `Transport`, `Timeouts` | The open transport trait; connect and request deadlines (10 s / 120 s default) |
 | `ureq_transport` | `UreqTransport` | The production transport and the single secret read site |
-| `retry` | `BusyPolicy`, `send_with_busy_retry`, `send_and_parse`, `HttpClient` | Busy retry with the decided numbers and the cancel hook; the one exchange (send, retry, parse, redact) and the transport + policy + token state every backend holds |
+| `retry` | `BusyPolicy`, `BusyExhaustion`, `send_with_busy_retry`, `send_and_parse`, `HttpClient` | Busy retry with the decided numbers and the cancel hook; the one exchange (send, retry, parse, redact) and the transport + policy + token state every backend holds |
 | `redact` | `redact` | Removes the request's secret from every text field of an error |
 | `test_util` (`test-util`) | `FakeClock`, `RecordingSleeper`, `ScriptedTransport`, `RecordingTransport` | Doubles for this crate's and the backend crates' tests |
 
@@ -81,7 +81,10 @@ the first send, every wait `min(wait + jitter, remaining)`, no attempt
 starts once it is spent. Exhausting the sends gives detail
 "HTTP <s> busy; N sends exhausted"; exhausting the budget gives
 "HTTP <s> busy after N sends; retry budget exhausted". Both are
-`NETWORK_ERROR` kind `Busy`, `retryable() == true`.
+`NETWORK_ERROR` kind `Busy`, `retryable() == true`; `BusyExhaustion::of(&error)`
+returns `Sends` or `Budget` from the fixed detail endings
+(`BusyExhaustion::SENDS_SUFFIX` / `BUDGET_SUFFIX`), so callers never match on
+text themselves.
 
 The `CancelToken` is checked before every attempt and before each wait slice
 (≤ 100 ms), so a cancel during a wait returns `Cancelled` within 100 ms. A

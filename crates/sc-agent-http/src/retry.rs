@@ -407,7 +407,11 @@ fn retry_loop(
         if sends >= policy.max_sends {
             return Err(JevError::network(
                 NetworkErrorKind::Busy,
-                format!("HTTP {status} busy; {sends} {} exhausted", plural(sends)),
+                format!(
+                    "HTTP {status} busy; {sends} {}{}",
+                    plural(sends),
+                    BusyExhaustion::SENDS_SUFFIX
+                ),
             ));
         }
         let remaining = BUDGET.saturating_sub(hooks.elapsed(started));
@@ -415,8 +419,9 @@ fn retry_loop(
             return Err(JevError::network(
                 NetworkErrorKind::Busy,
                 format!(
-                    "HTTP {status} busy after {sends} {}; retry budget exhausted",
-                    plural(sends)
+                    "HTTP {status} busy after {sends} {}{}",
+                    plural(sends),
+                    BusyExhaustion::BUDGET_SUFFIX
                 ),
             ));
         }
@@ -424,6 +429,61 @@ fn retry_loop(
             parse_retry_after(response.header("retry-after")).unwrap_or_else(|| backoff(sends));
         let wait = base.saturating_add(hooks.jitter()).min(remaining);
         hooks.wait(wait, cancel)?;
+    }
+}
+
+/// Why busy retry gave up (QA-002): both causes are `NETWORK_ERROR` kind
+/// `Busy` with `retryable() == true`, and the owner decision only asks that
+/// they be distinguishable. The cause is the fixed ending of the detail text
+/// this crate writes; callers that add a prefix (`Jev …`, `luna …`) keep it.
+///
+/// # Examples
+///
+/// ```
+/// use sc_agent_http::BusyExhaustion;
+/// use sc_agent_types::{JevError, NetworkErrorKind};
+///
+/// let error = JevError::network(
+///     NetworkErrorKind::Busy,
+///     "luna HTTP 429 busy after 2 sends; retry budget exhausted",
+/// );
+/// assert_eq!(BusyExhaustion::of(&error), Some(BusyExhaustion::Budget));
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BusyExhaustion {
+    /// The last allowed send was busy ("… N sends exhausted").
+    Sends,
+    /// The 90 s budget left no time for another attempt ("… retry budget
+    /// exhausted").
+    Budget,
+}
+
+impl BusyExhaustion {
+    /// Detail ending for [`Self::Sends`].
+    pub const SENDS_SUFFIX: &'static str = " exhausted";
+    /// Detail ending for [`Self::Budget`].
+    pub const BUDGET_SUFFIX: &'static str = "; retry budget exhausted";
+
+    /// The cause of a busy-exhaustion error, or `None` for any other error.
+    #[must_use]
+    pub fn of(error: &JevError) -> Option<Self> {
+        let JevError::NetworkError {
+            kind: NetworkErrorKind::Busy,
+            detail,
+            ..
+        } = error
+        else {
+            return None;
+        };
+        if detail.ends_with(Self::BUDGET_SUFFIX) {
+            Some(Self::Budget)
+        } else if detail.ends_with(Self::SENDS_SUFFIX)
+            && (detail.ends_with(" sends exhausted") || detail.ends_with(" send exhausted"))
+        {
+            Some(Self::Sends)
+        } else {
+            None
+        }
     }
 }
 

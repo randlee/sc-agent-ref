@@ -87,7 +87,7 @@ pub use redact::redact;
 #[doc(inline)]
 pub use request::{Endpoint, HeaderName, HttpRequest, HttpResponse, Method, SecretHeader};
 #[doc(inline)]
-pub use retry::{BusyPolicy, HttpClient, send_and_parse, send_with_busy_retry};
+pub use retry::{BusyExhaustion, BusyPolicy, HttpClient, send_and_parse, send_with_busy_retry};
 #[doc(inline)]
 pub use transport::{Timeouts, Transport};
 #[doc(inline)]

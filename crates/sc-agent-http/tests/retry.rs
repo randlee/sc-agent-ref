@@ -10,8 +10,8 @@ use std::time::Duration;
 
 use sc_agent_http::test_util::{FakeClock, RecordingSleeper, ScriptedTransport};
 use sc_agent_http::{
-    BusyPolicy, Endpoint, HttpClient, HttpRequest, HttpResponse, Method, SecretHeader,
-    send_and_parse, send_with_busy_retry,
+    BusyExhaustion, BusyPolicy, Endpoint, HttpClient, HttpRequest, HttpResponse, Method,
+    SecretHeader, send_and_parse, send_with_busy_retry,
 };
 use sc_agent_types::{BackendKeyId, CancelToken, JevError, NetworkErrorKind, ResolvedApiKey};
 
@@ -212,6 +212,14 @@ fn test_exhaustion_reason_distinguishable() {
         detail(&budget),
         "HTTP 429 busy after 2 sends; retry budget exhausted"
     );
+    // Typed cause, no string matching at the call site (QA-002); a
+    // backend's name prefix does not change it.
+    assert_eq!(BusyExhaustion::of(&sends), Some(BusyExhaustion::Sends));
+    assert_eq!(BusyExhaustion::of(&budget), Some(BusyExhaustion::Budget));
+    let labelled = budget.clone().map_detail(|text| format!("luna {text}"));
+    assert_eq!(BusyExhaustion::of(&labelled), Some(BusyExhaustion::Budget));
+    let other = JevError::network(NetworkErrorKind::Connect, "4 sends exhausted");
+    assert_eq!(BusyExhaustion::of(&other), None);
 }
 
 /// Every wait is `min(wait + jitter, budget remaining)`.
