@@ -1,14 +1,14 @@
-//! Run facade unit tests. Multi-backend payload sharing, equal-input, log
-//! lines, and the packaged prompt default live in `tests/sessions_exact.rs`
-//! under their `--exact` names.
+//! Engine unit tests (REQ-SAG-0601, REQ-SAG-0610). Multi-backend payload
+//! sharing, equal-input, and the packaged prompt default live in
+//! `tests/sessions_exact.rs`; the response contract in
+//! `tests/run_response.rs`.
 
 use super::*;
-use crate::config::{PACKAGED_SYSTEM_PROMPT, load_check_at};
+use crate::config::PACKAGED_SYSTEM_PROMPT;
 use crate::extract::test_support::{self, copy_fixture};
-use sc_agent_types::observability::v2::{LogEvent, LogRejected, NoopSessionLog, SessionLog};
+use sc_agent_types::observability::v2::{LogRejected, NoopSessionLog, SessionLog};
 use sc_agent_types::test_util::MockJudgeBackend;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 const QUESTIONS: &str = r#"{
   "schema": "plan-anchoring/questions/1",
@@ -56,34 +56,32 @@ fn bare_repo() -> tempfile::TempDir {
     dir
 }
 
-fn sessions_for(log: SharedSessionLog) -> (FileSessionStore, tempfile::TempDir) {
-    let dir = test_support::temp_dir("run-sessions");
-    let store = FileSessionStore::new(dir.path(), Arc::clone(&log)).expect("sessions");
-    (store, dir)
-}
-
 fn judge(id: BackendId, choice: &str) -> Arc<MockJudgeBackend> {
     let answers = serde_json::from_value(serde_json::json!({"relevant": {"choice": choice}}))
         .expect("answers");
     Arc::new(MockJudgeBackend::new(id, answers))
 }
 
-fn registry_of(judges: &[&Arc<MockJudgeBackend>]) -> BackendRegistry {
+fn registry_of(judges: &[&Arc<MockJudgeBackend>]) -> Arc<BackendRegistry> {
     let mut registry = BackendRegistry::new();
     for judge in judges {
         registry
-            .register(Arc::clone(*judge) as Arc<dyn sc_agent_types::JudgeBackend>)
+            .register(Arc::clone(*judge) as Arc<dyn JudgeBackend>)
             .expect("register");
     }
-    registry
+    Arc::new(registry)
 }
 
-fn empty_bundle() -> PayloadBundle {
-    PayloadBundle::encode(&sc_agent_types::CanonicalJudgePayload::new(
-        Vec::new(),
-        Vec::new(),
-    ))
-    .expect("bundle")
+fn set(ids: &[BackendId]) -> BackendSet {
+    BackendSet::try_from(ids.to_vec()).expect("backend set")
+}
+
+fn config(repo: &Path, sessions: &Path) -> RunConfig {
+    RunConfig::new(RepoRoot::new(repo), Arc::new(NoopSessionLog)).sessions_dir(sessions)
+}
+
+fn check_file() -> CheckSource {
+    CheckSource::CheckFile(test_support::rel("check.toml"))
 }
 
 fn system_prompt(request: &JudgeRequest) -> &str {
@@ -91,75 +89,95 @@ fn system_prompt(request: &JudgeRequest) -> &str {
 }
 
 #[test]
-fn run_dry_run_returns_digest_without_sending() {
+fn dry_run_sends_nothing_and_needs_no_registry_or_store() {
     let repo = copy_fixture();
-    let root = RepoRoot::new(repo.path());
-    let spec = load_check_at(&root, &Rev::worktree(), "check.toml").expect("check");
-    let (sessions, _session_dir) = sessions_for(Arc::new(NoopSessionLog));
+    let sessions = test_support::temp_dir("dry-sessions");
+    let sessions_dir = sessions.path().join("never");
     let jev = judge(BackendId::Jev, "yes");
-    let result = run_check(
-        &spec,
-        &[BackendId::Jev],
-        RunOptions::new(root, sessions, Arc::new(NoopSessionLog))
+    let prepared = prepare(
+        check_file(),
+        config(repo.path(), &sessions_dir)
             .dry_run(true)
+            .backends(set(&[BackendId::Jev, BackendId::AnthropicHaiku]))
             .registry(registry_of(&[&jev])),
     )
-    .expect("dry-run");
-    assert!(result.session_id.is_none());
-    assert!(result.outcomes.is_empty());
-    assert!(result.equal_input.is_none());
-    assert_eq!(result.bundle.sha256().as_str().len(), 64);
+    .expect("prepare");
+    let digest = prepared.prompt_sha256().clone();
+    let response = run(prepared).expect("dry-run");
+    assert!(response.dry_run());
+    assert!(response.session_id().is_none());
+    assert!(!response.session_saved());
+    assert!(response.results().is_empty());
+    assert_eq!(response.prompt_sha256(), &digest);
+    assert!(
+        response
+            .equal_input()
+            .backends()
+            .iter()
+            .all(|entry| entry.attestation() == &Attestation::NotSent)
+    );
+    assert!(!response.equal_input().equal());
+    assert_eq!(response.limits().len(), 2);
+    assert!(response.payload().expect("payload")["questions"].is_array());
     assert!(jev.requests().is_empty());
+    assert_eq!(
+        jev.validations(),
+        0,
+        "a dry run constructs and calls no backend"
+    );
+    assert!(
+        !sessions_dir.exists(),
+        "a dry run creates no session directory"
+    );
 }
 
 #[test]
-fn run_packaged_prompt_is_injected_and_override_does_not_change_digest() {
+fn packaged_prompt_is_injected_and_override_does_not_change_digest() {
     let repo = bare_repo();
-    let root = RepoRoot::new(repo.path());
-    let spec = load_check_at(&root, &Rev::worktree(), "check.toml").expect("check");
+    let sessions = test_support::temp_dir("prompt-sessions");
     std::fs::write(repo.path().join("override.md"), "OVERRIDE-PROMPT-TOKEN").expect("override");
-    let (sessions, _session_dir) = sessions_for(Arc::new(NoopSessionLog));
     let first_judge = judge(BackendId::AnthropicHaiku, "yes");
-    let first = run_check(
-        &spec,
-        &[BackendId::AnthropicHaiku],
-        RunOptions::new(root.clone(), sessions, Arc::new(NoopSessionLog))
+    let first = run(prepare(
+        check_file(),
+        config(repo.path(), sessions.path())
+            .backends(set(&[BackendId::AnthropicHaiku]))
             .registry(registry_of(&[&first_judge])),
     )
+    .expect("prepare"))
     .expect("packaged");
     assert_eq!(
         system_prompt(&first_judge.requests()[0]),
         PACKAGED_SYSTEM_PROMPT
     );
     let second_judge = judge(BackendId::AnthropicHaiku, "yes");
-    let (sessions, _session_dir) = sessions_for(Arc::new(NoopSessionLog));
-    let second = run_check(
-        &spec,
-        &[BackendId::AnthropicHaiku],
-        RunOptions::new(root, sessions, Arc::new(NoopSessionLog))
+    let second = run(prepare(
+        check_file(),
+        config(repo.path(), sessions.path())
+            .backends(set(&[BackendId::AnthropicHaiku]))
             .system_prompt_override(repo.path().join("override.md"))
             .registry(registry_of(&[&second_judge])),
     )
+    .expect("prepare"))
     .expect("override");
     assert_eq!(
         system_prompt(&second_judge.requests()[0]),
         "OVERRIDE-PROMPT-TOKEN"
     );
-    assert_eq!(first.bundle.sha256(), second.bundle.sha256());
+    assert_eq!(first.prompt_sha256(), second.prompt_sha256());
 }
 
 #[test]
-fn run_check_file_prompt_beats_packaged_asset() {
+fn check_file_prompt_beats_packaged_asset() {
     let repo = copy_fixture();
-    let root = RepoRoot::new(repo.path());
-    let spec = load_check_at(&root, &Rev::worktree(), "check.toml").expect("check");
-    let (sessions, _session_dir) = sessions_for(Arc::new(NoopSessionLog));
+    let sessions = test_support::temp_dir("check-prompt");
     let luna = judge(BackendId::OpenAiLuna, "yes");
-    run_check(
-        &spec,
-        &[BackendId::OpenAiLuna],
-        RunOptions::new(root, sessions, Arc::new(NoopSessionLog)).registry(registry_of(&[&luna])),
+    run(prepare(
+        check_file(),
+        config(repo.path(), sessions.path())
+            .backends(set(&[BackendId::OpenAiLuna]))
+            .registry(registry_of(&[&luna])),
     )
+    .expect("prepare"))
     .expect("run");
     let requests = luna.requests();
     let prompt = system_prompt(&requests[0]);
@@ -168,121 +186,122 @@ fn run_check_file_prompt_beats_packaged_asset() {
 }
 
 #[test]
-fn run_missing_llm_prompt_does_not_send() {
+fn missing_llm_prompt_fails_in_prepare_and_jev_ignores_it() {
     let repo = bare_repo();
     std::fs::write(
         repo.path().join("check.toml"),
         "[questions]\npath = \"questions.json\"\n\n[llm_judge]\nsystem_prompt_file = \"missing.md\"\n",
     )
     .expect("check");
-    let root = RepoRoot::new(repo.path());
-    let spec = load_check_at(&root, &Rev::worktree(), "check.toml").expect("check");
-    let (sessions, session_dir) = sessions_for(Arc::new(NoopSessionLog));
+    let sessions = test_support::temp_dir("missing-prompt");
     let haiku = judge(BackendId::AnthropicHaiku, "yes");
-    let error = run_check(
-        &spec,
-        &[BackendId::AnthropicHaiku],
-        RunOptions::new(root.clone(), sessions, Arc::new(NoopSessionLog))
+    let error = prepare(
+        check_file(),
+        config(repo.path(), sessions.path())
+            .backends(set(&[BackendId::AnthropicHaiku]))
             .registry(registry_of(&[&haiku])),
     )
     .expect_err("missing prompt");
     assert_eq!(error.code(), "PROMPT_FILE_MISSING");
     assert!(haiku.requests().is_empty());
-    assert_eq!(
-        std::fs::read_dir(session_dir.path()).expect("dir").count(),
-        0
-    );
-    let (sessions, _session_dir) = sessions_for(Arc::new(NoopSessionLog));
-    let jev = run_check(
-        &spec,
-        &[BackendId::Jev],
-        RunOptions::new(root, sessions, Arc::new(NoopSessionLog))
+    assert_eq!(std::fs::read_dir(sessions.path()).expect("dir").count(), 0);
+    let jev = run(prepare(
+        check_file(),
+        config(repo.path(), sessions.path())
             .registry(registry_of(&[&judge(BackendId::Jev, "yes")])),
     )
-    .expect("jev ignores missing prompt");
-    assert!(jev.system_prompt.is_none());
-    assert!(jev.outcomes[0].answers()["relevant"].choice().as_str() == "yes");
+    .expect("jev ignores the missing prompt"))
+    .expect("run");
+    assert!(jev.primary().expect("primary").answers()["relevant"].choice() == "yes");
 }
 
 #[test]
-fn run_refusing_backend_does_not_log() {
+fn refusing_backend_does_not_log_or_save() {
     let repo = bare_repo();
-    let root = RepoRoot::new(repo.path());
-    let spec = load_check_at(&root, &Rev::worktree(), "check.toml").expect("check");
+    let sessions = test_support::temp_dir("refuse-sessions");
     let log_dir = test_support::temp_dir("jsonl");
     let log_path = log_dir.path().join("session.jsonl");
     let log = Arc::new(JsonlSink {
         path: log_path.clone(),
     });
-    let (sessions, _session_dir) = sessions_for(Arc::clone(&log) as SharedSessionLog);
+    let haiku = judge(BackendId::AnthropicHaiku, "yes");
     let mut registry = BackendRegistry::new();
     registry
-        .register(Arc::new(
-            sc_agent_types::test_util::MockJudgeBackend::refusing(
-                BackendId::Jev,
-                JevError::input_too_large(4, 8),
-            ),
-        ))
+        .register(Arc::new(MockJudgeBackend::refusing(
+            BackendId::Jev,
+            JevError::input_too_large(4, 8),
+        )))
         .expect("register");
-    let error = run_check(
-        &spec,
-        &[BackendId::Jev],
-        RunOptions::new(root, sessions, log).registry(registry),
+    registry
+        .register(Arc::clone(&haiku) as Arc<dyn JudgeBackend>)
+        .expect("register");
+    let error = run(prepare(
+        check_file(),
+        RunConfig::new(RepoRoot::new(repo.path()), log)
+            .sessions_dir(sessions.path())
+            .backends(set(&[BackendId::AnthropicHaiku, BackendId::Jev]))
+            .registry(Arc::new(registry)),
     )
+    .expect("prepare"))
     .expect_err("refused");
     assert_eq!(error.code(), "INPUT_TOO_LARGE");
+    assert!(
+        haiku.requests().is_empty(),
+        "validation of every backend runs before the first send"
+    );
     assert!(!log_path.exists());
+    assert_eq!(std::fs::read_dir(sessions.path()).expect("dir").count(), 0);
 }
 
 #[test]
-fn run_request_missing_llm_prompt_is_config_invalid() {
-    let dir = test_support::temp_dir("run-request-prompt");
-    let (sessions, _session_dir) = sessions_for(Arc::new(NoopSessionLog));
-    let error = run_request(
-        &RunRequest {
-            bundle: empty_bundle(),
-            system_prompt: None,
-            producer: None,
-        },
-        &[BackendId::OpenAiLuna],
-        RunOptions::new(
-            RepoRoot::new(dir.path()),
-            sessions,
-            Arc::new(NoopSessionLog),
-        ),
+fn ask_capable_live_run_without_sessions_dir_is_config_invalid_before_send() {
+    let repo = bare_repo();
+    let haiku = judge(BackendId::AnthropicHaiku, "yes");
+    let error = run(prepare(
+        check_file(),
+        RunConfig::new(RepoRoot::new(repo.path()), Arc::new(NoopSessionLog))
+            .backends(set(&[BackendId::AnthropicHaiku]))
+            .registry(registry_of(&[&haiku])),
     )
-    .expect_err("missing prompt");
+    .expect("prepare"))
+    .expect_err("no sessions dir");
     assert_eq!(error.code(), "CONFIG_INVALID");
     assert!(
-        !matches!(error, JevError::PromptFileMissing { .. }),
-        "a missing run-request prompt is not a prompt-file path"
+        error.fix_hint().contains("sessions_dir"),
+        "{}",
+        error.fix_hint()
     );
-    let hint = error.fix_hint();
-    assert!(hint.contains("system prompt"), "{hint}");
-    assert!(!hint.contains("at system prompt"), "{hint}");
-    assert!(!hint.contains("check.toml field"), "{hint}");
+    assert_eq!(haiku.validations(), 0);
+    // A Jev-only live run saves no session, so it needs no directory.
+    let jev = run(prepare(
+        check_file(),
+        RunConfig::new(RepoRoot::new(repo.path()), Arc::new(NoopSessionLog))
+            .registry(registry_of(&[&judge(BackendId::Jev, "yes")])),
+    )
+    .expect("prepare"))
+    .expect("jev run");
+    assert!(!jev.session_saved());
+    assert!(jev.session_id().is_none());
 }
 
 #[test]
-fn run_without_backends_is_a_registry_hint() {
-    let dir = test_support::temp_dir("no-backends");
-    let error = run_request(
-        &RunRequest {
-            bundle: empty_bundle(),
-            system_prompt: None,
-            producer: None,
-        },
-        &[],
-        RunOptions::dry_run_only(RepoRoot::new(dir.path())),
+fn unregistered_backend_is_a_registry_hint() {
+    let repo = bare_repo();
+    let error = run(prepare(
+        check_file(),
+        RunConfig::new(RepoRoot::new(repo.path()), Arc::new(NoopSessionLog))
+            .backends(set(&[BackendId::Jev]))
+            .registry(Arc::new(BackendRegistry::new())),
     )
-    .expect_err("no backends");
+    .expect("prepare"))
+    .expect_err("not registered");
     assert_eq!(error.code(), "CONFIG_INVALID");
-    assert!(error.fix_hint().contains("at least one backend"));
+    assert!(error.fix_hint().contains("jev"), "{}", error.fix_hint());
     assert!(!error.fix_hint().contains("check.toml"));
 }
 
 #[test]
-fn run_command_input_copies_producer() {
+fn command_input_copies_producer() {
     let repo = test_support::temp_dir("command-run");
     std::fs::write(repo.path().join("questions.json"), QUESTIONS).expect("questions");
     let subjects = std::fs::read_to_string(
@@ -295,138 +314,317 @@ fn run_command_input_copies_producer() {
         "[questions]\npath = \"questions.json\"\n\n[inputs.live]\nkind = \"command\"\ncommand = [\"{python}\", \"-c\", \"print(open('subjects.json').read())\"]\ntimeout_seconds = 30\n"
     );
     std::fs::write(repo.path().join("check.toml"), check).expect("check");
-    let root = RepoRoot::new(repo.path());
-    let spec = load_check_at(&root, &Rev::worktree(), "check.toml").expect("check");
-    let (sessions, _session_dir) = sessions_for(Arc::new(NoopSessionLog));
-    let result = run_check(
-        &spec,
-        &[BackendId::Jev],
-        RunOptions::new(root, sessions, Arc::new(NoopSessionLog))
+    let prepared = prepare(
+        check_file(),
+        RunConfig::new(RepoRoot::new(repo.path()), Arc::new(NoopSessionLog))
             .registry(registry_of(&[&judge(BackendId::Jev, "yes")])),
     )
-    .expect("run");
-    let equal_input = result.equal_input.expect("equal");
-    let producer = equal_input.producer().expect("producer");
+    .expect("prepare");
+    assert_eq!(prepared.producer().expect("producer").name, "sc-treesitter");
+    let response = run(prepared).expect("run");
+    let producer = response.equal_input().producer().expect("producer");
     assert_eq!(producer.name, "sc-treesitter");
     assert_eq!(producer.language, "python");
 }
 
 #[test]
-fn build_request_assembles_canonical_payload_and_producer() {
-    let repo = test_support::temp_dir("build-request");
-    std::fs::write(repo.path().join("questions.json"), QUESTIONS).expect("questions");
-    let subjects = std::fs::read_to_string(
-        test_support::workspace_root().join("tests/fixtures/jev/subjects-schema/v1/minimal.json"),
-    )
-    .expect("fixture");
-    std::fs::write(repo.path().join("subjects.json"), subjects).expect("subjects");
-    std::fs::write(
-        repo.path().join("check.toml"),
-        "[questions]\npath = \"questions.json\"\n\n[inputs.branches]\nkind = \"subjects\"\npath = \"subjects.json\"\n",
-    )
-    .expect("check");
-    let root = RepoRoot::new(repo.path());
-    let built = build_request(&root, &Rev::worktree(), "check.toml").expect("build");
-    let again = build_request(&root, &Rev::worktree(), "check.toml").expect("rebuild");
-    assert_eq!(built.bundle.sha256(), again.bundle.sha256());
-    assert_eq!(
-        built.bundle.sha256(),
-        &sc_agent_types::Sha256Digest::of(built.bundle.bytes())
-    );
-    let producer = built.producer.expect("producer");
-    assert_eq!(producer.name, "sc-treesitter");
-    assert_eq!(producer.mode, "matches");
-    let missing = build_request(&root, &Rev::worktree(), "missing.toml").expect_err("missing");
-    assert_eq!(missing.code(), "INPUT_MISSING");
-}
-
-#[test]
-fn prepare_caller_request_uses_file_override_not_inline_prompt() {
+fn caller_request_uses_file_override_not_inline_prompt() {
     let repo = test_support::temp_dir("caller-prompt");
-    let root = RepoRoot::new(repo.path());
     let override_path = repo.path().join("override.md");
     std::fs::write(&override_path, "OVERRIDE-PROMPT-TOKEN-a7\n").expect("override");
     let inline = br#"{"questions":[{"id":"q","prompt":"p","choices":["no","yes"]}],"system_prompt":"INLINE-PROMPT-TOKEN"}"#;
-    let rejected = prepare_caller_request(inline, &[], &root, None).expect_err("inline");
+    let rejected = CallerRequest::from_json(inline).expect_err("inline");
     assert!(!rejected.fix_hint().contains("INLINE-PROMPT-TOKEN"));
     assert!(rejected.fix_hint().contains("--llm-system-prompt-file"));
+    let repeated = br#"{"questions":[{"id":"q","prompt":"p","choices":["no","yes"]}],"backends":["jev","jev"]}"#;
+    assert_eq!(
+        CallerRequest::from_json(repeated)
+            .expect_err("repeat")
+            .code(),
+        "INPUT_INVALID"
+    );
 
     let bytes = br#"{"questions":[{"id":"q","prompt":"Judge this","choices":["no","yes"]}],"backends":["anthropic_haiku"]}"#;
-    let packaged = prepare_caller_request(bytes, &[], &root, None).expect("packaged");
-    assert_eq!(packaged.backends, vec![BackendId::AnthropicHaiku]);
-    assert_eq!(
-        packaged.system_prompt.as_deref(),
-        Some(PACKAGED_SYSTEM_PROMPT)
-    );
-    let jev_only = prepare_caller_request(
-        bytes,
-        &[BackendId::Jev],
-        &root,
-        Some(override_path.as_path()),
+    let request = CallerRequest::from_json(bytes).expect("request");
+    let base = RunConfig::new(RepoRoot::new(repo.path()), Arc::new(NoopSessionLog));
+    let packaged =
+        prepare(CheckSource::CallerRequest(request.clone()), base.clone()).expect("packaged");
+    assert_eq!(packaged.backends().as_slice(), [BackendId::AnthropicHaiku]);
+    assert_eq!(system_prompt(packaged.request()), PACKAGED_SYSTEM_PROMPT);
+    let jev_only = prepare(
+        CheckSource::CallerRequest(request.clone()),
+        base.clone()
+            .backends(set(&[BackendId::Jev]))
+            .system_prompt_override(&override_path),
     )
-    .expect("flags win");
-    assert_eq!(jev_only.backends, vec![BackendId::Jev]);
-    assert!(jev_only.system_prompt.is_none());
-    let llm = prepare_caller_request(
-        bytes,
-        &[BackendId::AnthropicHaiku],
-        &root,
-        Some(override_path.as_path()),
+    .expect("config backends win");
+    assert_eq!(jev_only.backends().as_slice(), [BackendId::Jev]);
+    assert!(jev_only.request().llm().is_none());
+    let llm = prepare(
+        CheckSource::CallerRequest(request),
+        base.system_prompt_override(&override_path),
     )
     .expect("override");
-    assert_eq!(
-        llm.system_prompt.as_deref(),
-        Some("OVERRIDE-PROMPT-TOKEN-a7\n")
-    );
-    assert_eq!(packaged.bundle.sha256(), llm.bundle.sha256());
-    let text = std::str::from_utf8(llm.bundle.bytes()).expect("utf8");
+    assert_eq!(system_prompt(llm.request()), "OVERRIDE-PROMPT-TOKEN-a7\n");
+    assert_eq!(packaged.prompt_sha256(), llm.prompt_sha256());
+    let text = llm.request().payload().as_str();
     assert!(!text.contains("OVERRIDE-PROMPT-TOKEN-a7"));
     assert!(text.contains("Judge this"));
 }
 
 #[test]
-fn dry_run_only_needs_no_store_and_writes_nothing() {
-    let repo = bare_repo();
-    let root = RepoRoot::new(repo.path());
-    let spec = load_check_at(&root, &Rev::worktree(), "check.toml").expect("check");
-    let before = std::fs::read_dir(repo.path()).expect("dir").count();
-    let result = run_check(
-        &spec,
-        &[BackendId::Jev],
-        RunOptions::dry_run_only(root.clone()),
-    )
-    .expect("dry-run");
-    assert!(result.session_id.is_none());
-    assert_eq!(std::fs::read_dir(repo.path()).expect("dir").count(), before);
-    let live = run_check(
-        &spec,
-        &[BackendId::Jev],
-        RunOptions::dry_run_only(root).dry_run(false),
-    )
-    .expect_err("live run needs sessions");
-    assert_eq!(live.code(), "CONFIG_INVALID");
-    assert!(live.fix_hint().contains("session store"));
-}
-
-#[test]
 fn validate_for_send_repeats_only_for_context_bearing_requests() {
     let repo = bare_repo();
-    let root = RepoRoot::new(repo.path());
-    let spec = load_check_at(&root, &Rev::worktree(), "check.toml").expect("check");
-    let (sessions, _session_dir) = sessions_for(Arc::new(NoopSessionLog));
+    let sessions = test_support::temp_dir("validate-sessions");
     let jev = judge(BackendId::Jev, "yes");
     let haiku = judge(BackendId::AnthropicHaiku, "no");
-    run_check(
-        &spec,
-        &[BackendId::Jev, BackendId::AnthropicHaiku],
-        RunOptions::new(root, sessions, Arc::new(NoopSessionLog))
+    run(prepare(
+        check_file(),
+        config(repo.path(), sessions.path())
+            .backends(set(&[BackendId::Jev, BackendId::AnthropicHaiku]))
             .registry(registry_of(&[&jev, &haiku])),
     )
+    .expect("prepare"))
     .expect("run");
     assert_eq!(jev.validations(), 1, "Jev: pre-flight only");
     assert_eq!(
         haiku.validations(),
         2,
         "Haiku: pre-flight, then again with session context"
+    );
+}
+
+/// REQ-SAG-0610: one log line per judge send, under the run's session id.
+#[test]
+fn every_judge_send_logs_once_under_the_saved_session_id() {
+    let repo = bare_repo();
+    let sessions = test_support::temp_dir("log-sessions");
+    let log_dir = test_support::temp_dir("log-jsonl");
+    let log_path = log_dir.path().join("session.jsonl");
+    let log = Arc::new(JsonlSink {
+        path: log_path.clone(),
+    });
+    let response = run(prepare(
+        check_file(),
+        RunConfig::new(RepoRoot::new(repo.path()), log)
+            .sessions_dir(sessions.path())
+            .backends(set(&[BackendId::Jev, BackendId::OpenAiLuna]))
+            .registry(registry_of(&[
+                &judge(BackendId::Jev, "yes"),
+                &judge(BackendId::OpenAiLuna, "no"),
+            ])),
+    )
+    .expect("prepare"))
+    .expect("run");
+    let text = std::fs::read_to_string(&log_path).expect("jsonl");
+    let lines: Vec<serde_json::Value> = text
+        .lines()
+        .map(|line| serde_json::from_str(line).expect("line"))
+        .collect();
+    assert_eq!(lines.len(), 2);
+    let session_id = response.session_id().expect("saved").to_string();
+    for (line, backend) in lines.iter().zip(["jev", "openai_luna"]) {
+        assert_eq!(line["session_id"], session_id);
+        assert_eq!(line["backend"], backend);
+        assert_eq!(line["prompt_sha256"], response.prompt_sha256().as_str());
+        assert_eq!(line["operation"], "judge");
+    }
+}
+
+#[test]
+fn discover_repo_root_uses_the_git_toplevel() {
+    let (dir, _sha) = test_support::git_fixture();
+    let sub = dir.path().join("notes");
+    let root = discover_repo_root(&sub).expect("root");
+    assert_eq!(
+        std::fs::canonicalize(root.as_path()).expect("canonical root"),
+        std::fs::canonicalize(dir.path()).expect("canonical dir")
+    );
+}
+
+#[test]
+fn check_file_is_normalised_lexically_once() {
+    let root = std::env::temp_dir().join("sc-jev-check-normalise-root");
+    let repo = RepoRoot::new(&root);
+    let inside = root.join("sub").join("check.toml");
+    let outside = std::env::temp_dir().join("elsewhere").join("check.toml");
+    let cases = [
+        (PathBuf::from("check.toml"), "check.toml"),
+        (PathBuf::from("./sub/check.toml"), "sub/check.toml"),
+        (PathBuf::from("sub\\check.toml"), "sub/check.toml"),
+        (inside, "sub/check.toml"),
+    ];
+    for (input, expected) in cases {
+        match CheckSource::check_file(&repo, &input).expect("normalised") {
+            CheckSource::CheckFile(path) => {
+                assert_eq!(path.as_str(), expected, "{}", input.display())
+            }
+            other => panic!("expected a check file, got {other:?}"),
+        }
+    }
+    for path in [
+        PathBuf::from("../check.toml"),
+        PathBuf::from("sub/../../x"),
+        outside,
+        PathBuf::from("."),
+    ] {
+        let error = CheckSource::check_file(&repo, &path).expect_err("refused");
+        assert_eq!(error.code(), "INPUT_INVALID", "{}", path.display());
+    }
+}
+
+#[test]
+fn discovery_falls_back_only_outside_git_or_without_git() {
+    let start = PathBuf::from("/work/repo/sub");
+    let toplevel = RepoRoot::new("/work/repo");
+    assert_eq!(
+        classify_discovery(start.clone(), Ok(Some(toplevel.clone())), None).expect("toplevel"),
+        toplevel
+    );
+    assert_eq!(
+        classify_discovery(start.clone(), Ok(None), None).expect("outside git"),
+        RepoRoot::new(&start)
+    );
+    let not_installed = std::io::Error::from(std::io::ErrorKind::NotFound);
+    assert_eq!(
+        classify_discovery(
+            start.clone(),
+            Err(JevError::io_failed("git", &not_installed)),
+            None
+        )
+        .expect("git absent"),
+        RepoRoot::new(&start)
+    );
+    let denied = std::io::Error::from(std::io::ErrorKind::PermissionDenied);
+    let error = classify_discovery(
+        start.clone(),
+        Err(JevError::io_failed("git", &denied)),
+        None,
+    )
+    .expect_err("git failed to run");
+    assert_eq!(error.code(), "INPUT_INVALID");
+    let error = classify_discovery(start, Ok(None), Some(PathBuf::from("/work/repo/.git")))
+        .expect_err("a .git above start but no work tree");
+    assert_eq!(error.code(), "INPUT_INVALID");
+    assert!(
+        error.fix_hint().contains("/work/repo/.git"),
+        "{}",
+        error.fix_hint()
+    );
+}
+
+#[test]
+fn enclosing_git_entry_finds_the_nearest_dot_git() {
+    let dir = test_support::temp_dir("enclosing");
+    let sub = dir.path().join("a").join("b");
+    std::fs::create_dir_all(&sub).expect("sub");
+    std::fs::create_dir(dir.path().join(".git")).expect("dot git");
+    assert_eq!(enclosing_git_entry(&sub), Some(dir.path().join(".git")));
+}
+
+#[test]
+fn ask_sends_through_the_engine_and_refuses_unaskable_sessions() {
+    let repo = bare_repo();
+    let sessions = test_support::temp_dir("ask-sessions");
+    let haiku = judge(BackendId::AnthropicHaiku, "yes");
+    let response = run(prepare(
+        check_file(),
+        config(repo.path(), sessions.path())
+            .backends(set(&[BackendId::AnthropicHaiku]))
+            .registry(registry_of(&[&haiku])),
+    )
+    .expect("prepare"))
+    .expect("run");
+    let id = response.session_id().expect("saved");
+    let store = FileSessionStore::new(sessions.path()).expect("store");
+    let log_dir = test_support::temp_dir("ask-log");
+    let log_path = log_dir.path().join("session.jsonl");
+    let log = Arc::new(JsonlSink {
+        path: log_path.clone(),
+    });
+    let follow = judge(BackendId::AnthropicHaiku, "no");
+    let asked = ask(
+        &store,
+        id,
+        "why?",
+        RunConfig::new(RepoRoot::new(repo.path()), log).registry(registry_of(&[&follow])),
+    )
+    .expect("ask");
+    assert_eq!(asked.session_id(), id);
+    assert_eq!(asked.prompt_sha256(), response.prompt_sha256());
+    assert_eq!(asked.outcome().answers()["relevant"].choice(), "no");
+    assert_eq!(follow.validations(), 1, "ask validates before its send");
+    let requests = follow.requests();
+    let prompt = &requests[0].llm().expect("llm").system_prompt;
+    assert!(prompt.starts_with(PACKAGED_SYSTEM_PROMPT));
+    assert!(prompt.ends_with("Follow-up:\nwhy?"), "{prompt}");
+    let line: serde_json::Value =
+        serde_json::from_str(std::fs::read_to_string(&log_path).expect("log").trim())
+            .expect("line");
+    assert_eq!(line["operation"], "ask");
+    assert_eq!(line["session_id"], id.to_string());
+
+    let empty = ask(&store, id, "  ", config(repo.path(), sessions.path())).expect_err("empty");
+    assert_eq!(empty.code(), "INPUT_INVALID");
+    let missing = ask(
+        &store,
+        SessionId::new(),
+        "why?",
+        config(repo.path(), sessions.path()),
+    )
+    .expect_err("missing");
+    assert_eq!(missing.code(), "SESSION_NOT_FOUND");
+}
+
+#[test]
+fn ask_envelope_carries_digest_warnings_and_readback_in_order() {
+    let payload = PayloadBundle::encode(&sc_agent_types::CanonicalJudgePayload::new(
+        Vec::new(),
+        Vec::new(),
+    ))
+    .expect("bundle");
+    let request = JudgeRequest::new(Arc::new(payload.clone()), None);
+    let outcome = JudgeOutcome::new(
+        BackendId::AnthropicHaiku,
+        &request,
+        std::collections::BTreeMap::new(),
+    )
+    .expect("outcome")
+    .with_provider_meta(serde_json::json!({"model": "m", "stop_reason": "end_turn"}));
+    let id = SessionId::new();
+    let response = AskResponse::new(outcome, id, payload.sha256().clone())
+        .with_warning("session log was not flushed: disk full");
+    let envelope = Envelope::ask(&response)
+        .with_readback(serde_json::json!({"session_id": id.to_string()}))
+        .expect("readback");
+    let text = serde_json::to_string(&envelope).expect("json");
+    let data_at = text.find("\"data\":").expect("data");
+    let order = [
+        "\"version\"",
+        "\"operation\"",
+        "\"answers\"",
+        "\"model\"",
+        "\"session_id\"",
+        "\"prompt_sha256\"",
+        "\"warnings\"",
+        "\"readback\"",
+    ];
+    let positions: Vec<usize> = order
+        .iter()
+        .map(|key| {
+            if key.contains("version") || key.contains("operation") {
+                text.find(key).expect(key)
+            } else {
+                data_at + text[data_at..].find(key).expect(key)
+            }
+        })
+        .collect();
+    assert!(positions.windows(2).all(|pair| pair[0] < pair[1]), "{text}");
+    let value: serde_json::Value = serde_json::from_str(&text).expect("value");
+    assert_eq!(value["operation"], "jev.ask");
+    assert_eq!(value["data"]["prompt_sha256"], payload.sha256().as_str());
+    assert_eq!(
+        value["data"]["warnings"],
+        serde_json::json!(["session log was not flushed: disk full"])
     );
 }

@@ -1,28 +1,25 @@
 //! Argv parsing and `jev` command dispatch.
 
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
-use sc_agent_types::observability::v2::SharedSessionLog;
-use sc_agent_types::{
-    BackendFamily, BackendId, JevError, JudgeOutcome, PayloadBundle, RepoRoot, Rev, SessionId,
+use sc_agent_types::observability::v2::{NoopSessionLog, SharedSessionLog};
+use sc_agent_types::{BackendId, BackendSet, JevError, RepoRoot, Rev, SessionId};
+use sc_jev_check::registry::BackendRegistry;
+use sc_jev_check::run::{
+    CallerRequest, CheckSource, Envelope, RunConfig, ask, discover_repo_root, prepare, run,
 };
-use sc_jev_check::config;
-use sc_jev_check::registry::{BackendRegistry, registry_for_repo};
-use sc_jev_check::run::{RunOptions, RunRequest, prepare_caller_request, run_check, run_request};
-use sc_jev_check::session::{FileSessionStore, SessionStore};
+use sc_jev_check::session::FileSessionStore;
 use serde::Serialize;
-use serde_json::{Map, Value};
 
-use crate::envelope::{self, OP_ASK, OP_DRY_RUN, OP_RUN};
+use crate::envelope;
 use crate::observe::{
     ObservabilitySessionLog, default_log_root, default_sessions_dir as sessions_dir_for,
 };
 
-/// Clock injected into the session store.
-pub type Clock = Arc<dyn Fn() -> SystemTime + Send + Sync>;
+/// Clock injected into the session store used by `ask`.
+pub type Clock = fn() -> SystemTime;
 
 /// Test overrides for [`execute_with_overrides`].
 ///
@@ -32,9 +29,9 @@ pub type Clock = Arc<dyn Fn() -> SystemTime + Send + Sync>;
 /// for `tests/cli.rs`, not part of the API.
 #[derive(Default)]
 pub struct ExecuteOverrides {
-    /// Backends used instead of `registry_for_repo`.
+    /// Backends used instead of `BackendRegistry::from_env`.
     pub registry: Option<BackendRegistry>,
-    /// Clock for session `created_at` and TTL checks.
+    /// Clock for `ask`'s session expiry check.
     pub clock: Option<Clock>,
     /// Session lifetime measured from `created_at`.
     pub session_ttl: Option<Duration>,
@@ -148,8 +145,12 @@ Override with --log-dir or SC_LOG_ROOT.
 Session JSONL: <log-root>/logs/sc-ai.log.jsonl
 Session files: <repo-root>/.sc-ai/sessions (override with --sessions-dir).
 
-data includes the Jev response JSON and session_id. Dry-run returns
-prompt_sha256 and does not resolve API keys.
+data is the run response: the primary backend's answers at the top
+level (the verbatim Jev response when Jev answered), primary_backend,
+session_id, prompt_sha256, payload_bytes, results, and equal_input.
+Dry-run adds payload and per-backend limits, and does not resolve API keys.
+Without --repo-root the repo root is the git toplevel of the current
+directory, or the current directory outside git.
 ";
 
 struct RunCommand {
@@ -408,8 +409,8 @@ fn prepare_log(log_root: &Path, overrides: &ExecuteOverrides) -> Result<Prepared
 
 /// Flushes the session log after a successful command.
 ///
-/// The log is best effort: a flush failure becomes a `warning` string in the
-/// envelope `data` and does not change the exit code (CR-014).
+/// The log is best effort: a flush failure becomes a warning string and does
+/// not change the exit code (CR-014).
 fn finish_log(prepared: &PreparedLog) -> Option<String> {
     let flushed = match &prepared.adapter {
         Some(adapter) => adapter.flush(),
@@ -424,23 +425,13 @@ fn flush_warning(flushed: Result<(), JevError>) -> Option<String> {
         .map(|error| format!("session log was not flushed: {}", error.fix_hint()))
 }
 
-fn attach_warning(data: &mut Value, warning: Option<String>) {
-    if let (Some(warning), Some(object)) = (warning, data.as_object_mut()) {
-        object.insert("warning".to_owned(), Value::String(warning));
-    }
-}
-
-fn open_sessions(
-    dir: &Path,
-    log: SharedSessionLog,
-    overrides: &ExecuteOverrides,
-) -> Result<FileSessionStore, JevError> {
-    let mut sessions = FileSessionStore::new(dir, log)?;
+fn open_sessions(dir: &Path, overrides: &ExecuteOverrides) -> Result<FileSessionStore, JevError> {
+    let mut sessions = FileSessionStore::new(dir)?;
     if let Some(ttl) = overrides.session_ttl {
         sessions = sessions.with_ttl(ttl);
     }
-    if let Some(clock) = overrides.clock.clone() {
-        sessions = sessions.with_clock(move || clock());
+    if let Some(clock) = overrides.clock {
+        sessions = sessions.with_clock(clock);
     }
     Ok(sessions)
 }
@@ -460,36 +451,15 @@ fn dispatch_run(
         .clone()
         .unwrap_or_else(|| sessions_dir_for(&repo));
     let log_root = default_log_root(&repo, command.log_dir.as_deref());
-    let prompt_readback = command
-        .prompt_file
-        .as_ref()
-        .map(|path| absolute_text(&repo, path));
-    let plan = if let Some(request_path) = &command.request_json {
+    let source = if let Some(request_path) = &command.request_json {
         let bytes = request_bytes(&repo, request_path, &command.stdin)?;
-        let prepared = prepare_caller_request(
-            &bytes,
-            &parse_flag_backends(&command.backends)?,
-            &repo,
-            command.prompt_file.as_deref(),
-        )?;
-        PreparedRun::Request {
-            backends: prepared.backends,
-            bundle: prepared.bundle,
-            system_prompt: prepared.system_prompt,
-        }
+        CheckSource::CallerRequest(CallerRequest::from_json(&bytes)?)
     } else {
         let check_path = command
             .check
             .clone()
             .unwrap_or_else(|| PathBuf::from("check.toml"));
-        let relative = relative_to_repo(&repo, &check_path)?;
-        let spec = config::load_check_at(&repo, &rev, &relative)?;
-        let backends = if command.backends.is_empty() {
-            vec![BackendId::Jev]
-        } else {
-            parse_flag_backends(&command.backends)?
-        };
-        PreparedRun::Check { spec, backends }
+        CheckSource::check_file(&repo, &check_path)?
     };
     let readback = RunReadback {
         check_toml: command
@@ -504,7 +474,10 @@ fn dispatch_run(
                 }
             }),
         repo_root: path_text(repo.as_path()),
-        llm_system_prompt_file: prompt_readback,
+        llm_system_prompt_file: command
+            .prompt_file
+            .as_ref()
+            .map(|path| absolute_text(&repo, path)),
         request_json: command.request_json.as_ref().map(|path| {
             if path == "-" {
                 "-".to_owned()
@@ -516,60 +489,33 @@ fn dispatch_run(
     };
     // A dry-run sends nothing, so it opens no log, logger thread, or
     // session directory (ARCHE-019).
-    let prepared = if dry_run {
+    let prepared_log = if dry_run {
         None
     } else {
         Some(prepare_log(&log_root, overrides)?)
     };
-    let mut opts = match &prepared {
-        None => RunOptions::dry_run_only(repo),
-        Some(prepared) => {
-            let sessions = open_sessions(&sessions_dir, Arc::clone(&prepared.shared), overrides)?;
-            RunOptions::new(repo, sessions, Arc::clone(&prepared.shared))
-        }
+    let session_log: SharedSessionLog = match &prepared_log {
+        Some(prepared) => Arc::clone(&prepared.shared),
+        None => Arc::new(NoopSessionLog),
+    };
+    let mut config = RunConfig::new(repo, session_log)
+        .rev(rev)
+        .dry_run(dry_run)
+        .sessions_dir(sessions_dir);
+    if let Some(backends) = flag_backends(&command.backends)? {
+        config = config.backends(backends);
     }
-    .rev(rev);
+    if let Some(path) = &command.prompt_file {
+        config = config.system_prompt_override(path.clone());
+    }
     if let Some(registry) = &overrides.registry {
-        opts = opts.registry(registry.clone());
+        config = config.registry(Arc::new(registry.clone()));
     }
-    let result = match plan {
-        PreparedRun::Request {
-            backends,
-            bundle,
-            system_prompt,
-        } => run_request(
-            &RunRequest {
-                bundle,
-                system_prompt,
-                producer: None,
-            },
-            &backends,
-            opts,
-        ),
-        PreparedRun::Check { spec, backends } => {
-            if let Some(path) = &command.prompt_file {
-                opts = opts.system_prompt_override(path.clone());
-            }
-            run_check(&spec, &backends, opts)
-        }
-    }?;
-    let warning = prepared.as_ref().and_then(finish_log);
-    let operation = if dry_run { OP_DRY_RUN } else { OP_RUN };
-    let mut data = run_data(&result, &readback, dry_run)?;
-    attach_warning(&mut data, warning);
-    envelope::envelope(operation, data)
-}
-
-enum PreparedRun {
-    Request {
-        backends: Vec<BackendId>,
-        bundle: PayloadBundle,
-        system_prompt: Option<String>,
-    },
-    Check {
-        spec: config::CheckSpec,
-        backends: Vec<BackendId>,
-    },
+    let mut response = run(prepare(source, config)?)?;
+    if let Some(warning) = prepared_log.as_ref().and_then(finish_log) {
+        response = response.with_warning(warning);
+    }
+    envelope::to_bytes(&Envelope::run(&response).with_readback(&readback)?)
 }
 
 fn joined_path(repo: PathBuf, path: &Path) -> PathBuf {
@@ -589,116 +535,22 @@ fn dispatch_ask(command: AskCommand, overrides: &ExecuteOverrides) -> Result<Vec
         .unwrap_or_else(|| sessions_dir_for(&repo));
     let log_root = default_log_root(&repo, command.log_dir.as_deref());
     let prepared = prepare_log(&log_root, overrides)?;
-    let sessions = open_sessions(&sessions_dir, Arc::clone(&prepared.shared), overrides)?;
-    let stored = sessions.load(&session_id)?;
-    if let Some(registry) = &overrides.registry {
-        sessions.install_registry(registry.clone());
-    } else {
-        sessions.install_registry(registry_for_repo(&repo, &[stored.backend])?);
-    }
-    let outcome = sessions.ask(&session_id, &command.text)?;
-    let warning = finish_log(&prepared);
+    let sessions = open_sessions(&sessions_dir, overrides)?;
     let readback = AskReadback {
         repo_root: path_text(repo.as_path()),
         sessions_dir: path_text(&sessions_dir),
         session_id: session_id.to_string(),
     };
-    let mut body = Map::new();
-    merge_jev_response(&mut body, &outcome);
-    body.insert(
-        "session_id".to_owned(),
-        Value::String(session_id.to_string()),
-    );
-    body.insert(
-        "prompt_sha256".to_owned(),
-        Value::String(stored.payload.sha256().as_str().to_owned()),
-    );
-    body.insert(
-        "readback".to_owned(),
-        serde_json::to_value(&readback)
-            .map_err(|error| JevError::encode_failed("ask readback", &error))?,
-    );
-    let mut data = Value::Object(body);
-    attach_warning(&mut data, warning);
-    envelope::envelope(OP_ASK, data)
-}
-
-fn run_data(
-    result: &sc_jev_check::run::CheckResult,
-    readback: &RunReadback,
-    dry_run: bool,
-) -> Result<Value, JevError> {
-    let mut data = Map::new();
-    if !dry_run && let Some(outcome) = result.outcomes.first() {
-        merge_jev_response(&mut data, outcome);
+    let mut config = RunConfig::new(repo, Arc::clone(&prepared.shared));
+    if let Some(registry) = &overrides.registry {
+        config = config.registry(Arc::new(registry.clone()));
     }
-    data.insert(
-        "session_id".to_owned(),
-        serde_json::to_value(result.session_id)
-            .map_err(|error| JevError::encode_failed("session id", &error))?,
-    );
-    data.insert(
-        "prompt_sha256".to_owned(),
-        Value::String(result.bundle.sha256().as_str().to_owned()),
-    );
-    data.insert(
-        "readback".to_owned(),
-        serde_json::to_value(readback)
-            .map_err(|error| JevError::encode_failed("run readback", &error))?,
-    );
-    if dry_run {
-        data.insert(
-            "payload".to_owned(),
-            serde_json::from_slice(result.bundle.bytes())
-                .map_err(|error| JevError::encode_failed("canonical payload", &error))?,
-        );
-    } else {
-        data.insert(
-            "outcomes".to_owned(),
-            serde_json::to_value(&result.outcomes)
-                .map_err(|error| JevError::encode_failed("judge outcomes", &error))?,
-        );
-        data.insert(
-            "equal_input".to_owned(),
-            serde_json::to_value(&result.equal_input)
-                .map_err(|error| JevError::encode_failed("equal-input record", &error))?,
-        );
+    let mut response = ask(&sessions, session_id, &command.text, config)?;
+    // CR-014: a log-flush failure is a warning in the body, not an error.
+    if let Some(warning) = finish_log(&prepared) {
+        response = response.with_warning(warning);
     }
-    Ok(Value::Object(data))
-}
-
-/// Copies the judge answer into `data` (ADR-SAG-0014).
-///
-/// A TypeSafe outcome contributes every top-level field of the validated
-/// response (`provider_meta`), then the validated `answers` object. Callers
-/// add `session_id` after this merge so it is not replaced by a response field.
-///
-/// LLM outcomes are normalized to that answer shape: `answers`, plus `model`
-/// and `usage` when the backend stored them under those names. Other provider
-/// fields stay out of `data`. Values are copied, not rebuilt, and are not
-/// nested under `provider_meta`.
-fn merge_jev_response(data: &mut Map<String, Value>, outcome: &JudgeOutcome) {
-    let answers = serde_json::to_value(outcome.answers()).unwrap_or(Value::Null);
-    if outcome.backend().family() == BackendFamily::TypeSafeJev {
-        if let Some(meta) = outcome.provider_meta().and_then(Value::as_object) {
-            for (key, value) in meta {
-                data.insert(key.clone(), value.clone());
-            }
-        }
-        data.insert("answers".to_owned(), answers);
-        return;
-    }
-
-    data.insert("answers".to_owned(), answers);
-    let Some(meta) = outcome.provider_meta().and_then(Value::as_object) else {
-        return;
-    };
-    if let Some(model) = meta.get("model") {
-        data.insert("model".to_owned(), model.clone());
-    }
-    if let Some(usage) = meta.get("usage") {
-        data.insert("usage".to_owned(), usage.clone());
-    }
+    envelope::to_bytes(&Envelope::ask(&response).with_readback(&readback)?)
 }
 
 #[derive(Serialize)]
@@ -731,8 +583,17 @@ fn request_bytes(repo: &RepoRoot, spec: &str, stdin: &[u8]) -> Result<Vec<u8>, J
     })
 }
 
-fn parse_flag_backends(flags: &[String]) -> Result<Vec<BackendId>, JevError> {
-    flags.iter().map(|text| text.parse::<BackendId>()).collect()
+/// The `--backend` values as a [`BackendSet`]; `None` when none were given,
+/// so the source document's `backends` (or `[jev]`) applies.
+fn flag_backends(flags: &[String]) -> Result<Option<BackendSet>, JevError> {
+    if flags.is_empty() {
+        return Ok(None);
+    }
+    let ids = flags
+        .iter()
+        .map(|text| text.parse::<BackendId>())
+        .collect::<Result<Vec<_>, _>>()?;
+    BackendSet::try_from(ids).map(Some)
 }
 
 fn parse_session_id(text: &str) -> Result<SessionId, JevError> {
@@ -744,14 +605,9 @@ fn parse_session_id(text: &str) -> Result<SessionId, JevError> {
     Ok(SessionId::from_uuid(id))
 }
 
-/// `--repo-root`, else the git toplevel of the current directory.
-///
-/// `sc-treesitter`'s `git_io::repo_root` runs the same
-/// `git rev-parse --show-toplevel` but is not shared (QA-007): this CLI has a
-/// `--repo-root` escape hatch, so a lookup failure is `CONFIG_INVALID` with
-/// "Pass --repo-root", while the producer has no such flag and reports
-/// `EXTRACTION_FAILED` ("run inside a repository"). The two crates share
-/// only `sc-agent-types`; one repo-discovery owner is decision D2.
+/// `--repo-root`, else [`discover_repo_root`] of the current directory: its
+/// git toplevel, or the directory itself outside git (ADR-SAG-0003 r-2
+/// amendment).
 fn resolve_repo(flag: Option<&Path>) -> Result<RepoRoot, JevError> {
     if let Some(path) = flag {
         if !path.is_dir() {
@@ -768,84 +624,11 @@ fn resolve_repo(flag: Option<&Path>) -> Result<RepoRoot, JevError> {
     }
     let cwd = std::env::current_dir().map_err(|error| {
         JevError::operational_config(format!(
-            "current directory is unavailable ({error}). Pass --repo-root."
+            "current directory is unavailable ({}). Pass --repo-root.",
+            error.kind()
         ))
     })?;
-    let output = Command::new("git")
-        .args(["rev-parse", "--show-toplevel"])
-        .current_dir(&cwd)
-        .env("GIT_TERMINAL_PROMPT", "0")
-        .output()
-        .map_err(|error| {
-            JevError::operational_config(format!(
-                "git rev-parse failed ({error}). Pass --repo-root."
-            ))
-        })?;
-    if !output.status.success() {
-        return Err(JevError::operational_config(
-            "Could not find a git toplevel. Pass --repo-root with the repository root.",
-        ));
-    }
-    let text = String::from_utf8(output.stdout).map_err(|_| {
-        JevError::operational_config("git rev-parse returned non-UTF-8. Pass --repo-root.")
-    })?;
-    let path = PathBuf::from(text.trim());
-    let canonical = std::fs::canonicalize(&path)
-        .map_err(|_| JevError::input_missing(path.display().to_string()))?;
-    if !canonical.is_dir() {
-        return Err(JevError::input_missing(canonical.display().to_string()));
-    }
-    Ok(RepoRoot::new(canonical))
-}
-
-/// Turns `--check` into a repo-relative path without touching the filesystem.
-///
-/// An absolute argument must sit under the repo root (as given or
-/// canonicalized); that prefix is stripped. `\\` becomes `/`, `.` segments
-/// are dropped, and `..` is refused. Existence is decided by the engine, so
-/// a check file that exists only at `--rev` still loads (CR-004).
-fn relative_to_repo(repo: &RepoRoot, path: &Path) -> Result<String, JevError> {
-    let relative = if path.is_absolute() {
-        strip_repo_prefix(repo, path)?
-    } else {
-        path.to_path_buf()
-    };
-    let text = relative.to_string_lossy().replace('\\', "/");
-    let mut parts = Vec::new();
-    for part in text.split('/') {
-        match part {
-            "" | "." => {}
-            ".." => {
-                return Err(JevError::input_invalid(format!(
-                    "--check {} must not contain '..'. Pass a path inside --repo-root.",
-                    path.display()
-                )));
-            }
-            other => parts.push(other),
-        }
-    }
-    if parts.is_empty() {
-        return Err(JevError::input_invalid(
-            "check path must be a file inside the repo, not the repo root itself",
-        ));
-    }
-    Ok(parts.join("/"))
-}
-
-fn strip_repo_prefix(repo: &RepoRoot, path: &Path) -> Result<PathBuf, JevError> {
-    if let Ok(rest) = path.strip_prefix(repo.as_path()) {
-        return Ok(rest.to_path_buf());
-    }
-    if let Ok(root) = std::fs::canonicalize(repo.as_path())
-        && let Ok(rest) = path.strip_prefix(&root)
-    {
-        return Ok(rest.to_path_buf());
-    }
-    Err(JevError::input_invalid(format!(
-        "{} is outside the repo root {}. Pass a path inside --repo-root.",
-        path.display(),
-        repo.as_path().display()
-    )))
+    discover_repo_root(&cwd)
 }
 
 fn absolute_text(repo: &RepoRoot, path: &Path) -> String {
@@ -864,49 +647,34 @@ mod tests {
     use super::*;
 
     #[test]
-    fn check_path_is_normalised_lexically() {
-        let root = std::env::temp_dir().join("sc-ai-normalise-root");
-        let repo = RepoRoot::new(&root);
-        let inside = root.join("sub").join("check.toml");
-        let outside = std::env::temp_dir().join("elsewhere").join("check.toml");
-        let cases = [
-            (PathBuf::from("check.toml"), "check.toml"),
-            (PathBuf::from("./sub/check.toml"), "sub/check.toml"),
-            (PathBuf::from("sub\\check.toml"), "sub/check.toml"),
-            (inside, "sub/check.toml"),
-        ];
-        for (input, expected) in cases {
-            assert_eq!(
-                relative_to_repo(&repo, &input).expect("normalised"),
-                expected,
-                "{}",
-                input.display()
-            );
-        }
-        let bad = [
-            PathBuf::from("../check.toml"),
-            PathBuf::from("sub/../../x"),
-            outside,
-            PathBuf::from("."),
-        ];
-        for path in bad {
-            let error = relative_to_repo(&repo, &path).expect_err("refused");
-            assert_eq!(error.code(), "INPUT_INVALID", "{}", path.display());
-        }
-    }
-
-    #[test]
     fn flush_failure_is_a_warning_not_an_error() {
         let warning = flush_warning(Err(JevError::operational_config(
             "session log flush failed (disk full). Check that the log root is writable.",
         )))
         .expect("warning");
         assert!(warning.contains("disk full"), "{warning}");
-        let mut data = serde_json::json!({"session_id": "x"});
-        attach_warning(&mut data, Some(warning));
-        assert!(data["warning"].as_str().is_some());
-        assert_eq!(data["session_id"], "x");
         assert!(flush_warning(Ok(())).is_none());
+    }
+
+    #[test]
+    fn backend_flags_become_a_set() {
+        assert!(flag_backends(&[]).expect("none").is_none());
+        let set = flag_backends(&args(&["jev", "openai_luna"]))
+            .expect("set")
+            .expect("some");
+        assert_eq!(set.as_slice(), [BackendId::Jev, BackendId::OpenAiLuna]);
+        assert_eq!(
+            flag_backends(&args(&["jev", "jev"]))
+                .expect_err("repeat")
+                .code(),
+            "CONFIG_INVALID"
+        );
+        assert_eq!(
+            flag_backends(&args(&["anthropic-haiku"]))
+                .expect_err("alias")
+                .code(),
+            "INPUT_INVALID"
+        );
     }
 
     #[test]

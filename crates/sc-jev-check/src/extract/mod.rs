@@ -1,5 +1,8 @@
-//! Sealed extractors for `file`, `table-column`, `subjects`, and `command`.
+//! Extraction for the four `check.toml` input kinds.
 //!
+//! [`extract_input`] matches `file`, `table-column`, `subjects`, and
+//! `command` directly; there is no extractor trait. A new kind is a new
+//! [`InputSpec`] variant plus an ADR (Rust API patterns, r-2 amendment).
 //! No grammar crate is linked. `subjects` and `command` consume a
 //! `sc/subjects/1` document that some other tool already wrote.
 
@@ -11,11 +14,6 @@ mod read;
 mod sanitize;
 mod subjects;
 mod table;
-
-mod private {
-    /// Marker that blocks extractor implementations outside this crate.
-    pub trait Sealed {}
-}
 
 use crate::config::InputSpec;
 use sc_agent_types::schema::subjects::{Subject, SubjectsDocument};
@@ -30,59 +28,37 @@ pub struct Extracted {
     pub document: Option<SubjectsDocument>,
 }
 
-/// Phase A input extractor.
-///
-/// # Sealed
-///
-/// This trait is sealed and cannot be implemented outside `sc-jev-check`.
-/// The only implementors are `file`, `table-column`, `subjects`, and `command`.
-pub trait Extractor: private::Sealed {
-    /// Stable kind name stored in `check.toml`.
-    fn kind(&self) -> &'static str;
-
-    /// Runs the extractor against `input`.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`JevError`] when the path, document, or command result is
-    /// unusable. A command input's `{path}` placeholder has no value here.
-    fn extract(
-        &self,
-        repo: &RepoRoot,
-        rev: &Rev,
-        input: &InputSpec,
-    ) -> Result<Vec<Subject>, JevError>;
-}
-
-pub(crate) use command::CommandExtractor;
-pub(crate) use file::FileExtractor;
 pub(crate) use read::{read_repo_bytes, read_repo_text, repo_path};
-pub(crate) use subjects::SubjectsExtractor;
-pub(crate) use table::TableColumnExtractor;
 
-/// Runs the extractor selected by `input.kind`.
+/// Runs the extraction selected by the input kind.
+///
+/// A `command` input's `{path}` placeholder takes the input's own `path`
+/// field (REQ-SAG-0312); `{path}` without one is `CONFIG_INVALID`.
 ///
 /// # Errors
 ///
-/// Returns the extractor's [`JevError`]. Command inputs do not receive a
-/// `{path}` value here, so `{path}` in their argv is `CONFIG_INVALID`.
+/// Returns the [`JevError`] of the selected extraction: `INPUT_*` for an
+/// unreadable path, `EXTRACTION_*` for a bad document or command result, or
+/// the producer's own code when a command reports an error response on
+/// stderr (REQ-SAG-0313).
 pub fn extract_input(repo: &RepoRoot, rev: &Rev, input: &InputSpec) -> Result<Extracted, JevError> {
     match input {
-        InputSpec::File { .. } => file::extract_file(repo, rev, input),
-        InputSpec::TableColumn { .. } => table::extract_table(repo, rev, input),
-        InputSpec::Subjects { .. } => subjects::extract_subjects(repo, rev, input),
-        InputSpec::Command { .. } => CommandExtractor.extract_with_source(repo, rev, input, None),
-    }
-}
-
-/// Returns the static extractor for `input`.
-#[must_use]
-pub fn extractor_for(input: &InputSpec) -> &'static dyn Extractor {
-    match input {
-        InputSpec::File { .. } => &FileExtractor,
-        InputSpec::TableColumn { .. } => &TableColumnExtractor,
-        InputSpec::Subjects { .. } => &SubjectsExtractor,
-        InputSpec::Command { .. } => &CommandExtractor,
+        InputSpec::File { path } => file::extract_file(repo, rev, path),
+        InputSpec::TableColumn { path, column } => table::extract_table(repo, rev, path, column),
+        InputSpec::Subjects { path } => subjects::extract_subjects(repo, rev, path),
+        InputSpec::Command {
+            command,
+            timeout_seconds,
+            path,
+            producer,
+        } => command::extract_command(
+            repo,
+            rev,
+            command,
+            *timeout_seconds,
+            path.as_ref(),
+            producer.as_deref(),
+        ),
     }
 }
 
@@ -94,6 +70,11 @@ pub(crate) mod test_support {
     use crate::deadline::spawn_with_deadline;
 
     pub use tempfile::TempDir;
+
+    /// A repo-relative path for tests.
+    pub fn rel(text: &str) -> sc_agent_types::RepoRelativePath {
+        sc_agent_types::RepoRelativePath::try_from(text).expect("repo-relative path")
+    }
 
     pub fn temp_dir(label: &str) -> TempDir {
         tempfile::Builder::new()
@@ -118,7 +99,7 @@ pub(crate) mod test_support {
 
     pub fn git_fixture() -> (TempDir, String) {
         let dir = copy_fixture();
-        git(dir.path(), &["init", "-q"]);
+        git(dir.path(), crate::git_env::SHA1_INIT);
         commit_all(dir.path(), "init");
         let sha = git_stdout(dir.path(), &["rev-parse", "HEAD"]);
         (dir, sha.trim().to_owned())
@@ -131,28 +112,7 @@ pub(crate) mod test_support {
     /// Git with no global or system config, no terminal prompt, and a fixed
     /// identity.
     pub fn git_command(cwd: &Path) -> Command {
-        let mut command = Command::new("git");
-        command
-            .arg("-C")
-            .arg(cwd)
-            .env("GIT_TERMINAL_PROMPT", "0")
-            .env("GIT_CONFIG_GLOBAL", null_device())
-            .env("GIT_CONFIG_NOSYSTEM", "1")
-            .args([
-                "-c",
-                "commit.gpgsign=false",
-                "-c",
-                "core.hooksPath=/dev/null",
-                "-c",
-                "user.email=jev-check@example.com",
-                "-c",
-                "user.name=jev-check",
-            ]);
-        command
-    }
-
-    fn null_device() -> &'static str {
-        if cfg!(windows) { "NUL" } else { "/dev/null" }
+        crate::git_env::git_command(cwd)
     }
 
     /// Stages everything under `cwd` and commits it.
@@ -188,35 +148,5 @@ pub(crate) mod test_support {
             }
         }
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn extractors_are_file_table_subjects_and_command() {
-        let samples = [
-            InputSpec::File {
-                path: "a.txt".into(),
-            },
-            InputSpec::TableColumn {
-                path: "a.md".into(),
-                column: "Choice".into(),
-            },
-            InputSpec::Subjects {
-                path: "subjects.json".into(),
-            },
-            InputSpec::Command {
-                command: vec!["true".into()],
-                timeout_seconds: 30,
-            },
-        ];
-        let kinds: Vec<&str> = samples
-            .iter()
-            .map(|input| extractor_for(input).kind())
-            .collect();
-        assert_eq!(kinds, ["file", "table-column", "subjects", "command"]);
     }
 }

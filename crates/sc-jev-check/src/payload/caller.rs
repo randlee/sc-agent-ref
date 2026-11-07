@@ -1,27 +1,25 @@
 //! Caller-built request documents (`sc-ai jev --request-json`).
 //!
 //! Validation and [`PayloadBundle`] construction stay in this crate
-//! (ADR-SAG-0005). The document has no system-prompt field. Prompt text is
-//! resolved by the run facade from the CLI file, `check.toml`, or the
-//! packaged asset (ADR-SAG-0019).
+//! (ADR-SAG-0005); `crate::run::CallerRequest::from_json` is the public
+//! entry. The document has no system-prompt field. Prompt text is resolved
+//! by `crate::run::prepare` from the override file or the packaged asset
+//! (ADR-SAG-0019).
 
-use std::path::Path;
-
-use sc_agent_types::{BackendId, ChoiceAnswer, JevError, PayloadBundle, Question, RepoRoot};
+use sc_agent_types::{BackendId, ChoiceAnswer, JevError, PayloadBundle, Question};
 use serde::Deserialize;
 use serde_json::Value;
 
+use super::encode_payload;
 use super::questions::{validate_question_set, validate_state};
-use super::{encode_payload, refuse_over_cap};
-use crate::config::load_packaged_config;
 
 /// Canonical payload built from a caller questions document.
 #[derive(Debug)]
 pub(crate) struct ParsedCallerRequest {
     /// Sorted compact JSON and its digest.
-    pub bundle: PayloadBundle,
+    pub(crate) bundle: PayloadBundle,
     /// Backend ids named in the document. Empty when the document omits them.
-    pub backends: Vec<BackendId>,
+    pub(crate) backends: Vec<BackendId>,
 }
 
 /// Validates `bytes` and builds one canonical payload.
@@ -30,9 +28,8 @@ pub(crate) struct ParsedCallerRequest {
 ///
 /// Returns [`JevError::InputInvalid`] when the document is empty, not the
 /// questions shape, names an unknown backend, or includes `system_prompt`.
-/// Returns [`JevError::InputTooLarge`] when the canonical bytes exceed the
-/// packaged cap. Returns [`JevError::ConfigInvalid`] when packaged `jev.toml`
-/// cannot be loaded.
+/// No byte cap applies here: each backend refuses an oversize request
+/// before any send (REQ-SAG-0314).
 pub(crate) fn parse_caller_request(bytes: &[u8]) -> Result<ParsedCallerRequest, JevError> {
     if bytes.iter().all(u8::is_ascii_whitespace) {
         return Err(JevError::input_invalid(
@@ -45,70 +42,11 @@ pub(crate) fn parse_caller_request(bytes: &[u8]) -> Result<ParsedCallerRequest, 
     validate_question_set(&document.questions)?;
     validate_state(&document.state, &document.questions)?;
     let bundle = encode_payload(&document.questions, &document.state)?;
-    let packaged = load_packaged_config()?;
-    refuse_over_cap(bundle.bytes(), packaged.max_input_bytes)?;
     let mut backends = Vec::with_capacity(document.backends.len());
     for name in &document.backends {
         backends.push(name.parse::<BackendId>()?);
     }
     Ok(ParsedCallerRequest { bundle, backends })
-}
-
-/// Caller questions document prepared for [`crate::run::run_request`].
-///
-/// [`prepare_caller_request`] validates the document and builds the payload.
-/// `sc-ai` passes the result to [`crate::run::run_request`] and does not assemble bytes
-/// itself (ADR-SAG-0005, ADR-SAG-0010).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PreparedCallerRequest {
-    /// Canonical payload shared by every backend.
-    pub bundle: PayloadBundle,
-    /// Backends to judge. CLI flags win over ids in the document.
-    pub backends: Vec<BackendId>,
-    /// LLM system prompt from the CLI file or the packaged default.
-    ///
-    /// `None` when no LLM backend is selected. The text is not part of
-    /// [`PayloadBundle::sha256`].
-    pub system_prompt: Option<String>,
-}
-
-/// Validates request JSON, builds one payload, and resolves the system prompt.
-///
-/// `flag_backends` are the `--backend` values. A non-empty slice replaces
-/// backends named in the document. When both are empty the backend is
-/// [`BackendId::Jev`]. Prompt precedence for this path is `prompt_file`, then
-/// the packaged default. [`crate::run::run_check`] applies `check.toml` on the check path.
-/// A `system_prompt` field in `bytes` is refused (ADR-SAG-0019).
-///
-/// # Errors
-///
-/// Returns [`JevError`] when the document, backend id, prompt file, or
-/// packaged asset is unusable. A Jev-only selection does not read
-/// `prompt_file`.
-pub fn prepare_caller_request(
-    bytes: &[u8],
-    flag_backends: &[BackendId],
-    repo: &RepoRoot,
-    prompt_file: Option<&Path>,
-) -> Result<PreparedCallerRequest, JevError> {
-    let parsed = parse_caller_request(bytes)?;
-    let backends = if !flag_backends.is_empty() {
-        flag_backends.to_vec()
-    } else if !parsed.backends.is_empty() {
-        parsed.backends
-    } else {
-        vec![BackendId::Jev]
-    };
-    let needs_llm = backends
-        .iter()
-        .any(|id| id.descriptor().requires_llm_context());
-    let system_prompt =
-        crate::run::prompt::load_request_system_prompt(repo, prompt_file, needs_llm)?;
-    Ok(PreparedCallerRequest {
-        bundle: parsed.bundle,
-        backends,
-        system_prompt,
-    })
 }
 
 #[derive(Debug, Deserialize)]
