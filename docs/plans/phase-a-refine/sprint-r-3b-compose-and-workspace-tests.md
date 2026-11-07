@@ -575,7 +575,7 @@ cargo test -p sc-treesitter --test argv
 cargo build -p sc-ai --lib --no-default-features
 cargo build -p sc-treesitter --lib --no-default-features
 for p in sc-agent-types sc-agent-secrets sc-agent-http sc-jev sc-jev-backends sc-jev-check sc-agent-compose; do cargo build -p "$p" --lib || exit 1; done
-cargo doc -p sc-agent-http && ! grep -rlE 'ureq/(struct|enum|trait|type|fn|union)\.|title="(struct|enum|trait|type|fn|union) ureq::' target/doc/sc_agent_http/
+rm -rf target/doc/sc_agent_http && cargo doc -p sc-agent-http && ! grep -rlE 'href="[^"]*ureq/|title="[a-z]+ ureq::' target/doc/sc_agent_http/
 test -z "$(cargo tree -p sc-ai -e normal -d | grep -E '(^|[^[:alnum:]_-])(sc-jev-check|sc-agent-types|sc-agent-compose) v[0-9]')"
 test -z "$(cargo tree -p sc-jev-py -e normal -d | grep -E '(^|[^[:alnum:]_-])(sc-jev-check|sc-agent-types|sc-agent-compose) v[0-9]')"
 bash .github/scripts/cargo-tree-gates.sh
