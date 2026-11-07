@@ -50,7 +50,15 @@ pub fn extract_input(repo: &RepoRoot, rev: &Rev, input: &InputSpec) -> Result<Ex
             command,
             timeout_seconds,
             path,
-        } => command::extract_command(repo, rev, command, *timeout_seconds, path.as_ref()),
+            producer,
+        } => command::extract_command(
+            repo,
+            rev,
+            command,
+            *timeout_seconds,
+            path.as_ref(),
+            producer.as_deref(),
+        ),
     }
 }
 
@@ -91,7 +99,7 @@ pub(crate) mod test_support {
 
     pub fn git_fixture() -> (TempDir, String) {
         let dir = copy_fixture();
-        git(dir.path(), &["init", "-q"]);
+        git(dir.path(), crate::git_env::SHA1_INIT);
         commit_all(dir.path(), "init");
         let sha = git_stdout(dir.path(), &["rev-parse", "HEAD"]);
         (dir, sha.trim().to_owned())
@@ -104,28 +112,7 @@ pub(crate) mod test_support {
     /// Git with no global or system config, no terminal prompt, and a fixed
     /// identity.
     pub fn git_command(cwd: &Path) -> Command {
-        let mut command = Command::new("git");
-        command
-            .arg("-C")
-            .arg(cwd)
-            .env("GIT_TERMINAL_PROMPT", "0")
-            .env("GIT_CONFIG_GLOBAL", null_device())
-            .env("GIT_CONFIG_NOSYSTEM", "1")
-            .args([
-                "-c",
-                "commit.gpgsign=false",
-                "-c",
-                "core.hooksPath=/dev/null",
-                "-c",
-                "user.email=jev-check@example.com",
-                "-c",
-                "user.name=jev-check",
-            ]);
-        command
-    }
-
-    fn null_device() -> &'static str {
-        if cfg!(windows) { "NUL" } else { "/dev/null" }
+        crate::git_env::git_command(cwd)
     }
 
     /// Stages everything under `cwd` and commits it.

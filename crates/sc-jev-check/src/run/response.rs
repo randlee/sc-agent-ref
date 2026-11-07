@@ -8,7 +8,7 @@
 
 use serde::Serialize;
 use serde::ser::{SerializeMap, Serializer};
-use serde_json::{Map, Value};
+use serde_json::Value;
 
 use sc_agent_types::{
     BackendFamily, BackendId, EqualInputRecord, JevError, JudgeOutcome, ScAgentErrorResponse,
@@ -75,8 +75,10 @@ const BODY_KEYS: &[&str] = &[
 /// use sc_agent_types::observability::v2::NoopSessionLog;
 /// use sc_jev_check::run::{CheckSource, Envelope, RunConfig, prepare, run};
 ///
-/// let config = RunConfig::new(RepoRoot::new("."), Arc::new(NoopSessionLog)).dry_run(true);
-/// let response = run(prepare(CheckSource::CheckFile("check.toml".into()), config)?)?;
+/// let repo = RepoRoot::new(".");
+/// let source = CheckSource::check_file(&repo, std::path::Path::new("check.toml"))?;
+/// let config = RunConfig::new(repo, Arc::new(NoopSessionLog)).dry_run(true);
+/// let response = run(prepare(source, config)?)?;
 /// let body = serde_json::to_string(&Envelope::run(&response))?;
 /// assert!(body.contains("\"prompt_sha256\""));
 /// # Ok::<(), Box<dyn std::error::Error>>(())
@@ -235,8 +237,16 @@ impl RunResponse {
 impl Serialize for RunResponse {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut map = serializer.serialize_map(None)?;
+        self.write_entries(&mut map)?;
+        map.end()
+    }
+}
+
+impl RunResponse {
+    /// Writes the body's entries, in the documented order, into `map`.
+    fn write_entries<M: SerializeMap>(&self, map: &mut M) -> Result<(), M::Error> {
         if let Some(primary) = self.primary() {
-            write_answer_fields(&mut map, primary)?;
+            write_answer_fields(map, primary)?;
             map.serialize_entry("primary_backend", &primary.backend())?;
         }
         map.serialize_entry("session_id", &self.session_id)?;
@@ -252,6 +262,85 @@ impl Serialize for RunResponse {
         if !self.warnings.is_empty() {
             map.serialize_entry("warnings", &self.warnings)?;
         }
+        Ok(())
+    }
+}
+
+/// The result of [`crate::run::ask`]: the follow-up's outcome and the
+/// session facts the ask envelope prints.
+///
+/// Serialized as the `ask` `data` body: the outcome's answer fields by the
+/// run body's primary-backend rule, then `session_id`, `prompt_sha256` (the
+/// session's payload digest), and `warnings` (omitted when empty).
+#[derive(Debug, Clone, PartialEq)]
+pub struct AskResponse {
+    outcome: JudgeOutcome,
+    session_id: SessionId,
+    prompt_sha256: Sha256Digest,
+    warnings: Vec<String>,
+}
+
+impl AskResponse {
+    pub(crate) fn new(
+        outcome: JudgeOutcome,
+        session_id: SessionId,
+        prompt_sha256: Sha256Digest,
+    ) -> Self {
+        Self {
+            outcome,
+            session_id,
+            prompt_sha256,
+            warnings: Vec::new(),
+        }
+    }
+
+    /// The follow-up's outcome.
+    #[must_use]
+    pub fn outcome(&self) -> &JudgeOutcome {
+        &self.outcome
+    }
+
+    /// The session that was asked.
+    #[must_use]
+    pub fn session_id(&self) -> SessionId {
+        self.session_id
+    }
+
+    /// SHA-256 of the session's canonical payload.
+    #[must_use]
+    pub fn prompt_sha256(&self) -> &Sha256Digest {
+        &self.prompt_sha256
+    }
+
+    /// Warnings, in the order they were added.
+    #[must_use]
+    pub fn warnings(&self) -> &[String] {
+        &self.warnings
+    }
+
+    /// Appends `warning` (for example a log-flush failure, CR-014); the one
+    /// way a consumer adds data to the `ask` body.
+    #[must_use]
+    pub fn with_warning(mut self, warning: impl Into<String>) -> Self {
+        self.warnings.push(warning.into());
+        self
+    }
+
+    fn write_entries<M: SerializeMap>(&self, map: &mut M) -> Result<(), M::Error> {
+        write_answer_fields(map, &self.outcome)?;
+        map.serialize_entry("session_id", &self.session_id)?;
+        map.serialize_entry("prompt_sha256", &self.prompt_sha256)?;
+        if !self.warnings.is_empty() {
+            map.serialize_entry("warnings", &self.warnings)?;
+        }
+        Ok(())
+    }
+}
+
+impl Serialize for AskResponse {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut map = serializer.serialize_map(None)?;
+        self.write_entries(&mut map)?;
         map.end()
     }
 }
@@ -437,23 +526,27 @@ impl BackendLimit {
 
 /// The versioned stdout envelope `{version, operation, data}` (ADR-SAG-0014).
 ///
-/// Built from a [`RunResponse`] ([`Self::run`]) or an `ask` outcome
+/// Built from a [`RunResponse`] ([`Self::run`]) or an [`AskResponse`]
 /// ([`Self::ask`]); [`Self::with_readback`] is the only key a consumer adds.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+/// Construction cannot fail: the body is kept as typed data and written
+/// when the envelope is serialized, so `data`'s keys come out in the body's
+/// documented order, followed by `readback`.
+#[derive(Debug, Clone, PartialEq)]
 pub struct Envelope {
-    version: &'static str,
     operation: &'static str,
-    data: Map<String, Value>,
+    body: Body,
+    readback: Option<Value>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum Body {
+    Run(Box<RunResponse>),
+    Ask(Box<AskResponse>),
 }
 
 impl Envelope {
     /// The envelope of a run: `data` is `response`'s serialization and
     /// `operation` is [`OP_RUN`] or, for a dry run, [`OP_DRY_RUN`].
-    ///
-    /// # Panics
-    ///
-    /// Never in practice: [`RunResponse`] always serializes to a JSON
-    /// object. A failure would be a bug in this crate.
     #[must_use]
     pub fn run(response: &RunResponse) -> Self {
         let operation = if response.dry_run() {
@@ -461,27 +554,22 @@ impl Envelope {
         } else {
             OP_RUN
         };
-        Self::new(operation, to_object(response))
+        Self {
+            operation,
+            body: Body::Run(Box::new(response.clone())),
+            readback: None,
+        }
     }
 
-    /// The envelope of a session follow-up: `data` is the outcome's answer
-    /// fields (the run body's primary-backend rule) plus `session_id`.
-    ///
-    /// # Panics
-    ///
-    /// Never in practice; see [`Self::run`].
+    /// The envelope of a session follow-up ([`OP_ASK`]): `data` is
+    /// `response`'s serialization.
     #[must_use]
-    pub fn ask(outcome: &JudgeOutcome, session_id: &SessionId) -> Self {
-        struct AskBody<'a>(&'a JudgeOutcome, &'a SessionId);
-        impl Serialize for AskBody<'_> {
-            fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-                let mut map = serializer.serialize_map(None)?;
-                write_answer_fields(&mut map, self.0)?;
-                map.serialize_entry("session_id", self.1)?;
-                map.end()
-            }
+    pub fn ask(response: &AskResponse) -> Self {
+        Self {
+            operation: OP_ASK,
+            body: Body::Ask(Box::new(response.clone())),
+            readback: None,
         }
-        Self::new(OP_ASK, to_object(&AskBody(outcome, session_id)))
     }
 
     /// Adds `readback` as `data.readback`, the one consumer-added key.
@@ -492,14 +580,14 @@ impl Envelope {
     pub fn with_readback(mut self, readback: impl Serialize) -> Result<Self, JevError> {
         let value = serde_json::to_value(readback)
             .map_err(|error| JevError::encode_failed("readback", &error))?;
-        self.data.insert("readback".to_owned(), value);
+        self.readback = Some(value);
         Ok(self)
     }
 
     /// Envelope format version ([`ENVELOPE_VERSION`]).
     #[must_use]
     pub fn version(&self) -> &str {
-        self.version
+        ENVELOPE_VERSION
     }
 
     /// Operation name.
@@ -507,26 +595,28 @@ impl Envelope {
     pub fn operation(&self) -> &str {
         self.operation
     }
-
-    /// The `data` object.
-    #[must_use]
-    pub fn data(&self) -> &Map<String, Value> {
-        &self.data
-    }
-
-    fn new(operation: &'static str, data: Map<String, Value>) -> Self {
-        Self {
-            version: ENVELOPE_VERSION,
-            operation,
-            data,
-        }
-    }
 }
 
-fn to_object(body: &impl Serialize) -> Map<String, Value> {
-    match serde_json::to_value(body) {
-        Ok(Value::Object(map)) => map,
-        Ok(other) => panic!("response body serialized to {other}, not an object"),
-        Err(error) => panic!("response body does not serialize: {error}"),
+impl Serialize for Envelope {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        struct Data<'a>(&'a Envelope);
+        impl Serialize for Data<'_> {
+            fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                let mut map = serializer.serialize_map(None)?;
+                match &self.0.body {
+                    Body::Run(response) => response.write_entries(&mut map)?,
+                    Body::Ask(response) => response.write_entries(&mut map)?,
+                }
+                if let Some(readback) = &self.0.readback {
+                    map.serialize_entry("readback", readback)?;
+                }
+                map.end()
+            }
+        }
+        let mut map = serializer.serialize_map(Some(3))?;
+        map.serialize_entry("version", ENVELOPE_VERSION)?;
+        map.serialize_entry("operation", self.operation)?;
+        map.serialize_entry("data", &Data(self))?;
+        map.end()
     }
 }

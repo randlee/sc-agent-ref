@@ -19,7 +19,7 @@ use sc_agent_types::{
 };
 use sc_jev_check::registry::BackendRegistry;
 use sc_jev_check::run::{
-    CheckSource, PreparedRun, RunConfig, RunResponse, discover_repo_root, prepare, run,
+    CheckSource, PreparedRun, RunConfig, RunResponse, ask, discover_repo_root, prepare, run,
 };
 use sc_jev_check::session::FileSessionStore;
 use serde_json::Value;
@@ -29,7 +29,7 @@ use crate::logging::{self, LoggerGuard};
 
 /// One Python `run_check` invocation, with owned arguments.
 struct CheckRun {
-    check_path: String,
+    check_path: PathBuf,
     /// `backends=`; `None` leaves the choice to `check.toml`, then `[jev]`.
     backends: Option<Vec<String>>,
     dry_run: bool,
@@ -106,6 +106,7 @@ pub(crate) fn canonical_of(json_text: &str) -> Result<Vec<u8>, JevError> {
 fn execute(spec: CheckRun) -> Result<FinishedRun, JevError> {
     let backends = parse_backends(spec.backends.as_deref())?;
     let repo = resolve_repo(spec.repo_root.as_deref())?;
+    let repo_for_source = repo.clone();
     let rev = Rev::parse(&spec.rev)?;
     let mut live = None;
     let mut config = if spec.dry_run {
@@ -149,7 +150,7 @@ fn execute(spec: CheckRun) -> Result<FinishedRun, JevError> {
         config = config.registry(registry);
     }
     let prepared = prepare(
-        CheckSource::CheckFile(PathBuf::from(&spec.check_path)),
+        CheckSource::check_file(&repo_for_source, &spec.check_path)?,
         config,
     )?;
     let (payload, system_prompt) = prepared_text(&prepared);
@@ -175,14 +176,14 @@ fn prepared_text(prepared: &PreparedRun) -> (String, Option<String>) {
 }
 
 fn build(
-    check_path: &str,
+    check_path: &Path,
     repo_root: Option<&Path>,
     rev_text: &str,
 ) -> Result<PreparedRequest, JevError> {
     let repo = resolve_repo(repo_root)?;
     let rev = Rev::parse(rev_text)?;
     let prepared = prepare(
-        CheckSource::CheckFile(PathBuf::from(check_path)),
+        CheckSource::check_file(&repo, check_path)?,
         RunConfig::new(repo, Arc::new(NoopSessionLog)).rev(rev),
     )?;
     Ok(PreparedRequest {
@@ -238,16 +239,6 @@ fn non_empty(path: Option<PathBuf>) -> Option<PathBuf> {
     path.filter(|path| !path.as_os_str().is_empty())
 }
 
-/// Repo-relative check path as text.
-fn check_path_text(check_path: &Path) -> Result<String, JevError> {
-    check_path.to_str().map(str::to_owned).ok_or_else(|| {
-        JevError::input_invalid(format!(
-            "check path {} is not valid UTF-8",
-            check_path.display()
-        ))
-    })
-}
-
 #[cfg(any(test, feature = "test-util"))]
 fn py_to_value(obj: &Bound<'_, PyAny>) -> Result<Value, JevError> {
     let text = python_json(obj).map_err(|error| {
@@ -283,27 +274,16 @@ fn ask_with(
     let follow_up = follow_up.to_owned();
     let live = live.clone();
     let outcome = py.detach(move || {
-        let registry = match &live.registry {
-            Some(registry) => Arc::clone(registry),
-            None => {
-                let stored = live.store.load(&id)?;
-                Arc::new(BackendRegistry::from_env(
-                    &live.repo,
-                    &BackendSet::try_from(vec![stored.backend])?,
-                )?)
-            }
-        };
-        let outcome = live
-            .store
-            .ask(&id, &follow_up, &registry, &live.session_log)?;
+        let mut config = RunConfig::new(live.repo.clone(), Arc::clone(&live.session_log));
+        if let Some(registry) = &live.registry {
+            config = config.registry(Arc::clone(registry));
+        }
+        let response = ask(&live.store, id, &follow_up, config)?;
         live.logger.flush();
-        Ok::<_, JevError>(outcome)
+        Ok::<_, JevError>(response)
     });
-    to_py(
-        py,
-        "outcome JSON",
-        serde_json::to_value(map_err(py, outcome)?),
-    )
+    let response = map_err(py, outcome)?;
+    to_py(py, "outcome JSON", serde_json::to_value(response.outcome()))
 }
 
 /// Result of `run_check`, built from the engine's `RunResponse`.
@@ -482,7 +462,6 @@ pub(crate) fn build_request(
     repo_root: Option<PathBuf>,
     rev: &str,
 ) -> PyResult<Py<PyAny>> {
-    let check_path = map_err(py, check_path_text(&check_path))?;
     let repo_root = non_empty(repo_root);
     let rev = rev.to_owned();
     let built = py.detach(move || build(&check_path, repo_root.as_deref(), &rev));
@@ -508,7 +487,7 @@ fn check_run(
     system_prompt_file: Option<PathBuf>,
 ) -> Result<CheckRun, JevError> {
     Ok(CheckRun {
-        check_path: check_path_text(check_path)?,
+        check_path: check_path.to_path_buf(),
         backends,
         dry_run,
         repo_root: non_empty(repo_root),
@@ -762,7 +741,7 @@ mod tests {
         dry_run: bool,
     ) -> CheckRun {
         CheckRun {
-            check_path: "check.toml".to_owned(),
+            check_path: PathBuf::from("check.toml"),
             backends: Some(vec![backend.to_owned()]),
             dry_run,
             repo_root: Some(repo.to_path_buf()),
@@ -784,12 +763,16 @@ mod tests {
         follow_up: &str,
     ) -> Result<sc_agent_types::JudgeOutcome, JevError> {
         let live = live(finished);
-        live.store.ask(
-            &finished.session_id().expect("session"),
+        let config = RunConfig::new(live.repo.clone(), Arc::clone(&live.session_log)).registry(
+            Arc::clone(live.registry.as_ref().expect("scripted registry")),
+        );
+        ask(
+            &live.store,
+            finished.session_id().expect("session"),
             follow_up,
-            live.registry.as_ref().expect("scripted registry"),
-            &live.session_log,
+            config,
         )
+        .map(|response| response.outcome().clone())
     }
 
     fn jsonl_lines(logs: &Path) -> Vec<String> {
@@ -817,13 +800,13 @@ mod tests {
             "[questions]\npath = \"questions.json\"\n\n[inputs.branches]\nkind = \"subjects\"\npath = \"subjects.json\"\n",
         )
         .expect("check");
-        let built = build("check.toml", Some(repo), "WORKTREE").expect("build");
+        let built = build(Path::new("check.toml"), Some(repo), "WORKTREE").expect("build");
         assert!(built.payload.contains("Transition.GIVE_BACK"));
         let producer = built.producer.expect("producer");
         assert_eq!(producer.name, "sc-treesitter");
         assert_eq!(producer.language, "python");
         assert_eq!(producer.mode, "matches");
-        let again = build("check.toml", Some(repo), "WORKTREE").expect("rebuild");
+        let again = build(Path::new("check.toml"), Some(repo), "WORKTREE").expect("rebuild");
         assert_eq!(built.prompt_sha256, again.prompt_sha256);
     }
 
@@ -919,7 +902,7 @@ mod tests {
         assert_eq!(std::fs::read_dir(&sessions).expect("dir").count(), 0);
         assert_eq!(jsonl_lines(&logs).len(), 1);
         let mut spec = run_spec(&repo, &logs, &sessions, "jev", false);
-        spec.check_path = "missing.toml".to_owned();
+        spec.check_path = PathBuf::from("missing.toml");
         spec.scripted_answers = None;
         let Err(missing) = execute(spec) else {
             panic!("missing check should fail");
@@ -962,7 +945,7 @@ mod tests {
         let root = temp_dir("rev");
         write_questions(root.path(), "Rev?");
         for rev in ["", "--output=x", "a b"] {
-            let error = build("check.toml", Some(root.path()), rev)
+            let error = build(Path::new("check.toml"), Some(root.path()), rev)
                 .err()
                 .expect("malformed rev");
             assert_eq!(error.code(), "INPUT_INVALID", "{rev:?}");

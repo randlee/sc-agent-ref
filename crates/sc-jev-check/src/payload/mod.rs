@@ -20,9 +20,8 @@ use sc_agent_types::{
 use crate::config::CheckSpec;
 use crate::extract::{Extracted, extract_input, read_repo_text};
 
+pub(crate) use questions::parse_question_set;
 pub(crate) use questions::parse_state;
-#[doc(inline)]
-pub use questions::{QUESTION_SET_SCHEMA, parse_question_set};
 
 /// One check assembled into canonical bytes.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -167,7 +166,7 @@ mod tests {
         let dir = copy_fixture();
         let repo = RepoRoot::new(dir.path());
         let rev = Rev::worktree();
-        let spec = load_check_at(&repo, &rev, "check.toml").expect("check");
+        let spec = load_check_at(&repo, &rev, &rel("check.toml")).expect("check");
         let built = build_payload(&spec, &repo, &rev).expect("payload");
         let text = std::str::from_utf8(built.bundle.bytes()).expect("utf-8");
         assert!(text.contains("alpha note"));
@@ -191,14 +190,14 @@ mod tests {
         let dir = copy_fixture();
         let repo = RepoRoot::new(dir.path());
         let rev = Rev::worktree();
-        let mut spec = load_check_at(&repo, &rev, "check.toml").expect("check");
+        let mut spec = load_check_at(&repo, &rev, &rel("check.toml")).expect("check");
         let first = build_payload(&spec, &repo, &rev).expect("first");
         spec.system_prompt_file = Some(rel("other-prompt.md"));
         let second = build_payload(&spec, &repo, &rev).expect("second");
         assert_eq!(first.bundle.sha256(), second.bundle.sha256());
         assert_ne!(
             spec.resolve_prompt_path().path,
-            load_check_at(&repo, &rev, "check.toml")
+            load_check_at(&repo, &rev, &rel("check.toml"))
                 .expect("check")
                 .resolve_prompt_path()
                 .path
@@ -231,7 +230,7 @@ mod tests {
     fn payload_git_rev_ignores_worktree_edits() {
         let (dir, sha) = git_fixture();
         let repo = RepoRoot::new(dir.path());
-        let spec = load_check_at(&repo, &Rev::worktree(), "check.toml").expect("check");
+        let spec = load_check_at(&repo, &Rev::worktree(), &rel("check.toml")).expect("check");
         let head = build_payload(&spec, &repo, &Rev::new(&sha)).expect("head");
         std::fs::write(dir.path().join("notes/readme.txt"), "worktree edit\n").expect("edit");
         let worktree = build_payload(&spec, &repo, &Rev::worktree()).expect("worktree");

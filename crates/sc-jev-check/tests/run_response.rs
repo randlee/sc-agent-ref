@@ -6,12 +6,18 @@
 //!
 //! The pinned samples live in `tests/fixtures/run-response/`. Four are built
 //! with `RunResponse::test_builder`; `dry_run.json` comes from a real dry
-//! run. Set `SC_JEV_CHECK_BLESS=1` to rewrite them after an intended change.
+//! run. The checks only compare; after an intended change, rewrite them with
+//! the ignored test: `cargo test -p sc-jev-check --features test-util --test
+//! run_response -- bless_run_response_samples --ignored --exact` (FTQ-005).
+
+#[path = "../../../tests/support/deadline.rs"]
+mod deadline;
+#[path = "../../../tests/support/git_env.rs"]
+mod git_env;
 
 use std::collections::BTreeMap;
 use std::fmt;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::sync::Arc;
 
 use serde::de::{Deserializer, IgnoredAny, MapAccess, Visitor};
@@ -22,7 +28,7 @@ use sc_agent_types::test_util::MockJudgeBackend;
 use sc_agent_types::{
     Attestation, BackendAttestation, BackendId, BackendSet, CanonicalJudgePayload,
     EqualInputRecord, JevError, JudgeBackend, JudgeOutcome, JudgeRequest, MultiBackendMode,
-    NetworkErrorKind, PayloadBundle, RepoRoot, ScAgentErrorResponse, SessionId,
+    NetworkErrorKind, PayloadBundle, RepoRelativePath, RepoRoot, ScAgentErrorResponse, SessionId,
 };
 use sc_jev_check::registry::BackendRegistry;
 use sc_jev_check::run::{
@@ -112,13 +118,35 @@ fn fixture_path(name: &str) -> PathBuf {
 
 /// Compares the pretty serialization of `response` to the fixture, byte for
 /// byte, so key order is pinned too.
-fn assert_pinned(name: &str, response: &RunResponse) -> Value {
+fn pinned_text(response: &RunResponse) -> String {
     let mut text = serde_json::to_string_pretty(response).expect("serialize");
     text.push('\n');
-    let path = fixture_path(name);
-    if std::env::var_os("SC_JEV_CHECK_BLESS").is_some() {
-        std::fs::write(&path, &text).expect("bless");
+    text
+}
+
+/// The five pinned samples, by fixture name.
+fn samples() -> Vec<(&'static str, RunResponse)> {
+    vec![
+        ("single_jev.json", single_jev()),
+        ("jev_haiku.json", jev_haiku()),
+        ("jev_failed_haiku_ok.json", jev_failed_haiku_ok()),
+        ("dry_run.json", real_dry_run()),
+        ("session_save_failed.json", session_save_failed()),
+    ]
+}
+
+/// Rewrites the pinned samples. Run it only by name with `--ignored`.
+#[test]
+#[ignore = "rewrites tests/fixtures/run-response; run by name after an intended change"]
+fn bless_run_response_samples() {
+    for (name, response) in samples() {
+        std::fs::write(fixture_path(name), pinned_text(&response)).expect("bless");
     }
+}
+
+fn assert_pinned(name: &str, response: &RunResponse) -> Value {
+    let text = pinned_text(response);
+    let path = fixture_path(name);
     let pinned = std::fs::read_to_string(&path)
         .unwrap_or_else(|error| panic!("read {}: {error}", path.display()));
     assert_eq!(
@@ -242,7 +270,7 @@ fn config(root: &Path) -> RunConfig {
 }
 
 fn check_file() -> CheckSource {
-    CheckSource::CheckFile("check.toml".into())
+    CheckSource::CheckFile(RepoRelativePath::try_from("check.toml").expect("path"))
 }
 
 fn real_dry_run() -> RunResponse {
@@ -401,7 +429,12 @@ fn test_run_response_contract() {
     let with_readback = Envelope::run(&single_jev())
         .with_readback(serde_json::json!({"repo_root": "/repo"}))
         .expect("readback");
-    assert_eq!(with_readback.data()["readback"]["repo_root"], "/repo");
+    let with_readback = serde_json::to_value(with_readback).expect("json");
+    assert_eq!(with_readback["data"]["readback"]["repo_root"], "/repo");
+    assert_eq!(
+        top_level_keys(&serde_json::to_string(&Envelope::run(&single_jev())).expect("json")),
+        ["version", "operation", "data"]
+    );
 }
 
 #[test]
@@ -561,18 +594,14 @@ fn test_prepared_run_owns_config() {
     assert_eq!(haiku.validations(), 1, "a dry run calls no backend");
 }
 
+/// Fixture git through the shared isolation helper and deadline (FTQ-001).
 fn git(dir: &Path, args: &[&str]) {
-    let null = if cfg!(windows) { "NUL" } else { "/dev/null" };
-    let status = Command::new("git")
-        .arg("-C")
-        .arg(dir)
-        .args(args)
-        .env("GIT_CONFIG_GLOBAL", null)
-        .env("GIT_CONFIG_NOSYSTEM", "1")
-        .env("GIT_TERMINAL_PROMPT", "0")
-        .status()
-        .expect("git");
-    assert!(status.success(), "git {args:?}");
+    let output = deadline::spawn_with_deadline(git_env::git_command(dir).args(args), None);
+    assert!(
+        output.status.success(),
+        "git {args:?}: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 fn canonical(path: &Path) -> PathBuf {
@@ -582,7 +611,7 @@ fn canonical(path: &Path) -> PathBuf {
 #[test]
 fn test_repo_root_from_subdirectory() {
     let top = tempfile::tempdir().expect("temp");
-    git(top.path(), &["init", "-q"]);
+    git(top.path(), git_env::SHA1_INIT);
     let sub = top.path().join("a").join("b");
     std::fs::create_dir_all(&sub).expect("sub");
     let from_sub = discover_repo_root(&sub).expect("root");
@@ -602,17 +631,11 @@ fn test_repo_root_from_subdirectory() {
     .expect("check.toml at the toplevel"))
     .expect("dry run");
     assert!(response.dry_run());
-
-    // Outside git the start directory is the root.
-    let plain = tempfile::tempdir().expect("plain");
-    let outside = discover_repo_root(plain.path()).expect("outside git");
-    assert!(outside.as_path().is_absolute());
-    if sc_agent_types::git::discover_toplevel(plain.path())
-        .expect("git runs")
-        .is_none()
-    {
-        assert_eq!(canonical(outside.as_path()), canonical(plain.path()));
-    }
+    // The outside-git and git-absent fallbacks (and the refusals) depend on
+    // where the test machine's temp directory sits, so they are pinned
+    // deterministically by the `--lib` test
+    // `run::tests::discovery_falls_back_only_outside_git_or_without_git`
+    // (FTQ-003).
 }
 
 #[test]

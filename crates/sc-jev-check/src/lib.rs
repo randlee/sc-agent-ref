@@ -6,10 +6,14 @@
 //! (ADR-SAG-0024). Module roles and boundaries are described in
 //! `docs/sc-jev-check/architecture.md`.
 
+// Public modules hold only the facade (`boundaries/sc-jev-check/jev-check.toml`,
+// sprint r-2 D2.9). Payload assembly, extraction and the equal-input helpers
+// are internal: `run::prepare` is the only way to build a payload
+// (ADR-SAG-0005, ADR-SAG-0024).
 pub mod config;
-pub mod equal_input;
-pub mod extract;
-pub mod payload;
+pub(crate) mod equal_input;
+pub(crate) mod extract;
+pub(crate) mod payload;
 pub mod registry;
 pub mod run;
 pub mod session;
@@ -18,3 +22,8 @@ pub mod session;
 #[cfg(test)]
 #[path = "../../../tests/support/deadline.rs"]
 mod deadline;
+
+/// Shared git isolation for unit-test fixtures (FTQ-001).
+#[cfg(test)]
+#[path = "../../../tests/support/git_env.rs"]
+mod git_env;

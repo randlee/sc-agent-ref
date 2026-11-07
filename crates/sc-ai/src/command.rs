@@ -8,7 +8,7 @@ use sc_agent_types::observability::v2::{NoopSessionLog, SharedSessionLog};
 use sc_agent_types::{BackendId, BackendSet, JevError, RepoRoot, Rev, SessionId};
 use sc_jev_check::registry::BackendRegistry;
 use sc_jev_check::run::{
-    CallerRequest, CheckSource, Envelope, RunConfig, discover_repo_root, prepare, run,
+    CallerRequest, CheckSource, Envelope, RunConfig, ask, discover_repo_root, prepare, run,
 };
 use sc_jev_check::session::FileSessionStore;
 use serde::Serialize;
@@ -459,7 +459,7 @@ fn dispatch_run(
             .check
             .clone()
             .unwrap_or_else(|| PathBuf::from("check.toml"));
-        CheckSource::CheckFile(PathBuf::from(relative_to_repo(&repo, &check_path)?))
+        CheckSource::check_file(&repo, &check_path)?
     };
     let readback = RunReadback {
         check_toml: command
@@ -536,21 +536,21 @@ fn dispatch_ask(command: AskCommand, overrides: &ExecuteOverrides) -> Result<Vec
     let log_root = default_log_root(&repo, command.log_dir.as_deref());
     let prepared = prepare_log(&log_root, overrides)?;
     let sessions = open_sessions(&sessions_dir, overrides)?;
-    let stored = sessions.load(&session_id)?;
-    let registry = match &overrides.registry {
-        Some(registry) => registry.clone(),
-        None => BackendRegistry::from_env(&repo, &BackendSet::try_from(vec![stored.backend])?)?,
-    };
-    let outcome = sessions.ask(&session_id, &command.text, &registry, &prepared.shared)?;
-    // `ask` has no RunResponse, so a log-flush failure has no `warnings`
-    // slot (Envelope adds only `readback`); the log stays best effort.
-    let _ = finish_log(&prepared);
     let readback = AskReadback {
         repo_root: path_text(repo.as_path()),
         sessions_dir: path_text(&sessions_dir),
         session_id: session_id.to_string(),
     };
-    envelope::to_bytes(&Envelope::ask(&outcome, &session_id).with_readback(&readback)?)
+    let mut config = RunConfig::new(repo, Arc::clone(&prepared.shared));
+    if let Some(registry) = &overrides.registry {
+        config = config.registry(Arc::new(registry.clone()));
+    }
+    let mut response = ask(&sessions, session_id, &command.text, config)?;
+    // CR-014: a log-flush failure is a warning in the body, not an error.
+    if let Some(warning) = finish_log(&prepared) {
+        response = response.with_warning(warning);
+    }
+    envelope::to_bytes(&Envelope::ask(&response).with_readback(&readback)?)
 }
 
 #[derive(Serialize)]
@@ -631,56 +631,6 @@ fn resolve_repo(flag: Option<&Path>) -> Result<RepoRoot, JevError> {
     discover_repo_root(&cwd)
 }
 
-/// Turns `--check` into a repo-relative path without touching the filesystem.
-///
-/// An absolute argument must sit under the repo root (as given or
-/// canonicalized); that prefix is stripped. `\\` becomes `/`, `.` segments
-/// are dropped, and `..` is refused. Existence is decided by the engine, so
-/// a check file that exists only at `--rev` still loads (CR-004).
-fn relative_to_repo(repo: &RepoRoot, path: &Path) -> Result<String, JevError> {
-    let relative = if path.is_absolute() {
-        strip_repo_prefix(repo, path)?
-    } else {
-        path.to_path_buf()
-    };
-    let text = relative.to_string_lossy().replace('\\', "/");
-    let mut parts = Vec::new();
-    for part in text.split('/') {
-        match part {
-            "" | "." => {}
-            ".." => {
-                return Err(JevError::input_invalid(format!(
-                    "--check {} must not contain '..'. Pass a path inside --repo-root.",
-                    path.display()
-                )));
-            }
-            other => parts.push(other),
-        }
-    }
-    if parts.is_empty() {
-        return Err(JevError::input_invalid(
-            "check path must be a file inside the repo, not the repo root itself",
-        ));
-    }
-    Ok(parts.join("/"))
-}
-
-fn strip_repo_prefix(repo: &RepoRoot, path: &Path) -> Result<PathBuf, JevError> {
-    if let Ok(rest) = path.strip_prefix(repo.as_path()) {
-        return Ok(rest.to_path_buf());
-    }
-    if let Ok(root) = std::fs::canonicalize(repo.as_path())
-        && let Ok(rest) = path.strip_prefix(&root)
-    {
-        return Ok(rest.to_path_buf());
-    }
-    Err(JevError::input_invalid(format!(
-        "{} is outside the repo root {}. Pass a path inside --repo-root.",
-        path.display(),
-        repo.as_path().display()
-    )))
-}
-
 fn absolute_text(repo: &RepoRoot, path: &Path) -> String {
     path_text(&joined_path(repo.as_path().to_path_buf(), path))
 }
@@ -695,38 +645,6 @@ fn path_text(path: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn check_path_is_normalised_lexically() {
-        let root = std::env::temp_dir().join("sc-ai-normalise-root");
-        let repo = RepoRoot::new(&root);
-        let inside = root.join("sub").join("check.toml");
-        let outside = std::env::temp_dir().join("elsewhere").join("check.toml");
-        let cases = [
-            (PathBuf::from("check.toml"), "check.toml"),
-            (PathBuf::from("./sub/check.toml"), "sub/check.toml"),
-            (PathBuf::from("sub\\check.toml"), "sub/check.toml"),
-            (inside, "sub/check.toml"),
-        ];
-        for (input, expected) in cases {
-            assert_eq!(
-                relative_to_repo(&repo, &input).expect("normalised"),
-                expected,
-                "{}",
-                input.display()
-            );
-        }
-        let bad = [
-            PathBuf::from("../check.toml"),
-            PathBuf::from("sub/../../x"),
-            outside,
-            PathBuf::from("."),
-        ];
-        for path in bad {
-            let error = relative_to_repo(&repo, &path).expect_err("refused");
-            assert_eq!(error.code(), "INPUT_INVALID", "{}", path.display());
-        }
-    }
 
     #[test]
     fn flush_failure_is_a_warning_not_an_error() {

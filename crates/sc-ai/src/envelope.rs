@@ -6,9 +6,6 @@
 use sc_agent_types::JevError;
 use sc_jev_check::run::Envelope;
 
-#[doc(inline)]
-pub use sc_jev_check::run::{ENVELOPE_VERSION, OP_ASK, OP_DRY_RUN, OP_RUN};
-
 /// `envelope` as compact JSON plus a trailing newline.
 pub(crate) fn to_bytes(envelope: &Envelope) -> Result<Vec<u8>, JevError> {
     let mut bytes = serde_json::to_vec(envelope)

@@ -77,6 +77,7 @@ pub(crate) fn extract_command(
     command: &[String],
     timeout_seconds: u64,
     path: Option<&RepoRelativePath>,
+    producer: Option<&str>,
 ) -> Result<Extracted, JevError> {
     if timeout_seconds == 0 {
         return Err(JevError::config_invalid(
@@ -87,7 +88,10 @@ pub(crate) fn extract_command(
     if let Some(path) = path {
         validate_input_path(repo, rev, path)?;
     }
-    let stdout = run_argv(repo, &argv, Duration::from_secs(timeout_seconds))?;
+    let producer = producer
+        .filter(|name| !name.trim().is_empty())
+        .map_or_else(|| producer_name(&argv[0]), str::to_owned);
+    let stdout = run_argv(repo, &argv, Duration::from_secs(timeout_seconds), &producer)?;
     parse_subjects_bytes(&stdout)
 }
 
@@ -125,7 +129,9 @@ pub(crate) fn substitute_placeholders(
     Ok(out)
 }
 
-/// Producer name for an error response: the file stem of `argv[0]`.
+/// Producer name for an error response when the input sets no `producer`:
+/// the file stem of `argv[0]`. For an interpreter-run producer
+/// (`python3 script.py`) this is the interpreter; set `producer` then.
 fn producer_name(program: &str) -> String {
     Path::new(program)
         .file_stem()
@@ -137,7 +143,7 @@ fn producer_name(program: &str) -> String {
 
 /// Error for a non-zero exit: the producer's own error response when its
 /// last non-empty stderr line is one, else `EXTRACTION_FAILED` with the tail.
-fn exit_error(program: &str, code: i32, stderr: &[u8]) -> JevError {
+fn exit_error(producer: &str, code: i32, stderr: &[u8]) -> JevError {
     let last_line = String::from_utf8_lossy(stderr)
         .lines()
         .rev()
@@ -147,10 +153,7 @@ fn exit_error(program: &str, code: i32, stderr: &[u8]) -> JevError {
     if let Some(line) = last_line
         && let Ok(response) = serde_json::from_str::<ScAgentErrorResponse>(&line)
     {
-        return redact_error(JevError::from_error_response(
-            &producer_name(program),
-            &response,
-        ));
+        return redact_error(JevError::from_error_response(producer, &response));
     }
     let tail = stderr_tail(stderr);
     let detail = if tail.is_empty() {
@@ -161,7 +164,12 @@ fn exit_error(program: &str, code: i32, stderr: &[u8]) -> JevError {
     redact_error(JevError::extraction_failed(detail))
 }
 
-fn run_argv(repo: &RepoRoot, argv: &[String], timeout: Duration) -> Result<Vec<u8>, JevError> {
+fn run_argv(
+    repo: &RepoRoot,
+    argv: &[String],
+    timeout: Duration,
+    producer: &str,
+) -> Result<Vec<u8>, JevError> {
     let mut command = Command::new(&argv[0]);
     apply_env_allowlist(&mut command);
     command
@@ -177,14 +185,15 @@ fn run_argv(repo: &RepoRoot, argv: &[String], timeout: Duration) -> Result<Vec<u
             error.kind()
         ))
     })?;
-    let stdout = child
-        .stdout
-        .take()
-        .expect("stdout is piped, so the child has a stdout handle");
-    let stderr = child
-        .stderr
-        .take()
-        .expect("stderr is piped, so the child has a stderr handle");
+    // Both pipes were requested above, so both handles exist; a missing one
+    // is reported rather than unwrapped.
+    let (Some(stdout), Some(stderr)) = (child.stdout.take(), child.stderr.take()) else {
+        kill_and_reap(child, Instant::now() + CLEANUP_BUDGET);
+        return Err(JevError::extraction_failed(format!(
+            "{} started without its stdout or stderr pipe",
+            argv[0]
+        )));
+    };
     let stdout_reader = PipeReader::spawn(move || read_capped(stdout, MAX_COMMAND_STDOUT_BYTES));
     let stderr_reader = PipeReader::spawn(move || read_tail(stderr, STDERR_TAIL_BYTES));
 
@@ -229,7 +238,7 @@ fn run_argv(repo: &RepoRoot, argv: &[String], timeout: Duration) -> Result<Vec<u
     };
     let stderr = stderr_reader.finish_by(deadline).unwrap_or_default();
     if !status.success() {
-        return Err(exit_error(&argv[0], status.code().unwrap_or(-1), &stderr));
+        return Err(exit_error(producer, status.code().unwrap_or(-1), &stderr));
     }
     match stdout {
         Ok(bytes) => Ok(bytes),
@@ -383,7 +392,7 @@ sys.stdout.write(json.dumps(doc))
 
     /// Runs `argv` at `WORKTREE` with no `path` field.
     fn run(repo: &RepoRoot, argv: &[String], timeout_seconds: u64) -> Result<Extracted, JevError> {
-        extract_command(repo, &Rev::worktree(), argv, timeout_seconds, None)
+        extract_command(repo, &Rev::worktree(), argv, timeout_seconds, None, None)
     }
 
     #[test]
@@ -407,6 +416,7 @@ sys.stdout.write(json.dumps(doc))
             &argv,
             30,
             Some(&rel("src/hook.py")),
+            None,
         )
         .expect("command");
         let document = extracted.document.expect("document");

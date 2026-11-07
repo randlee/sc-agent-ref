@@ -45,3 +45,14 @@ tempfile.workspace = true
 [[test]]
 name = "run_response"
 required-features = ["test-util"]
+
+# `session` and `sessions_exact` write and read session documents directly
+# (`FileSessionStore::{save, load}`, `StoredSession`), public only under
+# `test-util`.
+[[test]]
+name = "session"
+required-features = ["test-util"]
+
+[[test]]
+name = "sessions_exact"
+required-features = ["test-util"]

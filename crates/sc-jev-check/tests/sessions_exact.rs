@@ -18,12 +18,19 @@ use sc_agent_types::observability::v2::{
 use sc_agent_types::test_util::MockJudgeBackend;
 use sc_agent_types::{
     Attestation, BackendId, BackendSet, CanonicalJudgePayload, JudgeBackend, JudgeOutcome,
-    JudgeRequest, MultiBackendMode, PayloadBundle, RepoRoot, Rev, SessionId,
+    JudgeRequest, MultiBackendMode, PayloadBundle, RepoRelativePath, RepoRoot, Rev, SessionId,
 };
 use sc_jev_check::config::{PACKAGED_SYSTEM_PROMPT, load_check_at};
 use sc_jev_check::registry::BackendRegistry;
-use sc_jev_check::run::{CheckSource, PreparedRun, RunConfig, RunResponse, prepare, run};
-use sc_jev_check::session::{FileSessionStore, SESSION_CONTEXT_HEADER, StoredSession};
+use sc_jev_check::run::{CheckSource, PreparedRun, RunConfig, RunResponse, ask, prepare, run};
+use sc_jev_check::session::{FileSessionStore, StoredSession};
+
+/// Header the engine puts before prior answers in an LLM system prompt.
+const SESSION_CONTEXT_HEADER: &str = "Session context:";
+
+fn check_toml() -> RepoRelativePath {
+    RepoRelativePath::try_from("check.toml").expect("path")
+}
 use tempfile::TempDir;
 
 const QUESTIONS: &str = r#"{
@@ -153,9 +160,11 @@ fn test_session_round_trip() {
 
     let reopened = FileSessionStore::new(store.dir()).expect("reopen");
     let log: SharedSessionLog = Arc::new(NoopSessionLog);
-    let outcome = reopened
-        .ask(&id, "why?", &registry(&[&haiku]), &log)
-        .expect("ask");
+    let config =
+        RunConfig::new(RepoRoot::new(dir.path()), log).registry(Arc::new(registry(&[&haiku])));
+    let asked = ask(&reopened, id, "why?", config).expect("ask");
+    assert_eq!(asked.prompt_sha256(), payload.sha256());
+    let outcome = asked.outcome();
     assert_eq!(outcome.backend(), BackendId::AnthropicHaiku);
     assert_eq!(outcome.answers()["relevant"].choice(), "yes");
     let requests = haiku.requests();
@@ -264,7 +273,7 @@ fn test_equal_input_record() {
     )
     .expect("check");
     let root = RepoRoot::new(repo.path());
-    let spec = load_check_at(&root, &Rev::worktree(), "check.toml").expect("spec");
+    let spec = load_check_at(&root, &Rev::worktree(), &check_toml()).expect("spec");
     let sessions = temp_dir();
     let jev = judge(BackendId::Jev, "yes");
     let haiku = judge(BackendId::AnthropicHaiku, "no");
@@ -306,7 +315,7 @@ fn test_equal_input_record() {
 fn test_multi_backend_one_payload() {
     let repo = bare_repo();
     let root = RepoRoot::new(repo.path());
-    let spec = load_check_at(&root, &Rev::worktree(), "check.toml").expect("spec");
+    let spec = load_check_at(&root, &Rev::worktree(), &check_toml()).expect("spec");
     let sessions = temp_dir();
     let jev = judge(BackendId::Jev, "yes");
     let haiku = judge(BackendId::AnthropicHaiku, "no");
@@ -346,15 +355,10 @@ fn test_multi_backend_one_payload() {
     let store = FileSessionStore::new(sessions.path()).expect("store");
     assert_eq!(store.load(&session_id).expect("stored").outcomes.len(), 2);
     let log: SharedSessionLog = Arc::new(NoopSessionLog);
-    let asked = store
-        .ask(
-            &session_id,
-            "why the first answer?",
-            &registry(&[&haiku]),
-            &log,
-        )
-        .expect("ask");
-    assert_eq!(asked.backend(), BackendId::AnthropicHaiku);
+    let config =
+        RunConfig::new(RepoRoot::new(repo.path()), log).registry(Arc::new(registry(&[&haiku])));
+    let asked = ask(&store, session_id, "why the first answer?", config).expect("ask");
+    assert_eq!(asked.outcome().backend(), BackendId::AnthropicHaiku);
 }
 
 #[test]
@@ -366,7 +370,7 @@ fn test_log_event_has_no_secrets() {
     )
     .expect("override");
     let root = RepoRoot::new(repo.path());
-    let spec = load_check_at(&root, &Rev::worktree(), "check.toml").expect("spec");
+    let spec = load_check_at(&root, &Rev::worktree(), &check_toml()).expect("spec");
     let log_dir = temp_dir();
     let log_path = log_dir.path().join("session.jsonl");
     let log = Arc::new(JsonlSink {
@@ -406,7 +410,7 @@ fn test_packaged_default_prompt_available() {
     assert!(PACKAGED_SYSTEM_PROMPT.contains("canonical judge payload"));
     let repo = bare_repo();
     let root = RepoRoot::new(repo.path());
-    let spec = load_check_at(&root, &Rev::worktree(), "check.toml").expect("spec");
+    let spec = load_check_at(&root, &Rev::worktree(), &check_toml()).expect("spec");
     let sessions = temp_dir();
     let haiku = judge(BackendId::AnthropicHaiku, "yes");
     let config = live(root, sessions.path(), Arc::new(NoopSessionLog))

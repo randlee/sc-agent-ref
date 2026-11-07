@@ -22,7 +22,8 @@ use serde::{Deserialize, Serialize};
 /// `<name>` is the table key, not a field. Keys match
 /// `docs/sc-jev-check/extraction.md`: `kind`, `path`, `column`, and for
 /// `command` the argv array `command`, an optional `path` substituted for
-/// `{path}`, and optional `timeout_seconds` (default 30). Only these four
+/// `{path}`, an optional `producer` name, and optional `timeout_seconds`
+/// (default 30). Only these four
 /// kinds exist; a new kind is a new variant plus an ADR.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
@@ -57,6 +58,11 @@ pub enum InputSpec {
         /// `{path}` in `command` without this field is `CONFIG_INVALID`.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         path: Option<RepoRelativePath>,
+        /// Producer name used when the command exits with an error response
+        /// on stderr (REQ-SAG-0313). Defaults to the file stem of
+        /// `command[0]`; set it when `command[0]` is an interpreter.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        producer: Option<String>,
     },
 }
 
@@ -68,11 +74,11 @@ fn default_command_timeout_seconds() -> u64 {
 pub const PACKAGED_SYSTEM_PROMPT: &str = include_str!("../../assets/llm-evaluator-system.md");
 
 /// Display name of the packaged system prompt in [`ResolvedPromptPath::path`].
-pub const PACKAGED_SYSTEM_PROMPT_NAME: &str = "llm-evaluator-system.md";
+pub(crate) const PACKAGED_SYSTEM_PROMPT_NAME: &str = "llm-evaluator-system.md";
 
 /// Where a system-prompt path was selected.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PromptOrigin {
+pub(crate) enum PromptOrigin {
     /// `[llm_judge] system_prompt_file` in `check.toml`.
     CheckToml,
     /// The packaged asset compiled into this crate.
@@ -81,11 +87,11 @@ pub enum PromptOrigin {
 
 /// Prompt path chosen for a check. The file is not read here.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ResolvedPromptPath {
+pub(crate) struct ResolvedPromptPath {
     /// Repo-relative path, or the packaged asset file name.
-    pub path: String,
+    pub(crate) path: String,
     /// Which config supplied `path`.
-    pub origin: PromptOrigin,
+    pub(crate) origin: PromptOrigin,
 }
 
 /// A parsed `check.toml`.
@@ -126,7 +132,7 @@ impl CheckSpec {
     /// `check.toml` wins when `system_prompt_file` is set. Otherwise the
     /// packaged asset ([`PACKAGED_SYSTEM_PROMPT_NAME`]) is used.
     #[must_use]
-    pub fn resolve_prompt_path(&self) -> ResolvedPromptPath {
+    pub(crate) fn resolve_prompt_path(&self) -> ResolvedPromptPath {
         match &self.system_prompt_file {
             Some(path) => ResolvedPromptPath {
                 path: path.as_str().to_owned(),
@@ -147,7 +153,7 @@ impl CheckSpec {
 /// Returns [`JevError::ConfigInvalid`] when the document does not match the
 /// check shape: unknown keys, a path that is not repo-relative, an unknown
 /// backend id, or an empty or repeated `backends` list.
-pub fn load_check_str(text: &str) -> Result<CheckSpec, JevError> {
+pub(crate) fn load_check_str(text: &str) -> Result<CheckSpec, JevError> {
     let raw: RawCheck = toml::from_str(text)
         .map_err(|error| JevError::config_invalid(format!("check.toml: {error}")))?;
     for name in raw.inputs.keys() {
@@ -178,9 +184,9 @@ pub fn load_check_str(text: &str) -> Result<CheckSpec, JevError> {
 pub fn load_check_at(
     repo: &sc_agent_types::RepoRoot,
     rev: &sc_agent_types::Rev,
-    relative: &str,
+    relative: &RepoRelativePath,
 ) -> Result<CheckSpec, JevError> {
-    let bytes = crate::extract::read_repo_bytes(repo, rev, &crate::extract::repo_path(relative)?)?;
+    let bytes = crate::extract::read_repo_bytes(repo, rev, relative)?;
     let text = std::str::from_utf8(&bytes)
         .map_err(|_| JevError::config_invalid(format!("{relative} is not UTF-8")))?;
     load_check_str(text)
@@ -396,6 +402,7 @@ mod tests {
                 ],
                 timeout_seconds: 30,
                 path: None,
+                producer: None,
             }
         );
 

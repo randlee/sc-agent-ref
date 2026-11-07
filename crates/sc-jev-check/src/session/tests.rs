@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use super::*;
-use sc_agent_types::observability::v2::NoopSessionLog;
+use sc_agent_types::JudgeRequest;
 
 fn bundle() -> PayloadBundle {
     PayloadBundle::encode(&sc_agent_types::CanonicalJudgePayload::new(
@@ -36,24 +36,17 @@ fn session(backend: BackendId, payload: PayloadBundle, store: &FileSessionStore)
 }
 
 #[test]
-fn ask_refuses_empty_follow_up_and_jev_sessions_with_explicit_hints() {
+fn check_follow_up_refuses_empty_text_and_jev_sessions_with_explicit_hints() {
     let (store, _dir) = store(Duration::from_secs(60));
     let saved = session(BackendId::Jev, bundle(), &store);
-    store.save(&saved).expect("save");
-    let registry = BackendRegistry::new();
-    let log: SharedSessionLog = Arc::new(NoopSessionLog);
-    let empty = store
-        .ask(&saved.session_id, "  ", &registry, &log)
-        .expect_err("empty");
+    let empty = check_follow_up(&saved, "  ").expect_err("empty");
     assert_eq!(empty.code(), "INPUT_INVALID");
     assert!(
         empty.fix_hint().contains("non-empty"),
         "{}",
         empty.fix_hint()
     );
-    let jev = store
-        .ask(&saved.session_id, "why?", &registry, &log)
-        .expect_err("jev");
+    let jev = check_follow_up(&saved, "why?").expect_err("jev");
     assert_eq!(jev.code(), "INPUT_INVALID");
     assert!(
         jev.fix_hint().contains("Haiku or Luna"),
@@ -61,6 +54,16 @@ fn ask_refuses_empty_follow_up_and_jev_sessions_with_explicit_hints() {
         jev.fix_hint()
     );
     assert!(!jev.fix_hint().contains("schema"), "{}", jev.fix_hint());
+}
+
+#[test]
+fn contextual_prompt_appends_context_then_follow_ups() {
+    assert_eq!(
+        contextual_prompt(Some("base"), &[], &[]).expect("prompt"),
+        "base"
+    );
+    let prompt = contextual_prompt(None, &[], &["one", "two"]).expect("prompt");
+    assert_eq!(prompt, "\n\nFollow-up:\none\n\nFollow-up:\ntwo");
 }
 
 #[test]

@@ -17,8 +17,8 @@ use sc_agent_types::{
     JudgeRequest, PayloadBundle, RepoRoot, SessionId,
 };
 use sc_jev_check::registry::BackendRegistry;
-use sc_jev_check::run::{CheckSource, RunConfig, prepare, run};
-use sc_jev_check::session::{FileSessionStore, STALE_TMP_AGE, StoredSession};
+use sc_jev_check::run::{CheckSource, RunConfig, ask, prepare, run};
+use sc_jev_check::session::{FileSessionStore, StoredSession};
 use tempfile::TempDir;
 
 const V1_SESSION_ID: &str = "0b7c9d1e-2f3a-4b5c-8d6e-7f8091a2b3c4";
@@ -169,8 +169,9 @@ fn live_run(
         .backends(BackendSet::try_from(backends.to_vec()).expect("set"))
         .sessions_dir(sessions)
         .registry(Arc::new(registry(judges)));
-    run(prepare(CheckSource::CheckFile("check.toml".into()), config).expect("prepare"))
-        .expect("run")
+    let source =
+        CheckSource::check_file(&RepoRoot::new(repo), Path::new("check.toml")).expect("check path");
+    run(prepare(source, config).expect("prepare")).expect("run")
 }
 
 fn payload() -> PayloadBundle {
@@ -275,10 +276,18 @@ fn test_ask_takes_registry() {
 
     let ask_judge = judge(BackendId::AnthropicHaiku, "no");
     let log: SharedSessionLog = Arc::new(NoopSessionLog);
-    let outcome = store
-        .ask(&id, "why the choice?", &registry(&[&ask_judge]), &log)
-        .expect("ask");
-    assert_eq!(outcome.answers()["relevant"].choice(), "no");
+    let ask_config = |registry: BackendRegistry| {
+        RunConfig::new(RepoRoot::new(repo.path()), Arc::clone(&log)).registry(Arc::new(registry))
+    };
+    let asked = ask(
+        &store,
+        id,
+        "why the choice?",
+        ask_config(registry(&[&ask_judge])),
+    )
+    .expect("ask");
+    assert_eq!(asked.outcome().answers()["relevant"].choice(), "no");
+    assert_eq!(asked.prompt_sha256(), response.prompt_sha256());
     assert_eq!(
         run_judge.requests().len(),
         1,
@@ -295,8 +304,7 @@ fn test_ask_takes_registry() {
         "ask does not rewrite the file"
     );
 
-    let missing = store
-        .ask(&id, "again?", &BackendRegistry::new(), &log)
+    let missing = ask(&store, id, "again?", ask_config(BackendRegistry::new()))
         .expect_err("backend not in the registry");
     assert_eq!(missing.code(), "CONFIG_INVALID");
 }
@@ -394,7 +402,8 @@ fn test_stale_tmp_swept() {
     for path in [&stale, &fresh, &session] {
         fs::write(path, b"{}").expect("write");
     }
-    let old = SystemTime::now() - STALE_TMP_AGE - Duration::from_secs(60);
+    // Older than the store's one-hour stale-tmp age.
+    let old = SystemTime::now() - Duration::from_secs(60 * 60 + 60);
     for path in [&stale, &session] {
         fs::File::options()
             .write(true)

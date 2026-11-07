@@ -6,6 +6,8 @@
 
 #[path = "../../../tests/support/deadline.rs"]
 mod deadline;
+#[path = "../../../tests/support/git_env.rs"]
+mod git_env;
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
@@ -19,11 +21,10 @@ use sc_agent_types::JevError;
 use sc_agent_types::observability::v2::NoopSessionLog;
 use sc_agent_types::test_util::MockJudgeBackend;
 use sc_agent_types::{JudgeBackend, JudgeRequest};
-use sc_ai::{
-    ExecuteOverrides, OP_ASK, OP_DRY_RUN, OP_RUN, ObservabilitySessionLog, session_log_file,
-};
+use sc_ai::{ExecuteOverrides, ObservabilitySessionLog, session_log_file};
 use sc_jev_check::config::PACKAGED_SYSTEM_PROMPT;
 use sc_jev_check::registry::BackendRegistry;
+use sc_jev_check::run::{OP_ASK, OP_DRY_RUN, OP_RUN};
 use serde_json::Value;
 use tempfile::TempDir;
 
@@ -465,6 +466,8 @@ fn cli_dry_run_readback_and_ask_session_ttl() {
         asked["data"].get("results").is_none(),
         "ask data is the outcome"
     );
+    assert_eq!(asked["data"]["prompt_sha256"], ran["data"]["prompt_sha256"]);
+    assert!(asked["data"].get("warnings").is_none(), "no flush failure");
     let follow = seen.snapshot()[1]
         .llm()
         .as_ref()
@@ -670,7 +673,7 @@ fn cli_log_and_git_errors_do_not_blame_check_toml() {
         .args(["jev", "dry-run"])
         .current_dir(outside.path())
         .env("GIT_DIR", outside.path().join("missing-git"))
-        .env("GIT_CONFIG_GLOBAL", null_device())
+        .env("GIT_CONFIG_GLOBAL", git_env::null_device())
         .env("GIT_TERMINAL_PROMPT", "0")
         .run_with_deadline();
     // Outside git the repo root is the current directory (ADR-SAG-0003 r-2
@@ -867,27 +870,9 @@ fn cli_dry_run_writes_nothing_and_ask_uses_default_log_root() {
     assert!(env_root.is_dir());
 }
 
-fn null_device() -> &'static str {
-    if cfg!(windows) { "NUL" } else { "/dev/null" }
-}
-
-/// Git for test fixtures: no global config, no prompt, fixed identity.
+/// Fixture git through the shared isolation helper and deadline (FTQ-002).
 fn git(cwd: &Path, args: &[&str]) {
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(cwd)
-        .env("GIT_CONFIG_GLOBAL", null_device())
-        .env("GIT_TERMINAL_PROMPT", "0")
-        .args([
-            "-c",
-            "commit.gpgsign=false",
-            "-c",
-            "user.email=sc-ai@example.com",
-            "-c",
-            "user.name=sc-ai",
-        ])
-        .args(args)
-        .run_with_deadline();
+    let output = git_env::git_command(cwd).args(args).run_with_deadline();
     assert!(
         output.status.success(),
         "git {args:?}: {}",
@@ -899,7 +884,7 @@ fn git(cwd: &Path, args: &[&str]) {
 fn cli_check_that_exists_only_at_rev_loads_with_rev() {
     let repo = temp_dir("rev-only");
     write_repo(repo.path());
-    git(repo.path(), &["init", "-q"]);
+    git(repo.path(), git_env::SHA1_INIT);
     git(repo.path(), &["add", "-A"]);
     git(repo.path(), &["commit", "-q", "-m", "init"]);
     std::fs::remove_file(repo.path().join("check.toml")).expect("remove worktree copy");

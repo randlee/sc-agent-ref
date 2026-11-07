@@ -81,7 +81,7 @@ fn config(repo: &Path, sessions: &Path) -> RunConfig {
 }
 
 fn check_file() -> CheckSource {
-    CheckSource::CheckFile("check.toml".into())
+    CheckSource::CheckFile(test_support::rel("check.toml"))
 }
 
 fn system_prompt(request: &JudgeRequest) -> &str {
@@ -439,5 +439,192 @@ fn discover_repo_root_uses_the_git_toplevel() {
     assert_eq!(
         std::fs::canonicalize(root.as_path()).expect("canonical root"),
         std::fs::canonicalize(dir.path()).expect("canonical dir")
+    );
+}
+
+#[test]
+fn check_file_is_normalised_lexically_once() {
+    let root = std::env::temp_dir().join("sc-jev-check-normalise-root");
+    let repo = RepoRoot::new(&root);
+    let inside = root.join("sub").join("check.toml");
+    let outside = std::env::temp_dir().join("elsewhere").join("check.toml");
+    let cases = [
+        (PathBuf::from("check.toml"), "check.toml"),
+        (PathBuf::from("./sub/check.toml"), "sub/check.toml"),
+        (PathBuf::from("sub\\check.toml"), "sub/check.toml"),
+        (inside, "sub/check.toml"),
+    ];
+    for (input, expected) in cases {
+        match CheckSource::check_file(&repo, &input).expect("normalised") {
+            CheckSource::CheckFile(path) => {
+                assert_eq!(path.as_str(), expected, "{}", input.display())
+            }
+            other => panic!("expected a check file, got {other:?}"),
+        }
+    }
+    for path in [
+        PathBuf::from("../check.toml"),
+        PathBuf::from("sub/../../x"),
+        outside,
+        PathBuf::from("."),
+    ] {
+        let error = CheckSource::check_file(&repo, &path).expect_err("refused");
+        assert_eq!(error.code(), "INPUT_INVALID", "{}", path.display());
+    }
+}
+
+#[test]
+fn discovery_falls_back_only_outside_git_or_without_git() {
+    let start = PathBuf::from("/work/repo/sub");
+    let toplevel = RepoRoot::new("/work/repo");
+    assert_eq!(
+        classify_discovery(start.clone(), Ok(Some(toplevel.clone())), None).expect("toplevel"),
+        toplevel
+    );
+    assert_eq!(
+        classify_discovery(start.clone(), Ok(None), None).expect("outside git"),
+        RepoRoot::new(&start)
+    );
+    let not_installed = std::io::Error::from(std::io::ErrorKind::NotFound);
+    assert_eq!(
+        classify_discovery(
+            start.clone(),
+            Err(JevError::io_failed("git", &not_installed)),
+            None
+        )
+        .expect("git absent"),
+        RepoRoot::new(&start)
+    );
+    let denied = std::io::Error::from(std::io::ErrorKind::PermissionDenied);
+    let error = classify_discovery(
+        start.clone(),
+        Err(JevError::io_failed("git", &denied)),
+        None,
+    )
+    .expect_err("git failed to run");
+    assert_eq!(error.code(), "INPUT_INVALID");
+    let error = classify_discovery(start, Ok(None), Some(PathBuf::from("/work/repo/.git")))
+        .expect_err("a .git above start but no work tree");
+    assert_eq!(error.code(), "INPUT_INVALID");
+    assert!(
+        error.fix_hint().contains("/work/repo/.git"),
+        "{}",
+        error.fix_hint()
+    );
+}
+
+#[test]
+fn enclosing_git_entry_finds_the_nearest_dot_git() {
+    let dir = test_support::temp_dir("enclosing");
+    let sub = dir.path().join("a").join("b");
+    std::fs::create_dir_all(&sub).expect("sub");
+    std::fs::create_dir(dir.path().join(".git")).expect("dot git");
+    assert_eq!(enclosing_git_entry(&sub), Some(dir.path().join(".git")));
+}
+
+#[test]
+fn ask_sends_through_the_engine_and_refuses_unaskable_sessions() {
+    let repo = bare_repo();
+    let sessions = test_support::temp_dir("ask-sessions");
+    let haiku = judge(BackendId::AnthropicHaiku, "yes");
+    let response = run(prepare(
+        check_file(),
+        config(repo.path(), sessions.path())
+            .backends(set(&[BackendId::AnthropicHaiku]))
+            .registry(registry_of(&[&haiku])),
+    )
+    .expect("prepare"))
+    .expect("run");
+    let id = response.session_id().expect("saved");
+    let store = FileSessionStore::new(sessions.path()).expect("store");
+    let log_dir = test_support::temp_dir("ask-log");
+    let log_path = log_dir.path().join("session.jsonl");
+    let log = Arc::new(JsonlSink {
+        path: log_path.clone(),
+    });
+    let follow = judge(BackendId::AnthropicHaiku, "no");
+    let asked = ask(
+        &store,
+        id,
+        "why?",
+        RunConfig::new(RepoRoot::new(repo.path()), log).registry(registry_of(&[&follow])),
+    )
+    .expect("ask");
+    assert_eq!(asked.session_id(), id);
+    assert_eq!(asked.prompt_sha256(), response.prompt_sha256());
+    assert_eq!(asked.outcome().answers()["relevant"].choice(), "no");
+    assert_eq!(follow.validations(), 1, "ask validates before its send");
+    let requests = follow.requests();
+    let prompt = &requests[0].llm().expect("llm").system_prompt;
+    assert!(prompt.starts_with(PACKAGED_SYSTEM_PROMPT));
+    assert!(prompt.ends_with("Follow-up:\nwhy?"), "{prompt}");
+    let line: serde_json::Value =
+        serde_json::from_str(std::fs::read_to_string(&log_path).expect("log").trim())
+            .expect("line");
+    assert_eq!(line["operation"], "ask");
+    assert_eq!(line["session_id"], id.to_string());
+
+    let empty = ask(&store, id, "  ", config(repo.path(), sessions.path())).expect_err("empty");
+    assert_eq!(empty.code(), "INPUT_INVALID");
+    let missing = ask(
+        &store,
+        SessionId::new(),
+        "why?",
+        config(repo.path(), sessions.path()),
+    )
+    .expect_err("missing");
+    assert_eq!(missing.code(), "SESSION_NOT_FOUND");
+}
+
+#[test]
+fn ask_envelope_carries_digest_warnings_and_readback_in_order() {
+    let payload = PayloadBundle::encode(&sc_agent_types::CanonicalJudgePayload::new(
+        Vec::new(),
+        Vec::new(),
+    ))
+    .expect("bundle");
+    let request = JudgeRequest::new(Arc::new(payload.clone()), None);
+    let outcome = JudgeOutcome::new(
+        BackendId::AnthropicHaiku,
+        &request,
+        std::collections::BTreeMap::new(),
+    )
+    .expect("outcome")
+    .with_provider_meta(serde_json::json!({"model": "m", "stop_reason": "end_turn"}));
+    let id = SessionId::new();
+    let response = AskResponse::new(outcome, id, payload.sha256().clone())
+        .with_warning("session log was not flushed: disk full");
+    let envelope = Envelope::ask(&response)
+        .with_readback(serde_json::json!({"session_id": id.to_string()}))
+        .expect("readback");
+    let text = serde_json::to_string(&envelope).expect("json");
+    let data_at = text.find("\"data\":").expect("data");
+    let order = [
+        "\"version\"",
+        "\"operation\"",
+        "\"answers\"",
+        "\"model\"",
+        "\"session_id\"",
+        "\"prompt_sha256\"",
+        "\"warnings\"",
+        "\"readback\"",
+    ];
+    let positions: Vec<usize> = order
+        .iter()
+        .map(|key| {
+            if key.contains("version") || key.contains("operation") {
+                text.find(key).expect(key)
+            } else {
+                data_at + text[data_at..].find(key).expect(key)
+            }
+        })
+        .collect();
+    assert!(positions.windows(2).all(|pair| pair[0] < pair[1]), "{text}");
+    let value: serde_json::Value = serde_json::from_str(&text).expect("value");
+    assert_eq!(value["operation"], "jev.ask");
+    assert_eq!(value["data"]["prompt_sha256"], payload.sha256().as_str());
+    assert_eq!(
+        value["data"]["warnings"],
+        serde_json::json!(["session log was not flushed: disk full"])
     );
 }

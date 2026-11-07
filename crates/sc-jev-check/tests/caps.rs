@@ -7,6 +7,7 @@
 //! send. Real backends are built with `BackendRegistry::from_resolver` and a
 //! placeholder key: a refused request never reaches the transport.
 
+use std::path::Path;
 use std::sync::Arc;
 
 use sc_agent_types::observability::v2::NoopSessionLog;
@@ -61,8 +62,10 @@ fn test_payload_between_old_caps_refused_by_backend_before_send() {
             .backends(backends)
             .sessions_dir(sessions.path())
             .registry(Arc::new(registry));
-        let prepared = prepare(CheckSource::CheckFile("check.toml".into()), config)
-            .expect("the engine builds the payload without a cap");
+        let source = CheckSource::check_file(&RepoRoot::new(dir.path()), Path::new("check.toml"))
+            .expect("check path");
+        let prepared =
+            prepare(source, config).expect("the engine builds the payload without a cap");
         let payload_bytes = prepared.payload_bytes();
         assert!(
             payload_bytes > limit && payload_bytes < OLD_ENGINE_CAP,

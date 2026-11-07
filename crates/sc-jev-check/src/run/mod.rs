@@ -10,7 +10,9 @@
 //! always sees the config it was prepared with, and returns one
 //! [`RunResponse`] whose serialization every consumer prints unchanged.
 //! [`discover_repo_root`] is the one repo-root rule for every consumer
-//! (ADR-SAG-0003 r-2 amendment).
+//! (ADR-SAG-0003 r-2 amendment). [`ask`] sends a follow-up to a saved
+//! session; it and `run` share the engine's one send step (validate, judge,
+//! log), so `FileSessionStore` never sends.
 //!
 //! # Backend selection
 //!
@@ -34,7 +36,11 @@
 //!
 //! The session is written once, at the end, only when a backend whose
 //! descriptor has `supports_session_ask` returned `Ok`; that needs
-//! [`RunConfig::sessions_dir`], checked before any send.
+//! [`RunConfig::sessions_dir`], checked before any send. In r-2 a failed
+//! session write is fail-fast (`run` returns the error). The
+//! "answers kept, `session_saved = false`, one warning" shape pinned by
+//! `session_save_failed.json` is produced only by `RunResponse::test_builder`
+//! until ADR-SAG-0025 (r-2b) adds it to `run`.
 //!
 //! # Dry runs
 //!
@@ -52,10 +58,11 @@
 //! use sc_jev_check::run::{CheckSource, RunConfig, discover_repo_root, prepare, run};
 //!
 //! let repo = discover_repo_root(std::path::Path::new("."))?;
-//! let config = RunConfig::new(repo, Arc::new(NoopSessionLog))
+//! let config = RunConfig::new(repo.clone(), Arc::new(NoopSessionLog))
 //!     .backends("jev,anthropic_haiku".parse()?)
 //!     .sessions_dir(".sc-ai/sessions");
-//! let prepared = prepare(CheckSource::CheckFile("check.toml".into()), config)?;
+//! let source = CheckSource::check_file(&repo, std::path::Path::new("check.toml"))?;
+//! let prepared = prepare(source, config)?;
 //! println!("payload digest {}", prepared.prompt_sha256());
 //! let response = run(prepared)?;
 //! assert!(!response.is_partial());
@@ -69,7 +76,7 @@ mod builder;
 pub(crate) mod prompt;
 mod response;
 
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 
 use sc_agent_types::observability::v2::{LogEvent, SharedSessionLog};
@@ -77,7 +84,7 @@ use sc_agent_types::schema::subjects::SubjectsProducer;
 use sc_agent_types::{
     Attestation, BackendAttestation, BackendId, BackendSet, CancelToken, EqualInputRecord,
     JevError, JudgeBackend, JudgeOutcome, JudgeRequest, LlmWireContext, MultiBackendMode,
-    Operation, PayloadBundle, RepoRoot, Rev, SessionId, Sha256Digest,
+    Operation, PayloadBundle, RepoRelativePath, RepoRoot, Rev, SessionId, Sha256Digest,
 };
 
 use crate::config::{CheckSpec, load_check_at};
@@ -85,7 +92,9 @@ use crate::equal_input::{RunAttestation, producer_from_extractions, record};
 use crate::payload::build_payload;
 use crate::payload::caller::parse_caller_request;
 use crate::registry::BackendRegistry;
-use crate::session::{FileSessionStore, StoredSession, emit_log, render_session_context};
+use crate::session::{
+    FileSessionStore, StoredSession, check_follow_up, contextual_prompt, emit_log,
+};
 
 #[cfg(any(test, feature = "test-util"))]
 #[doc(inline)]
@@ -93,20 +102,85 @@ pub use builder::RunResponseBuilder;
 use response::ResponseParts;
 #[doc(inline)]
 pub use response::{
-    BackendFailure, BackendLimit, BackendResult, BackendStatus, ENVELOPE_VERSION, Envelope, OP_ASK,
-    OP_DRY_RUN, OP_RUN, RunResponse,
+    AskResponse, BackendFailure, BackendLimit, BackendResult, BackendStatus, ENVELOPE_VERSION,
+    Envelope, OP_ASK, OP_DRY_RUN, OP_RUN, RunResponse,
 };
 
 /// Where a run's check comes from.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum CheckSource {
-    /// A repo-relative `check.toml`, read at [`RunConfig::rev`].
-    CheckFile(PathBuf),
+    /// A repo-relative `check.toml`, read at [`RunConfig::rev`]. Build it
+    /// from a user path with [`CheckSource::check_file`].
+    CheckFile(RepoRelativePath),
     /// An already parsed check.
     Spec(CheckSpec),
     /// A caller-built questions document (`sc-ai jev --request-json`).
     CallerRequest(CallerRequest),
+}
+
+impl CheckSource {
+    /// A `check.toml` source from a user-supplied `path` (CLI `--check`,
+    /// Python `check_path`): the one normalisation of a check path.
+    ///
+    /// A relative `path` is taken as relative to `repo`. An absolute one must
+    /// sit under `repo` as given or canonicalized; that prefix is stripped.
+    /// `\` becomes `/` and `.` segments are dropped. The filesystem is not
+    /// read, so a check file that exists only at a revision still loads.
+    ///
+    /// # Errors
+    ///
+    /// `INPUT_INVALID` when `path` is outside `repo`, contains `..`, is not
+    /// UTF-8, or names the repo root itself.
+    pub fn check_file(repo: &RepoRoot, path: &Path) -> Result<Self, JevError> {
+        normalize_check_path(repo, path).map(Self::CheckFile)
+    }
+}
+
+fn normalize_check_path(repo: &RepoRoot, path: &Path) -> Result<RepoRelativePath, JevError> {
+    let relative = if path.is_absolute() {
+        strip_repo_prefix(repo, path)?
+    } else {
+        path.to_path_buf()
+    };
+    let text = relative.to_str().ok_or_else(|| {
+        JevError::input_invalid(format!("check path {} is not UTF-8", path.display()))
+    })?;
+    let mut parts = Vec::new();
+    for part in text.split(['/', '\\']) {
+        match part {
+            "" | "." => {}
+            ".." => {
+                return Err(JevError::input_invalid(format!(
+                    "check path {} must not contain '..'; pass a path inside the repo root",
+                    path.display()
+                )));
+            }
+            other => parts.push(other),
+        }
+    }
+    if parts.is_empty() {
+        return Err(JevError::input_invalid(
+            "check path must be a file inside the repo, not the repo root itself",
+        ));
+    }
+    RepoRelativePath::try_from(parts.join("/"))
+}
+
+fn strip_repo_prefix(repo: &RepoRoot, path: &Path) -> Result<PathBuf, JevError> {
+    if let Ok(rest) = path.strip_prefix(repo.as_path()) {
+        return Ok(rest.to_path_buf());
+    }
+    if let Ok(root) = std::fs::canonicalize(repo.as_path())
+        && let Ok(rest) = path.strip_prefix(&root)
+    {
+        return Ok(rest.to_path_buf());
+    }
+    Err(JevError::input_invalid(format!(
+        "check path {} is outside the repo root {}; pass a path inside it",
+        path.display(),
+        repo.as_path().display()
+    )))
 }
 
 /// A validated caller-built questions document.
@@ -323,7 +397,7 @@ impl std::fmt::Debug for PreparedRun {
 pub fn prepare(source: CheckSource, config: RunConfig) -> Result<PreparedRun, JevError> {
     let (spec, bundle, producer, source_backends) = match source {
         CheckSource::CheckFile(path) => {
-            let spec = load_check_at(&config.repo_root, &config.rev, &check_path_text(&path)?)?;
+            let spec = load_check_at(&config.repo_root, &config.rev, &path)?;
             assemble(spec, &config)?
         }
         CheckSource::Spec(spec) => assemble(spec, &config)?,
@@ -332,7 +406,7 @@ pub fn prepare(source: CheckSource, config: RunConfig) -> Result<PreparedRun, Je
     let backends = match (&config.backends, source_backends) {
         (Some(backends), _) => backends.clone(),
         (None, Some(backends)) => backends,
-        (None, None) => default_backends(),
+        (None, None) => default_backends()?,
     };
     let needs_llm = backends
         .iter()
@@ -372,14 +446,12 @@ fn assemble(spec: CheckSpec, config: &RunConfig) -> Result<Assembled, JevError> 
     Ok((Some(spec), built.bundle, producer, backends))
 }
 
-fn default_backends() -> BackendSet {
-    BackendSet::try_from(vec![BackendId::Jev]).expect("[jev] is a valid backend set")
-}
-
-fn check_path_text(path: &Path) -> Result<String, JevError> {
-    path.to_str().map(str::to_owned).ok_or_else(|| {
-        JevError::input_invalid(format!("check path {} is not UTF-8", path.display()))
-    })
+/// `[jev]`, the selection when neither the config nor the source names one.
+///
+/// `BackendSet` has no infallible constructor; a one-element list of a
+/// built-in id cannot fail, and the error is propagated rather than unwrapped.
+fn default_backends() -> Result<BackendSet, JevError> {
+    BackendSet::try_from(vec![BackendId::Jev])
 }
 
 fn payload_len(bundle: &PayloadBundle) -> u64 {
@@ -470,17 +542,13 @@ fn live_run(prepared: PreparedRun) -> Result<RunResponse, JevError> {
         if id.descriptor().requires_llm_context() && !outcomes.is_empty() {
             judge.validate_for_send(&judge_request)?;
         }
-        let judged = judge.judge(&judge_request);
-        emit_log(
+        outcomes.push(send(
+            judge.as_ref(),
+            &judge_request,
             &config.session_log,
-            LogEvent::new(
-                session_id,
-                *id,
-                request.payload().sha256().clone(),
-                Operation::Judge,
-            ),
-        );
-        outcomes.push(judged?);
+            session_id,
+            Operation::Judge,
+        )?);
     }
 
     let saved = match &store {
@@ -543,7 +611,7 @@ fn save_session(
     else {
         return Ok(false);
     };
-    store.save(&StoredSession {
+    store.write_session(&StoredSession {
         session_id,
         backend,
         created_at: store.now(),
@@ -570,37 +638,170 @@ fn request_for(
     if prior.is_empty() {
         return Ok(base.clone());
     }
-    let mut text = base
-        .llm()
-        .map(|llm| llm.system_prompt.clone())
-        .unwrap_or_default();
-    text.push_str(&render_session_context(prior)?);
+    let prompt = contextual_prompt(base.llm().map(|llm| llm.system_prompt.as_str()), prior, &[])?;
     Ok(JudgeRequest::new(
         Arc::clone(base.payload_arc()),
-        Some(LlmWireContext::new(text)),
+        Some(LlmWireContext::new(prompt)),
     )
     .with_cancel(base.cancel().clone()))
 }
 
+/// The engine's one send step: `judge`, then one log event (sent or not),
+/// then the judge's result. Callers validate first.
+fn send(
+    judge: &dyn JudgeBackend,
+    request: &JudgeRequest,
+    log: &SharedSessionLog,
+    session_id: SessionId,
+    operation: Operation,
+) -> Result<JudgeOutcome, JevError> {
+    let judged = judge.judge(request);
+    emit_log(
+        log,
+        LogEvent::new(
+            session_id,
+            judge.id(),
+            request.payload().sha256().clone(),
+            operation,
+        ),
+    );
+    judged
+}
+
+/// Sends `follow_up` to the saved session `session_id` in `store`.
+///
+/// The session's Haiku or Luna backend comes from [`RunConfig::registry`]
+/// when set, else [`BackendRegistry::from_env`] at [`RunConfig::repo_root`]
+/// for that one backend. The request is the stored payload with the stored
+/// system prompt, the prior answers as session context, the stored
+/// follow-ups and then `follow_up`; it is validated, then sent through the
+/// same send step as `run`, with one [`Operation::Ask`] log event on
+/// [`RunConfig`]'s session log. The session file is read and never
+/// rewritten. Only `repo_root`, `session_log`, `registry` and `cancel` of
+/// `config` are used.
+///
+/// # Errors
+///
+/// `SESSION_NOT_FOUND` / `SESSION_EXPIRED` / `INPUT_INVALID` from loading the
+/// session; `INPUT_INVALID` for an empty follow-up or a session with no
+/// `ask` (Jev); the registry errors; and the backend's `validate_for_send`
+/// or `judge` error.
+pub fn ask(
+    store: &FileSessionStore,
+    session_id: SessionId,
+    follow_up: &str,
+    config: RunConfig,
+) -> Result<AskResponse, JevError> {
+    let stored = store.read_session(&session_id)?;
+    check_follow_up(&stored, follow_up)?;
+    let registry = match &config.registry {
+        Some(registry) => Arc::clone(registry),
+        None => Arc::new(BackendRegistry::from_env(
+            &config.repo_root,
+            &BackendSet::try_from(vec![stored.backend])?,
+        )?),
+    };
+    let judge = registry.get(stored.backend)?;
+    let mut follow_ups: Vec<&str> = stored.follow_ups.iter().map(String::as_str).collect();
+    follow_ups.push(follow_up);
+    let prompt = contextual_prompt(
+        stored.system_prompt.as_deref(),
+        &stored.outcomes,
+        &follow_ups,
+    )?;
+    let request = JudgeRequest::new(
+        Arc::new(stored.payload.clone()),
+        Some(LlmWireContext::new(prompt)),
+    )
+    .with_cancel(config.cancel.clone());
+    judge.validate_for_send(&request)?;
+    let outcome = send(
+        judge.as_ref(),
+        &request,
+        &config.session_log,
+        session_id,
+        Operation::Ask,
+    )?;
+    Ok(AskResponse::new(
+        outcome,
+        session_id,
+        stored.payload.sha256().clone(),
+    ))
+}
+
 /// The repo root for `start`: its git toplevel, or `start` made absolute.
 ///
-/// Uses `sc_agent_types::git::discover_toplevel`. Outside a git work tree,
-/// or when git cannot be run, the result is `start` made absolute, so a
-/// check in a plain directory still runs. Both consumers call this; the
+/// Uses `sc_agent_types::git::discover_toplevel`. `start` itself (made
+/// absolute) is the root only when it is outside a git work tree (git ran
+/// and found no repository, and no ancestor of `start` holds a `.git`
+/// entry) or when git is not installed. Both consumers call this; the
 /// `.env` used for keys is the one at this root (ADR-SAG-0003 r-2
 /// amendment).
 ///
 /// # Errors
 ///
-/// `INPUT_INVALID` when `start` cannot be made absolute (the current
-/// directory is unavailable).
+/// `INPUT_INVALID` when `start` cannot be made absolute; when git is
+/// installed but cannot be run for another reason; and when git finds no
+/// work tree although an ancestor of `start` holds `.git` (for example a
+/// repository git refuses as unsafe), so a subdirectory is never silently
+/// taken for the root.
 pub fn discover_repo_root(start: &Path) -> Result<RepoRoot, JevError> {
     let absolute =
         std::path::absolute(start).map_err(|error| JevError::io_failed("repo root", &error))?;
-    match sc_agent_types::git::discover_toplevel(&absolute) {
+    let discovered = sc_agent_types::git::discover_toplevel(&absolute);
+    let enclosing = match &discovered {
+        Ok(None) => enclosing_git_entry(&absolute),
+        _ => None,
+    };
+    classify_discovery(absolute, discovered, enclosing)
+}
+
+/// The decision of [`discover_repo_root`], separated so every branch is
+/// tested without depending on the test machine's directories.
+fn classify_discovery(
+    absolute: PathBuf,
+    discovered: Result<Option<RepoRoot>, JevError>,
+    enclosing: Option<PathBuf>,
+) -> Result<RepoRoot, JevError> {
+    match discovered {
         Ok(Some(root)) => Ok(root),
-        Ok(None) | Err(_) => Ok(RepoRoot::new(absolute)),
+        Ok(None) => match enclosing {
+            None => Ok(RepoRoot::new(absolute)),
+            Some(git_entry) => Err(JevError::input_invalid(format!(
+                "git found no work tree at {}, but {} exists; fix the repository (for example git's safe.directory) or pass an explicit repo root",
+                absolute.display(),
+                git_entry.display()
+            ))),
+        },
+        Err(JevError::IoFailed {
+            kind: std::io::ErrorKind::NotFound,
+            ..
+        }) => Ok(RepoRoot::new(absolute)),
+        Err(error) => Err(error),
     }
+}
+
+/// The nearest `.git` entry at or above `start`, honouring
+/// `GIT_CEILING_DIRECTORIES` as git does (the walk stops below a listed
+/// directory).
+fn enclosing_git_entry(start: &Path) -> Option<PathBuf> {
+    let ceilings: Vec<PathBuf> = std::env::var_os("GIT_CEILING_DIRECTORIES")
+        .map(|value| std::env::split_paths(&value).collect())
+        .unwrap_or_default();
+    let mut dir = Some(start);
+    while let Some(current) = dir {
+        if ceilings.iter().any(|ceiling| ceiling == current) {
+            return None;
+        }
+        let candidate = current.join(".git");
+        if candidate.symlink_metadata().is_ok() {
+            return Some(candidate);
+        }
+        dir = current
+            .parent()
+            .filter(|parent| parent.components().next() != Some(Component::CurDir));
+    }
+    None
 }
 
 #[cfg(test)]

@@ -1,5 +1,7 @@
 """Fake producer: prints one sc/subjects/1 document for the path in argv[1].
 
+The subject text is the path, a newline, then the file's stripped text.
+
 argv[2], when present, is a marker file the script creates first, so a test
 can tell whether the producer ran at all.
 """
@@ -10,7 +12,7 @@ import sys
 path = sys.argv[1]
 if len(sys.argv) > 2:
     open(sys.argv[2], "w").close()
-text = open(path, encoding="utf-8").read().strip() or "empty"
+text = path + "\n" + (open(path, encoding="utf-8").read().strip() or "empty")
 doc = {
     "schema": "sc/subjects/1",
     "source": {"path": path, "rev": "WORKTREE", "blob_sha": "b" * 40},
