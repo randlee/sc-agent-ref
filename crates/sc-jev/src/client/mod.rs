@@ -225,11 +225,11 @@ impl<T: Transport> JudgeBackend for JevClient<T> {
     }
 
     fn validate_for_send(&self, req: &JudgeRequest) -> Result<(), JevError> {
-        check::prepare(&self.config, self.limit_bytes(), req.payload().bytes()).map(|_| ())
+        check::prepare(&self.config, self.limit_bytes(), req.payload()).map(|_| ())
     }
 
     fn judge(&self, req: &JudgeRequest) -> Result<JudgeOutcome, JevError> {
-        let prepared = check::prepare(&self.config, self.limit_bytes(), req.payload().bytes())?;
+        let prepared = check::prepare(&self.config, self.limit_bytes(), req.payload())?;
         let prepared = self.apply_wire_fault(prepared, req);
         // REQ-SAG-0606: the digest is recovered from the final serialized
         // body, before it is handed to `send_with_busy_retry`. A body that

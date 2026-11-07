@@ -4,13 +4,13 @@
 //! system prompt is `system` for Haiku and `instructions` for Luna. Neither
 //! body is the Jev wire document (ADR-SAG-0019).
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use sc_agent_http::{HeaderName, SecretHeader};
-use sc_agent_types::{JevError, ResolvedApiKey, Sha256Digest, canonical_json_bytes};
+use sc_agent_types::{
+    ChoiceId, JevError, QuestionId, ResolvedApiKey, Sha256Digest, canonical_json_bytes,
+};
 use serde_json::{Map, Value};
-
-use crate::validate::ParsedQuestion;
 
 /// Haiku model id pinned from the jev-check README table.
 ///
@@ -246,12 +246,9 @@ pub(crate) fn parse_count(body: &[u8]) -> Result<u64, JevError> {
     let value: Value = serde_json::from_slice(body)
         .map_err(|_| JevError::response_invalid("token count is not JSON"))?;
     let tokens = value.get("input_tokens");
-    match tokens.and_then(Value::as_i64) {
-        Some(tokens) if tokens >= 0 => Ok(u64::try_from(tokens).unwrap_or(0)),
-        _ => Err(JevError::response_invalid(
-            "token count has no input_tokens",
-        )),
-    }
+    tokens
+        .and_then(Value::as_u64)
+        .ok_or_else(|| JevError::response_invalid("token count has no input_tokens"))
 }
 
 /// Parses a vendor reply. Error details carry no provider name; the caller
@@ -289,17 +286,17 @@ pub(crate) fn parse_vendor(kind: ProviderKind, body: &[u8]) -> Result<VendorRepl
     })
 }
 
-pub(crate) fn parse_answers(text: &str, questions: &[ParsedQuestion]) -> Result<Value, JevError> {
+pub(crate) fn parse_answers(
+    text: &str,
+    questions: &BTreeMap<QuestionId, BTreeSet<ChoiceId>>,
+) -> Result<Value, JevError> {
     let value: Value = serde_json::from_str(text)
         .map_err(|_| JevError::response_invalid("LLM reply is not JSON"))?;
     let answers = value
         .get("answers")
         .and_then(Value::as_object)
         .ok_or_else(|| JevError::response_invalid("LLM answer ids differ from the question ids"))?;
-    let expected: BTreeSet<&str> = questions
-        .iter()
-        .map(|question| question.id.as_str())
-        .collect();
+    let expected: BTreeSet<&str> = questions.keys().map(QuestionId::as_str).collect();
     let actual: BTreeSet<&str> = answers.keys().map(String::as_str).collect();
     if expected != actual {
         return Err(JevError::response_invalid(
@@ -308,37 +305,31 @@ pub(crate) fn parse_answers(text: &str, questions: &[ParsedQuestion]) -> Result<
     }
 
     let mut normalized = Map::new();
-    for question in questions {
+    for (id, choices) in questions {
+        let id = id.as_str();
         let item = answers
-            .get(&question.id)
+            .get(id)
             .and_then(Value::as_object)
-            .ok_or_else(|| bad_answer(&question.id))?;
+            .ok_or_else(|| bad_answer(id))?;
         let choice = item.get("choice").and_then(Value::as_str).unwrap_or("");
-        if !question.choices.iter().any(|label| label == choice) {
-            return Err(bad_answer(&question.id));
+        if !choices.iter().any(|label| label.as_str() == choice) {
+            return Err(bad_answer(id));
         }
-        let confidence = item
-            .get("confidence")
-            .ok_or_else(|| bad_answer(&question.id))?;
+        let confidence = item.get("confidence").ok_or_else(|| bad_answer(id))?;
         if !is_number(confidence) {
             return Err(not_a_number());
         }
         let probabilities = item
             .get("probabilities")
             .and_then(Value::as_object)
-            .ok_or_else(|| bad_answer(&question.id))?;
-        let expected_labels: BTreeSet<&str> = question.choices.iter().map(String::as_str).collect();
+            .ok_or_else(|| bad_answer(id))?;
+        let expected_labels: BTreeSet<&str> = choices.iter().map(ChoiceId::as_str).collect();
         let actual_labels: BTreeSet<&str> = probabilities.keys().map(String::as_str).collect();
         if expected_labels != actual_labels {
-            return Err(bad_answer(&question.id));
+            return Err(bad_answer(id));
         }
-        for label in &question.choices {
-            let probability = probabilities
-                .get(label)
-                .expect("probability key was compared against choices");
-            if !is_number(probability) {
-                return Err(not_a_number());
-            }
+        if !probabilities.values().all(is_number) {
+            return Err(not_a_number());
         }
         let mut answer = Map::new();
         answer.insert("choice".to_owned(), Value::String(choice.to_owned()));
@@ -347,7 +338,7 @@ pub(crate) fn parse_answers(text: &str, questions: &[ParsedQuestion]) -> Result<
             "probabilities".to_owned(),
             Value::Object(probabilities.clone()),
         );
-        normalized.insert(question.id.clone(), Value::Object(answer));
+        normalized.insert(id.to_owned(), Value::Object(answer));
     }
     Ok(Value::Object(normalized))
 }
@@ -473,11 +464,12 @@ fn truncation_reason(
     None
 }
 
+/// A usage counter; a provider that omits one reports zero tokens for it.
 fn usage_i64(usage: Option<&Map<String, Value>>, key: &str) -> i64 {
     usage
         .and_then(|object| object.get(key))
         .and_then(Value::as_i64)
-        .unwrap_or(0)
+        .unwrap_or_default()
 }
 
 fn nonneg(value: i64) -> Result<u64, JevError> {

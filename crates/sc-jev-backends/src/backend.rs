@@ -11,7 +11,7 @@
 //! and redaction are `sc-agent-http` (ADR-SAG-0026); this module builds the
 //! provider requests and reads the replies.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::sync::Arc;
 
@@ -20,11 +20,11 @@ use sc_agent_http::{
     UreqTransport,
 };
 use sc_agent_types::{
-    BackendId, CancelToken, JevError, JudgeBackend, JudgeOutcome, JudgeRequest, NetworkErrorKind,
-    QuestionAnswer, QuestionId, ResolvedApiKey,
+    BackendId, CancelToken, ChoiceId, JevError, JudgeBackend, JudgeOutcome, JudgeRequest,
+    NetworkErrorKind, QuestionAnswer, QuestionId, ResolvedApiKey,
 };
 
-use crate::validate::{self, ParsedQuestion};
+use crate::validate;
 #[cfg(feature = "test-util")]
 use crate::wire::WireFault;
 use crate::wire::{self, ProviderKind};
@@ -78,7 +78,6 @@ impl Provider {
 }
 
 struct Prepared {
-    questions: Vec<ParsedQuestion>,
     message_body: Arc<[u8]>,
     count_body: Arc<[u8]>,
 }
@@ -88,15 +87,21 @@ struct Prepared {
 /// A confidence or probability outside `[0, 1]` is `RESPONSE_INVALID`.
 fn typed_answers(
     normalized: serde_json::Value,
+    questions: &BTreeMap<QuestionId, BTreeSet<ChoiceId>>,
 ) -> Result<BTreeMap<QuestionId, QuestionAnswer>, JevError> {
     let serde_json::Value::Object(map) = normalized else {
         return Err(JevError::response_invalid("LLM answers are not an object"));
     };
     map.into_iter()
         .map(|(id, answer)| {
-            let question = QuestionId::try_from(id.as_str()).map_err(|_| {
-                JevError::response_invalid(format!("answer id {id:?} is not valid"))
-            })?;
+            // `parse_answers` already matched every id to the payload's.
+            let question = questions
+                .keys()
+                .find(|question| question.as_str() == id)
+                .cloned()
+                .ok_or_else(|| {
+                    JevError::response_invalid(format!("answer id {id:?} is not valid"))
+                })?;
             let answer: QuestionAnswer = serde_json::from_value(answer).map_err(|error| {
                 JevError::response_invalid(format!("answer {id} is invalid: {error}"))
             })?;
@@ -188,8 +193,11 @@ impl<T: Transport> Client<T> {
                 if let Some(reason) = &reply.truncation {
                     return Err(JevError::response_invalid(reason.clone()));
                 }
-                let answers = wire::parse_answers(&reply.text, &prepared.questions)
-                    .and_then(typed_answers)?;
+                let answers =
+                    wire::parse_answers(&reply.text, request.payload().question_choices())
+                        .and_then(|normalized| {
+                            typed_answers(normalized, request.payload().question_choices())
+                        })?;
                 Ok((reply, answers))
             },
         )?;
@@ -207,7 +215,7 @@ impl<T: Transport> Client<T> {
             .llm()
             .ok_or_else(|| JevError::input_invalid("LLM system prompt is required"))?;
         let payload_text = self.embedded_text(request.payload().as_str());
-        let questions = validate::validate_questions(request.payload().bytes())?;
+        validate::validate_questions(request.payload())?;
         let message_body: Arc<[u8]> = Arc::from(self.faulted_body(wire::message_body(
             self.provider.kind,
             self.provider.model,
@@ -221,7 +229,6 @@ impl<T: Transport> Client<T> {
             &prompt.system_prompt,
         ));
         Ok(Prepared {
-            questions,
             message_body,
             count_body,
         })

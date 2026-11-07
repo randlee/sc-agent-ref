@@ -426,7 +426,7 @@ pub fn prepare(source: CheckSource, config: RunConfig) -> Result<PreparedRun, Je
     let backends = match (&config.backends, source_backends) {
         (Some(backends), _) => backends.clone(),
         (None, Some(backends)) => backends,
-        (None, None) => default_backends()?,
+        (None, None) => BackendSet::default(),
     };
     let needs_llm = backends
         .iter()
@@ -464,14 +464,6 @@ fn assemble(spec: CheckSpec, config: &RunConfig) -> Result<Assembled, JevError> 
     let producer = producer_from_extractions(&built.extractions)?;
     let backends = spec.backends.clone();
     Ok((Some(spec), built.bundle, producer, backends))
-}
-
-/// `[jev]`, the selection when neither the config nor the source names one.
-///
-/// `BackendSet` has no infallible constructor; a one-element list of a
-/// built-in id cannot fail, and the error is propagated rather than unwrapped.
-fn default_backends() -> Result<BackendSet, JevError> {
-    BackendSet::try_from(vec![BackendId::Jev])
 }
 
 fn payload_len(bundle: &PayloadBundle) -> u64 {
