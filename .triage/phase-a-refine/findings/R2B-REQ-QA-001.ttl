@@ -1,0 +1,61 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R2B-REQ-QA-001>
+  a triage:Finding ;
+  triage:findingId "R2B-REQ-QA-001" ;
+  triage:title "The sprint Outcome says r-2b changes no file in sc-ai or sc-jev-py, and neither" ;
+  triage:description "The sprint Outcome says r-2b changes no file in sc-ai or sc-jev-py, and neither edited file is in owned_paths. The branch edits crates/sc-ai/tests/cli.rs and the sc-jev-py test fixture. The Implementation notes disclose this as test-only and forced by the new behaviour, but the Outcome sentence and owned_paths still conflict with the diff. Recommendation: Make the doc match the diff. Either add the two test files to owned_paths and reword the Outcome to 'no consumer source file', or record them as an accepted out-of-owned-paths edit. No code change is needed." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "REQ" ;
+  triage:severity "important" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-07T22:50:20Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R2B ;
+  triage:foundAt "2026-11-07T22:55:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R2B-REQ-QA-001/R2B-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R2B-REQ-QA-001/R2B-2> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R2B-REQ-QA-001/R2B-1>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md" ;
+  triage:line 92 ;
+  triage:snippet "codes, Python kwarg, .response) is r-3b's; this sprint changes no file in" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-2b-multi-backend-semantics" ;
+  triage:headSha "330986f574914ada17e79d074227527cce4eb9ba" ;
+  triage:occursIn <urn:atm:triage:worktree/R2B/330986f> .
+
+<urn:atm:triage:occurrence/R2B-REQ-QA-001/R2B-2>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md" ;
+  triage:line 50 ;
+  triage:snippet "owned_paths:" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-2b-multi-backend-semantics" ;
+  triage:headSha "330986f574914ada17e79d074227527cce4eb9ba" ;
+  triage:occursIn <urn:atm:triage:worktree/R2B/330986f> .
+
+<urn:atm:triage:worktree/PHASEA/a6ec032>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "a6ec03201cba50dcf79e9099bdf4a661bd732918" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/R2B/330986f>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-2b-multi-backend-semantics" ;
+  triage:branch "sprint/r-2b-multi-backend-semantics" ;
+  triage:headSha "330986f574914ada17e79d074227527cce4eb9ba" ;
+  triage:orderIndex 1 .

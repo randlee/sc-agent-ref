@@ -1,0 +1,61 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R2B-RBP-F003>
+  a triage:Finding ;
+  triage:findingId "R2B-RBP-F003" ;
+  triage:title "default_backends() returns Result<BackendSet, JevError> for BackendSet::try_from" ;
+  triage:description "default_backends() returns Result<BackendSet, JevError> for BackendSet::try_from(vec![BackendId::Jev]), a one-element list that cannot fail. The doc comment concedes this ('cannot fail'). The dead error path is propagated with ? from prepare (line 429) instead of being expressed in the type. Recommendation: Add an infallible constructor on BackendSet (for example BackendSet::single(id) or Default) and return BackendSet directly. Otherwise make the invariant explicit with a single documented expect so the 'never fails' claim is auditable." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "RBP" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-07T22:49:55Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R2B ;
+  triage:foundAt "2026-11-07T22:55:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R2B-RBP-F003/PA-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R2B-RBP-F003/R2B-1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R2B-RBP-F003/PA-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-check/src/run/mod.rs" ;
+  triage:line 453 ;
+  triage:snippet "fn default_backends() -> Result<BackendSet, JevError> {" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "a6ec03201cba50dcf79e9099bdf4a661bd732918" ;
+  triage:occursIn <urn:atm:triage:worktree/PA/a6ec032> .
+
+<urn:atm:triage:occurrence/R2B-RBP-F003/R2B-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-check/src/run/mod.rs" ;
+  triage:line 473 ;
+  triage:snippet "fn default_backends() -> Result<BackendSet, JevError> {" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-2b-multi-backend-semantics" ;
+  triage:headSha "330986f574914ada17e79d074227527cce4eb9ba" ;
+  triage:occursIn <urn:atm:triage:worktree/R2B/330986f> .
+
+<urn:atm:triage:worktree/PA/a6ec032>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "a6ec03201cba50dcf79e9099bdf4a661bd732918" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/R2B/330986f>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-2b-multi-backend-semantics" ;
+  triage:branch "sprint/r-2b-multi-backend-semantics" ;
+  triage:headSha "330986f574914ada17e79d074227527cce4eb9ba" ;
+  triage:orderIndex 1 .
