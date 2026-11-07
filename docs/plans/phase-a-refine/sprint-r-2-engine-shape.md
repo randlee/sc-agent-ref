@@ -462,7 +462,7 @@ then this note. D11 and D13 share
 `config`/`extract`/`payload`, and D2 and D4 share `run`/`session`, so each
 pair is one commit; every commit builds and passes its tests.
 
-**Validation.** Run on the merged tree (`218dc64` plus this note's doc
+**Validation.** Run on the tree merged with `integrate/phase-a` at `0dca742` (plus this commit's
 edits): all 32 "Required validation" lines and the workspace gates
 (`cargo fetch --locked`; `cargo clippy --workspace --all-targets
 --all-features -- -D warnings`; `cargo test --workspace`; `cargo test -p
@@ -523,15 +523,20 @@ reworded to D0 outcome 4 exactly as the "ADR text" section gives it.
 **Deferred, outside `owned_paths`** (reported, not edited):
 `JudgeOutcome::new(&PayloadBundle)` and the `BackendCapabilities` copy
 (`crates/sc-agent-types`); `sc-jev` `check.rs` re-deriving criteria from the
-payload (`crates/sc-jev`); the `RepoRelativePath` rustdoc sentence "the
-`check.toml` path fields (r-2) … adopt it later", now stale
-(`crates/sc-agent-types/src/ids.rs`); `sc_jev_py.pyi` (r-3b). Waiting on r-3c (PR 25, not on `integrate/phase-a`
-when this branch was validated): `extract/read.rs` should import
-`sc_agent_types::git::MAX_INPUT_BYTES` instead of its local copy and use
-`Rev::is_worktree()`; a one-line follow-up after PR 25 merges.
+payload (`crates/sc-jev`); `sc_jev_py.pyi` (r-3b).
 
-**Files outside `owned_paths` edited:** only this sprint doc (status,
-`adrs` comment, these notes). Net of the merge, r-2 leaves
+**Done after r-3c (PR 25) merged** (merge of `integrate/phase-a` at
+`0dca742`): `extract/read.rs` imports `sc_agent_types::git::MAX_INPUT_BYTES`
+(its local copy is deleted) and uses `Rev::is_worktree()`. The stale
+rustdoc sentences in `crates/sc-agent-types/src/ids.rs` (`RepoRelativePath`
+"… adopt it later") and `crates/sc-agent-types/src/git.rs`
+(`MAX_INPUT_BYTES` "sc-jev-check still keeps its own copy until it migrates
+(r-2)") now state the current users.
+
+**Files outside `owned_paths` edited:** this sprint doc (status, `adrs`
+comment, these notes), and one rustdoc sentence each in
+`crates/sc-agent-types/src/ids.rs` and `crates/sc-agent-types/src/git.rs`
+(parent-authorized doc fixes; no code change). Net of the merge, r-2 leaves
 `docs/plans/phase-a-refine/plan.md` and the ADR-SAG-0014 r-1 interim
 subsection unchanged.
 

@@ -11,15 +11,11 @@
 use std::fs::File;
 use std::io::Read;
 
-use sc_agent_types::git::{discover_toplevel, read_at_rev};
+// `MAX_INPUT_BYTES` (8 MiB) is the one shared per-read resource guard. It is
+// not a request cap: each backend refuses an oversize request in
+// `validate_for_send` (REQ-SAG-0314).
+use sc_agent_types::git::{MAX_INPUT_BYTES, discover_toplevel, read_at_rev};
 use sc_agent_types::{JevError, RepoRelativePath, RepoRoot, Rev};
-
-/// Largest single file an input may read.
-///
-/// A resource guard that bounds memory per read. It matches the command
-/// extractor's stdout cap. It is not a request cap: each backend refuses an
-/// oversize request in `validate_for_send` (REQ-SAG-0314).
-pub(crate) const MAX_INPUT_BYTES: u64 = 8 * 1024 * 1024;
 
 /// Reads `relative` from `repo` at `rev`.
 ///
@@ -39,7 +35,7 @@ pub(crate) fn read_repo_bytes(
     rev: &Rev,
     relative: &RepoRelativePath,
 ) -> Result<Vec<u8>, JevError> {
-    if rev.as_str() == Rev::WORKTREE {
+    if rev.is_worktree() {
         return read_worktree(repo, relative.as_str());
     }
     read_git_blob(repo, rev, relative)
@@ -82,7 +78,7 @@ pub(crate) fn validate_input_path(
     rev: &Rev,
     relative: &RepoRelativePath,
 ) -> Result<(), JevError> {
-    if rev.as_str() == Rev::WORKTREE {
+    if rev.is_worktree() {
         resolve_worktree_file(repo, relative.as_str()).map(|_| ())
     } else {
         read_repo_bytes(repo, rev, relative).map(|_| ())

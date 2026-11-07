@@ -627,9 +627,9 @@ impl fmt::Display for BlobSha {
 ///
 /// Validated repo-relative path: non-empty, not absolute, at least one
 /// normal component, no `..`, and no `\`, NUL, or `:`. The text is kept as
-/// written. In r-1 it guards `sc-jev-check`'s file reads, subjects documents
-/// and the `git` helpers; the `check.toml` path fields (r-2) and
-/// `sc-treesitter`'s CLI path handling (r-3c) adopt it later.
+/// written. It guards `sc-jev-check`'s file reads and `check.toml` path
+/// fields, subjects documents, the `git` helpers, and `sc-treesitter`'s CLI
+/// path handling.
 ///
 /// # Examples
 ///
