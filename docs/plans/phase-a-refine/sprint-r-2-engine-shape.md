@@ -471,7 +471,14 @@ git,test-util`; `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps`;
 `just test-python`; `cargo hack --each-feature test -p sc-treesitter`;
 `cargo-tree-gates.sh`; `check-exact-pins.sh`; `scripts/sc-publish-dry-run.sh`)
 pass, 43/43. Every `--exact` line prints `1 passed`. Developer log:
-`scratchpad/r2-only/validate.log` (session scratch directory).
+`scratchpad/r2-only/validate.log` (session scratch directory). On the
+`0dca742` merge the `cargo publish --dry-run` line first failed on a dirty
+tree, then, on the committed tree, because the shared
+`~/.cargo/registry/src` held a stale extraction of `sc-agent-types 0.1.0`
+from an earlier pre-r-3c dry run (cargo reuses an extraction of the same
+name and version). Re-run with a private `CARGO_HOME` it exits 0
+(`scratchpad/r2-only/publish-private-home.log`); `scripts/sc-publish-dry-run.sh`
+exits 0 on the committed tree.
 
 **Governing text.** Every shape below is under Active text at merge:
 ADR-SAG-0024 (Active, r-2, including the `equal_input` shape-pin bullet
