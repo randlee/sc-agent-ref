@@ -384,3 +384,38 @@ fn test_send_and_parse_redacts_parse_errors() {
     assert_eq!(status, 200);
     assert_eq!(client.transport().sends(), 1);
 }
+
+/// Shared transports (`&T`, `Arc<T>`), an exhausted script, a request with no
+/// secret, and the doubles' `Debug` (QA-1 QA-001 coverage of the seams).
+#[test]
+fn test_transport_adapters_and_doubles() {
+    let scripted = ScriptedTransport::responses(vec![ok()]);
+    let by_ref: &ScriptedTransport = &scripted;
+    let shared = Arc::new(scripted.clone());
+    let policy = fake(Duration::ZERO).policy;
+    let cancel = CancelToken::new();
+    let plain = HttpRequest::new(
+        Method::Get,
+        Endpoint::parse("https://api.example.test/").expect("https"),
+        Arc::from(&b""[..]),
+    );
+    assert_eq!(plain.method().to_string(), "GET");
+    let sent = send_with_busy_retry(&by_ref, &plain, &policy, &cancel).expect("by ref");
+    assert_eq!(sent.status(), 200);
+    // The script is shared, so the Arc clone sees it exhausted.
+    let exhausted = send_with_busy_retry(&shared, &plain, &policy, &cancel).expect_err("empty");
+    assert_eq!(detail(&exhausted), "script exhausted");
+    assert_eq!(scripted.sends(), 2);
+    // Without a secret, redaction leaves the error alone.
+    assert_eq!(sc_agent_http::redact(exhausted.clone(), &plain), exhausted);
+
+    let recording = sc_agent_http::test_util::RecordingTransport::new(scripted.clone());
+    let _ = send_with_busy_retry(&recording, &request(), &policy, &cancel);
+    assert_eq!(recording.requests().len(), 1);
+    for rendered in [format!("{scripted:?}"), format!("{recording:?}")] {
+        assert!(rendered.contains("requests"), "{rendered}");
+        assert!(!rendered.contains(KEY), "{rendered}");
+    }
+    let sleeper = RecordingSleeper::new(FakeClock::new());
+    assert!(format!("{sleeper:?}").contains("RecordingSleeper"));
+}

@@ -649,3 +649,42 @@ fn test_llm_text_reply_is_not_json_vendor_envelope() {
         .expect_err("envelope");
     assert_eq!(error.code(), "RESPONSE_INVALID");
 }
+
+/// A cancelled token stops the call before any send (`with_cancel`).
+#[test]
+fn test_llm_cancel_before_send_sends_nothing() {
+    let cancel = sc_agent_types::CancelToken::new();
+    cancel.cancel();
+    let transport = script(vec![count_reply(1)]);
+    let backend = AnthropicHaikuBackend::new(credential(), transport.clone()).with_cancel(cancel);
+    let error = backend
+        .judge(&standard_request(PROMPT))
+        .expect_err("cancelled");
+    assert_eq!(error.code(), "NETWORK_ERROR");
+    assert_eq!(
+        error.to_string(),
+        "network error: haiku request cancelled before a send"
+    );
+    assert!(!error.retryable());
+    assert_eq!(transport.sends(), 0);
+}
+
+/// Reply-parse errors carry the provider label once (the wire parsers no
+/// longer embed it) and never the key.
+#[test]
+fn test_llm_reply_errors_are_labelled_once() {
+    let (backend, _) = haiku(vec![text_response(200, Vec::new(), "nope")]);
+    let error = backend.judge(&standard_request(PROMPT)).expect_err("count");
+    assert_eq!(
+        error.to_string(),
+        "response is invalid: haiku token count is not JSON"
+    );
+    let (backend, _) = luna(vec![text_response(200, Vec::new(), "[]"), count_reply(1)]);
+    let error = backend
+        .judge(&standard_request(PROMPT))
+        .expect_err("vendor");
+    assert_eq!(
+        error.to_string(),
+        "response is invalid: luna reply is not JSON"
+    );
+}

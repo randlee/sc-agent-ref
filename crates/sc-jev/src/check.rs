@@ -69,6 +69,9 @@ pub(crate) fn prepare(
 
 /// Parses a Jev check response into a [`JudgeOutcome`].
 ///
+/// Details carry no "Jev" label; `JevClient` prefixes every exchange error
+/// with it.
+///
 /// `provider_meta` is that response object with every top-level field kept.
 /// The CLI prints it plus `session_id` (ADR-SAG-0014).
 ///
@@ -84,7 +87,7 @@ pub(crate) fn parse_outcome(
     request: &JudgeRequest,
 ) -> Result<JudgeOutcome, JevError> {
     let value: Value = serde_json::from_slice(raw)
-        .map_err(|_| JevError::response_invalid("Jev response is not JSON"))?;
+        .map_err(|_| JevError::response_invalid("response is not JSON"))?;
     let body = value
         .as_object()
         .ok_or_else(|| JevError::response_invalid("unexpected Jev response model or shape"))?;
@@ -101,7 +104,7 @@ pub(crate) fn parse_outcome(
     let actual: BTreeSet<&str> = answers.keys().map(String::as_str).collect();
     if expected != actual {
         return Err(JevError::response_invalid(
-            "Jev answer ids differ from the question ids",
+            "answer ids differ from the question ids",
         ));
     }
 
@@ -280,7 +283,7 @@ fn require_number(value: Option<&Value>) -> Result<f64, JevError> {
     match value.and_then(Value::as_f64) {
         Some(number) => Ok(number),
         _ => Err(JevError::response_invalid(
-            "Jev confidence or probability is not a number",
+            "confidence or probability is not a number",
         )),
     }
 }
@@ -316,5 +319,182 @@ mod response_shape {
         assert_eq!(meta["usage"]["input_tokens"], 318);
         assert_eq!(meta["answers"]["q"]["choice"], "no");
         assert_eq!(outcome.answers()["q"].choice().as_str(), "no");
+    }
+}
+
+/// Refusal paths of `prepare` and `parse_outcome` (QA-1 QA-001: the r-3
+/// rewire moved the loopback client tests out of this crate).
+#[cfg(test)]
+mod refusals {
+    use std::collections::{BTreeMap, BTreeSet};
+    use std::sync::Arc;
+
+    use sc_agent_types::{
+        CanonicalJudgePayload, JudgeRequest, PayloadBundle, canonical_json_bytes,
+    };
+    use serde_json::{Value, json};
+
+    use super::{parse_outcome, prepare};
+    use crate::config::JevClientConfig;
+
+    fn canonical(value: Value) -> Vec<u8> {
+        canonical_json_bytes(&value).expect("canonical")
+    }
+
+    fn refused(payload: &[u8], limit: u64) -> String {
+        match prepare(&JevClientConfig::packaged(), limit, payload) {
+            Ok(_) => panic!("accepted {}", String::from_utf8_lossy(payload)),
+            Err(error) => format!("{} {error}", error.code()),
+        }
+    }
+
+    fn array_question() -> Value {
+        json!([{"id": "q", "prompt": "p", "choices": ["no", "yes"]}])
+    }
+
+    #[test]
+    fn prepare_refuses_every_malformed_payload() {
+        let cases: Vec<(Vec<u8>, &str)> = vec![
+            (b"not json".to_vec(), "is not JSON"),
+            (canonical(json!([1])), "must be a JSON object"),
+            (canonical(json!({"state": []})), "at least one question"),
+            (canonical(json!({"questions": 5})), "object or an array"),
+            (canonical(json!({"questions": {}})), "at least one question"),
+            (canonical(json!({"questions": []})), "at least one question"),
+            (
+                canonical(json!({"questions": {"q": 1}})),
+                "question q is not a choice",
+            ),
+            (
+                canonical(json!({"questions": {"q": {"type": "choice", "criteria": {"a": "x"}}}})),
+                "question q is not a choice",
+            ),
+            (
+                canonical(
+                    json!({"questions": {"q": {"type": "text", "criteria": {"a": "x", "b": "y"}}}}),
+                ),
+                "question q is not a choice",
+            ),
+            (
+                canonical(json!({"questions": [1]})),
+                "question is not a choice",
+            ),
+            (
+                canonical(json!({"questions": [{"choices": ["a", "b"]}]})),
+                "question is not a choice",
+            ),
+            (
+                canonical(json!({"questions": [{"id": "q"}]})),
+                "question q is not a choice",
+            ),
+            (
+                canonical(json!({"questions": [{"id": "q", "choices": ["a", 1]}]})),
+                "question q is not a choice",
+            ),
+            (
+                canonical(json!({"questions": [{"id": "q", "choices": ["a", "a"]}]})),
+                "question q is not a choice",
+            ),
+            (
+                canonical(json!({"questions": [
+                    {"id": "q", "choices": ["a", "b"]},
+                    {"id": "q", "choices": ["c", "d"]}
+                ]})),
+                "question id q is duplicated",
+            ),
+            (
+                canonical(json!({"model": "x", "questions": array_question()})),
+                "must not include model",
+            ),
+            (
+                canonical(json!({"a": 1, "questions": array_question()})),
+                "sorts before model",
+            ),
+            (
+                br#"{"state":[],"questions":[{"choices":["no","yes"],"id":"q","prompt":"p"}]}"#
+                    .to_vec(),
+                "not canonical",
+            ),
+        ];
+        for (payload, needle) in cases {
+            let rendered = refused(&payload, 96_000);
+            assert!(rendered.starts_with("INPUT_INVALID"), "{rendered}");
+            assert!(rendered.contains(needle), "{needle}: {rendered}");
+        }
+        let fits = canonical(json!({"questions": array_question(), "state": []}));
+        assert!(refused(&fits, 10).starts_with("INPUT_TOO_LARGE"));
+    }
+
+    #[test]
+    fn prepare_accepts_the_object_question_shape() {
+        let payload = canonical(json!({
+            "questions": {"q": {"type": "choice", "criteria": {"no": "n", "yes": "y"}}},
+            "state": []
+        }));
+        let prepared =
+            prepare(&JevClientConfig::packaged(), 96_000, &payload).expect("object shape");
+        assert!(
+            prepared
+                .body
+                .starts_with(br#"{"model":"jev-1.13.0","questions":{"#)
+        );
+        let labels: BTreeSet<String> = ["no", "yes"].map(str::to_owned).into();
+        assert_eq!(
+            prepared.criteria,
+            BTreeMap::from([("q".to_owned(), labels)])
+        );
+    }
+
+    fn criteria() -> BTreeMap<String, BTreeSet<String>> {
+        BTreeMap::from([("q".to_owned(), ["no", "yes"].map(str::to_owned).into())])
+    }
+
+    fn request() -> JudgeRequest {
+        let payload: CanonicalJudgePayload = serde_json::from_value(json!({
+            "questions": array_question(),
+            "state": []
+        }))
+        .expect("payload");
+        JudgeRequest::new(
+            Arc::new(PayloadBundle::encode(&payload).expect("bundle")),
+            None,
+        )
+    }
+
+    #[test]
+    fn parse_outcome_refuses_every_malformed_answer() {
+        let answer = |q: Value| json!({"model": "jev-test", "answers": {"q": q}}).to_string();
+        let cases: Vec<(String, &str)> = vec![
+            ("[1]".to_owned(), "model or shape"),
+            (json!({"model": "jev-test"}).to_string(), "model or shape"),
+            (answer(json!(1)), "not one of its criteria"),
+            (answer(json!({"confidence": 1})), "not one of its criteria"),
+            (
+                answer(json!({"choice": "maybe"})),
+                "not one of its criteria",
+            ),
+            (
+                answer(
+                    json!({"choice": "no", "confidence": "high", "probabilities": {"no": 1, "yes": 0}}),
+                ),
+                "not a number",
+            ),
+            (
+                answer(json!({"choice": "no", "confidence": 1})),
+                "probabilities are not exactly",
+            ),
+            (
+                answer(
+                    json!({"choice": "no", "confidence": 1, "probabilities": {"no": "x", "yes": 0}}),
+                ),
+                "not a number",
+            ),
+        ];
+        for (raw, needle) in cases {
+            let error = parse_outcome(raw.as_bytes(), "jev-test", &criteria(), &request())
+                .expect_err(needle);
+            assert_eq!(error.code(), "RESPONSE_INVALID", "{raw}");
+            assert!(error.to_string().contains(needle), "{needle}: {error}");
+        }
     }
 }

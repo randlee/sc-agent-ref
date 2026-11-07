@@ -492,4 +492,38 @@ mod jev_api {
             "https://api.typesafe.ai/v1/systemone"
         );
     }
+
+    #[test]
+    fn cancel_before_send_sends_nothing() {
+        let cancel = sc_agent_types::CancelToken::new();
+        cancel.cancel();
+        let harness = scripted(vec![ok("jev-test")]);
+        let client = JevClient::with_config(config(), secret_key(), harness.transport.clone())
+            .with_cancel(cancel);
+        let error = client
+            .judge(&request(payload("x"), None))
+            .expect_err("cancelled");
+        assert_eq!(
+            error.to_string(),
+            "network error: Jev request cancelled before a send"
+        );
+        assert_eq!(harness.sent().len(), 0);
+    }
+
+    #[test]
+    fn reply_errors_are_labelled_and_redacted() {
+        let harness = scripted(vec![HttpResponse::new(
+            200,
+            Vec::new(),
+            b"not-json super-secret".to_vec(),
+        )]);
+        let error = harness
+            .client
+            .judge(&request(payload("x"), None))
+            .expect_err("json");
+        assert_eq!(
+            error.to_string(),
+            "response is invalid: Jev response is not JSON"
+        );
+    }
 }
