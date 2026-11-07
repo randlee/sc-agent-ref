@@ -500,7 +500,7 @@ keeps r-3c's `allow-invalid = true` with r-3's single-read-site text;
 | --- | --- | --- | --- |
 | CI-R3-001 | REQ-SAG-0505 (connect failure retryable, not retried) | `test_connect_phase_failure_is_retryable_and_not_retried` accepts `Connect` or `Timeout` (Windows retries the SYN until the 2 s connect timeout); still asserts retryable and one send | `f6bf365` |
 | REQ-QA-R3-001 | REQ-SAG-0130, boundary:release | parent kit re-render recorded above; frontmatter "open row" removed (status in-review until QA-2) | this commit |
-| REQ-QA-R3-002 | all test rows | PR 26 CI cited in the PR on the fix-round head | — |
+| REQ-QA-R3-002 | all test rows | PR 26 CI green at 7cfd413: run 42417451354 (all jobs, incl. test on windows-2022, macos-15, ubuntu-24.04) and dry-run run 42417451319 | 7cfd413 |
 | ARCH-R3-001, REQ-QA-R3-003 | ADR-SAG-0007 r-3 | Active bullet: timeouts are `UreqTransport::new(Timeouts)` construction state, `with_timeouts` removed; base sentence marked superseded in part; ADR text item 7 carries the bullet verbatim | `c85a8f6` |
 | REQ-QA-R3-004 | a-10 ARCHC-018 | row notes "superseded by r-3 (Timeouts on UreqTransport::new)" | `c85a8f6` |
 | RBQA-F101 | boundary:agent-http, ADR-SAG-0026 | widened gate, both halves proven, in CI and in plan.md / r-3b | `9b333dd`, `c85a8f6` |
