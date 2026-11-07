@@ -90,7 +90,9 @@ owned_paths:
   - "crates/sc-agent-types/src/judge.rs (deleted: moved)"
   - "crates/sc-agent-types/src/payload.rs (deleted: moved)"
   - "crates/sc-agent-types/src/test_util.rs (deleted: moved)"
-  - "crates/sc-agent-types/src/ids.rs#QuestionId, ChoiceId (removed: moved)"
+  - "crates/sc-agent-types/src/ids.rs#QuestionId, ChoiceId (removed: moved); Sha256Digest::of takes &str"
+  - "every Sha256Digest::of call site (crates/*/src/**, crates/*/tests/**): pass &str"
+  - "crates/sc-treesitter/src/extract.rs#Sha256Digest::of(&input.query)"
   - "crates/sc-agent-types/src/catalog.rs#BackendDescriptor::default_model_alias"
   - "crates/sc-agent-types/src/models.rs (new: ModelId, UnknownModel, ModelFamily, ModelDescriptor, MODELS, ModelAliases)"
   - "crates/sc-agent-types/src/trace.rs (new: SendTrace)"
@@ -326,7 +328,7 @@ Every deliverable below lands production-ready for the scope this sprint claims;
    `install.py`** to regenerate the rendered release files after the
    consumer-input edit; the developer does not hand-edit them
    (ADR-SAG-0018). `scripts/sc-publish-dry-run.sh` package list updated in
-   that order. The CPR-014 publish gate (no crates.io publish until D9)
+   that order. The CPR-014 publish gate (no crates.io publish until r-5, D9, lands)
    still applies.
 6. CI (authoritative here; plan.md "cargo tree gates" points to it):
    `.github/workflows/sc-agent-ci.yml` adds
@@ -372,10 +374,16 @@ Every deliverable below lands production-ready for the scope this sprint claims;
      `sc-jev-check/src/registry/**` (factory takes `&ModelAliases`;
      scripted backends report `model_id`), `sc-jev-check/src/run/**`
      (`RunConfig::models`);
+   - every `Sha256Digest::of(..)` call (D2.5);
    - D8: `sc-jev/src/client/mod.rs` and `sc-jev-backends/src/backend.rs`
      (`req.send_trace().clone()` passed to `send_and_parse`); and the
      `sc-agent-http` exchange signatures and their callers in its own docs
      and tests.
+
+5. `Sha256Digest::of` takes `text: &str` instead of `&[u8]` (still `sha2`
+   underneath in r-7; r-6 switches it to `sc-sha`, whose input must be
+   UTF-8). Every caller passes text it already has: canonical JSON, query
+   text, test literals. Digests do not change.
 
 ### D3 — Versioning (REQ-SAG-0142)
 
@@ -603,7 +611,7 @@ In one edit of `docs/architecture.md`, set every `(Proposed, r-7)` marker
 and r-7 Status text to Active: the ADR-SAG-0030 Status line, bullets and
 index cell (`Active (r-7); jev::v1 Proposed (r-5)`; the "Jev API structs"
 bullet stays `(Proposed, r-5)` and the "Scope context" bullet keeps
-`(Recorded; open owner item)`), the ADR-SAG-0031 "Storage schema"
+`(Recorded)`), the ADR-SAG-0031 "Storage schema"
 subsection (ADR-level Status "Active (storage schema, r-7); wiring
 Proposed (r-6)"), and the one r-7 amendment note in each ADR it amends,
 with its index marker. Rewrite the "Phase A.1 crate graph" paragraph's
@@ -852,8 +860,8 @@ bash scripts/sc-publish-dry-run.sh
 
 ## This sprint does not close
 
-- `jev::v1` `CheckRequest`/`CheckResponse`, the splice deletion and the D9
-  array/object/both question (r-5).
+- `jev::v1` `CheckRequest`/`CheckResponse`, the splice deletion and the
+  documented Jev question types (r-5).
 - Session-log emission, ULID ids, `sc-sha`, `repo`/`project`, recording
   `request_sha256` (r-6).
 - A SQLite sink or loader binary (post-A.1; the schema is defined here).

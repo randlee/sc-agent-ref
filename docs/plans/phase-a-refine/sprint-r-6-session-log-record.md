@@ -45,7 +45,7 @@ requirements:
   - REQ-SAG-0107   # regression: observability port and core deps change; every feature combination builds
 adrs:
   - ADR-SAG-0001  # new INPUT_INVALID paths (UUID session id, bad project text) are JevError constructors
-  - ADR-SAG-0002  # prompt_sha256 stays the digest of the canonical bytes; sc-sha must hash them unchanged (D0)
+  - ADR-SAG-0002  # prompt_sha256 stays the digest of the canonical bytes; sc-sha gives the same digest for them (D0)
   - ADR-SAG-0003  # r-2 amendment: git toplevel for .env and paths; the log `repo` field is a different root, defined in ADR-SAG-0031
   - ADR-SAG-0004  # a backend refused before send (NotSent) writes no row
   - ADR-SAG-0005  # sc-agent-http hashes the wire body at the send site; backends still never re-canonicalize
@@ -140,19 +140,23 @@ plan.md "Owner decisions 2026-11-07", items 5, 6, 8 and 9. The row schema, the
 model catalog, `JudgeBackend::model_id` and the `SendTrace` hand-off are
 r-7's; this sprint wires them.
 
-## Pre-flight (D0, before any D2 code)
+## sc-sha behaviour (D0, settled)
 
-**sc-sha raw-bytes gate** (plan.md open owner item). `sc-sha` on
-crates.io describes itself as "deterministic text and resolved-template
-composition SHA-256 identities", so normalization is a real risk.
-Confirm it exposes a SHA-256 over raw bytes with no normalization (line
-endings, Unicode, trailing whitespace, BOM). Prove it with
-`test_sha256_reference_vectors` (`crates/sc-agent-types/tests/ids.rs`):
-the empty input gives
-`e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`, a
-CRLF/trailing-space byte string gives the `sha2` value, and the
-`jev_cross_impl` fixture bytes give the committed reference digest.
-If `sc-sha` only offers a normalizing text hash, **stop and report**.
+`sc-sha` 1.7.0 has one hashing API:
+`sc_sha::calculate_hash(sc_sha::HashInput::TextFileBytes { utf8_file_bytes })`
+returns `HashResult::Template(TemplateSha256)`. It requires strict UTF-8
+(`ShaError::InvalidUtf8` otherwise) and normalizes CRLF and bare CR to LF
+before hashing; there is no raw-bytes API. Every input sc-agent hashes is
+UTF-8 serde_json output or text (`Sha256Digest::of` takes `&str` from r-7,
+so the UTF-8 error cannot occur), and compact JSON has no raw CR, so the
+digest equals SHA-256 of the bytes sent. Other text (a tree-sitter query
+source) hashes in its LF-normalized form; the committed queries are LF-only,
+so `query_sha256` is unchanged. `sc-sha` depends on `sha2`, so
+`sha2` stays in the lock file transitively. Pinned by one unit test,
+`test_sha256_reference_vectors` (`crates/sc-agent-types/tests/ids.rs`): the
+empty string gives
+`e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` and the
+`jev_cross_impl` fixture body gives its committed reference digest.
 
 ## Deliverables
 
@@ -177,7 +181,7 @@ Every deliverable below lands production-ready for the scope this sprint claims;
 
 ### D2 — SHA-256 via sc-sha (REQ-SAG-0618)
 
-- `Sha256Digest::of` computes through `sc-sha` (raw bytes, per D0).
+- `Sha256Digest::of(&str)` computes through `sc-sha` `calculate_hash` (D0).
   `sha2` and `uuid` leave `sc-agent-types` and `uuid` leaves `sc-ai`, so no
   workspace manifest lists them (`[workspace.dependencies]` included);
   `Cargo.lock` keeps them only if a third-party dependency still pulls them
@@ -195,8 +199,8 @@ Every deliverable below lands production-ready for the scope this sprint claims;
   `send_and_parse`, which `sc-jev` and `sc-jev-backends` fill with
   `req.send_trace().clone()`. r-6 adds the recording: `send_with_busy_retry`
   (and so `send_and_parse`, the one exchange every backend uses) calls
-  `trace.record(Sha256Digest::of(request.body()))` immediately before the
-  first `Transport::send`. Retries resend the same bytes, so one value per send.
+  `trace.record(Sha256Digest::of(body_text))` (the body as `&str`)
+  immediately before the first `Transport::send`. Retries resend the same bytes, so one value per send.
   Headers are not hashed (no secret is hashed, ADR-SAG-0020). A cancel
   before the first send records nothing. No `sc-jev` or `sc-jev-backends`
   file changes, so this does not touch r-5's files.
@@ -311,7 +315,7 @@ pub struct SessionId(Ulid);                       // Display/FromStr/serde: 26-c
 impl SessionId { pub fn new() -> Self; }          // Ulid::new(); no shared generator state
 impl FromStr for SessionId { type Err = JevError; /* non-ULID (incl. UUID) -> INPUT_INVALID, ULID fix hint */ }
 
-impl Sha256Digest { pub fn of(bytes: &[u8]) -> Self; }   // through sc-sha, raw bytes (D0)
+impl Sha256Digest { pub fn of(text: &str) -> Self; }   // sc_sha::calculate_hash(HashInput::TextFileBytes { .. }) (D0)
 
 // observability::v2 (stable-surface change, ADR-SAG-0016/0027 r-6)
 pub struct LogEvent { /* private: session_id, operation, fields */ }
@@ -328,7 +332,9 @@ pub fn discover_common_dir(start: &Path) -> Result<Option<PathBuf>, JevError>; /
 
 // sc-agent-http send_with_busy_retry (trace is r-7's required parameter),
 // immediately before the first Transport::send:
-//     trace.record(Sha256Digest::of(request.body()));
+//     if let Ok(text) = std::str::from_utf8(request.body()) { trace.record(Sha256Digest::of(text)); }
+// (every body is serde_json output, so the Err arm is unreachable in practice;
+//  a non-UTF-8 body would leave request_sha256 null)
 
 // sc-decision-schema test_util (feature test-util)
 impl MockJudgeBackend {
@@ -374,7 +380,7 @@ Each named test prints `1 passed`; the scrum-master rejects `0 passed`.
 | req:REQ-SAG-0615 | `cargo test -p sc-ai --features test-util --test cli -- test_cli_project_flag_reaches_log --exact`; `cargo test -p sc-ai --features test-util --test cli -- test_cli_project_over_limit_is_input_invalid --exact`; `uv run --directory tests/fixtures/jev-python pytest -q tests/test_run_check_and_ask.py::test_project_kwarg_reaches_log tests/test_run_check_and_ask.py::test_project_kwarg_control_char_is_input_invalid` prints `2 passed` |
 | req:REQ-SAG-0616 | `cargo test -p sc-jev-check --features test-util --test session_log -- test_failed_row_carries_model_id --exact` (the row's `model_id` is the backend's `model_id()`, `Failed` included); r-7's `model_id()` tests are regression |
 | req:REQ-SAG-0617 | `cargo test -p sc-jev-check --features test-util --test session_log -- test_one_row_per_send_failed_included_not_sent_none --exact`; `cargo test -p sc-agent-compose --test obs -- test_log_line_fields_is_one_session_log_row --exact` (every line's `fields` passes `SessionLogRow::try_from_fields`, carries `send_outcome`, envelope `outcome` is `null`; matches `session-event.json`); log-write policy (D6): `cargo test -p sc-jev-check --features test-util --test session_log -- test_rejected_log_row_keeps_run_ok --exact` |
-| req:REQ-SAG-0618 | D0 proof: `cargo test -p sc-agent-types --test ids -- test_sha256_reference_vectors --exact`; `cargo tree -p sc-agent-types -e normal --depth 1 \| grep -qE '(^\|[^[:alnum:]_-])sc-sha v[0-9]'` succeeds and `! cargo tree -p sc-agent-types -e normal --depth 1 \| grep -qE '(^\|[^[:alnum:]_-])(sha2\|uuid) v[0-9]'` succeeds; `cargo test -p workspace-tests --test jev_cross_impl` and `cargo test -p sc-treesitter` green with unchanged digests |
+| req:REQ-SAG-0618 | D0: `cargo test -p sc-agent-types --test ids -- test_sha256_reference_vectors --exact`; `cargo tree -p sc-agent-types -e normal --depth 1 \| grep -qE '(^\|[^[:alnum:]_-])sc-sha v[0-9]'` succeeds and `! cargo tree -p sc-agent-types -e normal --depth 1 \| grep -qE '(^\|[^[:alnum:]_-])(sha2\|uuid) v[0-9]'` succeeds; `cargo test -p workspace-tests --test jev_cross_impl` and `cargo test -p sc-treesitter` green with unchanged digests |
 | req:REQ-SAG-0600 (amended) | `cargo test -p sc-jev-check --features test-util --test sessions_exact -- test_session_file_named_by_ulid_mode_0600_expiry --exact` (ULID file name, mode 0600 on Unix, expiry from `created_at`) |
 | req:REQ-SAG-0611 (amended) | `cargo test -p sc-jev-check --features test-util --test session_log -- test_every_row_carries_context --exact` (every row, `judge` and `ask`, `ok` and `failed`, carries `session_id`, `repo`, `project`, `model_id`, `prompt_sha256`); `cargo test -p sc-jev-check --features test-util --test session_log -- test_row_has_no_body_prompt_or_key_bytes --exact` |
 | adr:ADR-SAG-0031 | Wiring subsection Active (r-6); index row `Active (r-7 storage schema, r-6 wiring)`; r-6 subsections in 0008, 0013, 0016, 0026, 0027 and their markers Active |

@@ -75,7 +75,7 @@ cell and its own marker text to `(Active, r-N)`; it adds or removes no entry.
 | ADR | Title | Status | Amends / amended by |
 | --- | --- | --- | --- |
 | ADR-SAG-0001 | Error enum is CLI authority | Active | Amended by ADR-SAG-0027 (Active, r-1) |
-| ADR-SAG-0002 | Canonical judge payload bytes | Active | — |
+| ADR-SAG-0002 | Canonical judge payload bytes | Active | A.1 subsection (Proposed, r-5) |
 | ADR-SAG-0003 | Secret resolution | Active | Amended by ADR-SAG-0020; ADR-SAG-0024 (Proposed, r-2) |
 | ADR-SAG-0004 | One check, one request | Active | Amended by ADR-SAG-0025 (Proposed, r-2b) |
 | ADR-SAG-0005 | Facade owns payload assembly | Active | Amended by ADR-SAG-0024 (Proposed, r-2); A.1 subsections (Active, r-4), (Proposed, r-5); ADR-SAG-0030 (Proposed, r-7) |
@@ -121,6 +121,19 @@ The **canonical judge payload** is sorted-key compact JSON (UTF-8): the
 questions + state the backends must judge. SHA-256 of **those** bytes is
 `prompt_sha256` for equal-input and the cross-language fixture (sprint a-1).
 
+### Amendment (Phase A.1, r-5)
+
+**Status:** Proposed (Phase A.1) — lands in r-5.
+
+- (Proposed, r-5) A question has two optional fields, omitted when absent:
+  `kind` (`score` or `noul`; absent means `choice`) and `descriptions` (one
+  per choice; absent means each description is the choice label). `choice`
+  has 2 to 255 choices, `score` 2 to 10 in level order, `noul` none; any
+  other shape is `INPUT_INVALID`. A payload without these fields
+  serializes byte-identically to the Phase A form, so `prompt_sha256` and
+  the cross-language fixture are unchanged and the schema version stays
+  `canonical.v1`. There is one payload type (`CanonicalJudgePayload`).
+
 ## ADR-SAG-0005 — Facade owns payload assembly
 
 **Status:** Active
@@ -148,14 +161,14 @@ errors happens before any backend call (ADR-SAG-0004).
   (ADR-SAG-0024). The sentences "`run::build_request` is the public assembly
   entry" and "`run_check` uses that same assembly" above are superseded.
 
-### Amendment (Phase A.1, r-5 — blocked on vendor answer)
+### Amendment (Phase A.1, r-5)
 
-**Status:** Proposed (Phase A.1) — lands in r-5; blocked (D9, owner decision (c)).
+**Status:** Proposed (Phase A.1) — lands in r-5.
 
 - (Proposed, r-5) `CanonicalJudgePayload` is the only payload schema. Both backend families
-  validate by deserializing it. The Jev HTTP body is a JSON envelope built
-  around the canonical object (no byte-splice); `prompt_sha256` stays on
-  canonical bytes.
+  validate by deserializing it. The Jev HTTP body is the documented flat
+  object `{model, state, questions}` built by serde from the canonical
+  payload (no byte-splice); `prompt_sha256` stays on canonical bytes.
 
 ### Amendment (Phase A.1, r-7)
 
@@ -741,7 +754,7 @@ preflight CI, and publish dry-run).
 - (Proposed, r-3b) Published library crates gain `sc-agent-compose`
   (internal support, owner decision 2026-11-06), published directly after
   `sc-jev-check`. `workspace-tests` is `publish = false`. No crate is
-  published to crates.io until D9 resolves (plan.md decision (c)).
+  published to crates.io until r-5 (D9) lands (plan.md decision (c)).
 
 ### Amendment (Phase A.1, r-7)
 
@@ -752,7 +765,7 @@ preflight CI, and publish dry-run).
   dependency). crates.io order: `sc-agent-types`, `sc-decision-schema`,
   `sc-agent-secrets`, `sc-agent-http`, `sc-jev`, `sc-jev-backends`,
   `sc-jev-check`, `sc-agent-compose`, `sc-treesitter`, `sc-ai`. No crate is
-  published to crates.io until D9 resolves (unchanged).
+  published to crates.io until r-5 (D9) lands (unchanged).
 
 ## ADR-SAG-0015 — Subjects artifact outside the judge
 
@@ -1075,7 +1088,7 @@ r-3, ADR-SAG-0022 r-1 and r-2 (plan.md "Plan PR route").
 | Approach | Status |
 | --- | --- |
 | API-direct Anthropic / OpenAI (Haiku/Luna in `sc-jev-check` flow; future `sc-ai` agents) | **Wanted** — Phase A and Phase B (standalone) |
-| Subprocess JSON bridges to claude-code, codex-cli, cursor-cli | **Out of scope** |
+| Subprocess JSON bridges to claude-code, codex-cli, cursor-cli | **Out of scope for Phase A and B**; a later agent kind (ADR-SAG-0030 scope context) |
 
 Future agent crates sit beside `sc-jev` and depend on `sc-agent-types` +
 `sc-agent-secrets`; they do not duplicate Jev HTTP or payload rules from `sc-jev` when running
@@ -1466,8 +1479,10 @@ Owner decisions 2026-11-07.
   serde request and one response type per Jev API call known today (check:
   `CheckRequest`, `CheckResponse`). `sc-jev` builds the body with
   `CheckRequest` and parses replies with `CheckResponse`; the byte-splice is
-  deleted. The question shape (array `[{id, prompt, choices}]`, object
-  `{type, instructions, criteria}`, or both) is D9 (owner decision (c)).
+  deleted. They encode the documented Jev API (D9, owner decision (c)): the
+  flat body `{model, state, questions}`, every question type (`choice`,
+  `score`, `noul`), every `state` form (string, object, array) and the
+  `{model, answers, usage}` reply.
 - (Proposed, r-7) **LLM I/O on the same schema.** Haiku/Luna input is the
   canonical payload bytes embedded unchanged (ADR-SAG-0019); their output is
   `DecisionAnswers`, the same answers type as `jev::v1::CheckResponse`.
@@ -1489,16 +1504,13 @@ Owner decisions 2026-11-07.
   their configured `ModelId`; the Jev model pin moves from `sc-jev`'s
   `jev.toml` to `MODELS`, so each model string has one source. `BackendId` = how we call; `ModelId` = which
   model; the log's `model_id` is the `ModelId` string.
-- (Recorded; open owner item) **Scope context (recorded, not built).** sc-agent will
-  launch decision models, Claude and Codex through their SDKs/APIs directly,
-  and CLI agents (claude-code, codex-cli, cursor-cli, …) through a wrapper;
-  more SDK and CLI agent kinds land in `sc-agent-types` over time. The
-  catalog and the layering are model- and agent-agnostic so this is not
-  precluded. The Roadmap row "Subprocess JSON bridges … Out of scope" and
-  REQ-SAG-0900/0901 ("no … subprocess") are not changed by this ADR. How
-  they relate to the long-term CLI-wrapper scope is an open owner item
-  (plan.md "Owner decisions 2026-11-07", item 4); no wrapper is
-  built in A.1.
+- (Recorded) **Scope context (recorded, not built).** sc-agent will launch
+  decision models, Claude and Codex through their SDKs/APIs directly, and
+  CLI agents (claude-code, codex-cli, cursor-cli, …) through a wrapper; more
+  SDK and CLI agent kinds land in `sc-agent-types` over time. The catalog
+  and the layering are model- and agent-agnostic so this is not precluded.
+  REQ-SAG-0900/0901 define the API-direct agents; CLI wrappers are
+  additional future agent kinds. No wrapper is built in A.1.
 
 ## ADR-SAG-0031 — Session log storage schema
 
@@ -1576,8 +1588,13 @@ subsection in each). Owner decisions 2026-11-07.
   ADR-SAG-0021 paths are unchanged: sessions and logs stay under the
   worktree's own root. `project` is `ProjectLabel` (≤ 256 bytes, no control
   characters), from `sc-ai --project` or Python `project=`.
-- (Proposed, r-6) SHA-256 is computed with `sc-sha` over raw bytes with no
-  normalization (r-6 D0 gate); no workspace manifest lists `sha2` or `uuid`.
+- (Proposed, r-6) SHA-256 is computed with `sc-sha`
+  (`calculate_hash(HashInput::TextFileBytes { .. })`, strict UTF-8, CRLF and
+  bare CR normalized to LF). Request bodies and canonical payloads are
+  compact JSON with no raw CR, so their digest equals SHA-256 of the bytes
+  sent; other text (a tree-sitter query source) hashes in its LF-normalized
+  form; no
+  workspace manifest lists `sha2` or `uuid`.
 - (Proposed, r-6) Log-write failure policy: a rejected or failed log row
   never fails the run; `SessionLog::emit` is best effort and a flush failure
   is a `data.warnings` entry (plan.md owner decisions 2026-11-07, item 9).

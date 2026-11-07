@@ -472,7 +472,7 @@ optional, facade and `git` note (r-3c). Every manifest of a crate with a
 | D3 (engine + backend digest) | r-2b | multi-backend semantics | L |
 | D2 (compose), D7 (workspace-tests), D12 (sc-ai), D3 (consumers) | r-3b | composition crate, workspace tests, consumers | XL |
 | Owner decisions 2026-11-07 (items 1–3, 5, 6, 7) | r-7 | `sc-decision-schema` crate and model catalog | XL |
-| D9, `jev::v1` | r-5 | Jev wire envelope (**blocked**) | M |
+| D9, `jev::v1` | r-5 | Jev wire body as the documented API (all question types) | L |
 | Owner decisions 2026-11-07 (items 5, 6, 8, 9) | r-6 | session log wiring | L |
 
 Sizes: M = 2–3 dev-days, L = 4–5, XL = 6–8. r-1 and r-3b are XL by honest
@@ -496,15 +496,14 @@ backend crates and the scripted-backend digest.
 | runtime | 3 | r-2b | boundary | jev-check | r-2, r-3 | [] |
 | integration | 4 | r-3b | integration | agent-compose | r-2b, r-3, r-3c | [] |
 | schema | 5 | r-7 | contract | decision-schema | r-3b | [] |
-| jev | 6 | r-5 | boundary | jev | r-7, r-2b, vendor answer | [r-6] |
+| jev | 6 | r-5 | boundary | jev | r-7, r-2b | [r-6] |
 | observability | 6 | r-6 | contract | session-log | r-7 | [r-5] |
 
 **Critical path:** r-1 → r-2 → r-2b → r-3b → r-7 → r-6 = **6 sprints**
-(r-5 runs beside r-6 in wave 6 once unblocked, so it does not lengthen the
-path). **Width:** 3 (wave 2). **Sprint count:** 9 + 1 blocked (r-5 on the
-vendor answer).
+(r-5 runs beside r-6 in wave 6, so it does not lengthen the path).
+**Width:** 3 (wave 2). **Sprint count:** 10.
 **Effort:** r-1 XL + r-4 M + r-2 L + r-3 L + r-3c M + r-2b L + r-3b XL +
-r-7 XL + r-6 L ≈ 38–50 dev-days in total (r-5 M extra); the critical path
+r-7 XL + r-5 L + r-6 L ≈ 42–55 dev-days in total; the critical path
 (XL + L + L + XL + XL + L) is ≈ 30–39 dev-days.
 
 **Why r-7 runs alone in wave 5 and r-5/r-6 share wave 6.** r-7 moves the
@@ -570,7 +569,7 @@ line; r-4 owns the rest) and ordered by the wave-1 merge rule (r-1 first).
 | r-2b | REQ-SAG-0606 |
 | r-3b | REQ-SAG-0109, REQ-SAG-0604, REQ-SAG-0605, REQ-SAG-0712, REQ-SAG-0135 (clap) |
 | r-7 | REQ-SAG-0140, REQ-SAG-0141, REQ-SAG-0142, REQ-SAG-0144, REQ-SAG-0145, REQ-SAG-0146, REQ-SAG-0147, REQ-SAG-0148 |
-| r-5 (blocked) | REQ-SAG-0403, REQ-SAG-0143 |
+| r-5 | REQ-SAG-0403, REQ-SAG-0143 |
 | r-6 | REQ-SAG-0612, REQ-SAG-0613, REQ-SAG-0614, REQ-SAG-0615, REQ-SAG-0616, REQ-SAG-0617, REQ-SAG-0618 |
 
 Amendments to existing rows (each lands once): REQ-SAG-0101, REQ-SAG-0103,
@@ -616,10 +615,8 @@ Source: `.cursor/phase-a-orchestration.json` key `owner_decisions_2026_11_07`.
 4. **Long-term scope (recorded, not built):** decision models, Claude/Codex
    via SDK/API, and CLI agents (claude-code, codex-cli, cursor-cli, …)
    through a wrapper; more agent kinds land in `sc-agent-types` over time.
-   Open question for the owner, not a gate in A.1 (no wrapper is built):
-   how this relates to REQ-SAG-0900/0901 ("no … subprocess") and the
-   Roadmap row "Subprocess JSON bridges … Out of scope", which stay
-   unchanged.
+   No conflict (owner, 2026-11-07): REQ-SAG-0900/0901 define the
+   API-direct agents; CLI wrappers are additional future agent kinds.
 5. **Log line shape:** the row lives inside the sc-observability v2
    `fields{}` object (ADR-SAG-0013's no-bespoke-writer rule stays); the
    row's outcome key is `send_outcome`; the SQLite schema is authoritative
@@ -639,22 +636,28 @@ Source: `.cursor/phase-a-orchestration.json` key `owner_decisions_2026_11_07`.
 8. Previously decided (r-6): ULID session ids; `request_sha256` = SHA-256 of
    exactly what is sent, the future cache key; `repo` = main repository
    (a worktree resolves to it), else the calling folder; `project` = free
-   caller text; context on every line; `sc-sha` for SHA-256 (r-6 D0
-   stop-and-report: it must hash raw bytes unchanged); JSONL for the MVP,
-   SQLite soon. D9 direction confirmed: one typed serde struct per Jev API
-   call; the question shape is still the open vendor question.
+   caller text; context on every line; `sc-sha` for SHA-256; JSONL for the
+   MVP, SQLite soon. D9 direction confirmed: one typed serde struct per Jev
+   API call.
 9. **Log-write failure policy:** keep today's best-effort log write, so a
    rejected or failed log row never fails the run (a logger flush failure
    stays a `data.warnings` entry). Parent's decision under the owner's
    ceremony guidance of 2026-11-07; r-6 pins it with
    `test_rejected_log_row_keeps_run_ok`.
 
-**Open owner items (not resolved by this plan).** Each gates a sprint:
+10. **D9 resolved** (owner, 2026-11-07): the TypeSafe Jev API as documented
+    in `.claude/skills/plan-anchoring/references/jev-api.md` is the source
+    of truth; sc-agent supports every documented question format, with the
+    schemas in `sc_decision_schema::jev::v1` (see "(c)" below and r-5).
+11. **sc-sha** (owner, from the sc-sha 1.7.0 source): the API is
+    `calculate_hash(HashInput::TextFileBytes { utf8_file_bytes })`, which
+    takes strict UTF-8, normalizes CRLF and bare CR to LF and returns
+    `TemplateSha256`; there is no raw-bytes API. serde_json compact output
+    has no raw CR and request bodies are UTF-8, so the digest equals SHA-256
+    of the sent bytes. `sc-sha` depends on `sha2`, so `sha2` appears only
+    transitively (the `--depth 1` checks allow it).
 
-| Item | Gate | Sprint effect |
-| --- | --- | --- |
-| Does `sc-sha` hash raw bytes unchanged? | r-6 D0, stop-and-report before any D2 code | if not: owner chooses keep `sha2` or add a raw-bytes API to `sc-sha`; r-6 D2 and REQ-SAG-0618 are revised first |
-| D9 question shape (array, object, or both) | owner decision (c), vendor answer | r-5 stays `blocked` |
+No owner questions remain open.
 
 Details: [`sprint-r-7-decision-schema.md`](sprint-r-7-decision-schema.md),
 [`sprint-r-6-session-log-record.md`](sprint-r-6-session-log-record.md).
@@ -663,14 +666,14 @@ Details: [`sprint-r-7-decision-schema.md`](sprint-r-7-decision-schema.md),
 
 | ADR | Change | Landing sprint |
 | --- | --- | --- |
-| ADR-SAG-0002 | Branch B or both of D9 only: optional `criteria` field (`CriteriaSpec`), exactly one of `questions`/`criteria`, array payloads byte-identical (r-5 inserts the subsection and its index marker) | r-5 (blocked) |
+| ADR-SAG-0002 | optional `kind` (`score` / `noul`) and `descriptions` question fields; payloads without them byte-identical | r-5 |
 | ADR-SAG-0003 | repo root = git toplevel for both consumers | r-2 |
 | ADR-SAG-0004 | each `ChainContext`-augmented request re-validated before its own send | r-2b |
 | ADR-SAG-0005 | runs the four consumer extractor kinds (no ADR-0024/`prepare` reference) | r-4 |
 | ADR-SAG-0005 | public assembly entry is `prepare`; `run::build_request` sentence superseded | r-2 |
 | ADR-SAG-0014 | r-1 interim: typed `answers` written once; `JudgeOutcome` entries; `equal_input` shape. Superseded by ADR-SAG-0024 (r-2) as a whole; the "null until r-2b" clause is made false by an r-2b-owned pointer in ADR-SAG-0025 | r-1 |
 | ADR-SAG-0014 | `data` is the `RunResponse` serialization; primary backend = first `Ok`; `warnings` | r-2 |
-| ADR-SAG-0005 | canonical-only schema + Jev JSON envelope (D9) | r-5 (blocked) |
+| ADR-SAG-0005 | canonical-only schema + the documented Jev body (D9) | r-5 |
 | ADR-SAG-0006 | transports live in `sc-agent-http` | r-3 |
 | ADR-SAG-0007 | busy-retry policy (owner decision (b), decided); Retry-After grammar; cancel latency ≤ 120 s | r-3 |
 | ADR-SAG-0008 | r-1 interim: engine behaviour recorded as `ChainContext`; session document v2. Bullet 1 (except its last sentence) superseded by ADR-SAG-0025 (r-2b); bullet 2 stays in force; r-2b rewrites the Status line (r-2b D7) | r-1 |
@@ -732,10 +735,9 @@ ADR-SAG-0023..0028 are written by this plan PR (conventions). Plan review 4
 made two exceptions to "never adds or removes an entry": r-3 adds the
 ADR-SAG-0020 "A.1 subsection (Proposed, r-3b)" marker when it moves the
 `source_scans` clause out, and r-2b splits ADR-SAG-0025 bullet 2; both are
-written out verbatim in the sprint docs. Plan review 5 adds a third: in
-D9 Branch B or "both", r-5 adds the "A.1 subsection (Active, r-5)" marker
-to the ADR-SAG-0002 row with its new subsection (the branch is unknown until
-owner decision (c)). ADR-SAG-0030 and ADR-SAG-0031 follow the plan-time
+written out verbatim in the sprint docs. The ADR-SAG-0002 r-5 amendment
+follows the plan-time convention (inserted Proposed by this plan PR).
+ADR-SAG-0030 and ADR-SAG-0031 follow the plan-time
 convention with no exception: this plan PR (round 6) inserts both as
 Proposed, with their index rows and every Amended-by marker and amendment
 subsection; r-7 and r-6 only flip their own. The r-1 interim rows above are already marked in the
@@ -812,23 +814,22 @@ amendment and the REQ-SAG-0505 amendment record it.
 - This removes round 1's malformed-header exhaustion (CPR-M7): 4 sends fit
   inside the budget unless the server's own Retry-After values exceed it.
 
-**(c) D9 Jev payload shape — pending owner confirmation (blocked on the
-TypeSafe vendor answer; one of the two open owner items in "Owner decisions
-2026-11-07").** In both branches r-5 adds `jev::v1` and builds the body as
-the flat object (rewritten to nested if the vendor answer says so). r-5
-holds both branches:
-- *Branch A (array `{id, prompt, choices}` only):* delete the object-shape
-  path in `sc-jev`; the payload type does not change.
-- *Branch B (object `{type, instructions, criteria}`, or both):* additive.
-  `CanonicalJudgePayload` (private fields since r-1) gains
-  `criteria: Option<CriteriaSpec>` with
-  `#[serde(default, skip_serializing_if = "Option::is_none")]`; exactly one of
-  non-empty `questions` / `criteria` validates; array payloads stay
-  byte-identical (cross-impl fixture).
-- **Publish gate (CPR-014):** no crate is published to crates.io until r-5 is
-  unblocked and either Branch A lands or Branch B is merged as the additive
-  change above. `cargo publish --dry-run` runs throughout; a real publish does
-  not.
+**(c) D9 Jev payload shape — resolved (owner, 2026-11-07).** The source of
+truth is the TypeSafe Jev API (`POST /v1/systemone`) as documented in
+`.claude/skills/plan-anchoring/references/jev-api.md`: a flat body
+`{model, state, questions}`; `questions` keyed by question id, each
+`{type, instructions}` with `type` `choice` (criteria map, up to 255
+options), `score` (2 to 10 ordered levels) or `noul` (yes-probability, no
+confidence); `state` a string, object or array; the reply
+`{model, answers{id: {type, choice, probabilities, confidence}}, usage}`.
+sc-agent supports every question format, with the schemas in
+`sc_decision_schema::jev::v1`. One plan, r-5: today's array payload
+`{id, prompt, choices}` maps onto `choice` questions; the canonical
+`Question` gains optional `kind` and `descriptions` (additive, so existing
+payload bytes, `prompt_sha256` and the cross-impl fixture are unchanged);
+the golden `check-request.json` is written from the documented shape.
+- **Publish gate (CPR-014):** no crate is published to crates.io until r-5
+  lands. `cargo publish --dry-run` runs throughout; a real publish does not.
 
 ### Planner resolutions (stand unless the owner objects)
 
@@ -973,7 +974,7 @@ round-1 ids are dispositioned in `plan-review-1-dispositions.md`.
 | EXT-009 | r-2 | `BackendRegistry::from_env` + registry injection |
 | EXT-010 | r-3b | r-3c contributes |
 | ARCHC-001 | r-3 | |
-| ARCHC-002, ARCHC-003 | r-5 (blocked) | |
+| ARCHC-002, ARCHC-003 | r-5 | |
 | ARCHC-004, ARCHC-005 | r-1 | |
 | ARCHC-008, ARCHC-011, ARCHC-021 | r-1 | ARCHC-021: r-1 moves `InputSpec` unchanged; r-2 adds `Command.path` |
 | ARCHC-010 | r-1 | one `JudgeBackend` test double home: `sc_agent_types::test_util::MockJudgeBackend` (`test-util` feature), which records requests and validations, reports `input_sha256`, and can fail at `judge` or refuse at `validate_for_send`; `ScriptedJudge`/`RequestLog` deleted; the scripted registry stays a registry builder over it (ADR-SAG-0022 r-1 amendment) |
@@ -1003,7 +1004,7 @@ round-1 ids are dispositioned in `plan-review-1-dispositions.md`.
 - **ARCHP-009** (one file per producer call, `Parser`/`Query` rebuilt per
   call, no match limit): producer throughput with no A.1 consumer; the Phase B
   multi-file producer owns it. Bead `agt-treesitter-multifile`.
-- **D9** (r-5): blocked; the `"model"` byte-splice remains until then.
+- **D9** (r-5): resolved; the `"model"` byte-splice remains until r-5 lands.
 - Phase B features: API-direct agents (REQ-SAG-0900/0901), MCP server (a third
   thin adapter over `sc-agent-compose`), typed `JudgeMeta`, a second session
   store, a crate split of `sc-agent-types` (module paths are the stable surface
@@ -1025,7 +1026,7 @@ round-1 ids are dispositioned in `plan-review-1-dispositions.md`.
 | r-2b | [`sprint-r-2b-multi-backend-semantics.md`](sprint-r-2b-multi-backend-semantics.md) |
 | r-3b | [`sprint-r-3b-compose-and-workspace-tests.md`](sprint-r-3b-compose-and-workspace-tests.md) |
 | r-7 | [`sprint-r-7-decision-schema.md`](sprint-r-7-decision-schema.md) |
-| r-5 | [`sprint-r-5-jev-wire-envelope.md`](sprint-r-5-jev-wire-envelope.md) (blocked) |
+| r-5 | [`sprint-r-5-jev-wire-envelope.md`](sprint-r-5-jev-wire-envelope.md) |
 | r-6 | [`sprint-r-6-session-log-record.md`](sprint-r-6-session-log-record.md) |
 
 ## Crate graph after A.1
