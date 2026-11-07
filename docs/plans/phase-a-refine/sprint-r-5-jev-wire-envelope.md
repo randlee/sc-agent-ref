@@ -97,6 +97,8 @@ ARCHC-002, ARCHC-003.
 
 ## Deliverables (common to both branches)
 
+Every deliverable below, and the branch section that applies, lands production-ready for the scope this sprint claims; none closes as shape-only or test-only.
+
 1. `sc-jev` and `sc-jev-backends` validate by
    `serde_json::from_slice::<CanonicalJudgePayload>(bundle.bytes())` with
    `deny_unknown_fields`. No other schema check remains.
@@ -173,6 +175,18 @@ ARCHC-002, ARCHC-003.
   requires exactly one of non-empty `questions` or `Some(criteria)`. An array
   payload serializes byte-identically (cross-impl fixture unchanged). No
   untagged enum, no new tag on existing payloads.
+
+  ```rust
+  // crates/sc-decision-schema/src/payload.rs (Branch B / both)
+  #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+  #[serde(deny_unknown_fields)]
+  pub struct CriteriaSpec {
+      #[serde(rename = "type")]
+      kind: String,
+      instructions: String,
+      criteria: Vec<serde_json::Value>,   // element shape fixed from the vendor answer before dispatch
+  }
+  ```
 - `sc-jev-backends` accepts `criteria` only if the LLM system prompt asset
   supports it; otherwise `INPUT_INVALID` with a fix hint.
 - "Both": as above, with both forms accepted by Jev.

@@ -154,6 +154,8 @@ If `sc-sha` only offers a normalizing text hash, **stop and report**.
 
 ## Deliverables
 
+Every deliverable below lands production-ready for the scope this sprint claims; none closes as shape-only or test-only.
+
 ### D1 — ULID session ids (REQ-SAG-0612, REQ-SAG-0600 amendment, ADR-SAG-0008 r-6 amendment)
 
 - `SessionId` wraps `ulid::Ulid` (caret). `SessionId::new()` is

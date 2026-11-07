@@ -105,6 +105,7 @@ owned_paths:
   - "crates/sc-jev/src/**#import changes"
   - "crates/sc-jev/src/config.rs#model as ModelId"
   - "crates/sc-jev/src/jev.toml#model key removed (the catalog is the one source)"
+  - "crates/sc-jev-check/assets/jev.toml#header comment: model ids live in the sc-agent-types catalog"
   - "crates/sc-jev/src/check.rs#impl JudgeBackend for JevClient: fn model_id"
   - "crates/sc-jev/src/client/mod.rs#request trace handed to HttpRequest"
   - "crates/sc-jev/tests/**#import changes"
@@ -215,6 +216,8 @@ sc-decision-schema    QuestionId, ChoiceId, Question, ChoiceAnswer, CanonicalJud
   compatibility); renaming them is not in scope.
 
 ## Deliverables
+
+Every deliverable below lands production-ready for the scope this sprint claims; none closes as shape-only or test-only.
 
 ### D1 — Crate `sc-decision-schema` (REQ-SAG-0140, REQ-SAG-0130 amendment)
 
@@ -544,7 +547,9 @@ dependency or writer lands in A.1.
    `HAIKU_MODEL` / `LUNA_MODEL` consts and sends `model.to_string()`;
    `JevConfig::model` becomes a `ModelId` set from the factory (catalog,
    `[models]` override), and the `model` key leaves `crates/sc-jev/src/jev.toml`,
-   so the catalog is the one source of the Jev model string.
+   so the catalog is the one source of the Jev model string. The header
+   comment of `crates/sc-jev-check/assets/jev.toml` ("Model ids live with
+   each backend crate") is corrected to name the catalog.
 5. **`JudgeBackend::model_id()`**, a provided method (ADR-SAG-0009: new
    methods have default bodies) returning the catalog's `latest` for the
    descriptor's `default_model_alias`, else `ModelId::Other(<backend
@@ -770,7 +775,7 @@ Each named test prints `1 passed`; the scrum-master rejects `0 passed`.
 | req:REQ-SAG-0146 | `cargo test -p sc-decision-schema --test session_log -- test_session_log_row_matches_ddl --exact`; `cargo test -p sc-decision-schema --test session_log -- test_fields_roundtrip --exact` (every fixture line); `cargo test -p sc-decision-schema --test session_log -- test_unknown_or_missing_key_rejected --exact`; `uv run --directory tests/fixtures/jev-python pytest -q tests/test_session_log_sqlite.py::test_fixture_loads_into_sqlite` (Python `sqlite3` executes `schema.sql`, loads all six fixture lines, the CHECK constraints accept them, and the two rows of one session keep their own `project`) |
 | req:REQ-SAG-0147 | `cargo test -p sc-agent-types --test models -- test_known_models_roundtrip --exact`; `cargo test -p sc-agent-types --test models -- test_unknown_model_string_parses_as_other --exact`; `cargo test -p sc-jev-backends --test llm -- test_unknown_model_override_is_sent_verbatim --exact` |
 | req:REQ-SAG-0148 | `cargo test -p sc-agent-types --test models -- test_latest_alias_lookup --exact`; `cargo test -p sc-agent-types --test models -- test_alias_override_wins --exact`; `cargo test -p sc-agent-types --test ids -- test_backend_catalog_roundtrip --exact` (every descriptor's `default_model_alias()` resolves); `cargo test -p sc-jev-check --features test-util --test models -- test_check_toml_models_override_reaches_backend --exact`; `cargo test -p sc-jev-check --features test-util --test models -- test_unknown_model_alias_is_config_invalid --exact`; `model_id()` (D7.5): `cargo test -p sc-decision-schema --features test-util --test mock -- test_model_id_default_from_catalog --exact`, `cargo test -p sc-jev --test catalog -- test_jev_model_id_is_configured_model --exact`, `cargo test -p sc-jev-backends --test llm -- test_llm_model_id_is_configured_model --exact` |
-| req:REQ-SAG-0613 (seam) | `cargo test -p sc-agent-types --test trace -- test_send_trace_first_write_wins --exact`; `cargo test -p sc-jev --test send_trace -- test_jev_attaches_request_trace --exact` and `cargo test -p sc-jev-backends --test send_trace -- test_llm_attaches_request_trace --exact` (the `HttpRequest` a recording transport captures carries the `JudgeRequest`'s trace: a digest recorded through the captured trace is visible through `req.send_trace()`) |
+| req:REQ-SAG-0613 (seam) | `cargo test -p sc-agent-types --test trace -- test_send_trace_first_write_wins --exact`; `cargo test -p sc-jev --test send_trace -- test_jev_attaches_request_trace --exact` and `cargo test -p sc-jev-backends --test send_trace -- test_llm_attaches_request_trace --exact` (the `HttpRequest` a recording transport captures carries the `JudgeRequest`'s trace: a digest recorded through the captured `HttpRequest::trace()` is visible through the originating `JudgeRequest::send_trace()`) |
 | req:REQ-SAG-0103 (amended) | Rows in `docs/requirements.md` and `docs/sc-agent-types/requirements.md` flipped; the moved contract tests pass in their new crate (REQ-SAG-0141 row) |
 | req:REQ-SAG-0107 (amended) | `cargo hack check -p sc-agent-types --feature-powerset --no-dev-deps`; `cargo hack check -p sc-decision-schema --feature-powerset --no-dev-deps`; `cargo test -p sc-agent-types --test features` green |
 | req:REQ-SAG-0130 (amended, r-7 bullet) | `release/sc-publish-consumer-input.json` lists `sc-decision-schema` with `publish_order: 2`; after the parent's `install.py` run, `bash scripts/sc-publish-dry-run.sh` exits 0 and packages `sc-decision-schema` second |
