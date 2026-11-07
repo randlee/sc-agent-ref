@@ -15,4 +15,4 @@ acceptance root, when it differs, is shown as "root a-N"; the closure table in
 | NFR-SAG-0002 | No secrets in output | a-7 |
 | NFR-SAG-0003 | Document default log root | a-7 |
 
-Phase A: `sc-ai jev` check parity only. Phase B: more Jev API + API-direct Claude/Codex (REQ-SAG-0900/0901); never vendor CLI wrappers.
+Phase A: `sc-ai jev` check parity only. Phase B: more Jev API + API-direct Claude/Codex (REQ-SAG-0900/0901); no vendor CLI wrappers in Phase A or B (a later agent kind, ADR-SAG-0030).
