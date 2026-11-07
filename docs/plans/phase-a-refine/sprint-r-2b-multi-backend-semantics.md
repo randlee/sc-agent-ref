@@ -1,7 +1,7 @@
 ---
 id: r-2b
 phase: r
-status: in-review
+status: complete # QA-2 PASS (3ef50f5 + merge b61e2ac)
 closure_type: boundary
 target_boundary: jev-check
 track: runtime
