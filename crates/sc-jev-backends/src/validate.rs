@@ -156,3 +156,59 @@ fn type_label(value: &Value) -> String {
         .as_str()
         .map_or_else(|| value.to_string(), str::to_owned)
 }
+
+/// Refusal paths of `validate_questions` on raw bytes (QA-1 QA-001). A
+/// `PayloadBundle` cannot carry most of these, so they are unit tests.
+#[cfg(test)]
+mod refusals {
+    use serde_json::json;
+
+    use super::validate_questions;
+
+    #[test]
+    fn validate_questions_refuses_every_malformed_payload() {
+        let q = |extra: serde_json::Value| {
+            let mut question = json!({"id": "q", "prompt": "p", "choices": ["a", "b"]});
+            for (key, value) in extra.as_object().expect("object") {
+                if value.is_null() {
+                    question.as_object_mut().expect("object").remove(key);
+                } else {
+                    question[key] = value.clone();
+                }
+            }
+            question
+        };
+        let cases: Vec<(Vec<u8>, &str)> = vec![
+            (b"not json".to_vec(), "is not JSON"),
+            (json!({"state": []}).to_string().into_bytes(), "needs a questions array"),
+            (json!({"questions": []}).to_string().into_bytes(), "at least one question"),
+            (
+                json!({"questions": [q(json!({"type": "rank"})), q(json!({"id": "r", "type": 3}))]})
+                    .to_string()
+                    .into_bytes(),
+                r#"no answer schema for question type ["3", "rank"]"#,
+            ),
+            (json!({"questions": [1]}).to_string().into_bytes(), "is not an object"),
+            (json!({"questions": [q(json!({"id": ""}))]}).to_string().into_bytes(), "missing id"),
+            (
+                json!({"questions": [q(json!({})), q(json!({}))]}).to_string().into_bytes(),
+                "duplicate question id q",
+            ),
+            (json!({"questions": [q(json!({"prompt": null}))]}).to_string().into_bytes(), "missing prompt"),
+            (json!({"questions": [q(json!({"choices": null}))]}).to_string().into_bytes(), "two or more criteria"),
+            (json!({"questions": [q(json!({"choices": ["a", 1]}))]}).to_string().into_bytes(), "two or more criteria"),
+        ];
+        for (bytes, needle) in cases {
+            let error = validate_questions(&bytes).expect_err(needle);
+            assert_eq!(error.code(), "INPUT_INVALID", "{needle}");
+            assert!(error.to_string().contains(needle), "{needle}: {error}");
+        }
+        let parsed = validate_questions(
+            json!({"questions": [q(json!({"type": "choice"}))]})
+                .to_string()
+                .as_bytes(),
+        )
+        .expect("explicit choice type");
+        assert_eq!(parsed[0].choices, ["a", "b"]);
+    }
+}

@@ -131,6 +131,13 @@ jobs:
         timeout-minutes: 15
         run: cargo test -p sc-agent-types --features git,test-util
 
+      # r-3 (FTQ-002): sc-agent-http's `retry` and `ureq` targets declare
+      # required-features = ["test-util"]; run them explicitly instead of
+      # relying on feature unification through other crates' dev-deps.
+      - name: cargo test -p sc-agent-http --features test-util
+        timeout-minutes: 15
+        run: cargo test -p sc-agent-http --features test-util
+
   python:
     name: python (${{ matrix.os }})
     strategy:
@@ -281,6 +288,39 @@ jobs:
       - name: cargo tree gates
         timeout-minutes: 10
         run: bash .github/scripts/cargo-tree-gates.sh
+
+      # r-3 (RBQA-F101): no ureq type in sc-agent-http's public API. Built
+      # WITH deps so a leaked type renders as a link into ureq's docs; fails
+      # on any href into ureq/ or any `ureq::` item title. Proven by the
+      # `pub fn _canary() -> ureq::Agent` run in the r-3 sprint doc.
+      - name: sc-agent-http public API has no ureq type
+        timeout-minutes: 15
+        run: |
+          rm -rf target/doc/sc_agent_http
+          cargo doc --locked -p sc-agent-http
+          if grep -rlE 'href="[^"]*ureq/|title="[a-z]+ ureq::' target/doc/sc_agent_http/; then
+            echo "ureq type in the sc-agent-http public API" >&2
+            exit 1
+          fi
+
+      # r-3 (RBQA-F102, ADR-SAG-0020 r-3): the single secret read site. No
+      # file under crates/ other than sc-agent-http's ureq_transport.rs may
+      # name `disallowed_methods` outside comments (in an expect/allow or anywhere) or call
+      # `ResolvedApiKey::as_str` by path; clippy's disallowed-methods catches
+      # method-call reads.
+      - name: single ResolvedApiKey::as_str site
+        timeout-minutes: 5
+        run: |
+          # Comment lines (`//`, `//!`, `///`) may name the rule in prose.
+          hits="$(grep -rnE 'disallowed_methods|ResolvedApiKey::as_str' crates/ --include='*.rs' \
+            | grep -vE '^[^:]+:[0-9]+:[[:space:]]*//' \
+            | grep -v '^crates/sc-agent-http/src/ureq_transport.rs:' || true)"
+          if [ -n "$hits" ]; then
+            echo "secret read-site markers outside crates/sc-agent-http/src/ureq_transport.rs:" >&2
+            echo "$hits" >&2
+            exit 1
+          fi
+          grep -q 'disallowed_methods' crates/sc-agent-http/src/ureq_transport.rs
 
       # NFR-SAG-0004: every `=` pin is on the ADR-SAG-0023 lockstep list.
       - name: check-exact-pins
