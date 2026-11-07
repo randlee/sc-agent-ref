@@ -13,7 +13,7 @@ use std::time::Duration;
 use sc_agent_types::{JevError, NetworkErrorKind, ResolvedApiKey};
 use ureq::http::Uri;
 
-use crate::request::{HttpRequest, HttpResponse, SecretHeader};
+use crate::request::{HttpRequest, HttpResponse};
 use crate::transport::{Timeouts, Transport};
 
 /// Largest response body read, error statuses included (8 MiB).
@@ -65,7 +65,7 @@ impl AgentConfig {
 /// body read included, by the request timeout (120 s by default), follows no
 /// redirect, refuses plain HTTP and sends `User-Agent: sc-agent-http/<ver>`.
 /// A response body over 8 MiB is refused while streaming, for error statuses
-/// too. This is the only transport that writes a [`SecretHeader`] value.
+/// too. This is the only transport that writes a [`SecretHeader`](crate::SecretHeader) value.
 ///
 /// # Examples
 ///
@@ -150,10 +150,13 @@ impl Transport for UreqTransport {
     }
 }
 
-impl SecretHeader {
+#[cfg(feature = "test-util")]
+impl crate::request::SecretHeader {
     /// Whether the key equals `candidate` (without the scheme prefix).
     ///
-    /// For test transports, which cannot read the key.
+    /// `test-util` only: an equality oracle for test transports, which
+    /// cannot read the key. Normal builds have no way to compare or read a
+    /// `SecretHeader` value outside this module (RBQA-F103).
     #[must_use]
     pub fn matches(&self, candidate: &str) -> bool {
         expose(self.key()) == candidate

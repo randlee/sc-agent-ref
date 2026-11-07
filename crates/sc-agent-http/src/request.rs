@@ -120,8 +120,9 @@ impl fmt::Display for HeaderName {
 ///
 /// Holds a [`ResolvedApiKey`]. Only [`UreqTransport`](crate::UreqTransport)
 /// writes the value to the wire (ADR-SAG-0020). Other transports, test
-/// doubles included, see the name, [`Self::redacted`] and
-/// [`Self::matches`]; nothing here returns the key.
+/// doubles included, see the name and [`Self::redacted`]; with the
+/// `test-util` feature, test transports can also compare the key with
+/// `SecretHeader::matches`. Nothing here returns the key.
 ///
 /// # Examples
 ///
@@ -133,7 +134,6 @@ impl fmt::Display for HeaderName {
 /// let header = SecretHeader::bearer(key);
 /// assert_eq!(header.name().as_str(), "Authorization");
 /// assert_eq!(header.redacted(), "Authorization: Bearer [redacted]");
-/// assert!(header.matches("sk-test"));
 /// # Ok::<(), sc_agent_types::JevError>(())
 /// ```
 #[derive(Clone, PartialEq, Eq)]

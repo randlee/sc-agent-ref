@@ -31,7 +31,8 @@ are `NETWORK_ERROR` with a `NetworkErrorKind`; a body over the cap is
 blanket impls for `&T` and `Arc<T>`. A direct `send` caller bypasses busy
 retry **and** redaction; production code calls only `send_and_parse` (which wraps `send_with_busy_retry`).
 A transport other than `UreqTransport` cannot read the key: it sees
-`SecretHeader::name`, `redacted` and `matches` only.
+`SecretHeader::name` and `redacted` only, plus, under `test-util`, the
+`matches` equality oracle for test transports.
 
 `UreqTransport::new(Timeouts)` builds one ureq agent from one private
 `AgentConfig` value (connect timeout, global request timeout covering the
@@ -47,7 +48,8 @@ A credential travels only as a `SecretHeader` (`new(name, key)` or
 `bearer(key)`) inside `HttpRequest`. `ureq_transport::expose` is the one call
 of `ResolvedApiKey::as_str` in the workspace and carries
 `#[expect(clippy::disallowed_methods, reason = "single secret read site (ADR-SAG-0020)")]`;
-`SecretHeader::matches` is implemented in the same file through it. Root
+`SecretHeader::matches` (`test-util` only) is implemented in the same file
+through it. Root
 `Cargo.toml` denies `allow_attributes` and `allow_attributes_without_reason`,
 so a second site needs a visible `#[expect]`. This is a lint-enforced
 workspace convention, not a type seal: crates outside the workspace are not

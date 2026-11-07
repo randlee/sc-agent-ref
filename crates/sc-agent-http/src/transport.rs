@@ -18,7 +18,7 @@ use crate::request::{HttpRequest, HttpResponse};
 /// [`UreqTransport`](crate::UreqTransport) cannot read the key in
 /// [`HttpRequest::secret`]; it sees only the header name,
 /// [`SecretHeader::redacted`](crate::SecretHeader::redacted) and
-/// [`SecretHeader::matches`](crate::SecretHeader::matches).
+/// (with `test-util`) `SecretHeader::matches`.
 pub trait Transport: Send + Sync {
     /// Sends `request` and returns the response, whatever its status.
     ///
