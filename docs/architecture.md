@@ -85,7 +85,7 @@ cell and its own marker text to `(Active, r-N)`; it adds or removes no entry.
 | ADR-SAG-0009 | Local backend registers without caller changes | Active | Amended by ADR-SAG-0022; ADR-SAG-0027 (Active, r-1); ADR-SAG-0024 (Proposed, r-2); ADR-SAG-0030 (Proposed, r-7) |
 | ADR-SAG-0010 | CLI thin adapter | Active | Amended by ADR-SAG-0026 (Proposed, r-3b) |
 | ADR-SAG-0011 | Python via sc-jev-py wheel | Active | Amended by ADR-SAG-0026 (Proposed, r-3b) |
-| ADR-SAG-0012 | sc-jev owns Jev API | Active | Amended by ADR-SAG-0030 (Proposed, r-7) |
+| ADR-SAG-0012 | sc-jev owns Jev API | Active | Amended by ADR-SAG-0030 (Proposed, r-5) |
 | ADR-SAG-0013 | Session JSONL via sc-observability v2 | Active | Amended by ADR-SAG-0021; ADR-SAG-0026 (Proposed, r-3b); ADR-SAG-0031 (Proposed, r-6) |
 | ADR-SAG-0014 | CLI success body | Active | A.1 subsection (Active, r-1); amended by ADR-SAG-0024 (Proposed, r-2) |
 | ADR-SAG-0015 | Subjects artifact outside the judge | Active | — |
@@ -103,7 +103,7 @@ cell and its own marker text to `(Active, r-N)`; it adds or removes no entry.
 | ADR-SAG-0027 | Error taxonomy and extensibility | Active (r-1) | Amends ADR-SAG-0001, ADR-SAG-0009, ADR-SAG-0016; amended by ADR-SAG-0030 (Proposed, r-7); ADR-SAG-0031 (Proposed, r-6) |
 | ADR-SAG-0028 | workspace-tests crate | Proposed (r-3b) | — |
 | ADR-SAG-0029 | Phase A hardening amendments | Active (a-10) | Amends ADR-SAG-0020 and ADR-SAG-0022; A.1 supersedes named sentences of (a) (Active, r-1), (Proposed, r-3) and of (b) (Active, r-1), (Proposed, r-2) |
-| ADR-SAG-0030 | Decision schema crate and model catalog | Proposed (r-7) | Amends ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0012, ADR-SAG-0016, ADR-SAG-0017, ADR-SAG-0019, ADR-SAG-0022, ADR-SAG-0026, ADR-SAG-0027 |
+| ADR-SAG-0030 | Decision schema crate and model catalog | Proposed (r-7; jev::v1 r-5) | Amends ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0012, ADR-SAG-0016, ADR-SAG-0017, ADR-SAG-0019, ADR-SAG-0022, ADR-SAG-0026, ADR-SAG-0027 |
 | ADR-SAG-0031 | Session log storage schema | Proposed (storage schema r-7; wiring r-6) | Amends ADR-SAG-0008, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0026, ADR-SAG-0027 (wiring) |
 
 ## ADR-SAG-0001 — Error enum is CLI authority
@@ -268,6 +268,9 @@ Amended by ADR-SAG-0022.
   `BackendId` names **how** a backend is called (Jev API, Anthropic API,
   OpenAI API); `ModelId` (model catalog in `sc-agent-types`) names **which**
   model. `BackendDescriptor` gains `default_model_alias`.
+- (Proposed, r-7) `JudgeBackend::model_id()` is a provided method returning
+  the catalog's `latest` for the descriptor's `default_model_alias`;
+  backends override it with their configured model.
 
 ## ADR-SAG-0022 — Scripted backends are a test-util feature
 
@@ -453,7 +456,7 @@ per-backend attestations and is false on live runs until r-2b.*
 - (Proposed, r-7) Haiku and Luna use the same decision schema as Jev: the
   input is the canonical payload bytes embedded unchanged (this ADR), and the
   model's JSON output is parsed as `sc_decision_schema::DecisionAnswers`, the
-  answers type of `jev::v1::CheckResponse` (ADR-SAG-0030). Provider
+  answers map `JudgeOutcome` carries for Jev (ADR-SAG-0030). Provider
   envelopes stay in `sc-jev-backends`.
 
 ## ADR-SAG-0003 — Secret resolution
@@ -932,11 +935,11 @@ Every TypeSafe Jev HTTP operation is implemented in `sc-jev`. Other crates
 must not send Jev API requests. Phase A ships the check/judge slice; remaining
 endpoints extend `sc-jev` in place.
 
-### Amendment (Phase A.1, r-7)
+### Amendment (Phase A.1, r-5)
 
-**Status:** Proposed (Phase A.1) — lands in r-7.
+**Status:** Proposed (Phase A.1) — lands in r-5.
 
-- (Proposed, r-7) The Jev request and response shapes are versioned data
+- (Proposed, r-5) The Jev request and response shapes are versioned data
   types in `sc_decision_schema::jev` (one serde struct per API call,
   ADR-SAG-0030). `sc-jev` still implements every Jev HTTP operation:
   endpoints, building and sending the body, and mapping responses. No other
@@ -1230,6 +1233,9 @@ and 0020; compose half amends ADR-SAG-0010, 0011, 0013, 0016 and 0017.
   `sc-decision-schema` (ADR-SAG-0030), not `sc-agent-types`. Compose does
   not re-export it; the `cargo tree -d` gate keeps one version of
   `sc-decision-schema` in the `sc-ai` and `sc-jev-py` graphs.
+- (Proposed, r-7) HTTP half: `HttpRequest` carries an optional `SendTrace`
+  (`with_trace`, `trace`); `sc-jev` and `sc-jev-backends` attach the
+  `JudgeRequest`'s trace. Recording into it is r-6.
 
 ### Amendment (Phase A.1, r-6)
 
@@ -1347,13 +1353,14 @@ and 0020; compose half amends ADR-SAG-0010, 0011, 0013, 0016 and 0017.
   descriptor's `default_model_alias` and, for a new model, adds the
   `ModelId` variant and its `MODELS` row; the factory-table row of step 3
   takes `&ModelAliases`.
+- (Proposed, r-7) The core (always-on) surface gains `SendTrace`
+  (ADR-SAG-0031).
 
 ### Amendment (Phase A.1, r-6)
 
 **Status:** Proposed (Phase A.1) — lands in r-6.
 
-- (Proposed, r-6) The core (always-on) surface gains `SendTrace` and
-  `ProjectLabel`; core dependencies change from `uuid` and `sha2` to `ulid`
+- (Proposed, r-6) The core (always-on) surface gains `ProjectLabel`; core dependencies change from `uuid` and `sha2` to `ulid`
   and `sc-sha` (caret, ADR-SAG-0023). `observability::v2::LogEvent`'s
   constructor and accessors change (ADR-SAG-0016 r-6 amendment), a
   stable-surface change made before any publish (ADR-SAG-0031).
@@ -1396,9 +1403,11 @@ and 0020; compose half amends ADR-SAG-0010, 0011, 0013, 0016 and 0017.
 
 ## ADR-SAG-0030 — Decision schema crate and model catalog
 
-**Status:** Proposed (Phase A.1) — lands in r-7. Amends ADR-SAG-0005,
-ADR-SAG-0009, ADR-SAG-0012, ADR-SAG-0016, ADR-SAG-0017, ADR-SAG-0019,
-ADR-SAG-0022, ADR-SAG-0026 and ADR-SAG-0027 (an r-7 subsection in each).
+**Status:** Proposed (Phase A.1) — lands in r-7, except the "Jev API
+structs" bullet and the ADR-SAG-0012 subsection, which land in r-5. Amends
+ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0016, ADR-SAG-0017, ADR-SAG-0019,
+ADR-SAG-0022, ADR-SAG-0026 and ADR-SAG-0027 (an r-7 subsection in each) and
+ADR-SAG-0012 (an r-5 subsection).
 Owner decisions 2026-11-07.
 
 - (Proposed, r-7) **Crate.** `sc-decision-schema` (published) is
@@ -1428,13 +1437,12 @@ Owner decisions 2026-11-07.
   sc-agent-owned wrappers (the session-log row, ADR-SAG-0031, and the session
   document, ADR-SAG-0008 r-6) and is not sent to a vendor whose schema does
   not define it.
-- (Proposed, r-7) **Jev API structs.** `sc_decision_schema::jev::v1` has one
+- (Proposed, r-5) **Jev API structs.** `sc_decision_schema::jev::v1` has one
   serde request and one response type per Jev API call known today (check:
-  `CheckRequest`, `CheckResponse`). `CheckRequest` serializes the array form
-  used in production (`questions` as `[{id, prompt, choices}]`) by serde,
-  byte-identical to today's body. Whether Jev also takes the object form
-  `{type, instructions, criteria}` is D9 (r-5, owner decision (c)); r-5
-  adopts these structs in `sc-jev` and deletes the byte-splice.
+  `CheckRequest`, `CheckResponse`). `sc-jev` builds the body with
+  `CheckRequest` and parses replies with `CheckResponse`; the byte-splice is
+  deleted. The question shape (array `[{id, prompt, choices}]`, object
+  `{type, instructions, criteria}`, or both) is D9 (owner decision (c)).
 - (Proposed, r-7) **LLM I/O on the same schema.** Haiku/Luna input is the
   canonical payload bytes embedded unchanged (ADR-SAG-0019); their output is
   `DecisionAnswers`, the same answers type as `jev::v1::CheckResponse`.
@@ -1453,7 +1461,7 @@ Owner decisions 2026-11-07.
   `with_override` (from `check.toml` `[models]`) replaces it. Backends hold
   their configured `ModelId`. `BackendId` = how we call; `ModelId` = which
   model; the log's `model_id` is the `ModelId` string.
-- (Proposed, r-7) **Scope context (recorded, not built).** sc-agent will
+- (Recorded; open owner item) **Scope context (recorded, not built).** sc-agent will
   launch decision models, Claude and Codex through their SDKs/APIs directly,
   and CLI agents (claude-code, codex-cli, cursor-cli, …) through a wrapper;
   more SDK and CLI agent kinds land in `sc-agent-types` over time. The
@@ -1461,7 +1469,7 @@ Owner decisions 2026-11-07.
   precluded. The Roadmap row "Subprocess JSON bridges … Out of scope" and
   REQ-SAG-0900/0901 ("no … subprocess") are not changed by this ADR. How
   they relate to the long-term CLI-wrapper scope is an open owner item
-  (plan.md "Owner decisions 2026-11-07", open owner items); no wrapper is
+  (plan.md "Owner decisions 2026-11-07", item 4); no wrapper is
   built in A.1.
 
 ## ADR-SAG-0031 — Session log storage schema
@@ -1477,13 +1485,16 @@ subsection in each). Owner decisions 2026-11-07.
 **Status:** Proposed (Phase A.1) — lands in r-7.
 
 - (Proposed, r-7) The session-log storage contract is a **SQLite schema**,
-  authoritative: `sessions` (by session ULID: `session_created_at`, `repo`,
-  `project`), `questions` (by `prompt_sha256`: `decision_schema`,
-  `question_ids`, `first_seen_at`) and `answers` (one per send, by ULID
-  `answer_id`; indexed by `(prompt_sha256, model_id)` and `request_sha256`).
-  The DDL is `crates/sc-decision-schema/src/session_log/schema.sql`
-  (`SESSION_LOG_DDL`), documented in
-  `docs/sc-decision-schema/session-log-schema.md`; `schema_version` starts
+  authoritative: `sessions` (by session ULID: `session_created_at`),
+  `questions` (by `prompt_sha256`: `question_ids`, `first_seen_at`) and
+  `answers` (one per send, by ULID `answer_id`, with `decision_schema`,
+  `repo`, `project` and the rest; indexed by `(prompt_sha256, model_id)`,
+  `request_sha256` and `(repo, project)`). Values that can differ between
+  two sends of one session or prompt live on `answers`, so the loader's
+  `INSERT OR IGNORE` on the other two tables loses nothing. The DDL is
+  `crates/sc-decision-schema/src/session_log/schema.sql`
+  (`SESSION_LOG_DDL`; `docs/sc-decision-schema/session-log-schema.md` points
+  to it); `schema_version` starts
   at 1. Adding, renaming or retyping a column, or changing its nullability,
   bumps `schema_version` with a migration note.
 - (Proposed, r-7) **Projection.** The MVP store is JSONL; the projection of
@@ -1520,12 +1531,11 @@ subsection in each). Owner decisions 2026-11-07.
   sent, the future response-cache key. `sc-agent-http` records it at the
   send site (`send_with_busy_retry`, used by every backend) into the
   `SendTrace` that `JudgeRequest` carries and the backend attaches to its
-  `HttpRequest`; one value per send, retries included; NULL when no body was
+  `HttpRequest` (seam from r-7, ADR-SAG-0026 r-7); one value per send, retries included; NULL when no body was
   built. `prompt_sha256` stays the canonical-payload digest
   (ADR-SAG-0002/0025).
-- (Proposed, r-6) `model_id` comes from `JudgeBackend::model_id()`, a
-  provided method defaulting to the catalog's `latest` for the descriptor's
-  `default_model_alias`; backends override it with their configured model.
+- (Proposed, r-6) The row's `model_id` is `JudgeBackend::model_id()`
+  (ADR-SAG-0009 r-7 amendment), never NULL.
 - (Proposed, r-6) `repo` is `sc_jev_check::discover_main_repo_root`: a
   linked worktree resolves to its main repository; a separate or bare git
   dir falls back to the current toplevel; outside git it is the calling
@@ -1537,7 +1547,6 @@ subsection in each). Owner decisions 2026-11-07.
   characters), from `sc-ai --project` or Python `project=`.
 - (Proposed, r-6) SHA-256 is computed with `sc-sha` over raw bytes with no
   normalization (r-6 D0 gate); `sha2` and `uuid` leave the workspace.
-- (Proposed, r-6) Log-write failure policy: **pending owner confirmation**
-  (r-6 D0.2; dispatch is blocked until it is recorded). Today a failed log
-  write is best effort and a flush failure is a `data.warnings` entry; the
-  run succeeds. The confirmed policy replaces this bullet when r-6 lands.
+- (Proposed, r-6) Log-write failure policy: a rejected or failed log row
+  never fails the run; `SessionLog::emit` is best effort and a flush failure
+  is a `data.warnings` entry (plan.md owner decisions 2026-11-07, item 9).

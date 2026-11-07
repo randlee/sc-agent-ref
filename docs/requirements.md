@@ -175,9 +175,9 @@ verbatim. Plan: [`plans/phase-a-refine/plan.md`](plans/phase-a-refine/plan.md).
 | REQ-SAG-0620 | One engine API (`prepare` → `run`) and one `RunResponse` with one serialization printed by every consumer — (Proposed, r-2) |
 | REQ-SAG-0712 | `sc-ai` and `sc-treesitter` parse argv with clap derive behind the `cli` feature; error contract unchanged — (Proposed, r-3b) |
 | REQ-SAG-0140 | `sc-decision-schema` is a published, data-only crate above `sc-agent-types`: dependencies `sc-agent-types` (core only), `serde`, `serde_json`; no HTTP, git, process, file or logging dependency and no I/O — (Proposed, r-7) |
-| REQ-SAG-0141 | Each decision type has one home: the question/answer payload, judge contract and attestation types move (not copy) from `sc-agent-types` to `sc-decision-schema`, with no re-export (source scan) — (Proposed, r-7) |
+| REQ-SAG-0141 | Each decision type has one home: the question/answer payload, judge contract and attestation types move (not copy) from `sc-agent-types` to `sc-decision-schema`, with no re-export — (Proposed, r-7) |
 | REQ-SAG-0142 | The decision schema is versioned (`DecisionSchemaId`, e.g. `canonical.v1`); readers accept known versions and refuse others; the version lives outside the hashed canonical bytes, so `prompt_sha256` and the cross-impl fixture are unchanged — (Proposed, r-7) |
-| REQ-SAG-0143 | One serde request and response struct per Jev API call known today (`jev::v1` check), array form, serializing byte-identically to the production body; the object/both form is left to r-5 (D9) — (Proposed, r-7) |
+| REQ-SAG-0143 | One serde request and response struct per Jev API call known today (`jev::v1` check) in `sc-decision-schema`; `sc-jev` builds the body with `CheckRequest` and parses replies with `CheckResponse`, with no byte-splice; the question shape follows D9 — (Proposed, r-5) |
 | REQ-SAG-0144 | Haiku/Luna input and output use the same schema: canonical bytes in, `DecisionAnswers` out (the Jev answers type) — (Proposed, r-7) |
 | REQ-SAG-0145 | Model-family schema variants: `DecisionSchema` trait and `schema_for(ModelFamily)`; the canonical variant is the identity on the payload — (Proposed, r-7) |
 | REQ-SAG-0146 | The session-log storage contract is an authoritative SQLite DDL with `schema_version`; the JSONL projection is the `fields{}` object of one v2 log line with exactly the column keys (`send_outcome`, nullable `request_sha256`, non-null `model_id`); a loader reads it into the tables losslessly — (Proposed, r-7) |
@@ -188,7 +188,7 @@ verbatim. Plan: [`plans/phase-a-refine/plan.md`](plans/phase-a-refine/plan.md).
 | REQ-SAG-0614 | Each row logs `repo`: the main repository root (a worktree resolves to it), else the calling folder; log and session paths are unchanged (ADR-SAG-0021) — (Proposed, r-6) |
 | REQ-SAG-0615 | Each row logs `project`: optional caller text (`sc-ai --project`, Python `project=`), ≤ 256 bytes, no control characters, stored unscrubbed — (Proposed, r-6) |
 | REQ-SAG-0616 | Each row logs `model_id`: the `ModelId` string from `JudgeBackend::model_id()` (catalog default, backend's configured model), never null — (Proposed, r-6) |
-| REQ-SAG-0617 | Every `judge`/`ask` send, `Ok` or `Failed`, writes exactly one row in the v2 `fields{}` object (NotSent none); the log-write failure policy is the owner-confirmed one (r-6 D0.2) — (Proposed, r-6) |
+| REQ-SAG-0617 | Every `judge`/`ask` send, `Ok` or `Failed`, writes exactly one row in the v2 `fields{}` object (NotSent none); a rejected or failed log write never fails the run (best effort; flush failure is a `data.warnings` entry) — (Proposed, r-6) |
 | REQ-SAG-0618 | SHA-256 digests are computed with `sc-sha` over raw bytes (no normalization); `sha2` and `uuid` removed from the workspace — (Proposed, r-6) |
 
 ### Phase A.1 amendments to existing rows
