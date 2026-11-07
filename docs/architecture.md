@@ -1484,7 +1484,8 @@ Owner decisions 2026-11-07.
   the in-crate table; `ModelAliases::builtin().latest("jev" | "haiku" |
   "luna" | …)` returns the newest model for an alias, and
   `with_override` (from `check.toml` `[models]`) replaces it. Backends hold
-  their configured `ModelId`. `BackendId` = how we call; `ModelId` = which
+  their configured `ModelId`; the Jev model pin moves from `sc-jev`'s
+  `jev.toml` to `MODELS`, so each model string has one source. `BackendId` = how we call; `ModelId` = which
   model; the log's `model_id` is the `ModelId` string.
 - (Recorded; open owner item) **Scope context (recorded, not built).** sc-agent will
   launch decision models, Claude and Codex through their SDKs/APIs directly,

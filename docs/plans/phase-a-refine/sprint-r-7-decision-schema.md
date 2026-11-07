@@ -160,6 +160,7 @@ owned_paths:
   - "docs/sc-agent-http/**#HttpRequest trace field"
   - "docs/sc-jev-check/**#check.toml [models] table"
   - "docs/sc-jev-backends/**#model from the catalog"
+  - "docs/sc-jev/architecture.md#config row: model from the catalog, not jev.toml"
 ---
 
 # Sprint r-7 — `sc-decision-schema` crate and model catalog
@@ -552,7 +553,8 @@ dependency or writer lands in A.1.
    `[models]` override), and the `model` key leaves `crates/sc-jev/src/jev.toml`,
    so the catalog is the one source of the Jev model string. The header
    comment of `crates/sc-jev-check/assets/jev.toml` ("Model ids live with
-   each backend crate") is corrected to name the catalog.
+   each backend crate") and the `config` row of `docs/sc-jev/architecture.md`
+   ("packaged `jev.toml` (model, …)") are corrected to name the catalog.
 5. **`JudgeBackend::model_id()`**, a provided method (ADR-SAG-0009: new
    methods have default bodies) returning the catalog's `latest` for the
    descriptor's `default_model_alias`, else

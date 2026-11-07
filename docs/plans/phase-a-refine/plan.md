@@ -282,12 +282,12 @@ package name and version so `sc-jev` does not match `sc-jev-check`:
 | Crate | Must be absent | Added by |
 | --- | --- | --- |
 | `sc-agent-types` | `sc-observability`, `sc-observability-types`, `ureq`, `pyo3`, `tree-sitter` | r-1 (local check), r-3b (script) |
-| `sc-agent-http` | `sc-observability`, `pyo3`, `tree-sitter`, `sc-agent-secrets`, `sc-jev`, `sc-jev-backends`, `sc-jev-check`; `-e normal,features -i sc-agent-types`: features `judge`, `obs`, `git`, `default` (only `secret` may appear) | r-3 (local), r-3b (script) |
+| `sc-agent-http` | `sc-observability`, `pyo3`, `tree-sitter`, `sc-agent-secrets`, `sc-jev`, `sc-jev-backends`, `sc-jev-check`; `-e normal,features -i sc-agent-types`: features `judge`, `obs`, `git`, `default` (only `secret` may appear) | r-3 (local), r-3b (script); r-7 drops `judge` (feature deleted) |
 | `sc-jev`, `sc-jev-backends` | depth-1 `ureq`, `sc-observability`, `pyo3` | r-3 (local), r-3b (script) |
 | `sc-jev-check` | depth-1 `ureq`, `sc-observability`, `pyo3`, `tree-sitter` | r-3 (local), r-3b (script) |
 | `sc-agent-compose` | depth-1 `ureq`, `pyo3`, `tree-sitter`, `clap`, `mimalloc` | r-3b |
 | `sc-ai` *(lib)* | `mimalloc`, `clap`; depth-1 `sc-observability`, `ureq` | r-4 (mimalloc), r-3b (rest) |
-| `sc-treesitter` *(lib)* | `mimalloc`, `clap`, `sc-observability`; `-e normal,features -i sc-agent-types`: features `judge`, `secret`, `obs`, `git` | r-4 (mimalloc), r-3c (local clap and features), r-3b (script) |
+| `sc-treesitter` *(lib)* | `mimalloc`, `clap`, `sc-observability`; `-e normal,features -i sc-agent-types`: features `judge`, `secret`, `obs`, `git` | r-4 (mimalloc), r-3c (local clap and features), r-3b (script); r-7 drops `judge` (feature deleted) |
 | `sc-jev-py` | depth-1 `sc-observability`, `ureq` | r-3b |
 | `sc-ai`, `sc-jev-py` | `-e normal -d` (duplicate versions): `sc-jev-check`, `sc-agent-types`, `sc-agent-compose`. Compose's signatures name `sc-jev-check` types and only compose is `=`-pinned, so a split version would give two incompatible `RunResponse` types (RBQA-F106 (b)) | r-3b |
 | `workspace-tests` | `pyo3`, `tree-sitter` (`-e normal,dev`). (Dev edges are counted by `sc-boundary` per the D0 outcome, so the dev set is policed by the manifest, not by a tree row.) | r-3b |
@@ -813,9 +813,12 @@ amendment and the REQ-SAG-0505 amendment record it.
   inside the budget unless the server's own Retry-After values exceed it.
 
 **(c) D9 Jev payload shape — pending owner confirmation (blocked on the
-TypeSafe vendor answer). This is the only item still pending.** r-5 holds both branches:
+TypeSafe vendor answer; one of the two open owner items in "Owner decisions
+2026-11-07").** In both branches r-5 adds `jev::v1` and builds the body as
+the flat object (rewritten to nested if the vendor answer says so). r-5
+holds both branches:
 - *Branch A (array `{id, prompt, choices}` only):* delete the object-shape
-  path in `sc-jev`; no types change.
+  path in `sc-jev`; the payload type does not change.
 - *Branch B (object `{type, instructions, criteria}`, or both):* additive.
   `CanonicalJudgePayload` (private fields since r-1) gains
   `criteria: Option<CriteriaSpec>` with
