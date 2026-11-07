@@ -5,14 +5,14 @@ status: blocked
 closure_type: boundary
 target_boundary: jev
 track: jev
-wave: 5
+wave: 6
 size: M
 branch: sprint/r-5-jev-wire-envelope
 worktree: sprint/r-5-jev-wire-envelope
 recommended_agent: sai
 recommended_model: gpt-5.6-sol-medium
-must_follow: [r-2b, r-3, r-3b]
-parallel_safe: []
+must_follow: [r-7, r-2b, r-3, r-3b]
+parallel_safe: [r-6]
 requirements:
   - REQ-SAG-0403
   - REQ-SAG-0400
@@ -21,6 +21,8 @@ requirements:
   - REQ-SAG-0501
   - REQ-SAG-0102
   - REQ-SAG-0606
+  - REQ-SAG-0142   # Branch B: criteria is an additive optional field, so the decision schema version stays canonical.v1
+  - REQ-SAG-0143   # adopts r-7's jev::v1 CheckRequest/CheckResponse in sc-jev
 adrs:
   - ADR-SAG-0001  # validation errors stay JevError variants mapped by the CLI/PyO3
   - ADR-SAG-0002  # Branch B / "both": r-5 lands an ADR-SAG-0002 amendment (optional criteria field)
@@ -33,13 +35,18 @@ adrs:
   - ADR-SAG-0020  # r-3 amendment: single secret read site, redaction in send_with_busy_retry; the envelope builder adds no read site
   - ADR-SAG-0025
   - ADR-SAG-0026  # HTTP half: sc-jev builds HttpRequest and sends through sc-agent-http
-  - ADR-SAG-0027  # error taxonomy: INPUT_INVALID via ErrorCode; private judge module fields
+  - ADR-SAG-0027  # error taxonomy: INPUT_INVALID via ErrorCode; private payload fields
+  - ADR-SAG-0030  # r-7 (Active after wave 5): payload types live in sc-decision-schema; versioning rule; jev::v1 structs
+  - ADR-SAG-0031  # wiring (r-6, same wave): the send trace hand-off and model_id lines in sc-jev are r-6's; r-5 keeps them
 owned_paths:
-  - "crates/sc-jev/src/**"
-  - "crates/sc-jev/tests/**"
+  - "crates/sc-jev/src/** (except r-6's two anchors: client/mod.rs send-trace hand-off, check.rs fn model_id)"
+  - "crates/sc-jev/tests/** (except tests/send_trace.rs, r-6)"
   - "crates/sc-jev-backends/src/validate.rs"
   - "crates/sc-jev-backends/src/wire.rs"
-  - "crates/sc-agent-types/src/judge.rs"
+  - "crates/sc-decision-schema/src/payload.rs"
+  - "crates/sc-decision-schema/src/jev/**"
+  - "crates/sc-decision-schema/tests/judge.rs#exactly-one-of questions/criteria (Branch B / both)"
+  - "crates/sc-decision-schema/tests/jev.rs#object-form cases (Branch B / both)"
   - "docs/sc-jev/**"
   - "docs/architecture.md#ADR-SAG-0005 amendment (r-5)"
   - "docs/architecture.md#ADR index Amended-by marker (r-5) in ADR-SAG-0005"
@@ -60,8 +67,13 @@ answer to:
 > or **both**? Which shape does production use today?
 
 Record the answer, with source and date, here and in plan.md before setting
-`status: planned`. Wave 5: it follows r-3b because its validation runs the
-`workspace-tests` `jev_cross_impl` target r-3b creates. **Publish gate:** no
+`status: planned`. Wave 6: it follows r-3b because its validation runs the
+`workspace-tests` `jev_cross_impl` target r-3b creates, and r-7 because the
+payload types and the `jev::v1` structs now live in `sc-decision-schema`.
+It runs beside r-6 (`parallel_safe`): r-6 owns two narrow anchors in
+`sc-jev` (the send-trace hand-off in `client/mod.rs` and `fn model_id` in
+`check.rs`); r-5 keeps both lines when it rewrites those files, and the
+second of the two to merge rebases (plan.md "Adjacent rows"). **Publish gate:** no
 crate is published to crates.io before this sprint lands (plan.md (c)).
 
 ## Outcome
@@ -82,7 +94,12 @@ ARCHC-002, ARCHC-003.
    `deny_unknown_fields`. No other schema check remains.
 2. The Jev body is built by `serde_json` as an object holding `model` plus
    the canonical fields (or `{ "model": .., "payload": <canonical> }` if the
-   vendor allows it). The byte-splice is deleted. r-2b's recovery (parse the
+   vendor allows it), through r-7's `sc_decision_schema::jev::v1::CheckRequest`;
+   responses parse through `jev::v1::CheckResponse`. The byte-splice is
+   deleted, and with it r-7's "no key sorting before `model`" refusal in
+   `CheckRequest::to_body` (kept by r-7 only so its bytes equal the splice).
+   A branch that changes the body's meaning uses r-7's versioning rule
+   (ADR-SAG-0030): additive optional fields keep `canonical.v1`. r-2b's recovery (parse the
    final body, remove `model` or take `payload`, re-encode, hash) is adapted
    to the new body; it stays attestation-only (ADR-SAG-0025 carve-out).
 3. `test_envelope_robust_to_key_ordering` (`crates/sc-jev/tests/wire.rs`): a
@@ -104,7 +121,7 @@ ARCHC-002, ARCHC-003.
 
 - `CanonicalJudgePayload.questions` stays as is. Delete the object-shape
   acceptance path in `sc-jev` and the tests that use it; switch those tests
-  to the array fixture. `crates/sc-agent-types/src/judge.rs` is not touched.
+  to the array fixture. `crates/sc-decision-schema/src/payload.rs` is not touched.
 - ADR text: the ADR-SAG-0005 r-5 bullet gains "The object-shape
   (`{type, instructions, criteria}`) acceptance path in `sc-jev` is deleted;
   `questions` is an array of `{id, prompt, choices}` only." No ADR-SAG-0002
@@ -159,7 +176,9 @@ ARCHC-002, ARCHC-003.
 just lint
 just test
 cargo test -p sc-jev --features test-util --test wire -- test_envelope_robust_to_key_ordering --exact
-cargo test -p sc-agent-types --test judge -- test_payload_requires_exactly_one_of_questions_or_criteria --exact   # Branch B / both only
+cargo test -p sc-decision-schema --test judge -- test_payload_requires_exactly_one_of_questions_or_criteria --exact   # Branch B / both only
+cargo test -p sc-decision-schema --test jev
+cargo test -p sc-jev --test send_trace   # r-6's lines kept
 cargo test -p sc-jev --features test-util --test wire -- test_digest_detects_faulty_wire_builder --exact
 cargo test -p sc-jev --features test-util --test wire -- test_real_wire_builder_reports_prompt_digest --exact
 cargo test -p sc-jev --test jev_api
@@ -171,7 +190,7 @@ cargo test -p sc-agent-http --test retry
 cargo test -p workspace-tests --test jev_cross_impl
 cargo test -p sc-jev-check --test cross_impl_branches
 cargo test -p workspace-tests --test source_scans
-cargo publish --dry-run --locked -p sc-agent-types -p sc-agent-secrets -p sc-agent-http -p sc-jev -p sc-jev-backends -p sc-jev-check -p sc-agent-compose -p sc-treesitter -p sc-ai
+cargo publish --dry-run --locked -p sc-agent-types -p sc-decision-schema -p sc-agent-secrets -p sc-agent-http -p sc-jev -p sc-jev-backends -p sc-jev-check -p sc-agent-compose -p sc-treesitter -p sc-ai
 ```
 
 ## This sprint does not close
