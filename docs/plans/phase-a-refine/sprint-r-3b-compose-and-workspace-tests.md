@@ -736,8 +736,8 @@ Deviations and conservative choices, each mapped to its requirement or ADR.
   `crates/sc-treesitter/tests/{argv,cli}.rs`, `.../tests/support/mod.rs`,
   `crates/sc-jev-check/tests/command.rs`, all `crates/sc-ai/tests/*`,
   `crates/workspace-tests/tests/*`. `crates/sc-jev-check/src/extract/mod.rs`
-  needed none: its `test_support::git_command` is not flagged
-  (`clippy` sees no `Command::new` there on the current tree).
+  needed none: its `test_support::git_command` delegates to
+  `tests/support/git_env.rs`, which carries the expect (next bullet).
 - **`tests/support/{deadline,git_env}.rs`** (outside the listed owned paths,
   included by `#[path]` into many crates) carry expects on `kill_tree`, the
   `mod tests` and `git_command`; without them clippy fails in every

@@ -57,8 +57,7 @@ fn registry() -> &'static Registry {
     LOGGERS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-/// `sc-observability` v2 logger used as a
-/// [`SessionLog`](sc_agent_types::observability::v2::SessionLog).
+/// `sc-observability` v2 logger used as a [`SessionLog`].
 ///
 /// Clones share one writer. Call [`Self::flush`] after a command so the JSONL
 /// file is durable before the process prints stdout.
