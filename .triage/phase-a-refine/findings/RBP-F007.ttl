@@ -1,0 +1,325 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/RBP-F007>
+  a triage:Finding ;
+  triage:findingId "RBP-F007" ;
+  triage:title "Model aliases are stringly typed: ModelAliases::latest(&str) -> Option<ModelId>, with_over" ;
+  triage:description "Model aliases are stringly typed: ModelAliases::latest(&str) -> Option<ModelId>, with_override(&str, ..), default_model_alias() -> &'static str, and ModelDescriptor::released is a &'static str date. Because lookup is fallible for a built-in backend, the plan adds a provided model_id() whose unwrap_or_else(ModelId::fallback_for(self.id())) builds an Other(UnknownModel) holding a backend id string. That is not a model string, yet it would be logged as model_id. The only guard is test_backend_catalog_roundtrip. A non-catalog backend that does not override model_id() silently logs the catalog's model, which can be wrong after a [models] override. Recommendation: Use a non_exhaustive ModelAlias enum {Jev, Haiku, Luna} with FromStr (CONFIG_INVALID listing valid aliases). Then default_model_alias() and builtin().latest(alias) are infallible, and fallback_for and the unwrap_or_else path can be removed. Consider requiring model_id() on non-built-in backends. A typed release date or an ordering by table position avoids string-date comparison for 'newest'." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "RBP" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-07T22:47:49Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-PLAN67 ;
+  triage:foundAt "2026-11-07T23:55:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F007/R6-01> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F007/R6-02> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F007/R6-03> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F007/R6-04> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F007/R6-05> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F007/R6-06> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F007/R6-07> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F007/R6-08> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F007/R6-09> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F007/R6-10> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F007/R6-11> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F007/R6-12> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F007/R6-13> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F007/R6-14> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F007/R6-15> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F007/R6-16> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F007/R6-17> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F007/R6-18> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F007/R6-19> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F007/R6-20> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F007/R6-21> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F007/R6-22> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F007/R6-23> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F007/R6-24> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/RBP-F007/R6-01>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 71 ;
+  triage:snippet "- ADR-SAG-0020 # factory signature gains ModelAliases; no new secret read site" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F007/R6-02>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 74 ;
+  triage:snippet "- ADR-SAG-0024 # RunConfig::models(ModelAliases) added; prepare/run entry points unchanged" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F007/R6-03>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 96 ;
+  triage:snippet "- 'crates/sc-agent-types/src/catalog.rs#BackendDescriptor::default_model_alias'" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F007/R6-04>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 97 ;
+  triage:snippet "- 'crates/sc-agent-types/src/models.rs (new: ModelId, UnknownModel, ModelFamily, ModelDescriptor, MODELS, ModelAliases)'" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F007/R6-05>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 132 ;
+  triage:snippet "- 'crates/sc-jev-check/src/registry/**#factory receives ModelAliases; scripted backends report model_id'" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F007/R6-06>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 202 ;
+  triage:snippet "(below) ModelId/ModelFamily/ModelAliases, Sha256Digest, CancelToken, SendTrace, ProjectLabel," ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F007/R6-07>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 300 ;
+  triage:snippet "`ModelAliases`, `SendTrace`, `ProjectLabel`; its `allowed_dependents` gains" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F007/R6-08>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 374 ;
+  triage:snippet "`sc-jev-check/src/registry/**` (factory takes `&ModelAliases`;" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F007/R6-09>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 552 ;
+  triage:snippet "`ModelId::fallback_for(BackendId)` (D7.5). `ModelId::family() ->" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F007/R6-10>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 555 ;
+  triage:snippet "2. `MODELS` (model string, family, alias, release date) and `ModelAliases`" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F007/R6-11>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 557 ;
+  triage:snippet "`with_override`). `BackendDescriptor` gains `default_model_alias()`" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F007/R6-12>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 562 ;
+  triage:snippet "(alias = model string); `RunConfig::models(ModelAliases)`; the" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F007/R6-13>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 564 ;
+  triage:snippet "`fn(ResolvedApiKey, &ModelAliases) -> Arc<dyn JudgeBackend>` and each" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F007/R6-14>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 565 ;
+  triage:snippet "backend is built with `aliases.latest(descriptor.default_model_alias())`." ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F007/R6-15>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 579 ;
+  triage:snippet "descriptor's `default_model_alias`, else" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F007/R6-16>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 580 ;
+  triage:snippet "`ModelId::fallback_for(self.id())` (infallible: an `Other` holding the" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F007/R6-17>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 642 ;
+  triage:snippet "pub fn fallback_for(backend: BackendId) -> Self; // Other(backend id string); infallible" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F007/R6-18>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 665 ;
+  triage:snippet "pub struct ModelAliases { /* private: alias -> ModelId */ }" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F007/R6-19>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 666 ;
+  triage:snippet "impl ModelAliases {" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F007/R6-20>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 672 ;
+  triage:snippet "pub fn default_model_alias(&self) -> &'static str; // 'jev' | 'haiku' | 'luna'" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F007/R6-21>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 729 ;
+  triage:snippet "ModelAliases::builtin()" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F007/R6-22>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 730 ;
+  triage:snippet ".latest(self.id().descriptor().default_model_alias())" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F007/R6-23>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 731 ;
+  triage:snippet ".unwrap_or_else(|| ModelId::fallback_for(self.id()))" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F007/R6-24>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 841 ;
+  triage:snippet "| req:REQ-SAG-0148 | `cargo test -p sc-agent-types --test models -- test_latest_alias_lookup --exact`; `cargo test -p sc-agent-types --test " ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:worktree/integrate-phase-a/dfd683f>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "dfd683f1a7200b06363bb8e7c7b8cd2a16d6c6e9" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b>
+  a triage:WorktreeSnapshot ;
+  triage:path "plan/phase-a-refine-r6" ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:orderIndex 1 .

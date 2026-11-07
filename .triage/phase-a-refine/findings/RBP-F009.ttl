@@ -1,0 +1,49 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/RBP-F009>
+  a triage:Finding ;
+  triage:findingId "RBP-F009" ;
+  triage:title "ProjectLabel(Arc<str>) is specified with only new() and as_str(). It has no Display, FromS" ;
+  triage:description "ProjectLabel(Arc<str>) is specified with only new() and as_str(). It has no Display, FromStr, AsRef<str>, Serialize/Deserialize or Hash. The plan relies on CLI (--project), Python and try_from_fields all using one validator, which in practice needs FromStr (clap) and serde. ModelId in the same sprint gets the full set. The raw-String path is therefore the easy one. Recommendation: Specify Display, FromStr (same validator), AsRef<str>, Hash, and serde via FromStr/as_str, matching ModelId. State that the Debug output is safe, since the text is caller text and not scrubbed." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "RBP" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-07T22:47:47Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-PLAN67 ;
+  triage:foundAt "2026-11-07T23:55:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F009/plan-phase-a-refine-r6-5836f1b-L677> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/RBP-F009/plan-phase-a-refine-r6-5836f1b-L677>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 677 ;
+  triage:snippet "pub struct ProjectLabel(Arc<str>);" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:worktree/integrate-phase-a/dfd683f>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "dfd683f1a7200b06363bb8e7c7b8cd2a16d6c6e9" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b>
+  a triage:WorktreeSnapshot ;
+  triage:path "plan/phase-a-refine-r6" ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:orderIndex 1 .

@@ -1,0 +1,85 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/RBP-F004>
+  a triage:Finding ;
+  triage:findingId "RBP-F004" ;
+  triage:title "RowContext holds SystemTime for session_created_at and ts, but the projection truncates to" ;
+  triage:description "RowContext holds SystemTime for session_created_at and ts, but the projection truncates to ms. A row built from a real clock does not equal try_from_fields(to_fields(row)), because SessionLogRow derives PartialEq. The plan's 'test_fields_roundtrip (every fixture line)' passes only because fixtures are ms-aligned. answer_id is a raw String ('r-7 checks non-empty only') beside the typed session_id, and repo is raw String. The ok()/failed() constructors are infallible, so the only check, on answer_id, can run only on the parse path. to_fields can emit an empty answer_id. Recommendation: Introduce a ms-precision timestamp newtype whose constructor truncates, so the type holds what the column stores. Introduce an AnswerId newtype next to SessionId (a validated 26-char Crockford ULID in r-7; r-6 swaps in Ulid). Keep repo text, but document the lossy-path rule on RowContext. Alternatively make ok()/failed() fallible." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "RBP" ;
+  triage:severity "important" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-07T22:47:39Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-PLAN67 ;
+  triage:foundAt "2026-11-07T23:55:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F004/R6-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F004/R6-2> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F004/R6-3> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F004/R6-4> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/RBP-F004/R6-1>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 765 ;
+  triage:snippet "pub struct RowContext {" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F004/R6-2>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 766 ;
+  triage:snippet "pub answer_id: String, // ULID text from r-6; r-7 checks non-empty only" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F004/R6-3>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 784 ;
+  triage:snippet "pub fn ok(context: RowContext, answers: DecisionAnswers) -> Self;" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F004/R6-4>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 785 ;
+  triage:snippet "pub fn failed(context: RowContext, error_code: ErrorCode) -> Self;" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:worktree/integrate-phase-a/dfd683f>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "dfd683f1a7200b06363bb8e7c7b8cd2a16d6c6e9" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/phase-a-refine-r6/5836f1b>
+  a triage:WorktreeSnapshot ;
+  triage:path "plan/phase-a-refine-r6" ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:orderIndex 1 .
