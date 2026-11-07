@@ -7,7 +7,7 @@
 use std::collections::BTreeSet;
 
 use sc_agent_http::{HeaderName, SecretHeader};
-use sc_agent_types::{JevError, ResolvedApiKey};
+use sc_agent_types::{JevError, ResolvedApiKey, Sha256Digest, canonical_json_bytes};
 use serde_json::{Map, Value};
 
 use crate::validate::ParsedQuestion;
@@ -58,6 +58,101 @@ pub(crate) fn message_body(
         system_prompt,
         true,
     ))
+}
+
+/// The digest of the canonical blob inside a serialized provider message
+/// `body` (REQ-SAG-0606, ADR-SAG-0025).
+///
+/// Reads the user message's content (`messages[0].content` for Anthropic,
+/// `input[0].content` for OpenAI), parses it, re-encodes it with
+/// `canonical_json_bytes` and hashes it. The re-encoding is attestation-only:
+/// it never feeds the wire body (ADR-SAG-0005). Callers run it on the body
+/// before it is handed to `send_with_busy_retry`.
+///
+/// # Errors
+///
+/// `INPUT_INVALID` when the body or the embedded payload is not JSON, or the
+/// body has no user message. The error names the failure category and
+/// position only, never body bytes (ADR-SAG-0020).
+pub(crate) fn recovered_digest(kind: ProviderKind, body: &[u8]) -> Result<Sha256Digest, JevError> {
+    let value: Value = serde_json::from_slice(body)
+        .map_err(|error| JevError::encode_failed("provider wire body", &error))?;
+    let messages = match kind {
+        ProviderKind::Anthropic => "messages",
+        ProviderKind::OpenAi => "input",
+    };
+    let text = value
+        .get(messages)
+        .and_then(Value::as_array)
+        .and_then(|list| list.first())
+        .and_then(|message| message.get("content"))
+        .and_then(Value::as_str)
+        .ok_or_else(|| JevError::input_invalid("provider wire body has no embedded payload"))?;
+    let embedded: Value = serde_json::from_str(text)
+        .map_err(|error| JevError::encode_failed("embedded payload", &error))?;
+    let canonical = canonical_json_bytes(&embedded)?;
+    Ok(Sha256Digest::of(&canonical))
+}
+
+/// A seeded defect in the provider wire builder (feature `test-util`).
+///
+/// The fault is applied after the canonical bytes are embedded in the
+/// message and before the digest is recovered, so a test shows the digest
+/// follows the bytes that would be sent.
+#[cfg(feature = "test-util")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum WireFault {
+    /// Drops one byte of the embedded payload text. The body stays valid
+    /// JSON, so recovery succeeds and reports a digest that differs from the
+    /// request's `prompt_sha256`.
+    DropEmbeddedByte,
+    /// Cuts the serialized body in half, so digest recovery fails and the
+    /// backend sends nothing.
+    TruncateBody,
+}
+
+#[cfg(feature = "test-util")]
+impl WireFault {
+    /// The embedded payload text after the fault.
+    pub(crate) fn apply_to_text(self, text: &str) -> String {
+        let mut bytes = text.as_bytes().to_vec();
+        if self == Self::DropEmbeddedByte
+            && let Some(index) = droppable_byte(&bytes)
+        {
+            bytes.remove(index);
+        }
+        // Only an ASCII letter or digit is removed, so UTF-8 stays valid;
+        // the fallback keeps the text unchanged rather than panicking.
+        String::from_utf8(bytes).unwrap_or_else(|_| text.to_owned())
+    }
+
+    /// The serialized body after the fault.
+    pub(crate) fn apply_to_body(self, mut body: Vec<u8>) -> Vec<u8> {
+        if self == Self::TruncateBody {
+            body.truncate(body.len() / 2);
+        }
+        body
+    }
+}
+
+/// Index of the first ASCII letter or digit inside a JSON string, skipping
+/// escape sequences, so removing it keeps the JSON valid.
+#[cfg(feature = "test-util")]
+fn droppable_byte(text: &[u8]) -> Option<usize> {
+    let mut in_string = false;
+    let mut index = 0;
+    while index < text.len() {
+        let byte = text[index];
+        match byte {
+            b'\\' if in_string => index += 1,
+            b'"' => in_string = !in_string,
+            b if in_string && b.is_ascii_alphanumeric() => return Some(index),
+            _ => {}
+        }
+        index += 1;
+    }
+    None
 }
 
 /// Token-count body for `kind`.

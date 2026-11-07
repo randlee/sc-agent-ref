@@ -224,8 +224,8 @@ fn assert_outcome_fields(outcome: &JudgeOutcome, backend: BackendId) {
     assert_eq!(outcome.backend(), backend);
     assert!(outcome.provider_meta().is_some());
     assert!(
-        outcome.input_sha256().is_none(),
-        "backend-side hashing lands in r-2b"
+        outcome.input_sha256().is_some(),
+        "r-2b: every sending backend reports the digest recovered from its wire body"
     );
 }
 

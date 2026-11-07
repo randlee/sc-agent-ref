@@ -10,6 +10,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use sc_agent_types::{
     BackendId, ChoiceId, JevError, JudgeOutcome, JudgeRequest, QuestionAnswer, QuestionId,
+    Sha256Digest, canonical_json_bytes,
 };
 use serde_json::{Map, Value};
 
@@ -65,6 +66,83 @@ pub(crate) fn prepare(
         return Err(JevError::input_too_large(limit_bytes, actual_bytes));
     }
     Ok(PreparedCheck { body, criteria })
+}
+
+/// The digest of the canonical blob inside a serialized Jev wire `body`
+/// (REQ-SAG-0606, ADR-SAG-0025).
+///
+/// Parses `body`, removes the pinned `model` key, re-encodes the rest with
+/// `canonical_json_bytes` and hashes it. The re-encoding is attestation-only:
+/// it never feeds the wire body (ADR-SAG-0005), and the digest is computed
+/// before the body is handed to `send_with_busy_retry`.
+///
+/// # Errors
+///
+/// `INPUT_INVALID` when `body` is not a JSON object. The error names the
+/// failure category and position only, never body bytes (ADR-SAG-0020).
+pub(crate) fn recovered_digest(body: &[u8]) -> Result<Sha256Digest, JevError> {
+    let mut value: Value = serde_json::from_slice(body)
+        .map_err(|error| JevError::encode_failed("Jev wire body", &error))?;
+    let object = value
+        .as_object_mut()
+        .ok_or_else(|| JevError::input_invalid("Jev wire body is not a JSON object"))?;
+    object.remove("model");
+    let canonical = canonical_json_bytes(&value)?;
+    Ok(Sha256Digest::of(&canonical))
+}
+
+/// A seeded defect in the Jev wire builder (feature `test-util`).
+///
+/// The fault is applied after the canonical bytes are embedded in the wire
+/// body and before the digest is recovered from it, so a test proves the
+/// reported digest comes from the bytes actually sent.
+#[cfg(feature = "test-util")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum WireFault {
+    /// Drops one byte of the embedded payload text. The body stays valid
+    /// JSON, so recovery succeeds and reports a digest that differs from the
+    /// request's `prompt_sha256`.
+    DropEmbeddedByte,
+    /// Cuts the serialized body in half, so digest recovery fails and the
+    /// backend sends nothing.
+    TruncateBody,
+}
+
+#[cfg(feature = "test-util")]
+impl WireFault {
+    /// Applies the fault to `body`, whose embedded payload starts at
+    /// `payload_start`.
+    pub(crate) fn apply(self, mut body: Vec<u8>, payload_start: usize) -> Vec<u8> {
+        match self {
+            Self::DropEmbeddedByte => {
+                if let Some(index) = droppable_byte(&body, payload_start) {
+                    body.remove(index);
+                }
+            }
+            Self::TruncateBody => body.truncate(body.len() / 2),
+        }
+        body
+    }
+}
+
+/// Index of the first ASCII letter or digit inside a JSON string at or after
+/// `from`, skipping escape sequences, so removing it keeps the JSON valid.
+#[cfg(feature = "test-util")]
+fn droppable_byte(body: &[u8], from: usize) -> Option<usize> {
+    let mut in_string = false;
+    let mut index = from;
+    while index < body.len() {
+        let byte = body[index];
+        match byte {
+            b'\\' if in_string => index += 1,
+            b'"' => in_string = !in_string,
+            b if in_string && b.is_ascii_alphanumeric() => return Some(index),
+            _ => {}
+        }
+        index += 1;
+    }
+    None
 }
 
 /// Parses a Jev check response into a [`JudgeOutcome`].

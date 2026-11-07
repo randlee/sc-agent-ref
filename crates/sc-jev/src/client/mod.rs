@@ -17,6 +17,8 @@ use sc_agent_types::{
     ResolvedApiKey,
 };
 
+#[cfg(feature = "test-util")]
+use crate::check::WireFault;
 use crate::check::{self, PreparedCheck};
 use crate::config::JevClientConfig;
 
@@ -75,6 +77,8 @@ pub struct JevClient<T = UreqTransport> {
     config: JevClientConfig,
     api_key: ResolvedApiKey,
     http: HttpClient<T>,
+    #[cfg(feature = "test-util")]
+    wire_fault: Option<WireFault>,
 }
 
 impl JevClient<UreqTransport> {
@@ -117,7 +121,22 @@ impl<T: Transport> JevClient<T> {
             config,
             api_key,
             http,
+            #[cfg(feature = "test-util")]
+            wire_fault: None,
         }
+    }
+
+    /// Seeds `fault` into the wire builder (feature `test-util`).
+    ///
+    /// The fault is applied after the canonical bytes are embedded and
+    /// before the reported `input_sha256` is recovered from the body, so a
+    /// test shows the digest follows the bytes that would be sent
+    /// (REQ-SAG-0606). Production builds leave the feature off.
+    #[cfg(feature = "test-util")]
+    #[must_use]
+    pub fn with_wire_fault(mut self, fault: WireFault) -> Self {
+        self.wire_fault = Some(fault);
+        self
     }
 
     /// Replaces the busy-retry policy, its send count included.
@@ -150,6 +169,25 @@ impl<T: Transport> JevClient<T> {
     /// The Jev descriptor's request limit.
     fn limit_bytes(&self) -> u64 {
         BackendId::Jev.descriptor().request_limit_bytes()
+    }
+
+    #[cfg(feature = "test-util")]
+    fn apply_wire_fault(&self, prepared: PreparedCheck, judged: &JudgeRequest) -> PreparedCheck {
+        let Some(fault) = self.wire_fault else {
+            return prepared;
+        };
+        // The embedded payload is everything after the spliced `{"model":..,`.
+        let embedded = judged.payload().bytes().len().saturating_sub(1);
+        let payload_start = prepared.body.len().saturating_sub(embedded);
+        PreparedCheck {
+            body: fault.apply(prepared.body, payload_start),
+            criteria: prepared.criteria,
+        }
+    }
+
+    #[cfg(not(feature = "test-util"))]
+    fn apply_wire_fault(&self, prepared: PreparedCheck, _judged: &JudgeRequest) -> PreparedCheck {
+        prepared
     }
 
     fn execute(
@@ -192,7 +230,12 @@ impl<T: Transport> JudgeBackend for JevClient<T> {
 
     fn judge(&self, req: &JudgeRequest) -> Result<JudgeOutcome, JevError> {
         let prepared = check::prepare(&self.config, self.limit_bytes(), req.payload().bytes())?;
-        self.execute(prepared, req)
+        let prepared = self.apply_wire_fault(prepared, req);
+        // REQ-SAG-0606: the digest is recovered from the final serialized
+        // body, before it is handed to `send_with_busy_retry`. A body that
+        // cannot be parsed fails here and nothing is sent.
+        let digest = check::recovered_digest(&prepared.body)?;
+        Ok(self.execute(prepared, req)?.with_input_sha256(digest))
     }
 }
 

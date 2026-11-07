@@ -25,6 +25,8 @@ use sc_agent_types::{
 };
 
 use crate::validate::{self, ParsedQuestion};
+#[cfg(feature = "test-util")]
+use crate::wire::WireFault;
 use crate::wire::{self, ProviderKind};
 
 #[derive(Clone)]
@@ -108,6 +110,8 @@ struct Client<T> {
     provider: Provider,
     api_key: ResolvedApiKey,
     http: HttpClient<T>,
+    #[cfg(feature = "test-util")]
+    wire_fault: Option<WireFault>,
 }
 
 impl<T: Transport> Client<T> {
@@ -116,7 +120,37 @@ impl<T: Transport> Client<T> {
             provider,
             api_key,
             http: HttpClient::new(transport),
+            #[cfg(feature = "test-util")]
+            wire_fault: None,
         }
+    }
+
+    /// The payload text embedded in the message, after any seeded fault.
+    #[cfg(feature = "test-util")]
+    fn embedded_text<'a>(&self, text: &'a str) -> std::borrow::Cow<'a, str> {
+        match self.wire_fault {
+            Some(fault) => std::borrow::Cow::Owned(fault.apply_to_text(text)),
+            None => std::borrow::Cow::Borrowed(text),
+        }
+    }
+
+    #[cfg(not(feature = "test-util"))]
+    fn embedded_text<'a>(&self, text: &'a str) -> std::borrow::Cow<'a, str> {
+        std::borrow::Cow::Borrowed(text)
+    }
+
+    /// The serialized message body after any seeded fault.
+    #[cfg(feature = "test-util")]
+    fn faulted_body(&self, body: Vec<u8>) -> Vec<u8> {
+        match self.wire_fault {
+            Some(fault) => fault.apply_to_body(body),
+            None => body,
+        }
+    }
+
+    #[cfg(not(feature = "test-util"))]
+    fn faulted_body(&self, body: Vec<u8>) -> Vec<u8> {
+        body
     }
 
     /// Builds both bodies and applies every pre-send limit.
@@ -136,6 +170,10 @@ impl<T: Transport> Client<T> {
 
     fn judge(&self, request: &JudgeRequest) -> Result<JudgeOutcome, JevError> {
         let prepared = self.prepare_checked(request)?;
+        // REQ-SAG-0606: the digest is recovered from the final serialized
+        // message body before any request is handed to `send_with_busy_retry`.
+        // A body that cannot be parsed fails here and nothing is sent.
+        let input_sha256 = wire::recovered_digest(self.provider.kind, &prepared.message_body)?;
         let prompt_tokens = self.exchange(
             &self.provider.count_endpoint,
             &prepared.count_body,
@@ -155,29 +193,31 @@ impl<T: Transport> Client<T> {
                 Ok((reply, answers))
             },
         )?;
-        Ok(
-            JudgeOutcome::new(self.provider.id, request, answers)?.with_provider_meta(
-                wire::provider_meta(&reply, self.provider.model, prompt_tokens),
-            ),
-        )
+        Ok(JudgeOutcome::new(self.provider.id, request, answers)?
+            .with_provider_meta(wire::provider_meta(
+                &reply,
+                self.provider.model,
+                prompt_tokens,
+            ))
+            .with_input_sha256(input_sha256))
     }
 
     fn prepare(&self, request: &JudgeRequest) -> Result<Prepared, JevError> {
         let prompt = request
             .llm()
             .ok_or_else(|| JevError::input_invalid("LLM system prompt is required"))?;
-        let payload_text = request.payload().as_str();
+        let payload_text = self.embedded_text(request.payload().as_str());
         let questions = validate::validate_questions(request.payload().bytes())?;
-        let message_body: Arc<[u8]> = Arc::from(wire::message_body(
+        let message_body: Arc<[u8]> = Arc::from(self.faulted_body(wire::message_body(
             self.provider.kind,
             self.provider.model,
-            payload_text,
+            &payload_text,
             &prompt.system_prompt,
-        ));
+        )));
         let count_body: Arc<[u8]> = Arc::from(wire::count_body(
             self.provider.kind,
             self.provider.model,
-            payload_text,
+            &payload_text,
             &prompt.system_prompt,
         ));
         Ok(Prepared {
@@ -294,6 +334,19 @@ macro_rules! llm_backend {
             #[must_use]
             pub fn with_cancel(mut self, cancel: CancelToken) -> Self {
                 self.client.http = self.client.http.with_cancel(cancel);
+                self
+            }
+
+            /// Seeds `fault` into the wire builder (feature `test-util`).
+            ///
+            /// The fault is applied after the canonical bytes are embedded
+            /// and before the reported `input_sha256` is recovered from the
+            /// message body (REQ-SAG-0606). Production builds leave the
+            /// feature off.
+            #[cfg(feature = "test-util")]
+            #[must_use]
+            pub fn with_wire_fault(mut self, fault: WireFault) -> Self {
+                self.client.wire_fault = Some(fault);
                 self
             }
         }
