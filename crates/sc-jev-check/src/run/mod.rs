@@ -26,28 +26,33 @@
 //! [`BackendRegistry::from_env`]. It calls `validate_for_send` on every
 //! selected backend before the first `judge` (ADR-SAG-0004): each backend
 //! owns its request byte cap (REQ-SAG-0314). Backends are judged in
-//! `BackendSet` order; a later LLM backend receives earlier answers as
-//! session context appended to the system prompt, never to the canonical
-//! bytes, and that request is re-validated before its own send. The run is
-//! recorded as [`MultiBackendMode::ChainContext`] with every backend
-//! `Unattested` (r-1 interim amendment of ADR-SAG-0008/0019; ADR-SAG-0025,
-//! r-2b, changes both). In r-2 the run is fail-fast: the first backend
-//! error is returned as `Err`. Each judge send emits one [`LogEvent`].
+//! `BackendSet` order and each is judged exactly once (ADR-SAG-0025).
+//! [`RunConfig::mode`] decides what a later backend sees: `Independent`
+//! (the default) gives no backend another's answers; `ChainContext` appends
+//! the prior `Ok` answers to a later LLM backend's system prompt, never to
+//! the canonical bytes, and that augmented request is re-validated before
+//! its own send. A refusal there, or a failed `judge`, makes that backend
+//! `Failed` without discarding the others' answers; `leak` is true when any
+//! backend failed, and `run` returns `Err` (the first error) only when every
+//! backend failed. Each backend reports the digest of the canonical blob it
+//! recovered from its own wire body; the engine records `Matched`,
+//! `Mismatched`, `Unattested`, `Failed` or `NotSent` per backend and `equal`
+//! is true only when every entry is `Matched` (REQ-SAG-0606). Each judge
+//! send emits one [`LogEvent`]; a backend refused before its send emits none.
 //!
 //! The session is written once, at the end, only when a backend whose
 //! descriptor has `supports_session_ask` returned `Ok`; that needs
-//! [`RunConfig::sessions_dir`], checked before any send. In r-2 a failed
-//! session write is fail-fast (`run` returns the error). The
-//! "answers kept, `session_saved = false`, one warning" shape pinned by
-//! `session_save_failed.json` is produced only by `RunResponse::test_builder`
-//! until ADR-SAG-0025 (r-2b) adds it to `run`.
+//! [`RunConfig::sessions_dir`], checked before any send. If the write fails
+//! after paid answers, `run` still returns `Ok` with `session_saved = false`
+//! and one `session not saved: <code>` warning.
 //!
 //! # Dry runs
 //!
 //! [`RunConfig::dry_run`] sends nothing and constructs no backend. The
 //! response carries the payload, `payload_bytes`, and per selected backend
 //! its `request_limit_bytes` and `over_limit`; an over-limit payload is
-//! reported, not refused. Every backend is `NotSent`, so `equal` is false.
+//! reported, not refused. Every backend is `NotSent`, so `equal` is false;
+//! the record carries [`RunConfig::mode`].
 //!
 //! # Examples
 //!
@@ -243,6 +248,7 @@ pub struct RunConfig {
     sessions_dir: Option<PathBuf>,
     registry: Option<Arc<BackendRegistry>>,
     cancel: CancelToken,
+    mode: MultiBackendMode,
 }
 
 impl RunConfig {
@@ -260,7 +266,20 @@ impl RunConfig {
             sessions_dir: None,
             registry: None,
             cancel: CancelToken::new(),
+            mode: MultiBackendMode::Independent,
         }
+    }
+
+    /// How later backends see earlier answers (ADR-SAG-0008, ADR-SAG-0025).
+    ///
+    /// The default is [`MultiBackendMode::Independent`]: no backend receives
+    /// another's answers. [`MultiBackendMode::ChainContext`] appends the
+    /// prior `Ok` answers to later LLM backends' system prompts. The mode
+    /// is recorded on `EqualInputRecord.mode`.
+    #[must_use]
+    pub fn mode(mut self, mode: MultiBackendMode) -> Self {
+        self.mode = mode;
+        self
     }
 
     /// Selects `backends`; wins over the source document's `backends`.
@@ -327,6 +346,7 @@ impl std::fmt::Debug for RunConfig {
             .field("system_prompt_override", &self.system_prompt_override)
             .field("sessions_dir", &self.sessions_dir)
             .field("registry", &self.registry)
+            .field("mode", &self.mode)
             .finish_non_exhaustive()
     }
 }
@@ -469,9 +489,10 @@ fn payload_len(bundle: &PayloadBundle) -> u64 {
 /// selected and no sessions directory is set, or the session directory
 /// cannot be created; the [`BackendRegistry::from_env`] errors (no
 /// registry injected); `CONFIG_INVALID` when a selected backend is not in
-/// the registry; the first `validate_for_send` refusal, before any send;
-/// the first `judge` error; and a session write error. Every error before
-/// the first send leaves no log line and no session file.
+/// the registry; the first base-request `validate_for_send` refusal, before
+/// any send; and, when every backend failed, the first backend's error. A
+/// session write error is a warning, not an error. Every error before the
+/// first send leaves no log line and no session file.
 pub fn run(prepared: PreparedRun) -> Result<RunResponse, JevError> {
     if prepared.config.dry_run {
         dry_run_response(&prepared)
@@ -492,7 +513,7 @@ fn dry_run_response(prepared: &PreparedRun) -> Result<RunResponse, JevError> {
         .collect();
     let equal_input = EqualInputRecord::new(
         bundle.sha256().clone(),
-        MultiBackendMode::ChainContext,
+        prepared.config.mode,
         prepared
             .backends
             .iter()
@@ -528,54 +549,136 @@ fn live_run(prepared: PreparedRun) -> Result<RunResponse, JevError> {
         .map(|id| registry.get(id).map(|judge| (id, judge)))
         .collect::<Result<Vec<(BackendId, Arc<dyn JudgeBackend>)>, JevError>>()?;
     // ADR-SAG-0004: every backend validates its base request (its own byte
-    // cap, REQ-SAG-0314) before the first send.
+    // cap, REQ-SAG-0314) before the first send. Any refusal is `Err`.
     for (id, judge) in &judges {
         judge.validate_for_send(&request_for(*id, &request, &[])?)?;
     }
 
     let session_id = SessionId::new();
-    let mut outcomes: Vec<JudgeOutcome> = Vec::with_capacity(judges.len());
+    let mut results: Vec<BackendResult> = Vec::with_capacity(judges.len());
+    let mut attestations: Vec<BackendAttestation> = Vec::with_capacity(judges.len());
+    // Prior `Ok` outcomes, in `BackendSet` order; chained only in
+    // `ChainContext` mode (ADR-SAG-0008 r-2b).
+    let mut answered: Vec<JudgeOutcome> = Vec::new();
     for (id, judge) in &judges {
-        let judge_request = request_for(*id, &request, &outcomes)?;
-        // Only an LLM request that gained session context differs from the
-        // validated base request; re-validate it before its own send.
-        if id.descriptor().requires_llm_context() && !outcomes.is_empty() {
-            judge.validate_for_send(&judge_request)?;
-        }
-        outcomes.push(send(
+        let prior: &[JudgeOutcome] = match config.mode {
+            MultiBackendMode::ChainContext => &answered,
+            _ => &[],
+        };
+        let step = judge_one(
             judge.as_ref(),
-            &judge_request,
+            *id,
+            &request,
+            prior,
             &config.session_log,
             session_id,
-            Operation::Judge,
-        )?);
+        );
+        let (result, attestation) = match step {
+            Step::Answered(outcome) => {
+                let attestation = attest(request.payload().sha256(), &outcome);
+                answered.push(outcome.clone());
+                (BackendResult::ok(outcome), attestation)
+            }
+            Step::Failed(error) => (BackendResult::failed(*id, error), Attestation::Failed),
+            Step::NotSent(error) => (BackendResult::failed(*id, error), Attestation::NotSent),
+        };
+        results.push(result);
+        attestations.push(BackendAttestation::new(*id, attestation));
     }
 
-    let saved = match &store {
-        Some(store) => save_session(store, session_id, &request, &outcomes)?,
-        None => false,
+    // ADR-SAG-0025: a run in which every backend failed is an error.
+    if answered.is_empty() {
+        let first = results.iter().find_map(|result| match result.status() {
+            BackendStatus::Failed(failure) => Some(failure.error().clone()),
+            BackendStatus::Ok(_) => None,
+        });
+        return Err(first.unwrap_or_else(|| JevError::input_invalid("the run selected no backend")));
+    }
+    let leak = results
+        .iter()
+        .any(|result| matches!(result.status(), BackendStatus::Failed(_)));
+
+    // A failed save keeps the answers (ADR-SAG-0025): `session_saved = false`
+    // and one warning that carries the error code only, never a path.
+    let (saved, save_warning) = match &store {
+        Some(store) => match save_session(store, session_id, &request, &answered) {
+            Ok(saved) => (saved, None),
+            Err(error) => (false, Some(format!("session not saved: {}", error.code()))),
+        },
+        None => (false, None),
     };
-    // Every backend got the same `Arc` bundle and later LLM backends got
-    // earlier answers as session context (chain context). No backend's
-    // digest is trusted until r-2b, so each one is `Unattested`.
     let equal_input = record(
         request.payload(),
-        RunAttestation::uniform(
-            MultiBackendMode::ChainContext,
-            backends.as_slice(),
-            &Attestation::Unattested,
-            false,
-        ),
+        RunAttestation {
+            mode: config.mode,
+            backends: attestations,
+            leak,
+        },
         producer,
     )?;
-    Ok(RunResponse::from_parts(ResponseParts {
+    let response = RunResponse::from_parts(ResponseParts {
         session_id: saved.then_some(session_id),
         payload_bytes: payload_len(request.payload()),
         equal_input,
-        results: outcomes.into_iter().map(BackendResult::ok).collect(),
+        results,
         payload: None,
         limits: Vec::new(),
-    }))
+    });
+    Ok(match save_warning {
+        Some(warning) => response.with_warning(warning),
+        None => response,
+    })
+}
+
+/// What one backend's turn produced.
+enum Step {
+    /// The backend answered.
+    Answered(JudgeOutcome),
+    /// The backend was sent and failed.
+    Failed(JevError),
+    /// Nothing was sent: the request could not be built or was refused.
+    NotSent(JevError),
+}
+
+/// One backend's turn: build its request, re-validate it when it gained
+/// session context, then send once (ADR-SAG-0004, ADR-SAG-0025).
+fn judge_one(
+    judge: &dyn JudgeBackend,
+    id: BackendId,
+    base: &JudgeRequest,
+    prior: &[JudgeOutcome],
+    log: &SharedSessionLog,
+    session_id: SessionId,
+) -> Step {
+    let judge_request = match request_for(id, base, prior) {
+        Ok(request) => request,
+        Err(error) => return Step::NotSent(error),
+    };
+    // Only an LLM request that gained session context differs from the
+    // validated base request; re-validate it before its own send.
+    if id.descriptor().requires_llm_context()
+        && !prior.is_empty()
+        && let Err(error) = judge.validate_for_send(&judge_request)
+    {
+        return Step::NotSent(error);
+    }
+    match send(judge, &judge_request, log, session_id, Operation::Judge) {
+        Ok(outcome) => Step::Answered(outcome),
+        Err(error) => Step::Failed(error),
+    }
+}
+
+/// The attestation of an `Ok` outcome: its reported digest against the
+/// run's `prompt_sha256` (REQ-SAG-0606). The engine trusts the reported
+/// digest; a backend that reports none is `Unattested`.
+fn attest(expected: &Sha256Digest, outcome: &JudgeOutcome) -> Attestation {
+    match outcome.input_sha256() {
+        Some(reported) if reported == expected => Attestation::Matched,
+        Some(reported) => Attestation::Mismatched {
+            reported: reported.clone(),
+        },
+        None => Attestation::Unattested,
+    }
 }
 
 /// The session store a live run may write, opened before any send.

@@ -279,6 +279,9 @@ fn real_dry_run() -> RunResponse {
         check_file(),
         config(dir.path())
             .backends(set(&[BackendId::Jev, BackendId::AnthropicHaiku]))
+            // The pinned samples record `chain_context` (r-2's data body);
+            // the engine default is `Independent` (ADR-SAG-0025).
+            .mode(MultiBackendMode::ChainContext)
             .dry_run(true),
     )
     .expect("prepare");

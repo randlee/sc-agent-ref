@@ -286,10 +286,10 @@ fn test_equal_input_record() {
     let equal = result.equal_input();
     assert_eq!(equal.prompt_sha256(), prepared.prompt_sha256());
     assert!(!equal.leak());
-    // r-1 interim: no backend digest is trusted yet, so every entry is
-    // `Unattested` and the derived `equal` is false (r-2b adds hashing).
-    assert!(!equal.equal());
-    assert_eq!(equal.mode(), MultiBackendMode::ChainContext);
+    // r-2b: each scripted backend reports the digest of the bundle it
+    // received, so every entry is `Matched` and `equal` is true.
+    assert!(equal.equal());
+    assert_eq!(equal.mode(), MultiBackendMode::Independent);
     let ids: Vec<BackendId> = equal
         .backends()
         .iter()
@@ -300,7 +300,7 @@ fn test_equal_input_record() {
         equal
             .backends()
             .iter()
-            .all(|entry| entry.attestation() == &Attestation::Unattested)
+            .all(|entry| entry.attestation() == &Attestation::Matched)
     );
     let producer = equal.producer().expect("producer");
     assert_eq!(producer.name, "sc-treesitter");
@@ -320,6 +320,7 @@ fn test_multi_backend_one_payload() {
     let jev = judge(BackendId::Jev, "yes");
     let haiku = judge(BackendId::AnthropicHaiku, "no");
     let config = live(root, sessions.path(), Arc::new(NoopSessionLog))
+        .mode(MultiBackendMode::ChainContext)
         .backends(set(&[BackendId::Jev, BackendId::AnthropicHaiku]))
         .registry(Arc::new(registry(&[&jev, &haiku])));
     let prepared = prepare(CheckSource::Spec(spec), config).expect("prepare");
@@ -344,9 +345,10 @@ fn test_multi_backend_one_payload() {
     assert!(!payload_text.contains(PACKAGED_SYSTEM_PROMPT.trim()));
     let equal = result.equal_input();
     assert!(
-        !equal.equal(),
-        "r-1 interim records Unattested for every backend"
+        equal.equal(),
+        "r-2b: both scripted backends report the digest of the bundle they received"
     );
+    assert_eq!(equal.mode(), MultiBackendMode::ChainContext);
     assert!(!equal.leak());
     assert!(equal.producer().is_none());
     assert_eq!(equal.prompt_sha256(), payload.sha256());

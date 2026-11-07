@@ -3,9 +3,10 @@
 //! Every backend in the run is attested against the same canonical payload
 //! bytes. `prompt_sha256` is the digest of those bytes. LLM system-prompt text
 //! is not part of the digest (ADR-SAG-0019). `equal` is derived from the
-//! per-backend [`Attestation`]s; until backend-side hashing lands (r-2b) the
-//! engine records [`Attestation::Unattested`] for every backend it sent to,
-//! so a live run reports `equal = false`.
+//! per-backend [`Attestation`]s. Each backend reports the digest of the
+//! canonical blob it recovered from its own final wire body; the engine
+//! compares it to `prompt_sha256` and trusts it (REQ-SAG-0606,
+//! ADR-SAG-0025), so `equal` can be `false` on a live run.
 
 #![warn(missing_docs)]
 
@@ -13,8 +14,7 @@ use std::collections::BTreeMap;
 
 use sc_agent_types::schema::subjects::SubjectsProducer;
 use sc_agent_types::{
-    Attestation, BackendAttestation, BackendId, EqualInputRecord, JevError, MultiBackendMode,
-    PayloadBundle,
+    BackendAttestation, EqualInputRecord, JevError, MultiBackendMode, PayloadBundle,
 };
 
 use crate::extract::Extracted;
@@ -28,25 +28,6 @@ pub(crate) struct RunAttestation {
     pub(crate) backends: Vec<BackendAttestation>,
     /// True when a requested backend was withheld from the comparison.
     pub(crate) leak: bool,
-}
-
-impl RunAttestation {
-    /// Every backend in `ids` with the same `attestation`.
-    pub(crate) fn uniform(
-        mode: MultiBackendMode,
-        ids: &[BackendId],
-        attestation: &Attestation,
-        leak: bool,
-    ) -> Self {
-        Self {
-            mode,
-            backends: ids
-                .iter()
-                .map(|id| BackendAttestation::new(*id, attestation.clone()))
-                .collect(),
-            leak,
-        }
-    }
 }
 
 /// Builds the equal-input record for one run.
@@ -108,7 +89,7 @@ pub fn producer_from_extractions(
 mod tests {
     use super::*;
     use sc_agent_types::schema::subjects::SubjectsDocument;
-    use sc_agent_types::{CanonicalJudgePayload, Sha256Digest};
+    use sc_agent_types::{Attestation, BackendId, CanonicalJudgePayload, Sha256Digest};
 
     fn bundle() -> PayloadBundle {
         PayloadBundle::encode(&CanonicalJudgePayload::new(Vec::new(), Vec::new())).expect("bundle")
@@ -120,12 +101,13 @@ mod tests {
         let producer = sample_producer();
         let built = record(
             &bundle,
-            RunAttestation::uniform(
-                MultiBackendMode::ChainContext,
-                &[BackendId::Jev, BackendId::AnthropicHaiku],
-                &Attestation::Unattested,
-                true,
-            ),
+            RunAttestation {
+                mode: MultiBackendMode::ChainContext,
+                backends: [BackendId::Jev, BackendId::AnthropicHaiku]
+                    .map(|id| BackendAttestation::new(id, Attestation::Unattested))
+                    .to_vec(),
+                leak: true,
+            },
             Some(producer.clone()),
         )
         .expect("record");

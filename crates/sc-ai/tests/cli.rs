@@ -211,17 +211,17 @@ fn test_multi_backend_cli_equal_input() {
     assert!(data.get("outcomes").is_none(), "results replaces outcomes");
     assert!(data.get("warnings").is_none());
     assert_eq!(data["results"].as_array().expect("results").len(), 2);
-    // r-1 interim: no backend digest is trusted yet, so each is `unattested`
-    // and the derived `equal` is false (backend-side hashing lands in r-2b).
-    assert_eq!(data["equal_input"]["equal"], false);
+    // r-2b: the engine default is `independent`; the scripted judges report
+    // the digest of the bundle they received, so each is `matched`.
+    assert_eq!(data["equal_input"]["equal"], true);
     assert_eq!(data["equal_input"]["leak"], false);
-    assert_eq!(data["equal_input"]["mode"], "chain_context");
+    assert_eq!(data["equal_input"]["mode"], "independent");
     assert_eq!(data["equal_input"]["prompt_sha256"], data["prompt_sha256"]);
     assert_eq!(
         data["equal_input"]["backends"],
         serde_json::json!([
-            {"backend": "jev", "attestation": {"status": "unattested"}},
-            {"backend": "anthropic_haiku", "attestation": {"status": "unattested"}}
+            {"backend": "jev", "attestation": {"status": "matched"}},
+            {"backend": "anthropic_haiku", "attestation": {"status": "matched"}}
         ])
     );
     let jev = jev_seen.snapshot();
@@ -232,8 +232,8 @@ fn test_multi_backend_cli_equal_input() {
     assert_eq!(jev[0].payload().sha256().as_str(), data["prompt_sha256"]);
     assert!(jev[0].llm().is_none());
     let prompt = &haiku[0].llm().as_ref().expect("haiku prompt").system_prompt;
-    assert!(prompt.starts_with(PACKAGED_SYSTEM_PROMPT));
-    assert!(prompt.contains("Session context:"));
+    assert_eq!(prompt, PACKAGED_SYSTEM_PROMPT, "independent by default");
+    assert!(!prompt.contains("Session context:"));
     let payload = String::from_utf8_lossy(jev[0].payload().bytes());
     assert!(!payload.contains("Session context:"));
     assert!(!payload.contains(PACKAGED_SYSTEM_PROMPT.trim()));

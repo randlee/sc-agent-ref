@@ -56,3 +56,13 @@ required-features = ["test-util"]
 [[test]]
 name = "sessions_exact"
 required-features = ["test-util"]
+
+# Multi-backend semantics (ADR-SAG-0025) drive `run` through `MockJudgeBackend`.
+[[test]]
+name = "multi_backend"
+required-features = ["test-util"]
+
+# `register_scripted_backends` is public only under `test-util`.
+[[test]]
+name = "scripted"
+required-features = ["test-util"]
