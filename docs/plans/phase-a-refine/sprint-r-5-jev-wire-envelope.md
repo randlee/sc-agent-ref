@@ -24,6 +24,9 @@ requirements:
   - REQ-SAG-0501
   - REQ-SAG-0102
   - REQ-SAG-0606
+  - REQ-SAG-0140   # regression: jev::v1 stays inside sc-decision-schema's data-only dependency set
+  - REQ-SAG-0141   # regression: jev::v1 types live only in sc-decision-schema
+  - REQ-SAG-0103   # Branch B / both: the payload contract gains the optional criteria field (additive)
 adrs:
   - ADR-SAG-0001  # validation errors stay JevError variants mapped by the CLI/PyO3
   - ADR-SAG-0002  # Branch B / "both": r-5 lands an ADR-SAG-0002 amendment (optional criteria field)
@@ -41,7 +44,7 @@ adrs:
   - ADR-SAG-0031  # wiring (r-6, same wave) touches no r-5 file; the trace hand-off in sc-jev is r-7's and is kept
 owned_paths:
   - "crates/sc-jev/src/** (keeps r-7's request-trace hand-off and fn model_id lines)"
-  - "crates/sc-jev/tests/** (r-7's send_trace.rs and catalog.rs stay green, not edited)"
+  - "crates/sc-jev/tests/** (r-7's catalog.rs stays green, not edited)"
   - "crates/sc-jev-backends/src/validate.rs"
   - "crates/sc-jev-backends/src/wire.rs"
   - "crates/sc-decision-schema/src/payload.rs"
@@ -232,7 +235,7 @@ Each named test prints `1 passed`; the scrum-master rejects `0 passed`.
 | adr:ADR-SAG-0012, ADR-SAG-0030 | ADR-SAG-0012 r-5 subsection and index marker Active; ADR-SAG-0030 "Jev API structs" bullet Active (r-5) and its index Status cell `Active (r-7, r-5)` |
 | adr:ADR-SAG-0002 | Branch B or both: r-5 subsection Active as quoted above and index marker "A.1 subsection (Active, r-5)"; `cargo test -p sc-decision-schema --test judge -- test_payload_requires_exactly_one_of_questions_or_criteria --exact` rejects a payload with both `questions` and `criteria` and one with neither (`INPUT_INVALID`). Branch A: ADR-SAG-0002 text and row unchanged |
 | adr:ADR-SAG-0001, 0020, 0026, 0027 | Validation failures map through `ErrorCode` (`cargo test -p sc-agent-types --test errors -- test_error_response_stderr_golden --exact`); `cargo test -p workspace-tests --test source_scans` green (no `disallowed_methods` expect outside `crates/sc-agent-http/src/ureq_transport.rs` and the ADR-SAG-0028 spawn sites) |
-| boundary:jev | `cargo test -p sc-jev --features test-util --test wire -- test_digest_detects_faulty_wire_builder --exact` and `-- test_real_wire_builder_reports_prompt_digest --exact` green; regression: `cargo test -p sc-agent-http --test retry` (REQ-SAG-0401), `cargo test -p sc-jev --test send_trace` and `cargo test -p sc-jev --test catalog` (r-7's lines kept) |
+| boundary:jev | `cargo test -p sc-jev --features test-util --test wire -- test_digest_detects_faulty_wire_builder --exact` and `-- test_real_wire_builder_reports_prompt_digest --exact` green; regression: `cargo test -p sc-agent-http --test retry` (REQ-SAG-0401), `cargo test -p sc-jev --test catalog` (r-7's lines kept); REQ-SAG-0140 `cargo tree -p sc-decision-schema -e normal --depth 1` lists only `sc-agent-types`, `serde`, `serde_json`; REQ-SAG-0140/0141 `just lint` (sc-decision-schema manifest); REQ-SAG-0103 (Branch B / both) `cargo test -p sc-decision-schema --test judge` green |
 
 ## Required validation
 

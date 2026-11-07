@@ -13,7 +13,7 @@ recommended_agent: sai
 recommended_model: gpt-5.6-sol-medium
 must_follow: [r-3b]   # r-2b and r-3 transitively through r-3b
 parallel_safe: []
-vertical_rationale: "Moving the decision types out of sc-agent-types cannot leave the workspace red, and nothing is published, so the sprint that creates sc-decision-schema also updates every call site and test it breaks (the r-1 rule). It runs alone in wave 5 because its import changes touch every crate that r-5 and r-6 later own sections of. It is a contract sprint that also carries three behaviour seams: D4 (wire.rs parses LLM output through llm::v1), D7 (backends send and report a configured ModelId, check.toml [models]) and D8 (the empty SendTrace hand-off). They stay here because their signatures name the types this sprint moves or creates, and they edit the same sc-jev, sc-jev-backends and sc-jev-check files as the import changes; each has its own req: row below (REQ-SAG-0144, 0147, 0148, 0613 seam), so none can slip while the sprint claims success. Split decision, after D4 jev::v1 moved to r-5 and the redundant gates were dropped: not split; a catalog-only sprint would add a wave to the critical path or share every owned path with this one. D6 (session-log schema, about one dev-day of data types and DDL) stays here because its row type names the moved types and r-6 needs it in place before wave 6."
+vertical_rationale: "Moving the decision types out of sc-agent-types cannot leave the workspace red, and nothing is published, so the sprint that creates sc-decision-schema also updates every call site and test it breaks (the r-1 rule). It runs alone in wave 5 because its import changes touch every crate that r-5 and r-6 later own sections of. It is a contract sprint that also carries three behaviour seams: D4 (wire.rs parses LLM output through llm::v1), D7 (backends send and report a configured ModelId, check.toml [models]) and D8 (the SendTrace parameter of the one HTTP exchange). They stay here because their signatures name the types this sprint moves or creates, and they edit the same sc-jev, sc-jev-backends and sc-jev-check files as the import changes; each has its own acceptance row below (REQ-SAG-0144, 0147, 0148 and boundary:send-trace), so none can slip while the sprint claims success. Split decision, after D4 jev::v1 moved to r-5 and the redundant gates were dropped: not split; a catalog-only sprint would add a wave to the critical path or share every owned path with this one. D6 (session-log schema, about one dev-day of data types and DDL) stays here because its row type names the moved types and r-6 needs it in place before wave 6."
 requirements:
   - REQ-SAG-0140
   - REQ-SAG-0141
@@ -23,7 +23,7 @@ requirements:
   - REQ-SAG-0146
   - REQ-SAG-0147
   - REQ-SAG-0148
-  - REQ-SAG-0613   # seam only: SendTrace type and hand-off; r-6 records the digest and closes it
+  - REQ-SAG-0613   # seam only (boundary:send-trace row): SendTrace type and required parameter; r-6 records the digest and closes it
   - REQ-SAG-0103   # amended: the frozen judge contract's home is sc-decision-schema
   - REQ-SAG-0107   # amended: sc-agent-types loses the judge and test-util features
   - REQ-SAG-0130   # amended: consumer input publishes sc-decision-schema (order 2)
@@ -58,9 +58,11 @@ adrs:
   - ADR-SAG-0001  # JevError stays in sc-agent-types; sc-decision-schema errors are JevError variants (no new type)
   - ADR-SAG-0002  # canonical payload bytes unchanged; only the type's crate changes
   - ADR-SAG-0004  # validate_for_send semantics unchanged by the trait move
+  - ADR-SAG-0006  # Transport trait unchanged; the exchange fns send_with_busy_retry / send_and_parse gain a required SendTrace parameter
   - ADR-SAG-0005  # r-7 amendment: PayloadBundle/JudgeRequest are sc-decision-schema types; sc-jev-check is still the only builder
   - ADR-SAG-0008  # session document stores JudgeOutcome; bytes unchanged (v3 bump is r-6)
   - ADR-SAG-0009  # r-7 amendment: trait home; BackendId = how we call, ModelId = which model; model_id provided method
+  - ADR-SAG-0012  # the Jev model pin moves from jev.toml to the catalog; sc-jev still owns every Jev operation
   - ADR-SAG-0013  # session-log row types defined here; emission unchanged until r-6
   - ADR-SAG-0016  # r-7 amendment: port stays in sc-agent-types; record types and DDL live in sc-decision-schema
   - ADR-SAG-0017  # r-7 amendment: published library set and publish order gain sc-decision-schema
@@ -69,9 +71,10 @@ adrs:
   - ADR-SAG-0020  # factory signature gains ModelAliases; no new secret read site
   - ADR-SAG-0022  # r-7 amendment: MockJudgeBackend moves to sc_decision_schema::test_util
   - ADR-SAG-0023  # new workspace dependency, caret; not on the lockstep list
+  - ADR-SAG-0024  # RunConfig::models(ModelAliases) added; prepare/run entry points unchanged
   - ADR-SAG-0025  # attestation types move unchanged; input_sha256 recovery unchanged
-  - ADR-SAG-0026  # r-7 amendment: JudgeOutcome owner (compose half); HttpRequest carries a SendTrace (HTTP half)
-  - ADR-SAG-0027  # r-7 amendment: feature seams, stable surface (+SendTrace), layering, add-a-backend checklist
+  - ADR-SAG-0026  # r-7 amendment: JudgeOutcome owner (compose half); exchange fns take a required SendTrace (HTTP half)
+  - ADR-SAG-0027  # r-7 amendment: feature seams, stable surface (+SendTrace, +ProjectLabel), layering, add-a-backend checklist
   - ADR-SAG-0028  # workspace-tests gains a dev edge on sc-decision-schema
   - ADR-SAG-0029  # (b) scripted seam unchanged; register_scripted_backends over the moved mock
   - ADR-SAG-0030  # new: decision schema crate and model catalog (r-7 flips all but the jev::v1 bullet, r-5, and the scope-context bullet, owner-gated)
@@ -91,6 +94,8 @@ owned_paths:
   - "crates/sc-agent-types/src/catalog.rs#BackendDescriptor::default_model_alias"
   - "crates/sc-agent-types/src/models.rs (new: ModelId, UnknownModel, ModelFamily, ModelDescriptor, MODELS, ModelAliases)"
   - "crates/sc-agent-types/src/trace.rs (new: SendTrace)"
+  - "crates/sc-agent-types/src/ids.rs#ProjectLabel (new)"
+  - "crates/sc-agent-types/tests/ids.rs#test_project_label_limits (new)"
   - "crates/sc-agent-types/tests/judge.rs (deleted: moved)"
   - "crates/sc-agent-types/tests/mock.rs (deleted: moved)"
   - "crates/sc-agent-types/tests/ids.rs#QuestionId and ChoiceId cases (moved)"
@@ -99,7 +104,10 @@ owned_paths:
   - "crates/sc-agent-types/tests/models.rs (new)"
   - "crates/sc-agent-types/tests/trace.rs (new)"
   - "boundaries/sc-agent-types/**"
-  - "crates/sc-agent-http/src/request.rs#HttpRequest::with_trace, HttpRequest::trace"
+  - "crates/sc-agent-http/src/retry.rs#send_with_busy_retry, send_and_parse, HttpClient::send_and_parse take a required SendTrace (no recording in r-7)"
+  - "crates/sc-agent-http/src/lib.rs, redact.rs, transport.rs#doc examples pass a SendTrace"
+  - "crates/sc-agent-http/tests/retry.rs, tests/ureq.rs#callers pass SendTrace::new()"
+  - "boundaries/sc-agent-http/**#notes: the exchange fns take a required SendTrace"
   - "boundaries/sc-agent-http/**#forbidden_edges +sc-decision-schema"
   - "crates/sc-jev/Cargo.toml#+sc-decision-schema"
   - "crates/sc-jev/src/**#import changes"
@@ -107,17 +115,15 @@ owned_paths:
   - "crates/sc-jev/src/jev.toml#model key removed (the catalog is the one source)"
   - "crates/sc-jev-check/assets/jev.toml#header comment: model ids live in the sc-agent-types catalog"
   - "crates/sc-jev/src/check.rs#impl JudgeBackend for JevClient: fn model_id"
-  - "crates/sc-jev/src/client/mod.rs#request trace handed to HttpRequest"
+  - "crates/sc-jev/src/client/mod.rs#passes req.send_trace().clone() to send_and_parse"
   - "crates/sc-jev/tests/**#import changes"
   - "crates/sc-jev/tests/catalog.rs (new)"
-  - "crates/sc-jev/tests/send_trace.rs (new)"
   - "crates/sc-jev-backends/Cargo.toml#+sc-decision-schema"
   - "crates/sc-jev-backends/src/**#import changes"
-  - "crates/sc-jev-backends/src/backend.rs#configured ModelId (catalog default, override), fn model_id, request trace handed to HttpRequest"
+  - "crates/sc-jev-backends/src/backend.rs#configured ModelId (catalog default, override), fn model_id, passes req.send_trace().clone() to send_and_parse"
   - "crates/sc-jev-backends/src/wire.rs#LLM output through llm::v1::parse_output; HAIKU_MODEL/LUNA_MODEL consts removed"
   - "crates/sc-jev-backends/tests/**#import changes"
   - "crates/sc-jev-backends/tests/llm.rs#test_unknown_model_override_is_sent_verbatim, test_llm_model_id_is_configured_model (new)"
-  - "crates/sc-jev-backends/tests/send_trace.rs (new)"
   - "crates/sc-jev-check/Cargo.toml#+sc-decision-schema; test-util feature points at sc-decision-schema/test-util; [[test]] models required-features = [\"test-util\"]"
   - "crates/sc-jev-check/src/**#import changes"
   - "crates/sc-jev-check/src/config/**#[models] table"
@@ -157,7 +163,7 @@ owned_paths:
   - "docs/architecture.md#Phase A.1 crate graph, \"Trait boundary\" sentence"
   - "docs/requirements.md#REQ-SAG-0140..0142, 0144..0148 rows; REQ-SAG-0103, 0107 and 0130 (r-7) amendment rows"
   - "docs/sc-agent-types/**"
-  - "docs/sc-agent-http/**#HttpRequest trace field"
+  - "docs/sc-agent-http/**#SendTrace parameter of the exchange fns"
   - "docs/sc-jev-check/**#check.toml [models] table"
   - "docs/sc-jev-backends/**#model from the catalog"
   - "docs/sc-jev/architecture.md#config row: model from the catalog, not jev.toml"
@@ -166,7 +172,7 @@ owned_paths:
 # Sprint r-7 — `sc-decision-schema` crate and model catalog
 
 Owner decisions 2026-11-07 (plan.md "Owner decisions 2026-11-07", items 1–3,
-6 and 7). Governing ADRs: ADR-SAG-0030 and ADR-SAG-0031's "Storage schema"
+5, 6 and 7). Governing ADRs: ADR-SAG-0030 and ADR-SAG-0031's "Storage schema"
 subsection, both inserted **Proposed** by the plan PR and flipped by this
 sprint (except the ADR-SAG-0030 `jev::v1` bullet, which r-5 flips).
 
@@ -180,9 +186,10 @@ decision models, and the session-log SQLite schema with its `fields{}`
 projection. `sc-agent-types` keeps what every agent kind shares (ids,
 errors, secrets, git, cancel, the observability port, the backend catalog)
 and gains a model catalog (open `ModelId`, `latest(alias)`, overridable from
-`check.toml`) and the `SendTrace` handle. Backends report and send their
-configured model and hand the request's `SendTrace` to `sc-agent-http`
-(recording the digest is r-6). The Jev request/response structs
+`check.toml`), the `SendTrace` handle and `ProjectLabel`. Backends report
+and send their configured model and pass the request's `SendTrace` to the
+one `sc-agent-http` exchange as a required argument (recording the digest
+is r-6). The Jev request/response structs
 (`jev::v1`) are r-5's. No wire byte, digest, stdout golden or session
 document byte changes.
 
@@ -190,7 +197,7 @@ document byte changes.
 
 ```text
 sc-agent-types        ids, JevError/ErrorCode, ScAgentErrorResponse, BackendId + BACKENDS,
-  (below)             ModelId/ModelFamily/ModelAliases, Sha256Digest, CancelToken, SendTrace,
+  (below)             ModelId/ModelFamily/ModelAliases, Sha256Digest, CancelToken, SendTrace, ProjectLabel,
                       ResolvedApiKey (secret), observability::v2 port (obs), git (git),
                       schema::subjects
 sc-decision-schema    QuestionId, ChoiceId, Question, ChoiceAnswer, CanonicalJudgePayload,
@@ -288,7 +295,7 @@ Every deliverable below lands production-ready for the scope this sprint claims;
 
    Edits to other manifests: `sc-agent-types` facade drops the moved items
    and gains `ModelId`, `UnknownModel`, `ModelFamily`, `ModelDescriptor`, `MODELS`,
-   `ModelAliases`, `SendTrace`; its `allowed_dependents` gains
+   `ModelAliases`, `SendTrace`, `ProjectLabel`; its `allowed_dependents` gains
    `sc-decision-schema`. `sc-jev`, `sc-jev-backends`, `sc-jev-check`,
    `sc-agent-compose`, `sc-ai`, `sc-jev-py`, `workspace-tests` gain
    `sc-decision-schema` in `allowed_dependencies`; `sc-agent-http` gains a
@@ -302,7 +309,8 @@ Every deliverable below lands production-ready for the scope this sprint claims;
    `docs/sc-decision-schema/session-log-schema.md` (D6).
    `docs/sc-agent-types/architecture.md` drops the moved types from the
    feature table and the `judge` / `test-util` rows, adds the model catalog,
-   `SendTrace` and the layering paragraph;
+   `SendTrace`, `ProjectLabel`, the layering paragraph and the
+   `ModelFamily` rule of D7.1;
    `docs/sc-agent-types/requirements.md` carries the REQ-SAG-0103 and 0107
    amendment rows. README of the new crate states "data-only; no semver
    promise beyond the schema versions it names".
@@ -365,7 +373,9 @@ Every deliverable below lands production-ready for the scope this sprint claims;
      scripted backends report `model_id`), `sc-jev-check/src/run/**`
      (`RunConfig::models`);
    - D8: `sc-jev/src/client/mod.rs` and `sc-jev-backends/src/backend.rs`
-     (request trace handed to `HttpRequest`).
+     (`req.send_trace().clone()` passed to `send_and_parse`); and the
+     `sc-agent-http` exchange signatures and their callers in its own docs
+     and tests.
 
 ### D3 — Versioning (REQ-SAG-0142)
 
@@ -507,7 +517,7 @@ dependency or writer lands in A.1.
 4. **Rules.** No secret, payload text, prompt text or raw response body in
    any column (NFR-SAG-0002); `answers_json` holds only typed answers.
    `repo` is the only path column. `project` is caller text, stored as
-   given and not scrubbed. Adding or renaming a column, or changing a type
+   given and not scrubbed, and always a valid `ProjectLabel` (D8.4). Adding or renaming a column, or changing a type
    or nullability, bumps `SESSION_LOG_SCHEMA_VERSION` with a migration note.
 5. `docs/sc-decision-schema/session-log-schema.md`, titled "Session log
    storage schema (SQLite, authoritative)", points to `schema.sql` (it does
@@ -532,7 +542,8 @@ dependency or writer lands in A.1.
    (which returns the known variant for a known string, so `Other` never
    holds a known string and derived `PartialEq`/`Hash` stay correct) and
    `ModelId::fallback_for(BackendId)` (D7.5). `ModelId::family() ->
-   ModelFamily`.
+   ModelFamily`. `ModelFamily` is the only family `schema_for` consumes; it
+   is never derived from `BackendFamily` (the catalog's how-we-call family).
 2. `MODELS` (model string, family, alias, release date) and `ModelAliases`
    (`builtin()`, `latest(alias)` for `"jev"`, `"haiku"`, `"luna"`,
    `with_override`). `BackendDescriptor` gains `default_model_alias()`
@@ -566,18 +577,25 @@ dependency or writer lands in A.1.
    `MockJudgeBackend::with_model_id` and the scripted backends report one.
    r-6 writes it into every row.
 
-### D8 — Send-trace seam (REQ-SAG-0613, seam only)
+### D8 — Send-trace seam and `ProjectLabel` (REQ-SAG-0613 seam, REQ-SAG-0146)
 
 1. `sc_agent_types::SendTrace` (core, `trace.rs`, next to `CancelToken`): a
    cloneable handle with `record` (first write wins) and `request_sha256`.
 2. `JudgeRequest::send_trace()` / `with_send_trace(..)` (default: a fresh,
-   empty trace); `sc-agent-http` `HttpRequest::with_trace(SendTrace)` /
-   `trace()`.
-3. `sc-jev` (`client/mod.rs`, its one `send_and_parse` call) and
-   `sc-jev-backends` (`backend.rs`) attach the request's trace to the
-   `HttpRequest` they build. Nothing records into it in r-7; r-6 adds the
-   recording in `send_with_busy_retry` and reads it into the row. This
-   gives r-5 and r-6 disjoint files in wave 6.
+   empty trace).
+3. `sc-agent-http`: `send_with_busy_retry`, `send_and_parse` and
+   `HttpClient::send_and_parse` take a **required** `trace: SendTrace`
+   parameter (signatures below), so no backend can send without one. The
+   `Transport` trait and `HttpRequest` are unchanged. `sc-jev`
+   (`client/mod.rs`) and `sc-jev-backends` (`backend.rs`) pass
+   `req.send_trace().clone()`; the `sc-agent-http` doc examples and tests
+   pass `SendTrace::new()`. Nothing records into it in r-7; r-6 adds the
+   recording in `send_with_busy_retry` and reads it into the row. This gives
+   r-5 and r-6 disjoint files in wave 6.
+4. `sc_agent_types::ProjectLabel` (core, `ids.rs`): UTF-8, at most 256
+   bytes, no control characters, else `INPUT_INVALID`. `RowContext.project`
+   is `Option<ProjectLabel>`, so `try_from_fields` uses the same validator
+   as the CLI and Python inputs r-6 wires.
 
 ### D9 — ADR text flips (one pass)
 
@@ -644,6 +662,14 @@ impl ModelAliases {
 }
 impl BackendDescriptor {
     pub fn default_model_alias(&self) -> &'static str;          // "jev" | "haiku" | "luna"
+}
+
+// crates/sc-agent-types/src/ids.rs
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProjectLabel(Arc<str>);
+impl ProjectLabel {
+    pub fn new(text: impl Into<String>) -> Result<Self, JevError>; // > 256 bytes or control char -> INPUT_INVALID
+    pub fn as_str(&self) -> &str;
 }
 
 // crates/sc-agent-types/src/trace.rs
@@ -733,7 +759,7 @@ pub struct RowContext {
     pub session_id: SessionId,              // sc-agent-types type (ULID after r-6)
     pub session_created_at: SystemTime,     // written RFC 3339 UTC, ms
     pub repo: String,                       // absolute path text
-    pub project: Option<String>,            // ProjectLabel text from r-6; None -> null
+    pub project: Option<ProjectLabel>,      // validated by ProjectLabel::new; None -> null
     pub prompt_sha256: Sha256Digest,
     pub decision_schema: DecisionSchemaId,
     pub question_ids: Vec<QuestionId>,      // payload order
@@ -759,12 +785,31 @@ impl SessionLogRow {
 ```
 
 ```rust
-// sc-agent-http/src/request.rs — additions (no recording in r-7)
-impl HttpRequest {
-    #[must_use]
-    pub fn with_trace(self, trace: SendTrace) -> Self;
-    pub fn trace(&self) -> Option<&SendTrace>;
+// sc-agent-http/src/retry.rs — signature changes (no recording in r-7)
+pub fn send_with_busy_retry(
+    transport: &dyn Transport,
+    request: &HttpRequest,
+    policy: &BusyPolicy,
+    cancel: &CancelToken,
+    trace: SendTrace,
+) -> Result<HttpResponse, JevError>;
+pub fn send_and_parse<R>(
+    transport: &dyn Transport,
+    request: &HttpRequest,
+    policy: &BusyPolicy,
+    cancel: &CancelToken,
+    trace: SendTrace,
+    parse: impl FnOnce(HttpResponse) -> Result<R, JevError>,
+) -> Result<R, JevError>;
+impl<T: Transport> HttpClient<T> {
+    pub fn send_and_parse<R>(
+        &self,
+        request: &HttpRequest,
+        trace: SendTrace,
+        parse: impl FnOnce(HttpResponse) -> Result<R, JevError>,
+    ) -> Result<R, JevError>;
 }
+// backends: client.send_and_parse(&http_request, req.send_trace().clone(), parse)
 ```
 
 RFC 3339 formatting and parsing of `SystemTime` (`YYYY-MM-DDTHH:MM:SS.mmmZ`)
@@ -783,10 +828,10 @@ Each named test prints `1 passed`; the scrum-master rejects `0 passed`.
 | req:REQ-SAG-0142 | `cargo test -p sc-decision-schema --test version -- test_known_versions_accepted_unknown_rejected --exact`; `cargo test -p sc-decision-schema --test version -- test_schema_version_not_in_canonical_bytes --exact`; `cargo test -p workspace-tests --test jev_cross_impl` and `cargo test -p sc-jev-check --test cross_impl_branches` green with unchanged digests |
 | req:REQ-SAG-0144 | `cargo test -p sc-decision-schema --test llm -- test_llm_output_is_decision_answers --exact` (a valid reply gives `DecisionAnswers`; each of the four D4.2 cases gives `RESPONSE_INVALID` with today's message); `cargo test -p sc-jev-backends --test llm` green |
 | req:REQ-SAG-0145 | `cargo test -p sc-decision-schema --test variants -- test_canonical_variant_is_identity --exact`; `cargo test -p sc-decision-schema --test variants -- test_every_model_family_maps_to_a_known_schema --exact` |
-| req:REQ-SAG-0146 | `cargo test -p sc-decision-schema --test session_log -- test_session_log_row_matches_ddl --exact`; `cargo test -p sc-decision-schema --test session_log -- test_fields_roundtrip --exact` (every fixture line); `cargo test -p sc-decision-schema --test session_log -- test_unknown_or_missing_key_rejected --exact`; `uv run --directory tests/fixtures/jev-python pytest -q tests/test_session_log_sqlite.py::test_fixture_loads_into_sqlite` (Python `sqlite3` executes `schema.sql`, loads all six fixture lines, the CHECK constraints accept them, and the two rows of one session keep their own `project`) |
+| req:REQ-SAG-0146 | `cargo test -p sc-decision-schema --test session_log -- test_session_log_row_matches_ddl --exact`; `cargo test -p sc-decision-schema --test session_log -- test_fields_roundtrip --exact` (every fixture line); `cargo test -p sc-decision-schema --test session_log -- test_unknown_or_missing_key_rejected --exact`; `uv run --directory tests/fixtures/jev-python pytest -q tests/test_session_log_sqlite.py::test_fixture_loads_into_sqlite` (Python `sqlite3` executes `schema.sql`, loads all six fixture lines, the CHECK constraints accept them, and the two rows of one session keep their own `project`); `cargo test -p sc-agent-types --test ids -- test_project_label_limits --exact` (the validator `try_from_fields` uses) |
 | req:REQ-SAG-0147 | `cargo test -p sc-agent-types --test models -- test_known_models_roundtrip --exact` (every `MODELS` string parses to its known variant, never `Other`, and round-trips through `Display`/serde); `cargo test -p sc-agent-types --test models -- test_unknown_model_string_parses_as_other --exact` (an unknown string built through `FromStr` is `Other`, keeps its text, and an empty or control-character string is `INPUT_INVALID`); `cargo test -p sc-jev-backends --test llm -- test_unknown_model_override_is_sent_verbatim --exact` |
 | req:REQ-SAG-0148 | `cargo test -p sc-agent-types --test models -- test_latest_alias_lookup --exact`; `cargo test -p sc-agent-types --test models -- test_alias_override_wins --exact`; `cargo test -p sc-agent-types --test ids -- test_backend_catalog_roundtrip --exact` (every descriptor's `default_model_alias()` resolves); `cargo test -p sc-jev-check --features test-util --test models -- test_check_toml_models_override_reaches_backend --exact`; `cargo test -p sc-jev-check --features test-util --test models -- test_unknown_model_alias_is_config_invalid --exact`; `model_id()` (D7.5): `cargo test -p sc-decision-schema --features test-util --test mock -- test_model_id_default_from_catalog --exact`, `cargo test -p sc-jev --test catalog -- test_jev_model_id_is_configured_model --exact`, `cargo test -p sc-jev-backends --test llm -- test_llm_model_id_is_configured_model --exact` |
-| req:REQ-SAG-0613 (seam) | `cargo test -p sc-agent-types --test trace -- test_send_trace_first_write_wins --exact`; `cargo test -p sc-jev --test send_trace -- test_jev_attaches_request_trace --exact` and `cargo test -p sc-jev-backends --test send_trace -- test_llm_attaches_request_trace --exact` (the `HttpRequest` a recording transport captures carries the `JudgeRequest`'s trace: a digest recorded through the captured `HttpRequest::trace()` is visible through the originating `JudgeRequest::send_trace()`) |
+| boundary:send-trace | `cargo test -p sc-agent-types --test trace -- test_send_trace_first_write_wins --exact`; the required `SendTrace` parameter is enforced by the compiler at every `send_and_parse` caller (REQ-SAG-0613 itself closes in r-6) |
 | req:REQ-SAG-0103 (amended) | Rows in `docs/requirements.md` and `docs/sc-agent-types/requirements.md` flipped; the moved contract tests pass in their new crate (REQ-SAG-0141 row) |
 | req:REQ-SAG-0107 (amended) | `cargo hack check -p sc-agent-types --feature-powerset --no-dev-deps`; `cargo hack check -p sc-decision-schema --feature-powerset --no-dev-deps`; `cargo test -p sc-agent-types --test features` green |
 | req:REQ-SAG-0130 (amended, r-7 bullet) | `release/sc-publish-consumer-input.json` lists `sc-decision-schema` with `publish_order: 2`; after the parent's `install.py` run, `bash scripts/sc-publish-dry-run.sh` exits 0 and packages `sc-decision-schema` second |

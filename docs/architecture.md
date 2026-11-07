@@ -1256,9 +1256,11 @@ r-3b sets the line above to "Active". HTTP half amends ADR-SAG-0006, 0007,
 - (Proposed, r-7) Compose-half type note: `JudgeOutcome` is owned by
   `sc-decision-schema` (ADR-SAG-0030), not `sc-agent-types`. Compose does
   not re-export it.
-- (Proposed, r-7) HTTP half: `HttpRequest` carries an optional `SendTrace`
-  (`with_trace`, `trace`); `sc-jev` and `sc-jev-backends` attach the
-  `JudgeRequest`'s trace. Recording into it is r-6.
+- (Proposed, r-7) HTTP half: `send_with_busy_retry`, `send_and_parse` and
+  `HttpClient::send_and_parse` take a required `SendTrace` parameter, so no
+  backend can send without one; `sc-jev` and `sc-jev-backends` pass
+  `req.send_trace().clone()`. The `Transport` trait (ADR-SAG-0006) and
+  `HttpRequest` are unchanged. Recording into the trace is r-6.
 
 ### Amendment (Phase A.1, r-6)
 
@@ -1376,14 +1378,14 @@ r-3b sets the line above to "Active". HTTP half amends ADR-SAG-0006, 0007,
   descriptor's `default_model_alias` and, for a new model, adds the
   `ModelId` variant and its `MODELS` row; the factory-table row of step 3
   takes `&ModelAliases`.
-- (Proposed, r-7) The core (always-on) surface gains `SendTrace`
-  (ADR-SAG-0031).
+- (Proposed, r-7) The core (always-on) surface gains `SendTrace` and
+  `ProjectLabel` (ADR-SAG-0031).
 
 ### Amendment (Phase A.1, r-6)
 
 **Status:** Proposed (Phase A.1) — lands in r-6.
 
-- (Proposed, r-6) The core (always-on) surface gains `ProjectLabel`; core dependencies change from `uuid` and `sha2` to `ulid`
+- (Proposed, r-6) Core dependencies change from `uuid` and `sha2` to `ulid`
   and `sc-sha` (caret, ADR-SAG-0023). `observability::v2::LogEvent`'s
   constructor and accessors change (ADR-SAG-0016 r-6 amendment), a
   stable-surface change made before any publish (ADR-SAG-0031).
@@ -1540,7 +1542,9 @@ subsection in each). Owner decisions 2026-11-07.
 - (Proposed, r-7) **Content.** No secret, payload text, prompt text or raw
   response body in any column (NFR-SAG-0002); `answers_json` holds only
   typed answers. `repo` is the only path column. `project` is caller text,
-  stored as given and not scrubbed.
+  stored as given and not scrubbed, and validated by `ProjectLabel` (the row
+  type holds a `ProjectLabel`, so the loader and the CLI accept the same
+  text).
 
 ### Wiring
 
@@ -1556,8 +1560,9 @@ subsection in each). Owner decisions 2026-11-07.
 - (Proposed, r-6) `request_sha256` is the SHA-256 of exactly the bytes
   sent, the future response-cache key. `sc-agent-http` records it at the
   send site (`send_with_busy_retry`, used by every backend) into the
-  `SendTrace` that `JudgeRequest` carries and the backend attaches to its
-  `HttpRequest` (seam from r-7, ADR-SAG-0026 r-7); one value per send, retries included; NULL when no body was
+  `SendTrace` that `JudgeRequest` carries and the backend passes as the
+  exchange's required `trace` argument (seam from r-7, ADR-SAG-0026 r-7);
+  one fresh trace per backend send; one value per send, retries included; NULL when no body was
   built. `prompt_sha256` stays the canonical-payload digest
   (ADR-SAG-0002/0025).
 - (Proposed, r-6) The row's `model_id` is `JudgeBackend::model_id()`
@@ -1572,7 +1577,7 @@ subsection in each). Owner decisions 2026-11-07.
   worktree's own root. `project` is `ProjectLabel` (≤ 256 bytes, no control
   characters), from `sc-ai --project` or Python `project=`.
 - (Proposed, r-6) SHA-256 is computed with `sc-sha` over raw bytes with no
-  normalization (r-6 D0 gate); `sha2` and `uuid` leave the workspace.
+  normalization (r-6 D0 gate); no workspace manifest lists `sha2` or `uuid`.
 - (Proposed, r-6) Log-write failure policy: a rejected or failed log row
   never fails the run; `SessionLog::emit` is best effort and a flush failure
   is a `data.warnings` entry (plan.md owner decisions 2026-11-07, item 9).

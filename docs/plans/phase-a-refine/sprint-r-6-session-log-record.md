@@ -41,6 +41,8 @@ requirements:
   - NFR-SAG-0001
   - NFR-SAG-0002
   - NFR-SAG-0003
+  - NFR-SAG-0004   # regression: ulid and sc-sha are caret workspace deps (check-exact-pins.sh)
+  - REQ-SAG-0107   # regression: observability port and core deps change; every feature combination builds
 adrs:
   - ADR-SAG-0001  # new INPUT_INVALID paths (UUID session id, bad project text) are JevError constructors
   - ADR-SAG-0002  # prompt_sha256 stays the digest of the canonical bytes; sc-sha must hash them unchanged (D0)
@@ -53,9 +55,11 @@ adrs:
   - ADR-SAG-0009  # the row's model_id is JudgeBackend::model_id() (r-7 amendment)
   - ADR-SAG-0010  # --project flag on the thin CLI adapter
   - ADR-SAG-0011  # project= kwarg on the Python adapter
+  - ADR-SAG-0012  # sc-jev is not edited; hashing the carried bytes in sc-agent-http is not Jev semantics
   - ADR-SAG-0013  # r-6 amendment (ADR-SAG-0031): the row lives in the v2 fields{} object; no bespoke writer
   - ADR-SAG-0014  # stdout session_id becomes a ULID; goldens updated, no new key
   - ADR-SAG-0016  # r-6 amendment (ADR-SAG-0031): LogEvent carries the row's fields
+  - ADR-SAG-0019  # request_sha256 is the wire-body digest; prompt_sha256 stays the canonical-payload digest
   - ADR-SAG-0020  # hashing the body adds no secret read site; headers are not hashed
   - ADR-SAG-0021  # log and session paths unchanged (worktree root), proven by test
   - ADR-SAG-0022  # MockJudgeBackend and scripted backends record a sent-body digest into the request trace
@@ -63,24 +67,22 @@ adrs:
   - ADR-SAG-0024  # RunResponse / FileSessionStore file names; prepare/run unchanged
   - ADR-SAG-0025  # input_sha256 attestation stays on canonical bytes; Failed emits a row
   - ADR-SAG-0026  # r-6 amendment (ADR-SAG-0031): sc-agent-http records the request digest; compose owns repo/project
-  - ADR-SAG-0027  # r-6 amendment (ADR-SAG-0031): core gains ProjectLabel, ulid, sc-sha; LogEvent stable-surface change
+  - ADR-SAG-0027  # r-6 amendment (ADR-SAG-0031): core dependencies ulid, sc-sha; LogEvent stable-surface change
   - ADR-SAG-0028  # no new spawn site: the git helper stays in sc-agent-types/src/git.rs
   - ADR-SAG-0029
   - ADR-SAG-0030  # decision schema id in the session document and the row
   - ADR-SAG-0031  # wiring subsection lands here (r-6 flips it)
 owned_paths:
   - "crates/sc-agent-types/Cargo.toml#-uuid -sha2 +ulid +sc-sha"
-  - "crates/sc-agent-types/src/ids.rs#SessionId (ULID), Sha256Digest::of (sc-sha), ProjectLabel (new)"
-  - "crates/sc-agent-types/src/lib.rs#re-export ProjectLabel"
+  - "crates/sc-agent-types/src/ids.rs#SessionId (ULID), Sha256Digest::of (sc-sha)"
   - "crates/sc-agent-types/src/error.rs#test literal SessionId (ULID)"
   - "crates/sc-agent-types/src/observability/**"
   - "crates/sc-agent-types/src/git.rs#discover_common_dir (existing spawn helper)"
-  - "crates/sc-agent-types/tests/ids.rs#ULID, ProjectLabel, sha256 reference vectors"
+  - "crates/sc-agent-types/tests/ids.rs#ULID, sha256 reference vectors"
   - "crates/sc-agent-types/tests/obs.rs"
   - "crates/sc-agent-types/tests/errors.rs#ULID literals"
   - "crates/sc-agent-types/tests/git.rs#discover_common_dir cases"
   - "crates/sc-agent-types/tests/fixtures/no-default-features-deps.txt"
-  - "boundaries/sc-agent-types/**#facade +ProjectLabel"
   - "crates/sc-decision-schema/src/test_util.rs#MockJudgeBackend::with_sent_body"
   - "crates/sc-decision-schema/tests/mock.rs#sent-body trace case"
   - "crates/sc-agent-http/src/retry.rs#record request_sha256 before the first send"
@@ -117,7 +119,7 @@ owned_paths:
   - "docs/architecture.md#ADR index row ADR-SAG-0031 (Status cell: r-6 part)"
   - "docs/architecture.md#ADR-SAG-0008, 0013, 0016, 0026, 0027 amendment subsections (r-6) and their index Amended-by markers (r-6)"
   - "docs/requirements.md#REQ-SAG-0600 and 0611 amendment rows; REQ-SAG-0612..0618 rows"
-  - "docs/sc-agent-types/**#ULID, sc-sha, ProjectLabel, LogEvent fields"
+  - "docs/sc-agent-types/**#ULID, sc-sha, LogEvent fields"
   - "docs/sc-agent-http/**#digest recording"
   - "docs/sc-jev-check/**#REQ-SAG-0600, 0610, 0611 rows; row emission; discover_main_repo_root"
   - "docs/sc-agent-compose/**#log context (repo, project)"
@@ -176,9 +178,10 @@ Every deliverable below lands production-ready for the scope this sprint claims;
 ### D2 — SHA-256 via sc-sha (REQ-SAG-0618)
 
 - `Sha256Digest::of` computes through `sc-sha` (raw bytes, per D0).
-  `sha2` and `uuid` leave `sc-agent-types`; `uuid` leaves `sc-ai`; both
-  leave `[workspace.dependencies]` and `Cargo.lock` when nothing else uses
-  them. `sc-lint.toml` records `ulid` and `sc-sha` as owned by
+  `sha2` and `uuid` leave `sc-agent-types` and `uuid` leaves `sc-ai`, so no
+  workspace manifest lists them (`[workspace.dependencies]` included);
+  `Cargo.lock` keeps them only if a third-party dependency still pulls them
+  in. `sc-lint.toml` records `ulid` and `sc-sha` as owned by
   `crates/sc-agent-types` only. Both are core (always-on) dependencies
   because `SessionId` and `Sha256Digest` are core types (ADR-SAG-0027 r-6
   amendment); `tests/fixtures/no-default-features-deps.txt` is updated.
@@ -188,11 +191,12 @@ Every deliverable below lands production-ready for the scope this sprint claims;
 ### D3 — Record request_sha256 at the send site (REQ-SAG-0613)
 
 - r-7 left the seam in place: `SendTrace`, `JudgeRequest::send_trace`, and
-  `HttpRequest::trace` filled by `sc-jev` and `sc-jev-backends`. r-6 adds
-  the recording: `sc-agent-http` `send_with_busy_retry` (and so
-  `send_and_parse`, the one exchange every backend uses) records
-  `Sha256Digest::of(request.body())` immediately before the first
-  `Transport::send`. Retries resend the same bytes, so one value per send.
+  the required `trace: SendTrace` parameter of `send_with_busy_retry` /
+  `send_and_parse`, which `sc-jev` and `sc-jev-backends` fill with
+  `req.send_trace().clone()`. r-6 adds the recording: `send_with_busy_retry`
+  (and so `send_and_parse`, the one exchange every backend uses) calls
+  `trace.record(Sha256Digest::of(request.body()))` immediately before the
+  first `Transport::send`. Retries resend the same bytes, so one value per send.
   Headers are not hashed (no secret is hashed, ADR-SAG-0020). A cancel
   before the first send records nothing. No `sc-jev` or `sc-jev-backends`
   file changes, so this does not touch r-5's files.
@@ -232,8 +236,8 @@ Every deliverable below lands production-ready for the scope this sprint claims;
   `sc-treesitter`'s `cli` feature; compose calls `sc-jev-check`, not git.
 - `repo` changes **only** the log field. Session and log paths keep using
   the worktree's own root (ADR-SAG-0021, `discover_repo_root`).
-- `project`: `sc_agent_types::ProjectLabel` (UTF-8, ≤ 256 bytes, no control
-  characters; otherwise `INPUT_INVALID`). `sc-ai` adds `--project <TEXT>` to
+- `project`: r-7's `sc_agent_types::ProjectLabel` (UTF-8, ≤ 256 bytes, no
+  control characters; otherwise `INPUT_INVALID`). `sc-ai` adds `--project <TEXT>` to
   `jev run` and `jev ask`; `sc-jev-py` adds `project=` to `run_check` and
   `Session.ask` (and the `.pyi`). Absent is `null`. It is per call (two
   sends of one session may differ; r-7 keeps `project` on `answers`), caller
@@ -309,13 +313,6 @@ impl FromStr for SessionId { type Err = JevError; /* non-ULID (incl. UUID) -> IN
 
 impl Sha256Digest { pub fn of(bytes: &[u8]) -> Self; }   // through sc-sha, raw bytes (D0)
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ProjectLabel(Arc<str>);
-impl ProjectLabel {
-    pub fn new(text: impl Into<String>) -> Result<Self, JevError>; // > 256 bytes or control char -> INPUT_INVALID
-    pub fn as_str(&self) -> &str;
-}
-
 // observability::v2 (stable-surface change, ADR-SAG-0016/0027 r-6)
 pub struct LogEvent { /* private: session_id, operation, fields */ }
 impl LogEvent {
@@ -329,9 +326,9 @@ impl LogEvent {
 // git.rs (feature git; existing argv-only runner and expect site)
 pub fn discover_common_dir(start: &Path) -> Result<Option<PathBuf>, JevError>; // None outside git
 
-// sc-agent-http send_with_busy_retry, immediately before the first Transport::send
-// (HttpRequest::trace() is r-7's):
-//     if let Some(t) = request.trace() { t.record(Sha256Digest::of(request.body())); }
+// sc-agent-http send_with_busy_retry (trace is r-7's required parameter),
+// immediately before the first Transport::send:
+//     trace.record(Sha256Digest::of(request.body()));
 
 // sc-decision-schema test_util (feature test-util)
 impl MockJudgeBackend {
@@ -372,16 +369,16 @@ Each named test prints `1 passed`; the scrum-master rejects `0 passed`.
 | Root | Criterion |
 | --- | --- |
 | req:REQ-SAG-0612 | `cargo test -p sc-agent-types --test ids -- test_session_id_is_ulid --exact` (round-trip through `Display`/`FromStr`/serde; UUID string refused); `cargo test -p sc-jev-check --features test-util --test session -- test_v2_session_document_is_invalid --exact`; `cargo test -p sc-ai --features test-util --test cli -- test_cli_uuid_session_id_is_input_invalid --exact` (one `ScAgentErrorResponse` line, `INPUT_INVALID`, fix hint mentions ULID, exit 2); `uv run --directory tests/fixtures/jev-python pytest -q tests/test_run_check_and_ask.py::test_uuid_session_id_is_input_invalid` |
-| req:REQ-SAG-0613 | `cargo test -p sc-agent-http --features test-util --test trace -- test_request_sha256_is_digest_of_sent_body --exact`; `cargo test -p sc-agent-http --features test-util --test trace -- test_request_sha256_recorded_once_across_retries --exact`; `cargo test -p sc-agent-http --features test-util --test trace -- test_cancel_before_first_send_records_nothing --exact`; `cargo test -p sc-jev-check --features test-util --test session_log -- test_ok_row_request_sha256_is_sent_body_digest --exact`; `cargo test -p sc-jev-check --features test-util --test session_log -- test_failed_before_body_row_has_null_request_sha256 --exact`; `cargo test -p sc-jev-check --features test-util --test session_log -- test_multi_backend_rows_carry_own_request_sha256 --exact` (two scripted backends send different bodies; each row carries its own backend's digest). The backend hand-off is r-7's (`--test send_trace` in `sc-jev` and `sc-jev-backends`, regression) |
+| req:REQ-SAG-0613 | `cargo test -p sc-agent-http --features test-util --test trace -- test_request_sha256_is_digest_of_sent_body --exact`; `cargo test -p sc-agent-http --features test-util --test trace -- test_request_sha256_recorded_once_across_retries --exact`; `cargo test -p sc-agent-http --features test-util --test trace -- test_cancel_before_first_send_records_nothing --exact`; `cargo test -p sc-jev-check --features test-util --test session_log -- test_ok_row_request_sha256_is_sent_body_digest --exact`; `cargo test -p sc-jev-check --features test-util --test session_log -- test_failed_before_body_row_has_null_request_sha256 --exact`; `cargo test -p sc-jev-check --features test-util --test session_log -- test_multi_backend_rows_carry_own_request_sha256 --exact` (two scripted backends send different bodies; each row carries its own backend's digest). The backend hand-off is r-7's required `SendTrace` parameter (compiler-enforced) |
 | req:REQ-SAG-0614 | `cargo test -p sc-jev-check --test repo -- test_main_repo_root_resolves_worktree --exact`; `cargo test -p sc-jev-check --test repo -- test_main_repo_root_outside_git_is_cwd --exact`; `cargo test -p sc-jev-check --test repo -- test_main_repo_root_separate_git_dir_falls_back_to_toplevel --exact`; `cargo test -p sc-agent-compose --test log_context -- test_log_context_repo_is_main_repo_paths_stay_on_worktree --exact` (run from a linked worktree with `PathPolicy::cli()`: the session file is under `<worktree>/.sc-ai/sessions`, the log under `<worktree>/.sc-ai/logs/sc-ai.log.jsonl`, and the row's `repo` is the main repository) |
-| req:REQ-SAG-0615 | `cargo test -p sc-agent-types --test ids -- test_project_label_limits --exact`; `cargo test -p sc-ai --features test-util --test cli -- test_cli_project_flag_reaches_log --exact`; `cargo test -p sc-ai --features test-util --test cli -- test_cli_project_over_limit_is_input_invalid --exact`; `uv run --directory tests/fixtures/jev-python pytest -q tests/test_run_check_and_ask.py::test_project_kwarg_reaches_log tests/test_run_check_and_ask.py::test_project_kwarg_control_char_is_input_invalid` prints `2 passed` |
+| req:REQ-SAG-0615 | `cargo test -p sc-ai --features test-util --test cli -- test_cli_project_flag_reaches_log --exact`; `cargo test -p sc-ai --features test-util --test cli -- test_cli_project_over_limit_is_input_invalid --exact`; `uv run --directory tests/fixtures/jev-python pytest -q tests/test_run_check_and_ask.py::test_project_kwarg_reaches_log tests/test_run_check_and_ask.py::test_project_kwarg_control_char_is_input_invalid` prints `2 passed` |
 | req:REQ-SAG-0616 | `cargo test -p sc-jev-check --features test-util --test session_log -- test_failed_row_carries_model_id --exact` (the row's `model_id` is the backend's `model_id()`, `Failed` included); r-7's `model_id()` tests are regression |
 | req:REQ-SAG-0617 | `cargo test -p sc-jev-check --features test-util --test session_log -- test_one_row_per_send_failed_included_not_sent_none --exact`; `cargo test -p sc-agent-compose --test obs -- test_log_line_fields_is_one_session_log_row --exact` (every line's `fields` passes `SessionLogRow::try_from_fields`, carries `send_outcome`, envelope `outcome` is `null`; matches `session-event.json`); log-write policy (D6): `cargo test -p sc-jev-check --features test-util --test session_log -- test_rejected_log_row_keeps_run_ok --exact` |
-| req:REQ-SAG-0618 | D0 proof: `cargo test -p sc-agent-types --test ids -- test_sha256_reference_vectors --exact`; `cargo tree -p sc-agent-types -e normal \| grep -qE '(^\|[^[:alnum:]_-])sc-sha v[0-9]'` succeeds and `! cargo tree -p sc-agent-types -e normal \| grep -qE '(^\|[^[:alnum:]_-])(sha2\|uuid) v[0-9]'` succeeds; `cargo test -p workspace-tests --test jev_cross_impl` and `cargo test -p sc-treesitter` green with unchanged digests |
+| req:REQ-SAG-0618 | D0 proof: `cargo test -p sc-agent-types --test ids -- test_sha256_reference_vectors --exact`; `cargo tree -p sc-agent-types -e normal --depth 1 \| grep -qE '(^\|[^[:alnum:]_-])sc-sha v[0-9]'` succeeds and `! cargo tree -p sc-agent-types -e normal --depth 1 \| grep -qE '(^\|[^[:alnum:]_-])(sha2\|uuid) v[0-9]'` succeeds; `cargo test -p workspace-tests --test jev_cross_impl` and `cargo test -p sc-treesitter` green with unchanged digests |
 | req:REQ-SAG-0600 (amended) | `cargo test -p sc-jev-check --features test-util --test sessions_exact -- test_session_file_named_by_ulid_mode_0600_expiry --exact` (ULID file name, mode 0600 on Unix, expiry from `created_at`) |
 | req:REQ-SAG-0611 (amended) | `cargo test -p sc-jev-check --features test-util --test session_log -- test_every_row_carries_context --exact` (every row, `judge` and `ask`, `ok` and `failed`, carries `session_id`, `repo`, `project`, `model_id`, `prompt_sha256`); `cargo test -p sc-jev-check --features test-util --test session_log -- test_row_has_no_body_prompt_or_key_bytes --exact` |
 | adr:ADR-SAG-0031 | Wiring subsection Active (r-6); index row `Active (r-7 storage schema, r-6 wiring)`; r-6 subsections in 0008, 0013, 0016, 0026, 0027 and their markers Active |
-| boundary:session-log | Regression: `just test` plus the `required-features` runs `cargo test -p sc-jev-check --features test-util`, `cargo test -p sc-ai --features test-util`, `cargo test -p sc-jev --features test-util`, `cargo test -p sc-agent-http --features test-util`, `cargo test -p sc-decision-schema --features test-util`; `cargo test -p sc-agent-compose --test log_context -- test_log_and_session_paths_unchanged_with_ulid_names --exact` (NFR-SAG-0003, ADR-SAG-0021) |
+| boundary:session-log | Regression: `just test` plus the `required-features` runs `cargo test -p sc-jev-check --features test-util`, `cargo test -p sc-ai --features test-util`, `cargo test -p sc-jev --features test-util`, `cargo test -p sc-agent-http --features test-util`, `cargo test -p sc-decision-schema --features test-util`; `cargo test -p sc-agent-compose --test log_context -- test_log_and_session_paths_unchanged_with_ulid_names --exact` (NFR-SAG-0003, ADR-SAG-0021); NFR-SAG-0004 `bash .github/scripts/check-exact-pins.sh`; REQ-SAG-0107 `cargo hack check -p sc-agent-types --feature-powerset --no-dev-deps` |
 
 ## Required validation
 

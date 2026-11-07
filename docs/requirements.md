@@ -189,7 +189,7 @@ verbatim. Plan: [`plans/phase-a-refine/plan.md`](plans/phase-a-refine/plan.md).
 | REQ-SAG-0615 | Each row logs `project`: optional caller text (`sc-ai --project`, Python `project=`), ≤ 256 bytes, no control characters, stored unscrubbed — (Proposed, r-6) |
 | REQ-SAG-0616 | Each row logs `model_id`: the `ModelId` string from `JudgeBackend::model_id()` (catalog default, backend's configured model), never null — (Proposed, r-6) |
 | REQ-SAG-0617 | Every `judge`/`ask` send, `Ok` or `Failed`, writes exactly one row in the v2 `fields{}` object (NotSent none); a rejected or failed log write never fails the run (best effort; flush failure is a `data.warnings` entry) — (Proposed, r-6) |
-| REQ-SAG-0618 | SHA-256 digests are computed with `sc-sha` over raw bytes (no normalization); `sha2` and `uuid` removed from the workspace — (Proposed, r-6) |
+| REQ-SAG-0618 | SHA-256 digests are computed with `sc-sha` over raw bytes (no normalization); no workspace manifest lists `sha2` or `uuid` — (Proposed, r-6) |
 
 ### Phase A.1 amendments to existing rows
 
