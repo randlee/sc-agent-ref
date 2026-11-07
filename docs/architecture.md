@@ -77,11 +77,11 @@ cell and its own marker text to `(Active, r-N)`; it adds or removes no entry.
 | ADR-SAG-0001 | Error enum is CLI authority | Active | Amended by ADR-SAG-0027 (Active, r-1) |
 | ADR-SAG-0002 | Canonical judge payload bytes | Active | — |
 | ADR-SAG-0003 | Secret resolution | Active | Amended by ADR-SAG-0020; ADR-SAG-0024 (Active, r-2) |
-| ADR-SAG-0004 | One check, one request | Active | Amended by ADR-SAG-0025 (Proposed, r-2b) |
+| ADR-SAG-0004 | One check, one request | Active | Amended by ADR-SAG-0025 (Active, r-2b) |
 | ADR-SAG-0005 | Facade owns payload assembly | Active | Amended by ADR-SAG-0024 (Active, r-2); A.1 subsections (Active, r-4), (Proposed, r-5) |
 | ADR-SAG-0006 | Transport injection | Active | Amended by ADR-SAG-0026 (Active, r-3) |
 | ADR-SAG-0007 | API-direct LLM backends | Active | Amended by ADR-SAG-0026 (Active, r-3) |
-| ADR-SAG-0008 | Sessions carry prior answers to later backends | Active | A.1 subsection (Active, r-1); amended by ADR-SAG-0025 (Proposed, r-2b) |
+| ADR-SAG-0008 | Sessions carry prior answers to later backends | Active | A.1 subsection (Active, r-1); amended by ADR-SAG-0025 (Active, r-2b) |
 | ADR-SAG-0009 | Local backend registers without caller changes | Active | Amended by ADR-SAG-0022; ADR-SAG-0027 (Active, r-1); ADR-SAG-0024 (Active, r-2) |
 | ADR-SAG-0010 | CLI thin adapter | Active | Amended by ADR-SAG-0026 (Proposed, r-3b) |
 | ADR-SAG-0011 | Python via sc-jev-py wheel | Active | Amended by ADR-SAG-0026 (Proposed, r-3b) |
@@ -92,13 +92,13 @@ cell and its own marker text to `(Active, r-N)`; it adds or removes no entry.
 | ADR-SAG-0016 | v2 shim in sc-agent-types (no extra crate) | Active | Amended by ADR-SAG-0023 (Active, r-4); ADR-SAG-0027 (Active, r-1); ADR-SAG-0026 (Proposed, r-3b) |
 | ADR-SAG-0017 | First release surfaces | Active | Amended by ADR-SAG-0023 (Active, r-4); ADR-SAG-0026 (Active, r-3), (Proposed, r-3b) |
 | ADR-SAG-0018 | sc-publish kit owns release surface | Active | — |
-| ADR-SAG-0019 | LLM wire envelope vs canonical payload | Active | A.1 subsection (Active, r-1); amended by ADR-SAG-0024 (Active, r-2); ADR-SAG-0025 (Proposed, r-2b) |
+| ADR-SAG-0019 | LLM wire envelope vs canonical payload | Active | A.1 subsection (Active, r-1); amended by ADR-SAG-0024 (Active, r-2); ADR-SAG-0025 (Active, r-2b) |
 | ADR-SAG-0020 | Secret injection and redaction | Active | Amends ADR-SAG-0003; amended by ADR-SAG-0029; A.1 subsection (Active, r-1); ADR-SAG-0026 (Active, r-3); A.1 subsection (Proposed, r-3b) |
 | ADR-SAG-0021 | Log and session path precedence | Active | Amends ADR-SAG-0013 |
-| ADR-SAG-0022 | Scripted backends are a test-util feature | Active | Amends ADR-SAG-0009; amended by ADR-SAG-0029; A.1 subsection (Active, r-1); ADR-SAG-0024 (Active, r-2); ADR-SAG-0025 (Proposed, r-2b) |
+| ADR-SAG-0022 | Scripted backends are a test-util feature | Active | Amends ADR-SAG-0009; amended by ADR-SAG-0029; A.1 subsection (Active, r-1); ADR-SAG-0024 (Active, r-2); ADR-SAG-0025 (Active, r-2b) |
 | ADR-SAG-0023 | Dependency pins, allocator, released binaries | Active (r-4; compose pin r-3b) | Amends ADR-SAG-0016, ADR-SAG-0017 |
 | ADR-SAG-0024 | Engine entry point and response contract | Active (r-2) | Amends ADR-SAG-0003, ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0014, ADR-SAG-0019, ADR-SAG-0022; supersedes the ADR-SAG-0014 A.1 r-1 interim subsection |
-| ADR-SAG-0025 | Multi-backend semantics and equal-input attestation | Proposed (r-2b) | Amends ADR-SAG-0004, ADR-SAG-0008, ADR-SAG-0019, ADR-SAG-0022 |
+| ADR-SAG-0025 | Multi-backend semantics and equal-input attestation | Active (r-2b); consumer-output bullet Proposed (r-3b) | Amends ADR-SAG-0004, ADR-SAG-0008, ADR-SAG-0019, ADR-SAG-0022 |
 | ADR-SAG-0026 | Shared HTTP crate and composition crate | Active (HTTP half, r-3); compose half Proposed (r-3b) | Amends ADR-SAG-0006, ADR-SAG-0007, ADR-SAG-0020, ADR-SAG-0017 (HTTP half); ADR-SAG-0010, ADR-SAG-0011, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0017 (compose half) |
 | ADR-SAG-0027 | Error taxonomy and extensibility | Active (r-1) | Amends ADR-SAG-0001, ADR-SAG-0009, ADR-SAG-0016 |
 | ADR-SAG-0028 | workspace-tests crate | Proposed (r-3b) | — |
@@ -166,13 +166,15 @@ with mode `0600` (sprint a-6).
 
 ### Amendment (Phase A.1, r-1 — interim shapes)
 
-**Status:** Active (Phase A.1, landed in r-1). Superseded by ADR-SAG-0025
-(r-2b) when that lands.
+**Status:** Active (Phase A.1, landed in r-1). Bullet 1, except its last
+sentence, is superseded by the r-2b amendment below and ADR-SAG-0025 (Active,
+r-2b); bullet 2 (session document v2) stays in force.
 
-- (Active, r-1) The run engine is unchanged in behaviour: later LLM
-  backends still receive earlier answers as session context, and the
-  record now says so (`EqualInputRecord.mode = ChainContext`). Every backend
-  gets the same `Arc<PayloadBundle>`.
+- (Superseded by ADR-SAG-0025, r-2b; last sentence in force) ~~The run
+  engine is unchanged in behaviour: later LLM backends still receive
+  earlier answers as session context, and the record now says so
+  (`EqualInputRecord.mode = ChainContext`).~~ Every backend gets the same
+  `Arc<PayloadBundle>`.
 - (Active, r-1) Session files are **document version 2**. A file with a
   missing or older version (Phase A, v1) or a newer one loads as
   `SessionDocumentInvalid` (`INPUT_INVALID`) with its own recovery text; v1
@@ -181,9 +183,9 @@ with mode `0600` (sprint a-6).
 
 ### Amendment (Phase A.1, r-2b)
 
-**Status:** Proposed (Phase A.1) — lands in r-2b.
+**Status:** Active (Phase A.1) — landed in r-2b.
 
-- (Proposed, r-2b) Multi-backend runs are **independent by default**: no backend receives
+- (Active, r-2b) Multi-backend runs are **independent by default**: no backend receives
   another's answers. `MultiBackendMode::ChainContext` passes prior successful
   LLM answers to later LLM backends through the system prompt, and the mode is
   recorded on `EqualInputRecord.mode`. Sessions continue to carry context for
@@ -317,13 +319,13 @@ and not a second `run_check` policy.
 
 ### Amendment (Phase A.1, r-2b)
 
-**Status:** Proposed (Phase A.1) — lands in r-2b.
+**Status:** Active (Phase A.1) — landed in r-2b.
 
-- (Proposed, r-2b) The scripted backend reports, as
+- (Active, r-2b) The scripted backend reports, as
   `JudgeOutcome.input_sha256`, the digest of the bundle it received, so
   equal-input attestation (ADR-SAG-0025) treats it like a real backend;
   tests that need a mismatch use `MockJudgeBackend::with_reported_digest`.
-- (Proposed, r-2b) `register_scripted_backends` accepts a second JSON form,
+- (Active, r-2b) `register_scripted_backends` accepts a second JSON form,
   `{"backends": {<backend id>: <answers> | {"failure": {"error", "kind"?, "stage"?}}}}`,
   so one backend can fail (`stage` `judge`: `with_failure`; `validate`:
   `refusing`) while others answer; the a-10 shared form (question id →
@@ -366,26 +368,32 @@ When an LLM backend is selected and the resolved file is missing → `CONFIG_INV
 
 Token/count checks apply to the full message the provider receives; equal-input
 still records whether every backend saw the same canonical bytes.
-*Amended by the r-1 interim amendment below: `equal` is derived from
-per-backend attestations and is false on live runs until r-2b.*
+*Amended by the r-1 interim amendment and the r-2b amendment below: `equal`
+is derived from per-backend attestations computed from backend-reported
+digests.*
 
 ### Amendment (Phase A.1, r-1 — interim shapes)
 
-**Status:** Active (Phase A.1, landed in r-1). Superseded by ADR-SAG-0025
-(r-2b) when that lands.
+**Status:** Active (Phase A.1, landed in r-1). The 'Until r-2b …
+`equal = false`' sentences of bullet 1 and the 'r-1 records `ChainContext`'
+sentence of bullet 2 are superseded by the r-2b amendment below and
+ADR-SAG-0025 (Active, r-2b); the rest stays in force.
 
-- (Active, r-1) The sentence "equal-input still records whether every
-  backend saw the same canonical bytes" now reads: equal-input records, per
-  backend, an `Attestation` (`Matched`, `Mismatched`, `Unattested`,
-  `Failed`, `NotSent`), and `equal` is **derived**: true only when every
-  backend is `Matched`. Until r-2b lands backend-side hashing, no backend
-  reports `JudgeOutcome.input_sha256`, so the engine records `Unattested`
-  for every backend it sent to and **a live run reports `equal = false`**.
-  The engine still gives every backend the one shared bundle.
+- (Active, r-1; middle sentence superseded by ADR-SAG-0025, r-2b) The
+  sentence "equal-input still records whether every backend saw the same
+  canonical bytes" now reads: equal-input records, per backend, an
+  `Attestation` (`Matched`, `Mismatched`, `Unattested`, `Failed`,
+  `NotSent`), and `equal` is **derived**: true only when every backend is
+  `Matched`. ~~Until r-2b lands backend-side hashing, no backend reports
+  `JudgeOutcome.input_sha256`, so the engine records `Unattested` for every
+  backend it sent to and **a live run reports `equal = false`**.~~ The
+  engine still gives every backend the one shared bundle.
 - (Active, r-1) `JudgeRequest` carries `Arc<PayloadBundle>` (one bundle per
   run) and a `CancelToken`; `JudgeRequest.llm` is unchanged.
   `MultiBackendMode` (`Independent` default, `ChainContext`) is recorded on
-  `EqualInputRecord.mode`; r-1 records `ChainContext`, its actual behaviour.
+  `EqualInputRecord.mode`; ~~r-1 records `ChainContext`, its actual
+  behaviour~~ (superseded by ADR-SAG-0025 bullet 1: the engine records the
+  mode the caller chose, `Independent` by default).
 
 ### Amendment (Phase A.1, r-2)
 
@@ -396,9 +404,9 @@ per-backend attestations and is false on live runs until r-2b.*
 
 ### Amendment (Phase A.1, r-2b)
 
-**Status:** Proposed (Phase A.1) — lands in r-2b.
+**Status:** Active (Phase A.1) — landed in r-2b.
 
-- (Proposed, r-2b) Equal-input records, per backend, an `Attestation`
+- (Active, r-2b) Equal-input records, per backend, an `Attestation`
   computed from `JudgeOutcome.input_sha256`: the digest of the canonical blob
   that backend recovered from its final serialized wire body. `equal` is true
   only if every backend's attestation is `Matched`. See ADR-SAG-0025.
@@ -526,9 +534,9 @@ via `validate_for_send` before `judge`.
 
 ### Amendment (Phase A.1, r-2b)
 
-**Status:** Proposed (Phase A.1) — lands in r-2b.
+**Status:** Active (Phase A.1) — landed in r-2b.
 
-- (Proposed, r-2b) "Before `judge`" applies to the request actually sent. In
+- (Active, r-2b) "Before `judge`" applies to the request actually sent. In
   `MultiBackendMode::ChainContext`, each augmented request is re-validated
   immediately before its own send; a refusal there marks that backend
   `Failed` (`leak = true`) and sends nothing for it. The base request is still
@@ -1124,12 +1132,14 @@ ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0014, ADR-SAG-0019, ADR-SAG-0022.
 
 ## ADR-SAG-0025 — Multi-backend semantics and equal-input attestation
 
-**Status:** Proposed (Phase A.1) — lands in r-2b. Amends ADR-SAG-0004,
-ADR-SAG-0008, ADR-SAG-0019, ADR-SAG-0022.
+**Status:** Active (Phase A.1, r-2b); the REQ-SAG-0604 consumer-output bullet
+is Proposed (r-3b). Amends ADR-SAG-0004, ADR-SAG-0008, ADR-SAG-0019,
+ADR-SAG-0022.
 
-- (Proposed, r-2b) The default mode is `Independent`; `ChainContext` is
-  explicit and recorded on `EqualInputRecord.mode`. REQ-SAG-0605.
-- (Proposed, r-2b) The base request is validated on every backend before any
+- (Active, r-2b) The default mode is `Independent`; `ChainContext` is
+  explicit (`RunConfig::mode`) and recorded on `EqualInputRecord.mode`.
+  REQ-SAG-0605 (engine part).
+- (Active, r-2b) The base request is validated on every backend before any
   send; each `ChainContext`-augmented request is re-validated before its own
   send, and a refusal marks that backend `Failed`. Each backend yields
   `BackendStatus::Ok | Failed(BackendFailure)` (the `JevError`; its
@@ -1137,14 +1147,23 @@ ADR-SAG-0008, ADR-SAG-0019, ADR-SAG-0022.
   does not discard other answers; `leak = any Failed`; if all fail, `run`
   returns `Err`. `judge` is called once per backend; only `BusyPolicy`
   retries; a session-save failure keeps the answers with
-  `session_saved = false` and one `warnings` entry. REQ-SAG-0604 (consumer output in r-3b: stdout
-  envelope, stderr first failure, exit 2).
-- (Proposed, r-2b) `equal` is derived from per-backend `Attestation`
+  `session_saved = false` and one `warnings` entry. REQ-SAG-0604 (engine part).
+- (Proposed, r-3b) REQ-SAG-0604 consumer output: on a partial result
+  (`RunResponse::is_partial()`) `sc-ai` prints the envelope with the
+  successful answers on stdout, the first failure's
+  `ScAgentErrorResponse` on stderr, and exits 2; `sc-jev-py` raises
+  `JevError` with a `.response` attribute holding the envelope `data`.
+  All-failed stays a plain error.
+- (Active, r-2b) `equal` is derived from per-backend `Attestation`
   (`Matched`, `Mismatched`, `Unattested`, `Failed`, `NotSent`). Each backend
   reports `input_sha256`: the digest of the canonical blob recovered from its
   final serialized wire body. The engine trusts the reported digest. This
   re-encoding is attestation-only and never feeds the wire body, so it does
   not breach ADR-SAG-0005's "backends must not re-canonicalize". REQ-SAG-0606.
+  From r-2b every backend that sends sets `input_sha256`; the ADR-SAG-0014
+  r-1 interim clause 'null until r-2b backend hashing' no longer holds
+  (`input_sha256` is null only for a backend that was not sent, failed,
+  or reported no digest — `Unattested`).
 
 ## ADR-SAG-0026 — Shared HTTP crate and composition crate
 

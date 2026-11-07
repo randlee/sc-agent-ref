@@ -22,7 +22,7 @@ name = "jev-backends"
 
 [public]
 facade = "sc_jev_backends::AnthropicHaikuBackend, sc_jev_backends::OpenAiLunaBackend"
-notes = "Haiku and Luna JudgeBackend implementations: provider wire bodies and reply parsers (ADR-SAG-0019). From r-3 HTTP, busy retry, caps and redaction are sc-agent-http: both backends are generic over T: sc_agent_http::Transport = UreqTransport; API key, transport, BusyPolicy and CancelToken are construction state. Tests use the sc-agent-http test-util doubles through the dev-dependency."
+notes = "Haiku and Luna JudgeBackend implementations: provider wire bodies and reply parsers (ADR-SAG-0019). From r-3 HTTP, busy retry, caps and redaction are sc-agent-http: both backends are generic over T: sc_agent_http::Transport = UreqTransport; API key, transport, BusyPolicy and CancelToken are construction state. Tests use the sc-agent-http test-util doubles through the dev-dependency. Non-default `test-util` feature (REQ-SAG-0606): `WireFault` and `with_wire_fault` seed a defect into the wire builder; the `wire` test target declares `required-features = ["test-util"]` and is run with `--features test-util` (no self dev-dependency). Each sending backend sets `JudgeOutcome::input_sha256` from the canonical blob recovered from its final wire body."
 
 [implementation]
 type = "marker"

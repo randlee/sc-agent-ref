@@ -170,7 +170,7 @@ verbatim. Plan: [`plans/phase-a-refine/plan.md`](plans/phase-a-refine/plan.md).
 | REQ-SAG-0403 | Both backends validate `CanonicalJudgePayload` by deserializing; Jev body is a JSON envelope (no byte-splice) — (Proposed, r-5, blocked) |
 | REQ-SAG-0604 | Per-backend results; a failure keeps other answers; `leak` = any failed; consumers print the envelope on stdout and the first failure on stderr and exit 2 / raise with `.response` — (Proposed, r-3b) |
 | REQ-SAG-0605 | Multi-backend runs independent by default; `chain_context` explicit (CLI flag, Python kwarg) and recorded — (Proposed, r-3b) |
-| REQ-SAG-0606 | `equal` computed from backend-reported digests of the canonical blob recovered from each final wire body — (Proposed, r-2b) |
+| REQ-SAG-0606 | `equal` computed from backend-reported digests of the canonical blob recovered from each final wire body — (Active, r-2b) |
 | REQ-SAG-0607 | Stateless `FileSessionStore` with a written no-lock concurrency model; session written once per run, only when an `ask`-capable backend returned `Ok` — (Active, r-2) |
 | REQ-SAG-0620 | One engine API (`prepare` → `run`) and one `RunResponse` with one serialization printed by every consumer — (Active, r-2) |
 | REQ-SAG-0712 | `sc-ai` and `sc-treesitter` parse argv with clap derive behind the `cli` feature; error contract unchanged — (Proposed, r-3b) |

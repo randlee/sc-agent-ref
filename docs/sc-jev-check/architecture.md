@@ -18,7 +18,7 @@ TypeSafe HTTP itself — delegates to `JudgeBackend` impls in `sc-jev` and
 | `payload` | `build_payload`: one canonical `PayloadBundle` per check; caller request documents. No byte cap (each backend owns its cap, REQ-SAG-0314) |
 | `run` | `prepare` → `run`, `discover_repo_root`, `RunConfig`, `RunResponse` + `Envelope` (ADR-SAG-0024) |
 | `session` | Stateless `FileSessionStore`: `save`, `load`, `ask(&registry, &log)`; no-lock concurrency model (REQ-SAG-0607) |
-| `equal_input` | Equal-input record helpers |
+| `equal_input` | Equal-input record helpers; `equal` comes from backend-reported digests (REQ-SAG-0606, ADR-SAG-0025) |
 | `registry` | `BackendRegistry::{from_env, from_resolver, register}`; private `FACTORIES` table (ADR-SAG-0009). Feature `test-util` adds `register_scripted_backends` and `RunResponse::test_builder` for tests only (ADR-SAG-0022). |
 
 ## Composition
@@ -31,8 +31,12 @@ prepare(CheckSource, RunConfig) -> PreparedRun
 run(PreparedRun) -> RunResponse
     dry run: payload, payload_bytes, per-backend limits; nothing sent
     live:    registry (injected | from_env) → validate_for_send on every backend
-             → judge each in order (later LLM backends get session context)
+             → judge each in order, once; Independent by default, ChainContext
+               (RunConfig::mode) gives later LLM backends prior Ok answers
+             → a failed backend keeps the others' answers (leak = any Failed;
+               all failed = Err); attest each reported digest
              → save the session once when an ask-capable backend answered
+               (a save failure is a warning, answers kept)
 ```
 
 `sc-ai` and `sc-jev-py` depend on **`sc-jev-check`**, not on `sc-jev`
