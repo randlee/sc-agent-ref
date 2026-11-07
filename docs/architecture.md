@@ -554,7 +554,8 @@ Haiku and Luna judges use **provider HTTP only** in Phase A: no vendor SDK,
 agent harness, or tool-use loop. Wire format and token counting are implemented
 in `sc-jev-backends` against documented REST endpoints. **HTTP timeouts:** connect
 10s, request 120s (configurable on backend builder for tests); busy retry per
-REQ-SAG-0505.
+REQ-SAG-0505. *Superseded in part by the r-3 amendment below:* timeouts are
+configured on the injected `UreqTransport`, not on a backend builder.
 
 ### Amendment (Phase A.1, r-3)
 
@@ -583,6 +584,13 @@ owner (2026-11-06).
   network loss: connect and DNS failures return `NETWORK_ERROR`
   (`NetworkErrorKind::Connect`, `retryable() == true`) at once, and the caller
   (CLI, Python, future MCP) decides whether to retry.
+- (Active, r-3) HTTP timeouts (connect 10 s, request 120 s covering the
+  body read) are construction state of the injected transport,
+  `UreqTransport::new(Timeouts)`; `with_default_transport` uses
+  `Timeouts::default()`, and a test or caller that needs other values
+  passes `new(key, UreqTransport::new(Timeouts::new(..)))`. The backend
+  builder `with_timeouts` is removed. This supersedes the base sentence
+  "configurable on backend builder for tests".
 
 ## ADR-SAG-0010 — CLI thin adapter
 

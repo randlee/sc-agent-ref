@@ -151,15 +151,19 @@ local `rg` check.)
      any public signature: the module is private and the public-API check
      greps the generated docs. The check runs `cargo doc -p sc-agent-http`
      **without** `--no-deps`, so ureq's own docs exist and a leaked type
-     renders as a link `../ureq/<kind>.<Name>.html` with
-     `title="<kind> ureq::<Name>"`; it then fails on either form:
-     `! grep -rlE 'ureq/(struct|enum|trait|type|fn|union)\.|title="(struct|enum|trait|type|fn|union) ureq::' target/doc/sc_agent_http/`
+     renders as a link `../ureq/[<module>/]<kind>.<Name>.html` with
+     `title="<kind> ureq::[<module>::]<Name>"`; it then fails on either form
+     (QA-1 RBQA-F101 widened the href half to any link into `ureq/`, because
+     types in ureq submodules, such as `ureq/agent/struct.Agent.html`, did
+     not match the first form):
+     `! grep -rlE 'href="[^"]*ureq/|title="[a-z]+ ureq::' target/doc/sc_agent_http/`
      (with `--no-deps` rustdoc may print a bare `Agent` and the gate could
      never fail, CPR-209). **Canary:** before the final commit, r-3 adds a
      throwaway `pub fn _canary() -> ureq::Agent` to `lib.rs`, runs the check,
      records in the PR that it fails and on which pattern, then deletes the
-     canary. Rustdoc prose names the crate as "ureq" without a path. r-3b
-     puts the same proven command into CI.
+     canary. Rustdoc prose names the crate as "ureq" without a path. The
+     proven command runs in CI (`sc-agent-ci.yml` job `deps`, added by r-3
+     in QA-1; r-3b keeps it).
    - `retry`: `BusyPolicy` (private fields, constructor, `default()` per
      owner decision (b)), `send_with_busy_retry(&dyn Transport, &HttpRequest, &BusyPolicy, &CancelToken) -> Result<HttpResponse, JevError>`.
      Sleeping, the monotonic clock and jitter are part of `BusyPolicy`. The
@@ -279,7 +283,18 @@ local `rg` check.)
    Active, with its first bullet reworded at flip time so that it states
    only what r-3 enforces (below). ADR-SAG-0017 r-3 amendment (published library set gains
    `sc-agent-http`, publish order) → Active. ADR-SAG-0007 r-3 amendment →
-   Active. REQ-SAG-0505 and REQ-SAG-0130 r-3 bullets → Active.
+   Active, with this bullet added (QA-1 ARCH-R3-001 / REQ-QA-R3-003) and the
+   base sentence "configurable on backend builder for tests" marked
+   superseded in part:
+
+   > - (Active, r-3) HTTP timeouts (connect 10 s, request 120 s covering the
+   >   body read) are construction state of the injected transport,
+   >   `UreqTransport::new(Timeouts)`; `with_default_transport` uses
+   >   `Timeouts::default()`, and a test or caller that needs other values
+   >   passes `new(key, UreqTransport::new(Timeouts::new(..)))`. The backend
+   >   builder `with_timeouts` is removed. This supersedes the base sentence
+   >   "configurable on backend builder for tests".
+ REQ-SAG-0505 and REQ-SAG-0130 r-3 bullets → Active.
 
    **ADR-SAG-0020 r-3 bullet 1, replacement wording** (plan review 4,
    pre-screen r-3 fix 1). The Active bullet must not name a mechanism that
@@ -357,7 +372,7 @@ cargo test -p sc-agent-http --features test-util --test ureq -- test_release_bui
 # refusal; the `--lib` unit test `ureq_transport::tests::test_endpoint_parse_refuses_http` runs without it.
 cargo test -p sc-agent-http --lib -- ureq_transport::tests::test_endpoint_parse_refuses_http --exact
 cargo test -p sc-agent-http --lib -- ureq_transport::tests::test_ureq_agent_config_values --exact
-cargo doc -p sc-agent-http && ! grep -rlE 'ureq/(struct|enum|trait|type|fn|union)\.|title="(struct|enum|trait|type|fn|union) ureq::' target/doc/sc_agent_http/
+rm -rf target/doc/sc_agent_http && cargo doc -p sc-agent-http && ! grep -rlE 'href="[^"]*ureq/|title="[a-z]+ ureq::' target/doc/sc_agent_http/
 test -z "$(rg -l 'disallowed_methods' crates/ | grep -v '^crates/sc-agent-http/src/ureq_transport.rs$')"
 ! rg -n '#!?\[allow\(' crates/
 grep -q '^\[lints\]' crates/sc-agent-http/Cargo.toml && grep -A1 '^\[lints\]' crates/sc-agent-http/Cargo.toml | grep -q 'workspace = true'
