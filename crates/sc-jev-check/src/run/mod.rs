@@ -1,397 +1,807 @@
-//! `build_request`, `run_check`, and `run_request` (REQ-SAG-0601, REQ-SAG-0603).
+//! The engine entry point: [`prepare`] then [`run`] (ADR-SAG-0024,
+//! REQ-SAG-0620, REQ-SAG-0601).
 //!
-//! [`build_request`] is the public payload assembly entry (ADR-SAG-0005).
-//! [`run_check`] uses that same assembly, resolves one LLM system prompt, and
-//! judges every requested backend with those bytes. Dry-run returns the digest
-//! and does not resolve keys or send. Judge sends emit one [`LogEvent`]
-//! through the injected [`SharedSessionLog`].
+//! This is the only public way to run a check. [`prepare`] turns a
+//! [`CheckSource`] and a [`RunConfig`] into a [`PreparedRun`]: it loads the
+//! check, assembles the one canonical payload (ADR-SAG-0005), selects the
+//! backends, and resolves the LLM system prompt when an LLM backend is
+//! selected (ADR-SAG-0019). It reads only static `BackendDescriptor` facts
+//! and constructs no backend. [`run`] consumes the [`PreparedRun`], so a run
+//! always sees the config it was prepared with, and returns one
+//! [`RunResponse`] whose serialization every consumer prints unchanged.
+//! [`discover_repo_root`] is the one repo-root rule for every consumer
+//! (ADR-SAG-0003 r-2 amendment). [`ask`] sends a follow-up to a saved
+//! session; it and `run` share the engine's one send step (validate, judge,
+//! log), so `FileSessionStore` never sends.
+//!
+//! # Backend selection
+//!
+//! [`RunConfig::backends`] when set (CLI `--backend`, Python `backends=`),
+//! else the source document's `backends` (`check.toml` or the caller
+//! request), else `[jev]`.
+//!
+//! # Live runs
+//!
+//! `run` uses [`RunConfig::registry`] when set, else
+//! [`BackendRegistry::from_env`]. It calls `validate_for_send` on every
+//! selected backend before the first `judge` (ADR-SAG-0004): each backend
+//! owns its request byte cap (REQ-SAG-0314). Backends are judged in
+//! `BackendSet` order; a later LLM backend receives earlier answers as
+//! session context appended to the system prompt, never to the canonical
+//! bytes, and that request is re-validated before its own send. The run is
+//! recorded as [`MultiBackendMode::ChainContext`] with every backend
+//! `Unattested` (r-1 interim amendment of ADR-SAG-0008/0019; ADR-SAG-0025,
+//! r-2b, changes both). In r-2 the run is fail-fast: the first backend
+//! error is returned as `Err`. Each judge send emits one [`LogEvent`].
+//!
+//! The session is written once, at the end, only when a backend whose
+//! descriptor has `supports_session_ask` returned `Ok`; that needs
+//! [`RunConfig::sessions_dir`], checked before any send. In r-2 a failed
+//! session write is fail-fast (`run` returns the error). The
+//! "answers kept, `session_saved = false`, one warning" shape pinned by
+//! `session_save_failed.json` is produced only by `RunResponse::test_builder`
+//! until ADR-SAG-0025 (r-2b) adds it to `run`.
+//!
+//! # Dry runs
+//!
+//! [`RunConfig::dry_run`] sends nothing and constructs no backend. The
+//! response carries the payload, `payload_bytes`, and per selected backend
+//! its `request_limit_bytes` and `over_limit`; an over-limit payload is
+//! reported, not refused. Every backend is `NotSent`, so `equal` is false.
+//!
+//! # Examples
+//!
+//! ```no_run
+//! use std::sync::Arc;
+//!
+//! use sc_agent_types::observability::v2::NoopSessionLog;
+//! use sc_jev_check::run::{CheckSource, RunConfig, discover_repo_root, prepare, run};
+//!
+//! let repo = discover_repo_root(std::path::Path::new("."))?;
+//! let config = RunConfig::new(repo.clone(), Arc::new(NoopSessionLog))
+//!     .backends("jev,anthropic_haiku".parse()?)
+//!     .sessions_dir(".sc-ai/sessions");
+//! let source = CheckSource::check_file(&repo, std::path::Path::new("check.toml"))?;
+//! let prepared = prepare(source, config)?;
+//! println!("payload digest {}", prepared.prompt_sha256());
+//! let response = run(prepared)?;
+//! assert!(!response.is_partial());
+//! # Ok::<(), sc_agent_types::JevError>(())
+//! ```
 
 #![warn(missing_docs)]
 
+#[cfg(any(test, feature = "test-util"))]
+mod builder;
 pub(crate) mod prompt;
+mod response;
 
-use std::path::PathBuf;
+use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 
-use sc_agent_types::observability::v2::{LogEvent, NoopSessionLog, SharedSessionLog};
+use sc_agent_types::observability::v2::{LogEvent, SharedSessionLog};
 use sc_agent_types::schema::subjects::SubjectsProducer;
 use sc_agent_types::{
-    Attestation, BackendId, EqualInputRecord, JevError, JudgeOutcome, JudgeRequest, LlmWireContext,
-    MultiBackendMode, Operation, PayloadBundle, RepoRoot, Rev, SessionId,
+    Attestation, BackendAttestation, BackendId, BackendSet, CancelToken, EqualInputRecord,
+    JevError, JudgeBackend, JudgeOutcome, JudgeRequest, LlmWireContext, MultiBackendMode,
+    Operation, PayloadBundle, RepoRelativePath, RepoRoot, Rev, SessionId, Sha256Digest,
 };
 
-use crate::config::CheckSpec;
+use crate::config::{CheckSpec, load_check_at};
 use crate::equal_input::{RunAttestation, producer_from_extractions, record};
-use crate::payload::PayloadBuilder;
-#[doc(inline)]
-pub use crate::payload::{PreparedCallerRequest, prepare_caller_request};
-use crate::registry::{BackendRegistry, registry_for_repo};
-use crate::session::{FileSessionStore, emit_log, render_session_context};
+use crate::payload::build_payload;
+use crate::payload::caller::parse_caller_request;
+use crate::registry::BackendRegistry;
+use crate::session::{
+    FileSessionStore, StoredSession, check_follow_up, contextual_prompt, emit_log,
+};
 
-/// Inputs for one check run.
-///
-/// `session_log` receives one event per judge send. Pass the same
-/// [`SharedSessionLog`] to [`FileSessionStore`] so `ask` uses it too.
-pub struct RunOptions {
-    /// Git toplevel used for payload paths and `resolve_key`.
-    pub repo_root: RepoRoot,
-    /// When true, return the payload digest and do not send.
-    pub dry_run: bool,
-    /// Working-tree prompt file. Wins over `check.toml` and the packaged asset.
-    pub system_prompt_override: Option<PathBuf>,
-    /// Session log for judge sends. Best effort; rejection does not fail the run.
-    pub session_log: SharedSessionLog,
-    /// Revision for check inputs and the `check.toml` prompt file.
-    pub rev: Rev,
-    /// Session files created for a live run. `None` is valid only for a
-    /// dry-run, which creates no session (see [`Self::dry_run_only`]).
-    pub sessions: Option<FileSessionStore>,
-    /// Injected backends. `None` resolves keys and constructs the HTTP backends.
-    pub registry: Option<BackendRegistry>,
+#[cfg(any(test, feature = "test-util"))]
+#[doc(inline)]
+pub use builder::RunResponseBuilder;
+use response::ResponseParts;
+#[doc(inline)]
+pub use response::{
+    AskResponse, BackendFailure, BackendLimit, BackendResult, BackendStatus, ENVELOPE_VERSION,
+    Envelope, OP_ASK, OP_DRY_RUN, OP_RUN, RunResponse,
+};
+
+/// Where a run's check comes from.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum CheckSource {
+    /// A repo-relative `check.toml`, read at [`RunConfig::rev`]. Build it
+    /// from a user path with [`CheckSource::check_file`].
+    CheckFile(RepoRelativePath),
+    /// An already parsed check.
+    Spec(CheckSpec),
+    /// A caller-built questions document (`sc-ai jev --request-json`).
+    CallerRequest(CallerRequest),
 }
 
-impl RunOptions {
-    /// Options for a live run at `WORKTREE` without an override or injected registry.
+impl CheckSource {
+    /// A `check.toml` source from a user-supplied `path` (CLI `--check`,
+    /// Python `check_path`): the one normalisation of a check path.
+    ///
+    /// A relative `path` is taken as relative to `repo`. An absolute one must
+    /// sit under `repo` as given or canonicalized; that prefix is stripped.
+    /// `\` becomes `/` and `.` segments are dropped. The filesystem is not
+    /// read, so a check file that exists only at a revision still loads.
+    ///
+    /// # Errors
+    ///
+    /// `INPUT_INVALID` when `path` is outside `repo`, contains `..`, is not
+    /// UTF-8, or names the repo root itself.
+    pub fn check_file(repo: &RepoRoot, path: &Path) -> Result<Self, JevError> {
+        normalize_check_path(repo, path).map(Self::CheckFile)
+    }
+}
+
+fn normalize_check_path(repo: &RepoRoot, path: &Path) -> Result<RepoRelativePath, JevError> {
+    let relative = if path.is_absolute() {
+        strip_repo_prefix(repo, path)?
+    } else {
+        path.to_path_buf()
+    };
+    let text = relative.to_str().ok_or_else(|| {
+        JevError::input_invalid(format!("check path {} is not UTF-8", path.display()))
+    })?;
+    let mut parts = Vec::new();
+    for part in text.split(['/', '\\']) {
+        match part {
+            "" | "." => {}
+            ".." => {
+                return Err(JevError::input_invalid(format!(
+                    "check path {} must not contain '..'; pass a path inside the repo root",
+                    path.display()
+                )));
+            }
+            other => parts.push(other),
+        }
+    }
+    if parts.is_empty() {
+        return Err(JevError::input_invalid(
+            "check path must be a file inside the repo, not the repo root itself",
+        ));
+    }
+    RepoRelativePath::try_from(parts.join("/"))
+}
+
+fn strip_repo_prefix(repo: &RepoRoot, path: &Path) -> Result<PathBuf, JevError> {
+    if let Ok(rest) = path.strip_prefix(repo.as_path()) {
+        return Ok(rest.to_path_buf());
+    }
+    if let Ok(root) = std::fs::canonicalize(repo.as_path())
+        && let Ok(rest) = path.strip_prefix(&root)
+    {
+        return Ok(rest.to_path_buf());
+    }
+    Err(JevError::input_invalid(format!(
+        "check path {} is outside the repo root {}; pass a path inside it",
+        path.display(),
+        repo.as_path().display()
+    )))
+}
+
+/// A validated caller-built questions document.
+///
+/// The document is `{"questions": [...], "state"?: [...], "backends"?: [...]}`;
+/// it has no system-prompt field. Its payload is built here (ADR-SAG-0005).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CallerRequest {
+    bundle: PayloadBundle,
+    backends: Option<BackendSet>,
+}
+
+impl CallerRequest {
+    /// Parses and validates `bytes` and builds its canonical payload.
+    ///
+    /// # Errors
+    ///
+    /// `INPUT_INVALID` when the document is empty, not the questions shape,
+    /// names an unknown or repeated backend, or includes `system_prompt`.
+    pub fn from_json(bytes: &[u8]) -> Result<Self, JevError> {
+        let parsed = parse_caller_request(bytes)?;
+        let backends = if parsed.backends.is_empty() {
+            None
+        } else {
+            Some(BackendSet::try_from(parsed.backends).map_err(|_| {
+                JevError::input_invalid("request JSON backends must not repeat a backend")
+            })?)
+        };
+        Ok(Self {
+            bundle: parsed.bundle,
+            backends,
+        })
+    }
+
+    /// The canonical payload built from the document.
     #[must_use]
-    pub fn new(
-        repo_root: RepoRoot,
-        sessions: FileSessionStore,
-        session_log: SharedSessionLog,
-    ) -> Self {
+    pub fn bundle(&self) -> &PayloadBundle {
+        &self.bundle
+    }
+
+    /// The document's `backends`, when it names any.
+    #[must_use]
+    pub fn backends(&self) -> Option<&BackendSet> {
+        self.backends.as_ref()
+    }
+}
+
+/// How to run a check. Built with [`RunConfig::new`] and the setters.
+///
+/// Fields are private: [`prepare`] takes the config by value and
+/// [`PreparedRun`] owns it, so [`run`] cannot see a different one.
+#[derive(Clone)]
+pub struct RunConfig {
+    repo_root: RepoRoot,
+    session_log: SharedSessionLog,
+    backends: Option<BackendSet>,
+    rev: Rev,
+    dry_run: bool,
+    system_prompt_override: Option<PathBuf>,
+    sessions_dir: Option<PathBuf>,
+    registry: Option<Arc<BackendRegistry>>,
+    cancel: CancelToken,
+}
+
+impl RunConfig {
+    /// A live run at `WORKTREE` under `repo_root`, logging judge sends to
+    /// `session_log`, with the backend selection left to the source.
+    #[must_use]
+    pub fn new(repo_root: RepoRoot, session_log: SharedSessionLog) -> Self {
         Self {
             repo_root,
+            session_log,
+            backends: None,
+            rev: Rev::worktree(),
             dry_run: false,
             system_prompt_override: None,
-            session_log,
-            rev: Rev::worktree(),
-            sessions: Some(sessions),
+            sessions_dir: None,
             registry: None,
+            cancel: CancelToken::new(),
         }
     }
 
-    /// Options for a dry-run at `WORKTREE` that needs no session store or logger.
-    ///
-    /// Nothing is written to disk: no session directory, session file, or
-    /// log is created. A run built from these options with
-    /// [`Self::dry_run`]`(false)` fails with `CONFIG_INVALID` before any send.
+    /// Selects `backends`; wins over the source document's `backends`.
     #[must_use]
-    pub fn dry_run_only(repo_root: RepoRoot) -> Self {
-        Self {
-            repo_root,
-            dry_run: true,
-            system_prompt_override: None,
-            session_log: std::sync::Arc::new(NoopSessionLog),
-            rev: Rev::worktree(),
-            sessions: None,
-            registry: None,
-        }
-    }
-
-    /// Sets [`Self::dry_run`].
-    #[must_use]
-    pub fn dry_run(mut self, dry_run: bool) -> Self {
-        self.dry_run = dry_run;
+    pub fn backends(mut self, backends: BackendSet) -> Self {
+        self.backends = Some(backends);
         self
     }
 
-    /// Sets the git revision used for check inputs.
+    /// Reads check inputs and the `check.toml` prompt file at `rev`.
     #[must_use]
     pub fn rev(mut self, rev: Rev) -> Self {
         self.rev = rev;
         self
     }
 
-    /// Sets [`Self::system_prompt_override`].
+    /// When `on`, [`run`] sends nothing and reports limits instead.
+    #[must_use]
+    pub fn dry_run(mut self, on: bool) -> Self {
+        self.dry_run = on;
+        self
+    }
+
+    /// A working-tree prompt file that wins over `check.toml` and the
+    /// packaged asset (ADR-SAG-0019). A relative path is under the repo root.
     #[must_use]
     pub fn system_prompt_override(mut self, path: impl Into<PathBuf>) -> Self {
         self.system_prompt_override = Some(path.into());
         self
     }
 
-    /// Uses `registry` instead of resolving keys.
+    /// Directory for session files. Required for a live run that selects an
+    /// `ask`-capable backend.
     #[must_use]
-    pub fn registry(mut self, registry: BackendRegistry) -> Self {
+    pub fn sessions_dir(mut self, dir: impl Into<PathBuf>) -> Self {
+        self.sessions_dir = Some(dir.into());
+        self
+    }
+
+    /// Uses `registry` instead of [`BackendRegistry::from_env`]: the
+    /// no-secrets path for embedders and tests (EXT-009, ADR-SAG-0022).
+    #[must_use]
+    pub fn registry(mut self, registry: Arc<BackendRegistry>) -> Self {
         self.registry = Some(registry);
+        self
+    }
+
+    /// Cancellation token carried on every judge request.
+    #[must_use]
+    pub fn cancel(mut self, token: CancelToken) -> Self {
+        self.cancel = token;
         self
     }
 }
 
-impl std::fmt::Debug for RunOptions {
+impl std::fmt::Debug for RunConfig {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
-            .debug_struct("RunOptions")
+            .debug_struct("RunConfig")
             .field("repo_root", &self.repo_root)
+            .field("backends", &self.backends)
+            .field("rev", &self.rev)
             .field("dry_run", &self.dry_run)
             .field("system_prompt_override", &self.system_prompt_override)
-            .field("rev", &self.rev)
+            .field("sessions_dir", &self.sessions_dir)
+            .field("registry", &self.registry)
             .finish_non_exhaustive()
     }
 }
 
-/// Outcome of [`run_check`] or [`run_request`].
-#[derive(Debug, Clone, PartialEq)]
-pub struct CheckResult {
-    /// Session created for a live run. `None` on dry-run.
-    pub session_id: Option<SessionId>,
-    /// Canonical payload. Its digest is `prompt_sha256`.
-    pub bundle: PayloadBundle,
-    /// Base system prompt injected into LLM backends. Not part of the digest.
-    pub system_prompt: Option<String>,
-    /// One outcome per backend, in request order. Empty on dry-run.
-    pub outcomes: Vec<JudgeOutcome>,
-    /// Equal-input attestation. `None` on dry-run.
-    pub equal_input: Option<EqualInputRecord>,
+/// A check ready to run: its config, payload, backends, and resolved prompt.
+///
+/// Produced by [`prepare`] and consumed by [`run`].
+pub struct PreparedRun {
+    config: RunConfig,
+    request: JudgeRequest,
+    backends: BackendSet,
+    producer: Option<SubjectsProducer>,
 }
 
-/// Canonical payload for one check file, with no judge send.
-///
-/// [`build_request`] and [`run_check`] both produce this assembly.
-/// [`BuiltRequest::bundle`]'s digest is `prompt_sha256`. The system prompt is
-/// not included (ADR-SAG-0019).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BuiltRequest {
-    /// Canonical bytes shared by every backend.
-    pub bundle: PayloadBundle,
-    /// Subjects producer from the first `subjects` or `command` extraction.
-    pub producer: Option<SubjectsProducer>,
+impl PreparedRun {
+    /// SHA-256 of the canonical payload.
+    #[must_use]
+    pub fn prompt_sha256(&self) -> &Sha256Digest {
+        self.request.payload().sha256()
+    }
+
+    /// Size of the canonical payload in bytes.
+    #[must_use]
+    pub fn payload_bytes(&self) -> u64 {
+        payload_len(self.request.payload())
+    }
+
+    /// Subjects producer from the first `subjects` or `command` input.
+    #[must_use]
+    pub fn producer(&self) -> Option<&SubjectsProducer> {
+        self.producer.as_ref()
+    }
+
+    /// The base judge request: the shared payload and, when an LLM backend
+    /// is selected, the resolved system prompt. A backend that takes no LLM
+    /// context (Jev) is sent this payload with `llm: None`.
+    #[must_use]
+    pub fn request(&self) -> &JudgeRequest {
+        &self.request
+    }
+
+    /// The selected backends, in judge order.
+    #[must_use]
+    pub fn backends(&self) -> &BackendSet {
+        &self.backends
+    }
 }
 
-/// Loads repo-relative `check_path` and assembles one canonical payload.
-///
-/// This is the public assembly entry (ADR-SAG-0005). Extractors and
-/// canonicalization run in this crate. Composition roots call this function
-/// and do not call [`PayloadBuilder`].
+impl std::fmt::Debug for PreparedRun {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("PreparedRun")
+            .field("config", &self.config)
+            .field("prompt_sha256", self.prompt_sha256())
+            .field("backends", &self.backends)
+            .finish_non_exhaustive()
+    }
+}
+
+/// Loads the check, builds its payload, selects backends, and resolves the
+/// LLM system prompt. Sends nothing and constructs no backend.
 ///
 /// # Errors
 ///
-/// Returns [`JevError`] when `check_path` is missing or invalid, an extractor
-/// fails, or the payload exceeds the packaged byte cap.
-///
-/// # Examples
-///
-/// ```no_run
-/// use sc_agent_types::{RepoRoot, Rev};
-/// use sc_jev_check::run::build_request;
-///
-/// let repo = RepoRoot::new(".");
-/// let built = build_request(&repo, &Rev::worktree(), "check.toml")?;
-/// let _digest = built.bundle.sha256();
-/// # Ok::<(), sc_agent_types::JevError>(())
-/// ```
-pub fn build_request(
-    repo: &RepoRoot,
-    rev: &Rev,
-    check_path: &str,
-) -> Result<BuiltRequest, JevError> {
-    let spec = crate::config::load_check_at(repo, rev, check_path)?;
-    assemble_payload(&spec, repo, rev)
-}
-
-fn assemble_payload(
-    spec: &CheckSpec,
-    repo: &RepoRoot,
-    rev: &Rev,
-) -> Result<BuiltRequest, JevError> {
-    let built = PayloadBuilder::packaged()?.build(spec, repo, rev)?;
-    Ok(BuiltRequest {
-        bundle: built.bundle,
-        producer: producer_from_extractions(&built.extractions)?,
+/// Returns [`JevError`] when the check file or a document is missing or
+/// invalid, an input fails, or an LLM backend is selected and its prompt
+/// file is missing (`PROMPT_FILE_MISSING`) or empty.
+pub fn prepare(source: CheckSource, config: RunConfig) -> Result<PreparedRun, JevError> {
+    let (spec, bundle, producer, source_backends) = match source {
+        CheckSource::CheckFile(path) => {
+            let spec = load_check_at(&config.repo_root, &config.rev, &path)?;
+            assemble(spec, &config)?
+        }
+        CheckSource::Spec(spec) => assemble(spec, &config)?,
+        CheckSource::CallerRequest(request) => (None, request.bundle, None, request.backends),
+    };
+    let backends = match (&config.backends, source_backends) {
+        (Some(backends), _) => backends.clone(),
+        (None, Some(backends)) => backends,
+        (None, None) => default_backends()?,
+    };
+    let needs_llm = backends
+        .iter()
+        .any(|id| id.descriptor().requires_llm_context());
+    let override_path = config.system_prompt_override.as_deref();
+    let system_prompt = match &spec {
+        Some(spec) => prompt::load_system_prompt(
+            spec,
+            &config.repo_root,
+            &config.rev,
+            override_path,
+            needs_llm,
+        )?,
+        None => prompt::load_request_system_prompt(&config.repo_root, override_path, needs_llm)?,
+    };
+    let request = JudgeRequest::new(Arc::new(bundle), system_prompt.map(LlmWireContext::new))
+        .with_cancel(config.cancel.clone());
+    Ok(PreparedRun {
+        config,
+        request,
+        backends,
+        producer,
     })
 }
 
-/// A payload that is already built.
-///
-/// [`run_check`] fills this from `check.toml`. Callers that already have
-/// canonical bytes use [`run_request`] directly.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RunRequest {
-    /// Canonical bytes shared by every backend.
-    pub bundle: PayloadBundle,
-    /// Base LLM system prompt. Required when an LLM backend is selected.
-    pub system_prompt: Option<String>,
-    /// Subjects producer copied onto the equal-input record.
-    pub producer: Option<SubjectsProducer>,
+type Assembled = (
+    Option<CheckSpec>,
+    PayloadBundle,
+    Option<SubjectsProducer>,
+    Option<BackendSet>,
+);
+
+fn assemble(spec: CheckSpec, config: &RunConfig) -> Result<Assembled, JevError> {
+    let built = build_payload(&spec, &config.repo_root, &config.rev)?;
+    let producer = producer_from_extractions(&built.extractions)?;
+    let backends = spec.backends.clone();
+    Ok((Some(spec), built.bundle, producer, backends))
 }
 
-/// Builds one payload and judges `backends` with it.
+/// `[jev]`, the selection when neither the config nor the source names one.
 ///
-/// LLM backends receive one resolved system prompt. Jev receives `llm: None`.
-/// Backends after the first also receive prior answers as session context
-/// appended to that prompt. The canonical bytes stay shared, so the context
-/// is not part of `prompt_sha256`.
+/// `BackendSet` has no infallible constructor; a one-element list of a
+/// built-in id cannot fail, and the error is propagated rather than unwrapped.
+fn default_backends() -> Result<BackendSet, JevError> {
+    BackendSet::try_from(vec![BackendId::Jev])
+}
+
+fn payload_len(bundle: &PayloadBundle) -> u64 {
+    u64::try_from(bundle.bytes().len()).unwrap_or(u64::MAX)
+}
+
+/// Runs `prepared` and returns its one [`RunResponse`].
 ///
-/// When [`RunOptions::registry`] is `None`, keys are resolved with
-/// [`sc_agent_secrets::resolve_key`] against [`RunOptions::repo_root`] and the
-/// HTTP backends are constructed before any send. Dry-run skips that step.
+/// See the module documentation for live and dry-run behaviour.
 ///
 /// # Errors
 ///
-/// Returns [`JevError`] for config, input, prompt, key, session, or judge
-/// failures. A validation failure before the first send does not log.
-pub fn run_check(
-    spec: &CheckSpec,
-    backends: &[BackendId],
-    opts: RunOptions,
-) -> Result<CheckResult, JevError> {
-    require_backends(backends)?;
-    let built = assemble_payload(spec, &opts.repo_root, &opts.rev)?;
-    let needs_llm = backends
+/// A dry run fails only if the payload cannot be re-read as JSON (a bug).
+/// A live run returns `CONFIG_INVALID` when an `ask`-capable backend is
+/// selected and no sessions directory is set, or the session directory
+/// cannot be created; the [`BackendRegistry::from_env`] errors (no
+/// registry injected); `CONFIG_INVALID` when a selected backend is not in
+/// the registry; the first `validate_for_send` refusal, before any send;
+/// the first `judge` error; and a session write error. Every error before
+/// the first send leaves no log line and no session file.
+pub fn run(prepared: PreparedRun) -> Result<RunResponse, JevError> {
+    if prepared.config.dry_run {
+        dry_run_response(&prepared)
+    } else {
+        live_run(prepared)
+    }
+}
+
+fn dry_run_response(prepared: &PreparedRun) -> Result<RunResponse, JevError> {
+    let bundle = prepared.request.payload();
+    let payload_bytes = payload_len(bundle);
+    let payload = serde_json::from_slice(bundle.bytes())
+        .map_err(|error| JevError::encode_failed("canonical payload", &error))?;
+    let limits = prepared
+        .backends
         .iter()
-        .any(|id| id.descriptor().requires_llm_context());
-    let system_prompt = prompt::load_system_prompt(
-        spec,
-        &opts.repo_root,
-        &opts.rev,
-        opts.system_prompt_override.as_deref(),
-        needs_llm,
+        .map(|id| BackendLimit::for_payload(id, payload_bytes))
+        .collect();
+    let equal_input = EqualInputRecord::new(
+        bundle.sha256().clone(),
+        MultiBackendMode::ChainContext,
+        prepared
+            .backends
+            .iter()
+            .map(|id| BackendAttestation::new(id, Attestation::NotSent))
+            .collect(),
+        false,
+        prepared.producer.clone(),
     )?;
-    run_request(
-        &RunRequest {
-            bundle: built.bundle,
-            system_prompt,
-            producer: built.producer,
-        },
-        backends,
-        opts,
-    )
+    Ok(RunResponse::from_parts(ResponseParts {
+        session_id: None,
+        payload_bytes,
+        equal_input,
+        results: Vec::new(),
+        payload: Some(payload),
+        limits,
+    }))
 }
 
-/// Judges `request` on `backends` with one shared payload.
-///
-/// # Errors
-///
-/// Returns [`JevError::ConfigInvalid`] when no backend is requested or an LLM
-/// backend has no system prompt on `request`. A missing prompt file is
-/// [`JevError::PromptFileMissing`] from [`run_check`], which carries the real
-/// path. Validation or judge failures return the corresponding [`JevError`].
-/// Dry-run returns the digest without resolving keys or sending.
-pub fn run_request(
-    request: &RunRequest,
-    backends: &[BackendId],
-    opts: RunOptions,
-) -> Result<CheckResult, JevError> {
-    require_backends(backends)?;
-    let needs_llm = backends
+fn live_run(prepared: PreparedRun) -> Result<RunResponse, JevError> {
+    let PreparedRun {
+        config,
+        request,
+        backends,
+        producer,
+    } = prepared;
+    let store = open_session_store(&config, &backends)?;
+    let registry = match &config.registry {
+        Some(registry) => Arc::clone(registry),
+        None => Arc::new(BackendRegistry::from_env(&config.repo_root, &backends)?),
+    };
+    let judges = backends
         .iter()
-        .any(|id| id.descriptor().requires_llm_context());
-    if needs_llm && request.system_prompt.is_none() {
-        return Err(run_request_invalid(
-            "An LLM backend requires a system prompt on the run request. Pass system_prompt, or load it with run_check.",
-        ));
-    }
-    if opts.dry_run {
-        return Ok(CheckResult {
-            session_id: None,
-            bundle: request.bundle.clone(),
-            system_prompt: request.system_prompt.clone(),
-            outcomes: Vec::new(),
-            equal_input: None,
-        });
+        .map(|id| registry.get(id).map(|judge| (id, judge)))
+        .collect::<Result<Vec<(BackendId, Arc<dyn JudgeBackend>)>, JevError>>()?;
+    // ADR-SAG-0004: every backend validates its base request (its own byte
+    // cap, REQ-SAG-0314) before the first send.
+    for (id, judge) in &judges {
+        judge.validate_for_send(&request_for(*id, &request, &[])?)?;
     }
 
-    let Some(sessions) = opts.sessions.as_ref() else {
-        return Err(run_request_invalid(
-            "A live run needs a session store. Build RunOptions with RunOptions::new, or keep dry_run set.",
-        ));
-    };
-    let registry = match &opts.registry {
-        Some(registry) => registry.clone(),
-        None => registry_for_repo(&opts.repo_root, backends)?,
-    };
-    sessions.install_registry(registry.clone());
-    let payload = Arc::new(request.bundle.clone());
-    for id in backends {
-        let backend = registry.get(*id)?;
-        let judge_request = judge_request(*id, &payload, request.system_prompt.as_deref(), &[])?;
-        backend.validate_for_send(&judge_request)?;
-    }
-
-    let primary = backends
-        .iter()
-        .copied()
-        .find(|id| id.descriptor().supports_session_ask())
-        .unwrap_or(backends[0]);
-    let session_id = sessions.open(primary, &request.bundle, request.system_prompt.clone())?;
-    let mut outcomes = Vec::with_capacity(backends.len());
-    for id in backends {
-        let prior = sessions.load(&session_id)?.outcomes;
-        let judge_request = judge_request(*id, &payload, request.system_prompt.as_deref(), &prior)?;
-        let backend = registry.get(*id)?;
-        // Pre-flight above validated the context-free request
-        // (ADR-SAG-0004). Re-validate only when session context was appended.
-        if id.descriptor().requires_llm_context() && !prior.is_empty() {
-            backend.validate_for_send(&judge_request)?;
+    let session_id = SessionId::new();
+    let mut outcomes: Vec<JudgeOutcome> = Vec::with_capacity(judges.len());
+    for (id, judge) in &judges {
+        let judge_request = request_for(*id, &request, &outcomes)?;
+        // Only an LLM request that gained session context differs from the
+        // validated base request; re-validate it before its own send.
+        if id.descriptor().requires_llm_context() && !outcomes.is_empty() {
+            judge.validate_for_send(&judge_request)?;
         }
-        let judged = backend.judge(&judge_request);
-        emit_log(
-            &opts.session_log,
-            LogEvent::new(
-                session_id,
-                *id,
-                request.bundle.sha256().clone(),
-                Operation::Judge,
-            ),
-        );
-        let outcome = judged?;
-        sessions.record_outcome(&session_id, &outcome)?;
-        outcomes.push(outcome);
+        outcomes.push(send(
+            judge.as_ref(),
+            &judge_request,
+            &config.session_log,
+            session_id,
+            Operation::Judge,
+        )?);
     }
 
+    let saved = match &store {
+        Some(store) => save_session(store, session_id, &request, &outcomes)?,
+        None => false,
+    };
     // Every backend got the same `Arc` bundle and later LLM backends got
-    // earlier answers as session context (chain context). No backend reports
-    // an input digest until r-2b, so each one is `Unattested`.
+    // earlier answers as session context (chain context). No backend's
+    // digest is trusted until r-2b, so each one is `Unattested`.
     let equal_input = record(
-        &request.bundle,
+        request.payload(),
         RunAttestation::uniform(
             MultiBackendMode::ChainContext,
-            backends,
+            backends.as_slice(),
             &Attestation::Unattested,
-            outcomes.len() != backends.len(),
+            false,
         ),
-        request.producer.clone(),
+        producer,
     )?;
-    Ok(CheckResult {
-        session_id: Some(session_id),
-        bundle: request.bundle.clone(),
-        system_prompt: request.system_prompt.clone(),
-        outcomes,
-        equal_input: Some(equal_input),
-    })
+    Ok(RunResponse::from_parts(ResponseParts {
+        session_id: saved.then_some(session_id),
+        payload_bytes: payload_len(request.payload()),
+        equal_input,
+        results: outcomes.into_iter().map(BackendResult::ok).collect(),
+        payload: None,
+        limits: Vec::new(),
+    }))
 }
 
-fn require_backends(backends: &[BackendId]) -> Result<(), JevError> {
-    if backends.is_empty() {
-        Err(JevError::registry_invalid(
-            "No backend was requested",
-            "Request at least one backend: jev, anthropic_haiku, or openai_luna.",
-        ))
-    } else {
-        Ok(())
+/// The session store a live run may write, opened before any send.
+fn open_session_store(
+    config: &RunConfig,
+    backends: &BackendSet,
+) -> Result<Option<FileSessionStore>, JevError> {
+    if !backends
+        .iter()
+        .any(|id| id.descriptor().supports_session_ask())
+    {
+        return Ok(None);
+    }
+    let Some(dir) = &config.sessions_dir else {
+        return Err(JevError::operational_config(
+            "A live run with an ask-capable backend saves a session. Set RunConfig::sessions_dir (sc-ai --sessions-dir), or use dry_run.",
+        ));
+    };
+    FileSessionStore::new(dir).map(Some)
+}
+
+/// Writes the session once, when an `ask`-capable backend returned `Ok`.
+fn save_session(
+    store: &FileSessionStore,
+    session_id: SessionId,
+    request: &JudgeRequest,
+    outcomes: &[JudgeOutcome],
+) -> Result<bool, JevError> {
+    let Some(backend) = outcomes
+        .iter()
+        .map(JudgeOutcome::backend)
+        .find(|id| id.descriptor().supports_session_ask())
+    else {
+        return Ok(false);
+    };
+    store.write_session(&StoredSession {
+        session_id,
+        backend,
+        created_at: store.now(),
+        payload: request.payload().clone(),
+        system_prompt: request.llm().map(|llm| llm.system_prompt.clone()),
+        outcomes: outcomes.to_vec(),
+        follow_ups: Vec::new(),
+    })?;
+    Ok(true)
+}
+
+/// The request `id` receives: the shared payload with no LLM context for a
+/// backend that takes none (Jev), else the base system prompt with prior
+/// answers appended as session context.
+fn request_for(
+    id: BackendId,
+    base: &JudgeRequest,
+    prior: &[JudgeOutcome],
+) -> Result<JudgeRequest, JevError> {
+    if !id.descriptor().requires_llm_context() {
+        return Ok(JudgeRequest::new(Arc::clone(base.payload_arc()), None)
+            .with_cancel(base.cancel().clone()));
+    }
+    if prior.is_empty() {
+        return Ok(base.clone());
+    }
+    let prompt = contextual_prompt(base.llm().map(|llm| llm.system_prompt.as_str()), prior, &[])?;
+    Ok(JudgeRequest::new(
+        Arc::clone(base.payload_arc()),
+        Some(LlmWireContext::new(prompt)),
+    )
+    .with_cancel(base.cancel().clone()))
+}
+
+/// The engine's one send step: `judge`, then one log event (sent or not),
+/// then the judge's result. Callers validate first.
+fn send(
+    judge: &dyn JudgeBackend,
+    request: &JudgeRequest,
+    log: &SharedSessionLog,
+    session_id: SessionId,
+    operation: Operation,
+) -> Result<JudgeOutcome, JevError> {
+    let judged = judge.judge(request);
+    emit_log(
+        log,
+        LogEvent::new(
+            session_id,
+            judge.id(),
+            request.payload().sha256().clone(),
+            operation,
+        ),
+    );
+    judged
+}
+
+/// Sends `follow_up` to the saved session `session_id` in `store`.
+///
+/// The session's Haiku or Luna backend comes from [`RunConfig::registry`]
+/// when set, else [`BackendRegistry::from_env`] at the repo root given to [`RunConfig::new`]
+/// for that one backend. The request is the stored payload with the stored
+/// system prompt, the prior answers as session context, the stored
+/// follow-ups and then `follow_up`; it is validated, then sent through the
+/// same send step as `run`, with one [`Operation::Ask`] log event on
+/// [`RunConfig`]'s session log. The session file is read and never
+/// rewritten. Only `repo_root`, `session_log`, `registry` and `cancel` of
+/// `config` are used.
+///
+/// # Errors
+///
+/// `SESSION_NOT_FOUND` / `SESSION_EXPIRED` / `INPUT_INVALID` from loading the
+/// session; `INPUT_INVALID` for an empty follow-up or a session with no
+/// `ask` (Jev); the registry errors; and the backend's `validate_for_send`
+/// or `judge` error.
+pub fn ask(
+    store: &FileSessionStore,
+    session_id: SessionId,
+    follow_up: &str,
+    config: RunConfig,
+) -> Result<AskResponse, JevError> {
+    let stored = store.read_session(&session_id)?;
+    check_follow_up(&stored, follow_up)?;
+    let registry = match &config.registry {
+        Some(registry) => Arc::clone(registry),
+        None => Arc::new(BackendRegistry::from_env(
+            &config.repo_root,
+            &BackendSet::try_from(vec![stored.backend])?,
+        )?),
+    };
+    let judge = registry.get(stored.backend)?;
+    let mut follow_ups: Vec<&str> = stored.follow_ups.iter().map(String::as_str).collect();
+    follow_ups.push(follow_up);
+    let prompt = contextual_prompt(
+        stored.system_prompt.as_deref(),
+        &stored.outcomes,
+        &follow_ups,
+    )?;
+    let request = JudgeRequest::new(
+        Arc::new(stored.payload.clone()),
+        Some(LlmWireContext::new(prompt)),
+    )
+    .with_cancel(config.cancel.clone());
+    judge.validate_for_send(&request)?;
+    let outcome = send(
+        judge.as_ref(),
+        &request,
+        &config.session_log,
+        session_id,
+        Operation::Ask,
+    )?;
+    Ok(AskResponse::new(
+        outcome,
+        session_id,
+        stored.payload.sha256().clone(),
+    ))
+}
+
+/// The repo root for `start`: its git toplevel, or `start` made absolute.
+///
+/// Uses `sc_agent_types::git::discover_toplevel`. `start` itself (made
+/// absolute) is the root only when it is outside a git work tree (git ran
+/// and found no repository, and no ancestor of `start` holds a `.git`
+/// entry) or when git is not installed. Both consumers call this; the
+/// `.env` used for keys is the one at this root (ADR-SAG-0003 r-2
+/// amendment).
+///
+/// # Errors
+///
+/// `INPUT_INVALID` when `start` cannot be made absolute; when git is
+/// installed but cannot be run for another reason; and when git finds no
+/// work tree although an ancestor of `start` holds `.git` (for example a
+/// repository git refuses as unsafe), so a subdirectory is never silently
+/// taken for the root.
+pub fn discover_repo_root(start: &Path) -> Result<RepoRoot, JevError> {
+    let absolute =
+        std::path::absolute(start).map_err(|error| JevError::io_failed("repo root", &error))?;
+    let discovered = sc_agent_types::git::discover_toplevel(&absolute);
+    let enclosing = match &discovered {
+        Ok(None) => enclosing_git_entry(&absolute),
+        _ => None,
+    };
+    classify_discovery(absolute, discovered, enclosing)
+}
+
+/// The decision of [`discover_repo_root`], separated so every branch is
+/// tested without depending on the test machine's directories.
+fn classify_discovery(
+    absolute: PathBuf,
+    discovered: Result<Option<RepoRoot>, JevError>,
+    enclosing: Option<PathBuf>,
+) -> Result<RepoRoot, JevError> {
+    match discovered {
+        Ok(Some(root)) => Ok(root),
+        Ok(None) => match enclosing {
+            None => Ok(RepoRoot::new(absolute)),
+            Some(git_entry) => Err(JevError::input_invalid(format!(
+                "git found no work tree at {}, but {} exists; fix the repository (for example git's safe.directory) or pass an explicit repo root",
+                absolute.display(),
+                git_entry.display()
+            ))),
+        },
+        Err(JevError::IoFailed {
+            kind: std::io::ErrorKind::NotFound,
+            ..
+        }) => Ok(RepoRoot::new(absolute)),
+        Err(error) => Err(error),
     }
 }
 
-/// `CONFIG_INVALID` for a run request whose fix hint is `recovery` verbatim.
-///
-/// The failure is in how the caller built the run, not in `check.toml`, so
-/// the `check.toml` hint would point at the wrong file.
-fn run_request_invalid(recovery: &str) -> JevError {
-    JevError::operational_config(recovery)
-}
-
-fn judge_request(
-    id: BackendId,
-    bundle: &Arc<PayloadBundle>,
-    base_prompt: Option<&str>,
-    prior: &[JudgeOutcome],
-) -> Result<JudgeRequest, JevError> {
-    let llm = if id.descriptor().requires_llm_context() {
-        let mut text = base_prompt.unwrap_or("").to_owned();
-        text.push_str(&render_session_context(prior)?);
-        Some(LlmWireContext::new(text))
-    } else {
-        None
-    };
-    Ok(JudgeRequest::new(Arc::clone(bundle), llm))
+/// The nearest `.git` entry at or above `start`, honouring
+/// `GIT_CEILING_DIRECTORIES` as git does (the walk stops below a listed
+/// directory).
+fn enclosing_git_entry(start: &Path) -> Option<PathBuf> {
+    let ceilings: Vec<PathBuf> = std::env::var_os("GIT_CEILING_DIRECTORIES")
+        .map(|value| std::env::split_paths(&value).collect())
+        .unwrap_or_default();
+    let mut dir = Some(start);
+    while let Some(current) = dir {
+        if ceilings.iter().any(|ceiling| ceiling == current) {
+            return None;
+        }
+        let candidate = current.join(".git");
+        if candidate.symlink_metadata().is_ok() {
+            return Some(candidate);
+        }
+        dir = current
+            .parent()
+            .filter(|parent| parent.components().next() != Some(Component::CurDir));
+    }
+    None
 }
 
 #[cfg(test)]

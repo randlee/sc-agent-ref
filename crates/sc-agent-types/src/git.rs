@@ -27,8 +27,8 @@ use crate::ids::{BlobSha, RepoRelativePath, RepoRoot, Rev};
 /// Largest source input the git readers' callers accept: 8 MiB (RSH-007).
 ///
 /// Pass it as `max_bytes` to [`read_at_rev`]; working-tree readers apply the
-/// same cap before [`hash_blob`]. `sc-jev-check` still keeps its own copy
-/// until it migrates (r-2).
+/// same cap before [`hash_blob`]. `sc-jev-check` uses this constant for its
+/// worktree and revision reads.
 pub const MAX_INPUT_BYTES: u64 = 8 * 1024 * 1024;
 
 /// Bytes of git's stderr kept for an error detail.

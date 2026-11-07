@@ -1,7 +1,7 @@
 ---
 id: r-2
 phase: r
-status: planned
+status: in-review
 closure_type: boundary
 target_boundary: jev-check
 track: runtime
@@ -38,6 +38,19 @@ requirements:
   - NFR-SAG-0002
   - NFR-SAG-0003
   - REQ-SAG-0800
+  # Added by the QA-1 fix round (REQ-QA-R2-001): ids of the crates whose
+  # paths this sprint owns, plus the repo-level NFR; evidence in
+  # "Implementation notes" → "QA-1 requirement coverage".
+  - REQ-SAG-0311
+  - REQ-SAG-0309
+  - REQ-SAG-0303
+  - REQ-SAG-0611
+  - REQ-SAG-0702
+  - REQ-SAG-0703
+  - REQ-SAG-0711
+  - REQ-SAG-0801
+  - REQ-SAG-0802
+  - NFR-SAG-0004
 adrs:
   - ADR-SAG-0001
   - ADR-SAG-0002
@@ -52,17 +65,19 @@ adrs:
   - ADR-SAG-0013
   - ADR-SAG-0014
   - ADR-SAG-0015
+  - ADR-SAG-0016  # upheld: libraries take only SharedSessionLog; sc-jev-check has no sc-observability edge (QA-1 ARCH-R2-001)
   - ADR-SAG-0017
   - ADR-SAG-0019
   - ADR-SAG-0020
   - ADR-SAG-0021
   - ADR-SAG-0022
-  - ADR-SAG-0023  # binding once r-4 has made its r-4 part Active; r-2 does not cite its r-3b subsection
+  - ADR-SAG-0023  # r-4 part Active (r-4 merged); r-2 does not cite its r-3b subsection
   - ADR-SAG-0024
   - ADR-SAG-0027
   - ADR-SAG-0029
-  # ADR-SAG-0008/0014/0019 bind through their r-1 interim amendments (Active, r-1),
-  # landed by the r-1 QA-1 fix round; replace this comment with the amendment id if one is assigned.
+  # ADR-SAG-0008, 0014 and 0019 also bind through their "Amendment (Phase A.1, r-1 —
+  # interim shapes)" subsections (Active, r-1); no separate amendment id is assigned.
+  # ADR-SAG-0024 supersedes only the `data` bullet of the 0014 interim subsection.
 owned_paths:
   - "crates/sc-jev-check/Cargo.toml"
   - "crates/sc-jev-check/src/**"
@@ -278,7 +293,15 @@ Labels `(Active, r-N)` in the quoted ADR wording below are the post-flip form of
    above plus `config::{load_check_at, CheckSpec, InputSpec}`,
    `session::FileSessionStore`, `registry::{BackendRegistry, register_scripted_backends}`
    (`register_scripted_backends` and `RunResponse::test_builder` under
-   `test-util`). `registry::ScriptedJudge` and `registry::RequestLog` are not
+   `test-util`). *QA-1 fix round:* the facade also lists `run::ask` and
+   `run::AskResponse` (the session follow-up on the engine's send path,
+   RBQA-F001), `run::{ENVELOPE_VERSION, OP_RUN, OP_DRY_RUN, OP_ASK}` (the
+   envelope constants, one owner) and `config::PACKAGED_SYSTEM_PROMPT` (the
+   packaged default prompt, ADR-SAG-0019), and, under `test-util`,
+   `run::RunResponseBuilder` and `session::StoredSession` (with
+   `FileSessionStore::{save, load}`). Every other item is `pub(crate)`
+   (REQ-QA-R2-006); `CheckSource::CheckFile` holds a `RepoRelativePath`
+   built by `CheckSource::check_file` (RBP-F004). `registry::ScriptedJudge` and `registry::RequestLog` are not
    in it: r-1 deleted them (r-1 D10.11). `FACTORIES` stays private (its
    coverage test is a `--lib` test).
 
@@ -451,6 +474,136 @@ test -z "$(cargo tree -p sc-jev-check -e normal,features | grep -F '"test-util"'
 ! rg -n '#!?\[allow\(' crates/
 cargo publish --dry-run --locked -p sc-agent-types -p sc-agent-secrets -p sc-jev -p sc-jev-backends -p sc-jev-check -p sc-treesitter -p sc-ai
 ```
+
+## Implementation notes
+
+Status `in-review` until QA passes. Commits: `de07e62` (D11 + D13),
+`333360e` (D2 + D4, consumers in the same commit as D2 requires),
+`3382d4e` (ADR / REQ / docs), the merges of `integrate/phase-a` (PR 24,
+PR 25, and `89a01e5` for r-3 / PR 26), then the QA-1 fix round:
+`6eb4485` (code), `d385f95` (docs), `f7994d5` (rustdoc link), and this
+note. D11 and D13 share
+`config`/`extract`/`payload`, and D2 and D4 share `run`/`session`, so each
+pair is one commit; every commit builds and passes its tests.
+
+**Validation (QA-1 fix round, head `f7994d5`, merged with
+`integrate/phase-a` at `d88879a`).** PR 27 CI at `f7994d5` is green:
+sc-agent CI run 42419966414 (jobs `test (ubuntu-24.04)`, `test
+(macos-15)`, `test (windows-2022)`, `python (ubuntu-24.04)`, `python
+(macos-15)`, `python (windows-2022)`, `rustdoc (-D warnings)`, `sc-treesitter
+feature matrix`, `dependency gates (allocator, pins)`, `coverage
+(llvm-cov)`) and sc-publish dry-run run 42419966426 (job `dry-run`). The
+previous head `d385f95` failed `rustdoc (-D warnings)` (a doc link to the
+private `RunConfig::repo_root`), fixed in `f7994d5`. Locally all 33
+"Required validation" lines (plus `cargo test -p sc-jev-check --lib --
+payload::` for REQ-SAG-0303) and the workspace gates (`cargo fetch
+--locked`; clippy `--all-targets --all-features -D warnings`; `cargo test
+--workspace`; `cargo test -p sc-jev-check --features test-util`; `cargo test
+-p sc-agent-types --features git,test-util`; rustdoc `-D warnings`; `just
+test-python`; `cargo hack --each-feature test -p sc-treesitter`;
+`cargo-tree-gates.sh`; `check-exact-pins.sh`; `scripts/sc-publish-dry-run.sh`)
+pass; every `--exact` line prints `1 passed` (developer log
+`scratchpad/r2-only/validate.log`). The `cargo publish --dry-run` line now
+names the full ordered list including `sc-agent-http` (added by r-3; plan
+"Validation honesty"). It must run with an empty `CARGO_HOME`: cargo reuses
+an extracted `<crate>-0.1.0` of the same name and version, so a reused cache
+verifies against stale sources. With a fresh one it exits 0
+(`scratchpad/r2-only/publish-f7994d5.log`); CI runners start clean.
+
+**Governing text.** Every shape below is under Active text at merge:
+ADR-SAG-0024 (Active, r-2, including the `equal_input` shape-pin bullet
+and a "landing details" bullet for the shapes its bullets imply), the r-2
+subsections of ADR-SAG-0003, 0005, 0009, 0014, 0019, 0022 and the Rust API
+patterns amendment (Active, r-2), and the r-1 interim subsections of
+ADR-SAG-0008 / 0014 / 0019 (Active, r-1). ADR-SAG-0025 (r-2b) is not
+relied on: `run` is fail-fast and has no `mode` setter, and the
+`Failed` / unsaved-session samples are `test_builder` shape pins.
+
+**ADR reconciliation (plan "ADR ownership").** The ADR-SAG-0024 index
+cell adds "supersedes the ADR-SAG-0014 A.1 r-1 interim subsection", as plan
+review 5 (ARCH-R2B-003) and the plan's interim rows (PR 24) decide: 0024
+supersedes the 0014 interim as a whole (its `data` rule is restated by the
+0014 r-2 amendment and its `equal_input` shape by the 0024 shape-pin
+bullet). The 0014 interim Status line already reads "Superseded by
+ADR-SAG-0024 (r-2) when that lands" and is not edited; the 0008 / 0019
+interim Status lines are r-2b's (D7). r-2's own plan.md interim rows
+(`3382d4e`) duplicated PR 24's and were dropped in the merge `218dc64`
+in favour of PR 24's wording. The ADR-SAG-0022 r-2 "Correction" sentence is
+reworded to D0 outcome 4 exactly as the "ADR text" section gives it.
+
+**Deviations from the text above**, with the requirement or ADR each touches:
+
+| Deviation | Touches | Why |
+| --- | --- | --- |
+| A live run that selects an `ask`-capable backend needs `RunConfig::sessions_dir`; without it `run` returns `CONFIG_INVALID` before any send. A Jev-only run needs none | REQ-SAG-0607, ADR-SAG-0024 landing bullet | D4.4 writes the session at the end; checking (and creating the directory) before the first send keeps "no send after a config error" (ADR-SAG-0004) |
+| A Jev-only live run saves no session, so `session_id` is null in `sc-ai` and `None` in Python; Python `CheckResult.ask` on it raises `INPUT_INVALID` naming the missing rationale field | REQ-SAG-0607, D4.4 | Phase A saved a Jev session that `ask` then refused |
+| `Envelope::ask` takes an `AskResponse` (`run::ask`'s result) instead of `(outcome, session_id)`; its body is the answer fields, `session_id`, `prompt_sha256` and `warnings` (QA-1 REQ-QA-R2-004) | REQ-SAG-0710, CR-014, ADR-SAG-0024 landing bullet, ADR-SAG-0014 r-2 | the D2.6 signature had no digest or warning slot; the ask log-flush warning (CR-014) and the Phase A `prompt_sha256` are restored |
+| `discover_repo_root` falls back to `start` only when git finds no work tree and no ancestor holds `.git`, or when git is not installed; other git failures (and a `.git` above `start` that git refuses) are `INPUT_INVALID` (QA-1 REQ-QA-R2-005) | ADR-SAG-0003 r-2 (narrowed text), ADR-SAG-0024 landing bullet | a plain directory still works without git, but a failing git inside a repository never silently picks a subdirectory (and its `.env`) as the root |
+| `sc-ai` without `--repo-root` outside git now uses the current directory (Phase A: `CONFIG_INVALID` "Pass --repo-root") | ADR-SAG-0003 r-2, D2.4 | the one repo-root rule; `cli_log_and_git_errors_do_not_blame_check_toml` now expects the missing `check.toml` (`INPUT_MISSING`) |
+| Python `CheckResult.equal_input` is a record on a dry run (every backend `not_sent`), not `None` | ADR-SAG-0024 `equal_input` bullet | the dry-run response carries `equal_input`; the `.pyi` type `dict \| None` still holds (r-3b owns the stub) |
+| The `ProducerError` producer name is the input's optional `producer`, else the file stem of `command[0]` (QA-1 REQ-QA-R2-007) | REQ-SAG-0313 (row text records the interpreter case) | D11.3 says "from the input"; the stem alone names the interpreter for `python3 script.py` |
+| A command `path` at a git revision is validated by reading its blob (bounded by the 8 MiB read cap) | REQ-SAG-0312 | the `file`-input rule at a revision is "a blob at `rev`" |
+| `check.toml` paths are validated when the document is parsed (`CONFIG_INVALID`), no longer at read time (`INPUT_INVALID`) | RBP-F003, r-1 deferral | `InputSpec` / `CheckSpec` path fields are `RepoRelativePath` (finishes r-1's half-applied adoption) |
+| Revision reads use `git::read_at_rev` from the toplevel with the subdirectory prefixed, so a subdirectory `RepoRoot` keeps the a-10 behaviour | RBQA-F006, D2.4 | `read_at_rev` names paths from the toplevel |
+| The facade adds `run::{ask, AskResponse}`, `run::{ENVELOPE_VERSION, OP_RUN, OP_DRY_RUN, OP_ASK}`, `config::PACKAGED_SYSTEM_PROMPT` and, under `test-util`, `run::RunResponseBuilder` and `session::StoredSession` (+ `FileSessionStore::{save, load}`); every other item is `pub(crate)`, so `prepare` is the only payload path (QA-1 REQ-QA-R2-006, RBQA-F002/F004) | REQ-SAG-0620, ADR-SAG-0005, ADR-SAG-0024, D2.9 (amended) | `ask` is the follow-up entry; the constants move with `Envelope` (sc-ai no longer re-exports them); the prompt is the ADR-SAG-0019 packaged default; the test-util items are seams |
+| `RunResponseBuilder` lives in `run/builder.rs` | ADR-SAG-0027 | sc-boundary 0.8 reports a builder and its type in one module as `SCB-CYCLE-001` |
+| The concurrent-writer half of `test_two_stores_same_dir_last_writer_wins` is `cfg(unix)`; the rustdoc records that a concurrent replace on Windows can fail with a sharing error (that save returns `SessionStoreIo` and removes its tmp) | REQ-SAG-0607 | POSIX rename semantics; the sequential last-writer-wins check runs on every OS |
+| `StoredSession.follow_ups` stays in the version-2 document; `ask` never appends to it | REQ-SAG-0607 | no document version bump; a caller that keeps a conversation saves a new document |
+| `PayloadBuilder` becomes `payload::build_payload`; `PackagedConfig` / `load_packaged_config` are deleted and `assets/jev.toml` is an empty document | REQ-SAG-0314, D13.2 | `max_input_bytes` was its only key |
+| Python scripted runs register the scripted judge for every built-in id | ADR-SAG-0022 | the backend selection (config, `check.toml`, `[jev]`) is only known after `prepare` |
+| Extra test `command::test_command_child_env_is_allowlisted` (re-exec probe) | ADR-SAG-0020, D11.2 | evidence for the "command child keeps the `env_clear()` allowlist" row from the `command` target |
+| `run::ask(&FileSessionStore, SessionId, follow_up, RunConfig)` replaces `FileSessionStore::ask(id, follow_up, &registry, &log)`; the store never sends, and `run` and `ask` share one send step and one prompt-plus-context assembly (QA-1 RBQA-F001) | REQ-SAG-0607, ADR-SAG-0024 (FileSessionStore bullet) | D4.1 put `ask` on the store; a second public send path outside the engine contradicted "one way to run" |
+| `CheckSource::CheckFile` holds a `RepoRelativePath`; `CheckSource::check_file(&RepoRoot, &Path)` is the one normaliser and `config::load_check_at` takes `&RepoRelativePath` (QA-1 RBP-F004) | RBP-F003/F004, ADR-SAG-0024 landing bullet | D2.1 named `CheckFile(PathBuf)`; three hand-written normalisers (sc-ai, sc-jev-py, engine) are deleted |
+| `session` and `sessions_exact` declare `[[test]] required-features = ["test-util"]` | D0 outcome 4, REQ-SAG-0607 | they read and write session documents through the `test-util`-only `save` / `load` |
+| `Envelope` keeps the typed body and writes `data` at serialize time; no constructor can panic; pipe `.expect`s map to `EXTRACTION_FAILED`; `default_backends` propagates its (unreachable) error (QA-1 REQ-QA-R2-009, QA-002, QA-003) | ADR-SAG-0024 landing bullet | library paths do not panic, and `data`'s key order is the documented order (pinned by `run::tests::ask_envelope_carries_digest_warnings_and_readback_in_order`) |
+| The tmp-name retry is bounded at 8 attempts; the parent-directory fsync after the rename is best effort (QA-1 QA-004) | REQ-SAG-0607 | the renamed file is in place, so a failed directory sync is not reported as a failed save |
+| A failed session write stays fail-fast in r-2; `session_save_failed.json` is a `test_builder`-only shape until r-2b (QA-1 QA-001, documented in the `run` module docs) | ADR-SAG-0024 `equal_input` bullet, ADR-SAG-0025 | the degraded "answers kept, warning" behaviour is ADR-SAG-0025 (r-2b) |
+| Fixtures are rewritten only by the ignored `bless_run_response_samples` test; `tests/support/git_env.rs` is the one GIT_* scrub for fixture git (QA-1 FTQ-001/002/005) | test hygiene | an ambient variable can no longer rewrite pinned samples; hook-exported git variables cannot reach the developer's repository |
+
+**QA-1 requirement coverage** (REQ-QA-R2-001; ids added to `requirements`):
+
+| Id | Status | Evidence |
+| --- | --- | --- |
+| REQ-SAG-0311 | upheld | `cargo test -p sc-jev-check --lib -- extract::` (`extract::subjects::tests::*`) |
+| REQ-SAG-0309 | upheld | `cargo test -p sc-jev-check --lib -- extract::` (`extract::table::tests::*`) |
+| REQ-SAG-0303 | upheld | `cargo test -p sc-jev-check --lib -- payload::` (`payload_question_schema_is_checked_before_extraction`) |
+| REQ-SAG-0611 | upheld | `sessions_exact -- test_log_event_has_no_secrets --exact`; `run::tests::every_judge_send_logs_once_under_the_saved_session_id` |
+| REQ-SAG-0702 | upheld | `cargo test -p sc-ai --test cli` (readback assertions in `test_cli_prompt_override`, `cli_dry_run_readback_and_ask_session_ttl`) |
+| REQ-SAG-0703 | not applicable | r-2 changes no install path (`just install-sc-ai`, `docs/sc-ai` install text untouched) |
+| REQ-SAG-0711 | upheld | `cli_logger_adapter_records_session_without_secrets`; sc-ai still builds the v2 adapter and passes `SharedSessionLog` into `RunConfig` |
+| REQ-SAG-0801 | upheld | `just test-python` / `uv run --directory tests/fixtures/jev-python pytest -q` (10 passed) |
+| REQ-SAG-0802 | upheld | `maturin build -m crates/sc-jev-py/Cargo.toml -o /tmp/sc-agent-wheels` |
+| NFR-SAG-0004 | upheld | `bash .github/scripts/check-exact-pins.sh`; the only manifest edit is the `sc-agent-types` `features = ["git"]` caret edge |
+
+ADR-SAG-0016 is upheld (QA-1 ARCH-R2-001): libraries take only
+`SharedSessionLog` (`RunConfig::new(repo_root, session_log)`), and
+`sc-jev-check` has no `sc-observability` edge (`cargo tree -p sc-jev-check
+-e normal` and the boundary manifest's forbidden edge).
+
+**Done from the r-1 deferrals:** `InputSpec` / `CheckSpec` paths are
+`RepoRelativePath`; `sc-ai` and `sc-jev-py` adopt `BackendSet`;
+`merge_jev_response` (and its `unwrap_or(Value::Null)`) is deleted.
+
+**Deferred, outside `owned_paths`** (reported, not edited):
+`JudgeOutcome::new(&PayloadBundle)` and the `BackendCapabilities` copy
+(`crates/sc-agent-types`); `sc-jev` `check.rs` re-deriving criteria from the
+payload (`crates/sc-jev`); `sc_jev_py.pyi` (r-3b).
+
+**Done after r-3c (PR 25) merged** (merge of `integrate/phase-a` at
+`0dca742`): `extract/read.rs` imports `sc_agent_types::git::MAX_INPUT_BYTES`
+(its local copy is deleted) and uses `Rev::is_worktree()`. The stale
+rustdoc sentences in `crates/sc-agent-types/src/ids.rs` (`RepoRelativePath`
+"… adopt it later") and `crates/sc-agent-types/src/git.rs`
+(`MAX_INPUT_BYTES` "sc-jev-check still keeps its own copy until it migrates
+(r-2)") now state the current users.
+
+**Files outside `owned_paths` edited:** this sprint doc (status, `adrs`
+comment, these notes), `tests/support/git_env.rs` (the shared fixture git
+helper the QA-1 fix round assigned, FTQ-001/002), and one rustdoc sentence each in
+`crates/sc-agent-types/src/ids.rs` and `crates/sc-agent-types/src/git.rs`
+(parent-authorized doc fixes; no code change). Net of the merge, r-2 leaves
+`docs/plans/phase-a-refine/plan.md` and the ADR-SAG-0014 r-1 interim
+subsection unchanged.
 
 ## This sprint does not close
 
