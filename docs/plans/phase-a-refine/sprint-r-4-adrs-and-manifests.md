@@ -1,7 +1,7 @@
 ---
 id: r-4
 phase: r
-status: in-review # open row: req:REQ-SAG-0133 upstream issue URL (owner deferral, see Implementation notes)
+status: complete # merged PR 21 (97db748), QA-2 PASS; req:REQ-SAG-0133 upstream issue URL deferred to owner (draft in .cursor/phase-a-orchestration/wave7-dev)
 closure_type: contract
 target_boundary: release
 track: release

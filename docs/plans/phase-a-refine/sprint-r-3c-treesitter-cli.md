@@ -1,7 +1,7 @@
 ---
 id: r-3c
 phase: r
-status: in-review # QA pending; every acceptance row green at the developer run (see Implementation notes)
+status: complete # merged PR 25 (0dca742), QA-2 PASS
 closure_type: boundary
 target_boundary: treesitter
 track: producer
