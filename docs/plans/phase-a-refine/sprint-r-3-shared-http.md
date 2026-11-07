@@ -1,7 +1,7 @@
 ---
 id: r-3
 phase: r
-status: in-review # open row: boundary:release / req:REQ-SAG-0130 install.py re-render of release/publish-artifacts.toml (kit execution not permitted in the dev session; see Implementation notes)
+status: in-review # until QA-2 passes
 closure_type: boundary
 target_boundary: agent-http
 track: http
@@ -62,6 +62,12 @@ owned_paths:
   - "clippy.toml"
   - "sc-lint.toml"
   - "release/**"
+  # QA-1 fix round, parent-authorized (fix-r-3-qa1.md):
+  - ".github/workflows/sc-agent-ci.yml (deps job: public-API ureq gate, read-site grep; test job: sc-agent-http --features test-util)"
+  - ".github/scripts/cargo-tree-gates.sh (r-3 rows; r-4 merged)"
+  - "docs/plans/phase-a-refine/plan.md (the public-API command line only)"
+  - "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md (the public-API command line only)"
+  - "docs/plans/phase-a/a-10-hardening-dispositions.md (ARCHC-018 row only)"
   - ".github/workflows/*-publish.yml"
   - ".github/workflows/release*.yml"
   - ".github/workflows/prerelease-archive.yml"
@@ -414,29 +420,42 @@ the workspace gates: `cargo clippy --workspace --all-targets --all-features`,
 all pass; each named test line prints `1 passed`. `just lint` boundary output:
 `sc-lint-boundary: pass (0 findings)`.
 
-**Open row (status in-review).** `install.py` was not re-run: the dev
-session was not permitted to clone and execute the sc-publish kit. The
-consumer input lists `sc-agent-http` with `publish_order: 3` (later crates
-shifted), but the kit-rendered `release/publish-artifacts.toml` still has the
-old order, so `scripts/sc-publish-dry-run.sh` (`kit` phase,
-`install.py --dry-run`) will report drift until someone runs the documented
-install (`docs/development/sc-publish.md` "Install") and commits the render.
-No kit-written file was hand-edited. `run-consumer-preflight.sh`,
-`check-exact-pins.sh` and the `cargo publish --dry-run --locked` line pass.
-Cargo packages a multi-`-p` dry run in its own dependency order
-(`sc-agent-types`, `sc-agent-http`, `sc-agent-secrets`, …): `sc-agent-http`
-depends only on `sc-agent-types`, so cargo places it second; the
-`publish_order` the kit uses is the consumer input's.
+**Release render (REQ-QA-R3-001, resolved).** The dev session could not run
+the sc-publish kit, so the parent ran the documented install
+(`docs/development/sc-publish.md` "Install") at the pinned kit revision
+`11b5b049` on 2026-11-07 and committed the re-rendered
+`release/publish-artifacts.toml` as `8f969ff` (`sc-agent-http` at
+`publish_order = 3`, later crates shifted). `install.py --dry-run` exited 0
+and `scripts/sc-publish-dry-run.sh` reported "passed (all)"; no file under
+`release/` or the kit workflows changed after `8f969ff`, and PR 26's
+`dry-run` check is green. No kit-written file was hand-edited.
+`run-consumer-preflight.sh`, `check-exact-pins.sh` and the
+`cargo publish --dry-run --locked` line pass. Cargo packages a multi-`-p`
+dry run in its own dependency order (`sc-agent-types`, `sc-agent-http`,
+`sc-agent-secrets`, …): `sc-agent-http` depends only on `sc-agent-types`, so
+cargo places it second; the `publish_order` the kit uses is the consumer
+input's.
 
 **Canaries.**
-- Public-API check: a throwaway `pub fn _canary() -> ureq::Agent` in
-  `lib.rs` made the check fail on the **title** pattern only
-  (`target/doc/sc_agent_http/fn._canary.html`,
-  `title="struct ureq::agent::Agent"`). The href is
-  `../ureq/agent/struct.Agent.html`, so the href alternative
-  `ureq/(struct|…)\.` does not match types in ureq submodules; r-3b may
-  widen it to `ureq/([a-z0-9_]+/)*(struct|…)\.` when it copies the command
-  into CI. Canary removed; the check passes.
+- Public-API check, first form (D-section run): a throwaway
+  `pub fn _canary() -> ureq::Agent` failed only the title half; the href is
+  `../ureq/agent/struct.Agent.html`, which `ureq/(struct|…)\.` misses.
+- Public-API check, widened form (QA-1, RBQA-F101): the command is now
+  `rm -rf target/doc/sc_agent_http && cargo doc -p sc-agent-http && ! grep -rlE 'href="[^"]*ureq/|title="[a-z]+ ureq::' target/doc/sc_agent_http/`.
+  Canary in a throwaway `git worktree` with its own target dir: the href
+  half alone (`href="[^"]*ureq/`) and the title half alone
+  (`title="[a-z]+ ureq::`) each matched `fn._canary.html`
+  (`<a class="struct" href="../ureq/agent/struct.Agent.html" title="struct ureq::agent::Agent">`),
+  and the gate exited 1. On the real tree the grep matches nothing. The
+  same command runs in CI (job `deps`) and is the text in plan.md and the
+  r-3b doc.
+- Read-site grep (QA-1, RBQA-F102, CI job `deps`): an extra
+  `#[expect(clippy::disallowed_methods, reason = "x")]` in `sc-jev` makes it
+  fail; comment lines are ignored.
+- `cargo-tree-gates.sh` rows (QA-1, RBQA-F104): turning off
+  `default-features = false` on sc-agent-http's sc-agent-types edge fails the
+  secret-only row (`default`, `judge`, …), and a normal `test-util` edge
+  from sc-jev fails the workspace test-util row.
 - Lints: a temporary `#[allow(clippy::disallowed_methods)]` plus a second
   `ResolvedApiKey::as_str` call in `sc-jev` failed `cargo clippy -D warnings`
   with `allow_attributes`, `allow_attributes_without_reason` and
@@ -469,3 +488,43 @@ depends only on `sc-agent-types`, so cargo places it second; the
 
 **Files outside `owned_paths`:** `Cargo.lock` (regenerated by cargo) and this
 sprint doc (status, `adrs`, these notes).
+
+### QA-1 fix round (PR 26, reviewed at `8f969ff`)
+
+Merged `origin/integrate/phase-a` (r-3c, PR 25) at `6cad244`: `clippy.toml`
+keeps r-3c's `allow-invalid = true` with r-3's single-read-site text;
+`cargo-tree-gates.sh` keeps r-3c's `feature_rows` and adds r-3's rows as
+`graph_rows`.
+
+| Id | Requirement / ADR | Resolution | Commit |
+| --- | --- | --- | --- |
+| CI-R3-001 | REQ-SAG-0505 (connect failure retryable, not retried) | `test_connect_phase_failure_is_retryable_and_not_retried` accepts `Connect` or `Timeout` (Windows retries the SYN until the 2 s connect timeout); still asserts retryable and one send | `f6bf365` |
+| REQ-QA-R3-001 | REQ-SAG-0130, boundary:release | parent kit re-render recorded above; frontmatter "open row" removed (status in-review until QA-2) | this commit |
+| REQ-QA-R3-002 | all test rows | PR 26 CI cited in the PR on the fix-round head | — |
+| ARCH-R3-001, REQ-QA-R3-003 | ADR-SAG-0007 r-3 | Active bullet: timeouts are `UreqTransport::new(Timeouts)` construction state, `with_timeouts` removed; base sentence marked superseded in part; ADR text item 7 carries the bullet verbatim | `c85a8f6` |
+| REQ-QA-R3-004 | a-10 ARCHC-018 | row notes "superseded by r-3 (Timeouts on UreqTransport::new)" | `c85a8f6` |
+| RBQA-F101 | boundary:agent-http, ADR-SAG-0026 | widened gate, both halves proven, in CI and in plan.md / r-3b | `9b333dd`, `c85a8f6` |
+| RBP-F007 | NFR-SAG-0002, ADR-SAG-0020 r-3 | `send_and_parse` and `HttpClient<T>` in sc-agent-http redact the parse closure's error; both backends drop the tuple and every manual `redact`; call sites keep only the provider label (wire/check parse details no longer embed it, so it appears once) | `cc9c4cb`, `93e53d5` |
+| RBQA-F102 | ADR-SAG-0020 r-3 | CI grep: `disallowed_methods` or `ResolvedApiKey::as_str` outside `ureq_transport.rs` (non-comment lines) fails | `9b333dd` |
+| RBQA-F103 | ADR-SAG-0020 r-3 | `SecretHeader::matches` exists only under `test-util`; manifest notes and docs say so | `136f3d2` |
+| RBQA-F104, RBQA-F009 | boundary:agent-http, ADR-SAG-0016 | tree-gate rows: depth-1 no ureq (sc-jev, sc-jev-backends, sc-jev-check), sc-agent-http forbidden packages + ureq positive control, workspace no `test-util` in `-e normal,features` (+ dev-edge control), sc-agent-types `secret` only | `ebede9d` |
+| FTQ-001 | — | stall test request timeout 1 s | `39454b4` |
+| FTQ-002 | plan "Test seams" | CI test job runs `cargo test -p sc-agent-http --features test-util` on all three OSes | `9b333dd` |
+| RBP minors | REQ-SAG-0402 | endpoints built once per `Provider`; request-build failure is `INPUT_INVALID` (deterministic, not retryable); oversize response is `RESPONSE_INVALID` on both paths (ureq `BodyExceedsLimit` mapped there; the `BodyTooLarge` mapping dropped; `NetworkErrorKind::BodyTooLarge` itself is sc-agent-types', unchanged); `test_util` documents its `Arc<Mutex<_>>` | `cc9c4cb`, `0b208fd` |
+| RSH observations | REQ-SAG-0505, ADR-SAG-0007 | `JevClientConfig` attempts 1..=4, timeout ≤ 120 s, with a bounds test; retry docs give the double-charge rationale | `0b208fd` |
+| QA-001 | NFR coverage baseline | tests for sc-jev `check.rs`, client cancel/labels, backends `validate.rs`, cancel/labels, sc-agent-http adapters and doubles. Line coverage (`cargo llvm-cov --workspace --exclude sc-jev-py --all-features`): workspace 90.08 → 92.44 %; sc-agent-http 92.30 → 97.52; sc-jev 78.94 → 97.83; sc-jev-backends 87.76 → 95.56 | `93e53d5` |
+| QA-002 | REQ-SAG-0505 | kind stays `Busy`; `BusyExhaustion::of(&JevError)` returns `Sends` / `Budget` from the fixed detail endings (`SENDS_SUFFIX`, `BUDGET_SUFFIX`), unaffected by a backend label; asserted in `test_exhaustion_reason_distinguishable` | `3c1c6a8` |
+
+Fix-round validation: every "Required validation" line and workspace gate
+passes (48 of 48; log kept by the developer). One local note: the
+multi-`-p` `cargo publish --dry-run --locked` first failed with
+`unresolved import sc_agent_http::HttpClient` because cargo reused an
+sc-agent-http 0.1.0 build from an earlier dry run (same unpublished version,
+same overlay-registry id, treated as immutable). Run with a fresh
+`CARGO_TARGET_DIR`, as CI does, it exits 0 and uploads all eight crates.
+
+New public items: `send_and_parse`, `HttpClient`, `BusyExhaustion` (facade
+updated). `send_and_parse` leaves the request with the caller, so a later
+send-site digest (owner decision for r-6) can read `request.body()` without a
+shape change. Files outside the original `owned_paths` in this round are the
+five parent-authorized paths listed in the frontmatter.
