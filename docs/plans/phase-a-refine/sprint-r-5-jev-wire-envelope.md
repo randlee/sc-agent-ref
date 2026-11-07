@@ -102,10 +102,12 @@ ARCHC-002, ARCHC-003.
 - Response: `{model, answers, usage}`. `answers` is keyed by question id:
   `choice` and `score` answers are `{type, choice, probabilities,
   confidence}`; a `noul` answer is `{type, probabilities}` with the single
-  key `yes`. sc-agent validates as the reference does: answer ids equal the
-  question ids, `choice` is a criteria option, `confidence` and every
-  probability lie in [0, 1], and `choice`/`score` probabilities sum to 1
-  within 1e-6; anything else is `RESPONSE_INVALID`.
+  key `yes`. sc-agent validates as the reference does, keeping today's
+  checks: the response `model` equals the request model; answer ids equal
+  the question ids, with no duplicate id; `choice` is a criteria option; the
+  `choice`/`score` probability keys equal the criteria keys and sum to 1
+  within 1e-6; a `noul` answer has exactly the key `yes`; `confidence` and
+  every probability lie in [0, 1]. Anything else is `RESPONSE_INVALID`.
 - The reference shows only the `choice` request and answer in full; the
   `score` (`criteria` as an ordered level map) and `noul` (`probabilities`
   with `yes`) field layouts above are this plan's reading of it and are
@@ -118,17 +120,22 @@ Every deliverable below lands production-ready for the scope this sprint claims;
 
 1. **One deserializing validator.** `sc-jev` and `sc-jev-backends` validate
    by `serde_json::from_slice::<CanonicalJudgePayload>(bundle.bytes())`
-   with `deny_unknown_fields`, then the question-kind rules of item 2. No
-   other schema check remains; the raw object-shape acceptance path in
+   with `deny_unknown_fields`. The question-kind rules of item 2 run inside
+   that deserialization (`Question` is `#[serde(try_from = "RawQuestion")]`
+   in `sc-decision-schema`), so both crates call one validator and neither
+   repeats the rules. No other schema check remains; the raw object-shape acceptance path in
    `sc-jev` (`criteria_from_object`) and its tests are deleted (callers
    express every type through the canonical payload).
 2. **Canonical payload: question kinds (ADR-SAG-0002 r-5 amendment).**
-   `Question` gains two optional fields, both
-   `#[serde(default, skip_serializing_if = "Option::is_none")]`:
-   `kind: Option<QuestionKind>` (`score` | `noul`; absent means `choice`)
-   and `descriptions: Option<Vec<String>>` (one per choice; absent means
-   each description is the choice label). Rules (`INPUT_INVALID` with a
-   fix hint otherwise): `choice` has 2 to 255 choices; `score` has 2 to 10
+   `Question` gains `kind: QuestionKind` (`Choice` | `Score` | `Noul`,
+   `#[serde(default, skip_serializing_if = "QuestionKind::is_choice")]`, so
+   a choice question writes no `kind` key) and `descriptions:
+   Option<Vec<String>>` (`skip_serializing_if = "Option::is_none"`; one per
+   choice; absent means each description is the choice label). The rules
+   are checked by the one validating constructor, `Question::try_new(id,
+   prompt, choices, kind, descriptions)`, which `TryFrom<RawQuestion>`
+   (deserialization) also calls; `Question::new` (choice) stays for
+   existing callers (`INPUT_INVALID` with a fix hint otherwise): `choice` has 2 to 255 choices; `score` has 2 to 10
    choices, in level order; `noul` has no choices and no descriptions;
    `descriptions`, when present, has exactly one entry per choice. A
    payload without the new fields serializes byte-identically, so
@@ -138,11 +145,19 @@ Every deliverable below lands production-ready for the scope this sprint claims;
    model, &payload)` maps each canonical question to its Jev question:
    `instructions` = `prompt`; `criteria` = choices to descriptions, in
    choice order; `questions` keys in payload order. Canonical `state` (the
-   prior answers) is sent as the `state` array. `CheckRequest::to_body`
-   writes compact JSON: `model`, `state`, `questions`, in that order.
-   `sc-jev` sends that body and parses replies with `CheckResponse`, which
-   checks the reference's rules and the answer type against the question
-   type. Answers become `DecisionAnswers`: `choice`/`score` answers keep
+   prior answers) is sent as the `state` array. `JevQuestion` holds the
+   criteria counts (choice 2..=255, score 2..=10) through one validating
+   constructor that both `from_canonical` and its `TryFrom` deserialization
+   call; `OrderedMap` rejects a duplicate key (`INPUT_INVALID` on a request
+   or recovered body, `RESPONSE_INVALID` on a reply, fix hint naming the
+   key). `CheckRequest::to_body() -> Result<String, JevError>` writes
+   compact JSON: `model`, `state`, `questions`, in that order. Before
+   sending, `sc-jev` compares the body length to the Jev descriptor's
+   `request_limit_bytes` and returns `InputTooLarge` (limit and actual
+   bytes) as today.
+   `sc-jev` sends that body and parses replies with `CheckResponse`, whose
+   `into_answers` checks the rules above (model equality and probability
+   key sets included) and the answer type against the question type. Answers become `DecisionAnswers`: `choice`/`score` answers keep
    `choice`, `probabilities` and `confidence`; a `noul` answer becomes
    `choice` `"yes"` when `p >= 0.5` else `"no"`, `probabilities`
    `{yes: p, no: 1 - p}`, no `confidence`. `splice_model` and every
@@ -168,8 +183,8 @@ Every deliverable below lands production-ready for the scope this sprint claims;
    `validate_for_send` with `INPUT_INVALID` ("Haiku and Luna answer choice
    and score questions; send noul questions to jev") before any send.
 7. `test_envelope_robust_to_key_ordering` (`crates/sc-jev/tests/wire.rs`):
-   a payload with state keys `context`, `inputs`, `metadata` produces a
-   valid body.
+   a request whose question ids and criteria keys are unsorted (`zeta`,
+   `alpha`, `mid`) produces a valid body that keeps that order.
 8. Land the ADR-SAG-0002, ADR-SAG-0005 and ADR-SAG-0012 r-5 amendments, the
    ADR-SAG-0030 "Jev API structs" bullet, REQ-SAG-0403 and REQ-SAG-0143.
    At flip time r-5 appends to the ADR-SAG-0005 r-5 bullet: "ADR-SAG-0019
@@ -184,24 +199,30 @@ Every deliverable below lands production-ready for the scope this sprint claims;
 
 ```rust
 // crates/sc-decision-schema/src/payload.rs — additions
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum QuestionKind { Score, Noul }               // absent field = choice
-// Question gains (private, optional, skipped when None):
-//     kind: Option<QuestionKind>, descriptions: Option<Vec<String>>
+pub enum QuestionKind { #[default] Choice, Score, Noul }
+impl QuestionKind { pub fn is_choice(&self) -> bool; }
+// Question gains (private):
+//     #[serde(default, skip_serializing_if = "QuestionKind::is_choice")] kind: QuestionKind,
+//     #[serde(default, skip_serializing_if = "Option::is_none")] descriptions: Option<Vec<String>>,
+// and is #[serde(try_from = "RawQuestion")], so deserialization runs try_new.
 impl Question {
-    pub fn kind(&self) -> Option<QuestionKind>;
+    pub fn try_new(id: QuestionId, prompt: impl Into<String>, choices: Vec<ChoiceId>,
+                   kind: QuestionKind, descriptions: Option<Vec<String>>) -> Result<Self, JevError>;
+    pub fn kind(&self) -> QuestionKind;
     pub fn descriptions(&self) -> Option<&[String]>;
-    #[must_use] pub fn with_kind(self, kind: QuestionKind) -> Self;
-    #[must_use] pub fn with_descriptions(self, descriptions: Vec<String>) -> Self;
 }
 
 // crates/sc-decision-schema/src/jev/v1.rs
 /// Map serialized as a JSON object whose key order is the Vec order, and
 /// deserialized in document order (custom visitor; no serde_json feature).
+/// A duplicate key is an error that names the key.
 #[derive(Debug, Clone, PartialEq)]
 pub struct OrderedMap<K, V>(Vec<(K, V)>);
 
+/// Built only through one validating constructor (criteria counts), used by
+/// `from_canonical` and by `#[serde(try_from = "RawJevQuestion")]`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum JevQuestion {
@@ -212,7 +233,9 @@ pub enum JevQuestion {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum JevState { Text(String), Object(serde_json::Map<String, serde_json::Value>), Array(Vec<serde_json::Value>) }
+pub enum JevState { Text(String), Object(OrderedMap<String, serde_json::Value>), Array(Vec<serde_json::Value>) }
+// top-level object keys keep their order; nested Values are serde_json values
+// (their object keys are sorted), so only the top level round-trips verbatim
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -223,7 +246,7 @@ pub struct CheckRequest {
 }
 impl CheckRequest {
     pub fn from_canonical(model: ModelId, payload: &CanonicalJudgePayload) -> Result<Self, JevError>;
-    pub fn to_body(&self) -> Result<Vec<u8>, JevError>;           // compact; model, state, questions
+    pub fn to_body(&self) -> Result<String, JevError>;            // compact; model, state, questions
     pub fn to_canonical(&self) -> Result<CanonicalJudgePayload, JevError>; // inverse, for input_sha256
     pub fn state(&self) -> &JevState;
 }
@@ -233,19 +256,22 @@ impl CheckRequest {
 pub enum JevAnswer {
     Choice { choice: ChoiceId, probabilities: BTreeMap<ChoiceId, f64>, confidence: f64 },
     Score  { choice: ChoiceId, probabilities: BTreeMap<ChoiceId, f64>, confidence: f64 },
-    Noul   { probabilities: BTreeMap<String, f64> },               // exactly {"yes": p}
+    Noul   { probabilities: NoulProbabilities },
 }
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct NoulProbabilities { pub yes: f64 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct CheckResponse {
-    model: String,
-    answers: BTreeMap<QuestionId, JevAnswer>,
+    model: ModelId,
+    answers: OrderedMap<QuestionId, JevAnswer>,                  // duplicate id -> RESPONSE_INVALID
     usage: serde_json::Map<String, serde_json::Value>,
     #[serde(flatten)]
-    extra: serde_json::Map<String, serde_json::Value>,          // stop_reason, ... verbatim
+    extra: serde_json::Map<String, serde_json::Value>,          // stop_reason, ... (keys sorted)
 }
 impl CheckResponse {
-    pub fn model(&self) -> &str;
+    pub fn model(&self) -> &ModelId;
     pub fn usage(&self) -> &serde_json::Map<String, serde_json::Value>;
     pub fn extra(&self) -> &serde_json::Map<String, serde_json::Value>;
     /// Checks the reference's rules against `request` and maps to DecisionAnswers.
@@ -260,7 +286,7 @@ Each named test prints `1 passed`; the scrum-master rejects `0 passed`.
 | Root | Criterion |
 | --- | --- |
 | req:REQ-SAG-0403 | Both backends deserialize `CanonicalJudgePayload`: `cargo test -p sc-jev --features test-util --test wire -- test_envelope_robust_to_key_ordering --exact`; `cargo test -p sc-jev-backends --features test-util --test wire` and `cargo test -p sc-jev-backends --test llm` green; `cargo test -p sc-jev-backends --test llm -- test_noul_question_refused_before_send --exact` |
-| req:REQ-SAG-0143 | `cargo test -p sc-decision-schema --test jev -- test_check_request_body_matches_golden --exact` and `-- test_all_question_types_body_matches_golden --exact` (byte-equal to the compact form of `check-request.json` / `check-request-all-types.json`); `cargo test -p sc-decision-schema --test jev -- test_check_response_parses_golden --exact` and `-- test_all_answer_types_parse_golden --exact`; `cargo test -p sc-decision-schema --test jev -- test_response_rules_rejected --exact` (id mismatch, choice outside criteria, value outside [0, 1], sum off by more than 1e-6, answer type differing from question type: each `RESPONSE_INVALID`); `cargo test -p sc-decision-schema --test jev -- test_state_forms_roundtrip --exact` (string, object, array); `cargo test -p sc-jev --features test-util --test wire -- test_jev_body_is_check_request_body --exact` (the body a recording transport captures equals `CheckRequest::to_body`, so the splice path is gone); `cargo test -p sc-jev --test jev_api` green over the `sc-agent-http` transport |
+| req:REQ-SAG-0143 | `cargo test -p sc-decision-schema --test jev -- test_check_request_body_matches_golden --exact` and `-- test_all_question_types_body_matches_golden --exact` (byte-equal to the compact form of `check-request.json` / `check-request-all-types.json`); `cargo test -p sc-decision-schema --test jev -- test_check_response_parses_golden --exact` and `-- test_all_answer_types_parse_golden --exact`; `cargo test -p sc-decision-schema --test jev -- test_response_rules_rejected --exact` (model differing from the request model, id mismatch, duplicate id, choice outside criteria, probability keys differing from the criteria keys, value outside [0, 1], sum off by more than 1e-6, a `noul` answer with a key other than `yes` or a `yes` outside [0, 1], answer type differing from question type: each `RESPONSE_INVALID`); `cargo test -p sc-decision-schema --test jev -- test_state_forms_roundtrip --exact` (string, object with unsorted top-level keys, array); `cargo test -p sc-decision-schema --test jev -- test_duplicate_key_rejected --exact` (duplicate question id or criteria key on a request and on recovery: `INPUT_INVALID`); `cargo test -p sc-jev --features test-util --test wire -- test_body_over_limit_is_input_too_large --exact`; `cargo test -p sc-jev --features test-util --test wire -- test_jev_body_is_check_request_body --exact` (the body a recording transport captures equals `CheckRequest::to_body`, so the splice path is gone); `cargo test -p sc-jev --test jev_api` green over the `sc-agent-http` transport |
 | req:REQ-SAG-0142 | `cargo test -p sc-decision-schema --test version -- test_known_versions_accepted_unknown_rejected --exact` still passes with `KNOWN = [canonical.v1]`; `cargo test -p workspace-tests --test jev_cross_impl` and `cargo test -p sc-jev-check --test cross_impl_branches` digests unchanged |
 | req:REQ-SAG-0103 | `cargo test -p sc-decision-schema --test judge -- test_question_kind_rules --exact` (choice 2..=255, score 2..=10, noul without choices, descriptions one per choice; each violation `INPUT_INVALID`); `cargo test -p sc-decision-schema --test judge` green |
 | boundary:jev | `cargo test -p sc-jev --features test-util --test wire -- test_digest_detects_faulty_wire_builder --exact` and `-- test_real_wire_builder_reports_prompt_digest --exact` green (recovery via `to_canonical`); regression: `just test`, `cargo test -p sc-agent-http --test retry` (REQ-SAG-0401), `cargo test -p sc-jev --test catalog` (r-7's lines kept), `cargo test -p sc-agent-types --test errors -- test_error_response_stderr_golden --exact` (ADR-SAG-0001/0027); REQ-SAG-0140 `cargo tree -p sc-decision-schema -e normal --depth 1` lists only `sc-agent-types`, `serde`, `serde_json`; REQ-SAG-0140/0141 `just lint` |

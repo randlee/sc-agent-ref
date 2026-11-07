@@ -90,10 +90,10 @@ owned_paths:
   - "crates/sc-agent-types/src/judge.rs (deleted: moved)"
   - "crates/sc-agent-types/src/payload.rs (deleted: moved)"
   - "crates/sc-agent-types/src/test_util.rs (deleted: moved)"
-  - "crates/sc-agent-types/src/ids.rs#QuestionId, ChoiceId (removed: moved); Sha256Digest::of takes &str"
-  - "every Sha256Digest::of call site (crates/*/src/**, crates/*/tests/**): pass &str"
-  - "crates/sc-treesitter/src/extract.rs#Sha256Digest::of(&input.query)"
-  - "crates/sc-agent-types/src/catalog.rs#BackendDescriptor::default_model_alias"
+  - "crates/sc-agent-types/src/ids.rs#QuestionId, ChoiceId (removed: moved); Sha256Digest::of becomes of_text(&str); AnswerId (new)"
+  - "every Sha256Digest::of call site (crates/*/src/**, crates/*/tests/**): of_text(&str)"
+  - "crates/sc-treesitter/src/extract.rs#Sha256Digest::of_text(&input.query)"
+  - "crates/sc-agent-types/src/catalog.rs#BackendDescriptor::default_model_alias, default_model"
   - "crates/sc-agent-types/src/models.rs (new: ModelId, UnknownModel, ModelFamily, ModelDescriptor, MODELS, ModelAliases)"
   - "crates/sc-agent-types/src/trace.rs (new: SendTrace)"
   - "crates/sc-agent-types/src/ids.rs#ProjectLabel (new)"
@@ -106,6 +106,7 @@ owned_paths:
   - "crates/sc-agent-types/tests/models.rs (new)"
   - "crates/sc-agent-types/tests/trace.rs (new)"
   - "boundaries/sc-agent-types/**"
+  - "crates/sc-agent-http/src/request.rs, transport.rs, ureq_transport.rs#body is Arc<str> (text); transports send its bytes"
   - "crates/sc-agent-http/src/retry.rs#send_with_busy_retry, send_and_parse, HttpClient::send_and_parse take a required SendTrace (no recording in r-7)"
   - "crates/sc-agent-http/src/lib.rs, redact.rs, transport.rs#doc examples pass a SendTrace"
   - "crates/sc-agent-http/tests/retry.rs, tests/ureq.rs#callers pass SendTrace::new()"
@@ -117,19 +118,20 @@ owned_paths:
   - "crates/sc-jev/src/jev.toml#model key removed (the catalog is the one source)"
   - "crates/sc-jev-check/assets/jev.toml#header comment: model ids live in the sc-agent-types catalog"
   - "crates/sc-jev/src/check.rs#impl JudgeBackend for JevClient: fn model_id"
-  - "crates/sc-jev/src/client/mod.rs#passes req.send_trace().clone() to send_and_parse"
+  - "crates/sc-jev/src/client/mod.rs#judge(req, trace) passes trace.clone() to send_and_parse; body built as String"
   - "crates/sc-jev/tests/**#import changes"
   - "crates/sc-jev/tests/catalog.rs (new)"
   - "crates/sc-jev-backends/Cargo.toml#+sc-decision-schema"
   - "crates/sc-jev-backends/src/**#import changes"
-  - "crates/sc-jev-backends/src/backend.rs#configured ModelId (catalog default, override), fn model_id, passes req.send_trace().clone() to send_and_parse"
+  - "crates/sc-jev-backends/src/backend.rs#configured ModelId (catalog default, override), fn model_id, judge(req, trace) passes trace.clone() to send_and_parse; body built as String"
   - "crates/sc-jev-backends/src/wire.rs#LLM output through llm::v1::parse_output; HAIKU_MODEL/LUNA_MODEL consts removed"
   - "crates/sc-jev-backends/tests/**#import changes"
   - "crates/sc-jev-backends/tests/llm.rs#test_unknown_model_override_is_sent_verbatim, test_llm_model_id_is_configured_model (new)"
   - "crates/sc-jev-check/Cargo.toml#+sc-decision-schema; test-util feature points at sc-decision-schema/test-util; [[test]] models required-features = [\"test-util\"]"
   - "crates/sc-jev-check/src/**#import changes"
   - "crates/sc-jev-check/src/config/**#[models] table"
-  - "crates/sc-jev-check/src/registry/**#factory receives ModelAliases; scripted backends report model_id"
+  - "crates/sc-jev-check/src/registry/**#factory receives ModelAliases; scripted backends report model_id and take the per-send trace"
+  - "crates/sc-jev-check/src/run/**#each judge/ask call passes SendTrace::new() (recording read is r-6)"
   - "crates/sc-jev-check/src/run/**#RunConfig::models"
   - "crates/sc-jev-check/tests/**#import changes"
   - "crates/sc-jev-check/tests/models.rs (new)"
@@ -376,14 +378,17 @@ Every deliverable below lands production-ready for the scope this sprint claims;
      (`RunConfig::models`);
    - every `Sha256Digest::of(..)` call (D2.5);
    - D8: `sc-jev/src/client/mod.rs` and `sc-jev-backends/src/backend.rs`
-     (`req.send_trace().clone()` passed to `send_and_parse`); and the
+     (`trace.clone()` passed to `send_and_parse`, bodies built as `String`);
+     every `judge` implementation and caller (the new `trace` argument,
+     D8.2); and the
      `sc-agent-http` exchange signatures and their callers in its own docs
      and tests.
 
-5. `Sha256Digest::of` takes `text: &str` instead of `&[u8]` (still `sha2`
-   underneath in r-7; r-6 switches it to `sc-sha`, whose input must be
-   UTF-8). Every caller passes text it already has: canonical JSON, query
-   text, test literals. Digests do not change.
+5. `Sha256Digest::of(&[u8])` becomes `Sha256Digest::of_text(&str)` (still
+   `sha2` underneath in r-7; r-6 switches it to `sc-sha`, which takes UTF-8
+   and normalizes CR to LF; its rustdoc says so). Every caller passes text it
+   already has: canonical JSON, query text, test literals. Digests do not
+   change in r-7.
 
 ### D3 — Versioning (REQ-SAG-0142)
 
@@ -411,15 +416,15 @@ Every deliverable below lands production-ready for the scope this sprint claims;
 1. `sc_decision_schema::llm::v1`: **input** is the canonical payload bytes,
    embedded in the provider message unchanged (ADR-SAG-0019; the system
    prompt stays outside the digest): `input_bytes(payload)` returns
-   `payload.bytes()` and does not call `DecisionSchema::input` (no
-   re-serialization, ADR-SAG-0005). **Output** is `DecisionAnswers`
+   `payload.bytes()` (no re-serialization, ADR-SAG-0005). **Output** is `DecisionAnswers`
    (`BTreeMap<QuestionId, QuestionAnswer>`: `choice`, `confidence`,
    `probabilities`), the same map `JudgeOutcome` carries for Jev.
 2. **One call chain.** `sc-jev-backends/src/wire.rs` `parse_answers` is
    replaced by a call to `llm::v1::parse_output(text, payload)`, which
    (a) parses the model's text as `llm::v1::LlmOutput { answers: Map }` and
-   (b) returns `variants::Canonical::answers(output, payload)`. The checks
-   in `Canonical::answers` are today's `parse_answers` checks, moved with
+   (b) dispatches on `schema_for(model.family()).family()` (the one match on
+   `SchemaFamily`) to `variants::canonical::answers(output, payload)`. The
+   checks in `canonical::answers` are today's `parse_answers` checks, moved with
    their order and messages unchanged. Today's `RESPONSE_INVALID` cases:
    - the reply is not JSON ("LLM reply is not JSON");
    - `answers` is missing or not an object, or its ids differ from the
@@ -436,17 +441,19 @@ Every deliverable below lands production-ready for the scope this sprint claims;
 
 ### D5 — Model-family variants (REQ-SAG-0145)
 
-1. `sc_decision_schema::variants`: trait `DecisionSchema` and
-   `fn schema_for(family: ModelFamily) -> DecisionSchemaId` (signatures
-   under "Explicit code samples").
-2. One implementation today, `Canonical` (`CANONICAL_V1`): `Input` is
-   `CanonicalJudgePayload` and `input` returns it unchanged, so its
-   serialization equals `payload.bytes()` (`prompt_sha256` is the digest of
-   what is embedded); `Output` is `llm::v1::LlmOutput` and `answers` is the
-   validation of D4.2. Every current `ModelFamily` maps to `CANONICAL_V1`.
+1. `sc_decision_schema::variants`: `fn schema_for(family: ModelFamily) ->
+   DecisionSchemaId` and one module per `SchemaFamily` with plain
+   functions; there is no trait until a second variant exists. Dispatch is
+   static and keyed by `SchemaFamily`: `llm::v1::parse_output` is the one
+   `match` on it, so a new family edits this crate only.
+2. One variant today, `variants::canonical` (`CANONICAL_V1`):
+   `canonical::input(payload) -> &CanonicalJudgePayload` (identity; its
+   serialization equals `payload.bytes()`, so `prompt_sha256` is the digest
+   of what is embedded) and `canonical::answers(output, payload)` (the
+   validation of D4.2). Every current `ModelFamily` maps to `CANONICAL_V1`.
    A future local decision model with a slightly different schema adds a
-   `SchemaFamily` variant, a module and one `schema_for` arm; no caller
-   signature changes (recorded, not built).
+   `SchemaFamily` variant, a module and one `match` arm (recorded, not
+   built).
 
 ### D6 — Session-log storage schema and `fields{}` projection (REQ-SAG-0146; ADR-SAG-0031 "Storage schema")
 
@@ -548,23 +555,29 @@ dependency or writer lands in A.1.
    `claude-haiku-5-5`, `gpt-6-luna`). `UnknownModel` has a private field and
    no public constructor: the only ways to get one are `ModelId::from_str`
    (which returns the known variant for a known string, so `Other` never
-   holds a known string and derived `PartialEq`/`Hash` stay correct) and
-   `ModelId::fallback_for(BackendId)` (D7.5). `ModelId::family() ->
+   holds a known string and derived `PartialEq`/`Hash` stay correct).
+   `ModelId::family() ->
    ModelFamily`. `ModelFamily` is the only family `schema_for` consumes; it
    is never derived from `BackendFamily` (the catalog's how-we-call family).
 2. `MODELS` (model string, family, alias, release date) and `ModelAliases`
    (`builtin()`, `latest(alias)` for `"jev"`, `"haiku"`, `"luna"`,
    `with_override`). `BackendDescriptor` gains `default_model_alias()`
    (`jev` → `"jev"`, `anthropic_haiku` → `"haiku"`, `openai_luna` →
-   `"luna"`); `test_backend_catalog_roundtrip` checks every row's alias
-   resolves.
+   `"luna"`) and `default_model()` (the static `ModelId` of that row);
+   `test_backend_catalog_roundtrip` checks, for every row,
+   `builtin().latest(alias) == Some(default_model())`. `latest` and
+   `with_override` keep string aliases (owner: lookup by "luna", "haiku");
+   an unknown alias is `CONFIG_INVALID` whose fix hint lists the valid
+   aliases.
 3. **Config override.** `check.toml` gains an optional `[models]` table
    (alias = model string); `RunConfig::models(ModelAliases)`; the
    `sc-jev-check` factory table type becomes
    `fn(ResolvedApiKey, &ModelAliases) -> Arc<dyn JudgeBackend>` and each
    backend is built with `aliases.latest(descriptor.default_model_alias())`.
    An unknown alias or an invalid model string is `CONFIG_INVALID` before
-   any send (REQ-SAG-0301). Caller-request JSON and CLI/Python flags get no
+   any send (REQ-SAG-0301); the remap of `ModelId::from_str`'s
+   `INPUT_INVALID` keeps its message and fix hint and adds the `check.toml`
+   key (`[models].<alias>`). Caller-request JSON and CLI/Python flags get no
    model override in A.1.
 4. Backends hold their configured `ModelId`: `sc-jev-backends` deletes the
    `HAIKU_MODEL` / `LUNA_MODEL` consts and sends `model.to_string()`;
@@ -575,12 +588,9 @@ dependency or writer lands in A.1.
    each backend crate") and the `config` row of `docs/sc-jev/architecture.md`
    ("packaged `jev.toml` (model, …)") are corrected to name the catalog.
 5. **`JudgeBackend::model_id()`**, a provided method (ADR-SAG-0009: new
-   methods have default bodies) returning the catalog's `latest` for the
-   descriptor's `default_model_alias`, else
-   `ModelId::fallback_for(self.id())` (infallible: an `Other` holding the
-   backend id string, which is never a model string;
-   `test_backend_catalog_roundtrip` keeps every built-in backend off this
-   path). `JevClient` (`check.rs`) returns its `JevConfig` model; the
+   methods have default bodies) returning `self.id().descriptor()
+   .default_model()`; no fallback. The default serves catalog backends
+   only; a backend outside the catalog must implement `model_id` (rustdoc). `JevClient` (`check.rs`) returns its `JevConfig` model; the
    Haiku and Luna backends (`backend.rs`) return the model they send;
    `MockJudgeBackend::with_model_id` and the scripted backends report one.
    r-6 writes it into every row.
@@ -589,19 +599,29 @@ dependency or writer lands in A.1.
 
 1. `sc_agent_types::SendTrace` (core, `trace.rs`, next to `CancelToken`): a
    cloneable handle with `record` (first write wins) and `request_sha256`.
-2. `JudgeRequest::send_trace()` / `with_send_trace(..)` (default: a fresh,
-   empty trace).
+2. The trace is per send, never carried on the cloneable `JudgeRequest`:
+   `JudgeBackend::judge(&self, req: &JudgeRequest, trace: &SendTrace)`
+   (REQ-SAG-0103 amendment). The engine creates `SendTrace::new()` for each
+   `judge` and `ask` call and keeps a clone to read after the call returns.
+   `SendTrace` wraps `Arc<OnceLock<Sha256Digest>>`; its rustdoc says why:
+   `sc-agent-http` records through one handle while the engine reads
+   through another, and a send records once.
 3. `sc-agent-http`: `send_with_busy_retry`, `send_and_parse` and
    `HttpClient::send_and_parse` take a **required** `trace: SendTrace`
-   parameter (signatures below), so no backend can send without one. The
-   `Transport` trait and `HttpRequest` are unchanged. `sc-jev`
-   (`client/mod.rs`) and `sc-jev-backends` (`backend.rs`) pass
-   `req.send_trace().clone()`; the `sc-agent-http` doc examples and tests
+   parameter (signatures below), so no backend can send without one.
+   `HttpRequest`'s body becomes text (`Arc<str>`, `body() -> &str`), so the
+   digest needs no UTF-8 branch; transports send `body().as_bytes()` and the
+   `Transport` trait is otherwise unchanged. `sc-jev` (`client/mod.rs`) and
+   `sc-jev-backends` (`backend.rs`) pass `trace.clone()` and build bodies
+   with `serde_json::to_string`; the `sc-agent-http` doc examples and tests
    pass `SendTrace::new()`. Nothing records into it in r-7; r-6 adds the
    recording in `send_with_busy_retry` and reads it into the row. This gives
    r-5 and r-6 disjoint files in wave 6.
 4. `sc_agent_types::ProjectLabel` (core, `ids.rs`): UTF-8, at most 256
-   bytes, no control characters, else `INPUT_INVALID`. `RowContext.project`
+   bytes, no control characters, else `INPUT_INVALID` whose fix hint states
+   the limits. It has `Display`, `FromStr` (same validator), `AsRef<str>`,
+   `Hash` and serde through `FromStr`/`as_str`, like `ModelId`; its `Debug`
+   prints the text (caller text, not a secret). `RowContext.project`
    is `Option<ProjectLabel>`, so `try_from_fields` uses the same validator
    as the CLI and Python inputs r-6 wires.
 
@@ -639,7 +659,6 @@ impl UnknownModel { pub fn as_str(&self) -> &str; }
 impl ModelId {
     pub fn as_str(&self) -> &str;
     pub fn family(&self) -> ModelFamily;
-    pub fn fallback_for(backend: BackendId) -> Self;   // Other(backend id string); infallible
 }
 impl fmt::Display for ModelId { /* as_str() */ }
 impl FromStr for ModelId { type Err = JevError; /* known -> variant, else Other; empty or control char -> INPUT_INVALID */ }
@@ -666,21 +685,41 @@ pub struct ModelAliases { /* private: alias -> ModelId */ }
 impl ModelAliases {
     pub fn builtin() -> Self;                                   // newest MODELS row per alias
     pub fn latest(&self, alias: &str) -> Option<ModelId>;
-    pub fn with_override(self, alias: &str, model: ModelId) -> Result<Self, JevError>; // unknown alias: CONFIG_INVALID
+    pub fn with_override(self, alias: &str, model: ModelId) -> Result<Self, JevError>; // unknown alias: CONFIG_INVALID, hint lists valid aliases
 }
 impl BackendDescriptor {
     pub fn default_model_alias(&self) -> &'static str;          // "jev" | "haiku" | "luna"
+    pub fn default_model(&self) -> ModelId;                     // static row value; == builtin().latest(alias)
 }
 
 // crates/sc-agent-types/src/ids.rs
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ProjectLabel(Arc<str>);
 impl ProjectLabel {
-    pub fn new(text: impl Into<String>) -> Result<Self, JevError>; // > 256 bytes or control char -> INPUT_INVALID
+    pub fn new(text: impl Into<String>) -> Result<Self, JevError>; // > 256 bytes or control char -> INPUT_INVALID, hint states limits
     pub fn as_str(&self) -> &str;
+}
+impl fmt::Display for ProjectLabel { /* as_str() */ }
+impl FromStr for ProjectLabel { type Err = JevError; /* ProjectLabel::new */ }
+impl AsRef<str> for ProjectLabel { /* as_str() */ }
+// Serialize / Deserialize: the text (Deserialize goes through FromStr).
+
+/// One send's id (ULID text in r-7: 26 Crockford base32 chars; r-6 wraps `ulid::Ulid`).
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct AnswerId(/* private */);
+impl FromStr for AnswerId { type Err = JevError; /* not a ULID -> INPUT_INVALID */ }
+impl fmt::Display for AnswerId { /* the 26-char text */ }
+
+impl Sha256Digest {
+    /// SHA-256 of `text`. From r-6 this is sc-sha's text identity: CRLF and
+    /// bare CR are normalized to LF first, so it equals SHA-256 of the bytes
+    /// only for text without CR (all compact JSON bodies and payloads).
+    pub fn of_text(text: &str) -> Self;
 }
 
 // crates/sc-agent-types/src/trace.rs
+/// One send's request digest. `OnceLock` behind an `Arc`: sc-agent-http
+/// records through one handle, the engine reads through another, once.
 #[derive(Debug, Clone, Default)]
 pub struct SendTrace(Arc<OnceLock<Sha256Digest>>);
 impl SendTrace {
@@ -717,18 +756,14 @@ impl FromStr for DecisionSchemaId { type Err = JevError; /* unknown -> INPUT_INV
 // payload.rs (moved) — the map JudgeOutcome already carries, so no byte changes
 pub type DecisionAnswers = BTreeMap<QuestionId, QuestionAnswer>;
 
-// judge.rs (moved) — additions
-impl JudgeRequest {
-    pub fn send_trace(&self) -> &SendTrace;               // default: fresh, empty
-    #[must_use]
-    pub fn with_send_trace(self, trace: SendTrace) -> Self;
-}
+// judge.rs (moved) — changes
 pub trait JudgeBackend: Send + Sync {
-    // ... existing methods unchanged ...
+    // ... id, capabilities, validate_for_send unchanged ...
+    /// `trace` belongs to this one send; pass it to the HTTP exchange.
+    fn judge(&self, req: &JudgeRequest, trace: &SendTrace) -> Result<JudgeOutcome, JevError>;
+    /// Catalog backends only; a backend outside the catalog implements this.
     fn model_id(&self) -> ModelId {
-        ModelAliases::builtin()
-            .latest(self.id().descriptor().default_model_alias())
-            .unwrap_or_else(|| ModelId::fallback_for(self.id()))
+        self.id().descriptor().default_model()
     }
 }
 
@@ -736,19 +771,17 @@ pub trait JudgeBackend: Send + Sync {
 #[derive(Debug, Clone, Deserialize)]
 pub struct LlmOutput { answers: serde_json::Map<String, serde_json::Value> }
 pub fn input_bytes(payload: &PayloadBundle) -> &[u8];          // == payload.bytes()
-pub fn parse_output(text: &str, payload: &PayloadBundle) -> Result<DecisionAnswers, JevError>;
-//   parse LlmOutput (not JSON / no answers object -> today's messages), then Canonical::answers
+pub fn parse_output(family: ModelFamily, text: &str, payload: &PayloadBundle) -> Result<DecisionAnswers, JevError>;
+//   parse LlmOutput (not JSON / no answers object -> today's messages), then the one
+//   `match schema.family() { SchemaFamily::Canonical => variants::canonical::answers(..) }`
+//   (parse_output takes the backend's ModelFamily: `parse_output(family, text, payload)`)
 
-// variants.rs
-pub trait DecisionSchema {
-    const ID: DecisionSchemaId;
-    type Input: Serialize;
-    type Output: DeserializeOwned;
-    fn input(payload: &PayloadBundle) -> Result<Self::Input, JevError>;
-    fn answers(output: Self::Output, payload: &PayloadBundle) -> Result<DecisionAnswers, JevError>;
-}
-pub struct Canonical;   // ID = CANONICAL_V1, Input = CanonicalJudgePayload, Output = llm::v1::LlmOutput
+// variants.rs — static dispatch keyed by SchemaFamily; no trait until a second variant
 pub fn schema_for(family: ModelFamily) -> DecisionSchemaId;    // every family today -> CANONICAL_V1
+pub mod canonical {
+    pub fn input(payload: &CanonicalJudgePayload) -> &CanonicalJudgePayload;   // identity
+    pub fn answers(output: LlmOutput, payload: &PayloadBundle) -> Result<DecisionAnswers, JevError>;
+}
 
 // session_log/mod.rs
 pub const SESSION_LOG_DDL: &str = include_str!("schema.sql");
@@ -759,20 +792,29 @@ pub const COLUMNS: &[&str];                                    // the 17 keys of
 #[serde(rename_all = "snake_case")]
 pub enum SendOutcome { Ok, Failed }
 
+/// A time at millisecond precision: the constructor truncates, so a row
+/// equals `try_from_fields(to_fields(row))`. Written RFC 3339 UTC, ms.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct TimestampMs(/* private: ms since the Unix epoch */);
+impl TimestampMs {
+    pub fn from_system_time(time: SystemTime) -> Self;          // truncates to ms
+    pub fn as_system_time(self) -> SystemTime;
+}
+
 /// Values every row carries. Public fields on purpose: adding one is a
 /// column change and bumps SESSION_LOG_SCHEMA_VERSION anyway.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RowContext {
-    pub answer_id: String,                  // ULID text from r-6; r-7 checks non-empty only
+    pub answer_id: AnswerId,
     pub session_id: SessionId,              // sc-agent-types type (ULID after r-6)
-    pub session_created_at: SystemTime,     // written RFC 3339 UTC, ms
-    pub repo: String,                       // absolute path text
+    pub session_created_at: TimestampMs,
+    pub repo: String,                       // absolute path text; a non-UTF-8 byte is replaced (documented)
     pub project: Option<ProjectLabel>,      // validated by ProjectLabel::new; None -> null
     pub prompt_sha256: Sha256Digest,
     pub decision_schema: DecisionSchemaId,
     pub question_ids: Vec<QuestionId>,      // payload order
     pub request_sha256: Option<Sha256Digest>,
-    pub ts: SystemTime,                     // when the send finished; written RFC 3339 UTC, ms
+    pub ts: TimestampMs,                    // when the send finished
     pub operation: Operation,
     pub backend: BackendId,
     pub model_id: ModelId,
@@ -788,7 +830,7 @@ impl SessionLogRow {
     pub fn error_code(&self) -> Option<ErrorCode>;
     pub fn answers(&self) -> Option<&DecisionAnswers>;
     pub fn to_fields(&self) -> serde_json::Map<String, serde_json::Value>;   // exactly COLUMNS
-    pub fn try_from_fields(fields: &serde_json::Map<String, serde_json::Value>) -> Result<Self, JevError>; // INPUT_INVALID
+    pub fn try_from_fields(fields: &serde_json::Map<String, serde_json::Value>) -> Result<Self, JevError>; // INPUT_INVALID, hint names the key
 }
 ```
 
@@ -817,10 +859,11 @@ impl<T: Transport> HttpClient<T> {
         parse: impl FnOnce(HttpResponse) -> Result<R, JevError>,
     ) -> Result<R, JevError>;
 }
-// backends: client.send_and_parse(&http_request, req.send_trace().clone(), parse)
+// backends: client.send_and_parse(&http_request, trace.clone(), parse)
+// HttpRequest: body is Arc<str>; `body(&self) -> &str`
 ```
 
-RFC 3339 formatting and parsing of `SystemTime` (`YYYY-MM-DDTHH:MM:SS.mmmZ`)
+RFC 3339 formatting and parsing of `TimestampMs` (`YYYY-MM-DDTHH:MM:SS.mmmZ`)
 is a private pure function in `session_log` (no new dependency). The
 fixture's `session_id` values are the `SessionId` form in force when r-7
 lands; r-6 rewrites them to ULIDs.
@@ -836,9 +879,9 @@ Each named test prints `1 passed`; the scrum-master rejects `0 passed`.
 | req:REQ-SAG-0142 | `cargo test -p sc-decision-schema --test version -- test_known_versions_accepted_unknown_rejected --exact`; `cargo test -p sc-decision-schema --test version -- test_schema_version_not_in_canonical_bytes --exact`; `cargo test -p workspace-tests --test jev_cross_impl` and `cargo test -p sc-jev-check --test cross_impl_branches` green with unchanged digests |
 | req:REQ-SAG-0144 | `cargo test -p sc-decision-schema --test llm -- test_llm_output_is_decision_answers --exact` (a valid reply gives `DecisionAnswers`; each of the four D4.2 cases gives `RESPONSE_INVALID` with today's message); `cargo test -p sc-jev-backends --test llm` green |
 | req:REQ-SAG-0145 | `cargo test -p sc-decision-schema --test variants -- test_canonical_variant_is_identity --exact`; `cargo test -p sc-decision-schema --test variants -- test_every_model_family_maps_to_a_known_schema --exact` |
-| req:REQ-SAG-0146 | `cargo test -p sc-decision-schema --test session_log -- test_session_log_row_matches_ddl --exact`; `cargo test -p sc-decision-schema --test session_log -- test_fields_roundtrip --exact` (every fixture line); `cargo test -p sc-decision-schema --test session_log -- test_unknown_or_missing_key_rejected --exact`; `uv run --directory tests/fixtures/jev-python pytest -q tests/test_session_log_sqlite.py::test_fixture_loads_into_sqlite` (Python `sqlite3` executes `schema.sql`, loads all six fixture lines, the CHECK constraints accept them, and the two rows of one session keep their own `project`); `cargo test -p sc-agent-types --test ids -- test_project_label_limits --exact` (the validator `try_from_fields` uses) |
+| req:REQ-SAG-0146 | `cargo test -p sc-decision-schema --test session_log -- test_session_log_row_matches_ddl --exact`; `cargo test -p sc-decision-schema --test session_log -- test_fields_roundtrip --exact` (every fixture line, and a row built from a clock reading with sub-millisecond digits); `cargo test -p sc-decision-schema --test session_log -- test_unknown_or_missing_key_rejected --exact`; `uv run --directory tests/fixtures/jev-python pytest -q tests/test_session_log_sqlite.py::test_fixture_loads_into_sqlite` (Python `sqlite3` executes `schema.sql`, loads all six fixture lines, the CHECK constraints accept them, and the two rows of one session keep their own `project`); `cargo test -p sc-agent-types --test ids -- test_project_label_limits --exact` (the validator `try_from_fields` uses) |
 | req:REQ-SAG-0147 | `cargo test -p sc-agent-types --test models -- test_known_models_roundtrip --exact` (every `MODELS` string parses to its known variant, never `Other`, and round-trips through `Display`/serde); `cargo test -p sc-agent-types --test models -- test_unknown_model_string_parses_as_other --exact` (an unknown string built through `FromStr` is `Other`, keeps its text, and an empty or control-character string is `INPUT_INVALID`); `cargo test -p sc-jev-backends --test llm -- test_unknown_model_override_is_sent_verbatim --exact` |
-| req:REQ-SAG-0148 | `cargo test -p sc-agent-types --test models -- test_latest_alias_lookup --exact`; `cargo test -p sc-agent-types --test models -- test_alias_override_wins --exact`; `cargo test -p sc-agent-types --test ids -- test_backend_catalog_roundtrip --exact` (every descriptor's `default_model_alias()` resolves); `cargo test -p sc-jev-check --features test-util --test models -- test_check_toml_models_override_reaches_backend --exact`; `cargo test -p sc-jev-check --features test-util --test models -- test_unknown_model_alias_is_config_invalid --exact`; `model_id()` (D7.5): `cargo test -p sc-decision-schema --features test-util --test mock -- test_model_id_default_from_catalog --exact`, `cargo test -p sc-jev --test catalog -- test_jev_model_id_is_configured_model --exact`, `cargo test -p sc-jev-backends --test llm -- test_llm_model_id_is_configured_model --exact` |
+| req:REQ-SAG-0148 | `cargo test -p sc-agent-types --test models -- test_latest_alias_lookup --exact`; `cargo test -p sc-agent-types --test models -- test_alias_override_wins --exact`; `cargo test -p sc-agent-types --test ids -- test_backend_catalog_roundtrip --exact` (`builtin().latest(default_model_alias()) == Some(default_model())` for every descriptor); `cargo test -p sc-jev-check --features test-util --test models -- test_check_toml_models_override_reaches_backend --exact`; `cargo test -p sc-jev-check --features test-util --test models -- test_unknown_model_alias_is_config_invalid --exact`; `model_id()` (D7.5): `cargo test -p sc-decision-schema --features test-util --test mock -- test_model_id_default_from_catalog --exact`, `cargo test -p sc-jev --test catalog -- test_jev_model_id_is_configured_model --exact`, `cargo test -p sc-jev-backends --test llm -- test_llm_model_id_is_configured_model --exact` |
 | boundary:send-trace | `cargo test -p sc-agent-types --test trace -- test_send_trace_first_write_wins --exact`; the required `SendTrace` parameter is enforced by the compiler at every `send_and_parse` caller (REQ-SAG-0613 itself closes in r-6) |
 | req:REQ-SAG-0103 (amended) | Rows in `docs/requirements.md` and `docs/sc-agent-types/requirements.md` flipped; the moved contract tests pass in their new crate (REQ-SAG-0141 row) |
 | req:REQ-SAG-0107 (amended) | `cargo hack check -p sc-agent-types --feature-powerset --no-dev-deps`; `cargo hack check -p sc-decision-schema --feature-powerset --no-dev-deps`; `cargo test -p sc-agent-types --test features` green |

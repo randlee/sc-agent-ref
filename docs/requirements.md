@@ -179,7 +179,7 @@ verbatim. Plan: [`plans/phase-a-refine/plan.md`](plans/phase-a-refine/plan.md).
 | REQ-SAG-0142 | The decision schema is versioned (`DecisionSchemaId`, e.g. `canonical.v1`); readers accept known versions and refuse others; the version lives outside the hashed canonical bytes, so `prompt_sha256` and the cross-impl fixture are unchanged — (Proposed, r-7) |
 | REQ-SAG-0143 | One serde request and response struct per Jev API call known today (`jev::v1` check) in `sc-decision-schema`; `sc-jev` builds the body with `CheckRequest` and parses replies with `CheckResponse`, with no byte-splice; it encodes the documented Jev API: flat `{model, state, questions}`, question types `choice`, `score` and `noul`, string/object/array `state`, and the `{model, answers, usage}` reply — (Proposed, r-5) |
 | REQ-SAG-0144 | Haiku/Luna input and output use the same schema: canonical bytes in, `DecisionAnswers` out (the Jev answers type) — (Proposed, r-7) |
-| REQ-SAG-0145 | Model-family schema variants: `DecisionSchema` trait and `schema_for(ModelFamily)`; the canonical variant is the identity on the payload — (Proposed, r-7) |
+| REQ-SAG-0145 | Model-family schema variants: `schema_for(ModelFamily)` with static dispatch keyed by `SchemaFamily` (no trait until a second variant); the canonical variant is the identity on the payload — (Proposed, r-7) |
 | REQ-SAG-0146 | The session-log storage contract is an authoritative SQLite DDL with `schema_version`; the JSONL projection is the `fields{}` object of one v2 log line with exactly the column keys (`send_outcome`, nullable `request_sha256`, non-null `model_id`); a loader reads it into the tables losslessly — (Proposed, r-7) |
 | REQ-SAG-0147 | Model catalog in `sc-agent-types`: open `ModelId` enum (known variants plus an unknown-model form that only parsing can build), so a model released after the build parses, is sent verbatim and is logged — (Proposed, r-7) |
 | REQ-SAG-0148 | `ModelAliases::latest(alias)` returns the newest model for `jev`, `haiku`, `luna`, … from an in-crate table, overridable by `check.toml` `[models]`; backends send their configured model — (Proposed, r-7) |
@@ -189,7 +189,7 @@ verbatim. Plan: [`plans/phase-a-refine/plan.md`](plans/phase-a-refine/plan.md).
 | REQ-SAG-0615 | Each row logs `project`: optional caller text (`sc-ai --project`, Python `project=`), ≤ 256 bytes, no control characters, stored unscrubbed — (Proposed, r-6) |
 | REQ-SAG-0616 | Each row logs `model_id`: the `ModelId` string from `JudgeBackend::model_id()` (catalog default, backend's configured model), never null — (Proposed, r-6) |
 | REQ-SAG-0617 | Every `judge`/`ask` send, `Ok` or `Failed`, writes exactly one row in the v2 `fields{}` object (NotSent none); a rejected or failed log write never fails the run (best effort; flush failure is a `data.warnings` entry) — (Proposed, r-6) |
-| REQ-SAG-0618 | SHA-256 digests are computed with `sc-sha` (`calculate_hash`, strict UTF-8, CR normalized to LF; hashed inputs are compact JSON or text with no raw CR, so the digest is SHA-256 of the bytes sent); no workspace manifest lists `sha2` or `uuid` — (Proposed, r-6) |
+| REQ-SAG-0618 | SHA-256 digests are computed with `sc-sha` (`calculate_hash`, strict UTF-8, CR normalized to LF; for request bodies and canonical payloads, compact JSON with no raw CR, the digest is SHA-256 of the bytes sent; other text such as query sources is identified in its LF-normalized form); no workspace manifest lists `sha2` or `uuid` — (Proposed, r-6) |
 
 ### Phase A.1 amendments to existing rows
 
@@ -207,7 +207,7 @@ verbatim. Plan: [`plans/phase-a-refine/plan.md`](plans/phase-a-refine/plan.md).
 | REQ-SAG-0130 | Consumer input publishes `sc-agent-http` (publish order 3) — (Active, r-3) |
 | REQ-SAG-0130 | Consumer input publishes `sc-agent-compose` (internal support, directly after `sc-jev-check`; owner decision 2026-11-06); no crates.io publish until r-5 (D9) lands — (Proposed, r-3b) |
 | REQ-SAG-0711 | `sc-ai` wires the logger through `sc_agent_compose::obs` — (Proposed, r-3b) |
-| REQ-SAG-0103 | The frozen `JudgeBackend` / `JudgeRequest` contract and its contract tests move, unchanged, to `sc-decision-schema` (ADR-SAG-0030); later changes stay additive — (Proposed, r-7) |
+| REQ-SAG-0103 | The frozen `JudgeBackend` / `JudgeRequest` contract and its contract tests move to `sc-decision-schema` (ADR-SAG-0030), unchanged except that `judge` takes the per-send `&SendTrace` and `model_id()` is added; later changes stay additive — (Proposed, r-7) |
 | REQ-SAG-0107 | `sc-agent-types` loses the `judge` and `test-util` features with the moved modules; features are `secret`, `obs` (default) and `git` (non-default); every combination builds — (Proposed, r-7) |
 | REQ-SAG-0130 | Consumer input publishes `sc-decision-schema` (publish order 2, directly after `sc-agent-types`) — (Proposed, r-7) |
 | REQ-SAG-0600 | Session store: session id is a **ULID** (was UUID) in file names and documents; mode 0600, expiry from `created_at` — (Proposed, r-6) |

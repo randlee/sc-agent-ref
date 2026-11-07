@@ -125,11 +125,13 @@ questions + state the backends must judge. SHA-256 of **those** bytes is
 
 **Status:** Proposed (Phase A.1) — lands in r-5.
 
-- (Proposed, r-5) A question has two optional fields, omitted when absent:
-  `kind` (`score` or `noul`; absent means `choice`) and `descriptions` (one
-  per choice; absent means each description is the choice label). `choice`
-  has 2 to 255 choices, `score` 2 to 10 in level order, `noul` none; any
-  other shape is `INPUT_INVALID`. A payload without these fields
+- (Proposed, r-5) A question has two new fields, omitted from the bytes
+  when they hold their default: `kind` (`QuestionKind::{Choice, Score,
+  Noul}`, default `Choice`, not written for a choice question) and
+  `descriptions` (one per choice; absent means each description is the
+  choice label). `choice` has 2 to 255 choices, `score` 2 to 10 in level
+  order, `noul` none; any other shape is `INPUT_INVALID`, checked by one
+  validating constructor that deserialization also runs. A payload without these fields
   serializes byte-identically to the Phase A form, so `prompt_sha256` and
   the cross-language fixture are unchanged and the schema version stays
   `canonical.v1`. There is one payload type (`CanonicalJudgePayload`).
@@ -282,8 +284,9 @@ Amended by ADR-SAG-0022.
   OpenAI API); `ModelId` (model catalog in `sc-agent-types`) names **which**
   model. `BackendDescriptor` gains `default_model_alias`.
 - (Proposed, r-7) `JudgeBackend::model_id()` is a provided method returning
-  the catalog's `latest` for the descriptor's `default_model_alias`;
-  backends override it with their configured model.
+  the descriptor's `default_model()` (no fallback); backends with a
+  configured model override it, and a backend outside the catalog must
+  implement it. `judge` takes the per-send `&SendTrace` (ADR-SAG-0031).
 
 ## ADR-SAG-0022 — Scripted backends are a test-util feature
 
@@ -1325,9 +1328,12 @@ r-3b sets the line above to "Active". HTTP half amends ADR-SAG-0006, 0007,
   not re-export it.
 - (Proposed, r-7) HTTP half: `send_with_busy_retry`, `send_and_parse` and
   `HttpClient::send_and_parse` take a required `SendTrace` parameter, so no
-  backend can send without one; `sc-jev` and `sc-jev-backends` pass
-  `req.send_trace().clone()`. The `Transport` trait (ADR-SAG-0006) and
-  `HttpRequest` are unchanged. Recording into the trace is r-6.
+  backend can send without one. The trace belongs to one send: the engine
+  creates it and passes it to `JudgeBackend::judge(req, &trace)`, never on
+  the cloneable `JudgeRequest`; `sc-jev` and `sc-jev-backends` pass
+  `trace.clone()` on. `HttpRequest`'s body is text (`Arc<str>`); the
+  `Transport` trait (ADR-SAG-0006) is otherwise unchanged. Recording into
+  the trace is r-6.
 
 ### Amendment (Phase A.1, r-6)
 
@@ -1540,12 +1546,13 @@ Owner decisions 2026-11-07.
 - (Proposed, r-7) **LLM I/O on the same schema.** Haiku/Luna input is the
   canonical payload bytes embedded unchanged (ADR-SAG-0019); their output is
   `DecisionAnswers`, the same answers type as `jev::v1::CheckResponse`.
-- (Proposed, r-7) **Model-family variants.** `variants::DecisionSchema`
-  (`ID`, `Input`, `Output`, `input`, `answers`) and
-  `schema_for(ModelFamily)`. Today every family maps to the `Canonical`
-  variant, whose input is the canonical payload unchanged. A future local
-  decision model with a slightly different schema adds a `SchemaFamily`
-  variant and a module; callers do not change.
+- (Proposed, r-7) **Model-family variants.** `schema_for(ModelFamily)` and
+  one module of plain functions per `SchemaFamily` (`variants::canonical`:
+  `input`, the identity on the payload, and `answers`); no trait until a
+  second variant exists. Dispatch is static and keyed by `SchemaFamily`:
+  `llm::v1::parse_output` holds the one `match`. A future local decision
+  model with a slightly different schema adds a `SchemaFamily` variant, a
+  module and one arm in this crate; callers do not change.
 - (Proposed, r-7) **Model catalog** (`sc-agent-types`). `ModelId` is an open
   enum: known variants that track recent releases plus `Other(UnknownModel)`, so a
   model released after the build still parses, is sent verbatim and is
@@ -1626,9 +1633,9 @@ subsection in each). Owner decisions 2026-11-07.
 - (Proposed, r-6) `request_sha256` is the SHA-256 of exactly the bytes
   sent, the future response-cache key. `sc-agent-http` records it at the
   send site (`send_with_busy_retry`, used by every backend) into the
-  `SendTrace` that `JudgeRequest` carries and the backend passes as the
-  exchange's required `trace` argument (seam from r-7, ADR-SAG-0026 r-7);
-  one fresh trace per backend send; one value per send, retries included; NULL when no body was
+  per-send `SendTrace` the engine passes to `judge` and the backend passes
+  as the exchange's required `trace` argument (seam from r-7, ADR-SAG-0026
+  r-7); one value per send, retries included; NULL when no body was
   built. `prompt_sha256` stays the canonical-payload digest
   (ADR-SAG-0002/0025).
 - (Proposed, r-6) The row's `model_id` is `JudgeBackend::model_id()`

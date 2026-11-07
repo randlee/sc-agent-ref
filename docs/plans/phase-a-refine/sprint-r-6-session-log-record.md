@@ -74,7 +74,7 @@ adrs:
   - ADR-SAG-0031  # wiring subsection lands here (r-6 flips it)
 owned_paths:
   - "crates/sc-agent-types/Cargo.toml#-uuid -sha2 +ulid +sc-sha"
-  - "crates/sc-agent-types/src/ids.rs#SessionId (ULID), Sha256Digest::of (sc-sha)"
+  - "crates/sc-agent-types/src/ids.rs#SessionId and AnswerId (ULID), Sha256Digest::of_text (sc-sha)"
   - "crates/sc-agent-types/src/error.rs#test literal SessionId (ULID)"
   - "crates/sc-agent-types/src/observability/**"
   - "crates/sc-agent-types/src/git.rs#discover_common_dir (existing spawn helper)"
@@ -147,11 +147,11 @@ r-7's; this sprint wires them.
 returns `HashResult::Template(TemplateSha256)`. It requires strict UTF-8
 (`ShaError::InvalidUtf8` otherwise) and normalizes CRLF and bare CR to LF
 before hashing; there is no raw-bytes API. Every input sc-agent hashes is
-UTF-8 serde_json output or text (`Sha256Digest::of` takes `&str` from r-7,
-so the UTF-8 error cannot occur), and compact JSON has no raw CR, so the
-digest equals SHA-256 of the bytes sent. Other text (a tree-sitter query
-source) hashes in its LF-normalized form; the committed queries are LF-only,
-so `query_sha256` is unchanged. `sc-sha` depends on `sha2`, so
+UTF-8 serde_json output or text (`Sha256Digest::of_text` takes `&str` from r-7,
+so the UTF-8 error cannot occur). For request bodies and canonical payloads
+(compact JSON, no raw CR) the digest equals SHA-256 of the bytes sent; that
+claim is made for them only. `query_sha256` identifies the LF-normalized
+query text (unchanged for LF-only queries). `sc-sha` depends on `sha2`, so
 `sha2` stays in the lock file transitively. Pinned by one unit test,
 `test_sha256_reference_vectors` (`crates/sc-agent-types/tests/ids.rs`): the
 empty string gives
@@ -181,7 +181,10 @@ Every deliverable below lands production-ready for the scope this sprint claims;
 
 ### D2 — SHA-256 via sc-sha (REQ-SAG-0618)
 
-- `Sha256Digest::of(&str)` computes through `sc-sha` `calculate_hash` (D0).
+- `Sha256Digest::of_text(&str)` computes through `sc-sha` `calculate_hash`
+  (D0); its rustdoc states the LF normalization. `calculate_hash`'s
+  `InvalidUtf8` arm cannot be reached from a `&str` and is `unreachable!`
+  (a bug, never input-driven). `AnswerId` wraps `ulid::Ulid`.
   `sha2` and `uuid` leave `sc-agent-types` and `uuid` leaves `sc-ai`, so no
   workspace manifest lists them (`[workspace.dependencies]` included);
   `Cargo.lock` keeps them only if a third-party dependency still pulls them
@@ -190,29 +193,31 @@ Every deliverable below lands production-ready for the scope this sprint claims;
   because `SessionId` and `Sha256Digest` are core types (ADR-SAG-0027 r-6
   amendment); `tests/fixtures/no-default-features-deps.txt` is updated.
 - Unchanged digests, proven: `prompt_sha256`, the cross-impl fixture,
-  `input_sha256` recovery and `sc-treesitter` `query_sha256`.
+  `input_sha256` recovery and `sc-treesitter` `query_sha256` for LF-only
+  queries.
 
 ### D3 — Record request_sha256 at the send site (REQ-SAG-0613)
 
-- r-7 left the seam in place: `SendTrace`, `JudgeRequest::send_trace`, and
-  the required `trace: SendTrace` parameter of `send_with_busy_retry` /
-  `send_and_parse`, which `sc-jev` and `sc-jev-backends` fill with
-  `req.send_trace().clone()`. r-6 adds the recording: `send_with_busy_retry`
-  (and so `send_and_parse`, the one exchange every backend uses) calls
-  `trace.record(Sha256Digest::of(body_text))` (the body as `&str`)
-  immediately before the first `Transport::send`. Retries resend the same bytes, so one value per send.
+- r-7 left the seam in place: `SendTrace`, the per-send `trace` argument of
+  `JudgeBackend::judge`, the required `trace: SendTrace` parameter of
+  `send_with_busy_retry` / `send_and_parse` (filled by `sc-jev` and
+  `sc-jev-backends` with `trace.clone()`), and a text `HttpRequest` body.
+  r-6 adds the recording: `send_with_busy_retry` (and so `send_and_parse`,
+  the one exchange every backend uses) calls
+  `trace.record(Sha256Digest::of_text(request.body()))` immediately before
+  the first `Transport::send`; no branch. Retries resend the same bytes, so one value per send.
   Headers are not hashed (no secret is hashed, ADR-SAG-0020). A cancel
   before the first send records nothing. No `sc-jev` or `sc-jev-backends`
   file changes, so this does not touch r-5's files.
 - The engine creates a fresh `SendTrace` per backend send (one per row),
   never per run and never shared through a cloned `JudgeRequest`: in a
-  multi-backend run (r-2b) each backend's `judge` call gets its own
-  `JudgeRequest::with_send_trace(SendTrace::new())`, and so does each `ask`.
+  multi-backend run (r-2b) each backend's `judge(req, &trace)` call gets its
+  own `SendTrace::new()`, and so does each `ask`.
   The engine reads that trace after the call returns, `Ok` or `Err`. If a send fails before a body is built (key or
   encode failure inside `judge`), the trace is empty and the row's
   `request_sha256` is `null`.
-- `MockJudgeBackend::with_sent_body(bytes)` and the scripted backends record
-  `Sha256Digest::of(bytes)` into the request's trace, so engine tests cover
+- `MockJudgeBackend::with_sent_body(body)` and the scripted backends record
+  `Sha256Digest::of_text(body)` into the send's trace, so engine tests cover
   both the set and the `null` case.
 
 ### D4 — Model id in the row (REQ-SAG-0616)
@@ -315,7 +320,7 @@ pub struct SessionId(Ulid);                       // Display/FromStr/serde: 26-c
 impl SessionId { pub fn new() -> Self; }          // Ulid::new(); no shared generator state
 impl FromStr for SessionId { type Err = JevError; /* non-ULID (incl. UUID) -> INPUT_INVALID, ULID fix hint */ }
 
-impl Sha256Digest { pub fn of(text: &str) -> Self; }   // sc_sha::calculate_hash(HashInput::TextFileBytes { .. }) (D0)
+impl Sha256Digest { pub fn of_text(text: &str) -> Self; }   // sc_sha::calculate_hash(HashInput::TextFileBytes { .. }); CR normalized to LF (D0)
 
 // observability::v2 (stable-surface change, ADR-SAG-0016/0027 r-6)
 pub struct LogEvent { /* private: session_id, operation, fields */ }
@@ -332,14 +337,12 @@ pub fn discover_common_dir(start: &Path) -> Result<Option<PathBuf>, JevError>; /
 
 // sc-agent-http send_with_busy_retry (trace is r-7's required parameter),
 // immediately before the first Transport::send:
-//     if let Ok(text) = std::str::from_utf8(request.body()) { trace.record(Sha256Digest::of(text)); }
-// (every body is serde_json output, so the Err arm is unreachable in practice;
-//  a non-UTF-8 body would leave request_sha256 null)
+//     trace.record(Sha256Digest::of_text(request.body()));   // body() -> &str (r-7)
 
 // sc-decision-schema test_util (feature test-util)
 impl MockJudgeBackend {
     #[must_use]
-    pub fn with_sent_body(self, body: impl Into<Vec<u8>>) -> Self; // records Sha256Digest::of(body) into req.send_trace()
+    pub fn with_sent_body(self, body: impl Into<String>) -> Self; // records Sha256Digest::of_text(&body) into the send's trace
 }
 
 // sc-jev-check
@@ -353,7 +356,7 @@ impl LogContext {
 }
 impl RunConfig {
     #[must_use]
-    pub fn log_context(self, context: LogContext) -> Self; // unset: repo = RunConfig's repo_root, project = None
+    pub fn log_context(self, context: LogContext) -> Self; // unset: repo = discover_main_repo_root(repo_root), project = None
 }
 
 // sc-agent-compose
