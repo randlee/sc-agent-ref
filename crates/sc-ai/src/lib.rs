@@ -13,8 +13,11 @@
 //!
 //! # Examples
 //!
+//! The envelope type, its version and its operation names live in
+//! `sc_jev_check::run` (one owner, ADR-SAG-0024):
+//!
 //! ```
-//! use sc_ai::ENVELOPE_VERSION;
+//! use sc_jev_check::run::ENVELOPE_VERSION;
 //!
 //! assert_eq!(ENVELOPE_VERSION, "1");
 //! ```
@@ -27,8 +30,6 @@ mod observe;
 
 #[doc(inline)]
 pub use command::{execute, reads_stdin};
-#[doc(inline)]
-pub use envelope::{ENVELOPE_VERSION, OP_ASK, OP_DRY_RUN, OP_RUN};
 
 // Test seams for `tests/cli.rs`, not part of the API. A crate cannot turn on
 // its own cargo feature for its integration tests without a self
