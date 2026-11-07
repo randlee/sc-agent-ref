@@ -40,3 +40,17 @@ pub(crate) fn map_err<T>(
 ) -> PyResult<T> {
     result.map_err(|error| to_py_err(py, &error))
 }
+
+/// Like [`to_py_err`], with `response` (the run's response body as a dict)
+/// set as the exception's `response` attribute (REQ-SAG-0604).
+pub(crate) fn to_py_err_with_response(
+    py: Python<'_>,
+    error: &sc_agent_types::JevError,
+    response: Py<PyAny>,
+) -> PyErr {
+    let err = to_py_err(py, error);
+    if let Err(failure) = err.value(py).setattr("response", response) {
+        err.set_cause(py, Some(failure));
+    }
+    err
+}

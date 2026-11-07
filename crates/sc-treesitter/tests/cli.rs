@@ -26,6 +26,10 @@ fn fixture_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/cross-impl/branches")
 }
 
+#[expect(
+    clippy::disallowed_methods,
+    reason = "process spawn: runs the built sc-treesitter binary, the unit under test"
+)]
 fn run(cwd: &Path, args: &[&str]) -> Output {
     let mut command = Command::new(binary());
     isolate_git(&mut command).args(args).current_dir(cwd);

@@ -12,6 +12,10 @@ use std::process::{Command, Output};
 use support::{commit_all, git, isolate_git, spawn_with_deadline};
 use tempfile::TempDir;
 
+#[expect(
+    clippy::disallowed_methods,
+    reason = "process spawn: runs the built sc-treesitter binary, the unit under test"
+)]
 fn run(cwd: &Path, args: &[&str]) -> Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_sc-treesitter"));
     isolate_git(&mut command).args(args).current_dir(cwd);

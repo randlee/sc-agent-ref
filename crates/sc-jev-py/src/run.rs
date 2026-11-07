@@ -1,31 +1,28 @@
 //! `build_request`, `run_check`, and session `ask`.
 //!
 //! Both Python entry points keep their Python names and call
-//! `sc_jev_check::run::prepare` (and, for `run_check`, `run`); this module
-//! only maps the [`RunResponse`] into Python (ADR-SAG-0024). Every
-//! pyfunction here is `pub(crate)`: the Python module registered in
-//! `lib.rs` is the only surface. Work that may block (git, extractors, judge
-//! sends) runs under `py.detach`, so other Python threads keep running.
+//! `sc_jev_host::compose` (which calls `sc_jev_check::run::prepare` and
+//! `run`); this module only maps the [`RunResponse`] into Python
+//! (ADR-SAG-0024, ADR-SAG-0026). Every pyfunction here is `pub(crate)`: the
+//! Python module registered in `lib.rs` is the only surface. Work that may
+//! block (git, extractors, judge sends) runs under `py.detach`, so other
+//! Python threads keep running.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use pyo3::prelude::*;
 use pyo3::types::{PyAnyMethods, PyBytes};
-use sc_agent_types::observability::v2::{NoopSessionLog, SharedSessionLog};
 use sc_agent_types::schema::subjects::SubjectsProducer;
 use sc_agent_types::{
-    BackendId, BackendSet, JevError, RepoRoot, Rev, SessionId, Sha256Digest, canonical_json_bytes,
+    BackendSet, JevError, MultiBackendMode, Rev, SessionId, Sha256Digest, canonical_json_bytes,
 };
-use sc_jev_check::registry::BackendRegistry;
-use sc_jev_check::run::{
-    CheckSource, PreparedRun, RunConfig, RunResponse, ask, discover_repo_root, prepare, run,
-};
-use sc_jev_check::session::FileSessionStore;
+use sc_jev_check::run::{CheckSource, RunResponse};
+use sc_jev_host::compose::{ComposeInputs, ask_from, explicit_repo_root, prepare_from};
+use sc_jev_host::paths::PathPolicy;
 use serde_json::Value;
 
 use crate::error::{self, map_err};
-use crate::logging::{self, LoggerGuard};
 
 /// One Python `run_check` invocation, with owned arguments.
 struct CheckRun {
@@ -38,33 +35,19 @@ struct CheckRun {
     log_dir: Option<PathBuf>,
     session_dir: Option<PathBuf>,
     system_prompt_file: Option<PathBuf>,
+    /// `chain_context=True` selects `MultiBackendMode::ChainContext`.
+    chain_context: bool,
     /// Scripted judge answers; only `cargo test` and the `test-util` feature
     /// can set this (ADR-SAG-0022).
     #[cfg(any(test, feature = "test-util"))]
     scripted_answers: Option<Value>,
 }
 
-/// Session store, logger, and backends kept alive so `ask` reuses them.
+/// What `ask` needs to continue a live run: the host inputs resolved by the
+/// run (repo root, log root, session directory, injected registry).
+#[derive(Clone)]
 struct LiveSession {
-    store: FileSessionStore,
-    logger: LoggerGuard,
-    session_log: SharedSessionLog,
-    repo: RepoRoot,
-    /// The run's injected registry (scripted runs). `None` builds the
-    /// production registry for the session's backend at `ask` time.
-    registry: Option<Arc<BackendRegistry>>,
-}
-
-impl Clone for LiveSession {
-    fn clone(&self) -> Self {
-        Self {
-            store: self.store.clone(),
-            logger: self.logger.clone(),
-            session_log: Arc::clone(&self.session_log),
-            repo: self.repo.clone(),
-            registry: self.registry.clone(),
-        }
-    }
+    inputs: ComposeInputs,
 }
 
 /// Engine result for one run. `live` is `None` on dry-run.
@@ -103,61 +86,70 @@ pub(crate) fn canonical_of(json_text: &str) -> Result<Vec<u8>, JevError> {
     canonical_json_bytes(&value)
 }
 
+/// The host inputs shared by every Python entry point.
+fn base_inputs(
+    repo_root: Option<&Path>,
+    log_dir: Option<PathBuf>,
+    session_dir: Option<PathBuf>,
+) -> Result<ComposeInputs, JevError> {
+    let explicit = repo_root.map(explicit_repo_root).transpose()?;
+    let cwd = std::env::current_dir().or_else(|error| {
+        if explicit.is_some() {
+            // An explicit repo root never needs the working directory.
+            Ok(PathBuf::from("."))
+        } else {
+            Err(JevError::io_failed("current directory", &error))
+        }
+    })?;
+    let mut inputs = ComposeInputs::new(cwd, PathPolicy::python());
+    if let Some(root) = explicit {
+        inputs = inputs.repo_root(root);
+    }
+    if let Some(dir) = log_dir {
+        inputs = inputs.log_dir(dir);
+    }
+    if let Some(dir) = session_dir {
+        inputs = inputs.sessions_dir(dir);
+    }
+    Ok(inputs)
+}
+
 fn execute(spec: CheckRun) -> Result<FinishedRun, JevError> {
     let backends = parse_backends(spec.backends.as_deref())?;
-    let repo = resolve_repo(spec.repo_root.as_deref())?;
-    let repo_for_source = repo.clone();
     let rev = Rev::parse(&spec.rev)?;
-    let mut live = None;
-    let mut config = if spec.dry_run {
-        // Dry-run creates no session store, session directory, or logger.
-        RunConfig::new(repo.clone(), Arc::new(NoopSessionLog)).dry_run(true)
-    } else {
-        let log_root = logging::resolve_log_root(spec.log_dir.as_deref());
-        let session_dir = logging::resolve_session_dir(spec.session_dir.as_deref(), &log_root);
-        let (logger, session_log) = logging::open_session_log(&log_root)?;
-        let store = FileSessionStore::new(&session_dir)?;
-        live = Some(LiveSession {
-            store,
-            logger,
-            session_log: Arc::clone(&session_log),
-            repo: repo.clone(),
-            registry: None,
+    let mut inputs = base_inputs(spec.repo_root.as_deref(), spec.log_dir, spec.session_dir)?
+        .dry_run(spec.dry_run)
+        .rev(rev)
+        .mode(if spec.chain_context {
+            MultiBackendMode::ChainContext
+        } else {
+            MultiBackendMode::Independent
         });
-        RunConfig::new(repo, session_log).sessions_dir(session_dir)
-    }
-    .rev(rev);
     if let Some(backends) = backends {
-        config = config.backends(backends);
+        inputs = inputs.backends(backends);
     }
     if let Some(path) = spec.system_prompt_file {
-        config = config.system_prompt_override(path);
+        inputs = inputs.system_prompt_override(path);
     }
     #[cfg(any(test, feature = "test-util"))]
     if let Some(answers) = spec.scripted_answers {
-        // Every built-in id gets the scripted judge; the run uses the ones
-        // its backend selection names (config, then check.toml, then jev).
-        let ids: Vec<BackendId> = sc_agent_types::BACKENDS
-            .iter()
-            .map(sc_agent_types::BackendDescriptor::id)
-            .collect();
-        let registry = Arc::new(sc_jev_check::registry::register_scripted_backends(
-            &ids, answers,
-        )?);
-        if let Some(live) = &mut live {
-            live.registry = Some(Arc::clone(&registry));
-        }
-        config = config.registry(registry);
+        inputs = inputs.registry(scripted_registry(answers)?);
     }
-    let prepared = prepare(
-        CheckSource::check_file(&repo_for_source, &spec.check_path)?,
-        config,
-    )?;
-    let (payload, system_prompt) = prepared_text(&prepared);
-    let response = run(prepared)?;
-    if let Some(live) = &live {
-        live.logger.flush();
-    }
+    let resolved = inputs.resolve()?;
+    let source = CheckSource::check_file(&resolved.repo_root, &spec.check_path)?;
+    // The root is resolved once; the host does not discover it again.
+    let inputs = inputs.repo_root(resolved.repo_root.clone());
+    let prepared = prepare_from(source, inputs.clone())?;
+    let request = prepared.prepared().request();
+    let payload = request.payload().as_str().to_owned();
+    let system_prompt = request.llm().map(|llm| llm.system_prompt.clone());
+    let response = prepared.run()?;
+    // A live run's follow-ups use the paths this run resolved.
+    let live = (!spec.dry_run).then(|| LiveSession {
+        inputs: inputs
+            .log_dir(resolved.log_root)
+            .sessions_dir(resolved.sessions_dir),
+    });
     Ok(FinishedRun {
         response,
         payload,
@@ -166,13 +158,29 @@ fn execute(spec: CheckRun) -> Result<FinishedRun, JevError> {
     })
 }
 
-/// The canonical payload text and the resolved LLM system prompt.
-fn prepared_text(prepared: &PreparedRun) -> (String, Option<String>) {
-    let request = prepared.request();
-    (
-        request.payload().as_str().to_owned(),
-        request.llm().map(|llm| llm.system_prompt.clone()),
-    )
+/// The scripted registry for `answers` (ADR-SAG-0022, r-2b D5): passed
+/// unchanged to `register_scripted_backends`. The per-backend form names the
+/// backends it scripts; the shared form scripts every built-in backend.
+#[cfg(any(test, feature = "test-util"))]
+fn scripted_registry(
+    answers: Value,
+) -> Result<Arc<sc_jev_check::registry::BackendRegistry>, JevError> {
+    let ids: Vec<sc_agent_types::BackendId> = match answers
+        .as_object()
+        .filter(|map| map.len() == 1)
+        .and_then(|map| map.get("backends"))
+        .and_then(Value::as_object)
+    {
+        Some(by_backend) => by_backend
+            .keys()
+            .map(|name| name.parse())
+            .collect::<Result<_, _>>()?,
+        None => sc_agent_types::BACKENDS
+            .iter()
+            .map(sc_agent_types::BackendDescriptor::id)
+            .collect(),
+    };
+    sc_jev_check::registry::register_scripted_backends(&ids, answers).map(Arc::new)
 }
 
 fn build(
@@ -180,12 +188,12 @@ fn build(
     repo_root: Option<&Path>,
     rev_text: &str,
 ) -> Result<PreparedRequest, JevError> {
-    let repo = resolve_repo(repo_root)?;
     let rev = Rev::parse(rev_text)?;
-    let prepared = prepare(
-        CheckSource::check_file(&repo, check_path)?,
-        RunConfig::new(repo, Arc::new(NoopSessionLog)).rev(rev),
-    )?;
+    let inputs = base_inputs(repo_root, None, None)?.dry_run(true).rev(rev);
+    let resolved = inputs.resolve()?;
+    let source = CheckSource::check_file(&resolved.repo_root, check_path)?;
+    let host = prepare_from(source, inputs.repo_root(resolved.repo_root))?;
+    let prepared = host.prepared();
     Ok(PreparedRequest {
         payload: prepared.request().payload().as_str().to_owned(),
         prompt_sha256: prepared.prompt_sha256().clone(),
@@ -193,45 +201,14 @@ fn build(
     })
 }
 
-/// Parses `backends=` into a [`BackendSet`] with [`BackendId`]'s `FromStr`.
+/// Parses `backends=` into a [`BackendSet`] with `BackendSet::from_str`.
 ///
 /// Only `jev`, `anthropic_haiku`, and `openai_luna` are accepted, matching
 /// `sc-ai` and the engine. Kebab-case aliases (`anthropic-haiku`) are not
 /// accepted. An unknown id is `INPUT_INVALID`; an empty or repeated list is
 /// `CONFIG_INVALID`. `None` leaves the selection to the engine.
 fn parse_backends(names: Option<&[String]>) -> Result<Option<BackendSet>, JevError> {
-    let Some(names) = names else {
-        return Ok(None);
-    };
-    let ids = names
-        .iter()
-        .map(|name| name.parse())
-        .collect::<Result<Vec<BackendId>, JevError>>()?;
-    BackendSet::try_from(ids).map(Some)
-}
-
-/// Resolves `repo_root` like `sc-ai --repo-root`.
-///
-/// An explicit root must be a directory and is made absolute. `None` (or an
-/// empty path) is `discover_repo_root` of the process current directory: its
-/// git toplevel, or the directory itself outside git (ADR-SAG-0003 r-2
-/// amendment). From a subdirectory, keys come from the toplevel `.env`.
-fn resolve_repo(repo_root: Option<&Path>) -> Result<RepoRoot, JevError> {
-    match repo_root.filter(|path| !path.as_os_str().is_empty()) {
-        Some(path) => {
-            if !path.is_dir() {
-                return Err(JevError::input_missing(path.display().to_string()));
-            }
-            let absolute = std::path::absolute(path)
-                .map_err(|error| JevError::io_failed("repo_root", &error))?;
-            Ok(RepoRoot::new(absolute))
-        }
-        None => {
-            let current = std::env::current_dir()
-                .map_err(|error| JevError::io_failed("current directory", &error))?;
-            discover_repo_root(&current)
-        }
-    }
+    names.map(|names| names.join(",").parse()).transpose()
 }
 
 /// Drops an empty path, which Python callers use to mean "unset".
@@ -272,32 +249,27 @@ fn ask_with(
     follow_up: &str,
 ) -> PyResult<Py<PyAny>> {
     let follow_up = follow_up.to_owned();
-    let live = live.clone();
-    let outcome = py.detach(move || {
-        let mut config = RunConfig::new(live.repo.clone(), Arc::clone(&live.session_log));
-        if let Some(registry) = &live.registry {
-            config = config.registry(Arc::clone(registry));
-        }
-        let response = ask(&live.store, id, &follow_up, config)?;
-        live.logger.flush();
-        Ok::<_, JevError>(response)
-    });
+    let inputs = live.inputs.clone();
+    let outcome = py.detach(move || ask_from(id, &follow_up, inputs));
     let response = map_err(py, outcome)?;
     to_py(py, "outcome JSON", serde_json::to_value(response.outcome()))
 }
 
 /// Result of `run_check`, built from the engine's `RunResponse`.
 ///
-/// Immutable. `outcomes` (the `ok` results, in backend order) and
-/// `equal_input` are converted to Python objects once, when the result is
-/// built. `ask` is kept beside `Session.ask` because the Python harness
-/// relies on it; both send through the same session. `session` is empty on
-/// a dry run and when no backend that supports `ask` answered.
+/// Immutable. `outcomes` (the `ok` results, in backend order), `equal_input`
+/// and `data` are converted to Python objects once, when the result is
+/// built. `data` is the response body every consumer prints as the
+/// envelope's `data` (without `readback`). `ask` is kept beside `Session.ask`
+/// because the Python harness relies on it; both send through the same
+/// session. `session` is empty on a dry run and when no backend that
+/// supports `ask` answered.
 #[pyclass(module = "sc_jev_py", name = "CheckResult", frozen)]
 pub(crate) struct CheckResult {
     inner: FinishedRun,
     outcomes: Py<PyAny>,
     equal_input: Py<PyAny>,
+    data: Py<PyAny>,
 }
 
 impl CheckResult {
@@ -309,10 +281,12 @@ impl CheckResult {
             "equal-input JSON",
             serde_json::to_value(inner.response.equal_input()),
         )?;
+        let data = to_py(py, "run data JSON", serde_json::to_value(&inner.response))?;
         Ok(Self {
             inner,
             outcomes,
             equal_input,
+            data,
         })
     }
 }
@@ -349,6 +323,14 @@ impl CheckResult {
     #[getter]
     fn equal_input(&self, py: Python<'_>) -> Py<PyAny> {
         self.equal_input.clone_ref(py)
+    }
+
+    /// The run response body: the same `data` the `sc-ai` envelope carries,
+    /// minus its `readback` key. Includes `warnings` when the session log
+    /// was not flushed.
+    #[getter]
+    fn data(&self, py: Python<'_>) -> Py<PyAny> {
+        self.data.clone_ref(py)
     }
 
     /// LLM system prompt injected for this run. Not part of `prompt_sha256`.
@@ -435,11 +417,11 @@ impl Session {
 
 /// Builds the canonical payload for repo-relative `check_path` without sending.
 ///
-/// Assembly is `sc_jev_check::run::prepare` (ADR-SAG-0005, ADR-SAG-0024).
-/// This function maps the prepared run into Python. It does not run
-/// extractors or build the payload itself. `repo_root` defaults to the git
-/// toplevel of the process current directory (the directory itself outside
-/// git).
+/// Assembly is `sc_jev_host::compose::prepare_from` over
+/// `sc_jev_check::run::prepare` (ADR-SAG-0005, ADR-SAG-0024). This function
+/// maps the prepared run into Python. It does not run extractors or build the
+/// payload itself. `repo_root` defaults to the git toplevel of the process
+/// current directory (the directory itself outside git).
 /// `rev` defaults to `WORKTREE`. The GIL is released while the request is
 /// assembled (git reads and command extractors may take seconds). The result
 /// mapping contains `payload`, `prompt_sha256`, and `producer`.
@@ -485,6 +467,7 @@ fn check_run(
     log_dir: Option<PathBuf>,
     session_dir: Option<PathBuf>,
     system_prompt_file: Option<PathBuf>,
+    chain_context: bool,
 ) -> Result<CheckRun, JevError> {
     Ok(CheckRun {
         check_path: check_path.to_path_buf(),
@@ -495,6 +478,7 @@ fn check_run(
         log_dir: non_empty(log_dir),
         session_dir: non_empty(session_dir),
         system_prompt_file: non_empty(system_prompt_file),
+        chain_context,
         #[cfg(any(test, feature = "test-util"))]
         scripted_answers: None,
     })
@@ -502,7 +486,23 @@ fn check_run(
 
 fn finish_check(py: Python<'_>, spec: CheckRun) -> PyResult<CheckResult> {
     let finished = py.detach(move || execute(spec));
-    CheckResult::new(py, map_err(py, finished)?)
+    let finished = map_err(py, finished)?;
+    // REQ-SAG-0604: a partial response raises, carrying the first failure's
+    // code and the whole body as `.response` (the answers that succeeded).
+    if let Some(failure) = finished
+        .response
+        .is_partial()
+        .then(|| finished.response.first_failure())
+        .flatten()
+    {
+        let data = to_py(
+            py,
+            "run data JSON",
+            serde_json::to_value(&finished.response),
+        )?;
+        return Err(error::to_py_err_with_response(py, failure.error(), data));
+    }
+    CheckResult::new(py, finished)
 }
 
 /// Runs `check_path` through `sc-jev-check`.
@@ -510,9 +510,10 @@ fn finish_check(py: Python<'_>, spec: CheckRun) -> PyResult<CheckResult> {
 /// `backends` wins over `check.toml`'s `backends`; with neither the run uses
 /// `["jev"]`. Ids are `jev`, `anthropic_haiku`, and `openai_luna`. `dry_run`
 /// returns the payload digest and does not resolve keys, send, or create a
-/// session store or log. Path arguments accept `str`
-/// or `os.PathLike`. This function does not register a judge. Live runs use
-/// the HTTP backends inside `sc-jev-check` (ADR-SAG-0009). The GIL is
+/// session store or log. `chain_context=True` lets later backends see earlier
+/// answers; the default is independent (ADR-SAG-0008). Path arguments accept
+/// `str` or `os.PathLike`. This function does not register a judge. Live runs
+/// use the HTTP backends inside `sc-jev-check` (ADR-SAG-0009). The GIL is
 /// released while the check runs.
 ///
 /// Log and session paths follow ADR-SAG-0021. See the module documentation
@@ -521,7 +522,10 @@ fn finish_check(py: Python<'_>, spec: CheckRun) -> PyResult<CheckResult> {
 /// # Errors
 ///
 /// Raises `JevError` with `code` and `message` set from the facade error. An
-/// unknown backend id or a malformed `rev` is `INPUT_INVALID`.
+/// unknown backend id or a malformed `rev` is `INPUT_INVALID`. When some, not
+/// all, backends fail, the `JevError` carries the first failure's code and a
+/// `response` attribute holding the response body (with the successful
+/// answers) as a dict; when every backend fails there is no `response`.
 ///
 /// # Examples
 ///
@@ -540,6 +544,7 @@ fn finish_check(py: Python<'_>, spec: CheckRun) -> PyResult<CheckResult> {
     log_dir=None,
     session_dir=None,
     system_prompt_file=None,
+    chain_context=false,
 ))]
 #[expect(clippy::too_many_arguments, reason = "Python keyword API")]
 pub(crate) fn run_check(
@@ -552,6 +557,7 @@ pub(crate) fn run_check(
     log_dir: Option<PathBuf>,
     session_dir: Option<PathBuf>,
     system_prompt_file: Option<PathBuf>,
+    chain_context: bool,
 ) -> PyResult<CheckResult> {
     let spec = map_err(
         py,
@@ -564,6 +570,7 @@ pub(crate) fn run_check(
             log_dir,
             session_dir,
             system_prompt_file,
+            chain_context,
         ),
     )?;
     finish_check(py, spec)
@@ -576,8 +583,8 @@ pub(crate) mod testing {
 
     /// `run_check` with scripted judge answers instead of HTTP backends.
     ///
-    /// `scripted_answers` is a mapping of question id to an answer object or
-    /// the string shorthand for `{"choice": ...}`. It is forwarded to
+    /// `scripted_answers` is the r-2b D5 JSON (shared or per-backend form) as
+    /// a Python mapping. It is forwarded unchanged to
     /// `sc_jev_check::registry::register_scripted_backends`, which owns the
     /// shape rules. This crate implements no judge (ADR-SAG-0009).
     ///
@@ -597,6 +604,7 @@ pub(crate) mod testing {
         log_dir=None,
         session_dir=None,
         system_prompt_file=None,
+        chain_context=false,
     ))]
     #[expect(clippy::too_many_arguments, reason = "Python keyword API")]
     pub(crate) fn run_check_scripted(
@@ -610,6 +618,7 @@ pub(crate) mod testing {
         log_dir: Option<PathBuf>,
         session_dir: Option<PathBuf>,
         system_prompt_file: Option<PathBuf>,
+        chain_context: bool,
     ) -> PyResult<CheckResult> {
         let answers = map_err(py, py_to_value(&scripted_answers))?;
         let mut spec = map_err(
@@ -623,6 +632,7 @@ pub(crate) mod testing {
                 log_dir,
                 session_dir,
                 system_prompt_file,
+                chain_context,
             ),
         )?;
         spec.scripted_answers = Some(answers);
@@ -656,11 +666,16 @@ pub(crate) fn canonical_sha256(py: Python<'_>, json_text: &str) -> PyResult<Stri
     Ok(Sha256Digest::of(&bytes).to_string())
 }
 
+/// The Python path policy; the repo root does not enter its defaults.
+fn policy_root() -> sc_agent_types::RepoRoot {
+    sc_agent_types::RepoRoot::new(".")
+}
+
 /// Returns the default log root (`~/.sc-agent/log`).
 #[pyfunction]
 #[must_use]
 pub(crate) fn default_log_root() -> PathBuf {
-    logging::default_log_root()
+    PathPolicy::python().default_log_root(&policy_root())
 }
 
 /// Resolves the log root (ADR-SAG-0021).
@@ -673,7 +688,7 @@ pub(crate) fn default_log_root() -> PathBuf {
 #[pyo3(signature = (log_dir=None))]
 #[must_use]
 pub(crate) fn resolve_log_root(log_dir: Option<PathBuf>) -> PathBuf {
-    logging::resolve_log_root(log_dir.as_deref())
+    PathPolicy::python().resolve_log_root(log_dir.as_deref(), &policy_root())
 }
 
 /// Resolves the session directory (ADR-SAG-0021).
@@ -685,19 +700,20 @@ pub(crate) fn resolve_log_root(log_dir: Option<PathBuf>) -> PathBuf {
 #[pyo3(signature = (log_dir, *, session_dir=None))]
 #[must_use]
 pub(crate) fn resolve_session_dir(log_dir: PathBuf, session_dir: Option<PathBuf>) -> PathBuf {
-    logging::resolve_session_dir(session_dir.as_deref(), &log_dir)
+    PathPolicy::python().resolve_session_dir(session_dir.as_deref(), &log_dir, &policy_root())
 }
 
 /// Returns `{log_dir}/logs/sc-jev-py.log.jsonl`.
 #[pyfunction]
 #[must_use]
 pub(crate) fn log_file(log_dir: PathBuf) -> PathBuf {
-    logging::log_file(&log_dir)
+    PathPolicy::python().jsonl_path(&log_dir)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sc_agent_types::BackendId;
     use tempfile::TempDir;
 
     fn workspace_root() -> PathBuf {
@@ -749,6 +765,7 @@ mod tests {
             log_dir: Some(logs.to_path_buf()),
             session_dir: Some(sessions.to_path_buf()),
             system_prompt_file: None,
+            chain_context: false,
             scripted_answers: Some(serde_json::json!({"relevant": "yes"})),
         }
     }
@@ -762,21 +779,16 @@ mod tests {
         finished: &FinishedRun,
         follow_up: &str,
     ) -> Result<sc_agent_types::JudgeOutcome, JevError> {
-        let live = live(finished);
-        let config = RunConfig::new(live.repo.clone(), Arc::clone(&live.session_log)).registry(
-            Arc::clone(live.registry.as_ref().expect("scripted registry")),
-        );
-        ask(
-            &live.store,
+        ask_from(
             finished.session_id().expect("session"),
             follow_up,
-            config,
+            live(finished).inputs.clone(),
         )
         .map(|response| response.outcome().clone())
     }
 
     fn jsonl_lines(logs: &Path) -> Vec<String> {
-        let path = logging::log_file(logs);
+        let path = PathPolicy::python().jsonl_path(logs);
         if !path.exists() {
             return Vec::new();
         }
@@ -859,7 +871,6 @@ mod tests {
         assert!(!lines[0].contains(sentinel));
         assert!(!lines[0].to_ascii_lowercase().contains("api_key"));
         let follow = ask_live(&finished, "why?");
-        live(&finished).logger.flush();
         let outcome = follow.expect("ask");
         assert_eq!(outcome.backend(), BackendId::AnthropicHaiku);
         let lines = jsonl_lines(&logs);
@@ -867,25 +878,6 @@ mod tests {
         assert!(lines[1].contains("ask"));
         assert!(!lines[1].contains(sentinel));
         assert!(!lines[1].contains("why?"));
-    }
-
-    #[test]
-    fn two_runs_in_one_process_share_one_writer() {
-        let root = temp_dir("shared");
-        let repo = root.path().join("repo");
-        let logs = root.path().join("log");
-        let sessions = root.path().join("sessions");
-        std::fs::create_dir_all(&repo).expect("repo");
-        write_questions(&repo, "Shared?");
-        let first = execute(run_spec(&repo, &logs, &sessions, "jev", false)).expect("first");
-        let second = execute(run_spec(&repo, &logs, &sessions, "jev", false)).expect("second");
-        let first_logger = &live(&first).logger;
-        let second_logger = &live(&second).logger;
-        assert!(
-            first_logger.shares_writer_with(second_logger),
-            "one writer per log root"
-        );
-        assert_eq!(jsonl_lines(&logs).len(), 2);
     }
 
     #[test]
@@ -899,7 +891,7 @@ mod tests {
         let finished = execute(run_spec(&repo, &logs, &sessions, "jev", false)).expect("run");
         // Jev has no `ask`, so a Jev-only run saves no session file.
         assert!(finished.session_id().is_none());
-        assert_eq!(std::fs::read_dir(&sessions).expect("dir").count(), 0);
+        assert_eq!(std::fs::read_dir(&sessions).map_or(0, Iterator::count), 0);
         assert_eq!(jsonl_lines(&logs).len(), 1);
         let mut spec = run_spec(&repo, &logs, &sessions, "jev", false);
         spec.check_path = PathBuf::from("missing.toml");
@@ -951,20 +943,15 @@ mod tests {
             assert_eq!(error.code(), "INPUT_INVALID", "{rev:?}");
         }
         let absent = root.path().join("absent");
-        let error = resolve_repo(Some(&absent)).expect_err("absent repo");
+        let error = explicit_repo_root(&absent).expect_err("absent repo");
         assert_eq!(error.code(), "INPUT_MISSING");
         let file = root.path().join("check.toml");
         assert_eq!(
-            resolve_repo(Some(&file)).expect_err("file repo").code(),
+            explicit_repo_root(&file).expect_err("file repo").code(),
             "INPUT_MISSING"
         );
-        let relative = resolve_repo(Some(Path::new("."))).expect("relative repo");
+        let relative = explicit_repo_root(Path::new(".")).expect("relative repo");
         assert!(relative.as_path().is_absolute());
-        let empty = resolve_repo(Some(Path::new(""))).expect("empty means discovery");
-        assert_eq!(
-            empty,
-            discover_repo_root(&std::env::current_dir().expect("cwd")).expect("root")
-        );
     }
 
     #[test]
@@ -1052,6 +1039,7 @@ mod tests {
                 None,
                 None,
                 None,
+                false,
             )
             .expect("dry run");
             assert_eq!(result.prompt_sha256(), digest);
@@ -1086,6 +1074,7 @@ mod tests {
                 Some(logs.clone()),
                 Some(root.path().join("sessions")),
                 None,
+                false,
             )
             .expect("scripted run");
             let outcomes = live.outcomes(py);

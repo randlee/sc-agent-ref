@@ -30,7 +30,8 @@ use sc_agent_types::{
 };
 use sc_jev_check::registry::BackendRegistry;
 use sc_jev_check::run::{
-    AskResponse, CheckSource, RunConfig, RunResponse, ask, discover_repo_root, prepare, run,
+    AskResponse, CheckSource, PreparedRun, RunConfig, RunResponse, ask, discover_repo_root,
+    prepare, run,
 };
 use sc_jev_check::session::FileSessionStore;
 
@@ -272,6 +273,71 @@ pub fn explicit_repo_root(path: &Path) -> Result<RepoRoot, JevError> {
     Ok(RepoRoot::new(absolute))
 }
 
+/// A prepared run plus the session logger it will use.
+///
+/// Returned by [`prepare_from`] for a root that needs the request (payload,
+/// resolved prompt) before the run; [`run_from`] is `prepare_from(..)?.run()`.
+/// Preparing sends nothing and builds the payload once.
+#[derive(Debug)]
+pub struct HostRun {
+    prepared: PreparedRun,
+    adapter: Option<ObservabilityAdapter>,
+}
+
+impl HostRun {
+    /// The prepared run (payload digest, request, resolved backends).
+    #[must_use]
+    pub fn prepared(&self) -> &PreparedRun {
+        &self.prepared
+    }
+
+    /// Runs the prepared check, then flushes the log.
+    ///
+    /// A flush failure is appended to the response as a warning (CR-014),
+    /// never returned as an error. The caller decides what a partial
+    /// response means (`RunResponse::is_partial`, `first_failure`).
+    ///
+    /// # Errors
+    ///
+    /// Any [`JevError`] from `run`, including the all-backends-failed case.
+    pub fn run(self) -> Result<RunResponse, JevError> {
+        let mut response = run(self.prepared)?;
+        if let Some(warning) = self.adapter.as_ref().and_then(finish_log) {
+            response = response.with_warning(warning);
+        }
+        Ok(response)
+    }
+}
+
+/// Resolves paths, starts the logger (not for a dry run) and prepares
+/// `source`.
+///
+/// A dry run opens no log and creates no session directory (ARCHE-019).
+///
+/// # Errors
+///
+/// Any [`JevError`] from root discovery, logger start or `prepare`.
+pub fn prepare_from(source: CheckSource, inputs: ComposeInputs) -> Result<HostRun, JevError> {
+    let resolved = inputs.resolve()?;
+    let adapter = if inputs.dry_run {
+        None
+    } else {
+        Some(ObservabilityAdapter::open(
+            &inputs.policy,
+            &resolved.log_root,
+        )?)
+    };
+    let log: SharedSessionLog = match &adapter {
+        Some(adapter) => adapter.shared(),
+        None => Arc::new(NoopSessionLog),
+    };
+    let config = inputs.run_config(&resolved, log);
+    Ok(HostRun {
+        prepared: prepare(source, config)?,
+        adapter,
+    })
+}
+
 /// Runs `source` with `inputs`: `prepare`, `run`, then a log flush.
 ///
 /// A dry run opens no log and creates no session directory (ARCHE-019). A
@@ -287,25 +353,7 @@ pub fn explicit_repo_root(path: &Path) -> Result<RepoRoot, JevError> {
 /// Any [`JevError`] from root discovery, logger start, `prepare` or `run`,
 /// including the all-backends-failed case.
 pub fn run_from(source: CheckSource, inputs: ComposeInputs) -> Result<RunResponse, JevError> {
-    let resolved = inputs.resolve()?;
-    let adapter = if inputs.dry_run {
-        None
-    } else {
-        Some(ObservabilityAdapter::open(
-            &inputs.policy,
-            &resolved.log_root,
-        )?)
-    };
-    let log: SharedSessionLog = match &adapter {
-        Some(adapter) => adapter.shared(),
-        None => Arc::new(NoopSessionLog),
-    };
-    let config = inputs.run_config(&resolved, log);
-    let mut response = run(prepare(source, config)?)?;
-    if let Some(warning) = adapter.as_ref().and_then(finish_log) {
-        response = response.with_warning(warning);
-    }
-    Ok(response)
+    prepare_from(source, inputs)?.run()
 }
 
 /// Sends `follow_up` to the saved session `session_id`.

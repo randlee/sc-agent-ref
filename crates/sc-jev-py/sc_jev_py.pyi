@@ -11,6 +11,10 @@ class JevError(Exception):
 
     code: str
     message: str
+    response: dict[str, Any] | None
+    """Set when some, not all, backends failed: the run response body
+    (`data`, with the answers that succeeded). `None` otherwise, including
+    when every backend failed."""
 
 class Session:
     """Live judge session returned by `CheckResult.session`."""
@@ -33,6 +37,8 @@ class CheckResult:
     @property
     def equal_input(self) -> dict[str, Any] | None: ...
     @property
+    def data(self) -> dict[str, Any]: ...
+    @property
     def system_prompt(self) -> str | None: ...
     @property
     def session(self) -> Session | None: ...
@@ -54,6 +60,7 @@ def run_check(
     log_dir: StrPath | None = None,
     session_dir: StrPath | None = None,
     system_prompt_file: StrPath | None = None,
+    chain_context: bool = False,
 ) -> CheckResult: ...
 def canonical_bytes(json_text: str) -> bytes: ...
 def canonical_sha256(json_text: str) -> str: ...

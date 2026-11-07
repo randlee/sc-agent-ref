@@ -156,6 +156,22 @@ impl PathPolicy {
         if let Some(path) = first_env_path(self.log_root_env, env) {
             return path;
         }
+        self.default_log_root_with(repo, env)
+    }
+
+    /// The log root when no argument or environment variable sets it.
+    #[must_use]
+    pub fn default_log_root(&self, repo: &RepoRoot) -> PathBuf {
+        self.default_log_root_with(repo, &|name| std::env::var_os(name))
+    }
+
+    /// [`Self::default_log_root`] over an injected environment lookup.
+    #[must_use]
+    pub fn default_log_root_with(
+        &self,
+        repo: &RepoRoot,
+        env: &dyn Fn(&str) -> Option<OsString>,
+    ) -> PathBuf {
         match &self.log_root_default {
             DefaultRoot::UnderRepoRoot(relative) => repo.as_path().join(relative),
             DefaultRoot::UnderHome {

@@ -1,6 +1,6 @@
 //! Workspace test: Rust canonical bytes match the committed Python reference.
 
-#[path = "../support/deadline.rs"]
+#[path = "../../../tests/support/deadline.rs"]
 mod deadline;
 
 use std::path::PathBuf;
@@ -19,6 +19,14 @@ fn python_program() -> &'static str {
     if cfg!(windows) { "python" } else { "python3" }
 }
 
+#[expect(
+    clippy::disallowed_methods,
+    reason = "process spawn: runs the committed Python reference canonicalizer"
+)]
+fn python_reference(script: &std::path::Path) -> std::process::Output {
+    spawn_with_deadline(Command::new(python_program()).arg(script), None)
+}
+
 #[test]
 fn jev_cross_impl_matches_python_reference() {
     let root = repo_root();
@@ -27,10 +35,7 @@ fn jev_cross_impl_matches_python_reference() {
     let value: serde_json::Value = serde_json::from_str(&logical).expect("parse logical json");
     let rust_bytes = canonical_json_bytes(&value).expect("canonicalize");
 
-    let python = spawn_with_deadline(
-        Command::new(python_program()).arg(fixture.join("canonicalize.py")),
-        None,
-    );
+    let python = python_reference(&fixture.join("canonicalize.py"));
     assert!(
         python.status.success(),
         "python reference failed: {}",

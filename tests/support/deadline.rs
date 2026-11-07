@@ -155,6 +155,13 @@ fn own_process_group(command: &mut Command) {
 fn own_process_group(_command: &mut Command) {}
 
 /// Kills the child and, on Unix, every process in its group.
+#[cfg_attr(
+    unix,
+    expect(
+        clippy::disallowed_methods,
+        reason = "process spawn: `kill` ends the child's whole process group"
+    )
+)]
 fn kill_tree(child: &mut Child) {
     #[cfg(unix)]
     {
@@ -171,6 +178,10 @@ fn kill_tree(child: &mut Child) {
 }
 
 #[cfg(all(test, unix))]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "process spawn: the runner's own tests start `sh` children"
+)]
 mod tests {
     use super::*;
 

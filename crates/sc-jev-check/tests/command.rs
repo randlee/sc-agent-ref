@@ -234,6 +234,10 @@ const PROBE_DONE: &str = "command-env-probe-ran";
 /// cannot set the variable in its own process) and checks the producer did
 /// not see it. The child is bounded by the shared deadline (FTQ-004).
 #[test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "process spawn: re-runs this test binary with a sentinel credential in its environment"
+)]
 fn test_command_child_env_is_allowlisted() {
     let exe = std::env::current_exe().expect("test binary");
     let mut command = Command::new(exe);

@@ -1447,7 +1447,7 @@ dependencies = [
  "pyo3",
  "sc-agent-types",
  "sc-jev-check",
- "sc-observability",
+ "sc-jev-host",
  "serde_json",
  "tempfile",
 ]
