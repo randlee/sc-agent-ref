@@ -7,6 +7,10 @@
 //! - [`RecordingTransport`] records every request and forwards it to an inner
 //!   transport.
 //!
+//! State is behind `Arc<Mutex<_>>` because `Transport` is `Send + Sync` and
+//! `send` takes `&self`: clones held by a test and by a backend must share
+//! one record. Poisoning is ignored (the data stays usable after a panic).
+//!
 //! Neither transport can read a secret: a recorded [`HttpRequest`] exposes
 //! only [`SecretHeader::redacted`](crate::SecretHeader::redacted) and
 //! [`SecretHeader::matches`](crate::SecretHeader::matches).

@@ -134,18 +134,12 @@ impl Transport for UreqTransport {
             let value = format!("{}{}", secret.prefix(), expose(secret.key()));
             builder = builder.header(secret.name().as_str(), value);
         }
-        let outbound = builder.body(request.body()).map_err(|error| {
-            JevError::network(
-                NetworkErrorKind::Connect,
-                format!("request is invalid: {error}"),
-            )
-        })?;
-        let response = self.agent.run(outbound).map_err(|error| {
-            JevError::network(
-                ureq_error_kind(&error),
-                format!("connection failed: {error}"),
-            )
-        })?;
+        // A request that cannot be built (bad header value) is deterministic,
+        // so it is INPUT_INVALID, not a retryable network kind.
+        let outbound = builder
+            .body(request.body())
+            .map_err(|error| JevError::input_invalid(format!("request is invalid: {error}")))?;
+        let response = self.agent.run(outbound).map_err(ureq_error)?;
         read_response(response)
     }
 }
@@ -227,11 +221,26 @@ pub(crate) fn is_valid_url(url: &str) -> bool {
     Uri::from_str(url).is_ok_and(|uri| uri.scheme().is_some() && uri.host().is_some())
 }
 
+/// A ureq failure as a `JevError`.
+///
+/// An oversize body is `RESPONSE_INVALID`, the same as the streaming cap in
+/// [`read_response`] (one rule for "response too large"); everything else is
+/// `NETWORK_ERROR` of [`ureq_error_kind`].
+fn ureq_error(error: ureq::Error) -> JevError {
+    if let ureq::Error::BodyExceedsLimit(limit) = error {
+        return JevError::response_invalid(format!("response exceeds {limit} bytes"));
+    }
+    JevError::network(
+        ureq_error_kind(&error),
+        format!("connection failed: {error}"),
+    )
+}
+
 /// Classifies a ureq failure for [`JevError::retryable`].
 ///
-/// TLS, certificate and https-only refusals are `Tls` (not retryable); an
-/// oversize body is `BodyTooLarge`; a timeout is `Timeout`; everything else
-/// that fails before a response, DNS included, is `Connect`.
+/// TLS, certificate and https-only refusals are `Tls` (not retryable); a
+/// timeout is `Timeout`; everything else that fails before a response, DNS
+/// included, is `Connect`.
 fn ureq_error_kind(error: &ureq::Error) -> NetworkErrorKind {
     match error {
         ureq::Error::Timeout(_) => NetworkErrorKind::Timeout,
@@ -241,7 +250,6 @@ fn ureq_error_kind(error: &ureq::Error) -> NetworkErrorKind {
         | ureq::Error::RequireHttpsOnly(_)
         | ureq::Error::Pem(_)
         | ureq::Error::Rustls(_) => NetworkErrorKind::Tls,
-        ureq::Error::BodyExceedsLimit(_) => NetworkErrorKind::BodyTooLarge,
         _ => NetworkErrorKind::Connect,
     }
 }
@@ -325,16 +333,16 @@ mod tests {
             ),
             (ureq::Error::Tls("handshake"), NetworkErrorKind::Tls),
             (ureq::Error::TlsRequired, NetworkErrorKind::Tls),
-            (
-                ureq::Error::BodyExceedsLimit(1),
-                NetworkErrorKind::BodyTooLarge,
-            ),
             (ureq::Error::ConnectionFailed, NetworkErrorKind::Connect),
             (ureq::Error::HostNotFound, NetworkErrorKind::Connect),
         ];
         for (error, kind) in cases {
             assert_eq!(ureq_error_kind(&error), kind, "{error}");
         }
+        assert_eq!(
+            ureq_error(ureq::Error::BodyExceedsLimit(1)).code(),
+            "RESPONSE_INVALID"
+        );
         assert!(NetworkErrorKind::Connect.retryable());
         assert!(!NetworkErrorKind::Tls.retryable());
     }

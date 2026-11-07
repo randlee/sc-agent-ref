@@ -9,6 +9,12 @@ use sc_agent_http::Endpoint;
 use sc_agent_types::JevError;
 use serde::Deserialize;
 
+/// Most sends per call (owner decision (b), `BusyPolicy::default`).
+const MAX_ATTEMPTS: u32 = 4;
+
+/// Longest in-flight request (owner decision (b), ADR-SAG-0007).
+const MAX_TIMEOUT: Duration = Duration::from_secs(120);
+
 /// TypeSafe check/judge client settings.
 ///
 /// The packaged defaults live in `jev.toml` and are the vendor pins for the
@@ -102,11 +108,12 @@ impl JevClientConfig {
                 "path must be an absolute URL path such as /v1/systemone",
             ));
         }
-        if !(1..=8).contains(&attempts) {
-            return Err(invalid("attempts must be from 1 to 8"));
+        // Owner decision (b): at most 4 sends and a 120 s in-flight request.
+        if !(1..=MAX_ATTEMPTS).contains(&attempts) {
+            return Err(invalid("attempts must be from 1 to 4"));
         }
-        if timeout.is_zero() || timeout > Duration::from_secs(3_600) {
-            return Err(invalid("timeout must be from 1 second to 3600 seconds"));
+        if timeout.is_zero() || timeout > MAX_TIMEOUT {
+            return Err(invalid("timeout must be from 1 second to 120 seconds"));
         }
         let endpoint = Endpoint::parse(&format!("https://{host}{path}"))?;
         Ok(Self {
@@ -179,6 +186,15 @@ mod tests {
     }
 
     #[test]
+    fn ranges_stop_at_the_owner_decided_bounds() {
+        let at_bounds = VALID
+            .replace("attempts = 2", "attempts = 4")
+            .replace("timeout_seconds = 5", "timeout_seconds = 120");
+        let config = JevClientConfig::from_toml(&at_bounds).expect("bounds are valid");
+        assert_eq!((config.attempts(), config.timeout()), (4, MAX_TIMEOUT));
+    }
+
+    #[test]
     fn from_toml_rejects_bad_documents() {
         let cases = [
             ("not = [toml", "jev.toml"),
@@ -189,14 +205,15 @@ mod tests {
                 "timeout",
             ),
             (
-                &VALID.replace("timeout_seconds = 5", "timeout_seconds = 3601"),
+                &VALID.replace("timeout_seconds = 5", "timeout_seconds = 121"),
                 "timeout",
             ),
             (
                 &VALID.replace("timeout_seconds = 5", "timeout_seconds = -1"),
                 "jev.toml",
             ),
-            (&VALID.replace("attempts = 2", "attempts = 9"), "attempts"),
+            (&VALID.replace("attempts = 2", "attempts = 5"), "attempts"),
+            (&VALID.replace("attempts = 2", "attempts = 0"), "attempts"),
             (
                 &format!("{VALID}max_request_bytes = 10\n"),
                 "max_request_bytes",

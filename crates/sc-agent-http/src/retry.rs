@@ -21,7 +21,11 @@
 //! - The [`CancelToken`] is checked before each attempt and between wait
 //!   slices of at most 100 ms.
 //! - Errors are never retried: a connect or DNS failure, a timeout, or a
-//!   failure after the body was sent returns at once. There is no
+//!   failure after the body was sent returns at once. A provider may already
+//!   have processed (and billed) a request whose reply was lost, so resending
+//!   it could double-charge; only busy statuses, which say the request was
+//!   not processed, are resent. (A 502 can still double-charge a provider
+//!   that processed the request; ADR-SAG-0007 r-3 records that.) There is no
 //!   connectivity probing; the caller decides whether to retry.
 
 use std::hash::{BuildHasher, RandomState};
