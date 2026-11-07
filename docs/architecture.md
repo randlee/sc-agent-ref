@@ -1476,7 +1476,7 @@ Owner decisions 2026-11-07.
   decision model with a slightly different schema adds a `SchemaFamily`
   variant and a module; callers do not change.
 - (Proposed, r-7) **Model catalog** (`sc-agent-types`). `ModelId` is an open
-  enum: known variants that track recent releases plus `Other(string)`, so a
+  enum: known variants that track recent releases plus `Other(UnknownModel)`, so a
   model released after the build still parses, is sent verbatim and is
   logged. `Display`, `FromStr` and serde use the model string. The unknown
   form (`UnknownModel`) has no public constructor, so `Other` never holds a
