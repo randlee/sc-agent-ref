@@ -15,8 +15,13 @@
 #   grep -E '(^|[^[:alnum:]_-])<name> v[0-9]'
 #
 # Rows added by r-4: REQ-SAG-0134 (no mimalloc in either library tree, and
-# mimalloc present in each binary crate's default tree). The remaining rows of
-# the plan table are added by r-3b.
+# mimalloc present in each binary crate's default tree). Rows added by r-3
+# (QA-1, RBQA-F104 / RBQA-F009; parent-authorized): ureq only in sc-agent-http
+# (depth-1 rows for sc-jev, sc-jev-backends, sc-jev-check; positive control on
+# sc-agent-http), sc-agent-http's forbidden packages, and the graph rows
+# below (no workspace `test-util` in any normal graph; sc-agent-http reaches
+# sc-agent-types with feature `secret` only). The remaining rows of the plan
+# table are added by r-3b.
 #
 # Feature rows (r-3c, ADR-SAG-0015, RBQA-F009) inspect
 # `cargo tree -e normal,features -i <package>` instead of package names: in
@@ -46,6 +51,21 @@ rows=(
   "sc-treesitter|lib||mimalloc"
   "sc-ai|present||mimalloc"
   "sc-treesitter|present||mimalloc"
+  "sc-jev|both|--depth 1|ureq sc-observability pyo3"
+  "sc-jev-backends|both|--depth 1|ureq sc-observability pyo3"
+  "sc-jev-check|both|--depth 1|ureq sc-observability pyo3 tree-sitter"
+  "sc-agent-http|both||sc-observability pyo3 tree-sitter sc-agent-secrets sc-jev sc-jev-backends sc-jev-check"
+  "sc-agent-http|present|--depth 1|ureq"
+)
+
+# Graph rows (r-3; `-e normal,features`, dev edges excluded, so a dev-only
+# `test-util` does not count). Whole lines are matched with `grep -E`.
+# Fields are separated by `;` because the regexes use `|`.
+# label ; cargo tree args ; absent regex ; present regex (positive control)
+graph_rows=(
+  "test-util off in normal graphs;--workspace -e normal,features;feature \"test-util\";"
+  "test-util control (dev edges);--workspace -e normal,dev,features;;^sc-agent-http feature \"test-util\""
+  "sc-agent-http -> sc-agent-types secret only;-p sc-agent-http -e normal,features -i sc-agent-types;^sc-agent-types feature \"(judge|obs|git|default|test-util)\";^sc-agent-types feature \"secret\""
 )
 
 # crate | mode (lib|present) | inverted package | features (space-separated)
@@ -155,6 +175,52 @@ run_feature_row() {
 for row in "${feature_rows[@]}"; do
   IFS='|' read -r crate mode package features <<<"$row"
   run_feature_row "$crate" "$mode" "$package" "$features"
+done
+
+run_graph_row() {
+  local label="$1" args_text="$2" absent="$3" present="$4"
+  local -a args=(tree --locked --prefix none)
+  local -a extra_args
+  read -r -a extra_args <<<"$args_text"
+  args+=("${extra_args[@]}")
+  local tree
+  if ! tree="$(cargo "${args[@]}" 2>"$errfile")"; then
+    echo "FAIL  $label (cargo ${args[*]}): cargo tree failed"
+    sed 's/^/    /' "$errfile"
+    failures=$((failures + 1))
+    return
+  fi
+  local hits rc row_failed=0
+  if [[ -n "$absent" ]]; then
+    rc=0
+    hits="$(printf '%s\n' "$tree" | grep -E "$absent")" || rc=$?
+    if [[ "$rc" -gt 1 ]]; then
+      echo "FAIL  $label: bad regex /$absent/"
+      row_failed=1
+    elif [[ -n "$hits" ]]; then
+      echo "FAIL  $label (cargo ${args[*]}): must not match /$absent/"
+      printf '%s\n' "$hits" | sort -u | sed 's/^/    /'
+      row_failed=1
+    fi
+  fi
+  if [[ -n "$present" ]]; then
+    rc=0
+    printf '%s\n' "$tree" | grep -qE "$present" || rc=$?
+    if [[ "$rc" -ne 0 ]]; then
+      echo "FAIL  $label (cargo ${args[*]}): must match /$present/ (positive control, grep exit $rc)"
+      row_failed=1
+    fi
+  fi
+  if [[ "$row_failed" -eq 0 ]]; then
+    echo "ok    $label (cargo ${args[*]})"
+  else
+    failures=$((failures + 1))
+  fi
+}
+
+for row in "${graph_rows[@]}"; do
+  IFS=';' read -r label args_text absent present <<<"$row"
+  run_graph_row "$label" "$args_text" "$absent" "$present"
 done
 
 if [[ "$failures" -ne 0 ]]; then

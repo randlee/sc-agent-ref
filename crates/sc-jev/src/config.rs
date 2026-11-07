@@ -5,8 +5,15 @@
 
 use std::time::Duration;
 
+use sc_agent_http::Endpoint;
 use sc_agent_types::JevError;
 use serde::Deserialize;
+
+/// Most sends per call (owner decision (b), `BusyPolicy::default`).
+const MAX_ATTEMPTS: u32 = 4;
+
+/// Longest in-flight request (owner decision (b), ADR-SAG-0007).
+const MAX_TIMEOUT: Duration = Duration::from_secs(120);
 
 /// TypeSafe check/judge client settings.
 ///
@@ -17,6 +24,7 @@ pub struct JevClientConfig {
     model: String,
     host: String,
     path: String,
+    endpoint: Endpoint,
     attempts: u32,
     timeout: Duration,
 }
@@ -69,7 +77,8 @@ impl JevClientConfig {
     /// # Errors
     ///
     /// Returns [`JevError::ConfigInvalid`] when the model, host, path,
-    /// attempt count, or timeout cannot be used for a check request.
+    /// attempt count, or timeout cannot be used for a check request, or
+    /// `https://{host}{path}` is not a valid https URL.
     pub fn try_new(
         model: impl Into<String>,
         host: impl Into<String>,
@@ -99,16 +108,19 @@ impl JevClientConfig {
                 "path must be an absolute URL path such as /v1/systemone",
             ));
         }
-        if !(1..=8).contains(&attempts) {
-            return Err(invalid("attempts must be from 1 to 8"));
+        // Owner decision (b): at most 4 sends and a 120 s in-flight request.
+        if !(1..=MAX_ATTEMPTS).contains(&attempts) {
+            return Err(invalid("attempts must be from 1 to 4"));
         }
-        if timeout.is_zero() || timeout > Duration::from_secs(3_600) {
-            return Err(invalid("timeout must be from 1 second to 3600 seconds"));
+        if timeout.is_zero() || timeout > MAX_TIMEOUT {
+            return Err(invalid("timeout must be from 1 second to 120 seconds"));
         }
+        let endpoint = Endpoint::parse(&format!("https://{host}{path}"))?;
         Ok(Self {
             model,
             host,
             path,
+            endpoint,
             attempts,
             timeout,
         })
@@ -133,12 +145,15 @@ impl JevClientConfig {
     }
 
     /// Total sends on a busy reply, including the first.
+    ///
+    /// The packaged value is 4, the `sc_agent_http::BusyPolicy::default`
+    /// count (REQ-SAG-0505).
     #[must_use]
     pub fn attempts(&self) -> u32 {
         self.attempts
     }
 
-    /// Per-request timeout applied by the transport.
+    /// Request timeout of the default transport, body read included.
     #[must_use]
     pub fn timeout(&self) -> Duration {
         self.timeout
@@ -146,8 +161,8 @@ impl JevClientConfig {
 
     /// `https://{host}{path}` for this config.
     #[must_use]
-    pub fn endpoint(&self) -> String {
-        format!("https://{}{}", self.host, self.path)
+    pub fn endpoint(&self) -> &Endpoint {
+        &self.endpoint
     }
 }
 
@@ -165,9 +180,18 @@ mod tests {
     fn from_toml_reads_every_field() {
         let config = JevClientConfig::from_toml(VALID).expect("valid");
         assert_eq!(config.model(), "m");
-        assert_eq!(config.endpoint(), "https://h.example/v1/x");
+        assert_eq!(config.endpoint().as_str(), "https://h.example/v1/x");
         assert_eq!(config.attempts(), 2);
         assert_eq!(config.timeout(), Duration::from_secs(5));
+    }
+
+    #[test]
+    fn ranges_stop_at_the_owner_decided_bounds() {
+        let at_bounds = VALID
+            .replace("attempts = 2", "attempts = 4")
+            .replace("timeout_seconds = 5", "timeout_seconds = 120");
+        let config = JevClientConfig::from_toml(&at_bounds).expect("bounds are valid");
+        assert_eq!((config.attempts(), config.timeout()), (4, MAX_TIMEOUT));
     }
 
     #[test]
@@ -181,14 +205,15 @@ mod tests {
                 "timeout",
             ),
             (
-                &VALID.replace("timeout_seconds = 5", "timeout_seconds = 3601"),
+                &VALID.replace("timeout_seconds = 5", "timeout_seconds = 121"),
                 "timeout",
             ),
             (
                 &VALID.replace("timeout_seconds = 5", "timeout_seconds = -1"),
                 "jev.toml",
             ),
-            (&VALID.replace("attempts = 2", "attempts = 9"), "attempts"),
+            (&VALID.replace("attempts = 2", "attempts = 5"), "attempts"),
+            (&VALID.replace("attempts = 2", "attempts = 0"), "attempts"),
             (
                 &format!("{VALID}max_request_bytes = 10\n"),
                 "max_request_bytes",
