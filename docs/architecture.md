@@ -420,7 +420,10 @@ Amended by ADR-SAG-0020.
 
 - (Active, r-2) "Repo root" for `.env` lookup is
   `sc_jev_check::run::discover_repo_root`: the git toplevel of the start
-  directory, or the start directory (absolutized) outside git. Both `sc-ai`
+  directory, or the start directory (absolutized) only outside git (git
+  finds no work tree and no ancestor holds `.git`) or when git is not
+  installed; any other git failure is an error, so a subdirectory is never
+  silently taken for the root. Both `sc-ai`
   and `sc-jev-py` use it. Behaviour change: `sc-jev-py` called from a
   subdirectory now reads the toplevel `.env` instead of the subdirectory's.
 
@@ -852,7 +855,10 @@ Amended by ADR-SAG-0024 (Active, r-2).
   `payload`/`limits`, and last `warnings` (array of strings, omitted when
   empty). `warnings` replaces the Phase A `data.warning` key; the
   composition crate adds the log-flush warning through
-  `RunResponse::with_warning` (r-3b). The `{version, operation, data}`
+  `RunResponse::with_warning` (r-3b). The `ask` body is the follow-up's
+  answer fields by the same primary rule, then `session_id`,
+  `prompt_sha256` and `warnings` (the CR-014 flush warning, through
+  `AskResponse::with_warning`). The `{version, operation, data}`
   wrapper is `sc_jev_check::run::Envelope`; `readback` is the only key a
   consumer adds (`sc-ai`). REQ-SAG-0710 is amended to match.
 
@@ -1072,8 +1078,12 @@ ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0014, ADR-SAG-0019, ADR-SAG-0022.
   payload. Each backend owns its byte cap and enforces it in
   `validate_for_send`; the engine does not pre-cap. REQ-SAG-0314.
 - (Active, r-2) `FileSessionStore` is stateless (`dir`, `ttl`, `clock`
-  fn pointer). `ask` takes the `&BackendRegistry` and does not rewrite the
-  file. No lock: `save` writes a `create_new` tmp named with pid + random,
+  fn pointer) and never sends: a follow-up is
+  `run::ask(&FileSessionStore, SessionId, follow_up, RunConfig) ->
+  AskResponse`, which takes the backend from `RunConfig::registry` (else
+  `BackendRegistry::from_env` for the session's backend), sends through the
+  same send step as `run` (validate, judge, one log event), and does not
+  rewrite the file. No lock: `save` writes a `create_new` tmp named with pid + random,
   fsyncs, renames, fsyncs the parent, removes the tmp on error; last writer
   wins; readers are protected by digest and id re-verification; tmp files
   older than 1 h are swept by `FileSessionStore::new`. The session is written once at the end of `run`, only
@@ -1091,12 +1101,22 @@ ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0014, ADR-SAG-0019, ADR-SAG-0022.
   `<id>.json`. `primary_backend` is omitted when no backend returned `Ok`
   (a dry run), and a Jev `provider_meta` key that the body writes itself is
   not copied to the top level, so no key appears twice; the full
-  `provider_meta` stays under `results[].outcome`. `Envelope::ask(outcome,
-  session_id)` carries the outcome's answer fields by the same primary
-  rule plus `session_id`; the envelope version (`1`) and operation names
-  (`jev.run`, `jev.dry-run`, `jev.ask`) move with `Envelope` into
-  `sc_jev_check::run`. `discover_repo_root` returns `start` (absolutized)
-  when git cannot be run as well as outside a work tree. The production
+  `provider_meta` stays under `results[].outcome`. `Envelope::ask(&AskResponse)`
+  carries the outcome's answer fields by the same primary rule, then
+  `session_id`, `prompt_sha256` and `warnings` (omitted when empty;
+  `AskResponse::with_warning` carries the CR-014 log-flush warning). The
+  envelope is built infallibly from the typed body and written in the
+  documented key order, then `readback`; the version (`1`) and operation
+  names (`jev.run`, `jev.dry-run`, `jev.ask`) have one owner,
+  `sc_jev_check::run`. `CheckSource::CheckFile` holds a `RepoRelativePath`
+  built by `CheckSource::check_file(&RepoRoot, &Path)`, the one check-path
+  normaliser. A `command` input may name its `producer` for
+  `ProducerError` (default: the stem of `command[0]`). The public surface
+  is the facade in `boundaries/sc-jev-check/jev-check.toml`; payload
+  assembly and extraction are internal, so `prepare` is the only way to
+  build a payload (ADR-SAG-0005). A failed session write is fail-fast in
+  r-2; the unsaved-session shape is `test_builder`-only until ADR-SAG-0025.
+  The production
   registry is `BackendRegistry::from_env(&RepoRoot, &BackendSet)` or
   `from_resolver(&BackendSet, Fn(BackendKeyId) -> Result<ResolvedApiKey,
   JevError>)`; `RunConfig::registry(Arc<BackendRegistry>)` is the
