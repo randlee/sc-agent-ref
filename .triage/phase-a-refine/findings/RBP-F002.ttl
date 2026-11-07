@@ -1,0 +1,61 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/RBP-F002>
+  a triage:Finding ;
+  triage:findingId "RBP-F002" ;
+  triage:title "The question-kind invariants (choice 2..=255, score 2..=10, noul has no choices or descrip" ;
+  triage:description "The question-kind invariants (choice 2..=255, score 2..=10, noul has no choices or descriptions, descriptions has one entry per choice) are not held by the type. with_kind/with_descriptions are infallible, Deserialize is derived, and the rules run later in a separate 'then the question-kind rules' step. That step is repeated by both sc-jev and sc-jev-backends. Invalid Questions are therefore constructible and the invariant is re-checked per call site. Recommendation: Validate once in sc-decision-schema: a fallible Question or CanonicalJudgePayload constructor, or #[serde(try_from)] on deserialize, or a single CanonicalJudgePayload::validate() that both crates call. Do not keep two copies of the rules. Also model kind as a three-variant QuestionKind { Choice, Score, Noul } with skip_serializing_if = is_choice, so None is not an implicit 'choice' sentinel. This keeps the bytes of existing payloads identical." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "RBP" ;
+  triage:severity "important" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-07T22:47:35Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-PLAN67 ;
+  triage:foundAt "2026-11-07T23:55:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F002/R6-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F002/R6-2> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/RBP-F002/R6-1>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md" ;
+  triage:line 195 ;
+  triage:snippet "#[must_use] pub fn with_kind(self, kind: QuestionKind) -> Self;" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F002/R6-2>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md" ;
+  triage:line 196 ;
+  triage:snippet "#[must_use] pub fn with_descriptions(self, descriptions: Vec<String>) -> Self;" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:worktree/integrate-phase-a/dfd683f>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "dfd683f1a7200b06363bb8e7c7b8cd2a16d6c6e9" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/phase-a-refine-r6/5836f1b>
+  a triage:WorktreeSnapshot ;
+  triage:path "plan/phase-a-refine-r6" ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:orderIndex 1 .

@@ -1,0 +1,85 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/REQ-QA-PR28-001>
+  a triage:Finding ;
+  triage:findingId "REQ-QA-PR28-001" ;
+  triage:title "r-4 deferral wording describes the complete flip as future" ;
+  triage:description "Implementation notes lines 267-269 still say the doc 'stays status: in-review until the URL is recorded or the owner waives the row'. Frontmatter now says status: complete with the URL still unfiled, and the Deferral section (lines 275-280) says the doc is flipped to complete after the URL is recorded. The deferral section text also describes the flip as a future step, but this PR makes the flip now. Both read as stale next to the new status." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "docs" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-07T22:40:29Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-CLOSE12 ;
+  triage:foundAt "2026-11-07T23:20:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/REQ-QA-PR28-001/W0-268> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/REQ-QA-PR28-001/W0-279> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/REQ-QA-PR28-001/W1-268> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/REQ-QA-PR28-001/W1-279> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/REQ-QA-PR28-001/W0-268>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md" ;
+  triage:line 268 ;
+  triage:snippet "stays `status: in-review` until" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "38b4ce674d8771cd4a15a78e2fa6be83fbc2f510" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/38b4ce6> .
+
+<urn:atm:triage:occurrence/REQ-QA-PR28-001/W0-279>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md" ;
+  triage:line 279 ;
+  triage:snippet "then flips this doc to" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "38b4ce674d8771cd4a15a78e2fa6be83fbc2f510" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/38b4ce6> .
+
+<urn:atm:triage:occurrence/REQ-QA-PR28-001/W1-268>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md" ;
+  triage:line 268 ;
+  triage:snippet "stays `status: in-review` until" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "docs/close-wave1-2" ;
+  triage:headSha "fe375c2f72683f1b12b77f30080cb30ef6d9cdd6" ;
+  triage:occursIn <urn:atm:triage:worktree/close-wave1-2/fe375c2> .
+
+<urn:atm:triage:occurrence/REQ-QA-PR28-001/W1-279>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md" ;
+  triage:line 279 ;
+  triage:snippet "then flips this doc to" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "docs/close-wave1-2" ;
+  triage:headSha "fe375c2f72683f1b12b77f30080cb30ef6d9cdd6" ;
+  triage:occursIn <urn:atm:triage:worktree/close-wave1-2/fe375c2> .
+
+<urn:atm:triage:worktree/integrate-phase-a/38b4ce6>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "38b4ce674d8771cd4a15a78e2fa6be83fbc2f510" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/close-wave1-2/fe375c2>
+  a triage:WorktreeSnapshot ;
+  triage:path "docs/close-wave1-2" ;
+  triage:branch "docs/close-wave1-2" ;
+  triage:headSha "fe375c2f72683f1b12b77f30080cb30ef6d9cdd6" ;
+  triage:orderIndex 1 .

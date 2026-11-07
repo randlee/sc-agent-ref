@@ -1,7 +1,7 @@
 ---
 id: r-1
 phase: r
-status: in-review
+status: complete # merged PR 22 (fce0cfa), QA-2 PASS
 closure_type: contract
 target_boundary: agent-types
 track: foundation

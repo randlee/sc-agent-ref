@@ -1,0 +1,73 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/RSH-002>
+  a triage:Finding ;
+  triage:findingId "RSH-002" ;
+  triage:title "The request-size limit is enforced today on the final wire body, after the splice. `prepare` compares body.len() to the descriptor's request_limit_bytes and returns InputTooLarge (check.rs:62-66). r-5 deletes splice_model and `prepare`'s path, and deliverables 1 and 3 say no other schema check remains. They never say where the limit is checked against the new CheckRequest::to_body output. The documented Jev body is larger than the canonical bytes (criteria maps, descriptions, model, instructions). A check on the canonical payload would pass bodies that exceed the Jev limit. Dropping the check would send an unbounded body and rely on the server to reject it. Recommendation: State in deliverable 3 that sc-jev compares the length of to_body() output to the Jev descriptor's request_limit_bytes before send. It should return InputTooLarge with the same limit and actual-byte fields as today. This is the existing check moved onto the new builder, not a new gate. Haiku and Luna keep enforce_count_and_message_limits unchanged." ;
+  triage:description "The request-size limit is enforced today on the final wire body, after the splice. `prepare` compares body.len() to the descriptor's request_limit_bytes and returns InputTooLarge (check.rs:62-66). r-5 deletes splice_model and `prepare`'s path, and deliverables 1 and 3 say no other schema check remains. They never say where the limit is checked against the new CheckRequest::to_body output. The documented Jev body is larger than the canonical bytes (criteria maps, descriptions, model, instructions). A check on the canonical payload would pass bodies that exceed the Jev limit. Dropping the check would send an unbounded body and rely on the server to reject it. Recommendation: State in deliverable 3 that sc-jev compares the length of to_body() output to the Jev descriptor's request_limit_bytes before send. It should return InputTooLarge with the same limit and actual-byte fields as today. This is the existing check moved onto the new builder, not a new gate. Haiku and Luna keep enforce_count_and_message_limits unchanged." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "RSH" ;
+  triage:severity "important" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-07T22:47:46Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-PLAN67 ;
+  triage:foundAt "2026-11-07T23:55:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RSH-002/R6-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RSH-002/R6-2> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RSH-002/R6-3> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/RSH-002/R6-1>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md" ;
+  triage:line 141 ;
+  triage:snippet "prior answers) is sent as the `state` array. `CheckRequest::to_body`" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RSH-002/R6-2>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md" ;
+  triage:line 226 ;
+  triage:snippet "pub fn to_body(&self) -> Result<Vec<u8>, JevError>; // compact; model, state, questions" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RSH-002/R6-3>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md" ;
+  triage:line 263 ;
+  triage:snippet "| req:REQ-SAG-0143 | `cargo test -p sc-decision-schema --test jev -- test_check_request_body_matches_golden --exact` and ..." ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:worktree/integrate-phase-a/dfd683f>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "dfd683f1a7200b06363bb8e7c7b8cd2a16d6c6e9" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b>
+  a triage:WorktreeSnapshot ;
+  triage:path "plan/phase-a-refine-r6" ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:orderIndex 1 .

@@ -1,7 +1,7 @@
 ---
 id: r-3
 phase: r
-status: in-review # until QA-2 passes
+status: complete # merged PR 26 (d88879a), QA-2 PASS f19ce8d
 closure_type: boundary
 target_boundary: agent-http
 track: http

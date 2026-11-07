@@ -1,0 +1,49 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/RBP-F011>
+  a triage:Finding ;
+  triage:findingId "RBP-F011" ;
+  triage:title "DecisionSchema is a new public trait in a published crate with no explicit open-or-sealed decision" ;
+  triage:description "DecisionSchema is a new public trait in a published crate with no explicit open-or-sealed decision. D5 says new variants are added inside this crate (a SchemaFamily variant, a module and a schema_for arm), so the implementor set is crate-controlled. External implementations would be unusable anyway, since schema_for cannot reach them. Recommendation: Seal it with the private supertrait pattern, or make it pub(crate) until a second variant exists, and document the decision. JudgeBackend stays intentionally open (ADR-SAG-0009); say so in its doc." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "RBP" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-07T22:47:39Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-PLAN67 ;
+  triage:foundAt "2026-11-07T23:55:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F011/PLAN-R6-1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/RBP-F011/PLAN-R6-1>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 743 ;
+  triage:snippet "pub trait DecisionSchema {" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1befb9550ff4f5125f928cbce0c74e5ef1c> .
+
+<urn:atm:triage:worktree/integrate-phase-a/dfd683f1a7200b06363bb8e7c7b8cd2a16d6c6e9>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "dfd683f1a7200b06363bb8e7c7b8cd2a16d6c6e9" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1befb9550ff4f5125f928cbce0c74e5ef1c>
+  a triage:WorktreeSnapshot ;
+  triage:path "plan/phase-a-refine-r6" ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:orderIndex 1 .
