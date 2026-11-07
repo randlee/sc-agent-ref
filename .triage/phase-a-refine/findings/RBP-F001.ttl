@@ -1,0 +1,61 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/RBP-F001>
+  a triage:Finding ;
+  triage:findingId "RBP-F001" ;
+  triage:title "SendTrace is a shared first-write-wins cell (Arc<OnceLock>), and JudgeRequest carries it a" ;
+  triage:description "SendTrace is a shared first-write-wins cell (Arc<OnceLock>), and JudgeRequest carries it and is cloned. Any clone of a request shares one trace. If a second backend send reuses a cloned request, its record() is silently dropped, and the second row logs the first backend's request_sha256 with no error. r-6 D3 prevents this only by 'the engine creates a fresh SendTrace per send', which is a convention. Recommendation: Make single-use ownership a property of the type, not engine discipline. Options: (a) implement Clone for JudgeRequest by hand so the clone gets a fresh SendTrace; or (b) make the trace belong to one send, with the engine creating it and backends receiving it per judge call rather than on the cloneable request; or (c) have record() return a bool or debug-assert on a second write so reuse is visible. Add a rustdoc comment on the OnceLock saying why shared interior mutation is needed here (RBP-006 justification)." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "RBP" ;
+  triage:severity "important" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-07T22:47:46Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-PLAN67 ;
+  triage:foundAt "2026-11-07T23:55:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F001/RBP-F001-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F001/RBP-F001-2> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/RBP-F001/RBP-F001-1>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 685 ;
+  triage:snippet "pub struct SendTrace(Arc<OnceLock<Sha256Digest>>);" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F001/RBP-F001-2>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 688 ;
+  triage:snippet "fn record(&self, digest: Sha256Digest); // first write wins; later writes ignored" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:worktree/integrate-phase-a/dfd683f>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "dfd683f1a7200b06363bb8e7c7b8cd2a16d6c6e9" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b>
+  a triage:WorktreeSnapshot ;
+  triage:path "plan/phase-a-refine-r6" ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:orderIndex 1 .

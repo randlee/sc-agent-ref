@@ -1,0 +1,49 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/RBP-F005>
+  a triage:Finding ;
+  triage:findingId "RBP-F005" ;
+  triage:title "The variant seam cannot deliver the claim 'a future local model adds a variant, a module a" ;
+  triage:description "The variant seam cannot deliver the claim 'a future local model adds a variant, a module and one schema_for arm; no caller signature changes'. schema_for(ModelFamily) returns only a DecisionSchemaId. DecisionSchema has an associated const and associated types and no receiver, so it is not object-safe and has no runtime lookup from DecisionSchemaId or ModelFamily to an implementation. Backends choose at runtime by the model's family. Each new family therefore needs a hand-written match in every consumer (llm::v1::parse_output hard-wires Canonical). The static-vs-dynamic dispatch intent is not stated. Recommendation: State that dispatch is static and keyed by SchemaFamily. Add one object-safe dispatch function in sc-decision-schema, e.g. llm::parse_output(id: DecisionSchemaId, text, payload), that is the only match on SchemaFamily. New families then edit that crate only. Alternatively drop the trait until a second variant exists and keep Canonical as plain functions." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "RBP" ;
+  triage:severity "important" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-07T22:47:32Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-PLAN67 ;
+  triage:foundAt "2026-11-07T23:55:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F005/R6-1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/RBP-F005/R6-1>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 743 ;
+  triage:snippet "pub trait DecisionSchema {" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1b" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:worktree/integrate-phase-a/dfd683f>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "dfd683f" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b>
+  a triage:WorktreeSnapshot ;
+  triage:path "plan/phase-a-refine-r6" ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1b" ;
+  triage:orderIndex 1 .

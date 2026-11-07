@@ -1,0 +1,49 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/RBP-F013>
+  a triage:Finding ;
+  triage:findingId "RBP-F013" ;
+  triage:title "RunConfig::log_context is optional ('unset: repo = RunConfig's repo_root, project = None')" ;
+  triage:description "RunConfig::log_context is optional ('unset: repo = RunConfig's repo_root, project = None'). The default silently yields the worktree root where the log field means the main repository (ADR-SAG-0031), so a caller that skips the setter writes a wrong repo into every row. Correct use depends on compose always remembering to set it. Recommendation: Make the context required at the point the engine emits rows (a constructor argument or a type-level 'configured' state), or have the default call discover_main_repo_root so unset still gives the documented meaning." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "RBP" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-07T22:47:34Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-PLAN67 ;
+  triage:foundAt "2026-11-07T23:55:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F013/PAR6-1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/RBP-F013/PAR6-1>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md" ;
+  triage:line 356 ;
+  triage:snippet "pub fn log_context(self, context: LogContext) -> Self; // unset: repo = RunConfig's repo_root, project = None" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/PAR6-5836f1be> .
+
+<urn:atm:triage:worktree/IPA-dfd683f1>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "dfd683f1a7200b06363bb8e7c7b8cd2a16d6c6e9" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/PAR6-5836f1be>
+  a triage:WorktreeSnapshot ;
+  triage:path "plan/phase-a-refine-r6" ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:orderIndex 1 .

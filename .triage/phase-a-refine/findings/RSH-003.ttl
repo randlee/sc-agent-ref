@@ -1,0 +1,85 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/RSH-003>
+  a triage:Finding ;
+  triage:findingId "RSH-003" ;
+  triage:title "Duplicate-key behaviour is unspecified. OrderedMap is a custom order-preserving visitor, a" ;
+  triage:description "Duplicate-key behaviour is unspecified. OrderedMap is a custom order-preserving visitor, and the input_sha256 recovery (item 5) parses the sent body with it. A duplicate question id or criteria key in a recovered body could silently collapse or shadow an entry, giving a digest that differs from prompt_sha256 with no error. Response `answers` is a BTreeMap, where serde keeps the last duplicate id silently. Recommendation: Specify that the OrderedMap visitor and the answers map reject a duplicate key (INPUT_INVALID on request recovery, RESPONSE_INVALID on a reply). Cover it with a case in the existing test_response_rules_rejected and recovery tests rather than a new check." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "RSH" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-07T22:47:51Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-PLAN67 ;
+  triage:foundAt "2026-11-07T23:55:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RSH-003/PR6-203> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RSH-003/PR6-208> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RSH-003/PR6-209> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RSH-003/PR6-222> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/RSH-003/PR6-203>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md" ;
+  triage:line 203 ;
+  triage:snippet "pub struct OrderedMap<K, V>(Vec<(K, V)>);" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RSH-003/PR6-208>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md" ;
+  triage:line 208 ;
+  triage:snippet "Choice { instructions: String, criteria: OrderedMap<ChoiceId, String> }, // 2..=255" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RSH-003/PR6-209>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md" ;
+  triage:line 209 ;
+  triage:snippet "Score  { instructions: String, criteria: OrderedMap<ChoiceId, String> }, // 2..=10, level order" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RSH-003/PR6-222>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md" ;
+  triage:line 222 ;
+  triage:snippet "questions: OrderedMap<QuestionId, JevQuestion>," ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:worktree/integrate-phase-a/dfd683f>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "dfd683f1a7200b06363bb8e7c7b8cd2a16d6c6e9" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b>
+  a triage:WorktreeSnapshot ;
+  triage:path "plan/phase-a-refine-r6" ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:orderIndex 1 .

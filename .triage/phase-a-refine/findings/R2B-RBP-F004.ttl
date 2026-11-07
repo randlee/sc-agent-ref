@@ -1,0 +1,61 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R2B-RBP-F004>
+  a triage:Finding ;
+  triage:findingId "R2B-RBP-F004" ;
+  triage:title "parse_count checks tokens >= 0 and then converts with u64::try_from(tokens).unwr" ;
+  triage:description "parse_count checks tokens >= 0 and then converts with u64::try_from(tokens).unwrap_or(0). The unwrap_or(0) fallback is unreachable and would silently turn an impossible conversion into a zero token count, which the later token-limit check would accept. Recommendation: Use value.get(\"input_tokens\").and_then(Value::as_u64), which rejects negatives and non-integers in one step with no dead fallback. This matches how nonneg() is handled elsewhere in the file." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "RBP" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-07T22:49:58Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R2B ;
+  triage:foundAt "2026-11-07T22:55:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R2B-RBP-F004/IA0-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R2B-RBP-F004/R2B-1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R2B-RBP-F004/IA0-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-backends/src/wire.rs" ;
+  triage:line 155 ;
+  triage:snippet "Some(tokens) if tokens >= 0 => Ok(u64::try_from(tokens).unwrap_or(0))" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "a6ec03201cba50dcf79e9099bdf4a661bd732918" ;
+  triage:occursIn <urn:atm:triage:worktree/IA0/a6ec032> .
+
+<urn:atm:triage:occurrence/R2B-RBP-F004/R2B-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-backends/src/wire.rs" ;
+  triage:line 250 ;
+  triage:snippet "Some(tokens) if tokens >= 0 => Ok(u64::try_from(tokens).unwrap_or(0))" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-2b-multi-backend-semantics" ;
+  triage:headSha "330986f574914ada17e79d074227527cce4eb9ba" ;
+  triage:occursIn <urn:atm:triage:worktree/R2B/330986f> .
+
+<urn:atm:triage:worktree/IA0/a6ec032>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "a6ec03201cba50dcf79e9099bdf4a661bd732918" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/R2B/330986f>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-2b-multi-backend-semantics" ;
+  triage:branch "sprint/r-2b-multi-backend-semantics" ;
+  triage:headSha "330986f574914ada17e79d074227527cce4eb9ba" ;
+  triage:orderIndex 1 .

@@ -1,0 +1,121 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/RBP-F014>
+  a triage:Finding ;
+  triage:findingId "RBP-F014" ;
+  triage:title "Sha256Digest::of(&str) will normalize CRLF and bare CR to LF under sc-sha, but the name an" ;
+  triage:description "Sha256Digest::of(&str) will normalize CRLF and bare CR to LF under sc-sha, but the name and the 'request_sha256 = digest of exactly the bytes sent' contract read as a raw digest. A caller hashing CR-bearing text gets a digest that is not SHA-256 of its bytes. The safety rests on 'compact JSON has no raw CR', which the type does not express. Recommendation: Rename to of_text or document the normalization on the method itself (not only in the sprint doc), so a later caller with CR-bearing input is not surprised." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "RBP" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-07T22:47:51Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-PLAN67 ;
+  triage:foundAt "2026-11-07T23:55:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F014/PLANR6-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F014/PLANR6-2> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F014/PLANR6-3> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F014/PLANR6-4> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F014/PLANR6-5> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F014/PLANR6-6> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F014/PLANR6-7> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/RBP-F014/PLANR6-1>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md" ;
+  triage:line 77 ;
+  triage:snippet "- 'crates/sc-agent-types/src/ids.rs#SessionId (ULID), Sha256Digest::of (sc-sha)'" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/PLANR6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F014/PLANR6-2>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md" ;
+  triage:line 150 ;
+  triage:snippet "UTF-8 serde_json output or text (`Sha256Digest::of` takes `&str` from r-7," ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/PLANR6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F014/PLANR6-3>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md" ;
+  triage:line 184 ;
+  triage:snippet "- `Sha256Digest::of(&str)` computes through `sc-sha` `calculate_hash` (D0)." ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/PLANR6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F014/PLANR6-4>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md" ;
+  triage:line 202 ;
+  triage:snippet "`trace.record(Sha256Digest::of(body_text))` (the body as `&str`)" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/PLANR6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F014/PLANR6-5>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md" ;
+  triage:line 215 ;
+  triage:snippet "`Sha256Digest::of(bytes)` into the request's trace, so engine tests cover" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/PLANR6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F014/PLANR6-6>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md" ;
+  triage:line 335 ;
+  triage:snippet "// if let Ok(text) = std::str::from_utf8(request.body()) { trace.record(Sha256Digest::of(text)); }" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/PLANR6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F014/PLANR6-7>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md" ;
+  triage:line 342 ;
+  triage:snippet "pub fn with_sent_body(self, body: impl Into<Vec<u8>>) -> Self; // records Sha256Digest::of(body) into req.send_trace()" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/PLANR6/5836f1b> .
+
+<urn:atm:triage:worktree/INT-A/dfd683f>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "dfd683f1a7200b06363bb8e7c7b8cd2a16d6c6e9" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/PLANR6/5836f1b>
+  a triage:WorktreeSnapshot ;
+  triage:path "plan/phase-a-refine-r6" ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:orderIndex 1 .
