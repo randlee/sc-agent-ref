@@ -1,7 +1,7 @@
 ---
 id: r-3b
 phase: r
-status: planned
+status: in-review
 closure_type: integration
 target_boundary: jev-host
 track: integration
@@ -110,13 +110,13 @@ owned_paths:
   - "docs/architecture.md#ADR-SAG-0025 r-3b bullet (REQ-SAG-0604 consumer output), Status line (r-3b clause)"
   - "docs/architecture.md#ADR-SAG-0023 amendment (r-3b)"
   - "docs/architecture.md#ADR-SAG-0023 Status line (r-3b clause)"
-  - "docs/architecture.md#ADR-SAG-0026 Status line and compose half"
+  - "docs/architecture.md#ADR-SAG-0026 Status line and host half"
   - "docs/architecture.md#ADR-SAG-0028 (incl. its Status line)"
   - "docs/architecture.md#ADR index row ADR-SAG-0016 (Title cell)"
   - "docs/architecture.md#ADR index row ADR-SAG-0023 (Status cell: compose pin)"
   - "docs/architecture.md#ADR index Amended-by marker (r-3b) in ADR-SAG-0010, 0011, 0013, 0016, 0017, 0020"
   - "docs/architecture.md#ADR index row ADR-SAG-0025 (Status cell: consumer-output bullet)"
-  - "docs/architecture.md#ADR index row ADR-SAG-0026 (Status cell: compose half)"
+  - "docs/architecture.md#ADR index row ADR-SAG-0026 (Status cell: host half)"
   - "docs/architecture.md#ADR index row ADR-SAG-0028"
   - "docs/requirements.md#REQ-SAG-0109, 0135, 0604, 0605, 0712 rows; REQ-SAG-0130 (r-3b bullet), REQ-SAG-0711 amendments"
 ---
@@ -141,7 +141,7 @@ graph); contributes ARCHE-002 (consumer flag).
 
 ## Deliverables
 
-### D2 compose (ADR-SAG-0026 compose half, ADR-SAG-0016/0010/0011/0013 r-3b amendments)
+### D2 compose (ADR-SAG-0026 host half, ADR-SAG-0016/0010/0011/0013 r-3b amendments)
 
 1. New crate `crates/sc-jev-host`, **published to crates.io as an
    internal-support crate** (owner decision (a), DECIDED 2026-11-06):
@@ -474,7 +474,7 @@ development starts, confirm that r-3 landed the ADR-SAG-0020 "Amendment
 the "A.1 subsection (Proposed, r-3b)" marker in the ADR-SAG-0020 index row;
 if not, r-3b inserts both, verbatim as below, before flipping them.
 
-ADR-SAG-0026 compose half → Active and its ADR-level Status → Active;
+ADR-SAG-0026 host half → Active and its ADR-level Status → Active;
 ADR-SAG-0016 r-3b amendment (adapter in published `sc-jev-host`;
 supersedes "do not publish a separate observability crate" for that crate)
 → Active, and ADR-SAG-0016 is retitled "v2 shim in sc-agent-types; adapter
@@ -565,7 +565,7 @@ below.
 | req:REQ-SAG-0605 | `test_cli_chain_context_flag`; pytest `test_chain_context_kwarg`; independent is the default in both |
 | req:REQ-SAG-0712 | No hand-rolled argv tables in either binary; `sc-ai` and `sc-treesitter` `tests/argv.rs` green |
 | req:REQ-SAG-0135 | `cargo-tree-gates.sh` clap rows pass in CI for both libraries |
-| adr:ADR-SAG-0026 | Compose half and ADR-level Status Active; `sc-ai`/`sc-jev-py` contain no adapter or path-default code (the moved files are deleted); `ComposeInputs` has no public field |
+| adr:ADR-SAG-0026 | Host half and ADR-level Status Active; `sc-ai`/`sc-jev-py` contain no adapter or path-default code (the moved files are deleted); `ComposeInputs` has no public field |
 | adr:ADR-SAG-0028 | Status line and index row Active; the "Dev-only edges" bullet reads as above (no conditional; dev edges counted) and matches the four manifests |
 | adr:ADR-SAG-0023 | r-3b subsection Active; Status line reads as above; `bash .github/scripts/check-exact-pins.sh` green with the compose pin |
 | adr:ADR-SAG-0008 | Independent is the default in `ComposeInputs::new`, `sc-ai jev run` and `sc_jev_py.run_check`; `ChainContext` only on request (`test_cli_chain_context_flag`, pytest `test_chain_context_kwarg`; `equal_input.mode` in both outputs matches the request) |
@@ -636,3 +636,137 @@ cargo publish --dry-run --locked -p sc-agent-types -p sc-agent-secrets -p sc-age
 
 MCP server (Phase B); removal of the v2 shim (`agt-obs-v2-shim-removal`);
 any real crates.io publish (plan gate (c)).
+
+## Implementation notes
+
+Deviations and conservative choices, each mapped to its requirement or ADR.
+
+- **Crate name (owner decision, 2026-11-07).** The new crate is `sc-jev-host`
+  (directory `crates/sc-jev-host`, Rust identifier `sc_jev_host`, boundary
+  `jev-host`, docs `docs/sc-jev-host/`). The sprint was written as
+  `sc-agent-compose`: that name suggested sc-compose templates or launching
+  agents. Rule: anything speaking the Jev API, including Haiku and Luna
+  through the Jev schema, is "jev"; "decision" is reserved for API-agnostic
+  layers. The ADR-SAG-0026 section label is "host half". Every mention in
+  `docs/**` was renamed (ADR-SAG-0026/0017/0016/0023/0028, REQ-SAG-0130,
+  `plan.md`, this doc, the r-2, r-2b-adjacent, r-3, r-4, r-5, r-6, r-7 sprint
+  docs, the plan-review dispositions and `a-10-hardening-dispositions.md`).
+- **`ComposeInputs` additions** (EXT-021 allows a new field as a setter): a
+  `repo_root(RepoRoot)` setter plus `resolve() -> ResolvedPaths` and
+  `compose::explicit_repo_root(&Path)`. `CheckSource::check_file` needs the
+  repo root before `run_from` is called, and `--repo-root` / `repo_root=` is
+  "use this directory as given", which `discover_repo_root(cwd)` cannot
+  express. ADR-SAG-0026, ADR-SAG-0003.
+- **`ask_from` returns `AskResponse`, not `JudgeOutcome`.** The `jev.ask`
+  envelope needs the session id, digest and warnings. `response.outcome()` is
+  the `JudgeOutcome`. ADR-SAG-0024.
+- **`prepare_from` / `HostRun` added.** `CheckResult.payload` and
+  `.system_prompt` need the prepared request; building it twice would run
+  extractors twice. `run_from` is `prepare_from(..)?.run()`.
+  ADR-SAG-0005 holds: the host calls `prepare`/`run` only.
+- **`ObservabilityAdapter::open(&PathPolicy, log_root)`** takes the policy so
+  hints name the root's own flag (`--log-dir`, `log_dir`); it uses
+  `Logger::log` (blocking, Python's behaviour) where `sc-ai` used `try_log`.
+  There is no fallback action name: an invalid operation spelling is a
+  rejected event, as in both roots before (QA-004, the golden pins every
+  operation).
+- **`PathPolicy`**: an empty flag or environment value is absent for both
+  roots (the Python rule; `sc-ai` previously accepted an empty `--log-dir`
+  as an empty path). `HOME` set but empty still skips `USERPROFILE`
+  (unchanged). `default_log_root` was added for Python's
+  `default_log_root()`, so `sc-jev-py` reads no environment.
+  ADR-SAG-0021.
+- **Python `CheckResult.data`** (dict of the run response body, without
+  `readback`) was added: `test_run_data_matches_golden` and
+  `JevError.response` both need the body. `.pyi` updated. REQ-SAG-0604,
+  REQ-SAG-0109 (`consumer_parity`).
+- **`JevError.response`** is a class attribute `None`; a partial failure sets
+  the instance attribute to the body dict. All-failed has `response is None`.
+- **`sc-ai` library shape.** `reads_stdin`, `execute_with_overrides`,
+  `ExecuteOverrides`, `Clock` and the hidden observe exports are deleted.
+  `sc_ai::execute(Command, &mut dyn Read) -> Result<Output, JevError>`;
+  clap lives in the bin-private `src/cli.rs` so
+  `cargo build -p sc-ai --lib --no-default-features` is clap-free. With no
+  arguments the binary now exits 2 `INPUT_INVALID` (it printed help); same
+  rule as `sc-treesitter` (r-3c). `--check`/`--rev` conflict with
+  `--request-json` through clap; messages differ from the hand-rolled text,
+  the code does not (`INPUT_INVALID`). REQ-SAG-0712.
+- **Tests dropped or reshaped in `crates/sc-ai/tests/cli.rs`.** Without the
+  library seam a test cannot read what a judge received, so
+  `cli_keeps_typesafe_response_fields` (needed `with_provider_meta`) became
+  `cli_jev_only_run_saves_no_session` (provider-meta shaping is covered by
+  `sc-jev-check --test run_response`); prompt and chain-context assertions
+  read the saved session document. A chained run's saved `system_prompt` is
+  the base prompt, so `test_cli_chain_context_flag` asserts
+  `equal_input.mode` for both modes, not the context text.
+- **`test_cli_log_flush_warning_in_data`** forces a flush failure with a FIFO
+  at `logs/sc-ai.log.jsonl` (the writer cannot drain, so `flush` times out
+  after 5 s); `#[cfg(unix)]`, about 15 s. `sc-observability` flush never
+  fails on an unwritable file, so no portable file-system trick exists. The
+  `mkfifo` spawn carries an item-level expect.
+- **`--scripted-answers` ids.** The per-backend form scripts exactly the
+  backends it names; the shared form scripts all three built-ins
+  (`register_scripted_backends` rejects a backend id without an entry).
+  The helper exists in `sc-ai/src/cli.rs` and `sc-jev-py/src/run.rs`, both
+  `test-util`-only.
+- **`cargo tree -d` rows are anchored.** `-d` also prints every ancestor of
+  a duplicated third-party crate (two `syn` and two `getrandom` versions list
+  `sc-ai`, `sc-jev-check` and `sc-agent-types` as ancestors), so the doc's
+  unanchored `grep -E '(^|[^[:alnum:]_-])(sc-jev-check|...) v[0-9]'` always
+  matches. `cargo-tree-gates.sh` mode `dup` matches `^name v[0-9]` (a
+  top-level, i.e. duplicated, entry). The validation lines below use the
+  anchored form. REQ-SAG-0135, RBQA-F106 (b).
+- **`test_test_util_absent_from_normal_graph`** queries
+  `cargo tree --workspace -e normal,features -i <pkg>` for each library with a
+  `test-util` feature, plus a positive control. The plain
+  `--workspace -e normal,features` output does not print the root package's own
+  feature nodes, so a plain scan could pass vacuously. The script row in
+  `cargo-tree-gates.sh` keeps the plain form (its control is the dev-edge
+  row).
+- **`test_env_reads_only_in_owners`** also allows
+  `crates/sc-jev-check/src/run/mod.rs`: `enclosing_git_entry` reads
+  `GIT_CEILING_DIRECTORIES`, git's repo-discovery setting, which is neither a
+  log, session nor API-key variable (ADR-SAG-0026 owns those two sets).
+- **Same-sprint `Command::new` sweep** (CPR-301). Sites fixed, all
+  item-level `#[expect(clippy::disallowed_methods, reason = "process spawn: ...")]`:
+  `crates/sc-agent-types/src/git.rs` (`git`),
+  `crates/sc-jev-check/src/extract/command.rs` (`run_argv`, and the test
+  `command_extractor_child_env_excludes_secrets`), tests
+  `crates/sc-agent-types/tests/{features,git}.rs`,
+  `crates/sc-treesitter/tests/{argv,cli}.rs`, `.../tests/support/mod.rs`,
+  `crates/sc-jev-check/tests/command.rs`, all `crates/sc-ai/tests/*`,
+  `crates/workspace-tests/tests/*`. `crates/sc-jev-check/src/extract/mod.rs`
+  needed none: its `test_support::git_command` is not flagged
+  (`clippy` sees no `Command::new` there on the current tree).
+- **`tests/support/{deadline,git_env}.rs`** (outside the listed owned paths,
+  included by `#[path]` into many crates) carry expects on `kill_tree`, the
+  `mod tests` and `git_command`; without them clippy fails in every
+  includer. `source_scans` does not scan them (they are outside `crates/`).
+- **Rendered release files.** `release/sc-publish-consumer-input.json` lists
+  `sc-jev-host` at `publish_order` 7 (after `sc-jev-check`), `sc-treesitter`
+  8, `sc-ai` 9. The kit clone (`.sc-publish-kit/`) is not present, so
+  `install.py` was not re-run and `release/publish-artifacts.toml` (and the
+  other rendered files) are not updated: they need re-rendering by the parent.
+- **`sc-lint.toml`** `sc-observability` record now allows
+  `crates/sc-jev-host` only.
+- **`boundaries/sc-agent-http/agent-http.toml`** was not given the
+  `sc-jev-host` forbidden edge (outside `owned_paths`; no acceptance row
+  needs it); its header comment mentions the renamed crate.
+- **CI.** `sc-agent-ci.yml`: `cargo test -p sc-ai --features test-util`,
+  `--test cli --features cli,test-util`, `--test argv --features cli`,
+  isolated `cargo build -p <lib> --lib` per library, job `wheel` (release
+  wheel has no `_testing`), job `workspace-tests`, pin check re-run. The
+  r-3 grep step "single ResolvedApiKey::as_str site" is removed:
+  `source_scans` replaces it (ADR-SAG-0020 r-3b bullet), and the grep would
+  flag every process-spawn expect.
+- **`docs/development/sc-publish.md`** crate order lines updated (they also
+  lacked `sc-agent-http`).
+- **Owner-level note (D9).** No crate is published until r-5 lands; the
+  dry-run packages `sc-jev-host` only locally.
+- **Deferrals closed.** r-2b: `--chain-context`, `--scripted-answers`,
+  partial exit 2, Python `chain_context` and `JevError.response`, `.pyi`, and
+  the ADR-SAG-0025 consumer-output bullet are done. r-2: the `.pyi`
+  `equal_input` note is unchanged (`dict | None` still holds). r-3c:
+  `sc-ai` clap and mimalloc manifest half done; CI clap rows added. r-1:
+  `required-features` for `sc-ai`'s `cli` target instead of a self
+  dev-dependency.

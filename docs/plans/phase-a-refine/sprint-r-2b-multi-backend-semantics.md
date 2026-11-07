@@ -285,7 +285,7 @@ ARCHE-001, ARCHE-002 (engine), ARCHE-013, CR-009.
    split above), its own r-2b subsections of 0004, 0008, 0019 and 0022, the
    "(Proposed, r-2b)" markers in index rows 0004, 0008, 0019 and 0022, and
    the r-1 interim Status lines and labels named above. It does not touch
-   the ADR-SAG-0026 index row (Status cell "HTTP half r-3; compose half
+   the ADR-SAG-0026 index row (Status cell "HTTP half r-3; host half
    r-3b") or any ADR-SAG-0026 text, the "(Proposed, r-3b)" markers in index
    rows 0010, 0011, 0013, 0016, 0017, 0020, 0023 and 0028, the "A.1
    subsection (Active, r-1)" markers in rows 0008, 0014 and 0019, or any r-2

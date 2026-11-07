@@ -706,7 +706,7 @@ Details: [`sprint-r-7-decision-schema.md`](sprint-r-7-decision-schema.md),
 | ADR-SAG-0025 (new) | multi-backend + equal-input, `RunConfig::mode`; amends 0004, 0008, 0019, 0022 | r-2b |
 | ADR-SAG-0025 (new) | REQ-SAG-0604 consumer-output bullet (split out of bullet 2 by r-2b) | r-3b |
 | ADR-SAG-0026 (new) | HTTP half; amends 0006, 0007, 0017, 0020 | r-3 |
-| ADR-SAG-0026 (new) | compose half; amends 0010, 0011, 0013, 0016, 0017 | r-3b |
+| ADR-SAG-0026 (new) | host half; amends 0010, 0011, 0013, 0016, 0017 | r-3b |
 | ADR-SAG-0027 (new) | error taxonomy, `ScAgentErrorResponse` field rule and consumer rule, extensibility, module features, test seams; amends 0001, 0009, 0016 | r-1 |
 | ADR-SAG-0028 (new) | `workspace-tests` crate: purpose, dev-only edges, built-binary contract, forbidden edges | r-3b |
 | ADR-SAG-0030 (new) | decision schema crate and model catalog (whole ADR except the "Jev API structs" bullet, r-5; the "Scope context" bullet stays recorded, owner-gated); amends 0005, 0009, 0012 (r-5), 0016, 0017, 0019, 0022, 0026, 0027 | r-7 |
@@ -728,7 +728,7 @@ Details: [`sprint-r-7-decision-schema.md`](sprint-r-7-decision-schema.md),
 | ADR-SAG-0027 | core dependencies `ulid`, `sc-sha`; `LogEvent` surface change | r-6 |
 
 ADR-SAG-0026 has an ADR-level **Status** line ("Proposed — HTTP half lands in
-r-3, compose half in r-3b"); r-3 sets it to "Active (HTTP half, r-3); compose
+r-3, host half in r-3b"); r-3 sets it to "Active (HTTP half, r-3); compose
 half Proposed (r-3b)" and r-3b to "Active". ADR-SAG-0025 likewise: r-2b
 sets it to "Active (Phase A.1, r-2b); the REQ-SAG-0604 consumer-output
 bullet is Proposed (r-3b)" and r-3b to "Active". The ADR index rows for
@@ -781,7 +781,7 @@ per-root path precedence is unchanged (r-3b acceptance proves it).
 `=`-pinned from `sc-ai` and `sc-jev-py`, with no semver promise of its own.
 This amends D2's word "unpublished": `sc-ai` is published and cannot depend on
 an unpublished crate. Consequences, all owned by r-3b: the ADR-SAG-0026
-compose half, the ADR-SAG-0023 pin list (compose pin effective when the crate
+host half, the ADR-SAG-0023 pin list (compose pin effective when the crate
 lands), the ADR-SAG-0017 published-crate set, the ADR-SAG-0016 amendment
 (supersedes "do not publish a separate observability crate" for this crate),
 consumer input `publish_order` directly after `sc-jev-check`, and the

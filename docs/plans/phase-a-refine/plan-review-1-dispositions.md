@@ -66,7 +66,7 @@ its reason are named in the row.
 
 | Id | Disposition | Where |
 | --- | --- | --- |
-| ARCH-001 | applied — ADR-0026 split: HTTP half Active in r-3, compose half r-3b | arch ADR-0026; r-3, r-3b |
+| ARCH-001 | applied — ADR-0026 split: HTTP half Active in r-3, host half r-3b | arch ADR-0026; r-3, r-3b |
 | ARCH-002 | applied — ADR-0005 narrowing split: kinds sentence r-4 (no ADR-0024 reference), `prepare` sentence r-2 | arch ADR-0005; r-4 D6; r-2 |
 | ARCH-003 | applied — r-2 bullets supersede `run_check` in ADR-0009 and ADR-0022; ADR-0024 header "Amends 0005, 0009, 0019, 0022"; 0009 in r-2 adrs | arch; r-2 |
 | ARCH-004 | applied — ADR-0011 and ADR-0013 r-3b amendments; r-3b adrs list completed | arch; r-3b |

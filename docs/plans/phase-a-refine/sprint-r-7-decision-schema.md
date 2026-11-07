@@ -73,7 +73,7 @@ adrs:
   - ADR-SAG-0023  # new workspace dependency, caret; not on the lockstep list
   - ADR-SAG-0024  # RunConfig::models(ModelAliases) added; prepare/run entry points unchanged
   - ADR-SAG-0025  # attestation types move unchanged; input_sha256 recovery unchanged
-  - ADR-SAG-0026  # r-7 amendment: JudgeOutcome owner (compose half); exchange fns take a required SendTrace (HTTP half)
+  - ADR-SAG-0026  # r-7 amendment: JudgeOutcome owner (host half); exchange fns take a required SendTrace (HTTP half)
   - ADR-SAG-0027  # r-7 amendment: feature seams, stable surface (+SendTrace, +ProjectLabel), layering, add-a-backend checklist
   - ADR-SAG-0028  # workspace-tests gains a dev edge on sc-decision-schema
   - ADR-SAG-0029  # (b) scripted seam unchanged; register_scripted_backends over the moved mock

@@ -93,11 +93,20 @@
       "verify_registry_visibility": true
     },
     {
+      "artifact": "sc-jev-host",
+      "package": "sc-jev-host",
+      "cargo_toml": "crates/sc-jev-host/Cargo.toml",
+      "publish": true,
+      "publish_order": 7,
+      "wait_after_publish_seconds": 30,
+      "verify_registry_visibility": true
+    },
+    {
       "artifact": "sc-treesitter",
       "package": "sc-treesitter",
       "cargo_toml": "crates/sc-treesitter/Cargo.toml",
       "publish": true,
-      "publish_order": 7,
+      "publish_order": 8,
       "wait_after_publish_seconds": 0
     },
     {
@@ -105,7 +114,7 @@
       "package": "sc-ai",
       "cargo_toml": "crates/sc-ai/Cargo.toml",
       "publish": true,
-      "publish_order": 8,
+      "publish_order": 9,
       "wait_after_publish_seconds": 0
     }
   ],

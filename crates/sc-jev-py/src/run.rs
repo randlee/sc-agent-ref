@@ -9,6 +9,7 @@
 //! Python threads keep running.
 
 use std::path::{Path, PathBuf};
+#[cfg(any(test, feature = "test-util"))]
 use std::sync::Arc;
 
 use pyo3::prelude::*;
