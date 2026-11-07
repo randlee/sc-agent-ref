@@ -479,28 +479,36 @@ cargo publish --dry-run --locked -p sc-agent-types -p sc-agent-secrets -p sc-jev
 
 Status `in-review` until QA passes. Commits: `de07e62` (D11 + D13),
 `333360e` (D2 + D4, consumers in the same commit as D2 requires),
-`3382d4e` (ADR / REQ / docs), the merge of `integrate/phase-a` (PR 24),
-then this note. D11 and D13 share
+`3382d4e` (ADR / REQ / docs), the merges of `integrate/phase-a` (PR 24,
+PR 25, and `89a01e5` for r-3 / PR 26), then the QA-1 fix round:
+`6eb4485` (code), `d385f95` (docs), `f7994d5` (rustdoc link), and this
+note. D11 and D13 share
 `config`/`extract`/`payload`, and D2 and D4 share `run`/`session`, so each
 pair is one commit; every commit builds and passes its tests.
 
-**Validation.** Run on the tree merged with `integrate/phase-a` at `0dca742` (plus this commit's
-edits): all 32 "Required validation" lines and the workspace gates
-(`cargo fetch --locked`; `cargo clippy --workspace --all-targets
---all-features -- -D warnings`; `cargo test --workspace`; `cargo test -p
-sc-jev-check --features test-util`; `cargo test -p sc-agent-types --features
-git,test-util`; `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps`;
-`just test-python`; `cargo hack --each-feature test -p sc-treesitter`;
+**Validation (QA-1 fix round, head `f7994d5`, merged with
+`integrate/phase-a` at `d88879a`).** PR 27 CI at `f7994d5` is green:
+sc-agent CI run 42419966414 (jobs `test (ubuntu-24.04)`, `test
+(macos-15)`, `test (windows-2022)`, `python (ubuntu-24.04)`, `python
+(macos-15)`, `python (windows-2022)`, `rustdoc (-D warnings)`, `sc-treesitter
+feature matrix`, `dependency gates (allocator, pins)`, `coverage
+(llvm-cov)`) and sc-publish dry-run run 42419966426 (job `dry-run`). The
+previous head `d385f95` failed `rustdoc (-D warnings)` (a doc link to the
+private `RunConfig::repo_root`), fixed in `f7994d5`. Locally all 33
+"Required validation" lines (plus `cargo test -p sc-jev-check --lib --
+payload::` for REQ-SAG-0303) and the workspace gates (`cargo fetch
+--locked`; clippy `--all-targets --all-features -D warnings`; `cargo test
+--workspace`; `cargo test -p sc-jev-check --features test-util`; `cargo test
+-p sc-agent-types --features git,test-util`; rustdoc `-D warnings`; `just
+test-python`; `cargo hack --each-feature test -p sc-treesitter`;
 `cargo-tree-gates.sh`; `check-exact-pins.sh`; `scripts/sc-publish-dry-run.sh`)
-pass, 43/43. Every `--exact` line prints `1 passed`. Developer log:
-`scratchpad/r2-only/validate.log` (session scratch directory). On the
-`0dca742` merge the `cargo publish --dry-run` line first failed on a dirty
-tree, then, on the committed tree, because the shared
-`~/.cargo/registry/src` held a stale extraction of `sc-agent-types 0.1.0`
-from an earlier pre-r-3c dry run (cargo reuses an extraction of the same
-name and version). Re-run with a private `CARGO_HOME` it exits 0
-(`scratchpad/r2-only/publish-private-home.log`); `scripts/sc-publish-dry-run.sh`
-exits 0 on the committed tree.
+pass; every `--exact` line prints `1 passed` (developer log
+`scratchpad/r2-only/validate.log`). The `cargo publish --dry-run` line now
+names the full ordered list including `sc-agent-http` (added by r-3; plan
+"Validation honesty"). It must run with an empty `CARGO_HOME`: cargo reuses
+an extracted `<crate>-0.1.0` of the same name and version, so a reused cache
+verifies against stale sources. With a fresh one it exits 0
+(`scratchpad/r2-only/publish-f7994d5.log`); CI runners start clean.
 
 **Governing text.** Every shape below is under Active text at merge:
 ADR-SAG-0024 (Active, r-2, including the `equal_input` shape-pin bullet
