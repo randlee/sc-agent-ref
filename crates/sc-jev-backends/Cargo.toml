@@ -18,6 +18,15 @@ include = ["Cargo.toml", "README.md", "LICENSE", "src/**", "tests/**"]
 [lints]
 workspace = true
 
+[features]
+default = []
+# Test seam (plan "Test seams", REQ-SAG-0606): `WireFault` and
+# `with_wire_fault` on the Haiku and Luna backends. Production builds leave
+# this off. The `wire` test target declares `required-features =
+# ["test-util"]`; there is no self dev-dependency (boundaries/README.md
+# "Dev-dependency and self edges").
+test-util = []
+
 [dependencies]
 sc-agent-http.workspace = true
 sc-agent-types = { path = "../sc-agent-types", version = "0.1.0" }
@@ -27,3 +36,7 @@ serde_json.workspace = true
 # Test transports and retry hooks (plan "Test seams").
 sc-agent-http = { workspace = true, features = ["test-util"] }
 sc-agent-types = { path = "../sc-agent-types", version = "0.1.0", features = ["test-util"] }
+
+[[test]]
+name = "wire"
+required-features = ["test-util"]

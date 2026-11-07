@@ -25,6 +25,9 @@ mod check;
 mod client;
 mod config;
 
+#[cfg(feature = "test-util")]
+#[doc(inline)]
+pub use check::WireFault;
 #[doc(inline)]
 pub use client::JevClient;
 #[doc(inline)]

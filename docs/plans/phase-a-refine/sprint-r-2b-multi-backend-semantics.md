@@ -1,7 +1,7 @@
 ---
 id: r-2b
 phase: r
-status: planned
+status: complete # QA-2 PASS (3ef50f5 + merge b61e2ac)
 closure_type: boundary
 target_boundary: jev-check
 track: runtime
@@ -59,6 +59,9 @@ owned_paths:
   - "crates/sc-jev/src/client/**"
   - "crates/sc-jev/src/lib.rs"
   - "crates/sc-jev/tests/**"
+  - "crates/sc-ai/tests/cli.rs"
+  - "tests/fixtures/jev-python/tests/test_run_check_and_ask.py"
+  - "crates/sc-agent-types/src/ids.rs#BackendSet Default impl (QA-1 R2B-RBP-F003)"
   - "crates/sc-jev-backends/Cargo.toml"
   - "crates/sc-jev-backends/src/wire.rs"
   - "crates/sc-jev-backends/src/backend.rs"
@@ -89,8 +92,9 @@ In the engine: multiple backends in one run are **independent by default**;
 away answers already paid for; `equal` is computed from the digest each
 backend recovers from its own final wire body, so it can be `false`; `leak`
 is true when any backend failed. Consumer-visible behaviour (CLI flag, exit
-codes, Python kwarg, `.response`) is r-3b's; this sprint changes no file in
-`sc-ai` or `sc-jev-py`.
+codes, Python kwarg, `.response`) is r-3b's; this sprint changes no consumer
+source file (the `sc-ai` and `sc-jev-py` sources). Their two tests that pinned the
+r-1 interim behaviour are owned here.
 
 ## Closes findings
 
@@ -354,3 +358,70 @@ cargo publish --dry-run --locked -p sc-agent-types -p sc-agent-secrets -p sc-age
 Python `chain_context` kwarg, `JevError.response`, `.pyi` (r-3b, which closes
 REQ-SAG-0604 and REQ-SAG-0605); parallel fan-out of backends (still
 sequential); D9 Jev envelope (r-5); `agt-luna-live-count`.
+
+## Implementation notes
+
+Deviations and conservative choices, each mapped to its requirement or ADR.
+
+- **`WireFault::TruncateBody`** (REQ-SAG-0606, ADR-SAG-0020). D6 names only
+  `DropEmbeddedByte`. `test_digest_recovery_error_carries_no_body_bytes`
+  needs an unparseable wire body through the public seam, so each crate's
+  `WireFault` also has `TruncateBody` (cuts the serialized body in half).
+  Both are `test-util` only.
+- **Fault placement.** `DropEmbeddedByte` removes the first ASCII
+  alphanumeric byte inside a JSON string of the embedded payload (Jev: after
+  the spliced `model`; Haiku/Luna: the user-message text before it is
+  embedded), so the body stays valid JSON and recovery reports a different
+  digest. The Haiku/Luna fault applies to the judge message body only;
+  the count body is unfaulted.
+- **Haiku/Luna recovery runs before the token-count request**, which is the
+  first send (ADR-SAG-0004, ADR-SAG-0025: unparseable body, nothing sent).
+- **Dry-run `mode`.** The dry-run record now carries `RunConfig::mode`
+  (default `Independent`) instead of a constant `ChainContext`
+  (ADR-SAG-0008 r-2b). `tests/run_response.rs::real_dry_run` sets
+  `ChainContext` so the r-2 pinned samples stay byte-identical.
+- **`NotSent` attestation.** A backend refused at the chain-context
+  re-validation, or whose request cannot be built, is `Failed` in
+  `results` with attestation `NotSent` and no `LogEvent`; a sent backend
+  that fails is `Failed` with attestation `Failed` and one `LogEvent`
+  (ADR-SAG-0013, ADR-SAG-0025).
+- **`session_save_failed.json`.** A real run records the attested mode and
+  digests, so its body cannot equal the `test_builder` fixture byte for
+  byte. `test_session_save_failure_keeps_answers` asserts the fixture's
+  `warnings` entry, `session_saved = false`, `session_id = null` and the
+  kept answers (ADR-SAG-0025, ADR-SAG-0014).
+- **`same_bytes`.** `equal_input::same_bytes` and the constant-`true` path
+  were already gone in r-1; r-2b removes `RunAttestation::uniform`.
+- **Scripted `INPUT_TOO_LARGE`.** Uses the backend descriptor's
+  `request_limit_bytes` and that limit plus one (ADR-SAG-0022 r-2b).
+  A per-backend entry whose only key is `failure` is a failure entry;
+  any other object is a shared-form answers map for that backend.
+- **Consumer tests** (now in `owned_paths`; their old r-1 interim
+  expectations changed with the engine; no consumer source changed): `crates/sc-ai/tests/cli.rs`
+  (`test_multi_backend_cli_equal_input`: mode `independent`, `matched`,
+  `equal = true`, no session context) and
+  `tests/fixtures/jev-python/tests/test_run_check_and_ask.py` (`matched`,
+  `equal = True`). r-3b owns the consumers.
+- **Deferred to r-3b:** `--chain-context`, `--scripted-answers`, partial
+  exit 2, Python kwarg and `.response`; the ADR-SAG-0025 consumer-output
+  bullet stays Proposed (r-3b).
+
+### QA-1 fix round
+
+- REQ-QA-001: the two consumer test files are in `owned_paths`; the Outcome
+  says "no consumer source file".
+- RBP-F001/F002: `sc-jev-backends` and `sc-jev` no longer re-parse question
+  ids and choices from bytes; `validate_questions`, `wire::parse_answers`,
+  `backend::typed_answers`, `check::prepare` and `check::parse_outcome` use
+  `PayloadBundle::question_choices()` (typed `QuestionId`/`ChoiceId`).
+  `ParsedQuestion` is gone. The raw-bytes checks (not JSON, non-canonical,
+  object question shape, `model` key, key before `model`, `type`, missing
+  `prompt`) are unrepresentable in a bundle and were dropped with their
+  tests; what remains is at least one question, two or more distinct
+  choices, and the byte cap.
+- RBP-F003: `BackendSet::default()` is the infallible `[jev]` selection
+  (`sc-agent-types/src/ids.rs`, added to `owned_paths`); `default_backends`
+  is deleted.
+- RBP-F004: `parse_count` uses `as_u64` with no `unwrap_or(0)`.
+- RBP-F005: both `expect` calls in `check.rs` went away with the byte
+  parsing (no `checked above` remains).

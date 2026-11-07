@@ -435,6 +435,20 @@ impl BackendSet {
     }
 }
 
+impl Default for BackendSet {
+    /// The default selection, `[jev]`: one built-in backend, so no
+    /// validation can fail.
+    ///
+    /// ```
+    /// use sc_agent_types::{BackendId, BackendSet};
+    ///
+    /// assert_eq!(BackendSet::default().as_slice(), [BackendId::Jev]);
+    /// ```
+    fn default() -> Self {
+        Self(vec![BackendId::Jev])
+    }
+}
+
 impl TryFrom<Vec<BackendId>> for BackendSet {
     type Error = JevError;
 

@@ -4,23 +4,36 @@
 //! [`MockJudgeBackend`]s, the workspace's one judge double. Production builds
 //! leave the `test-util` feature off; the scripted registry reaches a run
 //! through [`crate::run::RunConfig::registry`] (ADR-SAG-0022 r-2 amendment).
+//! Each mock reports, as `input_sha256`, the digest of the bundle it
+//! received, so equal-input attests it like a real backend (ADR-SAG-0022
+//! r-2b amendment).
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use sc_agent_types::test_util::MockJudgeBackend;
-use sc_agent_types::{BackendId, JevError, QuestionAnswer, QuestionId};
+use sc_agent_types::{
+    BackendId, JevError, JudgeBackend, NetworkErrorKind, QuestionAnswer, QuestionId,
+};
 use serde_json::Value;
 
 use super::BackendRegistry;
 
 /// Registers one scripted judge per `ids` entry.
 ///
-/// `answers` is a JSON object keyed by question id. Each value is either an
-/// answer object (`{"choice": "yes"}`, optionally with `confidence` and
-/// `probabilities`) or the string shorthand `"yes"`, which is stored as
-/// `{"choice": "yes"}`. Every caller (CLI tests, the Python binding's
-/// `_testing` module) therefore accepts the same shape.
+/// `answers` is one of two JSON shapes (ADR-SAG-0022 r-2b amendment):
+///
+/// - *Shared form*: an object of question id to answer. An answer is an
+///   answer object (`{"choice": "yes"}`, optionally with `confidence` and
+///   `probabilities`) or the string shorthand `"yes"` (ADR-SAG-0029 (b)).
+///   Every id in `ids` answers with it.
+/// - *Per-backend form*: an object whose only key is `"backends"`, mapping
+///   each backend id in `ids` (its descriptor name) to a shared-form answer
+///   object or a failure entry
+///   `{"failure": {"error", "kind"?, "stage"?}}`. `error` is
+///   `NETWORK_ERROR` (needs `kind`, such as `"busy"`), `INPUT_TOO_LARGE` or
+///   `RESPONSE_INVALID`. `stage` `"judge"` (the default) sends and fails;
+///   `"validate"` refuses before any send.
 ///
 /// Each judge is a [`MockJudgeBackend`]: it answers at `judge` time against
 /// the request it receives, does not open a socket, and stores no API key.
@@ -29,9 +42,13 @@ use super::BackendRegistry;
 ///
 /// # Errors
 ///
-/// Returns `INPUT_INVALID` when `answers` is not an object or a value is
-/// neither a string nor a valid answer object, and `CONFIG_INVALID`
-/// ([`JevError::RegistryInvalid`]) when `ids` repeats a backend.
+/// Returns `INPUT_INVALID` when `answers` matches neither form: not an
+/// object, a value that is neither a string nor a valid answer object, an
+/// unknown failure `error`, `kind` or `stage`, a backend id that is not in
+/// `ids`, an id in `ids` with no entry, or a shared-form map whose only
+/// question id is `backends`. The fix hint names the two forms.
+/// Returns `CONFIG_INVALID` ([`JevError::RegistryInvalid`]) when `ids`
+/// repeats a backend.
 ///
 /// # Examples
 ///
@@ -57,21 +74,158 @@ pub fn register_scripted_backends(
     ids: &[BackendId],
     answers: Value,
 ) -> Result<BackendRegistry, JevError> {
-    let answers = normalize_answers(answers)?;
     let mut registry = BackendRegistry::new();
+    if is_per_backend_form(&answers) {
+        let mut entries = per_backend_entries(ids, answers)?;
+        for id in ids.iter().copied() {
+            let entry = entries.remove(&id).ok_or_else(|| {
+                forms_error(format!(
+                    "backend {id} is in the run but has no entry under \"backends\""
+                ))
+            })?;
+            registry.register(entry.into_backend(id))?;
+        }
+        return Ok(registry);
+    }
+    let answers = normalize_answers(answers)?;
     for id in ids.iter().copied() {
         registry.register(Arc::new(MockJudgeBackend::new(id, answers.clone())))?;
     }
     Ok(registry)
 }
 
+/// `{"backends": ...}` alone: the per-backend form. A value that is not an
+/// object is rejected later, with the two-forms hint.
+fn is_per_backend_form(answers: &Value) -> bool {
+    answers
+        .as_object()
+        .is_some_and(|map| map.len() == 1 && map.contains_key("backends"))
+}
+
+/// `INPUT_INVALID` whose detail names both accepted forms.
+fn forms_error(problem: impl std::fmt::Display) -> JevError {
+    JevError::input_invalid(format!(
+        "scripted answers: {problem}; use the shared form {{\"<question id>\": \"yes\" | {{\"choice\": ..}}}} or the per-backend form {{\"backends\": {{\"<backend id>\": <shared form> | {{\"failure\": {{\"error\": .., \"kind\"?: .., \"stage\"?: ..}}}}}}}}"
+    ))
+}
+
+/// One backend's scripted behaviour.
+enum Entry {
+    Answers(BTreeMap<QuestionId, QuestionAnswer>),
+    Failure { error: JevError, validate: bool },
+}
+
+impl Entry {
+    fn into_backend(self, id: BackendId) -> Arc<dyn JudgeBackend> {
+        match self {
+            Self::Answers(answers) => Arc::new(MockJudgeBackend::new(id, answers)),
+            Self::Failure {
+                error,
+                validate: true,
+            } => Arc::new(MockJudgeBackend::refusing(id, error)),
+            Self::Failure {
+                error,
+                validate: false,
+            } => Arc::new(MockJudgeBackend::new(id, BTreeMap::new()).with_failure(error)),
+        }
+    }
+}
+
+fn per_backend_entries(
+    ids: &[BackendId],
+    answers: Value,
+) -> Result<BTreeMap<BackendId, Entry>, JevError> {
+    let Some(Value::Object(by_backend)) = answers
+        .as_object()
+        .and_then(|map| map.get("backends"))
+        .cloned()
+    else {
+        return Err(forms_error("\"backends\" must be an object of backend ids"));
+    };
+    let mut entries = BTreeMap::new();
+    for (name, entry) in by_backend {
+        let id = ids
+            .iter()
+            .copied()
+            .find(|id| id.descriptor().name() == name)
+            .ok_or_else(|| {
+                forms_error(format!("backend {name:?} is not in the run's backend ids"))
+            })?;
+        entries.insert(id, parse_entry(id, &name, entry)?);
+    }
+    Ok(entries)
+}
+
+fn parse_entry(id: BackendId, name: &str, entry: Value) -> Result<Entry, JevError> {
+    let Value::Object(map) = &entry else {
+        return Err(forms_error(format!(
+            "the entry for {name} must be an answers object or a failure entry"
+        )));
+    };
+    if map.len() == 1 && map.contains_key("failure") {
+        return parse_failure(id, name, &map["failure"]);
+    }
+    Ok(Entry::Answers(normalize_answers(entry)?))
+}
+
+fn parse_failure(id: BackendId, name: &str, failure: &Value) -> Result<Entry, JevError> {
+    let Value::Object(map) = failure else {
+        return Err(forms_error(format!(
+            "the failure for {name} must be an object"
+        )));
+    };
+    if let Some(key) = map
+        .keys()
+        .find(|key| !["error", "kind", "stage"].contains(&key.as_str()))
+    {
+        return Err(forms_error(format!(
+            "the failure for {name} has unknown key {key:?}"
+        )));
+    }
+    let text = |key: &str| map.get(key).map(|value| value.as_str());
+    let error = match text("error") {
+        Some(Some("NETWORK_ERROR")) => {
+            let Some(Some(kind)) = text("kind") else {
+                return Err(forms_error(format!(
+                    "the NETWORK_ERROR failure for {name} needs a string \"kind\", such as \"busy\""
+                )));
+            };
+            let kind: NetworkErrorKind = kind.parse()?;
+            JevError::network(kind, "scripted failure")
+        }
+        Some(Some("INPUT_TOO_LARGE")) => {
+            let limit = id.descriptor().request_limit_bytes();
+            JevError::input_too_large(limit, limit.saturating_add(1))
+        }
+        Some(Some("RESPONSE_INVALID")) => JevError::response_invalid("scripted failure"),
+        _ => {
+            return Err(forms_error(format!(
+                "the failure for {name} needs \"error\" of NETWORK_ERROR, INPUT_TOO_LARGE or RESPONSE_INVALID"
+            )));
+        }
+    };
+    let validate = match text("stage") {
+        None | Some(Some("judge")) => false,
+        Some(Some("validate")) => true,
+        _ => {
+            return Err(forms_error(format!(
+                "the failure for {name} has a \"stage\" other than \"judge\" or \"validate\""
+            )));
+        }
+    };
+    Ok(Entry::Failure { error, validate })
+}
+
 /// Expands the `"choice"` string shorthand and types every answer.
 fn normalize_answers(answers: Value) -> Result<BTreeMap<QuestionId, QuestionAnswer>, JevError> {
     let Value::Object(map) = answers else {
-        return Err(JevError::input_invalid(
-            "scripted answers must be a JSON object of question ids",
-        ));
+        return Err(forms_error("answers must be a JSON object"));
     };
+    if map.len() == 1 && map.contains_key("backends") {
+        return Err(forms_error(
+            "\"backends\" is the per-backend form's key, not a question id",
+        ));
+    }
     let mut normalized = BTreeMap::new();
     for (id, answer) in map {
         let wrapped = match answer {

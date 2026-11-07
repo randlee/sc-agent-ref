@@ -381,6 +381,7 @@ fn validate_for_send_repeats_only_for_context_bearing_requests() {
     run(prepare(
         check_file(),
         config(repo.path(), sessions.path())
+            .mode(MultiBackendMode::ChainContext)
             .backends(set(&[BackendId::Jev, BackendId::AnthropicHaiku]))
             .registry(registry_of(&[&jev, &haiku])),
     )

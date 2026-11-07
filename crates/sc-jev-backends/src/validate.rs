@@ -1,20 +1,15 @@
 //! Pre-send checks for a canonical payload and its injected prompt.
 //!
-//! Unknown question types and short choice lists refuse before any HTTP call.
+//! A payload with no question, or a question with fewer than two choices,
+//! refuses before any HTTP call. Question ids and choices are the typed map
+//! the `PayloadBundle` already carries; nothing is re-parsed from bytes. An
+//! unknown question type or a missing prompt cannot be built into a bundle.
 //! The byte cap is the assembled judge body (system prompt plus canonical
 //! payload), not the payload alone (ADR-SAG-0004, REQ-SAG-0502).
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
-use sc_agent_types::JevError;
-use serde_json::Value;
-
-/// One choice question taken from the canonical payload.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct ParsedQuestion {
-    pub(crate) id: String,
-    pub(crate) choices: Vec<String>,
-}
+use sc_agent_types::{ChoiceId, JevError, PayloadBundle, QuestionId};
 
 /// Pre-send input token ceiling for one judge call (ADR-SAG-0004).
 ///
@@ -72,143 +67,67 @@ pub(crate) fn enforce_count_and_message_limits(
     Ok(())
 }
 
-pub(crate) fn validate_questions(bytes: &[u8]) -> Result<Vec<ParsedQuestion>, JevError> {
-    let value: Value = serde_json::from_slice(bytes).map_err(|error| {
-        JevError::input_invalid(format!("canonical payload is not JSON: {error}"))
-    })?;
-    let questions = value
-        .get("questions")
-        .and_then(Value::as_array)
-        .ok_or_else(|| JevError::input_invalid("canonical payload needs a questions array"))?;
+/// The bundle's typed question map, after the choice-question checks the
+/// bundle does not cover.
+///
+/// # Errors
+///
+/// `INPUT_INVALID` when the payload has no question or a question has fewer
+/// than two distinct choices.
+pub(crate) fn validate_questions(
+    bundle: &PayloadBundle,
+) -> Result<&BTreeMap<QuestionId, BTreeSet<ChoiceId>>, JevError> {
+    let questions = bundle.question_choices();
     if questions.is_empty() {
         return Err(JevError::input_invalid(
             "a check needs at least one question",
         ));
     }
-
-    let mut unknown = BTreeSet::new();
-    for question in questions {
-        match question.get("type") {
-            None => {}
-            Some(Value::String(kind)) if kind == "choice" => {}
-            Some(other) => {
-                unknown.insert(type_label(other));
-            }
-        }
-    }
-    if !unknown.is_empty() {
-        let joined = unknown
-            .iter()
-            .map(|kind| format!("\"{kind}\""))
-            .collect::<Vec<_>>()
-            .join(", ");
+    if let Some(id) = questions
+        .iter()
+        .find_map(|(id, choices)| (choices.len() < 2).then_some(id))
+    {
         return Err(JevError::input_invalid(format!(
-            "no answer schema for question type [{joined}]; known: [\"choice\"]"
+            "question {id} is not a choice question with two or more criteria"
         )));
     }
-
-    let mut parsed = Vec::with_capacity(questions.len());
-    let mut seen = BTreeSet::new();
-    for question in questions {
-        let object = question
-            .as_object()
-            .ok_or_else(|| JevError::input_invalid("question is not an object"))?;
-        let id = object
-            .get("id")
-            .and_then(Value::as_str)
-            .filter(|id| !id.is_empty())
-            .ok_or_else(|| JevError::input_invalid("question is missing id"))?;
-        if !seen.insert(id.to_owned()) {
-            return Err(JevError::input_invalid(format!(
-                "duplicate question id {id}"
-            )));
-        }
-        if object.get("prompt").and_then(Value::as_str).is_none() {
-            return Err(JevError::input_invalid(format!(
-                "question {id} is missing prompt"
-            )));
-        }
-        let Some(items) = object.get("choices").and_then(Value::as_array) else {
-            return Err(JevError::input_invalid(format!(
-                "question {id} is not a choice question with two or more criteria"
-            )));
-        };
-        if items.len() < 2 || items.iter().any(|item| item.as_str().is_none()) {
-            return Err(JevError::input_invalid(format!(
-                "question {id} is not a choice question with two or more criteria"
-            )));
-        }
-        let labels = items
-            .iter()
-            .filter_map(Value::as_str)
-            .map(str::to_owned)
-            .collect::<Vec<_>>();
-        parsed.push(ParsedQuestion {
-            id: id.to_owned(),
-            choices: labels,
-        });
-    }
-    Ok(parsed)
+    Ok(questions)
 }
 
-fn type_label(value: &Value) -> String {
-    value
-        .as_str()
-        .map_or_else(|| value.to_string(), str::to_owned)
-}
-
-/// Refusal paths of `validate_questions` on raw bytes (QA-1 QA-001). A
-/// `PayloadBundle` cannot carry most of these, so they are unit tests.
+/// Refusal paths of `validate_questions` on bundles built from payloads.
 #[cfg(test)]
 mod refusals {
+    use sc_agent_types::{CanonicalJudgePayload, PayloadBundle};
     use serde_json::json;
 
     use super::validate_questions;
 
+    fn bundle(questions: serde_json::Value) -> PayloadBundle {
+        let payload: CanonicalJudgePayload =
+            serde_json::from_value(json!({"questions": questions, "state": []})).expect("payload");
+        PayloadBundle::encode(&payload).expect("bundle")
+    }
+
     #[test]
     fn validate_questions_refuses_every_malformed_payload() {
-        let q = |extra: serde_json::Value| {
-            let mut question = json!({"id": "q", "prompt": "p", "choices": ["a", "b"]});
-            for (key, value) in extra.as_object().expect("object") {
-                if value.is_null() {
-                    question.as_object_mut().expect("object").remove(key);
-                } else {
-                    question[key] = value.clone();
-                }
-            }
-            question
-        };
-        let cases: Vec<(Vec<u8>, &str)> = vec![
-            (b"not json".to_vec(), "is not JSON"),
-            (json!({"state": []}).to_string().into_bytes(), "needs a questions array"),
-            (json!({"questions": []}).to_string().into_bytes(), "at least one question"),
+        let cases = [
+            (json!([]), "at least one question"),
             (
-                json!({"questions": [q(json!({"type": "rank"})), q(json!({"id": "r", "type": 3}))]})
-                    .to_string()
-                    .into_bytes(),
-                r#"no answer schema for question type ["3", "rank"]"#,
+                json!([{"id": "q", "prompt": "p", "choices": ["a"]}]),
+                "question q is not a choice question",
             ),
-            (json!({"questions": [1]}).to_string().into_bytes(), "is not an object"),
-            (json!({"questions": [q(json!({"id": ""}))]}).to_string().into_bytes(), "missing id"),
             (
-                json!({"questions": [q(json!({})), q(json!({}))]}).to_string().into_bytes(),
-                "duplicate question id q",
+                json!([{"id": "q", "prompt": "p", "choices": ["a", "a"]}]),
+                "question q is not a choice question",
             ),
-            (json!({"questions": [q(json!({"prompt": null}))]}).to_string().into_bytes(), "missing prompt"),
-            (json!({"questions": [q(json!({"choices": null}))]}).to_string().into_bytes(), "two or more criteria"),
-            (json!({"questions": [q(json!({"choices": ["a", 1]}))]}).to_string().into_bytes(), "two or more criteria"),
         ];
-        for (bytes, needle) in cases {
-            let error = validate_questions(&bytes).expect_err(needle);
+        for (questions, needle) in cases {
+            let bundle = bundle(questions);
+            let error = validate_questions(&bundle).expect_err(needle);
             assert_eq!(error.code(), "INPUT_INVALID", "{needle}");
             assert!(error.to_string().contains(needle), "{needle}: {error}");
         }
-        let parsed = validate_questions(
-            json!({"questions": [q(json!({"type": "choice"}))]})
-                .to_string()
-                .as_bytes(),
-        )
-        .expect("explicit choice type");
-        assert_eq!(parsed[0].choices, ["a", "b"]);
+        let ok = bundle(json!([{"id": "q", "prompt": "p", "choices": ["a", "b"]}]));
+        assert_eq!(validate_questions(&ok).expect("valid").len(), 1);
     }
 }

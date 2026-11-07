@@ -218,8 +218,8 @@ impl RunResponse {
     ///
     /// The one exit / exception decision for every consumer: print the
     /// envelope, report [`Self::first_failure`], and exit 2 (CLI) or raise
-    /// (Python). In r-2 `run` is fail-fast, so a returned response never has
-    /// a failure at runtime; r-2b produces them.
+    /// (Python). `run` produces a partial response when some, not all,
+    /// backends failed (ADR-SAG-0025).
     #[must_use]
     pub fn is_partial(&self) -> bool {
         self.first_failure().is_some()
@@ -438,7 +438,7 @@ impl Serialize for BackendResult {
 pub enum BackendStatus {
     /// The backend answered.
     Ok(JudgeOutcome),
-    /// The backend failed; the other backends' answers are kept (r-2b).
+    /// The backend failed; the other backends' answers are kept.
     Failed(BackendFailure),
 }
 

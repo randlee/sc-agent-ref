@@ -4,13 +4,13 @@
 //! system prompt is `system` for Haiku and `instructions` for Luna. Neither
 //! body is the Jev wire document (ADR-SAG-0019).
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use sc_agent_http::{HeaderName, SecretHeader};
-use sc_agent_types::{JevError, ResolvedApiKey};
+use sc_agent_types::{
+    ChoiceId, JevError, QuestionId, ResolvedApiKey, Sha256Digest, canonical_json_bytes,
+};
 use serde_json::{Map, Value};
-
-use crate::validate::ParsedQuestion;
 
 /// Haiku model id pinned from the jev-check README table.
 ///
@@ -58,6 +58,101 @@ pub(crate) fn message_body(
         system_prompt,
         true,
     ))
+}
+
+/// The digest of the canonical blob inside a serialized provider message
+/// `body` (REQ-SAG-0606, ADR-SAG-0025).
+///
+/// Reads the user message's content (`messages[0].content` for Anthropic,
+/// `input[0].content` for OpenAI), parses it, re-encodes it with
+/// `canonical_json_bytes` and hashes it. The re-encoding is attestation-only:
+/// it never feeds the wire body (ADR-SAG-0005). Callers run it on the body
+/// before it is handed to `send_with_busy_retry`.
+///
+/// # Errors
+///
+/// `INPUT_INVALID` when the body or the embedded payload is not JSON, or the
+/// body has no user message. The error names the failure category and
+/// position only, never body bytes (ADR-SAG-0020).
+pub(crate) fn recovered_digest(kind: ProviderKind, body: &[u8]) -> Result<Sha256Digest, JevError> {
+    let value: Value = serde_json::from_slice(body)
+        .map_err(|error| JevError::encode_failed("provider wire body", &error))?;
+    let messages = match kind {
+        ProviderKind::Anthropic => "messages",
+        ProviderKind::OpenAi => "input",
+    };
+    let text = value
+        .get(messages)
+        .and_then(Value::as_array)
+        .and_then(|list| list.first())
+        .and_then(|message| message.get("content"))
+        .and_then(Value::as_str)
+        .ok_or_else(|| JevError::input_invalid("provider wire body has no embedded payload"))?;
+    let embedded: Value = serde_json::from_str(text)
+        .map_err(|error| JevError::encode_failed("embedded payload", &error))?;
+    let canonical = canonical_json_bytes(&embedded)?;
+    Ok(Sha256Digest::of(&canonical))
+}
+
+/// A seeded defect in the provider wire builder (feature `test-util`).
+///
+/// The fault is applied after the canonical bytes are embedded in the
+/// message and before the digest is recovered, so a test shows the digest
+/// follows the bytes that would be sent.
+#[cfg(feature = "test-util")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum WireFault {
+    /// Drops one byte of the embedded payload text. The body stays valid
+    /// JSON, so recovery succeeds and reports a digest that differs from the
+    /// request's `prompt_sha256`.
+    DropEmbeddedByte,
+    /// Cuts the serialized body in half, so digest recovery fails and the
+    /// backend sends nothing.
+    TruncateBody,
+}
+
+#[cfg(feature = "test-util")]
+impl WireFault {
+    /// The embedded payload text after the fault.
+    pub(crate) fn apply_to_text(self, text: &str) -> String {
+        let mut bytes = text.as_bytes().to_vec();
+        if self == Self::DropEmbeddedByte
+            && let Some(index) = droppable_byte(&bytes)
+        {
+            bytes.remove(index);
+        }
+        // Only an ASCII letter or digit is removed, so UTF-8 stays valid;
+        // the fallback keeps the text unchanged rather than panicking.
+        String::from_utf8(bytes).unwrap_or_else(|_| text.to_owned())
+    }
+
+    /// The serialized body after the fault.
+    pub(crate) fn apply_to_body(self, mut body: Vec<u8>) -> Vec<u8> {
+        if self == Self::TruncateBody {
+            body.truncate(body.len() / 2);
+        }
+        body
+    }
+}
+
+/// Index of the first ASCII letter or digit inside a JSON string, skipping
+/// escape sequences, so removing it keeps the JSON valid.
+#[cfg(feature = "test-util")]
+fn droppable_byte(text: &[u8]) -> Option<usize> {
+    let mut in_string = false;
+    let mut index = 0;
+    while index < text.len() {
+        let byte = text[index];
+        match byte {
+            b'\\' if in_string => index += 1,
+            b'"' => in_string = !in_string,
+            b if in_string && b.is_ascii_alphanumeric() => return Some(index),
+            _ => {}
+        }
+        index += 1;
+    }
+    None
 }
 
 /// Token-count body for `kind`.
@@ -151,12 +246,9 @@ pub(crate) fn parse_count(body: &[u8]) -> Result<u64, JevError> {
     let value: Value = serde_json::from_slice(body)
         .map_err(|_| JevError::response_invalid("token count is not JSON"))?;
     let tokens = value.get("input_tokens");
-    match tokens.and_then(Value::as_i64) {
-        Some(tokens) if tokens >= 0 => Ok(u64::try_from(tokens).unwrap_or(0)),
-        _ => Err(JevError::response_invalid(
-            "token count has no input_tokens",
-        )),
-    }
+    tokens
+        .and_then(Value::as_u64)
+        .ok_or_else(|| JevError::response_invalid("token count has no input_tokens"))
 }
 
 /// Parses a vendor reply. Error details carry no provider name; the caller
@@ -194,17 +286,17 @@ pub(crate) fn parse_vendor(kind: ProviderKind, body: &[u8]) -> Result<VendorRepl
     })
 }
 
-pub(crate) fn parse_answers(text: &str, questions: &[ParsedQuestion]) -> Result<Value, JevError> {
+pub(crate) fn parse_answers(
+    text: &str,
+    questions: &BTreeMap<QuestionId, BTreeSet<ChoiceId>>,
+) -> Result<Value, JevError> {
     let value: Value = serde_json::from_str(text)
         .map_err(|_| JevError::response_invalid("LLM reply is not JSON"))?;
     let answers = value
         .get("answers")
         .and_then(Value::as_object)
         .ok_or_else(|| JevError::response_invalid("LLM answer ids differ from the question ids"))?;
-    let expected: BTreeSet<&str> = questions
-        .iter()
-        .map(|question| question.id.as_str())
-        .collect();
+    let expected: BTreeSet<&str> = questions.keys().map(QuestionId::as_str).collect();
     let actual: BTreeSet<&str> = answers.keys().map(String::as_str).collect();
     if expected != actual {
         return Err(JevError::response_invalid(
@@ -213,37 +305,31 @@ pub(crate) fn parse_answers(text: &str, questions: &[ParsedQuestion]) -> Result<
     }
 
     let mut normalized = Map::new();
-    for question in questions {
+    for (id, choices) in questions {
+        let id = id.as_str();
         let item = answers
-            .get(&question.id)
+            .get(id)
             .and_then(Value::as_object)
-            .ok_or_else(|| bad_answer(&question.id))?;
+            .ok_or_else(|| bad_answer(id))?;
         let choice = item.get("choice").and_then(Value::as_str).unwrap_or("");
-        if !question.choices.iter().any(|label| label == choice) {
-            return Err(bad_answer(&question.id));
+        if !choices.iter().any(|label| label.as_str() == choice) {
+            return Err(bad_answer(id));
         }
-        let confidence = item
-            .get("confidence")
-            .ok_or_else(|| bad_answer(&question.id))?;
+        let confidence = item.get("confidence").ok_or_else(|| bad_answer(id))?;
         if !is_number(confidence) {
             return Err(not_a_number());
         }
         let probabilities = item
             .get("probabilities")
             .and_then(Value::as_object)
-            .ok_or_else(|| bad_answer(&question.id))?;
-        let expected_labels: BTreeSet<&str> = question.choices.iter().map(String::as_str).collect();
+            .ok_or_else(|| bad_answer(id))?;
+        let expected_labels: BTreeSet<&str> = choices.iter().map(ChoiceId::as_str).collect();
         let actual_labels: BTreeSet<&str> = probabilities.keys().map(String::as_str).collect();
         if expected_labels != actual_labels {
-            return Err(bad_answer(&question.id));
+            return Err(bad_answer(id));
         }
-        for label in &question.choices {
-            let probability = probabilities
-                .get(label)
-                .expect("probability key was compared against choices");
-            if !is_number(probability) {
-                return Err(not_a_number());
-            }
+        if !probabilities.values().all(is_number) {
+            return Err(not_a_number());
         }
         let mut answer = Map::new();
         answer.insert("choice".to_owned(), Value::String(choice.to_owned()));
@@ -252,7 +338,7 @@ pub(crate) fn parse_answers(text: &str, questions: &[ParsedQuestion]) -> Result<
             "probabilities".to_owned(),
             Value::Object(probabilities.clone()),
         );
-        normalized.insert(question.id.clone(), Value::Object(answer));
+        normalized.insert(id.to_owned(), Value::Object(answer));
     }
     Ok(Value::Object(normalized))
 }
@@ -378,11 +464,12 @@ fn truncation_reason(
     None
 }
 
+/// A usage counter; a provider that omits one reports zero tokens for it.
 fn usage_i64(usage: Option<&Map<String, Value>>, key: &str) -> i64 {
     usage
         .and_then(|object| object.get(key))
         .and_then(Value::as_i64)
-        .unwrap_or(0)
+        .unwrap_or_default()
 }
 
 fn nonneg(value: i64) -> Result<u64, JevError> {

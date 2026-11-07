@@ -21,3 +21,6 @@ mod wire;
 
 #[doc(inline)]
 pub use backend::{AnthropicHaikuBackend, OpenAiLunaBackend};
+#[cfg(feature = "test-util")]
+#[doc(inline)]
+pub use wire::WireFault;
