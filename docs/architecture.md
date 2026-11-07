@@ -97,7 +97,7 @@ cell and its own marker text to `(Active, r-N)`; it adds or removes no entry.
 | ADR-SAG-0021 | Log and session path precedence | Active | Amends ADR-SAG-0013 |
 | ADR-SAG-0022 | Scripted backends are a test-util feature | Active | Amends ADR-SAG-0009; amended by ADR-SAG-0029; A.1 subsection (Active, r-1); ADR-SAG-0024 (Active, r-2); ADR-SAG-0025 (Proposed, r-2b) |
 | ADR-SAG-0023 | Dependency pins, allocator, released binaries | Active (r-4; compose pin r-3b) | Amends ADR-SAG-0016, ADR-SAG-0017 |
-| ADR-SAG-0024 | Engine entry point and response contract | Active (r-2) | Amends ADR-SAG-0003, ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0014, ADR-SAG-0019, ADR-SAG-0022; supersedes the `data` bullet of the ADR-SAG-0014 A.1 r-1 interim subsection (its other bullets stay in force); relies on the ADR-SAG-0008 / 0019 r-1 interim subsections, which stay in force until ADR-SAG-0025 (r-2b) |
+| ADR-SAG-0024 | Engine entry point and response contract | Active (r-2) | Amends ADR-SAG-0003, ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0014, ADR-SAG-0019, ADR-SAG-0022; supersedes the ADR-SAG-0014 A.1 r-1 interim subsection |
 | ADR-SAG-0025 | Multi-backend semantics and equal-input attestation | Proposed (r-2b) | Amends ADR-SAG-0004, ADR-SAG-0008, ADR-SAG-0019, ADR-SAG-0022 |
 | ADR-SAG-0026 | Shared HTTP crate and composition crate | Proposed (HTTP half r-3; compose half r-3b) | Amends ADR-SAG-0006, ADR-SAG-0007, ADR-SAG-0020, ADR-SAG-0017 (HTTP half); ADR-SAG-0010, ADR-SAG-0011, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0017 (compose half) |
 | ADR-SAG-0027 | Error taxonomy and extensibility | Active (r-1) | Amends ADR-SAG-0001, ADR-SAG-0009, ADR-SAG-0016 |
@@ -788,11 +788,8 @@ Amended by ADR-SAG-0024 (Active, r-2).
 
 ### Amendment (Phase A.1, r-1 — interim shapes)
 
-**Status:** Active (Phase A.1, landed in r-1). The first bullet is
-superseded by the ADR-SAG-0014 r-2 amendment (ADR-SAG-0024, Active, r-2),
-which restates it for the primary backend; the `outcomes[]` entry shape
-(now `results[].outcome`) and `equal_input` shape bullets stay in force
-(ADR-SAG-0024 pins the `equal_input` shape in every `RunResponse` sample).
+**Status:** Active (Phase A.1, landed in r-1). Superseded by ADR-SAG-0024
+(r-2) when that lands.
 
 - (Active, r-1) The data that `data` is built from is typed. For a Jev
   primary outcome, the response fields other than `answers` are copied from
