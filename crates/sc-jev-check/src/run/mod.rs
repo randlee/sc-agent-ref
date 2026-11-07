@@ -671,7 +671,7 @@ fn send(
 /// Sends `follow_up` to the saved session `session_id` in `store`.
 ///
 /// The session's Haiku or Luna backend comes from [`RunConfig::registry`]
-/// when set, else [`BackendRegistry::from_env`] at [`RunConfig::repo_root`]
+/// when set, else [`BackendRegistry::from_env`] at the repo root given to [`RunConfig::new`]
 /// for that one backend. The request is the stored payload with the stored
 /// system prompt, the prior answers as session context, the stored
 /// follow-ups and then `follow_up`; it is validated, then sent through the
