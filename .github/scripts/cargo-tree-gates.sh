@@ -18,10 +18,22 @@
 # mimalloc present in each binary crate's default tree). Rows added by r-3
 # (QA-1, RBQA-F104 / RBQA-F009; parent-authorized): ureq only in sc-agent-http
 # (depth-1 rows for sc-jev, sc-jev-backends, sc-jev-check; positive control on
-# sc-agent-http), sc-agent-http's forbidden packages, and the feature rows
+# sc-agent-http), sc-agent-http's forbidden packages, and the graph rows
 # below (no workspace `test-util` in any normal graph; sc-agent-http reaches
 # sc-agent-types with feature `secret` only). The remaining rows of the plan
 # table are added by r-3b.
+#
+# Feature rows (r-3c, ADR-SAG-0015, RBQA-F009) inspect
+# `cargo tree -e normal,features -i <package>` instead of package names: in
+# mode `lib` a row fails when any listed feature of <package> is enabled in
+# the crate's `--no-default-features` tree; in mode `present` it fails when a
+# listed feature is NOT enabled with default features (positive control, so
+# the absence row cannot pass on a dead pattern). Pattern:
+#   grep -E '<package> feature "<feature>"'
+# `-e normal,features` keeps a future dev-dependency from tripping the row
+# (CPR-M208). Negative control (checked when the row landed): dropping
+# `default-features = false` from sc-treesitter's sc-agent-types dependency
+# makes the `lib` row fail on judge, secret, obs and default.
 #
 # Only `cargo tree` stdout is matched; stderr (download and lock messages)
 # goes to a temporary file and is printed only when cargo fails. Every call
@@ -46,15 +58,20 @@ rows=(
   "sc-agent-http|present|--depth 1|ureq"
 )
 
-# Feature rows (`-e normal,features`; dev edges excluded, so a dev-only
-# `test-util` does not count). Lines are matched with `grep -E` on the whole
-# line, not the package pattern above.
+# Graph rows (r-3; `-e normal,features`, dev edges excluded, so a dev-only
+# `test-util` does not count). Whole lines are matched with `grep -E`.
 # Fields are separated by `;` because the regexes use `|`.
 # label ; cargo tree args ; absent regex ; present regex (positive control)
-feature_rows=(
+graph_rows=(
   "test-util off in normal graphs;--workspace -e normal,features;feature \"test-util\";"
   "test-util control (dev edges);--workspace -e normal,dev,features;;^sc-agent-http feature \"test-util\""
   "sc-agent-http -> sc-agent-types secret only;-p sc-agent-http -e normal,features -i sc-agent-types;^sc-agent-types feature \"(judge|obs|git|default|test-util)\";^sc-agent-types feature \"secret\""
+)
+
+# crate | mode (lib|present) | inverted package | features (space-separated)
+feature_rows=(
+  "sc-treesitter|lib|sc-agent-types|judge secret obs git default"
+  "sc-treesitter|present|sc-agent-types|git"
 )
 
 failures=0
@@ -118,6 +135,49 @@ for row in "${rows[@]}"; do
 done
 
 run_feature_row() {
+  local crate="$1" mode="$2" package="$3" features="$4"
+  local -a args=(tree --locked -p "$crate" -e normal,features -i "$package" --prefix none)
+  local want=absent
+  case "$mode" in
+    lib) args+=(--no-default-features) ;;
+    present) want=present ;;
+    *)
+      echo "cargo-tree-gates: feature row '$crate|$mode' has unknown mode" >&2
+      exit 1
+      ;;
+  esac
+  local label="cargo ${args[*]}"
+  local tree
+  if ! tree="$(cargo "${args[@]}" 2>"$errfile")"; then
+    echo "FAIL  $label: cargo tree failed"
+    sed 's/^/    /' "$errfile"
+    failures=$((failures + 1))
+    return
+  fi
+  local feature hits row_failed=0
+  for feature in $features; do
+    hits="$(printf '%s\n' "$tree" | grep -E "${package} feature \"${feature}\"" || true)"
+    if [[ "$want" == absent && -n "$hits" ]]; then
+      echo "FAIL  $label: must not enable $package feature $feature"
+      row_failed=1
+    elif [[ "$want" == present && -z "$hits" ]]; then
+      echo "FAIL  $label: must enable $package feature $feature (positive control)"
+      row_failed=1
+    fi
+  done
+  if [[ "$row_failed" -eq 0 ]]; then
+    echo "ok    $label: $want: $package features $features"
+  else
+    failures=$((failures + 1))
+  fi
+}
+
+for row in "${feature_rows[@]}"; do
+  IFS='|' read -r crate mode package features <<<"$row"
+  run_feature_row "$crate" "$mode" "$package" "$features"
+done
+
+run_graph_row() {
   local label="$1" args_text="$2" absent="$3" present="$4"
   local -a args=(tree --locked --prefix none)
   local -a extra_args
@@ -158,9 +218,9 @@ run_feature_row() {
   fi
 }
 
-for row in "${feature_rows[@]}"; do
+for row in "${graph_rows[@]}"; do
   IFS=';' read -r label args_text absent present <<<"$row"
-  run_feature_row "$label" "$args_text" "$absent" "$present"
+  run_graph_row "$label" "$args_text" "$absent" "$present"
 done
 
 if [[ "$failures" -ne 0 ]]; then
