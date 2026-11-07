@@ -22,7 +22,7 @@ name = "jev"
 
 [public]
 facade = "sc_jev::JevClient, sc_jev::JevClientConfig"
-notes = "TypeSafe check/judge wire format (every Jev API operation, ADR-SAG-0012). From r-3 HTTP, busy retry, caps and redaction are sc-agent-http: JevClient<T: sc_agent_http::Transport = UreqTransport>; transport, resolved key, BusyPolicy and CancelToken are construction state. Tests use the sc-agent-http test-util doubles through the dev-dependency. The config and client modules are private; the root re-exports are the only public path. Non-default `test-util` feature (REQ-SAG-0606): `WireFault` and `with_wire_fault` seed a defect into the wire builder; the `wire` test target declares `required-features = ["test-util"]` and is run with `--features test-util` (no self dev-dependency). Each sending backend sets `JudgeOutcome::input_sha256` from the canonical blob recovered from its final wire body."
+notes = "TypeSafe check/judge wire format (every Jev API operation, ADR-SAG-0012). From r-3 HTTP, busy retry, caps and redaction are sc-agent-http: JevClient<T: sc_agent_http::Transport = UreqTransport>; transport, resolved key, BusyPolicy and CancelToken are construction state. Tests use the sc-agent-http test-util doubles through the dev-dependency. The config and client modules are private; the root re-exports are the only public path. Non-default `test-util` feature (REQ-SAG-0606): `WireFault` and `with_wire_fault` seed a defect into the wire builder; the `wire` test target declares `required-features = [test-util]` and is run with `--features test-util` (no self dev-dependency). Each sending backend sets `JudgeOutcome::input_sha256` from the canonical blob recovered from its final wire body."
 
 [implementation]
 type = "marker"
