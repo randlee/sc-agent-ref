@@ -641,6 +641,16 @@ Source: `.cursor/phase-a-orchestration.json` key `owner_decisions_2026_11_07`.
    `data.warnings` entry). r-6 is `blocked` until the owner confirms keeping
    that or chooses to fail the run.
 
+**Open owner items (not resolved by this plan).** Each is a gate, not an
+assumption:
+
+| Item | Gate | Sprint effect |
+| --- | --- | --- |
+| Does `sc-sha` hash raw bytes unchanged? | r-6 D0.1, stop-and-report before any D2 code | if not: owner chooses keep `sha2` or add a raw-bytes API to `sc-sha`; r-6 D2 and REQ-SAG-0618 are revised first |
+| Should a log-write failure fail the run? | r-6 D0.2 (item 9) | r-6 stays `blocked` until recorded |
+| D9 question shape (array, object, or both) | owner decision (c), vendor answer | r-5 stays `blocked`; r-7 builds only the array form |
+| Long-term CLI-wrapper scope (item 4) vs REQ-SAG-0900/0901 ("no … subprocess") and the Roadmap row "Subprocess JSON bridges … Out of scope" | owner, before any phase that builds a wrapper | none in A.1: no wrapper is built, and the requirement rows and the Roadmap row are unchanged |
+
 Details: [`sprint-r-7-decision-schema.md`](sprint-r-7-decision-schema.md),
 [`sprint-r-6-session-log-record.md`](sprint-r-6-session-log-record.md).
 

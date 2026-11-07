@@ -117,6 +117,7 @@ owned_paths:
   - "crates/sc-jev-py/sc_jev_py.pyi#project kwarg"
   - "tests/fixtures/jev-python/tests/test_run_check_and_ask.py#project and ULID cases"
   - "tests/fixtures/observability/**"
+  - "tests/fixtures/decision-schema/session-log/fields.jsonl#session_id and answer_id values (ULID)"
   - "tests/fixtures/jev/**#session ids in goldens (ULID)"
   - "crates/workspace-tests/tests/consumer_parity.rs#session ids in goldens (ULID)"
   - "Cargo.toml#[workspace.dependencies] +ulid +sc-sha -uuid -sha2"
@@ -310,6 +311,10 @@ and session files stay where ADR-SAG-0021 puts them.
   (ADR-SAG-0013).
 - Golden `tests/fixtures/observability/session-event.json` is rewritten to
   the new lines (judge `ok`, judge `failed` with and without a body, ask).
+- Session-log fixture: `tests/fixtures/decision-schema/session-log/fields.jsonl`
+  (r-7) gets ULID `session_id` and `answer_id` values; its rows are
+  otherwise unchanged, and `cargo test -p sc-decision-schema --test
+  session_log` plus the Python SQLite load stay green.
 - **Wording reconciled with r-2b.** r-2b's "puts no path or secret in any
   event" means no session-store path and no secret; `repo` is the one path
   column, by design (ADR-SAG-0031). The plan PR narrows r-2b's wording to
@@ -318,7 +323,9 @@ and session files stay where ADR-SAG-0021 puts them.
 ### D7 — Stale UUID / sha2 text
 
 Fix: `README.md` (`--session-id <ULID>`), `crates/sc-ai/src/command.rs`
-help and fix hint, `docs/sc-agent-types/architecture.md` (depends-on list:
+help, fix hint and its in-file unit test (it asserts `ULID` in the hint; the
+UUID-refusal case lives in `tests/cli.rs`, so `crates/sc-ai/src` names no
+UUID and the D7 `rg` gate covers it), `docs/sc-agent-types/architecture.md` (depends-on list:
 `ulid`, `sc-sha`; `LogEvent` field paragraph), the crate requirement rows
 for REQ-SAG-0600/0610/0611 in `docs/sc-jev-check/requirements.md` and
 NFR-SAG-0003 in `docs/sc-ai/requirements.md`, and the `sc-jev-py` module
@@ -336,6 +343,94 @@ wiring)`), and the r-6 amendment subsections in ADR-SAG-0008, 0013, 0016,
 D0.2 policy as the wiring subsection's last bullet if (a); if (b), the doc
 is revised first.
 
+## Explicit code samples (signatures are binding; bodies are not)
+
+```rust
+// sc-agent-types (core)
+pub struct SessionId(Ulid);                       // Display/FromStr/serde: 26-char Crockford base32
+impl SessionId { pub fn new() -> Self; }          // Ulid::new(); no shared generator state
+impl FromStr for SessionId { type Err = JevError; /* non-ULID (incl. UUID) -> INPUT_INVALID, ULID fix hint */ }
+
+impl Sha256Digest { pub fn of(bytes: &[u8]) -> Self; }   // through sc-sha, raw bytes (D0.1)
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProjectLabel(Arc<str>);
+impl ProjectLabel {
+    pub fn new(text: impl Into<String>) -> Result<Self, JevError>; // > 256 bytes or control char -> INPUT_INVALID
+    pub fn as_str(&self) -> &str;
+}
+
+// crates/sc-agent-types/src/trace.rs
+#[derive(Debug, Clone, Default)]
+pub struct SendTrace(Arc<OnceLock<Sha256Digest>>);
+impl SendTrace {
+    pub fn new() -> Self;
+    pub fn record(&self, digest: Sha256Digest);           // first write wins; later writes ignored
+    pub fn request_sha256(&self) -> Option<Sha256Digest>;
+}
+
+// observability::v2 (stable-surface change, ADR-SAG-0016/0027 r-6)
+pub struct LogEvent { /* private: session_id, operation, fields */ }
+impl LogEvent {
+    pub fn new(session_id: SessionId, operation: Operation,
+               fields: serde_json::Map<String, serde_json::Value>) -> Self;
+    pub fn session_id(&self) -> &SessionId;
+    pub fn operation(&self) -> Operation;
+    pub fn fields(&self) -> &serde_json::Map<String, serde_json::Value>;
+}
+
+// git.rs (feature git; existing argv-only runner and expect site)
+pub fn discover_common_dir(start: &Path) -> Result<Option<PathBuf>, JevError>; // None outside git
+
+// sc-decision-schema/src/judge.rs
+impl JudgeRequest {
+    pub fn send_trace(&self) -> &SendTrace;               // default: fresh, empty
+    #[must_use]
+    pub fn with_send_trace(self, trace: SendTrace) -> Self;
+}
+pub trait JudgeBackend: Send + Sync {
+    // ... existing methods unchanged ...
+    fn model_id(&self) -> ModelId {
+        ModelAliases::builtin()
+            .latest(self.id().descriptor().default_model_alias())
+            .unwrap_or_else(|| ModelId::Other(Arc::from(self.id().to_string())))
+    }
+}
+
+// sc-agent-http
+impl HttpRequest {
+    #[must_use]
+    pub fn with_trace(self, trace: SendTrace) -> Self;
+}
+// send_with_busy_retry, immediately before the first Transport::send:
+//     if let Some(t) = request.trace() { t.record(Sha256Digest::of(request.body())); }
+
+// sc-jev-check
+pub fn discover_main_repo_root(start: &Path) -> Result<RepoRoot, JevError>;
+#[derive(Debug, Clone)]
+pub struct LogContext { /* private: repo: RepoRoot, project: Option<ProjectLabel> */ }
+impl LogContext {
+    pub fn new(repo: RepoRoot, project: Option<ProjectLabel>) -> Self;
+    pub fn repo(&self) -> &RepoRoot;
+    pub fn project(&self) -> Option<&ProjectLabel>;
+}
+impl RunConfig {
+    #[must_use]
+    pub fn log_context(self, context: LogContext) -> Self; // unset: repo = RunConfig's repo_root, project = None
+}
+
+// sc-agent-compose
+impl ComposeInputs {
+    #[must_use]
+    pub fn project(self, project: ProjectLabel) -> Self;
+}
+```
+
+The row is built with r-7's `RowContext` and `SessionLogRow::ok` /
+`SessionLogRow::failed`; `repo` is the `RepoRoot` path as text
+(`to_string_lossy`; a non-UTF-8 byte is replaced, documented in
+`docs/sc-jev-check`), `answer_id` is `Ulid::new().to_string()`.
+
 ## Acceptance criteria (authoritative)
 
 | Root | Criterion |
@@ -350,7 +445,7 @@ is revised first.
 | req:REQ-SAG-0600 (amended) | `cargo test -p sc-jev-check --features test-util --test sessions_exact -- test_session_file_named_by_ulid_mode_0600_expiry --exact` prints `1 passed` (ULID file name, mode 0600 on Unix, expiry from `created_at`) |
 | req:REQ-SAG-0611 (amended) | `cargo test -p sc-jev-check --features test-util --test session_log -- test_every_row_carries_context --exact` (every row, `judge` and `ask`, `ok` and `failed`, carries `session_id`, `repo`, `project`, `model_id`, `prompt_sha256`) and `-- test_row_has_no_body_prompt_or_key_bytes --exact` — each prints `1 passed` |
 | adr:ADR-SAG-0031 | Wiring subsection Active (r-6); index row `Active (r-7 storage schema, r-6 wiring)`; r-6 subsections in 0008, 0013, 0016, 0026, 0027 and their markers Active; D0.2 policy recorded |
-| docs | The `rg` UUID line in Required validation exits 0 (no stale UUID text outside historical plans); no `uuid` or `sha2` entry remains in any `Cargo.toml` (`! rg -n '^(uuid\|sha2)\b' Cargo.toml crates/*/Cargo.toml` exits 0) |
+| docs | The `rg` UUID line in Required validation exits 0: no UUID text in `README.md`, the crate docs (`docs/sc-*/**`) or `sc-ai` help/fix hints. The root `docs/architecture.md` and `docs/requirements.md` are excluded because their base rows and the r-6 amendment text name UUID on purpose (ADR-SAG-0008 base sentence superseded, not edited; REQ-SAG-0600 base row; "a UUID id is `INPUT_INVALID`"); `docs/plans/**` is historical; no `uuid` or `sha2` entry remains in any `Cargo.toml` (`! rg -n '^(uuid\|sha2)\b' Cargo.toml crates/*/Cargo.toml` exits 0) |
 | boundary:session-log | Regression, each with its command: REQ-SAG-0607 `cargo test -p sc-jev-check --features test-util --test session -- test_session_written_once_only_with_llm --exact`; REQ-SAG-0610 covered by the 0617 row; REQ-SAG-0146 `cargo test -p sc-decision-schema --test session_log`; REQ-SAG-0102 `cargo test -p workspace-tests --test jev_cross_impl`; REQ-SAG-0104/0310 `cargo test -p sc-treesitter`; REQ-SAG-0401/0402 `cargo test -p sc-agent-http --test retry`; REQ-SAG-0606 `cargo test -p sc-jev --features test-util --test wire -- test_real_wire_builder_reports_prompt_digest --exact`; REQ-SAG-0700/0701/0711 `cargo test -p sc-ai --features test-util --test cli`; REQ-SAG-0800/0801/0802 maturin test-wheel build + `uv run --directory tests/fixtures/jev-python pytest -q` (incl. `test_jev_ask_and_missing_check_map_error_codes`: errors keep `JevError` codes); NFR-SAG-0001 `cargo test -p sc-agent-types --test errors -- test_error_response_stderr_golden --exact`; NFR-SAG-0002 `cargo test -p sc-jev-check --features test-util --test sessions_exact -- test_log_event_has_no_secrets --exact` and the 0611 row; NFR-SAG-0003 `cargo test -p sc-agent-compose --test paths` (default and configured roots unchanged) and `cargo test -p sc-agent-compose --test log_context -- test_log_and_session_paths_unchanged_with_ulid_names --exact`; ADR-SAG-0021 precedence `cargo test -p sc-agent-compose --test paths -- test_custom_path_policy_resolves --exact`; ADR-SAG-0028 spawn sites `cargo test -p workspace-tests --test source_scans` |
 
 ## Required validation
@@ -404,12 +499,15 @@ cargo test -p workspace-tests --test consumer_parity -- test_cli_and_python_data
 cargo test -p workspace-tests --test source_scans
 cargo tree -p sc-agent-types -e normal | grep -qE '(^|[^[:alnum:]_-])sc-sha v[0-9]'
 ! cargo tree -p sc-agent-types -e normal | grep -qE '(^|[^[:alnum:]_-])(sha2|uuid) v[0-9]'
-! rg -n -i '\buuid\b' README.md docs --glob '!docs/plans/**'
+! rg -n -i '\buuid\b' README.md docs crates/sc-ai/src --glob '!docs/plans/**' --glob '!docs/architecture.md' --glob '!docs/requirements.md'
 cargo clippy --workspace --all-targets -- -D warnings
 bash .github/scripts/cargo-tree-gates.sh
 bash .github/scripts/check-exact-pins.sh
 maturin build -m crates/sc-jev-py/Cargo.toml --features extension-module,test-util -o /tmp/sc-agent-wheels-test
 uv run --directory tests/fixtures/jev-python pytest -q
+uv run --directory tests/fixtures/jev-python pytest -q tests/test_run_check_and_ask.py::test_uuid_session_id_is_input_invalid
+uv run --directory tests/fixtures/jev-python pytest -q tests/test_run_check_and_ask.py::test_project_kwarg_reaches_log tests/test_run_check_and_ask.py::test_project_kwarg_control_char_is_input_invalid
+cargo test -p sc-agent-compose --test paths -- test_custom_path_policy_resolves --exact
 bash scripts/sc-publish-dry-run.sh
 ```
 

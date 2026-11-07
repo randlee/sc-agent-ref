@@ -1459,8 +1459,10 @@ Owner decisions 2026-11-07.
   more SDK and CLI agent kinds land in `sc-agent-types` over time. The
   catalog and the layering are model- and agent-agnostic so this is not
   precluded. The Roadmap row "Subprocess JSON bridges … Out of scope" and
-  REQ-SAG-0900/0901 ("no … subprocess") describe Phase A/B scope and are not
-  changed by this ADR.
+  REQ-SAG-0900/0901 ("no … subprocess") are not changed by this ADR. How
+  they relate to the long-term CLI-wrapper scope is an open owner item
+  (plan.md "Owner decisions 2026-11-07", open owner items); no wrapper is
+  built in A.1.
 
 ## ADR-SAG-0031 — Session log storage schema
 

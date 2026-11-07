@@ -178,7 +178,7 @@ just test
 cargo test -p sc-jev --features test-util --test wire -- test_envelope_robust_to_key_ordering --exact
 cargo test -p sc-decision-schema --test judge -- test_payload_requires_exactly_one_of_questions_or_criteria --exact   # Branch B / both only
 cargo test -p sc-decision-schema --test jev
-cargo test -p sc-jev --test send_trace   # r-6's lines kept
+cargo test -p sc-jev --test send_trace   # only if r-6 merged before r-5 (the target is r-6's); otherwise r-6 runs it after rebasing
 cargo test -p sc-jev --features test-util --test wire -- test_digest_detects_faulty_wire_builder --exact
 cargo test -p sc-jev --features test-util --test wire -- test_real_wire_builder_reports_prompt_digest --exact
 cargo test -p sc-jev --test jev_api

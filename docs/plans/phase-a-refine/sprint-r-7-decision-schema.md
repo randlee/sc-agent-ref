@@ -100,6 +100,7 @@ owned_paths:
   - "crates/sc-agent-types/tests/judge.rs (deleted: moved)"
   - "crates/sc-agent-types/tests/mock.rs (deleted: moved)"
   - "crates/sc-agent-types/tests/ids.rs#QuestionId and ChoiceId cases (moved)"
+  - "crates/sc-agent-types/tests/ids.rs#test_backend_catalog_roundtrip (alias-resolves check)"
   - "crates/sc-agent-types/tests/features.rs"
   - "crates/sc-agent-types/tests/models.rs (new)"
   - "boundaries/sc-agent-types/**"
@@ -113,7 +114,8 @@ owned_paths:
   - "crates/sc-jev-backends/src/backend.rs#configured ModelId (catalog default, override)"
   - "crates/sc-jev-backends/src/wire.rs#LLM output parsed as DecisionAnswers; HAIKU_MODEL/LUNA_MODEL consts removed"
   - "crates/sc-jev-backends/tests/**#import changes"
-  - "crates/sc-jev-check/Cargo.toml#+sc-decision-schema; test-util feature points at sc-decision-schema/test-util"
+  - "crates/sc-jev-backends/tests/llm.rs#test_unknown_model_override_is_sent_verbatim (new)"
+  - "crates/sc-jev-check/Cargo.toml#+sc-decision-schema; test-util feature points at sc-decision-schema/test-util; [[test]] models required-features = [\"test-util\"]"
   - "crates/sc-jev-check/src/**#import changes"
   - "crates/sc-jev-check/src/config/**#[models] table"
   - "crates/sc-jev-check/src/registry/**#factory receives ModelAliases"
@@ -209,6 +211,16 @@ sc-decision-schema    QuestionId, ChoiceId, Question, ChoiceAnswer, CanonicalJud
   Anthropic API, OpenAI API); `ModelId` is which model. Today's id spellings
   `anthropic_haiku` / `openai_luna` are kept as is (serde, CLI, `check.toml`
   compatibility); renaming them is not in scope.
+
+## Split considered (kept as one sprint)
+
+The model catalog (D8) was considered as its own sprint and kept here: D4
+(`CheckRequest.model: &ModelId`) and D6 (`schema_for(ModelFamily)`) name its
+types, and its `sc-jev-check` factory/config edits sit in the same files as
+D2's import changes, so a separate sprint would either run first (one more
+wave on the critical path) or share every owned path with r-7. The session-log
+schema (D7) is data-only and has no caller until r-6. Every deliverable has
+its own `req:` row below, so none can slip while the sprint claims success.
 
 ## Deliverables
 
@@ -367,7 +379,8 @@ sc-decision-schema    QuestionId, ChoiceId, Question, ChoiceAnswer, CanonicalJud
    (`#[non_exhaustive] enum SchemaFamily { Canonical }`), serialized as the
    string `"<family>.v<version>"` (`"canonical.v1"`). Constants:
    `CANONICAL_V1`, `DecisionSchemaId::CURRENT = CANONICAL_V1`,
-   `KNOWN: &[DecisionSchemaId] = &[CANONICAL_V1]`.
+   `DecisionSchemaId::KNOWN: &[DecisionSchemaId] = &[CANONICAL_V1]`
+   (signatures under "Explicit code samples").
 2. **Versioning rule** (ADR-SAG-0030): a reader accepts every id in
    `KNOWN` and refuses any other with `INPUT_INVALID` (input documents) or
    `RESPONSE_INVALID` (backend output), fix hint naming the supported
@@ -450,8 +463,11 @@ writer lands in A.1.
 1. `crates/sc-decision-schema/src/session_log/schema.sql` (the DDL,
    `pub const SESSION_LOG_DDL: &str = include_str!(...)`),
    `SESSION_LOG_SCHEMA_VERSION: u32 = 1`, `COLUMNS` (the projection's key
-   list, in order), `SessionLogRow` (private fields, one constructor per
-   outcome: `SessionLogRow::ok(..)` and `SessionLogRow::failed(..)`),
+   list, in order), `RowContext` (the values every row carries),
+   `SessionLogRow` (private fields, one constructor per outcome:
+   `SessionLogRow::ok(RowContext, DecisionAnswers)` and
+   `SessionLogRow::failed(RowContext, ErrorCode)`; signatures under
+   "Explicit code samples"),
    `SendOutcome { Ok, Failed }` (serde `ok` / `failed`),
    `SessionLogRow::to_fields() -> serde_json::Map<String, Value>` and
    `SessionLogRow::try_from_fields(&Map) -> Result<Self, JevError>`
@@ -578,6 +594,164 @@ catalogs live in `sc-agent-types` (ADR-SAG-0030)." The quoted text is in
 `docs/architecture.md`; r-7 changes markers and Status lines only, plus any
 wording the implementation proves wrong (listed in the PR).
 
+## Explicit code samples (signatures are binding; bodies are not)
+
+`sc-agent-types` (D8; core, no feature):
+
+```rust
+// crates/sc-agent-types/src/models.rs — re-exported at the crate root
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum ModelId {
+    Jev1_13_0,        // "jev-1.13.0"
+    ClaudeHaiku5_5,   // "claude-haiku-5-5"  (today's HAIKU_MODEL)
+    Gpt6Luna,         // "gpt-6-luna"        (today's LUNA_MODEL)
+    Other(Arc<str>),  // any other valid model string; never a known string
+}
+impl ModelId {
+    pub fn as_str(&self) -> &str;
+    pub fn family(&self) -> ModelFamily;
+}
+impl fmt::Display for ModelId { /* as_str() */ }
+impl FromStr for ModelId { type Err = JevError; /* known -> variant, else Other; empty or control char -> INPUT_INVALID */ }
+// Serialize / Deserialize: the model string (Deserialize goes through FromStr).
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum ModelFamily { TypeSafeJev, AnthropicClaude, OpenAiGpt, Local, Unknown }
+
+#[derive(Debug, Clone, Copy)]
+pub struct ModelDescriptor { /* private: model, family, alias, released ("YYYY-MM-DD") */ }
+impl ModelDescriptor {
+    pub fn model(&self) -> ModelId;
+    pub fn family(&self) -> ModelFamily;
+    pub fn alias(&self) -> &'static str;
+    pub fn released(&self) -> &'static str;
+}
+pub static MODELS: &[ModelDescriptor];
+
+#[derive(Debug, Clone)]
+pub struct ModelAliases { /* private: alias -> ModelId */ }
+impl ModelAliases {
+    pub fn builtin() -> Self;                                   // newest MODELS row per alias
+    pub fn latest(&self, alias: &str) -> Option<ModelId>;
+    pub fn with_override(self, alias: &str, model: ModelId) -> Result<Self, JevError>; // unknown alias: CONFIG_INVALID
+}
+impl BackendDescriptor {
+    pub fn default_model_alias(&self) -> &'static str;          // "jev" | "haiku" | "luna"
+}
+```
+
+`check.toml` `[models]` values are parsed with `ModelId::from_str`; the
+config layer maps its `INPUT_INVALID` to `CONFIG_INVALID` (REQ-SAG-0301).
+
+`sc-decision-schema` (D3–D7):
+
+```rust
+// version.rs
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum SchemaFamily { Canonical }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct DecisionSchemaId { family: SchemaFamily, version: u16 }
+pub const CANONICAL_V1: DecisionSchemaId;
+impl DecisionSchemaId {
+    pub const CURRENT: DecisionSchemaId = CANONICAL_V1;
+    pub const KNOWN: &'static [DecisionSchemaId] = &[CANONICAL_V1];
+    pub fn family(self) -> SchemaFamily;
+    pub fn version(self) -> u16;
+    pub fn parse_response(s: &str) -> Result<Self, JevError>;  // unknown -> RESPONSE_INVALID
+}
+impl FromStr for DecisionSchemaId { type Err = JevError; /* unknown -> INPUT_INVALID, hint lists KNOWN */ }
+// Display / serde: "canonical.v1".
+
+// payload.rs (moved) — answers keep today's JudgeOutcome map type, so no byte changes
+pub type DecisionAnswers = BTreeMap<QuestionId, QuestionAnswer>;
+
+// jev/v1.rs
+#[derive(Debug, Clone, Copy)]
+pub struct CheckRequest<'a> { pub model: &'a ModelId, pub payload: &'a PayloadBundle }
+impl CheckRequest<'_> {
+    pub fn to_body(&self) -> Result<Vec<u8>, JevError>;        // sorted-key compact JSON; key <= "model" -> INPUT_INVALID
+}
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct CheckResponse {
+    model: String,
+    answers: DecisionAnswers,
+    #[serde(flatten)]
+    extra: serde_json::Map<String, serde_json::Value>,         // usage, stop_reason, ... verbatim
+}
+impl CheckResponse {
+    pub fn model(&self) -> &str;
+    pub fn answers(&self) -> &DecisionAnswers;
+    pub fn extra(&self) -> &serde_json::Map<String, serde_json::Value>;
+    pub fn into_answers(self) -> DecisionAnswers;
+}
+
+// llm/v1.rs
+pub fn input_bytes(payload: &PayloadBundle) -> &[u8];          // == payload.bytes()
+pub fn parse_output(json: &[u8], payload: &PayloadBundle) -> Result<DecisionAnswers, JevError>; // RESPONSE_INVALID
+
+// variants.rs
+pub trait DecisionSchema {
+    const ID: DecisionSchemaId;
+    type Input: Serialize;
+    type Output: DeserializeOwned;
+    fn input(payload: &PayloadBundle) -> Result<Self::Input, JevError>;
+    fn answers(output: Self::Output, payload: &PayloadBundle) -> Result<DecisionAnswers, JevError>;
+}
+pub struct Canonical;                                          // impl DecisionSchema, ID = CANONICAL_V1
+pub fn schema_for(family: ModelFamily) -> DecisionSchemaId;    // every family today -> CANONICAL_V1
+
+// session_log/mod.rs
+pub const SESSION_LOG_DDL: &str = include_str!("schema.sql");
+pub const SESSION_LOG_SCHEMA_VERSION: u32 = 1;
+pub const COLUMNS: &[&str];                                    // the 17 keys of D7.2, in that order
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SendOutcome { Ok, Failed }
+
+/// Values every row carries. Public fields on purpose: adding one is a
+/// column change and bumps SESSION_LOG_SCHEMA_VERSION anyway.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RowContext {
+    pub answer_id: String,                  // ULID text from r-6; r-7 checks non-empty only
+    pub session_id: SessionId,              // sc-agent-types type (ULID after r-6)
+    pub session_created_at: SystemTime,     // written RFC 3339 UTC, ms
+    pub repo: String,                       // absolute path text
+    pub project: Option<String>,            // ProjectLabel text from r-6; None -> null
+    pub prompt_sha256: Sha256Digest,
+    pub decision_schema: DecisionSchemaId,
+    pub question_ids: Vec<QuestionId>,      // payload order
+    pub request_sha256: Option<Sha256Digest>,
+    pub ts: SystemTime,                     // when the send finished; written RFC 3339 UTC, ms
+    pub operation: Operation,
+    pub backend: BackendId,
+    pub model_id: ModelId,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SessionLogRow { /* private: context, outcome (answers or error code) */ }
+impl SessionLogRow {
+    pub fn ok(context: RowContext, answers: DecisionAnswers) -> Self;
+    pub fn failed(context: RowContext, error_code: ErrorCode) -> Self;
+    pub fn context(&self) -> &RowContext;
+    pub fn send_outcome(&self) -> SendOutcome;
+    pub fn error_code(&self) -> Option<ErrorCode>;
+    pub fn answers(&self) -> Option<&DecisionAnswers>;
+    pub fn to_fields(&self) -> serde_json::Map<String, serde_json::Value>;   // exactly COLUMNS
+    pub fn try_from_fields(fields: &serde_json::Map<String, serde_json::Value>) -> Result<Self, JevError>; // INPUT_INVALID
+}
+```
+
+RFC 3339 formatting and parsing of `SystemTime` (`YYYY-MM-DDTHH:MM:SS.mmmZ`)
+is a private pure function in `session_log` (no new dependency; `std::time`
+is not I/O for `test_decision_schema_has_no_io`). The fixture's `session_id`
+values are the `SessionId` form in force when r-7 lands; r-6 rewrites them
+to ULIDs.
+
 ## Acceptance criteria (authoritative)
 
 | Root | Criterion |
@@ -590,7 +764,7 @@ wording the implementation proves wrong (listed in the PR).
 | req:REQ-SAG-0145 | `cargo test -p sc-decision-schema --test variants -- test_canonical_variant_is_identity --exact` and `-- test_every_model_family_maps_to_a_known_schema --exact` each print `1 passed` |
 | req:REQ-SAG-0146 | `cargo test -p sc-decision-schema --test session_log -- test_session_log_row_matches_ddl --exact`, `-- test_fields_roundtrip --exact`, `-- test_unknown_or_missing_key_rejected --exact`, `-- test_session_log_doc_matches_ddl --exact` each print `1 passed`; `uv run --directory tests/fixtures/jev-python pytest -q tests/test_session_log_sqlite.py::test_fixture_loads_into_sqlite` prints `1 passed` (Python `sqlite3` executes `schema.sql` and loads every fixture line; the CHECK constraints accept all five) |
 | req:REQ-SAG-0147 | `cargo test -p sc-agent-types --test models -- test_known_models_roundtrip --exact` and `-- test_unknown_model_string_parses_as_other --exact` each print `1 passed`; `cargo test -p sc-jev-backends --test llm -- test_unknown_model_override_is_sent_verbatim --exact` prints `1 passed` |
-| req:REQ-SAG-0148 | `cargo test -p sc-agent-types --test models -- test_latest_alias_lookup --exact` and `-- test_alias_override_wins --exact` each print `1 passed`; `cargo test -p sc-jev-check --features test-util --test models -- test_check_toml_models_override_reaches_backend --exact` and `-- test_unknown_model_alias_is_config_invalid --exact` each print `1 passed`; `cargo test -p sc-jev --test catalog -- test_jev_toml_model_matches_catalog --exact` prints `1 passed` |
+| req:REQ-SAG-0148 | `cargo test -p sc-agent-types --test models -- test_latest_alias_lookup --exact` and `-- test_alias_override_wins --exact` each print `1 passed`; `cargo test -p sc-agent-types --test ids -- test_backend_catalog_roundtrip --exact` prints `1 passed` (every descriptor's `default_model_alias()` resolves); `cargo test -p sc-jev-check --features test-util --test models -- test_check_toml_models_override_reaches_backend --exact` and `-- test_unknown_model_alias_is_config_invalid --exact` each print `1 passed`; `cargo test -p sc-jev --test catalog -- test_jev_toml_model_matches_catalog --exact` prints `1 passed` |
 | req:REQ-SAG-0103 (amended) | Rows in `docs/requirements.md` and `docs/sc-agent-types/requirements.md` flipped; the moved contract tests pass in their new crate (REQ-SAG-0141 row) |
 | req:REQ-SAG-0107 (amended) | `cargo hack check -p sc-agent-types --feature-powerset --no-dev-deps` and `cargo hack check -p sc-decision-schema --feature-powerset --no-dev-deps` exit 0; `cargo test -p sc-agent-types --test features` green |
 | req:REQ-SAG-0130 (amended, r-7 bullet) | `release/sc-publish-consumer-input.json` lists `sc-decision-schema` with `publish_order: 2`; after the parent's `install.py` run, `bash scripts/sc-publish-dry-run.sh` exits 0 and the `cargo publish --dry-run` below packages it second |
@@ -621,6 +795,7 @@ cargo test -p sc-agent-types --test models -- test_known_models_roundtrip --exac
 cargo test -p sc-agent-types --test models -- test_unknown_model_string_parses_as_other --exact
 cargo test -p sc-agent-types --test models -- test_latest_alias_lookup --exact
 cargo test -p sc-agent-types --test models -- test_alias_override_wins --exact
+cargo test -p sc-agent-types --test ids -- test_backend_catalog_roundtrip --exact
 cargo test -p sc-agent-types --test features
 cargo test -p sc-agent-types --test subjects
 cargo test -p sc-agent-types --test errors -- test_error_response_stderr_golden --exact
