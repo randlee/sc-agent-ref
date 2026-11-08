@@ -42,6 +42,13 @@ First release. Channels once published: crates.io (ten crates), PyPI
 - `CheckResponse::parse` names the answer id and field (`confidence` or
   `probabilities`) of the first out-of-range value, never the value;
   `Probability::new` no longer echoes its value in its error text.
+- `sc_treesitter::ExtractInput` is `#[non_exhaustive]`, no longer `Copy`,
+  and has private fields with accessors (`language()`, `query()`,
+  `captures()`, `source()`, `path()`, `rev()`, `blob_sha()`). `with_path`,
+  `with_rev` and `with_blob_sha` take `RepoRelativePath`, `Rev` and `BlobSha`,
+  so a malformed value fails where the caller builds it; `extract` still
+  rejects an input whose path, revision or blob id was never set. CLI error
+  codes and messages are unchanged.
 
 ### Known limits
 

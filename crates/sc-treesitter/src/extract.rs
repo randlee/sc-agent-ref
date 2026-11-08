@@ -12,45 +12,41 @@ use crate::{PRODUCER_MODE, PRODUCER_NAME};
 /// Source and query for one extraction.
 ///
 /// The caller supplies the bytes. The library does not read git or the
-/// filesystem. Build one with [`ExtractInput::new`] and the `with_*` setters;
-/// [`extract`] rejects an empty `path`, `rev`, or `blob_sha`.
+/// filesystem. Build one with [`ExtractInput::new`] and the `with_*` setters,
+/// which take already-validated [`RepoRelativePath`], [`Rev`] and [`BlobSha`]
+/// values, so a malformed path, revision or blob id fails where the caller
+/// builds it. [`extract`] rejects an input whose `path`, `rev` or `blob_sha`
+/// was never set.
 ///
 /// # Examples
 ///
 /// ```
+/// use sc_agent_types::{BlobSha, RepoRelativePath, Rev};
+///
 /// let input = sc_treesitter::ExtractInput::new("python", "(identifier) @name\n", b"x = 1\n")
-///     .with_path("sample.py")
-///     .with_rev("HEAD")
-///     .with_blob_sha("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
-/// assert_eq!(input.path, "sample.py");
-/// assert!(input.captures.is_none());
+///     .with_path(RepoRelativePath::try_from("sample.py")?)
+///     .with_rev(Rev::parse("HEAD")?)
+///     .with_blob_sha(BlobSha::try_from("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")?);
+/// assert_eq!(input.path().map(RepoRelativePath::as_str), Some("sample.py"));
+/// assert!(input.captures().is_none());
+/// # Ok::<(), sc_agent_types::JevError>(())
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct ExtractInput<'a> {
-    /// Grammar id, such as `python` or `rust`.
-    pub language: &'a str,
-    /// Query text. `producer.query_sha256` is the SHA-256 of these bytes.
-    pub query: &'a str,
-    /// Capture allow-list.
-    ///
-    /// `None` emits every capture whose name does not start with `_`.
-    /// `Some` emits only listed names. Helper captures (`@_…`, stored without
-    /// the `@`) are never subjects.
-    pub captures: Option<&'a [&'a str]>,
-    /// UTF-8 source the query runs on.
-    pub source: &'a [u8],
-    /// Repo-relative path used in `source.path` and subject ids.
-    pub path: &'a str,
-    /// Revision name stored in `source.rev`, such as `HEAD`.
-    pub rev: &'a str,
-    /// Git blob id of `source`.
-    pub blob_sha: &'a str,
+    language: &'a str,
+    query: &'a str,
+    captures: Option<&'a [&'a str]>,
+    source: &'a [u8],
+    path: Option<RepoRelativePath>,
+    rev: Option<Rev>,
+    blob_sha: Option<BlobSha>,
 }
 
 impl<'a> ExtractInput<'a> {
     /// Starts an input for `language`, `query`, and `source`.
     ///
-    /// `captures` starts as `None`. `path`, `rev`, and `blob_sha` start empty
+    /// `captures` starts as `None`. `path`, `rev`, and `blob_sha` start unset
     /// and must be set before [`extract`].
     #[must_use]
     pub fn new(language: &'a str, query: &'a str, source: &'a [u8]) -> Self {
@@ -59,9 +55,9 @@ impl<'a> ExtractInput<'a> {
             query,
             captures: None,
             source,
-            path: "",
-            rev: "",
-            blob_sha: "",
+            path: None,
+            rev: None,
+            blob_sha: None,
         }
     }
 
@@ -72,25 +68,71 @@ impl<'a> ExtractInput<'a> {
         self
     }
 
-    /// Sets the repo-relative path recorded in `source.path`.
+    /// Sets the repo-relative path recorded in `source.path` and subject ids.
     #[must_use]
-    pub fn with_path(mut self, path: &'a str) -> Self {
-        self.path = path;
+    pub fn with_path(mut self, path: RepoRelativePath) -> Self {
+        self.path = Some(path);
         self
     }
 
     /// Sets the revision recorded in `source.rev`.
     #[must_use]
-    pub fn with_rev(mut self, rev: &'a str) -> Self {
-        self.rev = rev;
+    pub fn with_rev(mut self, rev: Rev) -> Self {
+        self.rev = Some(rev);
         self
     }
 
     /// Sets the git blob id recorded in `source.blob_sha`.
     #[must_use]
-    pub fn with_blob_sha(mut self, blob_sha: &'a str) -> Self {
-        self.blob_sha = blob_sha;
+    pub fn with_blob_sha(mut self, blob_sha: BlobSha) -> Self {
+        self.blob_sha = Some(blob_sha);
         self
+    }
+
+    /// Grammar id, such as `python` or `rust`.
+    #[must_use]
+    pub fn language(&self) -> &str {
+        self.language
+    }
+
+    /// Query text. `producer.query_sha256` is the SHA-256 of these bytes.
+    #[must_use]
+    pub fn query(&self) -> &str {
+        self.query
+    }
+
+    /// Capture allow-list.
+    ///
+    /// `None` emits every capture whose name does not start with `_`.
+    /// `Some` emits only listed names. Helper captures (`@_…`, stored without
+    /// the `@`) are never subjects.
+    #[must_use]
+    pub fn captures(&self) -> Option<&[&str]> {
+        self.captures
+    }
+
+    /// UTF-8 source the query runs on.
+    #[must_use]
+    pub fn source(&self) -> &[u8] {
+        self.source
+    }
+
+    /// Repo-relative path used in `source.path` and subject ids; `None` until set.
+    #[must_use]
+    pub fn path(&self) -> Option<&RepoRelativePath> {
+        self.path.as_ref()
+    }
+
+    /// Revision stored in `source.rev`, such as `HEAD`; `None` until set.
+    #[must_use]
+    pub fn rev(&self) -> Option<&Rev> {
+        self.rev.as_ref()
+    }
+
+    /// Git blob id of [`Self::source`]; `None` until set.
+    #[must_use]
+    pub fn blob_sha(&self) -> Option<&BlobSha> {
+        self.blob_sha.as_ref()
     }
 }
 
@@ -114,34 +156,38 @@ struct RawCapture<'a> {
 /// [`JevError::QueryInvalid`] when the query does not compile,
 /// [`JevError::ExtractionParseError`] when an `ERROR` or `MISSING` node sits
 /// inside a subject span, [`JevError::ExtractionEmpty`] when no subject
-/// remains, and [`JevError::InputInvalid`] when the source is not UTF-8, a
-/// required field is empty, the revision is malformed (see
-/// [`Rev::parse`]), or a span does not fit `u32`.
+/// remains, and [`JevError::InputInvalid`] when the source is not UTF-8, the
+/// path, revision or blob id was never set, or a span does not fit `u32`.
 ///
 /// # Examples
 ///
 /// ```
 /// # #[cfg(feature = "python")] {
+/// use sc_agent_types::{BlobSha, RepoRelativePath, Rev};
+///
 /// let input = sc_treesitter::ExtractInput::new("python", "(identifier) @name\n", b"value = 1\n")
 ///     .with_captures(Some(&["name"]))
-///     .with_path("sample.py")
-///     .with_rev("HEAD")
-///     .with_blob_sha("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
-/// let document = sc_treesitter::extract(&input).expect("identifier");
+///     .with_path(RepoRelativePath::try_from("sample.py")?)
+///     .with_rev(Rev::parse("HEAD")?)
+///     .with_blob_sha(BlobSha::try_from("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")?);
+/// let document = sc_treesitter::extract(&input)?;
 /// assert_eq!(document.subjects()[0].capture(), "name");
 /// assert_eq!(document.subjects()[0].text(), "value");
 /// # }
+/// # Ok::<(), sc_agent_types::JevError>(())
 /// ```
 pub fn extract(input: &ExtractInput<'_>) -> Result<SubjectsDocument, JevError> {
-    if input.path.is_empty() {
+    let Some(path) = input.path.as_ref() else {
         return Err(JevError::input_invalid("source path is empty"));
-    }
-    let path = RepoRelativePath::try_from(input.path)?;
-    let rev = Rev::parse(input.rev)?;
-    if input.blob_sha.is_empty() {
+    };
+    // An unset revision reports the same error an empty one always did.
+    let rev = match input.rev.as_ref() {
+        Some(rev) => rev.clone(),
+        None => Rev::parse("")?,
+    };
+    let Some(blob_sha) = input.blob_sha.as_ref() else {
         return Err(JevError::input_invalid("blob sha is empty"));
-    }
-    let blob_sha = BlobSha::try_from(input.blob_sha)?;
+    };
     if input.query.is_empty() {
         return Err(JevError::query_invalid(
             PRODUCER_NAME,
@@ -210,14 +256,14 @@ pub fn extract(input: &ExtractInput<'_>) -> Result<SubjectsDocument, JevError> {
             .min();
         if let Some(line) = parse_error_line {
             return Err(JevError::extraction_parse_error(
-                input.path.to_owned(),
+                path.as_str().to_owned(),
                 line,
             ));
         }
     }
 
     let mut builder = SubjectsBuilder::new(
-        SubjectsSource::new(path.clone(), rev, blob_sha),
+        SubjectsSource::new(path.clone(), rev, blob_sha.clone()),
         SubjectsProducer::new(
             PRODUCER_NAME,
             env!("CARGO_PKG_VERSION"),
@@ -345,9 +391,9 @@ mod tests {
         extract(
             &ExtractInput::new(language, query, source)
                 .with_captures(captures)
-                .with_path(path)
-                .with_rev("HEAD")
-                .with_blob_sha(BLOB),
+                .with_path(RepoRelativePath::try_from(path)?)
+                .with_rev(Rev::parse("HEAD")?)
+                .with_blob_sha(BlobSha::try_from(BLOB)?),
         )
     }
 
@@ -633,25 +679,37 @@ fn classify(value: Transition) -> &'static str {
 
     #[cfg(feature = "python")]
     #[test]
-    fn malformed_rev_is_input_invalid() {
-        let error = extract(
-            &ExtractInput::new("python", "(identifier) @name\n", b"a\n")
-                .with_path("a.py")
-                .with_rev("--output=x")
-                .with_blob_sha(BLOB),
-        )
-        .expect_err("leading dash");
-        assert_eq!(error.code(), "INPUT_INVALID");
+    fn malformed_rev_path_and_blob_fail_at_the_caller() {
+        // Validation happens when the typed value is built, not in `extract`.
+        assert_eq!(
+            Rev::parse("--output=x").expect_err("leading dash").code(),
+            "INPUT_INVALID"
+        );
+        assert_eq!(
+            RepoRelativePath::try_from("../a.py")
+                .expect_err("escape")
+                .code(),
+            "INPUT_INVALID"
+        );
+        assert_eq!(
+            BlobSha::try_from("xyz").expect_err("not hex").code(),
+            "INPUT_INVALID"
+        );
     }
 
     #[test]
     fn missing_required_fields_are_input_invalid() {
-        let base = ExtractInput::new("python", "(identifier) @name\n", b"a\n");
-        let no_path = extract(&base.with_rev("HEAD").with_blob_sha(BLOB)).expect_err("path");
+        let base = || ExtractInput::new("python", "(identifier) @name\n", b"a\n");
+        let path = || RepoRelativePath::try_from("a.py").expect("path");
+        let rev = || Rev::parse("HEAD").expect("rev");
+        let sha = || BlobSha::try_from(BLOB).expect("sha");
+        let no_path = extract(&base().with_rev(rev()).with_blob_sha(sha())).expect_err("path");
         assert_eq!(no_path.code(), "INPUT_INVALID");
-        let no_sha = extract(&base.with_path("a.py").with_rev("HEAD")).expect_err("sha");
+        assert!(no_path.to_string().contains("source path is empty"));
+        let no_sha = extract(&base().with_path(path()).with_rev(rev())).expect_err("sha");
         assert_eq!(no_sha.code(), "INPUT_INVALID");
-        let no_rev = extract(&base.with_path("a.py").with_blob_sha(BLOB)).expect_err("rev");
+        assert!(no_sha.to_string().contains("blob sha is empty"));
+        let no_rev = extract(&base().with_path(path()).with_blob_sha(sha())).expect_err("rev");
         assert_eq!(no_rev.code(), "INPUT_INVALID");
     }
 
