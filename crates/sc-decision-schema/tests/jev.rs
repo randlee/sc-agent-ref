@@ -321,23 +321,17 @@ fn test_duplicate_key_rejected() {
         );
     }
 
-    // A payload that repeats a choice or an id cannot be mapped.
-    let repeated_choice = CanonicalJudgePayload::new(
-        vec![sc_decision_schema::Question::new_unchecked(
-            qid("q"),
-            "?",
-            vec![choice("a"), choice("a")],
-        )],
-        Vec::new(),
-    );
-    assert_eq!(
-        CheckRequest::from_canonical(model(), &repeated_choice)
-            .expect_err("choice")
-            .code(),
-        "INPUT_INVALID"
-    );
+    // A payload that repeats a question id cannot be mapped (a repeated
+    // choice is already refused by `Question::try_new`).
     let two = |label: &str| {
-        sc_decision_schema::Question::new_unchecked(qid("q"), label, vec![choice("a"), choice("b")])
+        sc_decision_schema::Question::try_new(
+            qid("q"),
+            label,
+            vec![choice("a"), choice("b")],
+            sc_decision_schema::QuestionKind::Choice,
+            None,
+        )
+        .expect("question")
     };
     let repeated_question = CanonicalJudgePayload::new(vec![two("x"), two("y")], Vec::new());
     assert_eq!(
