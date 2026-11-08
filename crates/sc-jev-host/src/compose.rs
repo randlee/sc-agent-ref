@@ -25,9 +25,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use sc_agent_types::observability::v2::{NoopSessionLog, SharedSessionLog};
-use sc_agent_types::{
-    BackendSet, CancelToken, JevError, MultiBackendMode, RepoRoot, Rev, SessionId,
-};
+use sc_agent_types::{BackendSet, CancelToken, JevError, RepoRoot, Rev, SessionId};
+use sc_decision_schema::MultiBackendMode;
 use sc_jev_check::registry::BackendRegistry;
 use sc_jev_check::run::{
     AskResponse, CheckSource, PreparedRun, RunConfig, RunResponse, ask, discover_repo_root,

@@ -45,7 +45,7 @@
 //!     BusyPolicy, Endpoint, HeaderName, HttpRequest, HttpResponse, Method, Transport,
 //!     send_with_busy_retry,
 //! };
-//! use sc_agent_types::{CancelToken, JevError};
+//! use sc_agent_types::{CancelToken, JevError, SendTrace};
 //!
 //! struct Always200;
 //!
@@ -58,7 +58,7 @@
 //! let request = HttpRequest::new(
 //!     Method::Post,
 //!     Endpoint::parse("https://api.example.test/v1/x")?,
-//!     Arc::from(&b"{}"[..]),
+//!     Arc::from("{}"),
 //! )
 //! .with_header(HeaderName::new("content-type"), "application/json");
 //! let response = send_with_busy_retry(
@@ -66,6 +66,7 @@
 //!     &request,
 //!     &BusyPolicy::default(),
 //!     &CancelToken::new(),
+//!     SendTrace::new(),
 //! )?;
 //! assert_eq!(response.status(), 200);
 //! # Ok::<(), JevError>(())

@@ -1,0 +1,36 @@
+[package]
+name = "sc-decision-schema"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Data-only decision schema for sc-agent: question and answer payload, judge contract, LLM I/O mapping, session-log schema."
+readme = "README.md"
+keywords.workspace = true
+categories.workspace = true
+# Allowlist: repo-root fixtures and the integration tests stay out of the package.
+include = ["Cargo.toml", "README.md", "LICENSE", "src/**"]
+
+[lints]
+workspace = true
+
+[features]
+default = []
+# `test_util::MockJudgeBackend`. Enabled by dev-dependencies and by the
+# `sc-jev-check/test-util` feature only (plan "Test seams").
+test-util = []
+
+[dependencies]
+# Core only: no `secret`, `obs` or `git` (ADR-SAG-0030 data-only rule).
+sc-agent-types = { path = "../sc-agent-types", version = "0.1.0", default-features = false }
+serde.workspace = true
+serde_json.workspace = true
+
+# D0 spike outcome (boundaries/README.md "Dev-dependency and self edges"): no
+# self dev-dependency; integration targets that need the mock declare it here.
+[[test]]
+name = "mock"
+required-features = ["test-util"]

@@ -14,8 +14,12 @@ Later changes are additive: new enum variants (every public enum is
 - The one error enum for Jev and the CLIs (`JevError`) and the stderr error
   shape (`ScAgentErrorResponse`).
 - Ids and the static backend catalog (`BackendId`, `BACKENDS`).
-- The judge contract (`JudgeBackend`, `JudgeRequest`, `JudgeOutcome`) and the
-  canonical payload (`PayloadBundle`).
+- The model catalog (`ModelId`, `MODELS`, `ModelAliases`), the per-send
+  `SendTrace` handle and `ProjectLabel` (r-7).
+- Not here: the judge contract (`JudgeBackend`, `JudgeRequest`,
+  `JudgeOutcome`) and the canonical payload (`PayloadBundle`) live in
+  `sc-decision-schema`, one layer above this crate (ADR-SAG-0030). This crate
+  re-exports none of them (a re-export would be a Cargo cycle).
 - The `sc/subjects/1` schema (`schema::subjects`) and its id builder.
 - The session log port (`observability::v2`) and argv-only git helpers.
 
@@ -23,18 +27,16 @@ Later changes are additive: new enum variants (every public enum is
 
 | Feature | Default | Modules | Types |
 | --- | --- | --- | --- |
-| (core) | always | `error`, `envelope`, `ids`, `schema`, `cancel` | `JevError`, `ErrorCode`, `NetworkErrorKind`, `OperationalArea`; `ScAgentErrorResponse`; `BackendId`, `BackendKeyId`, `BackendFamily`, `BackendDescriptor`, `BACKENDS`, `BackendSet`, `SessionId`, `Rev`, `RepoRoot`, `RepoRelativePath`, `BlobSha`, `Sha256Digest`, `QuestionId`, `ChoiceId`, `Operation`; `schema::subjects::*`; `CancelToken` |
-| `judge` | yes | `judge`, `payload` | `JudgeBackend`, `JudgeRequest`, `JudgeOutcome`, `QuestionAnswer`, `BackendCapabilities`, `MultiBackendMode`, `Attestation`, `BackendAttestation`, `EqualInputRecord`, `LlmWireContext`; `PayloadBundle`, `CanonicalJudgePayload`, `Question`, `ChoiceAnswer`, `canonical_json_bytes` |
+| (core) | always | `error`, `envelope`, `ids`, `models`, `schema`, `cancel`, `trace` | `JevError`, `ErrorCode`, `NetworkErrorKind`, `OperationalArea`; `ScAgentErrorResponse`; `BackendId`, `BackendKeyId`, `BackendFamily`, `BackendDescriptor`, `BACKENDS`, `BackendSet`, `SessionId`, `Rev`, `RepoRoot`, `RepoRelativePath`, `BlobSha`, `Sha256Digest` (`of_text`), `AnswerId`, `ProjectLabel`, `Operation`; `ModelId`, `UnknownModel`, `ModelFamily`, `ModelDescriptor`, `MODELS`, `ModelAliases`; `schema::subjects::*`; `CancelToken`, `SendTrace` |
 | `secret` | yes | `secret` | `ResolvedApiKey` |
 | `obs` | yes | `observability::v2` | `SessionLog`, `SharedSessionLog`, `LogEvent`, `LogRejected`, `NoopSessionLog` |
 | `git` | no | `git` | `discover_toplevel`, `read_at_rev`, `GitBlob` |
-| `test-util` | no (requires `judge`) | `test_util` | `MockJudgeBackend` |
 
-`secret` and `judge` are independent; `git` needs only the core. Every
+`secret`, `obs` and `git` are independent. The `judge` and `test-util` features were deleted in r-7 with the moved modules (REQ-SAG-0107 amended). Every
 combination builds (`cargo hack check -p sc-agent-types --feature-powerset
 --no-dev-deps`). Every type above is reached through a crate-root
 re-export; the modules named in the table are private except `schema`,
-`observability`, `git` and `test_util`. The catalog and the error-code enums
+`observability` and `git`. The catalog and the error-code enums
 live in the private `catalog` and `code` modules because sc-boundary 0.8
 reports a type cycle inside one module.
 
@@ -49,6 +51,15 @@ producer's stderr with its own `code`. Every struct-like variant has a
 snake-case constructor. `fix_hint()` is the one renderer of recovery text;
 `retryable()` is true only for `NetworkError` of kind `Busy`, `Timeout`,
 `Connect`; `Error::source()` is `None` for every variant.
+
+**Git deadline (r-7, ADR-SAG-0027).** Every git subprocess in `git` has a fixed
+60 s wall-clock deadline (`GIT_DEADLINE`, crate-private, not configurable). The
+child is polled with `try_wait`; at the deadline it is killed and reaped and
+the call returns `JevError::GitTimeout { seconds }`. `GitTimeout` maps to the
+existing `EXTRACTION_TIMEOUT` id (an id may have several variants) and has its
+own `Display` ("git did not finish within Ns") and hint (a stalled git
+process, a lock file or a slow filesystem), not the extractor's "raise
+`timeout_seconds`".
 
 `ScAgentErrorResponse` keys, in order: `error`, `message`, `schema_version`
 (always `1`), `retryable` (only when `true`), `details` (only for

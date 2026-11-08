@@ -109,6 +109,8 @@ which no manifest owns). So, from r-1 on:
   and the dependent in the target's `allowed_dependents`. r-3b's
   `workspace-tests` takes the "counted" branch (`sc-agent-types`,
   `sc-jev-check`, `sc-jev-host` add `workspace-tests` to
-  `allowed_dependents`).
+  `allowed_dependents`). r-7 adds `sc-decision-schema`
+  (`features = ["test-util"]`) as a fourth counted dev edge; its manifest lists
+  `workspace-tests` in `allowed_dependents` (ADR-SAG-0028 r-7 amendment).
 - `facade = ""` is rejected, so r-3b's `workspace-tests` manifest uses
   `facade = "workspace_tests"` (plan.md "New boundary manifests").

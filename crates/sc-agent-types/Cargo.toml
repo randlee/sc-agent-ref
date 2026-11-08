@@ -7,7 +7,7 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
-description = "Shared error, judge, and subjects types for sc-agent."
+description = "Shared error, id, catalog, and subjects types for sc-agent."
 readme = "README.md"
 keywords.workspace = true
 categories.workspace = true
@@ -20,18 +20,13 @@ workspace = true
 [features]
 # Module seams (ADR-SAG-0027). `error`, `envelope`, `ids`, `schema`, and
 # `cancel` are always on.
-default = ["judge", "secret", "obs"]
-# `judge` and `payload`: the judge contract and canonical payload bytes.
-judge = []
+default = ["secret", "obs"]
 # `secret`: `ResolvedApiKey`.
 secret = []
 # `observability::v2`: the `SessionLog` port.
 obs = []
 # `git`: argv-only `discover_toplevel` / `read_at_rev` helpers.
 git = []
-# `test_util::MockJudgeBackend`. Enabled by dev-dependencies and by the
-# `sc-jev-check/test-util` feature only (plan "Test seams").
-test-util = ["judge"]
 
 [dependencies]
 serde.workspace = true
@@ -46,10 +41,6 @@ tempfile.workspace = true
 # D0 spike outcome (boundaries/README.md "Dev-dependency and self edges"): no
 # self dev-dependency; integration targets that need a non-default feature
 # declare it here and their validation lines pass `--features`.
-[[test]]
-name = "mock"
-required-features = ["test-util"]
-
 [[test]]
 name = "git"
 required-features = ["git"]

@@ -24,11 +24,14 @@ use serde::de::{Deserializer, IgnoredAny, MapAccess, Visitor};
 use serde_json::Value;
 
 use sc_agent_types::observability::v2::NoopSessionLog;
-use sc_agent_types::test_util::MockJudgeBackend;
 use sc_agent_types::{
-    Attestation, BackendAttestation, BackendId, BackendSet, CanonicalJudgePayload,
-    EqualInputRecord, JevError, JudgeBackend, JudgeOutcome, JudgeRequest, MultiBackendMode,
-    NetworkErrorKind, PayloadBundle, RepoRelativePath, RepoRoot, ScAgentErrorResponse, SessionId,
+    BackendId, BackendSet, JevError, NetworkErrorKind, RepoRelativePath, RepoRoot,
+    ScAgentErrorResponse, SessionId,
+};
+use sc_decision_schema::test_util::MockJudgeBackend;
+use sc_decision_schema::{
+    Attestation, BackendAttestation, CanonicalJudgePayload, EqualInputRecord, JudgeBackend,
+    JudgeOutcome, JudgeRequest, MultiBackendMode, PayloadBundle,
 };
 use sc_jev_check::registry::BackendRegistry;
 use sc_jev_check::run::{

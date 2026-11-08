@@ -1,4 +1,4 @@
-//! Packaged TypeSafe endpoint, model, and retry limits.
+//! Packaged TypeSafe endpoint and retry limits, and the configured model.
 //!
 //! Later Jev endpoints extend this crate in place (ADR-SAG-0012). No other
 //! crate sends Jev API traffic.
@@ -6,7 +6,7 @@
 use std::time::Duration;
 
 use sc_agent_http::Endpoint;
-use sc_agent_types::JevError;
+use sc_agent_types::{BackendId, JevError, ModelId};
 use serde::Deserialize;
 
 /// Most sends per call (owner decision (b), `BusyPolicy::default`).
@@ -18,10 +18,12 @@ const MAX_TIMEOUT: Duration = Duration::from_secs(120);
 /// TypeSafe check/judge client settings.
 ///
 /// The packaged defaults live in `jev.toml` and are the vendor pins for the
-/// API version (`/v1`) and the evaluator model.
+/// API version (`/v1`). The evaluator model is a [`ModelId`]: it defaults to
+/// the catalog's Jev model and the backend factory sets it (the `[models]`
+/// override of `check.toml`), so the catalog is the one source of the string.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct JevClientConfig {
-    model: String,
+    model: ModelId,
     host: String,
     path: String,
     endpoint: Endpoint,
@@ -34,7 +36,6 @@ pub struct JevClientConfig {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawJevToml {
-    model: String,
     host: String,
     path: String,
     attempts: u32,
@@ -64,7 +65,7 @@ impl JevClientConfig {
         let raw: RawJevToml = toml::from_str(text)
             .map_err(|error| JevError::config_invalid(format!("jev.toml: {}", error.message())))?;
         Self::try_new(
-            raw.model,
+            BackendId::Jev.descriptor().default_model(),
             raw.host,
             raw.path,
             raw.attempts,
@@ -76,24 +77,18 @@ impl JevClientConfig {
     ///
     /// # Errors
     ///
-    /// Returns [`JevError::ConfigInvalid`] when the model, host, path,
-    /// attempt count, or timeout cannot be used for a check request, or
+    /// Returns [`JevError::ConfigInvalid`] when the host, path, attempt
+    /// count, or timeout cannot be used for a check request, or
     /// `https://{host}{path}` is not a valid https URL.
     pub fn try_new(
-        model: impl Into<String>,
+        model: ModelId,
         host: impl Into<String>,
         path: impl Into<String>,
         attempts: u32,
         timeout: Duration,
     ) -> Result<Self, JevError> {
-        let model = model.into();
         let host = host.into();
         let path = path.into();
-        if model.is_empty() || model.bytes().any(|byte| byte.is_ascii_control()) {
-            return Err(invalid(
-                "model must be a non-empty string without control characters",
-            ));
-        }
         if host.is_empty()
             || host.contains("://")
             || host.contains('/')
@@ -126,10 +121,19 @@ impl JevClientConfig {
         })
     }
 
-    /// Evaluator model id sent on the wire.
+    /// Evaluator model sent on the wire and reported by
+    /// `JudgeBackend::model_id`.
     #[must_use]
-    pub fn model(&self) -> &str {
+    pub fn model(&self) -> &ModelId {
         &self.model
+    }
+
+    /// Replaces the model; the backend factory calls this with the catalog
+    /// default or the `check.toml` `[models]` override.
+    #[must_use]
+    pub fn with_model(mut self, model: ModelId) -> Self {
+        self.model = model;
+        self
     }
 
     /// API hostname, without a scheme.
@@ -174,12 +178,13 @@ fn invalid(detail: impl Into<String>) -> JevError {
 mod tests {
     use super::*;
 
-    const VALID: &str = "model = \"m\"\nhost = \"h.example\"\npath = \"/v1/x\"\nattempts = 2\ntimeout_seconds = 5\n";
+    const VALID: &str =
+        "host = \"h.example\"\npath = \"/v1/x\"\nattempts = 2\ntimeout_seconds = 5\n";
 
     #[test]
     fn from_toml_reads_every_field() {
         let config = JevClientConfig::from_toml(VALID).expect("valid");
-        assert_eq!(config.model(), "m");
+        assert_eq!(config.model(), &ModelId::Jev1_13_0);
         assert_eq!(config.endpoint().as_str(), "https://h.example/v1/x");
         assert_eq!(config.attempts(), 2);
         assert_eq!(config.timeout(), Duration::from_secs(5));
@@ -218,7 +223,7 @@ mod tests {
                 &format!("{VALID}max_request_bytes = 10\n"),
                 "max_request_bytes",
             ),
-            (&VALID.replace("\"m\"", "\"\""), "model"),
+            (&format!("{VALID}model = \"jev-9\"\n"), "model"),
             (&VALID.replace("h.example", "https://h.example"), "host"),
             (&VALID.replace("/v1/x", "v1/x"), "path"),
         ];

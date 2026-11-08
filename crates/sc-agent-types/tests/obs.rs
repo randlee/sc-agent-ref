@@ -11,7 +11,7 @@ fn event(operation: Operation) -> LogEvent {
     LogEvent::new(
         SessionId::from_uuid(uuid::Uuid::nil()),
         BackendId::Jev,
-        Sha256Digest::of(b"payload"),
+        Sha256Digest::of_text("payload"),
         operation,
     )
 }

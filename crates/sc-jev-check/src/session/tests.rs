@@ -5,10 +5,10 @@
 use std::sync::Arc;
 
 use super::*;
-use sc_agent_types::JudgeRequest;
+use sc_decision_schema::JudgeRequest;
 
 fn bundle() -> PayloadBundle {
-    PayloadBundle::encode(&sc_agent_types::CanonicalJudgePayload::new(
+    PayloadBundle::encode(&sc_decision_schema::CanonicalJudgePayload::new(
         Vec::new(),
         Vec::new(),
     ))
@@ -198,8 +198,8 @@ fn clock_and_payload_faults_name_their_own_recovery() {
 #[test]
 fn tampered_stored_outcome_is_session_document_invalid() {
     let (store, _dir) = store(Duration::from_secs(60));
-    let payload = PayloadBundle::encode(&sc_agent_types::CanonicalJudgePayload::new(
-        vec![sc_agent_types::Question::new(
+    let payload = PayloadBundle::encode(&sc_decision_schema::CanonicalJudgePayload::new(
+        vec![sc_decision_schema::Question::new(
             "relevant".parse().expect("id"),
             "Does it apply?",
             vec!["no".parse().expect("no"), "yes".parse().expect("yes")],

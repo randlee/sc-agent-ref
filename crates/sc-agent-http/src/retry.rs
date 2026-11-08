@@ -32,7 +32,7 @@ use std::hash::{BuildHasher, RandomState};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use sc_agent_types::{CancelToken, JevError, NetworkErrorKind};
+use sc_agent_types::{CancelToken, JevError, NetworkErrorKind, SendTrace};
 
 use crate::redact::redact;
 use crate::request::{HttpRequest, HttpResponse};
@@ -224,6 +224,10 @@ impl Hooks {
 /// transport returned, has the request's secret removed by
 /// [`redact`](crate::redact()) exactly once, here.
 ///
+/// `trace` is this send's [`SendTrace`]: required, so no backend can send
+/// without one. Nothing records into it yet; the request digest is recorded
+/// here from r-6.
+///
 /// **Cancel latency.** `cancel` is checked before every attempt and between
 /// wait slices of at most 100 ms, so a cancel during a wait returns within
 /// 100 ms. A cancel during an in-flight request is observed only when that
@@ -246,7 +250,11 @@ pub fn send_with_busy_retry(
     request: &HttpRequest,
     policy: &BusyPolicy,
     cancel: &CancelToken,
+    trace: SendTrace,
 ) -> Result<HttpResponse, JevError> {
+    // r-7 only adds the required parameter so no backend can send without
+    // one; r-6 records the request digest into it here.
+    let _ = trace;
     retry_loop(transport, request, policy, cancel).map_err(|error| redact(error, request))
 }
 
@@ -272,7 +280,7 @@ pub fn send_with_busy_retry(
 /// use sc_agent_http::{
 ///     BusyPolicy, Endpoint, HttpRequest, HttpResponse, Method, Transport, send_and_parse,
 /// };
-/// use sc_agent_types::{CancelToken, JevError};
+/// use sc_agent_types::{CancelToken, JevError, SendTrace};
 ///
 /// struct Teapot;
 ///
@@ -285,13 +293,14 @@ pub fn send_with_busy_retry(
 /// let request = HttpRequest::new(
 ///     Method::Post,
 ///     Endpoint::parse("https://api.example.test/v1/x")?,
-///     Arc::from(&b"{}"[..]),
+///     Arc::from("{}"),
 /// );
 /// let status = send_and_parse(
 ///     &Teapot,
 ///     &request,
 ///     &BusyPolicy::default(),
 ///     &CancelToken::new(),
+///     SendTrace::new(),
 ///     |response| Ok(response.status()),
 /// )?;
 /// assert_eq!(status, 418);
@@ -302,9 +311,10 @@ pub fn send_and_parse<R>(
     request: &HttpRequest,
     policy: &BusyPolicy,
     cancel: &CancelToken,
+    trace: SendTrace,
     parse: impl FnOnce(HttpResponse) -> Result<R, JevError>,
 ) -> Result<R, JevError> {
-    let response = send_with_busy_retry(transport, request, policy, cancel)?;
+    let response = send_with_busy_retry(transport, request, policy, cancel, trace)?;
     parse(response).map_err(|error| redact(error, request))
 }
 
@@ -379,9 +389,17 @@ impl<T: Transport> HttpClient<T> {
     pub fn send_and_parse<R>(
         &self,
         request: &HttpRequest,
+        trace: SendTrace,
         parse: impl FnOnce(HttpResponse) -> Result<R, JevError>,
     ) -> Result<R, JevError> {
-        send_and_parse(&self.transport, request, &self.policy, &self.cancel, parse)
+        send_and_parse(
+            &self.transport,
+            request,
+            &self.policy,
+            &self.cancel,
+            trace,
+            parse,
+        )
     }
 }
 

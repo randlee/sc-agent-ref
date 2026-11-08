@@ -15,10 +15,11 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use sc_agent_types::observability::v2::{
     LogEvent, LogRejected, NoopSessionLog, SessionLog, SharedSessionLog,
 };
-use sc_agent_types::test_util::MockJudgeBackend;
-use sc_agent_types::{
-    Attestation, BackendId, BackendSet, CanonicalJudgePayload, JudgeBackend, JudgeOutcome,
-    JudgeRequest, MultiBackendMode, PayloadBundle, RepoRelativePath, RepoRoot, Rev, SessionId,
+use sc_agent_types::{BackendId, BackendSet, RepoRelativePath, RepoRoot, Rev, SessionId};
+use sc_decision_schema::test_util::MockJudgeBackend;
+use sc_decision_schema::{
+    Attestation, CanonicalJudgePayload, JudgeBackend, JudgeOutcome, JudgeRequest, MultiBackendMode,
+    PayloadBundle,
 };
 use sc_jev_check::config::{PACKAGED_SYSTEM_PROMPT, load_check_at};
 use sc_jev_check::registry::BackendRegistry;

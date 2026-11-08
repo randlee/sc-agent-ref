@@ -1,0 +1,49 @@
+boundary_id = "BOUNDARY-decision-schema"
+owner_package = "sc-decision-schema"
+owner_crate_path = "sc_decision_schema"
+name = "decision-schema"
+
+[public]
+facade = "sc_decision_schema::QuestionId, sc_decision_schema::ChoiceId, sc_decision_schema::Question, sc_decision_schema::ChoiceAnswer, sc_decision_schema::CanonicalJudgePayload, sc_decision_schema::PayloadBundle, sc_decision_schema::canonical_json_bytes, sc_decision_schema::QuestionAnswer, sc_decision_schema::DecisionAnswers, sc_decision_schema::JudgeOutcome, sc_decision_schema::JudgeRequest, sc_decision_schema::LlmWireContext, sc_decision_schema::JudgeBackend, sc_decision_schema::BackendCapabilities, sc_decision_schema::Attestation, sc_decision_schema::BackendAttestation, sc_decision_schema::EqualInputRecord, sc_decision_schema::MultiBackendMode, sc_decision_schema::DecisionSchemaId, sc_decision_schema::SchemaFamily, sc_decision_schema::llm, sc_decision_schema::variants, sc_decision_schema::session_log, sc_decision_schema::test_util"
+notes = "Data-only decision schema (ADR-SAG-0030): serde types, schema versions, the JudgeBackend trait whose signatures name them, LLM I/O, the session-log DDL and fields{} projection (ADR-SAG-0031). Depends on sc-agent-types with default-features = false (core only), serde, serde_json. No HTTP, git, process, file or logging dependency; no I/O in src. Non-default feature test-util (MockJudgeBackend) is enabled only by dev-dependencies and by sc-jev-check/test-util."
+
+[implementation]
+type = "marker"
+module = "sc_decision_schema"
+visibility = "public"
+constructor = "none"
+
+[composition]
+roots = ["ids", "payload", "judge", "version", "llm", "variants", "session_log", "test_util"]
+
+[dependencies]
+# "workspace-tests" is listed because dev edges are counted (r-1 D0 outcome 4).
+allowed_dependents = ["sc-jev", "sc-jev-backends", "sc-jev-check", "sc-jev-host", "sc-ai", "sc-jev-py", "workspace-tests"]
+allowed_dependencies = ["sc-agent-types", "serde", "serde_json"]
+forbidden_edges = [
+    { from = "sc-decision-schema", to = "sc-agent-http" },
+    { from = "sc-decision-schema", to = "sc-agent-secrets" },
+    { from = "sc-decision-schema", to = "sc-jev" },
+    { from = "sc-decision-schema", to = "sc-jev-backends" },
+    { from = "sc-decision-schema", to = "sc-jev-check" },
+    { from = "sc-decision-schema", to = "sc-jev-host" },
+    { from = "sc-decision-schema", to = "sc-observability" },
+    { from = "sc-decision-schema", to = "ureq" },
+    { from = "sc-decision-schema", to = "pyo3" },
+    { from = "sc-decision-schema", to = "tree-sitter" },
+]
+
+[references]
+scope = "outside_owner_crate"
+forbidden = []
+
+[testing]
+allowed_test_double_paths = ["crates/sc-decision-schema/src/test_util.rs"]
+forbidden_test_bypasses = []
+
+[enforcement]
+lint_rules = ["SCB-DEPENDENCY-001", "SCB-DEPENDENCY-002", "SCB-DEPENDENCY-003", "SCB-DEPENDENCY-004", "SCB-MANIFEST-004"]
+review_gates = []
+
+[status]
+state = "concrete_landed"

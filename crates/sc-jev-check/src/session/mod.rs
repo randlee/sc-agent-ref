@@ -57,9 +57,8 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use sc_agent_types::observability::v2::{LogEvent, SharedSessionLog};
-use sc_agent_types::{
-    BackendId, JevError, JudgeOutcome, PayloadBundle, QuestionAnswer, QuestionId, SessionId,
-};
+use sc_agent_types::{BackendId, JevError, SessionId};
+use sc_decision_schema::{JudgeOutcome, PayloadBundle, QuestionAnswer, QuestionId};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -281,9 +280,7 @@ impl FileSessionStore {
         if document.session_id != *id {
             return Err(session_parse(&path, "does not match this session id"));
         }
-        if sc_agent_types::Sha256Digest::of(document.payload_utf8.as_bytes())
-            != document.prompt_sha256
-        {
+        if sc_agent_types::Sha256Digest::of_text(&document.payload_utf8) != document.prompt_sha256 {
             return Err(session_parse(&path, "payload digest does not match"));
         }
         Ok(document)

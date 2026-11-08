@@ -6,7 +6,8 @@
 //! by `crate::run::prepare` from the override file or the packaged asset
 //! (ADR-SAG-0019).
 
-use sc_agent_types::{BackendId, ChoiceAnswer, JevError, PayloadBundle, Question};
+use sc_agent_types::{BackendId, JevError};
+use sc_decision_schema::{ChoiceAnswer, PayloadBundle, Question};
 use serde::Deserialize;
 use serde_json::Value;
 

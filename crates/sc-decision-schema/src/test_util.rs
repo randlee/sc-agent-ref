@@ -10,9 +10,10 @@ use std::sync::{Mutex, PoisonError};
 
 use serde_json::Value;
 
-use crate::error::JevError;
-use crate::ids::{BackendId, QuestionId, Sha256Digest};
+use crate::ids::QuestionId;
 use crate::judge::{JudgeBackend, JudgeOutcome, JudgeRequest, QuestionAnswer};
+use sc_agent_types::JevError;
+use sc_agent_types::{BackendId, ModelId, SendTrace, Sha256Digest};
 
 /// How a [`MockJudgeBackend`] ends a call.
 #[derive(Debug, Clone)]
@@ -40,6 +41,9 @@ enum Behaviour {
 /// - [`Self::with_failure`] makes `judge` fail after validation passed;
 ///   [`Self::refusing`] makes `validate_for_send` (and `judge`) fail, so
 ///   nothing is sent;
+/// - [`JudgeBackend::model_id`] is the catalog default of the id, or the
+///   model set by [`Self::with_model_id`]; the mock sends nothing, so it
+///   never records into the [`SendTrace`];
 /// - when the id's descriptor requires LLM context and the request carries
 ///   none, `validate_for_send` (still counted) and `judge` return
 ///   `INPUT_INVALID` and record nothing (ADR-SAG-0022).
@@ -49,6 +53,7 @@ pub struct MockJudgeBackend {
     answers: BTreeMap<QuestionId, QuestionAnswer>,
     provider_meta: Option<Value>,
     reported_digest: Option<Sha256Digest>,
+    model: Option<ModelId>,
     behaviour: Behaviour,
     requests: Mutex<Vec<JudgeRequest>>,
     validations: AtomicUsize,
@@ -63,6 +68,7 @@ impl MockJudgeBackend {
             answers,
             provider_meta: None,
             reported_digest: None,
+            model: None,
             behaviour: Behaviour::Answer,
             requests: Mutex::new(Vec::new()),
             validations: AtomicUsize::new(0),
@@ -88,6 +94,14 @@ impl MockJudgeBackend {
     #[must_use]
     pub fn with_reported_digest(mut self, digest: Sha256Digest) -> Self {
         self.reported_digest = Some(digest);
+        self
+    }
+
+    /// Reports `model` from [`JudgeBackend::model_id`] instead of the
+    /// catalog default of the backend id.
+    #[must_use]
+    pub fn with_model_id(mut self, model: ModelId) -> Self {
+        self.model = Some(model);
         self
     }
 
@@ -137,7 +151,13 @@ impl JudgeBackend for MockJudgeBackend {
         self.check(request)
     }
 
-    fn judge(&self, request: &JudgeRequest) -> Result<JudgeOutcome, JevError> {
+    fn model_id(&self) -> ModelId {
+        self.model
+            .clone()
+            .unwrap_or_else(|| self.id.descriptor().default_model())
+    }
+
+    fn judge(&self, request: &JudgeRequest, _trace: &SendTrace) -> Result<JudgeOutcome, JevError> {
         self.check(request)?;
         self.requests
             .lock()

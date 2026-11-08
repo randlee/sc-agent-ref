@@ -10,10 +10,12 @@ use std::time::Duration;
 
 use sc_agent_http::test_util::{FakeClock, RecordingSleeper, ScriptedTransport};
 use sc_agent_http::{BusyPolicy, Endpoint, HttpResponse};
-use sc_agent_types::test_util::judge_outcome_field_names;
 use sc_agent_types::{
-    BackendId, BackendKeyId, CanonicalJudgePayload, JevError, JudgeBackend, JudgeRequest,
-    LlmWireContext, NetworkErrorKind, PayloadBundle, ResolvedApiKey,
+    BackendId, BackendKeyId, JevError, NetworkErrorKind, ResolvedApiKey, SendTrace,
+};
+use sc_decision_schema::test_util::judge_outcome_field_names;
+use sc_decision_schema::{
+    CanonicalJudgePayload, JudgeBackend, JudgeRequest, LlmWireContext, PayloadBundle,
 };
 use sc_jev::{JevClient, JevClientConfig};
 use serde_json::json;
@@ -37,7 +39,7 @@ impl Harness {
         self.transport
             .requests()
             .iter()
-            .map(|request| request.body().to_vec())
+            .map(|request| request.body().as_bytes().to_vec())
             .collect()
     }
 
@@ -48,7 +50,7 @@ impl Harness {
 
 fn config() -> JevClientConfig {
     JevClientConfig::try_new(
-        "jev-test",
+        "jev-test".parse().expect("model"),
         "jev.invalid",
         "/v1/x",
         3,
@@ -123,7 +125,7 @@ fn one_check_is_one_request_byte_exact() {
     let harness = scripted(vec![ok("jev-test")]);
     let outcome = harness
         .client
-        .judge(&request(payload("x = 1"), None))
+        .judge(&request(payload("x = 1"), None), &SendTrace::new())
         .expect("judge");
     assert_eq!(harness.sent(), vec![EXPECTED_BODY.to_vec()]);
     let sent = &harness.sent()[0];
@@ -163,7 +165,7 @@ fn busy_is_retried_with_the_same_body() {
     let harness = scripted(vec![busy(529, Some("2")), ok("jev-test")]);
     harness
         .client
-        .judge(&request(payload("x"), None))
+        .judge(&request(payload("x"), None), &SendTrace::new())
         .expect("judge");
     let sent = harness.sent();
     assert_eq!(sent.len(), 2);
@@ -199,7 +201,10 @@ mod jev_api {
         let harness = scripted(vec![ok("jev-test")]);
         harness
             .client
-            .judge(&request(payload("x = 1"), Some("DO NOT SEND THIS PROMPT")))
+            .judge(
+                &request(payload("x = 1"), Some("DO NOT SEND THIS PROMPT")),
+                &SendTrace::new(),
+            )
             .expect("judge");
         let sent = harness.sent();
         assert_eq!(sent.len(), 1);
@@ -224,7 +229,10 @@ mod jev_api {
             .validate_for_send(&req)
             .expect_err("validate");
         assert_eq!(error.code(), "INPUT_TOO_LARGE");
-        let error = harness.client.judge(&req).expect_err("judge");
+        let error = harness
+            .client
+            .judge(&req, &SendTrace::new())
+            .expect_err("judge");
         assert_eq!(error.code(), "INPUT_TOO_LARGE");
         assert!(harness.sent().is_empty());
     }
@@ -235,7 +243,7 @@ mod jev_api {
             let harness = scripted(vec![busy(status, None), ok("jev-test")]);
             harness
                 .client
-                .judge(&request(payload("x"), None))
+                .judge(&request(payload("x"), None), &SendTrace::new())
                 .expect("judge");
             let sent = harness.sent();
             assert_eq!(sent.len(), 2, "status {status}");
@@ -249,7 +257,7 @@ mod jev_api {
         let harness = scripted(vec![busy(500, Some("1")), ok("jev-test")]);
         let error = harness
             .client
-            .judge(&request(payload("x"), None))
+            .judge(&request(payload("x"), None), &SendTrace::new())
             .expect_err("status");
         assert_eq!(error.code(), "NETWORK_ERROR");
         assert_eq!(harness.sent().len(), 1);
@@ -261,7 +269,7 @@ mod jev_api {
         let harness = scripted(vec![busy(429, None), busy(429, None), busy(429, None)]);
         let error = harness
             .client
-            .judge(&request(payload("x"), None))
+            .judge(&request(payload("x"), None), &SendTrace::new())
             .expect_err("exhausted");
         assert_eq!(error.code(), "NETWORK_ERROR");
         assert_eq!(
@@ -282,7 +290,7 @@ mod jev_api {
         let harness = scripted(vec![reply(json!({"model": "jev-test", "answers": {}}))]);
         let error = harness
             .client
-            .judge(&request(payload("x"), None))
+            .judge(&request(payload("x"), None), &SendTrace::new())
             .expect_err("ids");
         assert_eq!(error.code(), "RESPONSE_INVALID");
     }
@@ -302,7 +310,7 @@ mod jev_api {
         let harness = scripted(vec![reply(extra)]);
         let error = harness
             .client
-            .judge(&request(payload("x"), None))
+            .judge(&request(payload("x"), None), &SendTrace::new())
             .expect_err("extra");
         assert_eq!(error.code(), "RESPONSE_INVALID");
 
@@ -319,7 +327,7 @@ mod jev_api {
         let missing_case = scripted(vec![reply(missing)]);
         let error = missing_case
             .client
-            .judge(&request(payload("x"), None))
+            .judge(&request(payload("x"), None), &SendTrace::new())
             .expect_err("missing");
         assert_eq!(error.code(), "RESPONSE_INVALID");
     }
@@ -329,7 +337,7 @@ mod jev_api {
         let harness = scripted(vec![ok("other-model")]);
         let error = harness
             .client
-            .judge(&request(payload("x"), None))
+            .judge(&request(payload("x"), None), &SendTrace::new())
             .expect_err("model");
         assert_eq!(error.code(), "RESPONSE_INVALID");
 
@@ -340,7 +348,7 @@ mod jev_api {
         )]);
         let error = not_json
             .client
-            .judge(&request(payload("x"), None))
+            .judge(&request(payload("x"), None), &SendTrace::new())
             .expect_err("json");
         assert_eq!(error.code(), "RESPONSE_INVALID");
     }
@@ -372,7 +380,7 @@ mod jev_api {
         let harness = scripted(vec![ok("jev-test")]);
         let error = harness
             .client
-            .judge(&request(one_choice, None))
+            .judge(&request(one_choice, None), &SendTrace::new())
             .expect_err("question");
         assert_eq!(error.code(), "INPUT_INVALID");
         assert!(harness.sent().is_empty());
@@ -400,7 +408,10 @@ mod jev_api {
         }))
         .expect("json");
         let harness = scripted(vec![HttpResponse::new(200, Vec::new(), body)]);
-        let outcome = harness.client.judge(&request(bytes, None)).expect("judge");
+        let outcome = harness
+            .client
+            .judge(&request(bytes, None), &SendTrace::new())
+            .expect("judge");
         assert_eq!(outcome.answers()["relevant"].choice().as_str(), "yes");
         let sent = harness.sent();
         assert_eq!(sent.len(), 1);
@@ -429,7 +440,7 @@ mod jev_api {
         ]);
         let error = harness
             .client
-            .judge(&request(payload("x"), None))
+            .judge(&request(payload("x"), None), &SendTrace::new())
             .expect_err("network");
         assert_eq!(error.code(), "NETWORK_ERROR");
         assert!(
@@ -471,7 +482,7 @@ mod jev_api {
         let packaged = JevClientConfig::packaged();
         assert_eq!(
             (
-                packaged.model(),
+                packaged.model().as_str(),
                 packaged.host(),
                 packaged.path(),
                 BackendId::Jev.descriptor().request_limit_bytes(),
@@ -501,7 +512,7 @@ mod jev_api {
         let client = JevClient::with_config(config(), secret_key(), harness.transport.clone())
             .with_cancel(cancel);
         let error = client
-            .judge(&request(payload("x"), None))
+            .judge(&request(payload("x"), None), &SendTrace::new())
             .expect_err("cancelled");
         assert_eq!(
             error.to_string(),
@@ -519,7 +530,7 @@ mod jev_api {
         )]);
         let error = harness
             .client
-            .judge(&request(payload("x"), None))
+            .judge(&request(payload("x"), None), &SendTrace::new())
             .expect_err("json");
         assert_eq!(
             error.to_string(),

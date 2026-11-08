@@ -26,8 +26,14 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
-use crate::error::JevError;
-use crate::ids::{ChoiceId, QuestionId, Sha256Digest};
+use crate::ids::{ChoiceId, QuestionId};
+use crate::judge::QuestionAnswer;
+use sc_agent_types::JevError;
+use sc_agent_types::Sha256Digest;
+
+/// The answers of one decision: the map [`JudgeOutcome`](crate::JudgeOutcome)
+/// carries for every backend (the same bytes as before the type existed).
+pub type DecisionAnswers = BTreeMap<QuestionId, QuestionAnswer>;
 
 /// One question the judge answers.
 ///
@@ -145,7 +151,7 @@ impl PayloadBundle {
     /// # Examples
     ///
     /// ```
-    /// use sc_agent_types::{CanonicalJudgePayload, PayloadBundle};
+    /// use sc_decision_schema::{CanonicalJudgePayload, PayloadBundle};
     ///
     /// let payload: CanonicalJudgePayload = serde_json::from_value(serde_json::json!({
     ///     "questions": [{"id": "q", "prompt": "Is it?", "choices": ["no", "yes"]}],
@@ -177,7 +183,7 @@ impl PayloadBundle {
             .map_err(|error| JevError::encode_failed("canonical payload", &error))?;
         let text = serde_json::to_string(&sorted(&value))
             .map_err(|error| JevError::encode_failed("canonical JSON", &error))?;
-        let sha256 = Sha256Digest::of(text.as_bytes());
+        let sha256 = Sha256Digest::of_text(&text);
         Ok(Self {
             text,
             sha256,
@@ -258,7 +264,7 @@ impl PayloadBundle {
 ///
 /// ```
 /// let value = serde_json::json!({"b": 1, "a": {"d": true, "c": "ok"}});
-/// let bytes = sc_agent_types::canonical_json_bytes(&value).expect("finite JSON");
+/// let bytes = sc_decision_schema::canonical_json_bytes(&value).expect("finite JSON");
 /// assert_eq!(bytes, br#"{"a":{"c":"ok","d":true},"b":1}"#);
 /// ```
 pub fn canonical_json_bytes(value: &Value) -> Result<Vec<u8>, JevError> {

@@ -9,7 +9,7 @@
 //! `<workspace root>/target/workspace-tests-bin` when `CARGO_TARGET_DIR` is
 //! unset. It is never the directory `cargo test` uplifts a binary into: that
 //! binary may be built with `test-util` on, and sharing a path would make the
-//! parity golden and `test_util_off` depend on test order (RBQA-F103 (b)). The
+//! parity golden and `test_util_off_binary` depend on test order (RBQA-F103 (b)). The
 //! helper therefore runs release-shaped binaries only. The directory is fixed
 //! rather than a tempdir per test so binaries are not rebuilt from scratch by
 //! every test. The build runs through the bounded runner of the including

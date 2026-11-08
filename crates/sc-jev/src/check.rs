@@ -8,9 +8,10 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use sc_agent_types::{
-    BackendId, ChoiceId, JevError, JudgeOutcome, JudgeRequest, PayloadBundle, QuestionAnswer,
-    QuestionId, Sha256Digest, canonical_json_bytes,
+use sc_agent_types::{BackendId, JevError, Sha256Digest};
+use sc_decision_schema::{
+    ChoiceId, JudgeOutcome, JudgeRequest, PayloadBundle, QuestionAnswer, QuestionId,
+    canonical_json_bytes,
 };
 use serde_json::Value;
 
@@ -18,7 +19,7 @@ use crate::config::JevClientConfig;
 
 /// Wire body plus the criteria used to validate the reply.
 pub(crate) struct PreparedCheck {
-    pub(crate) body: Vec<u8>,
+    pub(crate) body: String,
     pub(crate) criteria: BTreeMap<QuestionId, BTreeSet<ChoiceId>>,
 }
 
@@ -55,7 +56,7 @@ pub(crate) fn prepare(
             "question {id} is not a choice question with two or more criteria"
         )));
     }
-    let body = splice_model(config.model(), payload.bytes());
+    let body = splice_model(config.model().as_str(), payload.as_str());
     let actual_bytes = body.len() as u64;
     if actual_bytes > limit_bytes {
         return Err(JevError::input_too_large(limit_bytes, actual_bytes));
@@ -78,15 +79,18 @@ pub(crate) fn prepare(
 ///
 /// `INPUT_INVALID` when `body` is not a JSON object. The error names the
 /// failure category and position only, never body bytes (ADR-SAG-0020).
-pub(crate) fn recovered_digest(body: &[u8]) -> Result<Sha256Digest, JevError> {
-    let mut value: Value = serde_json::from_slice(body)
+pub(crate) fn recovered_digest(body: &str) -> Result<Sha256Digest, JevError> {
+    let mut value: Value = serde_json::from_str(body)
         .map_err(|error| JevError::encode_failed("Jev wire body", &error))?;
     let object = value
         .as_object_mut()
         .ok_or_else(|| JevError::input_invalid("Jev wire body is not a JSON object"))?;
     object.remove("model");
     let canonical = canonical_json_bytes(&value)?;
-    Ok(Sha256Digest::of(&canonical))
+    // `canonical_json_bytes` is `serde_json` output, so UTF-8 by construction.
+    let text = String::from_utf8(canonical)
+        .map_err(|_| JevError::input_invalid("canonical payload is not UTF-8"))?;
+    Ok(Sha256Digest::of_text(&text))
 }
 
 /// A seeded defect in the Jev wire builder (feature `test-util`).
@@ -111,14 +115,18 @@ pub enum WireFault {
 impl WireFault {
     /// Applies the fault to `body`, whose embedded payload starts at
     /// `payload_start`.
-    pub(crate) fn apply(self, mut body: Vec<u8>, payload_start: usize) -> Vec<u8> {
+    pub(crate) fn apply(self, mut body: String, payload_start: usize) -> String {
         match self {
             Self::DropEmbeddedByte => {
-                if let Some(index) = droppable_byte(&body, payload_start) {
+                // Only an ASCII letter or digit is removed, so UTF-8 stays valid.
+                if let Some(index) = droppable_byte(body.as_bytes(), payload_start) {
                     body.remove(index);
                 }
             }
-            Self::TruncateBody => body.truncate(body.len() / 2),
+            Self::TruncateBody => {
+                let half = body.floor_char_boundary(body.len() / 2);
+                body.truncate(half);
+            }
         }
         body
     }
@@ -229,14 +237,14 @@ pub(crate) fn parse_outcome(
 ///
 /// A bundle's bytes are a canonical object with `questions` and `state`, so
 /// they are never `{}` and always start with `{`.
-fn splice_model(model: &str, payload: &[u8]) -> Vec<u8> {
-    debug_assert!(payload.len() > 2 && payload[0] == b'{');
+fn splice_model(model: &str, payload: &str) -> String {
+    debug_assert!(payload.len() > 2 && payload.starts_with('{'));
     let model_json = Value::String(model.to_owned()).to_string();
-    let mut body = Vec::with_capacity(payload.len() + model_json.len() + 10);
-    body.extend_from_slice(br#"{"model":"#);
-    body.extend_from_slice(model_json.as_bytes());
-    body.push(b',');
-    body.extend_from_slice(&payload[1..]);
+    let mut body = String::with_capacity(payload.len() + model_json.len() + 10);
+    body.push_str(r#"{"model":"#);
+    body.push_str(&model_json);
+    body.push(',');
+    body.push_str(&payload[1..]);
     body
 }
 
@@ -256,14 +264,16 @@ mod response_shape {
     #[test]
     fn parse_outcome_keeps_other_top_level_fields() {
         let raw = br#"{"model":"jev-test","answers":{"q":{"choice":"no","confidence":0.9,"probabilities":{"no":0.9,"yes":0.1}}},"usage":{"input_tokens":318,"output_tokens":31},"stop_reason":"end_turn"}"#;
-        let payload: sc_agent_types::CanonicalJudgePayload =
+        let payload: sc_decision_schema::CanonicalJudgePayload =
             serde_json::from_value(serde_json::json!({
                 "questions": [{"id": "q", "prompt": "p", "choices": ["no", "yes"]}],
                 "state": []
             }))
             .expect("payload");
-        let request = sc_agent_types::JudgeRequest::new(
-            std::sync::Arc::new(sc_agent_types::PayloadBundle::encode(&payload).expect("bundle")),
+        let request = sc_decision_schema::JudgeRequest::new(
+            std::sync::Arc::new(
+                sc_decision_schema::PayloadBundle::encode(&payload).expect("bundle"),
+            ),
             None,
         );
         let criteria = request.payload().question_choices();
@@ -283,7 +293,7 @@ mod response_shape {
 mod refusals {
     use std::sync::Arc;
 
-    use sc_agent_types::{CanonicalJudgePayload, JudgeRequest, PayloadBundle};
+    use sc_decision_schema::{CanonicalJudgePayload, JudgeRequest, PayloadBundle};
     use serde_json::{Value, json};
 
     use super::{parse_outcome, prepare};
@@ -334,7 +344,7 @@ mod refusals {
         assert!(
             prepared
                 .body
-                .starts_with(br#"{"model":"jev-1.13.0","questions":["#)
+                .starts_with(r#"{"model":"jev-1.13.0","questions":["#)
         );
         assert_eq!(&prepared.criteria, bundle.question_choices());
     }

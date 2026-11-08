@@ -21,6 +21,7 @@ workspace = true
 [dev-dependencies]
 sc-jev-host = { path = "../sc-jev-host", version = "0.1.0" }
 sc-agent-types = { path = "../sc-agent-types", version = "0.1.0", features = ["git"] }
+sc-decision-schema = { path = "../sc-decision-schema", version = "0.1.0", features = ["test-util"] }
 sc-jev-check = { path = "../sc-jev-check", version = "0.1.0" }
 serde_json.workspace = true
 tempfile.workspace = true

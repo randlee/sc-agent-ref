@@ -5,7 +5,8 @@
 
 use serde_json::Value;
 
-use sc_agent_types::{BackendId, EqualInputRecord, JevError, JudgeOutcome, SessionId};
+use sc_agent_types::{BackendId, JevError, SessionId};
+use sc_decision_schema::{EqualInputRecord, JudgeOutcome};
 
 use super::response::{BackendLimit, BackendResult, ResponseParts, RunResponse};
 

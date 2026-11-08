@@ -1388,6 +1388,7 @@ dependencies = [
  "clap",
  "mimalloc",
  "sc-agent-types",
+ "sc-decision-schema",
  "sc-jev-check",
  "sc-jev-host",
  "serde",
@@ -1396,11 +1397,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "sc-decision-schema"
+version = "0.1.0"
+dependencies = [
+ "sc-agent-types",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "sc-jev"
 version = "0.1.0"
 dependencies = [
  "sc-agent-http",
  "sc-agent-types",
+ "sc-decision-schema",
  "serde",
  "serde_json",
  "toml",
@@ -1412,6 +1423,7 @@ version = "0.1.0"
 dependencies = [
  "sc-agent-http",
  "sc-agent-types",
+ "sc-decision-schema",
  "serde_json",
 ]
 
@@ -1421,6 +1433,7 @@ version = "0.1.0"
 dependencies = [
  "sc-agent-secrets",
  "sc-agent-types",
+ "sc-decision-schema",
  "sc-jev",
  "sc-jev-backends",
  "serde",
@@ -1434,6 +1447,7 @@ name = "sc-jev-host"
 version = "0.1.0"
 dependencies = [
  "sc-agent-types",
+ "sc-decision-schema",
  "sc-jev-check",
  "sc-observability",
  "serde_json",
@@ -1446,6 +1460,7 @@ version = "0.1.0"
 dependencies = [
  "pyo3",
  "sc-agent-types",
+ "sc-decision-schema",
  "sc-jev-check",
  "sc-jev-host",
  "serde_json",
@@ -2290,6 +2305,7 @@ name = "workspace-tests"
 version = "0.1.0"
 dependencies = [
  "sc-agent-types",
+ "sc-decision-schema",
  "sc-jev-check",
  "sc-jev-host",
  "serde_json",

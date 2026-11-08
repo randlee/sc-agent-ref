@@ -2,8 +2,9 @@
 
 Cross-crate proofs for the sc-agent workspace (`publish = false`; ADR-SAG-0028,
 REQ-SAG-0109). The crate has no normal dependencies and an empty `src/lib.rs`.
-Its dev-dependencies are `sc-agent-types`, `sc-jev-check`, `sc-jev-host`,
-`serde_json` and `tempfile`; `sc-ai` and `sc-treesitter` are never linked.
+Its dev-dependencies are `sc-agent-types` (`features = ["git"]`),
+`sc-decision-schema` (`features = ["test-util"]`), `sc-jev-check`,
+`sc-jev-host`, `serde_json` and `tempfile`; `sc-ai` and `sc-treesitter` are never linked.
 They run as built binaries, so `pyo3` and `tree-sitter` stay out of this graph.
 There is no `docs/workspace-tests/`; this file is the documentation.
 
@@ -46,5 +47,7 @@ the helper runs release-shaped binaries only.
   `test_env_reads_only_in_owners` (a text scan: an aliased import evades it,
   and review covers that).
 - **`test_util_off`**: no workspace crate's `test-util` feature is on a normal
-  edge (`cargo tree -e normal,features`, with a positive control), and the
-  release-built `sc-ai` rejects `--scripted-answers`.
+  edge (`cargo tree -e normal,features`, with a positive control).
+- **`test_util_off_binary`**: the release-built `sc-ai` rejects
+  `--scripted-answers`. A separate target, so its `cargo build` never runs
+  alongside `test_util_off`'s serialized `cargo tree` calls.

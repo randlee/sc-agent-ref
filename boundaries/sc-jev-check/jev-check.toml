@@ -36,7 +36,7 @@ roots = ["config", "extract", "payload", "run", "session", "equal_input", "regis
 
 [dependencies]
 allowed_dependents = ["sc-ai", "sc-jev-py", "sc-jev-host", "workspace-tests"]
-allowed_dependencies = ["sc-agent-secrets", "sc-agent-types", "sc-jev", "sc-jev-backends", "serde", "serde_json", "toml"]
+allowed_dependencies = ["sc-agent-secrets", "sc-agent-types", "sc-decision-schema", "sc-jev", "sc-jev-backends", "serde", "serde_json", "toml"]
 forbidden_edges = [
     { from = "sc-jev-check", to = "sc-treesitter" },
     { from = "sc-jev-check", to = "ureq" },

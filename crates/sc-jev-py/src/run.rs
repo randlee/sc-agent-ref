@@ -15,9 +15,8 @@ use std::sync::Arc;
 use pyo3::prelude::*;
 use pyo3::types::{PyAnyMethods, PyBytes};
 use sc_agent_types::schema::subjects::SubjectsProducer;
-use sc_agent_types::{
-    BackendSet, JevError, MultiBackendMode, Rev, SessionId, Sha256Digest, canonical_json_bytes,
-};
+use sc_agent_types::{BackendSet, JevError, Rev, SessionId, Sha256Digest};
+use sc_decision_schema::{MultiBackendMode, canonical_json_bytes};
 use sc_jev_check::run::{CheckSource, RunResponse};
 use sc_jev_host::compose::{ComposeInputs, ask_from, explicit_repo_root, prepare_from};
 use sc_jev_host::paths::PathPolicy;
@@ -664,7 +663,11 @@ pub(crate) fn canonical_bytes(py: Python<'_>, json_text: &str) -> PyResult<Py<Py
 #[pyfunction]
 pub(crate) fn canonical_sha256(py: Python<'_>, json_text: &str) -> PyResult<String> {
     let bytes = map_err(py, canonical_of(json_text))?;
-    Ok(Sha256Digest::of(&bytes).to_string())
+    // `canonical_json_bytes` is `serde_json` output, so UTF-8 by construction.
+    let text = String::from_utf8(bytes)
+        .map_err(|_| JevError::input_invalid("canonical payload is not UTF-8"));
+    let text = map_err(py, text)?;
+    Ok(Sha256Digest::of_text(&text).to_string())
 }
 
 /// The Python path policy; the repo root does not enter its defaults.
@@ -779,7 +782,7 @@ mod tests {
     fn ask_live(
         finished: &FinishedRun,
         follow_up: &str,
-    ) -> Result<sc_agent_types::JudgeOutcome, JevError> {
+    ) -> Result<sc_decision_schema::JudgeOutcome, JevError> {
         ask_from(
             finished.session_id().expect("session"),
             follow_up,
@@ -841,7 +844,7 @@ mod tests {
                 .equal_input()
                 .backends()
                 .iter()
-                .all(|entry| entry.attestation() == &sc_agent_types::Attestation::NotSent)
+                .all(|entry| entry.attestation() == &sc_decision_schema::Attestation::NotSent)
         );
         assert!(!logs.exists(), "dry-run must not create the log root");
         assert!(
@@ -1110,7 +1113,7 @@ mod tests {
             assert_eq!(bytes.bind(py).as_bytes(), b"{\"a\":2,\"b\":1}");
             assert_eq!(
                 canonical_sha256(py, "{}").expect("sha"),
-                Sha256Digest::of(b"{}").to_string()
+                Sha256Digest::of_text("{}").to_string()
             );
             assert!(canonical_sha256(py, "{").is_err());
         });

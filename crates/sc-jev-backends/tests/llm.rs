@@ -6,10 +6,10 @@ use std::time::Duration;
 
 use sc_agent_http::test_util::{FakeClock, RecordingSleeper, ScriptedTransport};
 use sc_agent_http::{BusyPolicy, HttpRequest, HttpResponse, Timeouts, UreqTransport};
-use sc_agent_types::test_util::judge_outcome_field_names;
-use sc_agent_types::{
-    BackendId, BackendKeyId, CanonicalJudgePayload, JudgeBackend, JudgeOutcome, JudgeRequest,
-    LlmWireContext, PayloadBundle, ResolvedApiKey, Sha256Digest,
+use sc_agent_types::{BackendId, BackendKeyId, ModelId, ResolvedApiKey, SendTrace, Sha256Digest};
+use sc_decision_schema::test_util::judge_outcome_field_names;
+use sc_decision_schema::{
+    CanonicalJudgePayload, JudgeBackend, JudgeOutcome, JudgeRequest, LlmWireContext, PayloadBundle,
 };
 use sc_jev_backends::{AnthropicHaikuBackend, OpenAiLunaBackend};
 use serde_json::{Value, json};
@@ -182,7 +182,7 @@ fn posts(recorded: &Recorded) -> Vec<HttpRequest> {
 }
 
 fn body_json(request: &HttpRequest) -> Value {
-    serde_json::from_slice(request.body()).expect("request json")
+    serde_json::from_str(request.body()).expect("request json")
 }
 
 fn url(request: &HttpRequest) -> &str {
@@ -237,7 +237,7 @@ fn test_haiku_request_embeds_canonical_payload() {
         haiku_message(&answer_text(), "end_turn", 100),
         count_reply(100),
     ]);
-    let outcome = backend.judge(&request).expect("judge");
+    let outcome = backend.judge(&request, &SendTrace::new()).expect("judge");
     let seen = posts(&recorded);
     assert_eq!(seen.len(), 2);
     assert_post(&seen[0]);
@@ -292,7 +292,7 @@ fn test_luna_request_embeds_canonical_payload() {
         luna_message(&answer_text(), "completed", 50),
         count_reply(50),
     ]);
-    let outcome = backend.judge(&request).expect("judge");
+    let outcome = backend.judge(&request, &SendTrace::new()).expect("judge");
     let seen = posts(&recorded);
     let message = body_json(&seen[1]);
     assert_eq!(
@@ -314,7 +314,7 @@ fn test_luna_token_count_wire_before_judge() {
         luna_message(&answer_text(), "completed", 50),
         count_reply(50),
     ]);
-    backend.judge(&request).expect("judge");
+    backend.judge(&request, &SendTrace::new()).expect("judge");
     let seen = posts(&recorded);
     assert_eq!(seen.len(), 2);
     assert_eq!(
@@ -342,7 +342,7 @@ fn test_llm_system_prompt_is_injected_not_hardcoded() {
         haiku_message(&answer_text(), "end_turn", 10),
         count_reply(10),
     ]);
-    backend.judge(&request).expect("judge");
+    backend.judge(&request, &SendTrace::new()).expect("judge");
     let message = body_json(&posts(&recorded)[1]);
     assert_eq!(message["system"], PROMPT);
     let source = std::fs::read_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/src"))
@@ -368,7 +368,7 @@ fn test_prompt_change_does_not_alter_prompt_sha256() {
     assert_eq!(first.payload().sha256(), second.payload().sha256());
     assert_eq!(
         first.payload().sha256(),
-        &Sha256Digest::of(first.payload().bytes())
+        &Sha256Digest::of_text(first.payload().as_str())
     );
     let (backend, recorded) = haiku(vec![
         haiku_message(&answer_text(), "end_turn", 4),
@@ -376,8 +376,8 @@ fn test_prompt_change_does_not_alter_prompt_sha256() {
         haiku_message(&answer_text(), "end_turn", 4),
         count_reply(4),
     ]);
-    backend.judge(&first).expect("first");
-    backend.judge(&second).expect("second");
+    backend.judge(&first, &SendTrace::new()).expect("first");
+    backend.judge(&second, &SendTrace::new()).expect("second");
     assert_eq!(first.payload().sha256(), second.payload().sha256());
     let seen = posts(&recorded);
     let alpha = body_json(&seen[1]);
@@ -386,25 +386,34 @@ fn test_prompt_change_does_not_alter_prompt_sha256() {
     assert_ne!(alpha["system"], beta["system"]);
     assert_eq!(alpha["system"], "prompt-alpha");
     assert_eq!(beta["system"], "prompt-beta");
-    assert_ne!(first.payload().sha256(), &Sha256Digest::of(seen[1].body()));
+    assert_ne!(
+        first.payload().sha256(),
+        &Sha256Digest::of_text(seen[1].body())
+    );
 }
 
 #[test]
 fn test_llm_input_is_refused_like_jev_and_nothing_is_sent() {
     let (backend, recorded) = haiku(vec![count_reply(1)]);
     let oversized = standard_request(&"x".repeat(100_000));
-    let too_big = backend.judge(&oversized).expect_err("oversize");
+    let too_big = backend
+        .judge(&oversized, &SendTrace::new())
+        .expect_err("oversize");
     assert_eq!(too_big.code(), "INPUT_TOO_LARGE");
     assert!(posts(&recorded).is_empty());
 
     let short = request_with(json!([question(&["only"])]), Some(PROMPT));
-    let invalid = backend.judge(&short).expect_err("one choice");
+    let invalid = backend
+        .judge(&short, &SendTrace::new())
+        .expect_err("one choice");
     assert_eq!(invalid.code(), "INPUT_INVALID");
     assert!(invalid.to_string().contains("two or more criteria"));
     assert!(posts(&recorded).is_empty());
 
     let missing_prompt = request_with(json!([question(&["yes", "no"])]), None);
-    let missing = backend.judge(&missing_prompt).expect_err("prompt");
+    let missing = backend
+        .judge(&missing_prompt, &SendTrace::new())
+        .expect_err("prompt");
     assert_eq!(missing.code(), "INPUT_INVALID");
     assert!(posts(&recorded).is_empty());
 }
@@ -437,7 +446,9 @@ fn test_llm_bad_reply_is_typed() {
     ];
     for reply in replies {
         let (backend, recorded) = haiku(vec![haiku_message(reply, "end_turn", 1), count_reply(1)]);
-        let error = backend.judge(&standard_request(PROMPT)).expect_err(reply);
+        let error = backend
+            .judge(&standard_request(PROMPT), &SendTrace::new())
+            .expect_err(reply);
         assert_eq!(error.code(), "RESPONSE_INVALID", "{reply} -> {error}");
         assert_eq!(posts(&recorded).len(), 2, "{reply}");
     }
@@ -450,7 +461,7 @@ fn test_llm_stop_reason_truncation_is_response_invalid() {
         count_reply(8),
     ]);
     let haiku_error = haiku_backend
-        .judge(&standard_request(PROMPT))
+        .judge(&standard_request(PROMPT), &SendTrace::new())
         .expect_err("truncated haiku");
     assert_eq!(haiku_error.code(), "RESPONSE_INVALID");
     assert!(haiku_error.to_string().contains("max_tokens"));
@@ -462,7 +473,7 @@ fn test_llm_stop_reason_truncation_is_response_invalid() {
         count_reply(8),
     ]);
     let luna_error = luna_backend
-        .judge(&standard_request(PROMPT))
+        .judge(&standard_request(PROMPT), &SendTrace::new())
         .expect_err("truncated luna");
     assert_eq!(luna_error.code(), "RESPONSE_INVALID");
     assert!(luna_error.to_string().contains("max_tokens"));
@@ -487,7 +498,9 @@ fn test_llm_busy_retry_same_body() {
             json!({"error": "slow down"}),
         ),
     ]);
-    backend.judge(&standard_request(PROMPT)).expect("retried");
+    backend
+        .judge(&standard_request(PROMPT), &SendTrace::new())
+        .expect("retried");
     let seen = posts(&recorded);
     assert_eq!(seen.len(), 5);
     assert!(url(&seen[0]).ends_with("/count_tokens"));
@@ -521,7 +534,7 @@ fn test_llm_busy_exhausted_wording_and_decimal_retry_after() {
     };
     let (backend, recorded) = luna(vec![busy(), busy(), busy(), busy()]);
     let error = backend
-        .judge(&standard_request(PROMPT))
+        .judge(&standard_request(PROMPT), &SendTrace::new())
         .expect_err("exhausted");
     assert_eq!(error.code(), "NETWORK_ERROR");
     assert_eq!(
@@ -555,7 +568,9 @@ fn test_llm_non_2xx_detail_is_redacted() {
         Vec::new(),
         &format!("invalid x-api-key {KEY}"),
     )]);
-    let error = backend.judge(&standard_request(PROMPT)).expect_err("401");
+    let error = backend
+        .judge(&standard_request(PROMPT), &SendTrace::new())
+        .expect_err("401");
     assert_eq!(error.code(), "NETWORK_ERROR");
     assert_eq!(
         error.to_string(),
@@ -571,7 +586,9 @@ fn test_llm_non_busy_is_not_retried() {
         Vec::new(),
         json!({"error": "bad request"}),
     )]);
-    let error = backend.judge(&standard_request(PROMPT)).expect_err("400");
+    let error = backend
+        .judge(&standard_request(PROMPT), &SendTrace::new())
+        .expect_err("400");
     assert_eq!(error.code(), "NETWORK_ERROR");
     assert_eq!(posts(&recorded).len(), 1);
     assert!(recorded.delays().is_empty());
@@ -580,7 +597,9 @@ fn test_llm_non_busy_is_not_retried() {
 #[test]
 fn test_llm_bad_token_count_does_not_send_judge() {
     let (backend, recorded) = haiku(vec![response(200, Vec::new(), json!({}))]);
-    let error = backend.judge(&standard_request(PROMPT)).expect_err("count");
+    let error = backend
+        .judge(&standard_request(PROMPT), &SendTrace::new())
+        .expect_err("count");
     assert_eq!(error.code(), "RESPONSE_INVALID");
     let seen = posts(&recorded);
     assert_eq!(seen.len(), 1);
@@ -617,7 +636,9 @@ fn test_validate_for_send_refuses_oversize_before_http() {
     let oversized = standard_request(&"x".repeat(100_000));
     let error = backend.validate_for_send(&oversized).expect_err("validate");
     assert_eq!(error.code(), "INPUT_TOO_LARGE");
-    let error = backend.judge(&oversized).expect_err("judge");
+    let error = backend
+        .judge(&oversized, &SendTrace::new())
+        .expect_err("judge");
     assert_eq!(error.code(), "INPUT_TOO_LARGE");
     assert!(posts(&recorded).is_empty());
 }
@@ -629,7 +650,7 @@ fn test_provider_token_count_over_limit_does_not_send_judge() {
         .validate_for_send(&standard_request(PROMPT))
         .expect("local ceiling");
     let error = backend
-        .judge(&standard_request(PROMPT))
+        .judge(&standard_request(PROMPT), &SendTrace::new())
         .expect_err("provider tokens");
     assert_eq!(error.code(), "INPUT_INVALID");
     assert!(error.to_string().contains("32001"));
@@ -645,7 +666,7 @@ fn test_llm_text_reply_is_not_json_vendor_envelope() {
         count_reply(1),
     ]);
     let error = backend
-        .judge(&standard_request(PROMPT))
+        .judge(&standard_request(PROMPT), &SendTrace::new())
         .expect_err("envelope");
     assert_eq!(error.code(), "RESPONSE_INVALID");
 }
@@ -658,7 +679,7 @@ fn test_llm_cancel_before_send_sends_nothing() {
     let transport = script(vec![count_reply(1)]);
     let backend = AnthropicHaikuBackend::new(credential(), transport.clone()).with_cancel(cancel);
     let error = backend
-        .judge(&standard_request(PROMPT))
+        .judge(&standard_request(PROMPT), &SendTrace::new())
         .expect_err("cancelled");
     assert_eq!(error.code(), "NETWORK_ERROR");
     assert_eq!(
@@ -674,17 +695,74 @@ fn test_llm_cancel_before_send_sends_nothing() {
 #[test]
 fn test_llm_reply_errors_are_labelled_once() {
     let (backend, _) = haiku(vec![text_response(200, Vec::new(), "nope")]);
-    let error = backend.judge(&standard_request(PROMPT)).expect_err("count");
+    let error = backend
+        .judge(&standard_request(PROMPT), &SendTrace::new())
+        .expect_err("count");
     assert_eq!(
         error.to_string(),
         "response is invalid: haiku token count is not JSON"
     );
     let (backend, _) = luna(vec![text_response(200, Vec::new(), "[]"), count_reply(1)]);
     let error = backend
-        .judge(&standard_request(PROMPT))
+        .judge(&standard_request(PROMPT), &SendTrace::new())
         .expect_err("vendor");
     assert_eq!(
         error.to_string(),
         "response is invalid: luna reply is not JSON"
+    );
+}
+
+/// A model string this build does not know is configured, sent verbatim and
+/// reported (REQ-SAG-0147).
+#[test]
+fn test_unknown_model_override_is_sent_verbatim() {
+    let model: ModelId = "claude-haiku-9-preview".parse().expect("open model id");
+    assert!(matches!(model, ModelId::Other(_)));
+    let (backend, recorded) = haiku(vec![
+        haiku_message(&answer_text(), "end_turn", 4),
+        count_reply(4),
+    ]);
+    let backend = backend.with_model(model.clone());
+    let outcome = backend
+        .judge(&standard_request(PROMPT), &SendTrace::new())
+        .expect("judge");
+    let seen = posts(&recorded);
+    assert_eq!(seen.len(), 2);
+    for request in &seen {
+        assert_eq!(body_json(request)["model"], "claude-haiku-9-preview");
+    }
+    assert_eq!(
+        outcome.provider_meta().expect("meta")["model"],
+        "claude-haiku-9-preview"
+    );
+
+    let luna_model: ModelId = "gpt-7-luna".parse().expect("open model id");
+    let (backend, recorded) = luna(vec![
+        luna_message(&answer_text(), "completed", 4),
+        count_reply(4),
+    ]);
+    backend
+        .with_model(luna_model)
+        .judge(&standard_request(PROMPT), &SendTrace::new())
+        .expect("judge");
+    for request in posts(&recorded) {
+        assert_eq!(body_json(&request)["model"], "gpt-7-luna");
+    }
+}
+
+/// `model_id()` is the model the backend sends (D7.5).
+#[test]
+fn test_llm_model_id_is_configured_model() {
+    let (haiku_backend, _) = haiku(Vec::new());
+    assert_eq!(haiku_backend.model_id(), ModelId::ClaudeHaiku5_5);
+    let (luna_backend, _) = luna(Vec::new());
+    assert_eq!(luna_backend.model_id(), ModelId::Gpt6Luna);
+    let pinned: ModelId = "claude-haiku-9-preview".parse().expect("model");
+    let (backend, _) = haiku(Vec::new());
+    assert_eq!(backend.with_model(pinned.clone()).model_id(), pinned);
+    let default = AnthropicHaikuBackend::with_default_transport(credential());
+    assert_eq!(
+        default.model_id(),
+        BackendId::AnthropicHaiku.descriptor().default_model()
     );
 }

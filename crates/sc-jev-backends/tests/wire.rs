@@ -7,9 +7,9 @@ use std::sync::Arc;
 
 use sc_agent_http::HttpResponse;
 use sc_agent_http::test_util::ScriptedTransport;
-use sc_agent_types::{
-    BackendKeyId, CanonicalJudgePayload, JudgeBackend, JudgeRequest, LlmWireContext, PayloadBundle,
-    ResolvedApiKey, ScAgentErrorResponse,
+use sc_agent_types::{BackendKeyId, ResolvedApiKey, ScAgentErrorResponse, SendTrace};
+use sc_decision_schema::{
+    CanonicalJudgePayload, JudgeBackend, JudgeRequest, LlmWireContext, PayloadBundle,
 };
 use sc_jev_backends::{AnthropicHaikuBackend, OpenAiLunaBackend, WireFault};
 use serde_json::{Value, json};
@@ -79,10 +79,14 @@ fn luna(transport: &ScriptedTransport) -> OpenAiLunaBackend<ScriptedTransport> {
 fn test_real_wire_builder_reports_prompt_digest() {
     let bundle = bundle();
     let transport = haiku_replies();
-    let outcome = haiku(&transport).judge(&request(&bundle)).expect("haiku");
+    let outcome = haiku(&transport)
+        .judge(&request(&bundle), &SendTrace::new())
+        .expect("haiku");
     assert_eq!(outcome.input_sha256(), Some(bundle.sha256()));
     let transport = luna_replies();
-    let outcome = luna(&transport).judge(&request(&bundle)).expect("luna");
+    let outcome = luna(&transport)
+        .judge(&request(&bundle), &SendTrace::new())
+        .expect("luna");
     assert_eq!(outcome.input_sha256(), Some(bundle.sha256()));
 }
 
@@ -92,13 +96,13 @@ fn test_digest_detects_faulty_wire_builder() {
     let transport = haiku_replies();
     let outcome = haiku(&transport)
         .with_wire_fault(WireFault::DropEmbeddedByte)
-        .judge(&request(&bundle))
+        .judge(&request(&bundle), &SendTrace::new())
         .expect("haiku");
     assert_ne!(outcome.input_sha256().expect("digest"), bundle.sha256());
     let transport = luna_replies();
     let outcome = luna(&transport)
         .with_wire_fault(WireFault::DropEmbeddedByte)
-        .judge(&request(&bundle))
+        .judge(&request(&bundle), &SendTrace::new())
         .expect("luna");
     assert_ne!(outcome.input_sha256().expect("digest"), bundle.sha256());
 }
@@ -111,7 +115,7 @@ fn test_digest_recovery_error_carries_no_body_bytes() {
             let transport = haiku_replies();
             let error = haiku(&transport)
                 .with_wire_fault(WireFault::TruncateBody)
-                .judge(&request(&bundle))
+                .judge(&request(&bundle), &SendTrace::new())
                 .expect_err("unparseable body");
             (error, transport.sends())
         }),
@@ -119,7 +123,7 @@ fn test_digest_recovery_error_carries_no_body_bytes() {
             let transport = luna_replies();
             let error = luna(&transport)
                 .with_wire_fault(WireFault::TruncateBody)
-                .judge(&request(&bundle))
+                .judge(&request(&bundle), &SendTrace::new())
                 .expect_err("unparseable body");
             (error, transport.sends())
         }),

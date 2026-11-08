@@ -2,7 +2,8 @@
 
 use std::time::SystemTime;
 
-use sc_agent_types::{BackendId, JudgeOutcome, PayloadBundle, SessionId};
+use sc_agent_types::{BackendId, SessionId};
+use sc_decision_schema::{JudgeOutcome, PayloadBundle};
 
 /// One session document (public under the `test-util` feature).
 #[derive(Debug, Clone, PartialEq)]

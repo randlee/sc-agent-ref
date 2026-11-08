@@ -13,13 +13,21 @@
 //! commands are read-only plumbing that run no hooks and do not sign.
 //! Environment overrides that would redirect git to another repository
 //! (`GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_OBJECT_DIRECTORY`,
-//! `GIT_ALTERNATE_OBJECT_DIRECTORIES`) are removed. There is no wall-clock
-//! deadline: output is bounded by `max_bytes`, prompts are off, and the
-//! callers that migrate here in r-2 / r-3c own any timeout policy.
+//! `GIT_ALTERNATE_OBJECT_DIRECTORIES`) are removed.
+//!
+//! Every git subprocess has a wall-clock deadline, `GIT_DEADLINE` (60 s, a
+//! fixed default). The child is polled with `try_wait`; at the deadline it is
+//! killed and reaped and the call returns the typed
+//! `JevError::GitTimeout` (id `EXTRACTION_TIMEOUT`, ADR-SAG-0027 r-7), the same pattern as the
+//! `sc-jev-check` command extractor. Output is also bounded by `max_bytes`,
+//! and prompts are off (`GIT_TERMINAL_PROMPT=0`).
 
 use std::io::{self, Read, Write};
 use std::path::Path;
-use std::process::{Command, Output, Stdio};
+use std::process::{Child, Command, ExitStatus, Output, Stdio};
+use std::sync::mpsc::{self, Receiver};
+use std::thread;
+use std::time::{Duration, Instant};
 
 use crate::error::JevError;
 use crate::ids::{BlobSha, RepoRelativePath, RepoRoot, Rev};
@@ -30,6 +38,15 @@ use crate::ids::{BlobSha, RepoRelativePath, RepoRoot, Rev};
 /// same cap before [`hash_blob`]. `sc-jev-check` uses this constant for its
 /// worktree and revision reads.
 pub const MAX_INPUT_BYTES: u64 = 8 * 1024 * 1024;
+
+/// Wall-clock limit of one git subprocess (a fixed default, not configurable).
+pub(crate) const GIT_DEADLINE: Duration = Duration::from_secs(60);
+
+/// How often a running git child is polled.
+const POLL_INTERVAL: Duration = Duration::from_millis(10);
+
+/// Bound on killing a child and collecting its pipes once the deadline fired.
+const CLEANUP_BUDGET: Duration = Duration::from_secs(2);
 
 /// Bytes of git's stderr kept for an error detail.
 const STDERR_DETAIL_BYTES: u64 = 4096;
@@ -87,10 +104,91 @@ fn git(dir: &Path) -> Command {
     command
 }
 
-fn run(mut command: Command) -> Result<Output, JevError> {
-    command
-        .output()
-        .map_err(|error| JevError::io_failed("git", &error))
+fn run(command: Command) -> Result<Output, JevError> {
+    run_with_deadline(command, GIT_DEADLINE)
+}
+
+/// Runs `command` with piped output within `limit`; kills and reaps it at the
+/// deadline (`GitTimeout`).
+fn run_with_deadline(mut command: Command, limit: Duration) -> Result<Output, JevError> {
+    command.stdout(Stdio::piped()).stderr(Stdio::piped());
+    let mut child = command
+        .spawn()
+        .map_err(|error| JevError::io_failed("git", &error))?;
+    let started = Instant::now();
+    let stdout = child.stdout.take().map(drain);
+    let stderr = child.stderr.take().map(drain);
+    let status = wait_bounded(&mut child, started, limit)?;
+    let cleanup = Instant::now() + CLEANUP_BUDGET;
+    Ok(Output {
+        status,
+        stdout: collect(stdout, cleanup)?,
+        stderr: collect(stderr, cleanup)?,
+    })
+}
+
+/// Reads a pipe to its end on its own thread.
+fn drain(mut pipe: impl Read + Send + 'static) -> Receiver<io::Result<Vec<u8>>> {
+    let (tx, rx) = mpsc::channel();
+    thread::spawn(move || {
+        let mut bytes = Vec::new();
+        let result = pipe.read_to_end(&mut bytes).map(|_| bytes);
+        let _ = tx.send(result);
+    });
+    rx
+}
+
+/// The drained bytes, waiting at most until `deadline`; a missing pipe is empty.
+fn collect(
+    rx: Option<Receiver<io::Result<Vec<u8>>>>,
+    deadline: Instant,
+) -> Result<Vec<u8>, JevError> {
+    let Some(rx) = rx else {
+        return Ok(Vec::new());
+    };
+    match rx.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
+        Ok(Ok(bytes)) => Ok(bytes),
+        Ok(Err(error)) => Err(JevError::io_failed("git output", &error)),
+        Err(_) => Err(JevError::io_failed(
+            "git output",
+            &io::Error::new(io::ErrorKind::TimedOut, "pipe did not close"),
+        )),
+    }
+}
+
+/// Polls `child` until it exits or `limit` passes since `started`; at the
+/// deadline the child is killed and reaped and the call is `GitTimeout`.
+fn wait_bounded(
+    child: &mut Child,
+    started: Instant,
+    limit: Duration,
+) -> Result<ExitStatus, JevError> {
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => return Ok(status),
+            Ok(None) if started.elapsed() >= limit => {
+                kill_and_reap(child);
+                return Err(JevError::git_timeout(limit.as_secs()));
+            }
+            Ok(None) => thread::sleep(POLL_INTERVAL),
+            Err(error) => {
+                kill_and_reap(child);
+                return Err(JevError::io_failed("git", &error));
+            }
+        }
+    }
+}
+
+/// Kills `child` and waits for it for at most [`CLEANUP_BUDGET`].
+fn kill_and_reap(child: &mut Child) {
+    let _ = child.kill();
+    let deadline = Instant::now() + CLEANUP_BUDGET;
+    while Instant::now() < deadline {
+        match child.try_wait() {
+            Ok(None) => thread::sleep(POLL_INTERVAL),
+            _ => return,
+        }
+    }
 }
 
 /// Finds the git toplevel that contains `start`.
@@ -190,23 +288,40 @@ pub fn read_at_rev(
     let mut child = read
         .spawn()
         .map_err(|error| JevError::io_failed("git", &error))?;
-    let mut bytes = Vec::new();
+    let started = Instant::now();
     let limit = max_bytes.saturating_add(1);
-    let read_result = child
-        .stdout
-        .take()
-        .map(|stdout| stdout.take(limit).read_to_end(&mut bytes));
+    // The read runs on its own thread so a hung git cannot block this one.
+    let reader = child.stdout.take().map(|stdout| {
+        let (tx, rx) = mpsc::channel();
+        thread::spawn(move || {
+            let mut bytes = Vec::new();
+            let result = stdout.take(limit).read_to_end(&mut bytes).map(|_| bytes);
+            let _ = tx.send(result);
+        });
+        rx
+    });
+    let read_result = match reader {
+        Some(rx) => match rx.recv_timeout(GIT_DEADLINE) {
+            Ok(result) => Some(result),
+            Err(_) => {
+                kill_and_reap(&mut child);
+                return Err(JevError::git_timeout(GIT_DEADLINE.as_secs()));
+            }
+        },
+        None => None,
+    };
+    let bytes = match &read_result {
+        Some(Ok(bytes)) => bytes.clone(),
+        _ => Vec::new(),
+    };
     if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > max_bytes {
-        let _ = child.kill();
-        let _ = child.wait();
+        kill_and_reap(&mut child);
         return Err(JevError::input_too_large(
             max_bytes,
             u64::try_from(bytes.len()).unwrap_or(u64::MAX),
         ));
     }
-    let exit = child
-        .wait()
-        .map_err(|error| JevError::io_failed("git", &error))?;
+    let exit = wait_bounded(&mut child, started, GIT_DEADLINE)?;
     match read_result {
         Some(Ok(_)) if exit.success() => Ok(GitBlob { sha, bytes }),
         Some(Err(error)) => Err(JevError::io_failed("git cat-file output", &error)),
@@ -255,25 +370,38 @@ pub fn hash_blob(root: &RepoRoot, bytes: &[u8]) -> Result<BlobSha, JevError> {
             }
         };
     // Each pipe has its own thread, so a full stdout or stderr buffer cannot
-    // stall the stdin write (or the reverse).
-    let (written, id, detail) = std::thread::scope(|scope| {
-        let writer = scope.spawn(move || {
-            let mut stdin = stdin;
-            stdin.write_all(bytes)
-        });
-        let errors = scope.spawn(move || bounded_read(stderr, STDERR_DETAIL_BYTES));
-        let id = bounded_read(stdout, OBJECT_ID_OUTPUT_BYTES);
-        let written = writer
-            .join()
-            .unwrap_or_else(|_| Err(io::Error::other("stdin writer panicked")));
-        let detail = errors
-            .join()
-            .unwrap_or_else(|_| Err(io::Error::other("stderr reader panicked")));
-        (written, id, detail)
+    // stall the stdin write (or the reverse). All waits share one deadline.
+    let started = Instant::now();
+    let input = bytes.to_vec();
+    let (written_tx, written_rx) = mpsc::channel();
+    thread::spawn(move || {
+        let mut stdin = stdin;
+        let _ = written_tx.send(stdin.write_all(&input));
     });
-    let exit = child
-        .wait()
-        .map_err(|error| JevError::io_failed("git hash-object", &error))?;
+    let errors = spawn_bounded_read(stderr, STDERR_DETAIL_BYTES);
+    let id = spawn_bounded_read(stdout, OBJECT_ID_OUTPUT_BYTES);
+    let expired = || Err::<(), JevError>(JevError::git_timeout(GIT_DEADLINE.as_secs()));
+    let left = || GIT_DEADLINE.saturating_sub(started.elapsed());
+    let outcome = (|| {
+        let written = written_rx
+            .recv_timeout(left())
+            .or_else(|_| expired().map(|()| Ok(())))?;
+        let id = id
+            .recv_timeout(left())
+            .or_else(|_| expired().map(|()| Ok(Vec::new())))?;
+        let detail = errors
+            .recv_timeout(left())
+            .or_else(|_| expired().map(|()| Ok(Vec::new())))?;
+        Ok::<_, JevError>((written, id, detail))
+    })();
+    let (written, id, detail) = match outcome {
+        Ok(parts) => parts,
+        Err(error) => {
+            kill_and_reap(&mut child);
+            return Err(error);
+        }
+    };
+    let exit = wait_bounded(&mut child, started, GIT_DEADLINE)?;
     let id = id.map_err(|error| JevError::io_failed("git hash-object output", &error))?;
     if !exit.success() || written.is_err() {
         let detail = detail.unwrap_or_default();
@@ -289,6 +417,18 @@ pub fn hash_blob(root: &RepoRoot, bytes: &[u8]) -> Result<BlobSha, JevError> {
         .ok_or_else(|| {
             JevError::extraction_failed("git hash-object returned an unexpected object id")
         })
+}
+
+/// [`bounded_read`] on its own thread.
+fn spawn_bounded_read(
+    reader: impl Read + Send + 'static,
+    limit: u64,
+) -> Receiver<io::Result<Vec<u8>>> {
+    let (tx, rx) = mpsc::channel();
+    thread::spawn(move || {
+        let _ = tx.send(bounded_read(reader, limit));
+    });
+    rx
 }
 
 /// Reads up to `limit` bytes of `reader`, then drains the rest so the
@@ -317,4 +457,39 @@ fn classify_missing(
     } else {
         JevError::input_invalid(format!("revision {rev} was not found"))
     })
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "process spawn: a stand-in for git in the deadline tests"
+    )]
+    fn child(program: &str, args: &[&str]) -> Command {
+        let mut command = Command::new(program);
+        command.args(args);
+        command
+    }
+
+    fn hung_child() -> Command {
+        child("sleep", &["30"])
+    }
+
+    /// A child that outlives the deadline is killed and reaped, and the call
+    /// is a typed `EXTRACTION_TIMEOUT`, long before the child would exit.
+    #[test]
+    fn test_hung_git_is_killed_at_the_deadline() {
+        let error =
+            run_with_deadline(hung_child(), Duration::from_millis(200)).expect_err("deadline");
+        assert_eq!(error.code(), "EXTRACTION_TIMEOUT");
+        assert!(matches!(error, JevError::GitTimeout { .. }), "{error:?}");
+    }
+
+    #[test]
+    fn test_fast_child_completes_within_the_deadline() {
+        let output = run_with_deadline(child("true", &[]), GIT_DEADLINE).expect("runs");
+        assert!(output.status.success());
+    }
 }

@@ -11,12 +11,14 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::cancel::CancelToken;
-use crate::catalog::{BackendDescriptor, BackendFamily};
-use crate::error::JevError;
-use crate::ids::{BackendId, BackendKeyId, ChoiceId, QuestionId, Sha256Digest};
+use sc_agent_types::schema::subjects::SubjectsProducer;
+use sc_agent_types::{
+    BackendDescriptor, BackendFamily, BackendId, BackendKeyId, CancelToken, JevError, ModelId,
+    SendTrace, Sha256Digest,
+};
+
+use crate::ids::{ChoiceId, QuestionId};
 use crate::payload::{ChoiceAnswer, PayloadBundle};
-use crate::schema::subjects::SubjectsProducer;
 
 /// Caller-supplied evaluator instructions for LLM backends.
 ///
@@ -137,7 +139,7 @@ impl QuestionAnswer {
     /// # Examples
     ///
     /// ```
-    /// use sc_agent_types::{ChoiceId, QuestionAnswer};
+    /// use sc_decision_schema::{ChoiceId, QuestionAnswer};
     ///
     /// let yes = ChoiceId::try_from("yes")?;
     /// let answer = QuestionAnswer::new(yes.clone(), Some(0.9), None)?;
@@ -382,8 +384,10 @@ impl BackendCapabilities {
 ///
 /// HTTP clients and API keys are construction state on the implementor.
 /// The trait is **intentionally open** (not sealed): other crates may
-/// implement it, and every method added after Phase A.1 r-1 has a default
-/// body (ADR-SAG-0009, ADR-SAG-0027).
+/// implement it. Its semver promise is the additive rule: every method added
+/// after Phase A.1 r-1 has a default body (ADR-SAG-0009, ADR-SAG-0027).
+/// The trait stays dyn-compatible: `&self` receivers, no generic methods and
+/// no `Self` in signatures, so `Arc<dyn JudgeBackend>` keeps working.
 ///
 /// # Blocking
 ///
@@ -411,11 +415,24 @@ pub trait JudgeBackend: Send + Sync {
 
     /// Judges `req` and returns the normalized outcome.
     ///
+    /// `trace` belongs to this one send; pass `trace.clone()` to the HTTP
+    /// exchange (`sc-agent-http`). The engine keeps its own clone to read
+    /// after the call returns.
+    ///
     /// # Errors
     ///
     /// Returns [`JevError`] when the judge call fails or the response is
     /// invalid.
-    fn judge(&self, req: &JudgeRequest) -> Result<JudgeOutcome, JevError>;
+    fn judge(&self, req: &JudgeRequest, trace: &SendTrace) -> Result<JudgeOutcome, JevError>;
+
+    /// The model this backend sends and reports.
+    ///
+    /// The default is the catalog default of [`Self::id`]. It serves catalog
+    /// backends only; a backend outside the catalog must implement this
+    /// method (there is no fallback).
+    fn model_id(&self) -> ModelId {
+        self.id().descriptor().default_model()
+    }
 }
 
 /// How a multi-backend run feeds earlier answers to later backends.

@@ -35,7 +35,7 @@ roots = ["JevClient"]
 
 [dependencies]
 allowed_dependents = ["sc-jev-check"]
-allowed_dependencies = ["sc-agent-http", "sc-agent-types", "serde", "serde_json", "toml"]
+allowed_dependencies = ["sc-agent-http", "sc-agent-types", "sc-decision-schema", "serde", "serde_json", "toml"]
 forbidden_edges = [
     { from = "sc-jev", to = "sc-jev-backends" },
     { from = "sc-jev", to = "ureq" },

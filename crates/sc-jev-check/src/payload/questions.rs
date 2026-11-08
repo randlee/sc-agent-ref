@@ -2,7 +2,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use sc_agent_types::{ChoiceAnswer, ChoiceId, JevError, Question, QuestionId};
+use sc_agent_types::JevError;
+use sc_decision_schema::{ChoiceAnswer, ChoiceId, Question, QuestionId};
 use serde::Deserialize;
 
 /// Schema id required on question-set files.

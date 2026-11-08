@@ -110,3 +110,11 @@ dev-dependency, the `retry` and `ureq` targets declare
 - `UreqTransport::loopback_for_tests(Timeouts)`: the production
   `AgentConfig` with https-only off.
 - `test_util::{ScriptedTransport, RecordingTransport}`.
+
+## `SendTrace` parameter (r-7, ADR-SAG-0026 r-7)
+
+`send_with_busy_retry`, `send_and_parse` and `HttpClient::send_and_parse` take
+a required `SendTrace` (from `sc-agent-types`), so no backend can send without
+one. `HttpRequest`'s body is text (`Arc<str>`, `body() -> &str`); transports
+send `body().as_bytes()`. Nothing records into the trace in r-7; r-6 records
+the SHA-256 of the exact body in `send_with_busy_retry`.

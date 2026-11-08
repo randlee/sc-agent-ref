@@ -15,9 +15,8 @@ use std::path::Path;
 
 use deadline::spawn_with_deadline;
 use sc_agent_types::schema::subjects::SubjectsDocument;
-use sc_agent_types::{
-    BackendId, BackendSet, CanonicalJudgePayload, JevError, PayloadBundle, RepoRoot,
-};
+use sc_agent_types::{BackendId, BackendSet, JevError, RepoRoot};
+use sc_decision_schema::{CanonicalJudgePayload, PayloadBundle};
 use sc_jev_check::run::{CheckSource, RunResponse};
 use sc_jev_host::compose::{ComposeInputs, run_from};
 use sc_jev_host::paths::PathPolicy;

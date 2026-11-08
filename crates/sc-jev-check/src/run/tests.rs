@@ -6,8 +6,9 @@
 use super::*;
 use crate::config::PACKAGED_SYSTEM_PROMPT;
 use crate::extract::test_support::{self, copy_fixture};
+use sc_agent_types::NetworkErrorKind;
 use sc_agent_types::observability::v2::{LogRejected, NoopSessionLog, SessionLog};
-use sc_agent_types::test_util::MockJudgeBackend;
+use sc_decision_schema::test_util::MockJudgeBackend;
 use std::path::PathBuf;
 
 const QUESTIONS: &str = r#"{
@@ -579,7 +580,7 @@ fn ask_sends_through_the_engine_and_refuses_unaskable_sessions() {
 
 #[test]
 fn ask_envelope_carries_digest_warnings_and_readback_in_order() {
-    let payload = PayloadBundle::encode(&sc_agent_types::CanonicalJudgePayload::new(
+    let payload = PayloadBundle::encode(&sc_decision_schema::CanonicalJudgePayload::new(
         Vec::new(),
         Vec::new(),
     ))
@@ -628,4 +629,52 @@ fn ask_envelope_carries_digest_warnings_and_readback_in_order() {
         value["data"]["warnings"],
         serde_json::json!(["session log was not flushed: disk full"])
     );
+}
+
+#[derive(Default)]
+struct CountingLog(std::sync::Mutex<usize>);
+
+impl SessionLog for CountingLog {
+    fn emit(&self, _event: LogEvent) -> Result<(), LogRejected> {
+        *self.0.lock().expect("count") += 1;
+        Ok(())
+    }
+}
+
+/// Every call that reaches `judge` emits exactly one log event, a call
+/// cancelled before it began included (REQ-SAG-0610, ADR-SAG-0013).
+#[test]
+fn cancelled_call_still_emits_one_log_event() {
+    let failing = || {
+        MockJudgeBackend::new(BackendId::Jev, std::collections::BTreeMap::new()).with_failure(
+            JevError::network(
+                NetworkErrorKind::Cancelled,
+                "request cancelled before a send",
+            ),
+        )
+    };
+    let bundle = {
+        let payload: sc_decision_schema::CanonicalJudgePayload =
+            serde_json::from_value(serde_json::json!({
+                "questions": [{"id": "q", "prompt": "p", "choices": ["no", "yes"]}],
+                "state": []
+            }))
+            .expect("payload");
+        Arc::new(PayloadBundle::encode(&payload).expect("bundle"))
+    };
+    let session = SessionId::new();
+
+    let log = Arc::new(CountingLog::default());
+    let shared: SharedSessionLog = log.clone();
+    let token = CancelToken::new();
+    token.cancel();
+    let request = JudgeRequest::new(Arc::clone(&bundle), None).with_cancel(token);
+    let error =
+        send(&failing(), &request, &shared, session, Operation::Judge).expect_err("cancelled");
+    assert_eq!(error.code(), "NETWORK_ERROR");
+    assert_eq!(*log.0.lock().expect("count"), 1, "a failed call logs once");
+
+    let live = JudgeRequest::new(bundle, None);
+    send(&failing(), &live, &shared, session, Operation::Judge).expect_err("failed");
+    assert_eq!(*log.0.lock().expect("count"), 2, "each call logs once");
 }

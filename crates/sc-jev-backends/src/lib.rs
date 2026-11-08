@@ -1,6 +1,6 @@
-//! API-direct Haiku and Luna [`JudgeBackend`](sc_agent_types::JudgeBackend)s.
+//! API-direct Haiku and Luna [`JudgeBackend`](sc_decision_schema::JudgeBackend)s.
 //!
-//! Callers pass the evaluator system prompt on [`sc_agent_types::JudgeRequest::llm`].
+//! Callers pass the evaluator system prompt on [`sc_decision_schema::JudgeRequest::llm`].
 //! This crate embeds that text and the canonical payload bytes in the provider
 //! body. It does not read `check.toml`, resolve secrets, or embed evaluator prose.
 //! `prompt_sha256` stays the digest of the canonical payload alone (ADR-SAG-0019).

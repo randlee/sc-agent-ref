@@ -5,6 +5,7 @@
 //! because sc-boundary reports a type cycle inside one module.
 
 use crate::ids::{BackendId, BackendKeyId};
+use crate::models::ModelId;
 
 /// Broad class of a judge backend.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -32,6 +33,8 @@ pub struct BackendDescriptor {
     requires_llm_context: bool,
     supports_session_ask: bool,
     request_limit_bytes: u64,
+    default_model_alias: &'static str,
+    default_model: &'static str,
 }
 
 impl BackendDescriptor {
@@ -82,6 +85,26 @@ impl BackendDescriptor {
     pub const fn request_limit_bytes(&self) -> u64 {
         self.request_limit_bytes
     }
+
+    /// The model alias this backend uses by default: `"jev"`, `"haiku"` or
+    /// `"luna"`.
+    #[must_use]
+    pub const fn default_model_alias(&self) -> &'static str {
+        self.default_model_alias
+    }
+
+    /// The model this row names (equal to
+    /// `ModelAliases::builtin().latest(default_model_alias())`).
+    ///
+    /// # Panics
+    ///
+    /// Never for a `BACKENDS` row: `test_backend_catalog_roundtrip` proves
+    /// every row names a known model.
+    #[must_use]
+    pub fn default_model(&self) -> ModelId {
+        ModelId::known(self.default_model)
+            .expect("BACKENDS rows name known models (test_backend_catalog_roundtrip)")
+    }
 }
 
 /// The backend catalog: one row per built-in [`BackendId`].
@@ -99,6 +122,8 @@ pub(crate) const JEV: BackendDescriptor = BackendDescriptor {
     requires_llm_context: false,
     supports_session_ask: false,
     request_limit_bytes: 96_000,
+    default_model_alias: "jev",
+    default_model: "jev-1.13.0",
 };
 
 pub(crate) const ANTHROPIC_HAIKU: BackendDescriptor = BackendDescriptor {
@@ -110,6 +135,8 @@ pub(crate) const ANTHROPIC_HAIKU: BackendDescriptor = BackendDescriptor {
     requires_llm_context: true,
     supports_session_ask: true,
     request_limit_bytes: 96_000,
+    default_model_alias: "haiku",
+    default_model: "claude-haiku-5-5",
 };
 
 pub(crate) const OPENAI_LUNA: BackendDescriptor = BackendDescriptor {
@@ -121,4 +148,6 @@ pub(crate) const OPENAI_LUNA: BackendDescriptor = BackendDescriptor {
     requires_llm_context: true,
     supports_session_ask: true,
     request_limit_bytes: 96_000,
+    default_model_alias: "luna",
+    default_model: "gpt-6-luna",
 };

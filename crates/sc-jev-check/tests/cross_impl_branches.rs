@@ -10,9 +10,8 @@ use std::sync::Arc;
 
 use sc_agent_types::observability::v2::NoopSessionLog;
 use sc_agent_types::schema::subjects::SubjectsDocument;
-use sc_agent_types::{
-    BackendId, BackendSet, CanonicalJudgePayload, PayloadBundle, RepoRelativePath, RepoRoot,
-};
+use sc_agent_types::{BackendId, BackendSet, RepoRelativePath, RepoRoot};
+use sc_decision_schema::{CanonicalJudgePayload, PayloadBundle};
 use sc_jev_check::config::{CheckSpec, InputSpec};
 use sc_jev_check::run::{CheckSource, RunConfig, prepare, run};
 

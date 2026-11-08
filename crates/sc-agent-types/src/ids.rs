@@ -9,6 +9,7 @@ use std::collections::BTreeSet;
 use std::fmt;
 use std::path::{Component, Path, PathBuf};
 use std::str::FromStr;
+use std::sync::Arc;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use uuid::Uuid;
@@ -510,11 +511,27 @@ impl Sha256Digest {
         Self(encode_hex(&bytes))
     }
 
-    /// Hashes `bytes` with SHA-256.
+    /// SHA-256 of `text`.
+    ///
+    /// From r-6 this is `sc-sha`'s text identity: CRLF and bare CR are
+    /// normalized to LF first, so it equals SHA-256 of the bytes only for
+    /// text without CR (all compact JSON bodies and payloads). In r-7 it
+    /// hashes the UTF-8 bytes directly.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sc_agent_types::Sha256Digest;
+    ///
+    /// assert_eq!(
+    ///     Sha256Digest::of_text("").as_str(),
+    ///     "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    /// );
+    /// ```
     #[must_use]
-    pub fn of(bytes: &[u8]) -> Self {
+    pub fn of_text(text: &str) -> Self {
         use sha2::{Digest, Sha256};
-        let digest = Sha256::digest(bytes);
+        let digest = Sha256::digest(text.as_bytes());
         let mut raw = [0_u8; 32];
         raw.copy_from_slice(&digest);
         Self::from_bytes(raw)
@@ -748,126 +765,179 @@ impl AsRef<str> for RepoRelativePath {
     }
 }
 
-macro_rules! label_newtype {
-    ($(#[$meta:meta])* $name:ident, $what:literal) => {
-        $(#[$meta])*
-        #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-        #[serde(try_from = "String", into = "String")]
-        pub struct $name(String);
+/// Caller text that labels a project in the session log.
+///
+/// UTF-8, at most [`Self::MAX_BYTES`] bytes, no control characters. The text
+/// is caller text, not a secret, so `Debug` prints it. The CLI, Python
+/// inputs and the session-log loader share this one validator.
+///
+/// # Examples
+///
+/// ```
+/// use sc_agent_types::ProjectLabel;
+///
+/// let label: ProjectLabel = "billing-service".parse()?;
+/// assert_eq!(label.as_str(), "billing-service");
+/// assert_eq!(ProjectLabel::new("a\nb").unwrap_err().code(), "INPUT_INVALID");
+/// # Ok::<(), sc_agent_types::JevError>(())
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ProjectLabel(Arc<str>);
 
-        impl $name {
-            /// Returns the text.
-            #[must_use]
-            pub fn as_str(&self) -> &str {
-                &self.0
-            }
+impl ProjectLabel {
+    /// Longest accepted label, in UTF-8 bytes.
+    pub const MAX_BYTES: usize = 256;
+
+    /// Validates `text`.
+    ///
+    /// # Errors
+    ///
+    /// `INPUT_INVALID` when the text is longer than 256 bytes or has a
+    /// control character; the fix hint states both limits.
+    pub fn new(text: impl Into<String>) -> Result<Self, JevError> {
+        let text = text.into();
+        if text.len() > Self::MAX_BYTES || text.chars().any(char::is_control) {
+            return Err(JevError::input_invalid(format!(
+                "project label must be at most {} bytes of UTF-8 with no control characters (got {} bytes)",
+                Self::MAX_BYTES,
+                text.len()
+            )));
         }
+        Ok(Self(Arc::from(text)))
+    }
 
-        impl TryFrom<&str> for $name {
-            type Error = JevError;
-
-            /// # Errors
-            ///
-            /// `INPUT_INVALID` when the text is empty or has a control character.
-            fn try_from(text: &str) -> Result<Self, Self::Error> {
-                if text.is_empty() || text.chars().any(char::is_control) {
-                    Err(JevError::input_invalid(format!(
-                        concat!($what, " {:?} must be non-empty and have no control characters"),
-                        text
-                    )))
-                } else {
-                    Ok(Self(text.to_owned()))
-                }
-            }
-        }
-
-        impl TryFrom<String> for $name {
-            type Error = JevError;
-
-            fn try_from(text: String) -> Result<Self, Self::Error> {
-                if text.is_empty() || text.chars().any(char::is_control) {
-                    Self::try_from(text.as_str())
-                } else {
-                    Ok(Self(text))
-                }
-            }
-        }
-
-        impl FromStr for $name {
-            type Err = JevError;
-
-            fn from_str(text: &str) -> Result<Self, Self::Err> {
-                Self::try_from(text)
-            }
-        }
-
-        impl From<$name> for String {
-            fn from(value: $name) -> Self {
-                value.0
-            }
-        }
-
-        impl fmt::Display for $name {
-            fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-                formatter.write_str(self.as_str())
-            }
-        }
-
-        impl AsRef<str> for $name {
-            fn as_ref(&self) -> &str {
-                self.as_str()
-            }
-        }
-
-        impl PartialEq<str> for $name {
-            fn eq(&self, other: &str) -> bool {
-                self.as_str() == other
-            }
-        }
-
-        impl PartialEq<&str> for $name {
-            fn eq(&self, other: &&str) -> bool {
-                self.as_str() == *other
-            }
-        }
-
-        impl std::borrow::Borrow<str> for $name {
-            fn borrow(&self) -> &str {
-                self.as_str()
-            }
-        }
-    };
+    /// The label text.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
 }
 
-label_newtype!(
-    /// Caller-chosen question id (non-empty, no control characters).
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use sc_agent_types::QuestionId;
-    ///
-    /// assert_eq!(QuestionId::try_from("relevant").unwrap().as_str(), "relevant");
-    /// assert!(QuestionId::try_from("").is_err());
-    /// ```
-    QuestionId,
-    "question id"
-);
+impl fmt::Display for ProjectLabel {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
 
-label_newtype!(
-    /// One choice label of a question (non-empty, no control characters).
+impl FromStr for ProjectLabel {
+    type Err = JevError;
+
+    fn from_str(text: &str) -> Result<Self, Self::Err> {
+        Self::new(text)
+    }
+}
+
+impl AsRef<str> for ProjectLabel {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl Serialize for ProjectLabel {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for ProjectLabel {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let text = String::deserialize(deserializer)?;
+        text.parse().map_err(serde::de::Error::custom)
+    }
+}
+
+/// One send's id: ULID text (26 Crockford base32 characters).
+///
+/// In r-7 the text is built here (48-bit millisecond clock plus 80 random
+/// bits); r-6 wraps `ulid::Ulid` with the same text form.
+///
+/// # Examples
+///
+/// ```
+/// use sc_agent_types::AnswerId;
+///
+/// let id = AnswerId::new();
+/// assert_eq!(id.to_string().len(), 26);
+/// assert_eq!(id.to_string().parse::<AnswerId>()?, id);
+/// assert_eq!("nope".parse::<AnswerId>().unwrap_err().code(), "INPUT_INVALID");
+/// # Ok::<(), sc_agent_types::JevError>(())
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct AnswerId(String);
+
+const CROCKFORD: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+impl AnswerId {
+    /// A fresh id.
+    #[must_use]
+    pub fn new() -> Self {
+        let millis = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0_u128, |elapsed| elapsed.as_millis())
+            & 0xFFFF_FFFF_FFFF;
+        let random = Uuid::new_v4().as_u128() & ((1_u128 << 80) - 1);
+        let value = (millis << 80) | random;
+        let mut out = String::with_capacity(26);
+        for index in (0..26).rev() {
+            let digit = usize::try_from((value >> (index * 5)) & 0x1F).unwrap_or(0);
+            out.push(char::from(CROCKFORD[digit]));
+        }
+        Self(out)
+    }
+
+    /// The 26-character text.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl Default for AnswerId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl FromStr for AnswerId {
+    type Err = JevError;
+
+    /// # Errors
     ///
-    /// # Examples
-    ///
-    /// ```
-    /// use sc_agent_types::ChoiceId;
-    ///
-    /// assert_eq!(ChoiceId::try_from("yes").unwrap().as_str(), "yes");
-    /// assert!(ChoiceId::try_from("a\nb").is_err());
-    /// ```
-    ChoiceId,
-    "choice"
-);
+    /// `INPUT_INVALID` unless the text is 26 uppercase Crockford base32
+    /// characters whose first character is at most `7`; the fix hint says to
+    /// use the logged `answer_id`.
+    fn from_str(text: &str) -> Result<Self, Self::Err> {
+        let valid = text.len() == 26
+            && text.bytes().all(|byte| CROCKFORD.contains(&byte))
+            && text.as_bytes()[0] <= b'7';
+        if valid {
+            Ok(Self(text.to_owned()))
+        } else {
+            Err(JevError::input_invalid(format!(
+                "answer id {text:?} is not a ULID (26 Crockford base32 characters); use the answer_id the session log recorded"
+            )))
+        }
+    }
+}
+
+impl fmt::Display for AnswerId {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.0)
+    }
+}
+
+impl Serialize for AnswerId {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.0)
+    }
+}
+
+impl<'de> Deserialize<'de> for AnswerId {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let text = String::deserialize(deserializer)?;
+        text.parse().map_err(serde::de::Error::custom)
+    }
+}
 
 /// The send a log event records: a judge send or a session `ask`.
 ///
@@ -991,7 +1061,7 @@ mod tests {
     #[test]
     fn digest_of_empty_is_stable() {
         assert_eq!(
-            Sha256Digest::of(b"").as_str(),
+            Sha256Digest::of_text("").as_str(),
             "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         );
     }

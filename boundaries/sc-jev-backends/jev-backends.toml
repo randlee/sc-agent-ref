@@ -35,7 +35,7 @@ roots = ["AnthropicHaikuBackend", "OpenAiLunaBackend"]
 
 [dependencies]
 allowed_dependents = ["sc-jev-check"]
-allowed_dependencies = ["sc-agent-http", "sc-agent-types", "serde_json"]
+allowed_dependencies = ["sc-agent-http", "sc-agent-types", "sc-decision-schema", "serde_json"]
 forbidden_edges = [
     { from = "sc-jev-backends", to = "sc-jev" },
     { from = "sc-jev-backends", to = "ureq" },

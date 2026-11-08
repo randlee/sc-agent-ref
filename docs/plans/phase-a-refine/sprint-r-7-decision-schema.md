@@ -1,7 +1,7 @@
 ---
 id: r-7
 phase: r
-status: planned
+status: complete
 closure_type: contract
 target_boundary: decision-schema
 track: schema
@@ -123,7 +123,7 @@ owned_paths:
   - "crates/sc-jev/src/config.rs#model as ModelId"
   - "crates/sc-jev/src/jev.toml#model key removed (the catalog is the one source)"
   - "crates/sc-jev-check/assets/jev.toml#header comment: model ids live in the sc-agent-types catalog"
-  - "crates/sc-jev/src/check.rs#impl JudgeBackend for JevClient: fn model_id"
+  - "crates/sc-jev/src/client/mod.rs#impl JudgeBackend for JevClient: fn model_id"
   - "crates/sc-jev/src/client/mod.rs#judge(req, trace) passes trace.clone() to send_and_parse; body built as String"
   - "crates/sc-jev/tests/**#import changes"
   - "crates/sc-jev/tests/catalog.rs (new)"
@@ -169,7 +169,7 @@ owned_paths:
   - "docs/architecture.md#ADR index row ADR-SAG-0030 (Status cell: r-7 part)"
   - "docs/architecture.md#ADR-SAG-0031 storage-schema subsection (Status line and bullet markers)"
   - "docs/architecture.md#ADR index row ADR-SAG-0031 (Status cell: r-7 part)"
-  - "docs/architecture.md#ADR-SAG-0005, 0009, 0016, 0017, 0019, 0022, 0026, 0027 amendment subsections (r-7) and their index Amended-by markers (r-7)"
+  - "docs/architecture.md#ADR-SAG-0005, 0009, 0016, 0017, 0019, 0022, 0026, 0027, 0028 amendment subsections (r-7) and their index Amended-by markers (r-7); ADR-SAG-0027 git deadline bullet; ADR-SAG-0028 amendment (QA fix)"
   - "docs/architecture.md#Phase A.1 crate graph, \"Trait boundary\" sentence"
   - "docs/requirements.md#REQ-SAG-0140..0142, 0144..0148 rows; REQ-SAG-0103, 0107 and 0130 (r-7) amendment rows"
   - "docs/sc-agent-types/**"
@@ -177,6 +177,27 @@ owned_paths:
   - "docs/sc-jev-check/**#check.toml [models] table"
   - "docs/sc-jev-backends/**#model from the catalog"
   - "docs/sc-jev/architecture.md#config row: model from the catalog, not jev.toml"
+  - "crates/sc-agent-types/src/git.rs#60 s GIT_DEADLINE on every git subprocess (QA fix)"
+  - "crates/sc-agent-types/src/error.rs#JevError::GitTimeout, git_timeout, EXTRACTION_TIMEOUT wording (QA fix)"
+  - "crates/sc-agent-types/tests/errors.rs#GitTimeout sample (QA fix)"
+  - "crates/sc-agent-types/tests/fixtures/error-codes.json#GitTimeout row (QA fix)"
+  - "tests/support/deadline.rs#bounded reap after kill (QA fix)"
+  - "crates/workspace-tests/tests/test_util_off.rs#one serialized, bounded cargo tree (QA fix)"
+  - "crates/workspace-tests/tests/test_util_off_binary.rs (new; the release-binary test moved out, QA fix)"
+  - "crates/workspace-tests/README.md#test_util_off_binary paragraph (QA fix)"
+  - "crates/sc-agent-http/tests/support/mod.rs#request-received signal, refused_port removed (QA fix)"
+  - "crates/sc-jev-check/src/run/tests.rs#cancelled call still logs once (QA fix)"
+  - "crates/sc-jev-backends/src/backend.rs#worst-case wall-time rustdoc (QA fix)"
+  - ".github/workflows/sc-agent-ci.yml#--locked on every cargo invocation (QA fix)"
+  - "docs/sc-jev-check/extraction.md#EXTRACTION_TIMEOUT also covers git reads (QA fix)"
+  - "docs/plans/phase-a-refine/plan.md#ADR-SAG-0009 index row (QA fix)"
+  - "docs/plans/phase-a-refine/plan.md#test_util_off / test_util_off_binary references (QA fix)"
+  - "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md#test_util_off_binary references (QA fix)"
+  - "docs/sc-ai/architecture.md#test_util_off_binary reference (QA fix)"
+  - "boundaries/workspace-tests/workspace-tests.toml#notes dev-dependency list (QA fix)"
+  - "crates/workspace-tests/README.md#dev-dependency list (QA fix)"
+  - "crates/sc-ai/Cargo.toml#comment names test_util_off_binary (QA fix)"
+  - "boundaries/README.md#counted dev edges: sc-decision-schema (QA fix)"
 ---
 
 # Sprint r-7 — `sc-decision-schema` crate and model catalog
@@ -404,7 +425,7 @@ Every deliverable below lands production-ready for the scope this sprint claims;
    these crates except in these anchors (each matches an `owned_paths`
    `#` qualifier):
    - D4: `sc-jev-backends/src/wire.rs` (LLM output parse);
-   - D7: `sc-jev/src/config.rs` (`model` as `ModelId`), `sc-jev/src/check.rs`
+   - D7: `sc-jev/src/config.rs` (`model` as `ModelId`), `sc-jev/src/client/mod.rs`
      (`fn model_id`), `sc-jev-backends/src/backend.rs` (configured model,
      `fn model_id`), `sc-jev-check/src/config/**` (`[models]`),
      `sc-jev-check/src/registry/**` (factory takes `&ModelAliases`;
@@ -624,7 +645,7 @@ dependency or writer lands in A.1.
 5. **`JudgeBackend::model_id()`**, a provided method (ADR-SAG-0009: new
    methods have default bodies) returning `self.id().descriptor()
    .default_model()`; no fallback. The default serves catalog backends
-   only; a backend outside the catalog must implement `model_id` (rustdoc). `JevClient` (`check.rs`) returns its `JevConfig` model; the
+   only; a backend outside the catalog must implement `model_id` (rustdoc). `JevClient` (`client/mod.rs`) returns its `JevConfig` model; the
    Haiku and Luna backends (`backend.rs`) return the model they send;
    `MockJudgeBackend::with_model_id` and the scripted backends report one.
    r-6 writes it into every row.
@@ -945,3 +966,41 @@ bash scripts/sc-publish-dry-run.sh
 - Model overrides from caller-request JSON or CLI/Python flags.
 - Renaming `BackendId` spellings to drop the model names.
 - Decision-schema variants beyond `Canonical`.
+
+## Implementation notes
+
+Choices where the sprint doc is silent (all conservative):
+
+- `ModelDescriptor` release dates are `jev-1.13.0` 2026-06-01, `claude-haiku-5-5`
+  2026-09-01, `gpt-6-luna` 2026-08-01. The sprint names no dates; they only order
+  rows within one alias and must be corrected if a real date matters.
+- `AnswerId::new()` builds its own ULID text (48-bit millisecond clock plus 80
+  random bits from the existing `uuid` dependency, Crockford base32); r-6
+  replaces the body with `ulid::Ulid`. `from_str` accepts only 26 uppercase
+  Crockford characters with a first character at most `7`.
+- `JevClientConfig::try_new` takes a `ModelId` first argument; `from_toml` and
+  `packaged()` use the catalog Jev model, and a stale `model` key in `jev.toml` is
+  `CONFIG_INVALID` (`deny_unknown_fields`). `JevClient` and the Haiku/Luna
+  backends gain `with_model`.
+- `JudgeBackend::model_id` for `JevClient` is in `client/mod.rs`, not `check.rs`
+  (the trait impl lives there).
+- `BackendRegistry` keeps `from_env` / `from_resolver` (catalog models) and gains
+  `from_env_with_models` / `from_resolver_with_models`. `CheckSpec` gains a public
+  `models: ModelAliases`; `PreparedRun::models()` reports the resolved aliases:
+  `RunConfig::models` wins over the check's `[models]`, which wins over the catalog.
+  `ask` uses `RunConfig::models` only. `ModelAliases` derives `PartialEq, Eq`.
+- `schema_for` has an explicit arm per current `ModelFamily` plus a wildcard for
+  the `#[non_exhaustive]` enum (canonical).
+- `Sha256Digest::of_text` hashes the UTF-8 bytes in r-7 (no CR normalization yet).
+- `TimestampMs` clamps a time before the Unix epoch to the epoch and a time after
+  year 9999 to its last millisecond.
+- Wire bodies are built as `String` (`serde_json::to_string`); the test-util
+  `TruncateBody` fault cuts at a char boundary.
+- Release input: `sc-decision-schema` added with `publish_order: 2`; later crates
+  shifted by one. The parent runs `install.py`; `cargo publish --dry-run` of a
+  dependent crate cannot resolve `sc-agent-types` from crates.io before the
+  CPR-014 publish gate lifts, so only the kit dry-run script covers it.
+- Status stayed `in-review` through QA (task XML); the coordinator flipped it
+  to `complete` once follow-up QA left no open finding. Finding closure is
+  recorded by the quality-mgr report on PR 33, not by the triage records
+  (triaging-findings, Closure Rules).

@@ -27,7 +27,7 @@ use crate::request::HttpRequest;
 /// let request = HttpRequest::new(
 ///     Method::Post,
 ///     Endpoint::parse("https://api.openai.com/v1/responses")?,
-///     Arc::from(&b"{}"[..]),
+///     Arc::from("{}"),
 /// )
 /// .with_secret(SecretHeader::bearer(key));
 /// let error = JevError::network(NetworkErrorKind::Connect, "echo: Bearer sk-test");

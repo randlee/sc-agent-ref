@@ -157,12 +157,26 @@ pub enum JevError {
         /// Producer failure detail.
         detail: String,
     },
-    /// The extractor exceeded its time limit.
+    /// A `command` extractor input exceeded its `timeout_seconds` limit.
+    ///
+    /// The id `EXTRACTION_TIMEOUT` also covers a git subprocess that did not
+    /// finish ([`Self::GitTimeout`]).
     #[error("extraction timed out after {timeout_seconds}s")]
     #[non_exhaustive]
     ExtractionTimeout {
         /// Limit that was exceeded.
         timeout_seconds: u64,
+    },
+    /// A git subprocess did not finish within its fixed wall-clock deadline.
+    ///
+    /// Maps to the existing `EXTRACTION_TIMEOUT` id (ADR-SAG-0027: an id may
+    /// have several variants). The limit is not configurable, so the hint
+    /// does not point at `timeout_seconds`.
+    #[error("git did not finish within {seconds}s")]
+    #[non_exhaustive]
+    GitTimeout {
+        /// The deadline that expired, in seconds.
+        seconds: u64,
     },
     /// The requested grammar is not built into the producer.
     #[error("language {language} is unavailable in {producer}")]
@@ -544,6 +558,12 @@ impl JevError {
         Self::ExtractionTimeout { timeout_seconds }
     }
 
+    /// `EXTRACTION_TIMEOUT` for a git subprocess that exceeded its deadline.
+    #[must_use]
+    pub fn git_timeout(seconds: u64) -> Self {
+        Self::GitTimeout { seconds }
+    }
+
     /// `LANGUAGE_UNAVAILABLE` from `producer`.
     #[must_use]
     pub fn language_unavailable(producer: impl Into<String>, language: impl Into<String>) -> Self {
@@ -729,6 +749,7 @@ impl JevError {
             | Self::InputEmpty
             | Self::ExtractionEmpty
             | Self::ExtractionTimeout { .. }
+            | Self::GitTimeout { .. }
             | Self::SessionNotFound { .. }
             | Self::SessionExpired { .. }) => unchanged,
         }
@@ -759,7 +780,9 @@ impl JevError {
             Self::ExtractionParseError { .. } => ErrorCode::ExtractionParseError,
             Self::ExtractionInvalid { .. } => ErrorCode::ExtractionInvalid,
             Self::ExtractionFailed { .. } => ErrorCode::ExtractionFailed,
-            Self::ExtractionTimeout { .. } => ErrorCode::ExtractionTimeout,
+            Self::ExtractionTimeout { .. } | Self::GitTimeout { .. } => {
+                ErrorCode::ExtractionTimeout
+            }
             Self::LanguageUnavailable { .. } => ErrorCode::LanguageUnavailable,
             Self::QueryInvalid { .. } => ErrorCode::QueryInvalid,
             Self::QueryNotFound { .. } => ErrorCode::QueryNotFound,
@@ -840,6 +863,9 @@ impl JevError {
             }
             Self::ExtractionTimeout { timeout_seconds } => format!(
                 "Raise timeout_seconds above {timeout_seconds} or reduce the input so extraction finishes in time."
+            ),
+            Self::GitTimeout { seconds } => format!(
+                "git did not finish within {seconds}s. Check for a stalled git process, a lock file (such as .git/index.lock) or a slow filesystem, then retry."
             ),
             Self::LanguageUnavailable { producer, language } => {
                 format!("Use a language built into {producer} instead of {language}.")
@@ -940,6 +966,7 @@ mod tests {
             | JevError::InputEmpty
             | JevError::ExtractionEmpty
             | JevError::ExtractionTimeout { .. }
+            | JevError::GitTimeout { .. }
             | JevError::SessionNotFound { .. }
             | JevError::SessionExpired { .. } => 0,
         }
@@ -967,6 +994,7 @@ mod tests {
             JevError::extraction_invalid("schema"),
             JevError::extraction_failed("exit 1"),
             JevError::extraction_timeout(30),
+            JevError::git_timeout(60),
             JevError::language_unavailable("sc-treesitter", "go"),
             JevError::query_invalid("sc-treesitter", "syntax"),
             JevError::query_not_found("sc-treesitter", "missing"),

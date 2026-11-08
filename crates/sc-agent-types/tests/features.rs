@@ -6,14 +6,47 @@
 //! depend on the host platform). `cargo tree` runs `--offline` through the
 //! workspace's bounded runner, so it needs a warm registry cache (any prior
 //! `cargo build` or `cargo test` of the workspace provides one). `sha2` is a core dependency because
-//! `Sha256Digest::of` is in core `ids`.
+//! `Sha256Digest::of_text` is in core `ids`.
 
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::process::Command;
 
 #[path = "../../../tests/support/deadline.rs"]
+#[expect(
+    dead_code,
+    reason = "the shared runner is included whole; this target uses only spawn_with_limit"
+)]
 mod deadline;
+
+/// Longest one `cargo tree` may take: a graph query, so the 60 s runner
+/// default (FTQ-001, FTQ-004).
+const CARGO_TREE_DEADLINE: std::time::Duration = std::time::Duration::from_secs(60);
+
+/// Serializes `cargo tree` calls in this test binary: tests run on parallel
+/// threads and concurrent cargo invocations queue on Cargo's file locks.
+static TREE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// Runs a `cargo tree` command under [`CARGO_TREE_DEADLINE`], with a failure
+/// message that names Cargo lock contention, the usual cause of a stall.
+fn run_tree(command: &mut Command) -> std::process::Output {
+    let _guard = TREE_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        deadline::spawn_with_limit(command, None, CARGO_TREE_DEADLINE)
+    }))
+    .unwrap_or_else(|panic| {
+        let detail = panic
+            .downcast_ref::<String>()
+            .cloned()
+            .or_else(|| panic.downcast_ref::<&str>().map(|text| (*text).to_owned()))
+            .unwrap_or_default();
+        panic!(
+            "cargo tree did not finish within {CARGO_TREE_DEADLINE:?}; another cargo process holding a Cargo file lock (\"Blocking waiting for file lock\") is the usual cause: {detail}"
+        )
+    })
+}
 
 #[expect(
     clippy::disallowed_methods,
@@ -35,7 +68,7 @@ fn tree(args: &[&str]) -> BTreeSet<String> {
         ])
         .args(["--locked", "--offline", "--target", "all"])
         .args(args);
-    let output = deadline::spawn_with_deadline(&mut command, None);
+    let output = run_tree(&mut command);
     assert!(
         output.status.success(),
         "cargo tree failed: {}",

@@ -17,7 +17,7 @@ as modules without new top-level client crates.
 | --- | --- |
 | `client` | `JevClient<T: Transport = UreqTransport>`: builds the `HttpRequest` (endpoint, `Content-Type`, `Authorization: Bearer` as a `SecretHeader`) and maps the reply |
 | `check` | Check/judge wire body (byte-exact payload, pinned model) and response parser |
-| `config` | `JevClientConfig`, packaged `jev.toml` (model, host, path, attempts, timeout) |
+| `config` | `JevClientConfig`, packaged `jev.toml` (host, path, attempts, timeout); the model is a `ModelId` from the `sc-agent-types` catalog, set by the backend factory, not read from `jev.toml` |
 
 From r-3, HTTP transport, busy retry, the 8 MiB response cap and redaction
 are `sc-agent-http` (ADR-SAG-0026, ADR-SAG-0006 r-3 amendment). This crate is
