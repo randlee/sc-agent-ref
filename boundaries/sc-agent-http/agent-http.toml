@@ -35,6 +35,7 @@ roots = ["request", "transport", "ureq_transport", "retry", "redact"]
 allowed_dependents = ["sc-jev", "sc-jev-backends"]
 allowed_dependencies = ["sc-agent-types", "ureq"]
 forbidden_edges = [
+    { from = "sc-agent-http", to = "sc-decision-schema" },
     { from = "sc-agent-http", to = "sc-agent-secrets" },
     { from = "sc-agent-http", to = "sc-jev" },
     { from = "sc-agent-http", to = "sc-jev-backends" },

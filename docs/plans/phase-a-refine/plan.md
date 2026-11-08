@@ -725,7 +725,7 @@ Details: [`sprint-r-7-decision-schema.md`](sprint-r-7-decision-schema.md),
 | ADR-SAG-0031 (new) | "Wiring" subsection: one row per send, ULID, digest recording, `model_id` in the row, `repo`/`project`, `sc-sha`, log-write failure policy; amends 0008, 0013, 0016, 0026, 0027 | r-6 |
 | ADR-SAG-0005 | `PayloadBundle`/`JudgeRequest` are `sc-decision-schema` types | r-7 |
 | ADR-SAG-0008 | "UUID paths" and the r-1 "document version 2" sentences superseded: ULID, document v3 | r-6 |
-| ADR-SAG-0009 | trait home; `BackendId` = how, `ModelId` = which; `default_model_alias`; `model_id()` provided method | r-7 |
+| ADR-SAG-0009 | trait home; `BackendId` = how, `ModelId` = which; `default_model_alias`; `model_id()` provided method; `judge(&JudgeRequest, &SendTrace)` signature | r-7 |
 | ADR-SAG-0012 | Jev wire types are data in `sc-decision-schema::jev`; `sc-jev` still owns every operation | r-5 |
 | ADR-SAG-0013 | the row lives in the v2 `fields{}` object; `send_outcome` | r-6 |
 | ADR-SAG-0016 | port stays; record types and DDL in `sc-decision-schema` | r-7 |

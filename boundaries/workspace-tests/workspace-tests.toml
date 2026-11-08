@@ -28,7 +28,7 @@ roots = []
 
 [dependencies]
 allowed_dependents = []
-allowed_dependencies = ["sc-agent-types", "sc-jev-check", "sc-jev-host"]
+allowed_dependencies = ["sc-agent-types", "sc-decision-schema", "sc-jev-check", "sc-jev-host"]
 forbidden_edges = [
     { from = "workspace-tests", to = "pyo3" },
     { from = "workspace-tests", to = "tree-sitter" },

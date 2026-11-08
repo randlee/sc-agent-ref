@@ -1,9 +1,9 @@
 //! Model-family variants (REQ-SAG-0145, ADR-SAG-0030).
 //!
 //! [`schema_for`] maps a [`ModelFamily`] to the decision schema its model
-//! reads and writes; one module per [`SchemaFamily`] holds plain functions.
+//! reads and writes; one module per [`SchemaFamily`](crate::SchemaFamily) holds plain functions.
 //! There is no trait until a second variant exists. Dispatch is static and
-//! keyed by [`SchemaFamily`]: `llm::v1::parse_output` holds the one `match`,
+//! keyed by [`SchemaFamily`](crate::SchemaFamily): `llm::v1::parse_output` holds the one `match`,
 //! so a new family edits this crate only (a `SchemaFamily` variant, a module
 //! and one `match` arm). A future local decision model with a slightly
 //! different schema is recorded here, not built.

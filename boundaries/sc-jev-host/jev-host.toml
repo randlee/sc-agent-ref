@@ -30,7 +30,7 @@ roots = ["obs", "paths", "compose"]
 [dependencies]
 # "workspace-tests" is listed because dev edges are counted (r-1 D0 outcome 4).
 allowed_dependents = ["sc-ai", "sc-jev-py", "workspace-tests"]
-allowed_dependencies = ["sc-agent-types", "sc-jev-check", "sc-observability", "serde_json"]
+allowed_dependencies = ["sc-agent-types", "sc-decision-schema", "sc-jev-check", "sc-observability", "serde_json"]
 forbidden_edges = [
     { from = "sc-jev-host", to = "sc-jev" },
     { from = "sc-jev-host", to = "sc-jev-backends" },

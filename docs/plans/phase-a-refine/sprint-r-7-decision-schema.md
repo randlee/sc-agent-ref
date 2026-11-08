@@ -1,7 +1,7 @@
 ---
 id: r-7
 phase: r
-status: planned
+status: in-review
 closure_type: contract
 target_boundary: decision-schema
 track: schema
@@ -945,3 +945,39 @@ bash scripts/sc-publish-dry-run.sh
 - Model overrides from caller-request JSON or CLI/Python flags.
 - Renaming `BackendId` spellings to drop the model names.
 - Decision-schema variants beyond `Canonical`.
+
+## Implementation notes
+
+Choices where the sprint doc is silent (all conservative):
+
+- `ModelDescriptor` release dates are `jev-1.13.0` 2026-06-01, `claude-haiku-5-5`
+  2026-09-01, `gpt-6-luna` 2026-08-01. The sprint names no dates; they only order
+  rows within one alias and must be corrected if a real date matters.
+- `AnswerId::new()` builds its own ULID text (48-bit millisecond clock plus 80
+  random bits from the existing `uuid` dependency, Crockford base32); r-6
+  replaces the body with `ulid::Ulid`. `from_str` accepts only 26 uppercase
+  Crockford characters with a first character at most `7`.
+- `JevClientConfig::try_new` takes a `ModelId` first argument; `from_toml` and
+  `packaged()` use the catalog Jev model, and a stale `model` key in `jev.toml` is
+  `CONFIG_INVALID` (`deny_unknown_fields`). `JevClient` and the Haiku/Luna
+  backends gain `with_model`.
+- `JudgeBackend::model_id` for `JevClient` is in `client/mod.rs`, not `check.rs`
+  (the trait impl lives there).
+- `BackendRegistry` keeps `from_env` / `from_resolver` (catalog models) and gains
+  `from_env_with_models` / `from_resolver_with_models`. `CheckSpec` gains a public
+  `models: ModelAliases`; `PreparedRun::models()` reports the resolved aliases:
+  `RunConfig::models` wins over the check's `[models]`, which wins over the catalog.
+  `ask` uses `RunConfig::models` only. `ModelAliases` derives `PartialEq, Eq`.
+- `schema_for` has an explicit arm per current `ModelFamily` plus a wildcard for
+  the `#[non_exhaustive]` enum (canonical).
+- `Sha256Digest::of_text` hashes the UTF-8 bytes in r-7 (no CR normalization yet).
+- `TimestampMs` clamps a time before the Unix epoch to the epoch and a time after
+  year 9999 to its last millisecond.
+- Wire bodies are built as `String` (`serde_json::to_string`); the test-util
+  `TruncateBody` fault cuts at a char boundary.
+- Release input: `sc-decision-schema` added with `publish_order: 2`; later crates
+  shifted by one. The parent runs `install.py`; `cargo publish --dry-run` of a
+  dependent crate cannot resolve `sc-agent-types` from crates.io before the
+  CPR-014 publish gate lifts, so only the kit dry-run script covers it.
+- Status stays `in-review` (task XML); the coordinator flips it to `complete`
+  after QA-2.

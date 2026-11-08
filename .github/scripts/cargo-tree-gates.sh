@@ -46,7 +46,9 @@
 # `-e normal,features` keeps a future dev-dependency from tripping the row
 # (CPR-M208). Negative control (checked when the row landed): dropping
 # `default-features = false` from sc-treesitter's sc-agent-types dependency
-# makes the `lib` row fail on judge, secret, obs and default.
+# makes the `lib` row fail on secret, obs and default. The
+# sc-decision-schema row (r-7, D1.6) is the feature leak the boundary
+# manifest cannot see: it reaches sc-agent-types core only.
 #
 # Only `cargo tree` stdout is matched; stderr (download and lock messages)
 # goes to a temporary file and is printed only when cargo fails. Every call
@@ -84,12 +86,13 @@ rows=(
 graph_rows=(
   "test-util off in normal graphs;--workspace -e normal,features;feature \"test-util\";"
   "test-util control (dev edges);--workspace -e normal,dev,features;;^sc-agent-http feature \"test-util\""
-  "sc-agent-http -> sc-agent-types secret only;-p sc-agent-http -e normal,features -i sc-agent-types;^sc-agent-types feature \"(judge|obs|git|default|test-util)\";^sc-agent-types feature \"secret\""
+  "sc-agent-http -> sc-agent-types secret only;-p sc-agent-http -e normal,features -i sc-agent-types;^sc-agent-types feature \"(obs|git|default|test-util)\";^sc-agent-types feature \"secret\""
 )
 
 # crate | mode (lib|present) | inverted package | features (space-separated)
 feature_rows=(
-  "sc-treesitter|lib|sc-agent-types|judge secret obs git default"
+  "sc-treesitter|lib|sc-agent-types|secret obs git default"
+  "sc-decision-schema|lib|sc-agent-types|secret obs git default"
   "sc-treesitter|present|sc-agent-types|git"
 )
 

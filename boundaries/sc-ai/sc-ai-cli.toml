@@ -35,7 +35,7 @@ roots = ["execute"]
 
 [dependencies]
 allowed_dependents = []
-allowed_dependencies = ["clap", "mimalloc", "sc-agent-types", "sc-jev-check", "sc-jev-host", "serde", "serde_json"]
+allowed_dependencies = ["clap", "mimalloc", "sc-agent-types", "sc-decision-schema", "sc-jev-check", "sc-jev-host", "serde", "serde_json"]
 forbidden_edges = [
     { from = "sc-ai", to = "ureq" },
     { from = "sc-ai", to = "sc-jev" },

@@ -41,7 +41,7 @@ roots = ["build_request", "run_check", "Session", "canonical_bytes"]
 
 [dependencies]
 allowed_dependents = []
-allowed_dependencies = ["pyo3", "sc-agent-types", "sc-jev-check", "sc-jev-host", "serde_json"]
+allowed_dependencies = ["pyo3", "sc-agent-types", "sc-decision-schema", "sc-jev-check", "sc-jev-host", "serde_json"]
 forbidden_edges = [
     { from = "sc-jev-py", to = "sc-jev" },
     { from = "sc-jev-py", to = "sc-observability" },

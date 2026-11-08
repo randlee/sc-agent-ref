@@ -30,7 +30,10 @@ are in [`../requirements.md`](../requirements.md#phase-a1--refinement-proposed).
 | ID | Amendment |
 | --- | --- |
 | REQ-SAG-0101 | "One variant per id" becomes "every variant maps to exactly one id in `errors.json`; an id may have several variants" — (Active, r-1) |
-| REQ-SAG-0103 | The a-1 frozen contract is unfrozen once by r-1 (types break) and re-frozen at r-1 merge; later changes are additive — (Active, r-1) |
+| REQ-SAG-0103 | The a-1 frozen contract is unfrozen once by r-1 (types break) and re-frozen at r-1 merge; later changes are additive — (Active, r-1). Its home moves to `sc-decision-schema` (ADR-SAG-0030): `judge` takes the per-send `&SendTrace`, `model_id()` is added — (Active, r-7) |
+| REQ-SAG-0107 | `sc-agent-types` loses the `judge` and `test-util` features with the moved modules; features are `secret`, `obs` (default) and `git` (non-default); every combination builds — (Active, r-7) |
+| REQ-SAG-0147 | Model catalog: open `ModelId` (known variants plus `Other(UnknownModel)`, which only parsing can build) — (Active, r-7) |
+| REQ-SAG-0148 | `ModelAliases::latest(alias)` for `jev`, `haiku`, `luna`; `with_override`; `BackendDescriptor::default_model_alias` / `default_model` — (Active, r-7) |
 | REQ-SAG-0120 | The `observability::v2::SessionLog` port no longer depends on `sc-observability-types`; `emit` returns the local `LogRejected`; behind the default `obs` feature — (Active, r-1) |
 | REQ-SAG-0121 | Noop and test-util doubles stay; the `sc-observability-types` dependency is removed; module deletion still waits on upstream v2 — (Active, r-1) |
 | NFR-SAG-0001 | `ScAgentErrorResponse` field rule: `schema_version` always `1`, `retryable` only when `true`, `details` only for producer errors (ADR-SAG-0027) — (Active, r-1) |

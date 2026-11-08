@@ -94,7 +94,7 @@ pub fn input_bytes(payload: &PayloadBundle) -> &[u8] {
 ///     "probabilities":{"no":0.1,"yes":0.9}}}}"#;
 /// let answers = v1::parse_output(ModelFamily::AnthropicClaude, reply, &bundle)?;
 /// assert_eq!(answers.len(), 1);
-/// # Ok::<(), sc_agent_types::JevError>(())
+/// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 pub fn parse_output(
     family: ModelFamily,

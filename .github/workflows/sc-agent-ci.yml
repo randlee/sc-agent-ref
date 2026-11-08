@@ -9,6 +9,7 @@
 #   features  cargo hack --each-feature test -p sc-treesitter;
 #             cargo test --test cli --features cli for sc-treesitter and sc-ai;
 #             cargo hack check -p sc-agent-types --feature-powerset --no-dev-deps
+#             cargo hack check -p sc-decision-schema --feature-powerset --no-dev-deps
 #   deps      cargo build --lib --no-default-features for sc-treesitter and
 #             sc-ai; one isolated `cargo build -p <lib> --lib` per library;
 #             .github/scripts/cargo-tree-gates.sh (REQ-SAG-0134, REQ-SAG-0135);
@@ -130,11 +131,27 @@ jobs:
         timeout-minutes: 30
         run: cargo test --workspace
 
-      # r-1 D0: sc-agent-types' `git` and `mock` targets declare
-      # required-features, so the workspace run skips `git`.
-      - name: cargo test -p sc-agent-types --features git,test-util
+      # r-1 D0: sc-agent-types' `git` target declares required-features, so
+      # the workspace run skips it. r-7: `mock` moved to sc-decision-schema.
+      - name: cargo test -p sc-agent-types --features git
         timeout-minutes: 15
-        run: cargo test -p sc-agent-types --features git,test-util
+        run: cargo test -p sc-agent-types --features git
+
+      - name: cargo test -p sc-decision-schema --features test-util
+        timeout-minutes: 15
+        run: cargo test -p sc-decision-schema --features test-util
+
+      - name: cargo test -p sc-jev-check --features test-util
+        timeout-minutes: 20
+        run: cargo test -p sc-jev-check --features test-util
+
+      - name: cargo test -p sc-jev --features test-util
+        timeout-minutes: 15
+        run: cargo test -p sc-jev --features test-util
+
+      - name: cargo test -p sc-jev-backends --features test-util
+        timeout-minutes: 15
+        run: cargo test -p sc-jev-backends --features test-util
 
       # r-3 (FTQ-002): sc-agent-http's `retry` and `ureq` targets declare
       # required-features = ["test-util"]; run them explicitly instead of
@@ -258,6 +275,10 @@ jobs:
         timeout-minutes: 20
         run: cargo hack check -p sc-agent-types --feature-powerset --no-dev-deps
 
+      - name: cargo hack check -p sc-decision-schema --feature-powerset
+        timeout-minutes: 20
+        run: cargo hack check -p sc-decision-schema --feature-powerset --no-dev-deps
+
   deps:
     name: dependency gates (allocator, pins)
     runs-on: ubuntu-24.04
@@ -306,7 +327,7 @@ jobs:
       - name: isolated library builds
         timeout-minutes: 20
         run: |
-          for p in sc-agent-types sc-agent-secrets sc-agent-http sc-jev sc-jev-backends sc-jev-check sc-jev-host; do
+          for p in sc-agent-types sc-decision-schema sc-agent-secrets sc-agent-http sc-jev sc-jev-backends sc-jev-check sc-jev-host; do
             cargo build --locked -p "$p" --lib
           done
 

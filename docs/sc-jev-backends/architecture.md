@@ -39,3 +39,13 @@ are gone; tests use `sc_agent_http::test_util` and
 `BusyPolicy::with_test_hooks`.
 
 No CLI, no PyO3, no `check.toml`, no Jev API endpoints.
+
+## Model (r-7, REQ-SAG-0147/0148)
+
+The `HAIKU_MODEL` / `LUNA_MODEL` constants are gone. Each backend holds a
+configured `ModelId`: the catalog default (`BackendDescriptor::default_model`)
+unless `with_model` sets one (the `sc-jev-check` factory passes
+`ModelAliases::latest(alias)`, so `check.toml` `[models]` reaches here). The
+backend sends `model.to_string()` verbatim, even for a model string this build
+does not know, and `JudgeBackend::model_id()` returns it. Reply text is parsed
+by `sc_decision_schema::llm::v1::parse_output`; provider envelopes stay here.

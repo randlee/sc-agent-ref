@@ -74,7 +74,7 @@ fn test_latest_alias_lookup() {
         assert_eq!(parts[2].len(), 2, "{date}");
         assert!((1..=12).contains(&numbers[1]), "{date}");
         assert!((1..=31).contains(&numbers[2]), "{date}");
-        assert_eq!(aliases.latest(row.alias()).is_some(), true);
+        assert!(aliases.latest(row.alias()).is_some());
     }
 }
 
