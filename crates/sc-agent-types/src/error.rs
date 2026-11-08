@@ -973,7 +973,7 @@ mod tests {
     }
 
     fn samples() -> Vec<JevError> {
-        let session = SessionId::from_uuid(uuid::Uuid::nil());
+        let session: SessionId = "00000000000000000000000000".parse().unwrap();
         let cause = serde_json::from_str::<serde_json::Value>("{").unwrap_err();
         vec![
             JevError::config_invalid("missing model"),

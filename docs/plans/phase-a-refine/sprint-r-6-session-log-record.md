@@ -1,7 +1,7 @@
 ---
 id: r-6
 phase: r
-status: planned
+status: in-review
 closure_type: contract
 target_boundary: session-log
 track: observability
@@ -407,3 +407,67 @@ bash scripts/sc-publish-dry-run.sh
 - A SQLite sink or loader (the schema is r-7's; post-A.1).
 - Any change to where logs or sessions are written (ADR-SAG-0021).
 - The Jev body shape (r-5, D9).
+
+## Implementation notes
+
+Choices where the sprint doc is silent (all conservative):
+
+- `sc-sha` is pinned to 1.7.0 in `Cargo.lock` (`cargo update -p sc-sha
+  --precise 1.7.0`) and declared `sc-sha = "1.7.0"` (caret) in
+  `[workspace.dependencies]`, because D0 describes 1.7.0; 1.8.0 resolved first.
+  `sha2` 0.10 stays in the lock transitively; `uuid` is gone.
+- `SessionId` and `AnswerId` parse the strict canonical text only: after
+  `Ulid::from_string`, the re-rendered text must equal the input. That
+  refuses lowercase, the `I`/`L`/`O` aliases and values above `7ZZ...`
+  (`Ulid::from_string` wraps them), keeps the r-7 `AnswerId` rule, and gives
+  one id one file name on case-insensitive file systems. Both are `Copy`.
+  `SessionId` derives `PartialOrd`/`Ord`.
+- The `SessionId` parse message is generic ("session ids are ULIDs since
+  Phase A.1"). The CLI value parser (`sc-ai/src/cli.rs`) replaces it with the
+  D1 hint "... start a new session with `sc-ai jev run`" as an
+  `Operational { Io }` error (`INPUT_INVALID`, fix hint verbatim). Python has
+  no entry point that takes a session id, so the "... with `run_check`"
+  wording is unreachable and not added; `test_uuid_session_id_is_input_invalid`
+  checks that Python only ever sees 26-character ULID ids.
+- `StoredSession` gets no `decision_schema` field (it is a public struct built
+  by literal in tests). The v3 document always writes
+  `DecisionSchemaId::CURRENT`; reading a document with an unknown id fails
+  serde like any bad field. An `ask` row uses `CURRENT`.
+- The v1/v2 recovery hint now reads "re-run the check; session files from
+  before Phase A.1 cannot be resumed" (it said "Phase A session files").
+- `session_created_at` is captured once at run start (`FileSessionStore::now()`
+  when a store exists, else `SystemTime::now()`) and written both to the
+  document `created_at` and to every row of the run. `ts` is taken when each
+  send finishes.
+- `RunConfig::log_context` unset resolves `repo` at the first send with
+  `discover_main_repo_root(config repo root)`, falling back to the root as
+  given if discovery fails (logging never fails a run). `LogContext` is
+  exported from `sc_jev_check::run`.
+- Compose starts `discover_main_repo_root` from the explicit repo root when
+  one is set, else the working directory, so `--repo-root` and the logged
+  `repo` agree; the plan names the working directory only. A dry run skips git
+  and uses the resolved root. `ComposeInputs::project` is not carried into
+  `sc-jev-py`'s live-session inputs: each `ask` names its own project.
+- `--project` is on `RunArgs`, so `jev dry-run` accepts it too (it logs
+  nothing). `Session.ask` and `CheckResult.ask` both take `project=`;
+  `run_check_scripted` takes it as well.
+- Scripted backends (and `MockJudgeBackend::with_sent_body`) record the digest
+  of `{"scripted":"<backend id>"}` as their sent body; a refusing mock never
+  records. A mock with `with_failure` and a sent body records before it fails
+  (a send that failed after the body was built).
+- `discover_main_repo_root` takes the parent of the git common dir only when
+  the common dir is named `.git`; any other name (separate git dir, bare
+  repository) falls back to `discover_repo_root`.
+- Tests outside the listed owned paths that carry session-id literals were
+  updated: `crates/sc-ai/tests/argv.rs`,
+  `crates/sc-jev-check/tests/run_response.rs` and its two
+  `tests/fixtures/run-response/*.json`, `crates/sc-jev-check/src/run/tests.rs`,
+  `crates/sc-jev-check/tests/multi_backend.rs`,
+  `crates/sc-agent-types/tests/features.rs`,
+  `crates/sc-agent-types/tests/fixtures/error-codes.json`.
+- `boundaries/sc-agent-types/agent-types.toml` (allowed dependencies, notes)
+  and `boundaries/sc-jev-check/jev-check.toml` (facade, notes) are kept in
+  sync with the code.
+- Release input: no `release/` change. `Cargo.lock` now has `ulid`, `rand`
+  0.9 and `sc-sha`; the parent runs `install.py` if the kit input needs a
+  refresh.

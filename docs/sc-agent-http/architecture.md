@@ -116,5 +116,9 @@ dev-dependency, the `retry` and `ureq` targets declare
 `send_with_busy_retry`, `send_and_parse` and `HttpClient::send_and_parse` take
 a required `SendTrace` (from `sc-agent-types`), so no backend can send without
 one. `HttpRequest`'s body is text (`Arc<str>`, `body() -> &str`); transports
-send `body().as_bytes()`. Nothing records into the trace in r-7; r-6 records
-the SHA-256 of the exact body in `send_with_busy_retry`.
+send `body().as_bytes()`. `send_with_busy_retry` records
+`Sha256Digest::of_text(request.body())` into the trace once, immediately
+before the first `Transport::send` (r-6, REQ-SAG-0613): retries resend the
+same bytes, so a send has one value; a cancel before the first attempt
+records nothing; headers are not hashed, so no secret is. `trace.rs` pins this
+(`--features test-util --test trace`).

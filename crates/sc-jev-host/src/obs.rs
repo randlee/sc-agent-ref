@@ -3,9 +3,12 @@
 //! [`ObservabilityAdapter`] is the one adapter both composition roots use
 //! (QA-004): it maps a
 //! [`LogEvent`](sc_agent_types::observability::v2::LogEvent) to one
-//! `sc-observability` event with a fixed action, target and field set
-//! (REQ-SAG-0610, REQ-SAG-0611) and maps `EventError` to
-//! [`LogRejected`].
+//! `sc-observability` event with a fixed action and target (REQ-SAG-0610)
+//! and maps `EventError` to [`LogRejected`]. The event's `fields` object is
+//! one ADR-SAG-0031 session-log row; the adapter copies it into the v2
+//! `fields{}` verbatim (REQ-SAG-0611, REQ-SAG-0617, ADR-SAG-0013: no bespoke
+//! writer). The envelope `outcome` stays `null`; the row's own
+//! `send_outcome` carries the result.
 //!
 //! # Writers
 //!
@@ -29,7 +32,6 @@ use sc_observability::{
     ActionName, Level, LogEvent, LoggerConfig, OBSERVATION_ENVELOPE_VERSION, ProcessIdentity,
     SchemaVersion, ServiceName, TargetCategory, Timestamp,
 };
-use serde_json::{Map, Value};
 
 /// Target category recorded on every session-log line.
 const TARGET: &str = "jev.session";
@@ -171,30 +173,14 @@ impl ObservabilityAdapter {
     /// The `sc-observability` event that `event` becomes.
     ///
     /// The conversion is public so the golden test can pin the exact action,
-    /// target and fields (REQ-SAG-0611).
+    /// target and fields (REQ-SAG-0611). `fields` is the event's row, cloned
+    /// unchanged.
     ///
     /// # Errors
     ///
     /// Returns [`LogRejected`] when the operation spelling is not a valid
     /// action name; the event is rejected, never a panic.
     pub fn log_event(&self, event: &SessionEvent) -> Result<LogEvent, LogRejected> {
-        let mut fields = Map::new();
-        fields.insert(
-            "session_id".to_owned(),
-            Value::String(event.session_id().to_string()),
-        );
-        fields.insert(
-            "backend".to_owned(),
-            Value::String(event.backend().to_string()),
-        );
-        fields.insert(
-            "prompt_sha256".to_owned(),
-            Value::String(event.prompt_sha256().as_str().to_owned()),
-        );
-        fields.insert(
-            "operation".to_owned(),
-            Value::String(event.operation().as_str().to_owned()),
-        );
         Ok(LogEvent {
             version: SchemaVersion::new(OBSERVATION_ENVELOPE_VERSION)
                 .map_err(|_| LogRejected::new("observation envelope version is not valid"))?,
@@ -212,7 +198,7 @@ impl ObservabilityAdapter {
             outcome: None,
             diagnostic: None,
             state_transition: None,
-            fields,
+            fields: event.fields().clone(),
         })
     }
 }

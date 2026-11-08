@@ -94,7 +94,9 @@ fn test_no_default_features_dep_set() {
     .collect();
     let actual = tree(&["--no-default-features"]);
     assert_eq!(actual, pinned);
-    assert!(actual.contains("sha2"));
+    assert!(actual.contains("sc-sha"));
+    assert!(actual.contains("ulid"));
+    assert!(!actual.contains("uuid"));
 }
 
 #[test]

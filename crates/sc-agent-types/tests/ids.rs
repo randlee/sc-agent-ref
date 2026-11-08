@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 
 use sc_agent_types::{
     AnswerId, BACKENDS, BackendFamily, BackendId, BackendKeyId, BackendSet, BlobSha, ModelAliases,
-    ProjectLabel, RepoRelativePath,
+    ProjectLabel, RepoRelativePath, SessionId, Sha256Digest,
 };
 
 /// serde, `Display`, `FromStr`, and the aliases agree for every descriptor.
@@ -176,4 +176,58 @@ fn test_answer_id_is_ulid_text() {
             error.fix_hint()
         );
     }
+}
+
+/// `SessionId` is a ULID in `Display`, `FromStr` and serde; a UUID is refused
+/// with the ULID fix hint (REQ-SAG-0612).
+#[test]
+fn test_session_id_is_ulid() {
+    let id = SessionId::new();
+    let text = id.to_string();
+    assert_eq!(text.len(), 26);
+    assert!(text.bytes().all(|byte| byte.is_ascii_alphanumeric()));
+    assert_eq!(text.parse::<SessionId>().expect("display roundtrip"), id);
+    let json = serde_json::to_string(&id).expect("serialize");
+    assert_eq!(json, format!("\"{text}\""));
+    assert_eq!(
+        serde_json::from_str::<SessionId>(&json).expect("deserialize"),
+        id
+    );
+    assert_ne!(SessionId::new(), SessionId::new());
+
+    let uuid = "3f2b8a9e-6c1d-4e7a-9b25-0d4c1a7e5f10";
+    for bad in [uuid, "", "nope", &"0".repeat(25), &"Z".repeat(26)] {
+        let error = bad.parse::<SessionId>().expect_err("rejected");
+        assert_eq!(error.code(), "INPUT_INVALID", "{bad:?}");
+        assert!(error.to_string().contains("ULID"), "{error}");
+        assert!(
+            serde_json::from_value::<SessionId>(serde_json::json!(bad)).is_err(),
+            "{bad:?}"
+        );
+    }
+}
+
+/// `Sha256Digest::of_text` goes through `sc-sha` and keeps the SHA-256 of the
+/// bytes for LF text (REQ-SAG-0618, REQ-SAG-0102).
+#[test]
+fn test_sha256_reference_vectors() {
+    assert_eq!(
+        Sha256Digest::of_text("").as_str(),
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    );
+    assert_eq!(
+        Sha256Digest::of_text("abc").as_str(),
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    );
+    let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/fixtures/jev/cross_impl");
+    let body = std::fs::read_to_string(fixture.join("reference.bytes")).expect("reference.bytes");
+    let committed =
+        std::fs::read_to_string(fixture.join("reference.sha256")).expect("reference.sha256");
+    assert_eq!(Sha256Digest::of_text(&body).as_str(), committed.trim());
+    // CR is normalized to LF (documented sc-sha identity).
+    assert_eq!(
+        Sha256Digest::of_text("a\r\nb\rc"),
+        Sha256Digest::of_text("a\nb\nc")
+    );
 }

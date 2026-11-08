@@ -6,7 +6,7 @@
 use std::fmt;
 use std::sync::Arc;
 
-use crate::ids::{BackendId, Operation, SessionId, Sha256Digest};
+use crate::ids::{Operation, SessionId};
 
 /// A [`SessionLog`] refused an event.
 ///
@@ -49,14 +49,28 @@ impl std::error::Error for LogRejected {}
 
 /// One prompt or judge send.
 ///
-/// Fields are correlation metadata only. Secrets never appear here
-/// (NFR-SAG-0002).
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// The event carries the session id, the [`Operation`], and the `fields{}`
+/// object the log line records: one ADR-SAG-0031 session-log row. The port
+/// does not name the row type; the composition crates build `fields` and the
+/// adapter copies them into the log line verbatim. Secrets never appear in
+/// `fields` (NFR-SAG-0002).
+///
+/// # Examples
+///
+/// ```
+/// use sc_agent_types::observability::v2::LogEvent;
+/// use sc_agent_types::{Operation, SessionId};
+///
+/// let mut fields = serde_json::Map::new();
+/// fields.insert("backend".to_owned(), "jev".into());
+/// let event = LogEvent::new(SessionId::new(), Operation::Judge, fields);
+/// assert_eq!(event.fields()["backend"], "jev");
+/// ```
+#[derive(Debug, Clone, PartialEq)]
 pub struct LogEvent {
     session_id: SessionId,
-    backend: BackendId,
-    prompt_sha256: Sha256Digest,
     operation: Operation,
+    fields: serde_json::Map<String, serde_json::Value>,
 }
 
 impl LogEvent {
@@ -64,40 +78,32 @@ impl LogEvent {
     #[must_use]
     pub fn new(
         session_id: SessionId,
-        backend: BackendId,
-        prompt_sha256: Sha256Digest,
         operation: Operation,
+        fields: serde_json::Map<String, serde_json::Value>,
     ) -> Self {
         Self {
             session_id,
-            backend,
-            prompt_sha256,
             operation,
+            fields,
         }
     }
 
     /// Session the send belongs to.
     #[must_use]
-    pub fn session_id(&self) -> SessionId {
-        self.session_id
-    }
-
-    /// Backend that received the payload.
-    #[must_use]
-    pub fn backend(&self) -> BackendId {
-        self.backend
-    }
-
-    /// SHA-256 of the canonical payload bytes.
-    #[must_use]
-    pub fn prompt_sha256(&self) -> &Sha256Digest {
-        &self.prompt_sha256
+    pub fn session_id(&self) -> &SessionId {
+        &self.session_id
     }
 
     /// Which send this is.
     #[must_use]
     pub fn operation(&self) -> Operation {
         self.operation
+    }
+
+    /// The row the log line records, as a JSON object.
+    #[must_use]
+    pub fn fields(&self) -> &serde_json::Map<String, serde_json::Value> {
+        &self.fields
     }
 }
 

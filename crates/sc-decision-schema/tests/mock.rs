@@ -152,3 +152,35 @@ fn test_model_id_default_from_catalog() {
     // The trait is dyn-compatible.
     let _: &dyn JudgeBackend = &Plain;
 }
+
+#[test]
+fn test_mock_records_sent_body_digest_into_trace() {
+    let request = JudgeRequest::new(bundle(), None);
+    let silent = MockJudgeBackend::new(BackendId::Jev, answers("yes"));
+    let trace = SendTrace::new();
+    silent.judge(&request, &trace).expect("judge");
+    assert_eq!(trace.request_sha256(), None);
+
+    let sending = MockJudgeBackend::new(BackendId::Jev, answers("yes")).with_sent_body("{\"a\":1}");
+    let trace = SendTrace::new();
+    sending.judge(&request, &trace).expect("judge");
+    assert_eq!(
+        trace.request_sha256(),
+        Some(Sha256Digest::of_text("{\"a\":1}"))
+    );
+
+    let failing = MockJudgeBackend::new(BackendId::Jev, answers("yes"))
+        .with_sent_body("{\"a\":1}")
+        .with_failure(JevError::input_invalid("boom"));
+    let trace = SendTrace::new();
+    failing
+        .judge(&request, &trace)
+        .expect_err("fails after send");
+    assert!(trace.request_sha256().is_some());
+
+    let refusing = MockJudgeBackend::refusing(BackendId::Jev, JevError::input_invalid("no"))
+        .with_sent_body("{\"a\":1}");
+    let trace = SendTrace::new();
+    refusing.judge(&request, &trace).expect_err("refused");
+    assert_eq!(trace.request_sha256(), None);
+}

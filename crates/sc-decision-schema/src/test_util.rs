@@ -43,7 +43,8 @@ enum Behaviour {
 ///   nothing is sent;
 /// - [`JudgeBackend::model_id`] is the catalog default of the id, or the
 ///   model set by [`Self::with_model_id`]; the mock sends nothing, so it
-///   never records into the [`SendTrace`];
+///   records into the [`SendTrace`] only when [`Self::with_sent_body`] names
+///   a body, and then once per accepted call, `Failed` included;
 /// - when the id's descriptor requires LLM context and the request carries
 ///   none, `validate_for_send` (still counted) and `judge` return
 ///   `INPUT_INVALID` and record nothing (ADR-SAG-0022).
@@ -54,6 +55,7 @@ pub struct MockJudgeBackend {
     provider_meta: Option<Value>,
     reported_digest: Option<Sha256Digest>,
     model: Option<ModelId>,
+    sent_body: Option<String>,
     behaviour: Behaviour,
     requests: Mutex<Vec<JudgeRequest>>,
     validations: AtomicUsize,
@@ -69,6 +71,7 @@ impl MockJudgeBackend {
             provider_meta: None,
             reported_digest: None,
             model: None,
+            sent_body: None,
             behaviour: Behaviour::Answer,
             requests: Mutex::new(Vec::new()),
             validations: AtomicUsize::new(0),
@@ -102,6 +105,14 @@ impl MockJudgeBackend {
     #[must_use]
     pub fn with_model_id(mut self, model: ModelId) -> Self {
         self.model = Some(model);
+        self
+    }
+
+    /// Records `Sha256Digest::of_text(body)` into each accepted call's
+    /// [`SendTrace`], as a real backend does for the body it sends.
+    #[must_use]
+    pub fn with_sent_body(mut self, body: impl Into<String>) -> Self {
+        self.sent_body = Some(body.into());
         self
     }
 
@@ -157,8 +168,11 @@ impl JudgeBackend for MockJudgeBackend {
             .unwrap_or_else(|| self.id.descriptor().default_model())
     }
 
-    fn judge(&self, request: &JudgeRequest, _trace: &SendTrace) -> Result<JudgeOutcome, JevError> {
+    fn judge(&self, request: &JudgeRequest, trace: &SendTrace) -> Result<JudgeOutcome, JevError> {
         self.check(request)?;
+        if let Some(body) = &self.sent_body {
+            trace.record(Sha256Digest::of_text(body));
+        }
         self.requests
             .lock()
             .unwrap_or_else(PoisonError::into_inner)

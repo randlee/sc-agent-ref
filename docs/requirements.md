@@ -183,13 +183,13 @@ verbatim. Plan: [`plans/phase-a-refine/plan.md`](plans/phase-a-refine/plan.md).
 | REQ-SAG-0146 | The session-log storage contract is an authoritative SQLite DDL with `schema_version`; the JSONL projection is the `fields{}` object of one v2 log line with exactly the column keys (`send_outcome`, nullable `request_sha256`, non-null `model_id`); a loader reads it into the tables losslessly — (Active, r-7) |
 | REQ-SAG-0147 | Model catalog in `sc-agent-types`: open `ModelId` enum (known variants plus an unknown-model form that only parsing can build), so a model released after the build parses, is sent verbatim and is logged — (Active, r-7) |
 | REQ-SAG-0148 | `ModelAliases::latest(alias)` returns the newest model for `jev`, `haiku`, `luna`, … from an in-crate table, overridable by `check.toml` `[models]`; backends send their configured model — (Active, r-7) |
-| REQ-SAG-0612 | `SessionId` is a ULID (26-char Crockford base32) in documents, file names, CLI and Python; a UUID id or a v2 session document is `INPUT_INVALID` — (Proposed, r-6) |
-| REQ-SAG-0613 | Each send logs `request_sha256`: SHA-256 of the exact request body sent (headers excluded), recorded by `sc-agent-http` at the send site; `null` when the send failed before a body was built; future response-cache key — (Proposed, r-6) |
-| REQ-SAG-0614 | Each row logs `repo`: the main repository root (a worktree resolves to it), else the calling folder; log and session paths are unchanged (ADR-SAG-0021) — (Proposed, r-6) |
-| REQ-SAG-0615 | Each row logs `project`: optional caller text (`sc-ai --project`, Python `project=`), ≤ 256 bytes, no control characters, stored unscrubbed — (Proposed, r-6) |
-| REQ-SAG-0616 | Each row logs `model_id`: the `ModelId` string from `JudgeBackend::model_id()` (catalog default, backend's configured model), never null — (Proposed, r-6) |
-| REQ-SAG-0617 | Every `judge`/`ask` send, `Ok` or `Failed`, writes exactly one row in the v2 `fields{}` object (NotSent none); a rejected or failed log write never fails the run (best effort; flush failure is a `data.warnings` entry) — (Proposed, r-6) |
-| REQ-SAG-0618 | SHA-256 digests are computed with `sc-sha` (`calculate_hash`, strict UTF-8, CR normalized to LF; for request bodies and canonical payloads, compact JSON with no raw CR, the digest is SHA-256 of the bytes sent; other text such as query sources is identified in its LF-normalized form); no workspace manifest lists `sha2` or `uuid` — (Proposed, r-6) |
+| REQ-SAG-0612 | `SessionId` is a ULID (26-char Crockford base32) in documents, file names, CLI and Python; a UUID id or a v2 session document is `INPUT_INVALID` — (Active, r-6) |
+| REQ-SAG-0613 | Each send logs `request_sha256`: SHA-256 of the exact request body sent (headers excluded), recorded by `sc-agent-http` at the send site; `null` when the send failed before a body was built; future response-cache key — (Active, r-6) |
+| REQ-SAG-0614 | Each row logs `repo`: the main repository root (a worktree resolves to it), else the calling folder; log and session paths are unchanged (ADR-SAG-0021) — (Active, r-6) |
+| REQ-SAG-0615 | Each row logs `project`: optional caller text (`sc-ai --project`, Python `project=`), ≤ 256 bytes, no control characters, stored unscrubbed — (Active, r-6) |
+| REQ-SAG-0616 | Each row logs `model_id`: the `ModelId` string from `JudgeBackend::model_id()` (catalog default, backend's configured model), never null — (Active, r-6) |
+| REQ-SAG-0617 | Every `judge`/`ask` send, `Ok` or `Failed`, writes exactly one row in the v2 `fields{}` object (NotSent none); a rejected or failed log write never fails the run (best effort; flush failure is a `data.warnings` entry) — (Active, r-6) |
+| REQ-SAG-0618 | SHA-256 digests are computed with `sc-sha` (`calculate_hash`, strict UTF-8, CR normalized to LF; for request bodies and canonical payloads, compact JSON with no raw CR, the digest is SHA-256 of the bytes sent; other text such as query sources is identified in its LF-normalized form); no workspace manifest lists `sha2` or `uuid` — (Active, r-6) |
 
 ### Phase A.1 amendments to existing rows
 
@@ -210,5 +210,5 @@ verbatim. Plan: [`plans/phase-a-refine/plan.md`](plans/phase-a-refine/plan.md).
 | REQ-SAG-0103 | The frozen `JudgeBackend` / `JudgeRequest` contract and its contract tests move to `sc-decision-schema` (ADR-SAG-0030), unchanged except that `judge` takes the per-send `&SendTrace` and `model_id()` is added; later changes stay additive — (Active, r-7) |
 | REQ-SAG-0107 | `sc-agent-types` loses the `judge` and `test-util` features with the moved modules; features are `secret`, `obs` (default) and `git` (non-default); every combination builds — (Active, r-7) |
 | REQ-SAG-0130 | Consumer input publishes `sc-decision-schema` (publish order 2, directly after `sc-agent-types`) — (Active, r-7) |
-| REQ-SAG-0600 | Session store: session id is a **ULID** (was UUID) in file names and documents; mode 0600, expiry from `created_at` — (Proposed, r-6) |
-| REQ-SAG-0611 | Every log line's `fields{}` object is one ADR-SAG-0031 session-log row (session ULID, `repo`, `project`, `model_id`, `prompt_sha256`, nullable `request_sha256`, `send_outcome`, typed answers or `error_code`), on every line; never secrets, payload text or raw response bodies — (Proposed, r-6) |
+| REQ-SAG-0600 | Session store: session id is a **ULID** (was UUID) in file names and documents; mode 0600, expiry from `created_at` — (Active, r-6) |
+| REQ-SAG-0611 | Every log line's `fields{}` object is one ADR-SAG-0031 session-log row (session ULID, `repo`, `project`, `model_id`, `prompt_sha256`, nullable `request_sha256`, `send_outcome`, typed answers or `error_code`), on every line; never secrets, payload text or raw response bodies — (Active, r-6) |

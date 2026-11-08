@@ -7,7 +7,7 @@ use super::*;
 use crate::config::PACKAGED_SYSTEM_PROMPT;
 use crate::extract::test_support::{self, copy_fixture};
 use sc_agent_types::NetworkErrorKind;
-use sc_agent_types::observability::v2::{LogRejected, NoopSessionLog, SessionLog};
+use sc_agent_types::observability::v2::{LogEvent, LogRejected, NoopSessionLog, SessionLog};
 use sc_decision_schema::test_util::MockJudgeBackend;
 use std::path::PathBuf;
 
@@ -32,8 +32,8 @@ impl SessionLog for JsonlSink {
         use std::io::Write;
         let line = serde_json::json!({
             "session_id": event.session_id().to_string(),
-            "backend": event.backend().to_string(),
-            "prompt_sha256": event.prompt_sha256().as_str(),
+            "backend": event.fields()["backend"],
+            "prompt_sha256": event.fields()["prompt_sha256"],
             "operation": event.operation().as_str(),
         });
         let mut file = std::fs::OpenOptions::new()
@@ -666,15 +666,16 @@ fn cancelled_call_still_emits_one_log_event() {
 
     let log = Arc::new(CountingLog::default());
     let shared: SharedSessionLog = log.clone();
+    let config = RunConfig::new(RepoRoot::new("."), Arc::clone(&shared));
+    let send_log = SendLog::new(&config, session, SystemTime::now(), Operation::Judge);
     let token = CancelToken::new();
     token.cancel();
     let request = JudgeRequest::new(Arc::clone(&bundle), None).with_cancel(token);
-    let error =
-        send(&failing(), &request, &shared, session, Operation::Judge).expect_err("cancelled");
+    let error = send(&failing(), &request, &send_log).expect_err("cancelled");
     assert_eq!(error.code(), "NETWORK_ERROR");
     assert_eq!(*log.0.lock().expect("count"), 1, "a failed call logs once");
 
     let live = JudgeRequest::new(bundle, None);
-    send(&failing(), &live, &shared, session, Operation::Judge).expect_err("failed");
+    send(&failing(), &live, &send_log).expect_err("failed");
     assert_eq!(*log.0.lock().expect("count"), 2, "each call logs once");
 }

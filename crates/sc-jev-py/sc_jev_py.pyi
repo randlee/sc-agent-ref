@@ -20,8 +20,10 @@ class Session:
     """Live judge session returned by `CheckResult.session`."""
 
     @property
-    def session_id(self) -> str: ...
-    def ask(self, follow_up: str) -> dict[str, Any]: ...
+    def session_id(self) -> str:
+        """The session id: a 26-character ULID."""
+    def ask(self, follow_up: str, *, project: str | None = None) -> dict[str, Any]:
+        """Send a follow-up. `project` labels this call's log row only."""
 
 class CheckResult:
     """Result of `run_check`. Immutable."""
@@ -42,7 +44,7 @@ class CheckResult:
     def system_prompt(self) -> str | None: ...
     @property
     def session(self) -> Session | None: ...
-    def ask(self, follow_up: str) -> dict[str, Any]: ...
+    def ask(self, follow_up: str, *, project: str | None = None) -> dict[str, Any]: ...
 
 def build_request(
     check_path: StrPath,
@@ -61,7 +63,10 @@ def run_check(
     session_dir: StrPath | None = None,
     system_prompt_file: StrPath | None = None,
     chain_context: bool = False,
-) -> CheckResult: ...
+    project: str | None = None,
+) -> CheckResult:
+    """Run a check. `project` labels this run's log rows (at most 256 bytes,
+    no control characters; stored as given, not scrubbed)."""
 def canonical_bytes(json_text: str) -> bytes: ...
 def canonical_sha256(json_text: str) -> str: ...
 def default_log_root() -> pathlib.Path: ...

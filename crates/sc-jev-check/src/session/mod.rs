@@ -27,7 +27,7 @@
 //!   system, so a reader sees either the old document or the new one, never
 //!   a torn write.
 //! - Two writers of the same id: the last rename wins. Neither corrupts the
-//!   file. Session ids are random UUIDs and `run` saves each id once, so
+//!   file. Session ids are random ULIDs and `run` saves each id once, so
 //!   this only happens when a caller saves the same `StoredSession` twice.
 //!   On Windows, replacing a file that another writer is replacing at the
 //!   same instant can fail with a sharing error; that save returns
@@ -56,9 +56,10 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use sc_agent_types::observability::v2::{LogEvent, SharedSessionLog};
 use sc_agent_types::{BackendId, JevError, SessionId};
-use sc_decision_schema::{JudgeOutcome, PayloadBundle, QuestionAnswer, QuestionId};
+use sc_decision_schema::{
+    DecisionSchemaId, JudgeOutcome, PayloadBundle, QuestionAnswer, QuestionId,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -89,8 +90,10 @@ const MAX_SESSION_BYTES: u64 = 8 * 1024 * 1024;
 /// Session document version written and accepted by this store.
 ///
 /// Version 1 (Phase A) files are refused: their outcomes carry the removed
-/// `probabilities` field and untyped answers (r-1 D7.6).
-const SESSION_VERSION: u64 = 2;
+/// `probabilities` field and untyped answers (r-1 D7.6). Version 2 files are
+/// refused too: they predate ULID session ids and the `decision_schema` field
+/// (r-6, ADR-SAG-0030); they expire by TTL and are not migrated.
+const SESSION_VERSION: u64 = 3;
 
 /// Session file extension.
 const SESSION_EXT: &str = "json";
@@ -196,6 +199,7 @@ impl FileSessionStore {
             created_at: unix_ms(session.created_at)?,
             payload_utf8: session.payload.as_str().to_owned(),
             prompt_sha256: session.payload.sha256().clone(),
+            decision_schema: DecisionSchemaId::CURRENT,
             system_prompt: session.system_prompt.clone(),
             outcomes: session.outcomes.clone(),
             follow_ups: session.follow_ups.clone(),
@@ -346,10 +350,6 @@ pub(crate) fn check_follow_up(stored: &StoredSession, follow_up: &str) -> Result
     Ok(())
 }
 
-pub(crate) fn emit_log(log: &SharedSessionLog, event: LogEvent) {
-    let _ = log.emit(event);
-}
-
 /// `serde_json` failure without its message, which can quote document values.
 fn json_cause(error: &serde_json::Error) -> String {
     format!(
@@ -398,7 +398,7 @@ fn check_version(path: &Path, value: &Value) -> Result<(), JevError> {
                 path.display(),
                 older.map_or_else(|| "missing".to_owned(), |v| v.to_string())
             ),
-            "re-run the check; Phase A session files cannot be resumed",
+            "re-run the check; session files from before Phase A.1 cannot be resumed",
         )),
     }
 }
@@ -572,6 +572,7 @@ struct SessionDocument {
     created_at: u64,
     payload_utf8: String,
     prompt_sha256: sc_agent_types::Sha256Digest,
+    decision_schema: DecisionSchemaId,
     system_prompt: Option<String>,
     outcomes: Vec<JudgeOutcome>,
     follow_ups: Vec<String>,

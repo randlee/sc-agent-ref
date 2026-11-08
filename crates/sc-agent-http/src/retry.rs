@@ -32,7 +32,7 @@ use std::hash::{BuildHasher, RandomState};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use sc_agent_types::{CancelToken, JevError, NetworkErrorKind, SendTrace};
+use sc_agent_types::{CancelToken, JevError, NetworkErrorKind, SendTrace, Sha256Digest};
 
 use crate::redact::redact;
 use crate::request::{HttpRequest, HttpResponse};
@@ -225,8 +225,11 @@ impl Hooks {
 /// [`redact`](crate::redact()) exactly once, here.
 ///
 /// `trace` is this send's [`SendTrace`]: required, so no backend can send
-/// without one. Nothing records into it yet; the request digest is recorded
-/// here from r-6.
+/// without one. The digest of the exact body ([`HttpRequest::body`]) is
+/// recorded into it once, immediately before the first [`Transport::send`]
+/// (REQ-SAG-0613): retries resend the same bytes, so a send has one value,
+/// and a cancel before the first attempt records nothing. Headers are not
+/// hashed, so no secret is.
 ///
 /// **Cancel latency.** `cancel` is checked before every attempt and between
 /// wait slices of at most 100 ms, so a cancel during a wait returns within
@@ -252,10 +255,7 @@ pub fn send_with_busy_retry(
     cancel: &CancelToken,
     trace: SendTrace,
 ) -> Result<HttpResponse, JevError> {
-    // r-7 only adds the required parameter so no backend can send without
-    // one; r-6 records the request digest into it here.
-    let _ = trace;
-    retry_loop(transport, request, policy, cancel).map_err(|error| redact(error, request))
+    retry_loop(transport, request, policy, cancel, &trace).map_err(|error| redact(error, request))
 }
 
 /// Sends `request` like [`send_with_busy_retry`], then runs `parse` on the
@@ -408,6 +408,7 @@ fn retry_loop(
     request: &HttpRequest,
     policy: &BusyPolicy,
     cancel: &CancelToken,
+    trace: &SendTrace,
 ) -> Result<HttpResponse, JevError> {
     let hooks = &policy.hooks;
     let started = hooks.start();
@@ -415,6 +416,10 @@ fn retry_loop(
     loop {
         if cancel.is_cancelled() {
             return Err(cancelled("before a send"));
+        }
+        if sends == 0 {
+            // One value per send: every retry resends these bytes.
+            trace.record(Sha256Digest::of_text(request.body()));
         }
         sends += 1;
         let response = transport.send(request)?;

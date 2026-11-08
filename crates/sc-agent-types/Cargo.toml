@@ -31,9 +31,9 @@ git = []
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
-sha2.workspace = true
+sc-sha.workspace = true
 thiserror.workspace = true
-uuid.workspace = true
+ulid.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

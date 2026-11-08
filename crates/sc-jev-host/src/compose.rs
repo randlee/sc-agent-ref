@@ -9,6 +9,15 @@
 //! `BackendRegistry::from_env` in `sc-jev-check` unless a registry is
 //! injected with [`ComposeInputs::registry`].
 //!
+//! # Log context
+//!
+//! Every log row carries the main repository root (`repo`) and the caller's
+//! optional `project` (REQ-SAG-0614, REQ-SAG-0615). Compose resolves both
+//! here, once per call ([`ComposeInputs::project`]; `repo` through
+//! `discover_main_repo_root`) and hands them to the engine as a `LogContext`,
+//! so neither consumer builds log context. `repo` changes only the log field:
+//! session and log paths keep using the worktree's own root (ADR-SAG-0021).
+//!
 //! # Warnings
 //!
 //! When the logger reports a flush failure (CR-014), the failure is not an
@@ -25,12 +34,12 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use sc_agent_types::observability::v2::{NoopSessionLog, SharedSessionLog};
-use sc_agent_types::{BackendSet, CancelToken, JevError, RepoRoot, Rev, SessionId};
+use sc_agent_types::{BackendSet, CancelToken, JevError, ProjectLabel, RepoRoot, Rev, SessionId};
 use sc_decision_schema::MultiBackendMode;
 use sc_jev_check::registry::BackendRegistry;
 use sc_jev_check::run::{
-    AskResponse, CheckSource, PreparedRun, RunConfig, RunResponse, ask, discover_repo_root,
-    prepare, run,
+    AskResponse, CheckSource, LogContext, PreparedRun, RunConfig, RunResponse, ask,
+    discover_main_repo_root, discover_repo_root, prepare, run,
 };
 use sc_jev_check::session::FileSessionStore;
 
@@ -73,6 +82,7 @@ pub struct ComposeInputs {
     mode: MultiBackendMode,
     cancel: CancelToken,
     registry: Option<Arc<BackendRegistry>>,
+    project: Option<ProjectLabel>,
 }
 
 impl std::fmt::Debug for ComposeInputs {
@@ -90,6 +100,7 @@ impl std::fmt::Debug for ComposeInputs {
             .field("system_prompt_override", &self.system_prompt_override)
             .field("mode", &self.mode)
             .field("registry", &self.registry.is_some())
+            .field("project", &self.project)
             .finish_non_exhaustive()
     }
 }
@@ -125,6 +136,7 @@ impl ComposeInputs {
             mode: MultiBackendMode::Independent,
             cancel: CancelToken::new(),
             registry: None,
+            project: None,
         }
     }
 
@@ -203,6 +215,17 @@ impl ComposeInputs {
         self
     }
 
+    /// Labels this call's log rows with `project` (`--project`, `project=`).
+    ///
+    /// Per call: two sends of one session may differ. The text is the
+    /// caller's, stored as given and not scrubbed (ADR-SAG-0031). Unset, the
+    /// row's `project` is `null`.
+    #[must_use]
+    pub fn project(mut self, project: ProjectLabel) -> Self {
+        self.project = Some(project);
+        self
+    }
+
     /// Resolves the repo root and the log and session paths.
     ///
     /// The repo root is the explicit one ([`Self::repo_root`]), else
@@ -229,8 +252,26 @@ impl ComposeInputs {
         })
     }
 
+    /// The `repo` and `project` of this call's log rows. `repo` is the main
+    /// repository of the explicit repo root, else of the working directory; a
+    /// discovery failure falls back to the resolved root, because the log is
+    /// best effort.
+    fn log_context(&self, resolved: &ResolvedPaths) -> LogContext {
+        if self.dry_run {
+            // A dry run logs nothing, so it does not run git for `repo`.
+            return LogContext::new(resolved.repo_root.clone(), self.project.clone());
+        }
+        let start = match &self.repo_root {
+            Some(root) => root.as_path(),
+            None => self.cwd.as_path(),
+        };
+        let repo = discover_main_repo_root(start).unwrap_or_else(|_| resolved.repo_root.clone());
+        LogContext::new(repo, self.project.clone())
+    }
+
     fn run_config(&self, resolved: &ResolvedPaths, log: SharedSessionLog) -> RunConfig {
         let mut config = RunConfig::new(resolved.repo_root.clone(), log)
+            .log_context(self.log_context(resolved))
             .dry_run(self.dry_run)
             .sessions_dir(resolved.sessions_dir.clone())
             .mode(self.mode)
@@ -415,5 +456,6 @@ mod tests {
         assert!(!inputs.dry_run);
         assert!(inputs.registry.is_none());
         assert!(inputs.backends.is_none());
+        assert!(inputs.project.is_none());
     }
 }

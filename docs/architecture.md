@@ -115,15 +115,15 @@ cell and its own marker text to `(Active, r-N)`; it adds or removes no entry.
 | ADR-SAG-0005 | Facade owns payload assembly | Active | Amended by ADR-SAG-0024 (Active, r-2); A.1 subsections (Active, r-4), (Proposed, r-5); ADR-SAG-0030 (Active, r-7) |
 | ADR-SAG-0006 | Transport injection | Active | Amended by ADR-SAG-0026 (Active, r-3) |
 | ADR-SAG-0007 | API-direct LLM backends | Active | Amended by ADR-SAG-0026 (Active, r-3) |
-| ADR-SAG-0008 | Sessions carry prior answers to later backends | Active | A.1 subsection (Active, r-1); amended by ADR-SAG-0025 (Active, r-2b); ADR-SAG-0031 (Proposed, r-6) |
+| ADR-SAG-0008 | Sessions carry prior answers to later backends | Active | A.1 subsection (Active, r-1); amended by ADR-SAG-0025 (Active, r-2b); ADR-SAG-0031 (Active, r-6) |
 | ADR-SAG-0009 | Local backend registers without caller changes | Active | Amended by ADR-SAG-0022; ADR-SAG-0027 (Active, r-1); ADR-SAG-0024 (Active, r-2); ADR-SAG-0030 (Active, r-7) |
 | ADR-SAG-0010 | CLI thin adapter | Active | Amended by ADR-SAG-0026 (Active, r-3b) |
 | ADR-SAG-0011 | Python via sc-jev-py wheel | Active | Amended by ADR-SAG-0026 (Active, r-3b) |
 | ADR-SAG-0012 | sc-jev owns Jev API | Active | Amended by ADR-SAG-0030 (Proposed, r-5) |
-| ADR-SAG-0013 | Session JSONL via sc-observability v2 | Active | Amended by ADR-SAG-0021; ADR-SAG-0026 (Active, r-3b); ADR-SAG-0031 (Proposed, r-6) |
+| ADR-SAG-0013 | Session JSONL via sc-observability v2 | Active | Amended by ADR-SAG-0021; ADR-SAG-0026 (Active, r-3b); ADR-SAG-0031 (Active, r-6) |
 | ADR-SAG-0014 | CLI success body | Active | A.1 subsection (Active, r-1); amended by ADR-SAG-0024 (Active, r-2) |
 | ADR-SAG-0015 | Subjects artifact outside the judge | Active | — |
-| ADR-SAG-0016 | v2 shim in sc-agent-types; adapter in sc-jev-host | Active | Amended by ADR-SAG-0023 (Active, r-4); ADR-SAG-0027 (Active, r-1); ADR-SAG-0026 (Active, r-3b); ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Proposed, r-6) |
+| ADR-SAG-0016 | v2 shim in sc-agent-types; adapter in sc-jev-host | Active | Amended by ADR-SAG-0023 (Active, r-4); ADR-SAG-0027 (Active, r-1); ADR-SAG-0026 (Active, r-3b); ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6) |
 | ADR-SAG-0017 | First release surfaces | Active | Amended by ADR-SAG-0023 (Active, r-4); ADR-SAG-0026 (Active, r-3), (Active, r-3b); ADR-SAG-0030 (Active, r-7) |
 | ADR-SAG-0018 | sc-publish kit owns release surface | Active | — |
 | ADR-SAG-0019 | LLM wire envelope vs canonical payload | Active | A.1 subsection (Active, r-1); amended by ADR-SAG-0024 (Active, r-2); ADR-SAG-0025 (Active, r-2b); ADR-SAG-0030 (Active, r-7) |
@@ -133,12 +133,12 @@ cell and its own marker text to `(Active, r-N)`; it adds or removes no entry.
 | ADR-SAG-0023 | Dependency pins, allocator, released binaries | Active (r-4; host pin r-3b) | Amends ADR-SAG-0016, ADR-SAG-0017 |
 | ADR-SAG-0024 | Engine entry point and response contract | Active (r-2) | Amends ADR-SAG-0003, ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0014, ADR-SAG-0019, ADR-SAG-0022; supersedes the ADR-SAG-0014 A.1 r-1 interim subsection |
 | ADR-SAG-0025 | Multi-backend semantics and equal-input attestation | Active | Amends ADR-SAG-0004, ADR-SAG-0008, ADR-SAG-0019, ADR-SAG-0022 |
-| ADR-SAG-0026 | Shared HTTP crate and host crate | Active (HTTP half, r-3; host half, r-3b) | Amends ADR-SAG-0006, ADR-SAG-0007, ADR-SAG-0020, ADR-SAG-0017 (HTTP half); ADR-SAG-0010, ADR-SAG-0011, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0017 (host half); amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Proposed, r-6) |
-| ADR-SAG-0027 | Error taxonomy and extensibility | Active (r-1) | Amends ADR-SAG-0001, ADR-SAG-0009, ADR-SAG-0016; amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Proposed, r-6) |
+| ADR-SAG-0026 | Shared HTTP crate and host crate | Active (HTTP half, r-3; host half, r-3b) | Amends ADR-SAG-0006, ADR-SAG-0007, ADR-SAG-0020, ADR-SAG-0017 (HTTP half); ADR-SAG-0010, ADR-SAG-0011, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0017 (host half); amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6) |
+| ADR-SAG-0027 | Error taxonomy and extensibility | Active (r-1) | Amends ADR-SAG-0001, ADR-SAG-0009, ADR-SAG-0016; amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6) |
 | ADR-SAG-0028 | workspace-tests crate | Active (r-3b) | Amended by ADR-SAG-0030 (Active, r-7) |
 | ADR-SAG-0029 | Phase A hardening amendments | Active (a-10) | Amends ADR-SAG-0020 and ADR-SAG-0022; A.1 supersedes named sentences of (a) (Active, r-1), (Active, r-3) and of (b) (Active, r-1), (Active, r-2) |
 | ADR-SAG-0030 | Decision schema crate and model catalog | Active (r-7); jev::v1 Proposed (r-5) | Amends ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0012, ADR-SAG-0016, ADR-SAG-0017, ADR-SAG-0019, ADR-SAG-0022, ADR-SAG-0026, ADR-SAG-0027, ADR-SAG-0028 |
-| ADR-SAG-0031 | Session log storage schema | Active (storage schema, r-7); wiring Proposed (r-6) | Amends ADR-SAG-0008, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0026, ADR-SAG-0027 (wiring) |
+| ADR-SAG-0031 | Session log storage schema | Active (r-7 storage schema, r-6 wiring) | Amends ADR-SAG-0008, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0026, ADR-SAG-0027 (wiring) |
 
 ## ADR-SAG-0001 — Error enum is CLI authority
 
@@ -253,13 +253,13 @@ r-2b); bullet 2 (session document v2) stays in force.
 
 ### Amendment (Phase A.1, r-6)
 
-**Status:** Proposed (Phase A.1) — lands in r-6.
+**Status:** Active (Phase A.1, r-6).
 
-- (Proposed, r-6) The sentence "Session files are UUID paths" is
+- (Active, r-6) The sentence "Session files are UUID paths" is
   superseded: session ids, session file names, the CLI `--session-id` value
   and Python session ids are **ULIDs** (ADR-SAG-0031); a UUID id is
   `INPUT_INVALID`. Mode `0600` is unchanged.
-- (Proposed, r-6) The r-1 interim sentence "Session files are document
+- (Active, r-6) The r-1 interim sentence "Session files are document
   version 2" is superseded: the session document is **version 3** (adds
   `decision_schema`, ADR-SAG-0030). Version 2 and older load as
   `SessionDocumentInvalid` (`INPUT_INVALID`) with "re-run the check"
@@ -855,9 +855,9 @@ composition roots is ADR-SAG-0021.
 
 ### Amendment (Phase A.1, r-6)
 
-**Status:** Proposed (Phase A.1) — lands in r-6.
+**Status:** Active (Phase A.1, r-6).
 
-- (Proposed, r-6) Each send's log line carries one ADR-SAG-0031 row as the
+- (Active, r-6) Each send's log line carries one ADR-SAG-0031 row as the
   v2 envelope's `fields{}` object; "No bespoke JSONL writers" stands. The
   row's outcome key is `send_outcome`; the envelope's own `outcome` stays
   unset. "Secrets never appear in log lines" stands; the row's one path is
@@ -948,9 +948,9 @@ the module** and drop the types dependency if possible (bead:
 
 ### Amendment (Phase A.1, r-6)
 
-**Status:** Proposed (Phase A.1) — lands in r-6.
+**Status:** Active (Phase A.1, r-6).
 
-- (Proposed, r-6) `observability::v2::LogEvent` carries one row as a JSON
+- (Active, r-6) `observability::v2::LogEvent` carries one row as a JSON
   object: `LogEvent::new(session_id, operation, fields)` with `fields()`; the
   `backend()` / `prompt_sha256()` accessors are removed (the values are in
   `fields`). The port does not name the row type (ADR-SAG-0031 "Wiring").
@@ -1389,17 +1389,17 @@ HTTP half amends ADR-SAG-0006, 0007,
   the cloneable `JudgeRequest`; `sc-jev` and `sc-jev-backends` pass
   `trace.clone()` on. `HttpRequest`'s body is text (`Arc<str>`); the
   `Transport` trait (ADR-SAG-0006) is otherwise unchanged. Recording into
-  the trace is r-6.
+  the trace landed in r-6 (see the r-6 amendment below).
 
 ### Amendment (Phase A.1, r-6)
 
-**Status:** Proposed (Phase A.1) — lands in r-6.
+**Status:** Active (Phase A.1, r-6).
 
-- (Proposed, r-6) HTTP half: `send_with_busy_retry` records the SHA-256 of
+- (Active, r-6) HTTP half: `send_with_busy_retry` records the SHA-256 of
   the request body in the request's `SendTrace` immediately before the first
   send (ADR-SAG-0031). Hashing the bytes it carries is not Jev semantics, so
   ADR-SAG-0012 still holds; headers are not hashed.
-- (Proposed, r-6) Host half: `ComposeInputs::project` and the resolved
+- (Active, r-6) Host half: `ComposeInputs::project` and the resolved
   `repo` (`sc_jev_check::discover_main_repo_root`) reach the engine as log
   context. `PathPolicy` and ADR-SAG-0021 are unchanged.
 
@@ -1523,9 +1523,9 @@ HTTP half amends ADR-SAG-0006, 0007,
 
 ### Amendment (Phase A.1, r-6)
 
-**Status:** Proposed (Phase A.1) — lands in r-6.
+**Status:** Active (Phase A.1, r-6).
 
-- (Proposed, r-6) Core dependencies change from `uuid` and `sha2` to `ulid`
+- (Active, r-6) Core dependencies change from `uuid` and `sha2` to `ulid`
   and `sc-sha` (caret, ADR-SAG-0023). `observability::v2::LogEvent`'s
   constructor and accessors change (ADR-SAG-0016 r-6 amendment), a
   stable-surface change made before any publish (ADR-SAG-0031).
@@ -1672,10 +1672,9 @@ Owner decisions 2026-11-07.
 
 ## ADR-SAG-0031 — Session log storage schema
 
-**Status:** Active (storage schema, r-7); wiring Proposed (r-6). r-6 sets
-this line to "Active". The wiring subsection amends ADR-SAG-0008,
-ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0026 and ADR-SAG-0027 (an r-6
-subsection in each). Owner decisions 2026-11-07.
+**Status:** Active (r-7 storage schema, r-6 wiring). The wiring subsection
+amends ADR-SAG-0008, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0026 and
+ADR-SAG-0027 (an r-6 subsection in each). Owner decisions 2026-11-07.
 
 ### Storage schema
 
@@ -1717,16 +1716,16 @@ subsection in each). Owner decisions 2026-11-07.
 
 ### Wiring
 
-**Status:** Proposed (Phase A.1) — lands in r-6.
+**Status:** Active (Phase A.1, r-6).
 
-- (Proposed, r-6) Every `judge` and `ask` send, `Ok` or `Failed`, emits
+- (Active, r-6) Every `judge` and `ask` send, `Ok` or `Failed`, emits
   exactly one row; a backend refused before send (`NotSent`) emits none; a
   session-save failure emits none of its own. The row goes through
   `SharedSessionLog` as `LogEvent` fields and the `sc-jev-host` v2
   adapter writes it as `fields{}` verbatim (no bespoke writer).
-- (Proposed, r-6) Session ids are ULIDs (`ulid`, core dependency of
+- (Active, r-6) Session ids are ULIDs (`ulid`, core dependency of
   `sc-agent-types`); the session document is version 3 (ADR-SAG-0008 r-6).
-- (Proposed, r-6) `request_sha256` is the SHA-256 of exactly the bytes
+- (Active, r-6) `request_sha256` is the SHA-256 of exactly the bytes
   sent, the future response-cache key. `sc-agent-http` records it at the
   send site (`send_with_busy_retry`, used by every backend) into the
   per-send `SendTrace` the engine passes to `judge` and the backend passes
@@ -1734,9 +1733,9 @@ subsection in each). Owner decisions 2026-11-07.
   r-7); one value per send, retries included; NULL when no body was
   built. `prompt_sha256` stays the canonical-payload digest
   (ADR-SAG-0002/0025).
-- (Proposed, r-6) The row's `model_id` is `JudgeBackend::model_id()`
+- (Active, r-6) The row's `model_id` is `JudgeBackend::model_id()`
   (ADR-SAG-0009 r-7 amendment), never NULL.
-- (Proposed, r-6) `repo` is `sc_jev_check::discover_main_repo_root`: a
+- (Active, r-6) `repo` is `sc_jev_check::discover_main_repo_root`: a
   linked worktree resolves to its main repository; a separate or bare git
   dir falls back to the current toplevel; outside git it is the calling
   folder, absolutized. It uses `sc_agent_types::git::discover_common_dir`,
@@ -1745,13 +1744,13 @@ subsection in each). Owner decisions 2026-11-07.
   ADR-SAG-0021 paths are unchanged: sessions and logs stay under the
   worktree's own root. `project` is `ProjectLabel` (≤ 256 bytes, no control
   characters), from `sc-ai --project` or Python `project=`.
-- (Proposed, r-6) SHA-256 is computed with `sc-sha`
+- (Active, r-6) SHA-256 is computed with `sc-sha`
   (`calculate_hash(HashInput::TextFileBytes { .. })`, strict UTF-8, CRLF and
   bare CR normalized to LF). Request bodies and canonical payloads are
   compact JSON with no raw CR, so their digest equals SHA-256 of the bytes
   sent; other text (a tree-sitter query source) hashes in its LF-normalized
   form; no
   workspace manifest lists `sha2` or `uuid`.
-- (Proposed, r-6) Log-write failure policy: a rejected or failed log row
+- (Active, r-6) Log-write failure policy: a rejected or failed log row
   never fails the run; `SessionLog::emit` is best effort and a flush failure
   is a `data.warnings` entry (plan.md owner decisions 2026-11-07, item 9).

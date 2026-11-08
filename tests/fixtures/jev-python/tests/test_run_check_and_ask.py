@@ -5,6 +5,7 @@ from __future__ import annotations
 import inspect
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -171,6 +172,101 @@ def test_run_check_and_ask_append_jsonl_without_secrets(
     session_asked = result.session.ask("one more")
     assert session_asked["backend"] == "anthropic_haiku"
     assert len(_lines(log_dir)) == 3
+
+
+_ULID = re.compile(r"^[0-7][0-9A-HJKMNP-TV-Z]{25}$")
+
+
+def _rows(log_dir: Path) -> list[dict]:
+    """The session-log row (`fields`) of every written line."""
+    return [json.loads(line)["fields"] for line in _lines(log_dir)]
+
+
+def test_uuid_session_id_is_input_invalid(tmp_path: Path) -> None:
+    """Session ids are ULIDs (REQ-SAG-0612, REQ-SAG-0701).
+
+    Python never takes a session id as input: `Session.ask` carries the id the
+    run returned. So the UUID refusal shows up as the ids Python is given: a
+    26-character ULID, never a UUID, named by the session file, and a session
+    file named by a UUID is not a session.
+    """
+    repo = _repo(tmp_path, "Does it apply?")
+    log_dir = tmp_path / "log"
+    sessions = tmp_path / "sessions"
+    result = run_check_scripted(
+        "check.toml",
+        scripted_answers={"relevant": "yes"},
+        backends=["anthropic_haiku"],
+        repo_root=repo,
+        log_dir=log_dir,
+        session_dir=sessions,
+    )
+    session_id = result.session.session_id
+    assert _ULID.match(session_id), session_id
+    assert result.session_id == session_id
+    assert "-" not in session_id
+    assert (sessions / f"{session_id}.json").is_file()
+    assert [p.name for p in sessions.iterdir()] == [f"{session_id}.json"]
+    # The log rows name the same ULID session.
+    assert {row["session_id"] for row in _rows(log_dir)} == {session_id}
+    # A UUID-named file (a Phase A session) is not found by any ULID id.
+    (sessions / "3f2b8a9e-6c1d-4e7a-9b25-0d4c1a7e5f10.json").write_text("{}", encoding="utf-8")
+    assert result.session.ask("still works")["backend"] == "anthropic_haiku"
+
+
+def test_project_kwarg_reaches_log(tmp_path: Path) -> None:
+    repo = _repo(tmp_path, "Does it apply?")
+    log_dir = tmp_path / "log"
+    result = run_check_scripted(
+        "check.toml",
+        scripted_answers={"relevant": "yes"},
+        backends=["anthropic_haiku"],
+        repo_root=repo,
+        log_dir=log_dir,
+        session_dir=tmp_path / "sessions",
+        project="billing-service",
+    )
+    result.session.ask("why?", project="follow-up")
+    result.ask("again?")
+    rows = _rows(log_dir)
+    assert [row["operation"] for row in rows] == ["judge", "ask", "ask"]
+    # Per call: the run's project does not carry into later asks.
+    assert [row["project"] for row in rows] == ["billing-service", "follow-up", None]
+    for row in rows:
+        assert row["session_id"] == result.session_id
+        assert row["send_outcome"] == "ok"
+        assert row["model_id"]
+        assert row["prompt_sha256"] == result.prompt_sha256
+    assert "project" in inspect.signature(sc_jev_py.run_check).parameters
+
+
+def test_project_kwarg_control_char_is_input_invalid(tmp_path: Path) -> None:
+    repo = _repo(tmp_path, "Does it apply?")
+    log_dir = tmp_path / "log"
+    for bad in ("line\nbreak", "p" * 257):
+        with pytest.raises(sc_jev_py.JevError) as caught:
+            run_check_scripted(
+                "check.toml",
+                scripted_answers={"relevant": "yes"},
+                backends=["anthropic_haiku"],
+                repo_root=repo,
+                log_dir=log_dir,
+                session_dir=tmp_path / "sessions",
+                project=bad,
+            )
+        assert caught.value.code == "INPUT_INVALID"
+    assert _lines(log_dir) == []
+    result = run_check_scripted(
+        "check.toml",
+        scripted_answers={"relevant": "yes"},
+        backends=["anthropic_haiku"],
+        repo_root=repo,
+        log_dir=log_dir,
+        session_dir=tmp_path / "sessions",
+    )
+    with pytest.raises(sc_jev_py.JevError) as caught:
+        result.session.ask("why?", project="bad\x07bell")
+    assert caught.value.code == "INPUT_INVALID"
 
 
 def test_jev_ask_and_missing_check_map_error_codes(

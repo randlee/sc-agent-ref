@@ -650,6 +650,133 @@ fn cli_logger_adapter_records_session_without_secrets() {
     );
 }
 
+/// A UUID session id is one `INPUT_INVALID` line (exit 2) whose fix hint says
+/// session ids are ULIDs (REQ-SAG-0612, REQ-SAG-0701).
+#[test]
+fn test_cli_uuid_session_id_is_input_invalid() {
+    let repo = temp_dir("uuid-id");
+    write_repo(repo.path());
+    let output = run_cli(&[
+        "jev",
+        "ask",
+        "--repo-root",
+        text(repo.path()),
+        "--session-id",
+        "3f2b8a9e-6c1d-4e7a-9b25-0d4c1a7e5f10",
+        "--text",
+        "why?",
+    ]);
+    let error = stderr_json(&output);
+    assert_eq!(error["error"], "INPUT_INVALID");
+    let message = error["message"].as_str().expect("message");
+    assert!(message.contains("ULID"), "{message}");
+    assert!(message.contains("sc-ai jev run"), "{message}");
+}
+
+/// `--project` reaches the log row of a run and, per call, of an `ask`
+/// (REQ-SAG-0615). The log row also carries the ULID session id and a model.
+#[test]
+fn test_cli_project_flag_reaches_log() {
+    let repo = temp_dir("project");
+    write_repo(repo.path());
+    let sessions = temp_dir("project-sessions");
+    let logs = temp_dir("project-logs");
+    let answers = scripted(repo.path(), &shared("yes"));
+    let common = |extra: &[&str]| {
+        let mut args = vec!["jev"];
+        args.extend_from_slice(extra);
+        args.extend_from_slice(&[
+            "--repo-root",
+            text(repo.path()),
+            "--sessions-dir",
+            text(sessions.path()),
+            "--log-dir",
+            text(logs.path()),
+            "--scripted-answers",
+            text(&answers),
+        ]);
+        run_cli(&args)
+    };
+    let run = stdout_json(&common(&[
+        "run",
+        "--backend",
+        "anthropic_haiku",
+        "--project",
+        "billing-service",
+    ]));
+    let session_id = run["data"]["session_id"]
+        .as_str()
+        .expect("session")
+        .to_owned();
+    assert_eq!(session_id.len(), 26, "{session_id}");
+    stdout_json(&common(&[
+        "ask",
+        "--session-id",
+        &session_id,
+        "--text",
+        "why?",
+        "--project",
+        "-follow-up",
+    ]));
+    stdout_json(&common(&[
+        "ask",
+        "--session-id",
+        &session_id,
+        "--text",
+        "again?",
+    ]));
+
+    let log =
+        std::fs::read_to_string(logs.path().join("logs").join("sc-ai.log.jsonl")).expect("log");
+    let rows: Vec<Value> = log
+        .lines()
+        .filter(|line| !line.is_empty())
+        .map(|line| serde_json::from_str::<Value>(line).expect("line")["fields"].clone())
+        .collect();
+    assert_eq!(rows.len(), 3, "{log}");
+    assert_eq!(rows[0]["project"], "billing-service");
+    assert_eq!(rows[1]["project"], "-follow-up");
+    assert!(rows[2]["project"].is_null(), "project is per call");
+    for row in &rows {
+        assert_eq!(row["session_id"], session_id.as_str());
+        assert_eq!(row["send_outcome"], "ok");
+        assert!(row["model_id"].is_string());
+        assert!(row["request_sha256"].is_string());
+    }
+    assert_eq!(rows[0]["operation"], "judge");
+    assert_eq!(rows[1]["operation"], "ask");
+}
+
+/// A label over 256 bytes, or with a control character, is `INPUT_INVALID`
+/// before anything runs.
+#[test]
+fn test_cli_project_over_limit_is_input_invalid() {
+    let repo = temp_dir("project-bad");
+    write_repo(repo.path());
+    let long = "p".repeat(257);
+    for bad in [long.as_str(), "line\nbreak"] {
+        let output = run_cli(&[
+            "jev",
+            "dry-run",
+            "--repo-root",
+            text(repo.path()),
+            "--project",
+            bad,
+        ]);
+        assert_eq!(stderr_json(&output)["error"], "INPUT_INVALID", "{bad:?}");
+    }
+    let exact = "p".repeat(256);
+    let output = run_cli(&[
+        "jev",
+        "dry-run",
+        "--repo-root",
+        text(repo.path()),
+        "--project",
+        &exact,
+    ]);
+    stdout_json(&output);
+}
+
 #[test]
 fn cli_invalid_request_json_is_input_invalid() {
     let output = spawn_with_deadline(
@@ -875,7 +1002,7 @@ fn cli_dry_run_writes_nothing_and_ask_uses_default_log_root() {
     );
     assert!(!sessions.exists(), "dry-run made a sessions dir");
 
-    let absent = "00000000-0000-4000-8000-000000000000";
+    let absent = "01JC4Z7A5B0000000000000009";
     let ask = |log_root: Option<&Path>| {
         let mut command = cli(&[
             "jev",

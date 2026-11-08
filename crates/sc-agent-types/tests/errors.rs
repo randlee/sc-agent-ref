@@ -28,7 +28,7 @@ fn crate_fixture(name: &str) -> PathBuf {
 
 /// One value per variant (and per `Operational` area), keyed by a stable name.
 fn every_variant() -> Vec<(&'static str, JevError)> {
-    let session = SessionId::from_uuid(uuid_nil());
+    let session = session_nil();
     let json_error = serde_json::from_str::<serde_json::Value>("{").expect_err("eof");
     vec![
         ("ConfigInvalid", JevError::config_invalid("missing model")),
@@ -122,8 +122,8 @@ fn every_variant() -> Vec<(&'static str, JevError)> {
     ]
 }
 
-fn uuid_nil() -> uuid::Uuid {
-    uuid::Uuid::nil()
+fn session_nil() -> SessionId {
+    "00000000000000000000000000".parse().expect("nil ULID")
 }
 
 #[test]

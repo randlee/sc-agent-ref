@@ -39,7 +39,7 @@ use sc_jev_check::run::{
     RunResponse, discover_repo_root, prepare, run,
 };
 
-const SESSION_ID: &str = "3f2b8c1e-5d4a-4e6f-9a7b-0c1d2e3f4a5b";
+const SESSION_ID: &str = "01JC4Z7A5B0000000000000004";
 
 /// The a-10 Jev response body pinned by `crates/sc-jev/tests/jev_api.rs`
 /// (`ok("jev-test")`): answers carry `confidence` and `probabilities`.

@@ -1,9 +1,10 @@
 //! Session store: document versioning (r-1 D7.6, REQ-SAG-0600) and the
 //! stateless store with its no-lock concurrency model (REQ-SAG-0607, D4).
 //!
-//! Version 2 is the only accepted session document. A Phase A (version 1)
-//! file and a file written by a newer sc-agent both load as
-//! `SessionDocumentInvalid` (`INPUT_INVALID`) with their own recovery text.
+//! Version 3 is the only accepted session document. A Phase A (version 1)
+//! file, a Phase A.1 version 2 file and a file written by a newer sc-agent
+//! all load as `SessionDocumentInvalid` (`INPUT_INVALID`) with their own
+//! recovery text.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -21,13 +22,20 @@ use sc_jev_check::run::{CheckSource, RunConfig, ask, prepare, run};
 use sc_jev_check::session::{FileSessionStore, StoredSession};
 use tempfile::TempDir;
 
-const V1_SESSION_ID: &str = "0b7c9d1e-2f3a-4b5c-8d6e-7f8091a2b3c4";
+/// The id the old-version fixtures are stored under (a ULID since r-6; the
+/// committed v1 file still names the UUID it was written with).
+const OLD_SESSION_ID: &str = "01JC4Z7A5B0000000000000001";
 
+/// The committed Phase A document, re-keyed to a ULID so the store can find
+/// it by id; only the `version` decides the outcome.
 fn fixture() -> String {
-    std::fs::read_to_string(
+    let text = std::fs::read_to_string(
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/session-v1.json"),
     )
-    .expect("session-v1.json")
+    .expect("session-v1.json");
+    let mut document: serde_json::Value = serde_json::from_str(&text).expect("json");
+    document["session_id"] = serde_json::json!(OLD_SESSION_ID);
+    document.to_string()
 }
 
 /// A store whose clock sits just after the fixture's `created_at`, so the
@@ -44,7 +52,7 @@ fn store(dir: &tempfile::TempDir) -> FileSessionStore {
 fn load(text: &str) -> JevError {
     let dir = tempfile::tempdir().expect("temp");
     let store = store(&dir);
-    let id: SessionId = serde_json::from_value(serde_json::json!(V1_SESSION_ID)).expect("id");
+    let id: SessionId = serde_json::from_value(serde_json::json!(OLD_SESSION_ID)).expect("id");
     std::fs::write(store.path(&id), text).expect("write session");
     store.load(&id).expect_err("refused")
 }
@@ -59,10 +67,10 @@ fn test_phase_a_session_is_invalid() {
     assert_eq!(error.code(), "INPUT_INVALID");
     let hint = error.fix_hint();
     assert!(
-        hint.contains("re-run the check; Phase A session files cannot be resumed"),
+        hint.contains("re-run the check; session files from before Phase A.1 cannot be resumed"),
         "{hint}"
     );
-    assert!(hint.contains(V1_SESSION_ID), "hint names the file: {hint}");
+    assert!(hint.contains(OLD_SESSION_ID), "hint names the file: {hint}");
 
     let mut unversioned: serde_json::Value = serde_json::from_str(&fixture()).expect("json");
     unversioned
@@ -73,15 +81,33 @@ fn test_phase_a_session_is_invalid() {
     assert!(
         error
             .fix_hint()
-            .contains("Phase A session files cannot be resumed"),
+            .contains("session files from before Phase A.1 cannot be resumed"),
         "{error:?}"
     );
+}
+
+/// A version 2 document (UUID-era, no `decision_schema`) is refused with the
+/// "re-run the check" recovery (REQ-SAG-0612).
+#[test]
+fn test_v2_session_document_is_invalid() {
+    let mut v2: serde_json::Value = serde_json::from_str(&fixture()).expect("json");
+    v2["version"] = serde_json::json!(2);
+    let error = load(&v2.to_string());
+    assert!(
+        matches!(error, JevError::SessionDocumentInvalid { .. }),
+        "{error:?}"
+    );
+    assert_eq!(error.code(), "INPUT_INVALID");
+    let hint = error.fix_hint();
+    assert!(hint.contains("is version 2"), "{hint}");
+    assert!(hint.contains("re-run the check"), "{hint}");
+    assert!(hint.contains(OLD_SESSION_ID), "hint names the file: {hint}");
 }
 
 #[test]
 fn test_newer_session_version_is_invalid() {
     let mut newer: serde_json::Value = serde_json::from_str(&fixture()).expect("json");
-    newer["version"] = serde_json::json!(3);
+    newer["version"] = serde_json::json!(4);
     let error = load(&newer.to_string());
     assert!(
         matches!(error, JevError::SessionDocumentInvalid { .. }),

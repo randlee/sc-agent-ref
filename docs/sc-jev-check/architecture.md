@@ -16,8 +16,8 @@ TypeSafe HTTP itself — delegates to `JudgeBackend` impls in `sc-jev` and
 | `config` | `check.toml` (`RepoRelativePath` paths, optional top-level `backends`, optional `[models]` table of `alias = model string` over the catalog aliases `jev`, `haiku`, `luna`; an unknown alias or invalid model string is `CONFIG_INVALID` before any send; `RunConfig::models` wins), `[llm_judge]` path, packaged prompt |
 | `extract` | `file`, `table-column`, `subjects`, `command` — matched directly by `extract_input` (no extractor trait); see [`extraction.md`](extraction.md); **no** tree-sitter deps |
 | `payload` | `build_payload`: one canonical `PayloadBundle` per check; caller request documents. No byte cap (each backend owns its cap, REQ-SAG-0314) |
-| `run` | `prepare` → `run`, `discover_repo_root`, `RunConfig`, `RunResponse` + `Envelope` (ADR-SAG-0024) |
-| `session` | Stateless `FileSessionStore`: `save`, `load`, `ask(&registry, &log)`; no-lock concurrency model (REQ-SAG-0607) |
+| `run` | `prepare` → `run`, `discover_repo_root`, `discover_main_repo_root`, `RunConfig` (with `log_context(LogContext)`), `RunResponse` + `Envelope` (ADR-SAG-0024); the one send step writes the session-log row (below) |
+| `session` | Stateless `FileSessionStore`: `save`, `load`, `ask(&registry, &log)`; ULID file names, session document version 3 (`decision_schema`); no-lock concurrency model (REQ-SAG-0607) |
 | `equal_input` | Equal-input record helpers; `equal` comes from backend-reported digests (REQ-SAG-0606, ADR-SAG-0025) |
 | `registry` | `BackendRegistry::{from_env, from_resolver, register}` plus `*_with_models` variants taking `&ModelAliases`; private `FACTORIES` table of `fn(ResolvedApiKey, &ModelAliases)` (ADR-SAG-0009). Feature `test-util` adds `register_scripted_backends` and `RunResponse::test_builder` for tests only (ADR-SAG-0022). |
 
@@ -39,6 +39,26 @@ run(PreparedRun) -> RunResponse
                (a save failure is a warning, answers kept)
 ```
 
+## Session-log rows (REQ-SAG-0610, REQ-SAG-0617, ADR-SAG-0031)
+
+The engine's one send step (`run/log.rs`) creates a fresh `SendTrace` per
+backend send, calls `judge(req, &trace)`, then emits exactly one `LogEvent`
+whose `fields` is one `SessionLogRow`: `ok` with the typed answers or `failed`
+with the `ErrorCode`. `request_sha256` is the trace's value (`null` when the
+send failed before a body was built), `model_id` is `JudgeBackend::model_id()`,
+`answer_id` is a fresh ULID and `session_created_at` is the session's creation
+instant (the saved document's `created_at`; for `ask`, the stored one). A
+backend refused before send (`NotSent`) and a session-save failure write no
+row. A rejected row never fails the run (best effort). `repo` and `project`
+come from `RunConfig::log_context(LogContext)`; unset, `repo` is
+`discover_main_repo_root` of the config's repo root (a linked worktree
+resolves to its main repository; `.git` common dir parent, else the toplevel,
+else the folder) and `project` is `null`. `repo` changes only the log field:
+session and log paths keep using the worktree's own root (ADR-SAG-0021). A
+non-UTF-8 byte in `repo` is replaced (`to_string_lossy`). The scripted
+registry records the digest of `{"scripted":"<backend id>"}` as its sent body
+(ADR-SAG-0022).
+
 `sc-ai` and `sc-jev-py` depend on **`sc-jev-check`**, not on `sc-jev`
 directly, and print `Envelope::run(&response)` unchanged. `prepare` is the
 public payload assembly entry (ADR-SAG-0005); callers do not build payloads.
@@ -47,7 +67,7 @@ toplevel, ADR-SAG-0003).
 
 ## Test seams
 
-Integration target `run_response` needs this crate's `test-util` feature and
+Integration targets `run_response`, `session_log`, `session` and `sessions_exact` need this crate's `test-util` feature and
 declares `[[test]] required-features = ["test-util"]`; its validation lines
 pass `--features test-util`. There is no self dev-dependency
 (`boundaries/README.md`, D0 outcome 4).

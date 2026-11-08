@@ -1,10 +1,12 @@
-//! REQ-SAG-0610 (emission) and REQ-SAG-0611 (fields) for the session-log
-//! adapter, moved from the `sc-ai` and `sc-jev-py` roots.
+//! REQ-SAG-0610 (emission), REQ-SAG-0611 (fields) and REQ-SAG-0617 (the
+//! line's `fields{}` is one session-log row) for the session-log adapter,
+//! moved from the `sc-ai` and `sc-jev-py` roots.
 
 use std::path::PathBuf;
 
 use sc_agent_types::observability::v2::{LogEvent as SessionEvent, SessionLog};
-use sc_agent_types::{BackendId, Operation, SessionId, Sha256Digest};
+use sc_agent_types::{Operation, SessionId};
+use sc_decision_schema::session_log::{SendOutcome, SessionLogRow};
 use sc_jev_host::obs::ObservabilityAdapter;
 use sc_jev_host::paths::{DefaultRoot, PathPolicy, SessionDefault};
 use tempfile::TempDir;
@@ -22,23 +24,31 @@ fn policy() -> PathPolicy {
     }
 }
 
-fn event(session_id: SessionId, digest: &Sha256Digest, operation: Operation) -> SessionEvent {
-    SessionEvent::new(
-        session_id,
-        BackendId::AnthropicHaiku,
-        digest.clone(),
-        operation,
-    )
+/// The committed rows of `tests/fixtures/decision-schema/session-log`.
+fn fixture_rows() -> Vec<serde_json::Map<String, serde_json::Value>> {
+    include_str!("../../../tests/fixtures/decision-schema/session-log/fields.jsonl")
+        .lines()
+        .filter(|line| !line.is_empty())
+        .map(|line| serde_json::from_str(line).expect("fixture line"))
+        .collect()
 }
 
-fn golden_event(operation: Operation) -> SessionEvent {
-    SessionEvent::new(
-        serde_json::from_str("\"00000000-0000-0000-0000-000000000000\"").expect("nil session id"),
-        BackendId::AnthropicHaiku,
-        Sha256Digest::of_text("payload"),
-        operation,
-    )
+/// The event the engine emits for fixture row `index`.
+fn event_for(index: usize) -> SessionEvent {
+    let fields = fixture_rows().swap_remove(index);
+    let row = SessionLogRow::try_from_fields(&fields).expect("fixture row");
+    let context = row.context();
+    SessionEvent::new(context.session_id, context.operation, row.to_fields())
 }
+
+/// Golden name and fixture row index: judge ok, judge failed with a body,
+/// judge failed before a body was built, ask.
+const GOLDEN_CASES: [(&str, usize); 4] = [
+    ("judge_ok", 0),
+    ("judge_failed", 1),
+    ("judge_failed_no_body", 2),
+    ("ask", 3),
+];
 
 /// Stable projection of an adapted event: every key except the per-process
 /// `timestamp`, `service` and `identity`.
@@ -56,7 +66,8 @@ fn jsonl(root: &std::path::Path) -> String {
 }
 
 /// QA-004: both composition roots share this one adapter, so one golden
-/// (every `Operation`) pins the action, target and fields (REQ-SAG-0611).
+/// pins the action, target and fields (REQ-SAG-0611): judge `ok`, judge
+/// `failed` with and without a body, and `ask`.
 #[test]
 fn test_adapter_matches_the_shared_session_event_golden() {
     let root = TempDir::new().expect("temp");
@@ -65,11 +76,15 @@ fn test_adapter_matches_the_shared_session_event_golden() {
         "../../../tests/fixtures/observability/session-event.json"
     ))
     .expect("golden json");
-    for operation in Operation::ALL.iter().copied() {
+    assert_eq!(
+        golden.as_object().expect("object").len(),
+        GOLDEN_CASES.len()
+    );
+    for (name, index) in GOLDEN_CASES {
         assert_eq!(
-            projection(&adapter.log_event(&golden_event(operation)).expect("event")),
-            golden[operation.as_str()],
-            "{operation}"
+            projection(&adapter.log_event(&event_for(index)).expect("event")),
+            golden[name],
+            "{name}"
         );
     }
 }
@@ -79,28 +94,44 @@ fn test_every_operation_is_an_action_name() {
     let root = TempDir::new().expect("temp");
     let adapter = ObservabilityAdapter::open(&policy(), root.path()).expect("adapter");
     for operation in Operation::ALL.iter().copied() {
-        let event = adapter.log_event(&golden_event(operation)).expect("valid");
+        let event = SessionEvent::new(SessionId::new(), operation, serde_json::Map::new());
+        let event = adapter.log_event(&event).expect("valid");
         assert_eq!(event.action.as_str(), operation.as_str());
     }
 }
 
+/// Every written line's `fields` is one session-log row (REQ-SAG-0617): it
+/// parses with `SessionLogRow::try_from_fields`, carries `send_outcome`, and
+/// the envelope `outcome` stays `null`. No secret-bearing key is written.
 #[test]
-fn test_adapter_writes_one_line_without_secret_fields() {
+fn test_log_line_fields_is_one_session_log_row() {
     let root = TempDir::new().expect("temp");
     let adapter = ObservabilityAdapter::open(&policy(), root.path()).expect("logger");
-    let digest = Sha256Digest::of_text("payload");
-    let session_id = SessionId::new();
-    adapter
-        .emit(event(session_id, &digest, Operation::Judge))
-        .expect("log");
+    let rows = fixture_rows();
+    for index in 0..rows.len() {
+        adapter.emit(event_for(index)).expect("log");
+    }
     adapter.flush().expect("flush");
     let text = jsonl(root.path());
-    let lines: Vec<_> = text.lines().filter(|line| !line.is_empty()).collect();
-    assert_eq!(lines.len(), 1, "{text}");
-    assert!(lines[0].contains(digest.as_str()));
-    assert!(lines[0].contains("anthropic_haiku"));
-    assert!(lines[0].contains("judge"));
-    assert!(lines[0].contains(&session_id.to_string()));
+    let lines: Vec<serde_json::Value> = text
+        .lines()
+        .filter(|line| !line.is_empty())
+        .map(|line| serde_json::from_str(line).expect("line"))
+        .collect();
+    assert_eq!(lines.len(), rows.len(), "{text}");
+    for (line, fixture) in lines.iter().zip(&rows) {
+        let fields = line["fields"].as_object().expect("fields object");
+        assert_eq!(fields, fixture);
+        let row = SessionLogRow::try_from_fields(fields).expect("a session log row");
+        assert!(matches!(
+            row.send_outcome(),
+            SendOutcome::Ok | SendOutcome::Failed
+        ));
+        assert!(fields["send_outcome"].is_string());
+        assert!(line["outcome"].is_null(), "{line}");
+        assert_eq!(line["action"], fields["operation"]);
+        assert_eq!(line["target"], "jev.session");
+    }
     let lower = text.to_ascii_lowercase();
     for forbidden in ["api_key", "authorization", "bearer ", "password"] {
         assert!(!lower.contains(forbidden), "{forbidden} in {text}");
@@ -114,13 +145,8 @@ fn test_one_writer_per_log_root_while_any_handle_lives() {
     // A different spelling of the same directory maps to the same key.
     let second = ObservabilityAdapter::open(&policy(), &root.path().join(".")).expect("second");
     assert!(first.shares_writer_with(&second));
-    let digest = Sha256Digest::of_text("payload");
-    first
-        .emit(event(SessionId::new(), &digest, Operation::Judge))
-        .expect("first line");
-    second
-        .emit(event(SessionId::new(), &digest, Operation::Ask))
-        .expect("second line");
+    first.emit(event_for(0)).expect("first line");
+    second.emit(event_for(3)).expect("second line");
     second.flush().expect("flush");
     let text = jsonl(root.path());
     assert_eq!(text.lines().filter(|line| !line.is_empty()).count(), 2);
