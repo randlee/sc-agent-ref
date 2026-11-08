@@ -1,0 +1,49 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R3B-QA-001>
+  a triage:Finding ;
+  triage:findingId "R3B-QA-001" ;
+  triage:title "Doc example hardcodes the Unix-only path \"/tmp/example-log\", which the cross-pla" ;
+  triage:description "Doc example hardcodes the Unix-only path \"/tmp/example-log\", which the cross-platform guidelines prohibit. Recommendation: Use std::env::temp_dir().join(\"example-log\") in the doc example, or mark the example no_run/hidden if the path is illustrative only." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "QA" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-07T23:54:28Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R3B ;
+  triage:foundAt "2026-11-07T23:55:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R3B-QA-001/R3B-1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R3B-QA-001/R3B-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-host/src/obs.rs" ;
+  triage:line 71 ;
+  triage:snippet "/// let adapter = ObservabilityAdapter::open(&PathPolicy::cli(), std::path::Path::new(\"/tmp/example-log\"))?;" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-3b-compose-and-workspace-tests" ;
+  triage:headSha "90004d7" ;
+  triage:occursIn <urn:atm:triage:worktree/sprint-r-3b-compose-and-workspace-tests/90004d7> .
+
+<urn:atm:triage:worktree/integrate-phase-a/9187024>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "9187024" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/sprint-r-3b-compose-and-workspace-tests/90004d7>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-3b-compose-and-workspace-tests" ;
+  triage:branch "sprint/r-3b-compose-and-workspace-tests" ;
+  triage:headSha "90004d7" ;
+  triage:orderIndex 1 .
