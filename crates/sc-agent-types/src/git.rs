@@ -45,16 +45,12 @@ pub(crate) const GIT_DEADLINE: Duration = Duration::from_secs(60);
 /// How often a running git child is polled.
 const POLL_INTERVAL: Duration = Duration::from_millis(10);
 
-/// Bound on killing a child and collecting its pipes once the child has
-/// exited or the deadline fired.
+/// Bound on killing a child and reaping it, on the failure path only.
 ///
-/// This bounds an inherited pipe, not a success-path timing assumption: a
-/// process the child leaves behind (a git helper or daemon) can hold the pipe
-/// open, so EOF is not guaranteed and the wait cannot be unbounded. A child
-/// that exits normally closes its pipes at once, so a healthy run never
-/// approaches this value; it is generous so a starved host does not turn a
-/// finished child into a false `pipe did not close` error.
-const CLEANUP_BUDGET: Duration = Duration::from_secs(10);
+/// It applies after the deadline fired or `try_wait` failed, never to a child
+/// that exited by itself. Killing normally reaps at once; the bound only keeps
+/// a child stuck in the kernel from blocking the caller forever.
+const REAP_BUDGET: Duration = Duration::from_secs(10);
 
 /// Bytes of git's stderr kept for an error detail.
 const STDERR_DETAIL_BYTES: u64 = 4096;
@@ -127,11 +123,20 @@ fn run_with_deadline(mut command: Command, limit: Duration) -> Result<Output, Je
     let stdout = child.stdout.take().map(drain);
     let stderr = child.stderr.take().map(drain);
     let status = wait_bounded(&mut child, started, limit)?;
-    let cleanup = Instant::now() + CLEANUP_BUDGET;
+    // The pipes are waited for against the one deadline of the call. The
+    // child exited, so its own pipe ends are closed and EOF is immediate; the
+    // bound fires only when something else still holds a pipe (a process the
+    // child left behind, such as a git helper or daemon). The deadline can
+    // already be past here, because it is observed once per `POLL_INTERVAL`
+    // and the child may have exited within that tick. The floor of one tick
+    // gives the reader threads that same granularity to hand over output that
+    // is already in the pipe, so a finished child is not reported as failed
+    // for being noticed late.
+    let pipes = (started + limit).max(Instant::now() + POLL_INTERVAL);
     Ok(Output {
         status,
-        stdout: collect(stdout, cleanup)?,
-        stderr: collect(stderr, cleanup)?,
+        stdout: collect(stdout, pipes)?,
+        stderr: collect(stderr, pipes)?,
     })
 }
 
@@ -187,10 +192,10 @@ fn wait_bounded(
     }
 }
 
-/// Kills `child` and waits for it for at most [`CLEANUP_BUDGET`].
+/// Kills `child` and waits for it for at most [`REAP_BUDGET`] (failure path).
 fn kill_and_reap(child: &mut Child) {
     let _ = child.kill();
-    let deadline = Instant::now() + CLEANUP_BUDGET;
+    let deadline = Instant::now() + REAP_BUDGET;
     while Instant::now() < deadline {
         match child.try_wait() {
             Ok(None) => thread::sleep(POLL_INTERVAL),
@@ -548,5 +553,40 @@ mod tests {
     fn test_fast_child_completes_within_the_deadline() {
         let output = run_with_deadline(child("true", &[]), GIT_DEADLINE).expect("runs");
         assert!(output.status.success());
+    }
+
+    /// Kills the background process recorded in a pid file when dropped, so a
+    /// failing test cannot leave it behind.
+    struct Reaper(std::path::PathBuf);
+
+    impl Drop for Reaper {
+        fn drop(&mut self) {
+            if let Ok(pid) = std::fs::read_to_string(&self.0) {
+                let _ = child("kill", &[pid.trim()]).status();
+            }
+        }
+    }
+
+    /// A child that exits at once while a background grandchild keeps stdout
+    /// open: the pipe never reaches EOF, so the call ends with the typed
+    /// `pipe did not close` error instead of blocking on the grandchild.
+    #[test]
+    fn test_pipe_held_by_a_leftover_process_is_a_typed_error() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let pid_file = dir.path().join("grandchild.pid");
+        let _reaper = Reaper(pid_file.clone());
+        let mut command = child("sh", &["-c", "sleep 30 & echo $! > \"$1\"", "sh"]);
+        command.arg(&pid_file);
+        let error = run_with_deadline(command, Duration::from_millis(200)).expect_err("held pipe");
+        // `pipe did not close` is an `io::ErrorKind::TimedOut` on `git output`;
+        // `JevError` keeps the kind and drops the OS message.
+        assert!(
+            matches!(
+                &error,
+                JevError::IoFailed { what, kind }
+                    if what == "git output" && *kind == io::ErrorKind::TimedOut
+            ),
+            "{error:?}"
+        );
     }
 }
