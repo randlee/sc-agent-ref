@@ -181,15 +181,6 @@ fn toplevel_relative(
     RepoRelativePath::try_from(parts.join("/"))
 }
 
-/// Converts a `check.toml` path into the one repo-relative path type.
-///
-/// # Errors
-///
-/// `INPUT_INVALID` when `text` is not a repo-relative path.
-pub(crate) fn repo_path(text: &str) -> Result<RepoRelativePath, JevError> {
-    RepoRelativePath::try_from(text)
-}
-
 #[cfg(test)]
 mod tests {
     fn rel(text: &str) -> sc_agent_types::RepoRelativePath {

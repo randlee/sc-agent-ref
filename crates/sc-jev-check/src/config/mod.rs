@@ -246,25 +246,16 @@ impl AsRef<str> for InputName {
 /// Packaged evaluator instructions (`include_str` of the asset file).
 pub const PACKAGED_SYSTEM_PROMPT: &str = include_str!("../../assets/llm-evaluator-system.md");
 
-/// Display name of the packaged system prompt in [`ResolvedPromptPath::path`].
+/// Display name of the packaged system prompt in errors.
 pub(crate) const PACKAGED_SYSTEM_PROMPT_NAME: &str = "llm-evaluator-system.md";
-
-/// Where a system-prompt path was selected.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum PromptOrigin {
-    /// `[llm_judge] system_prompt_file` in `check.toml`.
-    CheckToml,
-    /// The packaged asset compiled into this crate.
-    PackagedAsset,
-}
 
 /// Prompt path chosen for a check. The file is not read here.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct ResolvedPromptPath {
-    /// Repo-relative path, or the packaged asset file name.
-    pub(crate) path: String,
-    /// Which config supplied `path`.
-    pub(crate) origin: PromptOrigin,
+pub(crate) enum ResolvedPromptPath {
+    /// `[llm_judge] system_prompt_file` in `check.toml`.
+    Repo(RepoRelativePath),
+    /// The packaged asset compiled into this crate.
+    Packaged,
 }
 
 /// A parsed `check.toml`.
@@ -395,14 +386,8 @@ impl CheckSpec {
     #[must_use]
     pub(crate) fn resolve_prompt_path(&self) -> ResolvedPromptPath {
         match &self.system_prompt_file {
-            Some(path) => ResolvedPromptPath {
-                path: path.as_str().to_owned(),
-                origin: PromptOrigin::CheckToml,
-            },
-            None => ResolvedPromptPath {
-                path: PACKAGED_SYSTEM_PROMPT_NAME.to_owned(),
-                origin: PromptOrigin::PackagedAsset,
-            },
+            Some(path) => ResolvedPromptPath::Repo(path.clone()),
+            None => ResolvedPromptPath::Packaged,
         }
     }
 }
@@ -706,8 +691,7 @@ mod tests {
         )
         .expect("check");
         let resolved = spec.resolve_prompt_path();
-        assert_eq!(resolved.path, "prompt.md");
-        assert_eq!(resolved.origin, PromptOrigin::CheckToml);
+        assert_eq!(resolved, ResolvedPromptPath::Repo(rel("prompt.md")));
 
         let bare = load_check_str(
             r#"
@@ -716,9 +700,7 @@ mod tests {
             "#,
         )
         .expect("bare");
-        let resolved = bare.resolve_prompt_path();
-        assert_eq!(resolved.origin, PromptOrigin::PackagedAsset);
-        assert_eq!(resolved.path, "llm-evaluator-system.md");
+        assert_eq!(bare.resolve_prompt_path(), ResolvedPromptPath::Packaged);
     }
 
     #[test]

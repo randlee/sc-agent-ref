@@ -8,7 +8,7 @@ use std::path::Path;
 
 use sc_agent_types::{JevError, RepoRoot, Rev};
 
-use crate::config::{CheckSpec, PromptOrigin};
+use crate::config::{CheckSpec, PACKAGED_SYSTEM_PROMPT_NAME, ResolvedPromptPath};
 use crate::extract::read_repo_text;
 
 pub(crate) fn load_request_system_prompt(
@@ -43,24 +43,22 @@ pub(crate) fn load_system_prompt(
     if let Some(path) = override_path {
         return Ok(Some(read_override(repo.as_path(), path)?));
     }
-    let resolved = spec.resolve_prompt_path();
-    match resolved.origin {
-        PromptOrigin::PackagedAsset => {
-            non_empty(crate::config::PACKAGED_SYSTEM_PROMPT, &resolved.path)
-                .map(str::to_owned)
-                .map(Some)
-        }
-        PromptOrigin::CheckToml => {
-            let text = match read_repo_path_text(repo, rev, &resolved.path) {
+    match spec.resolve_prompt_path() {
+        ResolvedPromptPath::Packaged => non_empty(
+            crate::config::PACKAGED_SYSTEM_PROMPT,
+            PACKAGED_SYSTEM_PROMPT_NAME,
+        )
+        .map(str::to_owned)
+        .map(Some),
+        ResolvedPromptPath::Repo(path) => {
+            let text = match read_repo_text(repo, rev, &path) {
                 Ok(text) => text,
                 Err(JevError::InputMissing { path, .. }) => {
                     return Err(JevError::prompt_file_missing(path));
                 }
                 Err(error) => return Err(error),
             };
-            non_empty(&text, &resolved.path)
-                .map(str::to_owned)
-                .map(Some)
+            non_empty(&text, path.as_str()).map(str::to_owned).map(Some)
         }
     }
 }
@@ -128,11 +126,6 @@ fn read_override(repo: &Path, path: &Path) -> Result<String, JevError> {
     let text = String::from_utf8(bytes)
         .map_err(|_| JevError::config_invalid(format!("system prompt {display} is not UTF-8")))?;
     non_empty(&text, &display).map(str::to_owned)
-}
-
-/// [`read_repo_text`] for a `check.toml` path string.
-fn read_repo_path_text(repo: &RepoRoot, rev: &Rev, path: &str) -> Result<String, JevError> {
-    read_repo_text(repo, rev, &crate::extract::repo_path(path)?)
 }
 
 #[cfg(test)]

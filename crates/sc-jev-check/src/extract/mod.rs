@@ -28,7 +28,7 @@ pub struct Extracted {
     pub document: Option<SubjectsDocument>,
 }
 
-pub(crate) use read::{read_repo_bytes, read_repo_text, repo_path};
+pub(crate) use read::{read_repo_bytes, read_repo_text};
 
 /// Runs the extraction selected by the input kind.
 ///

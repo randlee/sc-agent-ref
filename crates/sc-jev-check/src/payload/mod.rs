@@ -191,11 +191,10 @@ mod tests {
         let second = build_payload(&spec, &repo, &rev).expect("second");
         assert_eq!(first.bundle.sha256(), second.bundle.sha256());
         assert_ne!(
-            spec.resolve_prompt_path().path,
+            spec.resolve_prompt_path(),
             load_check_at(&repo, &rev, &rel("check.toml"))
                 .expect("check")
                 .resolve_prompt_path()
-                .path
         );
     }
 
@@ -244,6 +243,9 @@ mod tests {
         let value: serde_json::Value = serde_json::from_slice(built.bundle.bytes()).expect("json");
         let questions = value["questions"].as_array().expect("questions");
         assert!(questions.len() >= 4);
-        assert_eq!(spec.resolve_prompt_path().path, "llm-evaluator-system.md");
+        assert_eq!(
+            spec.resolve_prompt_path(),
+            crate::config::ResolvedPromptPath::Packaged
+        );
     }
 }
