@@ -271,13 +271,17 @@ jobs:
         timeout-minutes: 15
         run: cargo test --locked -p sc-ai --test argv --features cli
 
+      # The two powerset steps cannot take `--locked`: `--no-dev-deps` rewrites
+      # the real Cargo.toml while cargo-hack runs, which makes Cargo update the
+      # lock file, and `--locked` then fails (verified). Cargo.lock is still
+      # checked by every other step in this job.
       - name: cargo hack check -p sc-agent-types --feature-powerset
         timeout-minutes: 20
-        run: cargo hack check --locked -p sc-agent-types --feature-powerset --no-dev-deps
+        run: cargo hack check -p sc-agent-types --feature-powerset --no-dev-deps
 
       - name: cargo hack check -p sc-decision-schema --feature-powerset
         timeout-minutes: 20
-        run: cargo hack check --locked -p sc-decision-schema --feature-powerset --no-dev-deps
+        run: cargo hack check -p sc-decision-schema --feature-powerset --no-dev-deps
 
   deps:
     name: dependency gates (allocator, pins)
