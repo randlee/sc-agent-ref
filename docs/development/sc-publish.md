@@ -198,25 +198,29 @@ install`.
 
 ## Windows C runtime
 
-`.cargo/config.toml` sets `-C target-feature=+crt-static` for
-`x86_64-pc-windows-msvc`, so released Windows binaries link the C runtime
-statically and need no Visual C++ redistributable (sc-lint failed with
-`STATUS_DLL_NOT_FOUND`, `0xC0000135`, without it). Points to know:
+`.cargo/config.toml` links the C runtime statically on
+`x86_64-pc-windows-msvc` and `aarch64-pc-windows-msvc`. The decision, the
+re-qualification trigger (a kit pin that sets `RUSTFLAGS` drops the flag) and
+the acceptance check (the Windows legs of the `wheel` CI job) are in
+ADR-SAG-0023, phase-end amendment (`docs/architecture.md`). On a pin bump,
+check the kit's build steps for `RUSTFLAGS` first. The file merges with a
+developer's `~/.cargo/config.toml`; it sets only `target.*.rustflags`, so a
+global `[build] build-dir` does not conflict.
 
-- The kit's `release.yml` does not set `RUSTFLAGS` at the current pin, so the
-  config file is not overridden. If a future pin sets `RUSTFLAGS`, it replaces
-  `target.*.rustflags` entirely and the flag is lost; re-check on a pin bump.
-- The flag is per target triple, so Linux and macOS builds are unaffected. It
-  also applies to the `sc-jev-py` wheel built on Windows, because cargo
-  configuration cannot be scoped to one package and the kit's `maturin build`
-  runs from the repository root. A statically linked CRT in a Python
-  extension is generally workable but is not verified here (no Windows host
-  in local validation); the Windows CI jobs are the check. If it proves a
-  problem, the fix is a kit-side `RUSTFLAGS` override for the wheel step, not
-  a repo edit.
-- The file merges with a developer's `~/.cargo/config.toml`. It sets only
-  `target.x86_64-pc-windows-msvc.rustflags`, so a global `[build] build-dir`
-  does not conflict.
+## Python wheels
+
+`sc-jev-py` publishes six `abi3-py311` wheels: `manylinux_2_28` x86_64 and
+aarch64, macOS 11.0 arm64 and x86_64, and Windows x86_64 (`win_amd64`) and
+arm64 (`win_arm64`). The first five are explicit targets in
+`python_distributions[0].wheels`, copied from sc-lint. Windows arm64 is the
+legacy runner string `windows-11-arm`, because the kit at the pin
+(`34dab3f`) accepts only `x86_64-pc-windows-msvc` as an explicit Windows
+target; the job builds natively on that runner.
+
+Known kit limit: `release_python.verify_platforms` treats a legacy entry as
+declaring no platform, so the published-asset check can reject the extra
+`win_arm64` wheel. Fix upstream (accept `aarch64-pc-windows-msvc` /
+`win_arm64`), then replace the string with an explicit object and bump the pin.
 
 ## Pin bump
 

@@ -53,6 +53,7 @@ owned_paths:
   - "docs/architecture.md#ADR-SAG-0016 amendment (r-4)"
   - "docs/architecture.md#ADR-SAG-0017 amendment (r-4)"
   - "docs/architecture.md#ADR-SAG-0023 (Status line and r-4 bullets)"
+  - "docs/architecture.md#ADR-SAG-0023 phase-end amendment (Windows CRT; wheel matrix)"
   - "docs/architecture.md#ADR index row ADR-SAG-0023 (Status cell: r-4)"
   - "docs/architecture.md#ADR index Amended-by marker (r-4) in ADR-SAG-0005, 0016, 0017"
   - "docs/requirements.md#REQ-SAG-0133, REQ-SAG-0134, NFR-SAG-0004 rows"

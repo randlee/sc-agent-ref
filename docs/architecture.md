@@ -144,7 +144,7 @@ own row's Status cell and its own marker text, and added or removed no entry).
 | ADR-SAG-0020 | Secret injection and redaction | Active | Amends ADR-SAG-0003; amended by ADR-SAG-0029; A.1 subsection (Active, r-1); ADR-SAG-0026 (Active, r-3); A.1 subsection (Active, r-3b) |
 | ADR-SAG-0021 | Log and session path precedence | Active | Amends ADR-SAG-0013 |
 | ADR-SAG-0022 | Scripted backends are a test-util feature | Active | Amends ADR-SAG-0009; amended by ADR-SAG-0029; A.1 subsection (Active, r-1); ADR-SAG-0024 (Active, r-2); ADR-SAG-0025 (Active, r-2b); ADR-SAG-0030 (Active, r-7) |
-| ADR-SAG-0023 | Dependency pins, allocator, released binaries | Active (r-4; host pin r-3b) | Amends ADR-SAG-0016, ADR-SAG-0017 |
+| ADR-SAG-0023 | Dependency pins, allocator, released binaries | Active (r-4; host pin r-3b; Windows CRT phase-end) | Amends ADR-SAG-0016, ADR-SAG-0017 |
 | ADR-SAG-0024 | Engine entry point and response contract | Active (r-2) | Amends ADR-SAG-0003, ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0014, ADR-SAG-0019, ADR-SAG-0022; supersedes the ADR-SAG-0014 A.1 r-1 interim subsection |
 | ADR-SAG-0025 | Multi-backend semantics and equal-input attestation | Active (r-2b) | Amends ADR-SAG-0004, ADR-SAG-0008, ADR-SAG-0019, ADR-SAG-0022 |
 | ADR-SAG-0026 | Shared HTTP crate and host crate | Active (HTTP half, r-3; host half, r-3b) | Amends ADR-SAG-0006, ADR-SAG-0007, ADR-SAG-0020, ADR-SAG-0017 (HTTP half); ADR-SAG-0010, ADR-SAG-0011, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0017 (host half); amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6) |
@@ -828,6 +828,11 @@ preflight CI, and publish dry-run).
 - (Active, r-3) Published library crates gain `sc-agent-http`. crates.io
   publish order: `sc-agent-types`, `sc-agent-secrets`, `sc-agent-http`,
   `sc-jev`, `sc-jev-backends`, `sc-jev-check`, `sc-treesitter`, `sc-ai`.
+  **Superseded** for the order by the r-3b amendment (`sc-jev-host` joins
+  directly after `sc-jev-check`) and the r-7 amendment (`sc-decision-schema`
+  joins at order 2); the authoritative list is the r-7 amendment and
+  `release/sc-publish-consumer-input.json`. Only the addition of
+  `sc-agent-http` stands.
 
 ### Amendment (Phase A.1, r-3b)
 
@@ -1240,6 +1245,33 @@ comparison flows.
 - (Active, r-3b) The intra-workspace `sc-jev-host` dependency of
   `sc-ai` and `sc-jev-py` is `=`-pinned (it is already on the list above);
   `check-exact-pins.sh` re-runs green with the pin present.
+
+### Amendment (Phase A.1, phase-end)
+
+**Status:** Active (Phase A.1) — landed in the phase-end release layer.
+
+- (Active, phase-end) Windows MSVC targets link the C runtime statically
+  for released binaries and for the `sc-jev-py` wheel, so they run without
+  the Visual C++ redistributable (sc-lint failed with `STATUS_DLL_NOT_FOUND`,
+  `0xC0000135`, without it). The flag
+  `-C target-feature=+crt-static` lives in the repository
+  `.cargo/config.toml` under `[target.x86_64-pc-windows-msvc]` and
+  `[target.aarch64-pc-windows-msvc]`; Linux and macOS builds are unaffected.
+  Cargo configuration cannot be scoped to one package, so the wheel built
+  from the repository root gets it too.
+- (Active, phase-end) **Re-qualification trigger.** `RUSTFLAGS` replaces
+  `target.*.rustflags` entirely. A sc-publish pin that sets `RUSTFLAGS` in a
+  build step silently drops the flag; any pin bump must re-check this and
+  re-qualify the Windows binaries and wheel before it merges. A kit-side
+  override for the wheel step is the fix if a statically linked CRT in the
+  Python extension proves a problem; it is not a repo edit.
+- (Active, phase-end) The Windows legs (`windows-2022`, `windows-11-arm`) of
+  the `wheel` job in `.github/workflows/sc-agent-ci.yml` are the wheel's
+  acceptance check: they build the release-shape wheel, install it in a fresh
+  virtual environment and import `sc_jev_py` without `_testing`. The wheel
+  matrix is six wheels (Linux, macOS and Windows on x86_64 and arm64,
+  `abi3-py311`), declared in `release/sc-publish-consumer-input.json`
+  (REQ-SAG-0802). Operational notes: `docs/development/sc-publish.md`.
 
 ## ADR-SAG-0024 — Engine entry point and response contract
 

@@ -95,6 +95,8 @@ the **`sc-ai`** CLI. Behavioural contract for errors and parity rows:
 
 | ID | Requirement |
 | --- | --- |
+| REQ-SAG-0802 | `sc-jev-py` publishes six `abi3-py311` wheels (Linux, macOS, Windows on x86_64 and arm64); Windows MSVC targets link the CRT statically (ADR-SAG-0023, phase-end amendment); the `wheel` CI job builds the release-shape wheel on `windows-2022` and `windows-11-arm`, installs it in a fresh venv and imports `sc_jev_py` without `_testing` — (Active, phase-end) |
+| REQ-SAG-0133 | A repo-owned check (`scripts/check-scoop-manifest.py`, run by `scripts/sc-publish-dry-run.sh checks`) renders the Scoop manifest at the pin and fails unless both binaries are shimmed — (Active, phase-end) |
 | REQ-SAG-0600 | Session store: UUID, mode 0600, expiry from `created_at` |
 | REQ-SAG-0601 | `run_check` / dry-run library API |
 | REQ-SAG-0602 | Equal-input record on every backend run |
