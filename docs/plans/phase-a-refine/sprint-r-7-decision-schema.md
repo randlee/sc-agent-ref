@@ -344,8 +344,9 @@ Every deliverable below lands production-ready for the scope this sprint claims;
    `SendTrace`, `ProjectLabel`, the layering paragraph and the
    `ModelFamily` rule of D7.1;
    `docs/sc-agent-types/requirements.md` carries the REQ-SAG-0103 and 0107
-   amendment rows. README of the new crate states "data-only; no semver
-   promise beyond the schema versions it names".
+   amendment rows. README of the new crate states "no semver
+   promise beyond the schema versions it names, plus the `JudgeBackend`
+   additive rule in API clarifications".
 5. **Consumer input and publish order** (ADR-SAG-0017, ADR-SAG-0018,
    ADR-SAG-0023): add `sc-decision-schema` to
    `release/sc-publish-consumer-input.json` with `publish_order: 2`
