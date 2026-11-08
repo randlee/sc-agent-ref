@@ -22,10 +22,35 @@ fn command(program: &Path) -> Command {
     Command::new(program)
 }
 
-/// Longest one `cargo tree` may take. It is a graph query, but a cold registry
-/// index or a held Cargo file lock can exceed the 60 s runner default; bounded
-/// so a stuck invocation cannot hang CI (FTQ-001).
-const CARGO_TREE_DEADLINE: Duration = Duration::from_secs(5 * 60);
+/// Longest one `cargo tree` may take: a graph query, so the 60 s runner
+/// default. Calls are serialized by [`TREE_LOCK`] so they do not queue behind
+/// each other on Cargo's file locks (FTQ-001, FTQ-004).
+const CARGO_TREE_DEADLINE: Duration = Duration::from_secs(60);
+
+/// Serializes `cargo tree` calls in this test binary: tests run on parallel
+/// threads and concurrent cargo invocations queue on Cargo's file locks.
+static TREE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// Runs a `cargo tree` command under [`CARGO_TREE_DEADLINE`], with a failure
+/// message that names Cargo lock contention, the usual cause of a stall.
+fn run_tree(command: &mut Command) -> std::process::Output {
+    let _guard = TREE_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        spawn_with_limit(command, None, CARGO_TREE_DEADLINE)
+    }))
+    .unwrap_or_else(|panic| {
+        let detail = panic
+            .downcast_ref::<String>()
+            .cloned()
+            .or_else(|| panic.downcast_ref::<&str>().map(|text| (*text).to_owned()))
+            .unwrap_or_default();
+        panic!(
+            "cargo tree did not finish within {CARGO_TREE_DEADLINE:?}; another cargo process holding a Cargo file lock (\"Blocking waiting for file lock\") is the usual cause: {detail}"
+        )
+    })
+}
 
 /// `cargo tree -e normal,features --prefix none --no-dedupe --locked --offline <extra>`.
 fn tree(extra: &[&str]) -> String {
@@ -44,7 +69,7 @@ fn tree(extra: &[&str]) -> String {
             "--offline",
         ])
         .args(extra);
-    let output = spawn_with_limit(&mut cargo, None, CARGO_TREE_DEADLINE);
+    let output = run_tree(&mut cargo);
     assert!(
         output.status.success(),
         "cargo tree failed: {}",
