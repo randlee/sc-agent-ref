@@ -46,7 +46,7 @@ default to `<repo-root>/.sc-ai/sessions` (`--sessions-dir` overrides that
 directory). Session ids are ULIDs (26 characters); a UUID is refused.
 Each send (`judge` or `ask`, `ok` or `failed`) writes one line whose `fields`
 object is one session-log row: the session id, `repo` (the main repository), `project`,
-`backend`, `model_id`, `payload_sha256`, `request_sha256` and the typed
+`backend`, `model_id`, `payload_sha256`, `questions_sha256`, `request_sha256` and the typed
 answers. Logs do not record API keys, prompt text or request bodies.
 `--project <TEXT>` (on `jev run` and `jev ask`) labels that call's rows; the text is stored as given and is
 not scrubbed, so put no secret in it.

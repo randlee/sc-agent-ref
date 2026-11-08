@@ -34,7 +34,7 @@ pub const SESSION_LOG_DDL: &str = include_str!("schema.sql");
 
 /// Version of the row layout. Adding or renaming a column, or changing a
 /// type or nullability, bumps it with a migration note.
-pub const SESSION_LOG_SCHEMA_VERSION: u32 = 1;
+pub const SESSION_LOG_SCHEMA_VERSION: u32 = 2;
 
 /// The `fields{}` keys, in order.
 pub const COLUMNS: &[&str] = &[
@@ -45,6 +45,7 @@ pub const COLUMNS: &[&str] = &[
     "repo",
     "project",
     "payload_sha256",
+    "questions_sha256",
     "decision_schema",
     "question_ids",
     "request_sha256",
@@ -97,6 +98,7 @@ impl SendOutcome {
 ///     .session_created_at(ts)
 ///     .repo("/work/repo")
 ///     .payload_sha256(Sha256Digest::of_text("payload"))
+///     .questions_sha256(Sha256Digest::of_text("questions"))
 ///     .decision_schema(CANONICAL_V1)
 ///     .question_ids(vec![QuestionId::try_from("q")?])
 ///     .ts(ts)
@@ -126,8 +128,12 @@ pub struct RowContext {
     /// Caller text for this send, validated by [`ProjectLabel::new`]; `None`
     /// is written as `null`.
     pub project: Option<ProjectLabel>,
-    /// SHA-256 of the canonical payload bytes.
+    /// SHA-256 of the canonical payload bytes (questions and state).
     pub payload_sha256: Sha256Digest,
+    /// SHA-256 of the question set alone: the same for every send of the same
+    /// questions, whatever the state. See `questions_sha256` in
+    /// [`crate::jev::v1`].
+    pub questions_sha256: Sha256Digest,
     /// The decision schema of this send.
     pub decision_schema: DecisionSchemaId,
     /// Question ids in payload order.
@@ -154,6 +160,7 @@ pub struct RowContextBuilder {
     repo: Option<String>,
     project: Option<ProjectLabel>,
     payload_sha256: Option<Sha256Digest>,
+    questions_sha256: Option<Sha256Digest>,
     decision_schema: Option<DecisionSchemaId>,
     question_ids: Option<Vec<QuestionId>>,
     request_sha256: Option<Sha256Digest>,
@@ -209,6 +216,14 @@ impl RowContextBuilder {
     #[must_use]
     pub fn payload_sha256(mut self, value: Sha256Digest) -> Self {
         self.payload_sha256 = Some(value);
+        self
+    }
+
+    /// SHA-256 of the question set alone; see
+    /// [`RowContext::questions_sha256`].
+    #[must_use]
+    pub fn questions_sha256(mut self, value: Sha256Digest) -> Self {
+        self.questions_sha256 = Some(value);
         self
     }
 
@@ -279,6 +294,7 @@ impl RowContextBuilder {
             repo: need(self.repo, "repo")?,
             project: self.project,
             payload_sha256: need(self.payload_sha256, "payload_sha256")?,
+            questions_sha256: need(self.questions_sha256, "questions_sha256")?,
             decision_schema: need(self.decision_schema, "decision_schema")?,
             question_ids: need(self.question_ids, "question_ids")?,
             request_sha256: self.request_sha256,
@@ -311,7 +327,7 @@ enum RowOutcome {
 /// ```
 /// use sc_decision_schema::session_log::{COLUMNS, SendOutcome};
 ///
-/// assert_eq!(COLUMNS.len(), 17);
+/// assert_eq!(COLUMNS.len(), 18);
 /// assert_eq!(serde_json::to_string(&SendOutcome::Failed)?, "\"failed\"");
 /// # Ok::<(), serde_json::Error>(())
 /// ```
@@ -396,6 +412,7 @@ impl SessionLogRow {
                 .map_or(Value::Null, |project| text(project)),
         );
         fields.insert("payload_sha256".into(), text(&context.payload_sha256));
+        fields.insert("questions_sha256".into(), text(&context.questions_sha256));
         fields.insert("decision_schema".into(), text(&context.decision_schema));
         fields.insert(
             "question_ids".into(),
@@ -471,6 +488,8 @@ impl SessionLogRow {
                 .transpose()?,
             payload_sha256: Sha256Digest::parse(required_str(fields, "payload_sha256")?)
                 .map_err(|e| wrap("payload_sha256", &e))?,
+            questions_sha256: Sha256Digest::parse(required_str(fields, "questions_sha256")?)
+                .map_err(|e| wrap("questions_sha256", &e))?,
             decision_schema: parse(fields, "decision_schema")?,
             question_ids: question_ids(fields)?,
             request_sha256: optional_str(fields, "request_sha256")?

@@ -529,3 +529,43 @@ fn test_rejected_log_row_keeps_run_ok() {
     );
     assert!(asked.is_ok(), "ask also survives a rejected row");
 }
+
+/// The row carries `questions_sha256` (the question set alone) next to
+/// `payload_sha256` (questions and state): two runs of the same questions
+/// against different state share the first and differ in the second.
+#[test]
+fn test_row_questions_sha256_ignores_state() {
+    let run_with_state = |choice: &str| {
+        let repo = repo();
+        fs::write(
+            repo.path().join("state.json"),
+            format!(
+                r#"{{"schema":"plan-anchoring/state/1","answers":[{{"question_id":"relevant","choice":"{choice}"}}]}}"#
+            ),
+        )
+        .expect("state");
+        fs::write(
+            repo.path().join("check.toml"),
+            "[questions]\npath = \"questions.json\"\n[state]\npath = \"state.json\"\n",
+        )
+        .expect("check");
+        let sessions = tempfile::tempdir().expect("sessions");
+        let sink = Arc::new(Sink::default());
+        let response = run_with(
+            config(repo.path(), sessions.path(), &sink),
+            &[BackendId::Jev],
+            vec![dyn_judge(mock(BackendId::Jev, "yes"))],
+        )
+        .expect("run");
+        let rows = sink.rows();
+        assert_eq!(rows.len(), 1);
+        let context = rows[0].context().clone();
+        assert_eq!(&context.questions_sha256, response.questions_sha256());
+        assert_eq!(&context.payload_sha256, response.payload_sha256());
+        context
+    };
+    let first = run_with_state("yes");
+    let second = run_with_state("no");
+    assert_eq!(first.questions_sha256, second.questions_sha256);
+    assert_ne!(first.payload_sha256, second.payload_sha256);
+}

@@ -108,6 +108,12 @@ impl<'a> SendLog<'a> {
         trace: &SendTrace,
         judged: &Result<JudgeOutcome, JevError>,
     ) {
+        // A payload that cannot be read back as questions was refused before
+        // the send, so a row that cannot carry the digest is skipped like any
+        // rejected row.
+        let Ok(questions_sha256) = request.payload().questions_sha256() else {
+            return;
+        };
         let built = RowContextBuilder::new()
             .answer_id(AnswerId::new())
             .session_id(self.session_id)
@@ -115,6 +121,7 @@ impl<'a> SendLog<'a> {
             .repo(self.repo.clone())
             .project(self.project.clone())
             .payload_sha256(request.payload().sha256().clone())
+            .questions_sha256(questions_sha256.clone())
             .decision_schema(DecisionSchemaId::CURRENT)
             .question_ids(request.payload().question_ids().cloned().collect())
             .request_sha256(trace.request_sha256())

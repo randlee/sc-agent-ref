@@ -1783,17 +1783,34 @@ ADR-SAG-0027 (an r-6 subsection in each). Owner decisions 2026-11-07.
 
 - (Active, r-7) The session-log storage contract is a **SQLite schema**,
   authoritative: `sessions` (by session ULID: `session_created_at`),
-  `questions` (by `payload_sha256`: `question_ids`, `first_seen_at`) and
-  `answers` (one per send, by ULID `answer_id`, with `decision_schema`,
-  `repo`, `project` and the rest; indexed by `(payload_sha256, model_id)`,
+  `question_sets` (by `questions_sha256`: `question_ids`, `first_seen_at`),
+  `payloads` (by `payload_sha256`: its `questions_sha256`, `first_seen_at`)
+  and `answers` (one per send, by ULID `answer_id`, with `questions_sha256`,
+  `payload_sha256`, `decision_schema`, `repo`, `project` and the rest;
+  indexed by `(questions_sha256, model_id)`, `(payload_sha256, model_id)`,
   `request_sha256` and `(repo, project)`). Values that can differ between
-  two sends of one session or prompt live on `answers`, so the loader's
-  `INSERT OR IGNORE` on the other two tables loses nothing. The DDL is
+  two sends of one session, payload or question set live on `answers`, so the
+  loader's `INSERT OR IGNORE` on the other tables loses nothing. The DDL is
   `crates/sc-decision-schema/src/session_log/schema.sql`
   (`SESSION_LOG_DDL`; `docs/sc-decision-schema/session-log-schema.md` points
   to it); `schema_version` starts
   at 1. Adding, renaming or retyping a column, or changing its nullability,
   bumps `schema_version` with a migration note.
+- (Active, phase-end digests; `schema_version` 2) **Three digests.** Version
+  1 keyed `questions` by the payload digest, which includes the state, so the
+  same questions asked against different state were unrelated rows. Version 2
+  records each digest for its job: `questions_sha256` identifies a question
+  set (same questions, any state) so runs can be compared across states;
+  `payload_sha256` (renamed from `prompt_sha256`) identifies questions plus
+  state, is backend-neutral, is the equal-input proof, and excludes the LLM
+  system prompt and the model; `request_sha256` identifies the exact request
+  bytes of one send for one backend and model, for cached-response
+  substitution. `answers` references `payloads` by the composite
+  `(payload_sha256, questions_sha256)`, so a send cannot name a payload under
+  another question set. Version 1 rows are refused (`INPUT_INVALID`);
+  nothing was released at version 1. The reason for the old key (dedupe by
+  what the canonical bytes fix) still holds: every deduplicated table is keyed
+  by the digest that fixes its other columns.
 - (Active, r-7) **Projection.** The MVP store is JSONL; the projection of
   one send is the `fields{}` object of one sc-observability v2 log line
   (ADR-SAG-0013). It has exactly the schema's column keys: nullable columns
@@ -1833,7 +1850,9 @@ ADR-SAG-0027 (an r-6 subsection in each). Owner decisions 2026-11-07.
   as the exchange's required `trace` argument (seam from r-7, ADR-SAG-0026
   r-7); one value per send, retries included; NULL when no body was
   built. `payload_sha256` stays the canonical-payload digest
-  (ADR-SAG-0002/0025).
+  (ADR-SAG-0002/0025). From the phase-end digests, `request_sha256` is also
+  computed before sending (no key, no send) for each backend whose first body
+  is known in advance, and equals the value the row records.
 - (Active, r-6) The row's `model_id` is `JudgeBackend::model_id()`
   (ADR-SAG-0009 r-7 amendment), never NULL.
 - (Active, r-6) `repo` is `sc_jev_check::discover_main_repo_root`, started from the explicit repo root when one is set, else from the working directory (a dry run skips git): a

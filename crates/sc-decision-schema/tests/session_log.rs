@@ -41,7 +41,10 @@ fn ddl_columns() -> Vec<(String, String)> {
             table = None;
         } else if let Some(name) = &table {
             let first = line.split_whitespace().next().unwrap_or("");
-            if !first.is_empty() && first != "CHECK" && !first.starts_with("--") {
+            if !first.is_empty()
+                && !["CHECK", "FOREIGN", "REFERENCES", "UNIQUE"].contains(&first)
+                && !first.starts_with("--")
+            {
                 columns.push((name.clone(), first.to_owned()));
             }
         }
@@ -51,14 +54,17 @@ fn ddl_columns() -> Vec<(String, String)> {
 
 #[test]
 fn test_session_log_row_matches_ddl() {
-    assert_eq!(SESSION_LOG_SCHEMA_VERSION, 1);
-    assert!(SESSION_LOG_DDL.starts_with("-- schema_version 1."));
-    assert_eq!(COLUMNS.len(), 17);
-    assert_eq!(COLUMNS.iter().collect::<BTreeSet<_>>().len(), 17);
+    assert_eq!(SESSION_LOG_SCHEMA_VERSION, 2);
+    assert!(SESSION_LOG_DDL.starts_with("-- schema_version 2."));
+    assert_eq!(COLUMNS.len(), 18);
+    assert_eq!(COLUMNS.iter().collect::<BTreeSet<_>>().len(), 18);
 
     let columns = ddl_columns();
     let tables: BTreeSet<&str> = columns.iter().map(|(table, _)| table.as_str()).collect();
-    assert_eq!(tables, BTreeSet::from(["answers", "questions", "sessions"]));
+    assert_eq!(
+        tables,
+        BTreeSet::from(["answers", "payloads", "question_sets", "sessions"])
+    );
     // Every projected key is a DDL column; `first_seen_at` is derived by the loader.
     let ddl: BTreeSet<&str> = columns.iter().map(|(_, name)| name.as_str()).collect();
     let projected: BTreeSet<&str> = COLUMNS.iter().copied().collect();
@@ -105,7 +111,7 @@ fn test_session_log_row_matches_ddl() {
 #[test]
 fn test_fields_roundtrip() {
     let lines = fixture_lines();
-    assert_eq!(lines.len(), 6);
+    assert_eq!(lines.len(), 7);
     let mut outcomes = Vec::new();
     for fields in &lines {
         let row = SessionLogRow::try_from_fields(fields).expect("fixture row");
@@ -158,6 +164,7 @@ fn test_fields_roundtrip() {
         .repo("/work/repo")
         .project(Some(ProjectLabel::new("p").expect("label")))
         .payload_sha256(Sha256Digest::of_text("payload"))
+        .questions_sha256(Sha256Digest::of_text("questions"))
         .decision_schema(CANONICAL_V1)
         .question_ids(vec![q.clone()])
         .request_sha256(None)
@@ -201,11 +208,11 @@ fn test_unknown_or_missing_key_rejected() {
     }
 
     // A schema_version other than the supported one is refused with a hint.
-    for version in [json!(2), json!(0), json!("1"), json!(null)] {
+    for version in [json!(1), json!(3), json!(0), json!("2"), json!(null)] {
         let mut other = good.clone();
         other.insert("schema_version".to_owned(), version);
         let message = refuse(&other);
-        assert!(message.contains("reads version 1"), "{message}");
+        assert!(message.contains("reads version 2"), "{message}");
         assert!(message.contains("written by a newer sc-agent"), "{message}");
     }
 
@@ -217,6 +224,7 @@ fn test_unknown_or_missing_key_rejected() {
         ("project", json!("a".repeat(257))),
         ("project", json!(5)),
         ("payload_sha256", json!("abc")),
+        ("questions_sha256", json!("abc")),
         ("decision_schema", json!("canonical.v9")),
         ("question_ids", json!("relevant")),
         ("question_ids", json!([""])),
@@ -259,4 +267,31 @@ fn test_row_context_builder_names_the_missing_value() {
         .expect_err("incomplete");
     assert_eq!(error.code(), "INPUT_INVALID");
     assert!(error.to_string().contains("session_id"), "{error}");
+}
+
+/// `questions_sha256` identifies a question set whatever the state, and
+/// `payload_sha256` fixes it: the same payload never has two question sets,
+/// and the same questions can have several payloads (the loader's
+/// `payloads.questions_sha256` and the composite key on `answers`).
+#[test]
+fn test_questions_sha256_groups_payloads_that_differ_by_state() {
+    let rows: Vec<SessionLogRow> = fixture_lines()
+        .iter()
+        .map(|fields| SessionLogRow::try_from_fields(fields).expect("row"))
+        .collect();
+    let mut by_payload = std::collections::BTreeMap::new();
+    for row in &rows {
+        let context = row.context();
+        let questions = by_payload
+            .entry(context.payload_sha256.clone())
+            .or_insert_with(|| context.questions_sha256.clone());
+        assert_eq!(
+            *questions, context.questions_sha256,
+            "payload fixes questions"
+        );
+    }
+    let first = rows[0].context();
+    let other_state = rows[6].context();
+    assert_eq!(first.questions_sha256, other_state.questions_sha256);
+    assert_ne!(first.payload_sha256, other_state.payload_sha256);
 }

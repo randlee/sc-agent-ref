@@ -77,7 +77,7 @@ in `[0, 1]`.
 
 The record is the `fields` object of each log line (the keys are
 `session_log::COLUMNS`), stored by the SQLite DDL in `sc-decision-schema`.
-`SESSION_LOG_SCHEMA_VERSION` is `1`. Adding or renaming a column, or changing
+`SESSION_LOG_SCHEMA_VERSION` is `2` (version 2 added `questions_sha256` and split the digest tables; see the migration notes). Adding or renaming a column, or changing
 a type or nullability, bumps the version and adds a migration note to
 [`docs/sc-decision-schema/session-log-schema.md`](sc-decision-schema/session-log-schema.md).
 `SessionLogRow::try_from_fields` refuses any other version with
