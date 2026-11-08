@@ -6,6 +6,7 @@
 #            2. fail on kit drift (install.py --dry-run must exit 0, ADR-SAG-0018)
 #   checks   3. validate the rendered manifest and Cargo version lockstep
 #            4. run the kit's consumer preflight runner
+#               and check the rendered Scoop manifest shims every binary
 #   publish  5. cargo publish --dry-run --locked for every manifest crate, in order
 #   wheel    6. maturin build the sc-jev-py wheel
 #
@@ -141,6 +142,17 @@ phase_checks() {
 
   step "consumer preflight"
   bash .github/scripts/run-consumer-preflight.sh
+
+  # The kit step renders the Scoop template from [channels.scoop].binaries;
+  # prove both shims survive that render at the pin (agt-0mi). Needs the kit
+  # and renderer venv from the `kit` phase.
+  step "scoop manifest shims every binary"
+  [[ -x "$venv_dir/bin/python" && -d "$kit_dir/plugins" ]] ||
+    die "run the kit phase first: $kit_dir and $venv_dir are missing"
+  python3 "$kit_dir/plugins/sc-publish/.github/scripts/bootstrap_sc_compose.py" \
+    --venv "$venv_dir" --write-cli >/dev/null
+  "$venv_dir/bin/python" scripts/check-scoop-manifest.py "$kit_dir" \
+    "$venv_dir/bin/python" "$venv_dir/bin/renderer"
 }
 
 phase_publish() {
