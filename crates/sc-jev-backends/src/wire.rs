@@ -4,21 +4,10 @@
 //! system prompt is `system` for Haiku and `instructions` for Luna. Neither
 //! body is the Jev wire document (ADR-SAG-0019).
 
-use std::collections::{BTreeMap, BTreeSet};
-
 use sc_agent_http::{HeaderName, SecretHeader};
-use sc_agent_types::{
-    ChoiceId, JevError, QuestionId, ResolvedApiKey, Sha256Digest, canonical_json_bytes,
-};
+use sc_agent_types::{JevError, ResolvedApiKey, Sha256Digest};
+use sc_decision_schema::canonical_json_bytes;
 use serde_json::{Map, Value};
-
-/// Haiku model id pinned from the jev-check README table.
-///
-/// Changing it changes the provider body. It is not part of `prompt_sha256`.
-pub(crate) const HAIKU_MODEL: &str = "claude-haiku-5-5";
-
-/// Luna model id pinned from the jev-check README table.
-pub(crate) const LUNA_MODEL: &str = "gpt-6-luna";
 
 pub(crate) const ANTHROPIC_HOST: &str = "api.anthropic.com";
 pub(crate) const OPENAI_HOST: &str = "api.openai.com";
@@ -50,7 +39,7 @@ pub(crate) fn message_body(
     model: &str,
     payload_text: &str,
     system_prompt: &str,
-) -> Vec<u8> {
+) -> String {
     encode(&provider_document(
         kind,
         model,
@@ -74,8 +63,8 @@ pub(crate) fn message_body(
 /// `INPUT_INVALID` when the body or the embedded payload is not JSON, or the
 /// body has no user message. The error names the failure category and
 /// position only, never body bytes (ADR-SAG-0020).
-pub(crate) fn recovered_digest(kind: ProviderKind, body: &[u8]) -> Result<Sha256Digest, JevError> {
-    let value: Value = serde_json::from_slice(body)
+pub(crate) fn recovered_digest(kind: ProviderKind, body: &str) -> Result<Sha256Digest, JevError> {
+    let value: Value = serde_json::from_str(body)
         .map_err(|error| JevError::encode_failed("provider wire body", &error))?;
     let messages = match kind {
         ProviderKind::Anthropic => "messages",
@@ -91,7 +80,10 @@ pub(crate) fn recovered_digest(kind: ProviderKind, body: &[u8]) -> Result<Sha256
     let embedded: Value = serde_json::from_str(text)
         .map_err(|error| JevError::encode_failed("embedded payload", &error))?;
     let canonical = canonical_json_bytes(&embedded)?;
-    Ok(Sha256Digest::of(&canonical))
+    // `canonical_json_bytes` is `serde_json` output, so UTF-8 by construction.
+    let canonical = String::from_utf8(canonical)
+        .map_err(|_| JevError::input_invalid("embedded payload is not UTF-8"))?;
+    Ok(Sha256Digest::of_text(&canonical))
 }
 
 /// A seeded defect in the provider wire builder (feature `test-util`).
@@ -128,9 +120,10 @@ impl WireFault {
     }
 
     /// The serialized body after the fault.
-    pub(crate) fn apply_to_body(self, mut body: Vec<u8>) -> Vec<u8> {
+    pub(crate) fn apply_to_body(self, mut body: String) -> String {
         if self == Self::TruncateBody {
-            body.truncate(body.len() / 2);
+            let half = body.floor_char_boundary(body.len() / 2);
+            body.truncate(half);
         }
         body
     }
@@ -165,7 +158,7 @@ pub(crate) fn count_body(
     model: &str,
     payload_text: &str,
     system_prompt: &str,
-) -> Vec<u8> {
+) -> String {
     encode(&provider_document(
         kind,
         model,
@@ -284,63 +277,6 @@ pub(crate) fn parse_vendor(kind: ProviderKind, body: &[u8]) -> Result<VendorRepl
         status,
         truncation,
     })
-}
-
-pub(crate) fn parse_answers(
-    text: &str,
-    questions: &BTreeMap<QuestionId, BTreeSet<ChoiceId>>,
-) -> Result<Value, JevError> {
-    let value: Value = serde_json::from_str(text)
-        .map_err(|_| JevError::response_invalid("LLM reply is not JSON"))?;
-    let answers = value
-        .get("answers")
-        .and_then(Value::as_object)
-        .ok_or_else(|| JevError::response_invalid("LLM answer ids differ from the question ids"))?;
-    let expected: BTreeSet<&str> = questions.keys().map(QuestionId::as_str).collect();
-    let actual: BTreeSet<&str> = answers.keys().map(String::as_str).collect();
-    if expected != actual {
-        return Err(JevError::response_invalid(
-            "LLM answer ids differ from the question ids",
-        ));
-    }
-
-    let mut normalized = Map::new();
-    for (id, choices) in questions {
-        let id = id.as_str();
-        let item = answers
-            .get(id)
-            .and_then(Value::as_object)
-            .ok_or_else(|| bad_answer(id))?;
-        let choice = item.get("choice").and_then(Value::as_str).unwrap_or("");
-        if !choices.iter().any(|label| label.as_str() == choice) {
-            return Err(bad_answer(id));
-        }
-        let confidence = item.get("confidence").ok_or_else(|| bad_answer(id))?;
-        if !is_number(confidence) {
-            return Err(not_a_number());
-        }
-        let probabilities = item
-            .get("probabilities")
-            .and_then(Value::as_object)
-            .ok_or_else(|| bad_answer(id))?;
-        let expected_labels: BTreeSet<&str> = choices.iter().map(ChoiceId::as_str).collect();
-        let actual_labels: BTreeSet<&str> = probabilities.keys().map(String::as_str).collect();
-        if expected_labels != actual_labels {
-            return Err(bad_answer(id));
-        }
-        if !probabilities.values().all(is_number) {
-            return Err(not_a_number());
-        }
-        let mut answer = Map::new();
-        answer.insert("choice".to_owned(), Value::String(choice.to_owned()));
-        answer.insert("confidence".to_owned(), confidence.clone());
-        answer.insert(
-            "probabilities".to_owned(),
-            Value::Object(probabilities.clone()),
-        );
-        normalized.insert(id.to_owned(), Value::Object(answer));
-    }
-    Ok(Value::Object(normalized))
 }
 
 pub(crate) fn provider_meta(reply: &VendorReply, model: &str, prompt_tokens: u64) -> Value {
@@ -477,20 +413,6 @@ fn nonneg(value: i64) -> Result<u64, JevError> {
         .map_err(|_| JevError::response_invalid("provider input_tokens is negative"))
 }
 
-fn is_number(value: &Value) -> bool {
-    matches!(value, Value::Number(_))
-}
-
-fn bad_answer(id: &str) -> JevError {
-    JevError::response_invalid(format!(
-        "LLM answer {id} needs a criterion choice and a probability per criterion"
-    ))
-}
-
-fn not_a_number() -> JevError {
-    JevError::response_invalid("LLM confidence or probability is not a number")
-}
-
-fn encode(value: &Value) -> Vec<u8> {
-    serde_json::to_vec(value).expect("provider JSON values are finite")
+fn encode(value: &Value) -> String {
+    serde_json::to_string(value).expect("provider JSON values are finite")
 }

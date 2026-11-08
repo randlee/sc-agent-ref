@@ -14,7 +14,7 @@
 
 use std::collections::BTreeMap;
 
-use sc_agent_types::{BackendId, BackendSet, JevError, RepoRelativePath};
+use sc_agent_types::{BackendId, BackendSet, JevError, ModelAliases, ModelId, RepoRelativePath};
 use serde::{Deserialize, Serialize};
 
 /// Check input stored under `[inputs.<name>]` in `check.toml`.
@@ -111,6 +111,10 @@ pub struct CheckSpec {
     /// Top-level `backends` list. `RunConfig::backends` wins over it, and
     /// `[jev]` applies when both are absent (ADR-SAG-0024).
     pub backends: Option<BackendSet>,
+    /// The `[models]` table applied over the catalog (`alias = model
+    /// string`); the catalog's own aliases when the table is absent.
+    /// `RunConfig::models` wins over it (REQ-SAG-0148).
+    pub models: ModelAliases,
 }
 
 impl CheckSpec {
@@ -124,6 +128,7 @@ impl CheckSpec {
             system_prompt_file: None,
             inputs: BTreeMap::new(),
             backends: None,
+            models: ModelAliases::builtin(),
         }
     }
 
@@ -152,7 +157,8 @@ impl CheckSpec {
 ///
 /// Returns [`JevError::ConfigInvalid`] when the document does not match the
 /// check shape: unknown keys, a path that is not repo-relative, an unknown
-/// backend id, or an empty or repeated `backends` list.
+/// backend id, an empty or repeated `backends` list, or a `[models]` entry
+/// that names an unknown alias or an invalid model string.
 pub(crate) fn load_check_str(text: &str) -> Result<CheckSpec, JevError> {
     let raw: RawCheck = toml::from_str(text)
         .map_err(|error| JevError::config_invalid(format!("check.toml: {error}")))?;
@@ -167,13 +173,34 @@ pub(crate) fn load_check_str(text: &str) -> Result<CheckSpec, JevError> {
         Some(ids) => Some(BackendSet::try_from(ids)?),
         None => None,
     };
+    let models = models_from(&raw.models)?;
     Ok(CheckSpec {
         questions_path: raw.questions.path,
         state_path: raw.state.map(|state| state.path),
         system_prompt_file: raw.llm_judge.map(|llm| llm.system_prompt_file),
         inputs: raw.inputs,
         backends,
+        models,
     })
+}
+
+/// Applies the `[models]` table over the catalog aliases.
+///
+/// An invalid model string is `INPUT_INVALID` from `ModelId::from_str`; it
+/// is `CONFIG_INVALID` here, with its message and fix hint kept and the
+/// `check.toml` key (`[models].<alias>`) added (REQ-SAG-0301).
+fn models_from(table: &BTreeMap<String, String>) -> Result<ModelAliases, JevError> {
+    let mut aliases = ModelAliases::builtin();
+    for (alias, text) in table {
+        let key = format!("check.toml [models].{alias}");
+        let model: ModelId = text
+            .parse()
+            .map_err(|error: JevError| JevError::config_invalid(format!("{key}: {error}")))?;
+        aliases = aliases
+            .with_override(alias, model)
+            .map_err(|error| error.map_detail(|detail| format!("{key}: {detail}")))?;
+    }
+    Ok(aliases)
 }
 
 /// Reads `check.toml` at `relative` and `rev` through the repo-root resolver.
@@ -211,6 +238,8 @@ struct RawCheck {
     inputs: BTreeMap<String, InputSpec>,
     #[serde(default)]
     backends: Option<Vec<BackendId>>,
+    #[serde(default)]
+    models: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Deserialize)]

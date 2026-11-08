@@ -13,23 +13,26 @@
 //! Code outside this crate branches on descriptor facts, never on
 //! `BackendId` equality (ADR-SAG-0009 r-1 amendment).
 //!
-//! # Canonical judge payload
+//! # Models
 //!
-//! ADR-SAG-0002: payload bytes are sorted-key compact JSON, encoded as UTF-8.
-//! `PayloadBundle::encode` builds every bundle; SHA-256 of the bytes is
-//! `prompt_sha256`. LLM system-prompt text is not part of the digest
-//! (ADR-SAG-0019).
+//! [`ModelId`] names which model; [`BackendId`] names how we call it. The
+//! model catalog ([`MODELS`], [`ModelAliases`]) resolves aliases such as
+//! `"haiku"` to the newest known model and accepts overrides.
+//!
+//! # Decision types
+//!
+//! The judge contract, the canonical judge payload and the session-log
+//! schema live in `sc-decision-schema` (ADR-SAG-0030), one layer above
+//! this crate. This crate re-exports none of them.
 //!
 //! # Cargo features (module seams)
 //!
 //! | Feature | Default | Gates |
 //! | --- | --- | --- |
-//! | (core) | always | `error`, `envelope`, `ids`, [`schema`], `cancel` |
-//! | `judge` | yes | the judge contract and canonical payload |
+//! | (core) | always | `error`, `envelope`, `ids`, [`schema`], `cancel`, `models`, `trace` |
 //! | `secret` | yes | `ResolvedApiKey` |
 //! | `obs` | yes | `observability::v2` (session log port) |
 //! | `git` | no | `git` (argv-only git helpers) |
-//! | `test-util` | no | `test_util::MockJudgeBackend` (requires `judge`) |
 //!
 //! This crate links no `sc-observability*`, HTTP, Python, or tree-sitter
 //! crate (REQ-SAG-0107).
@@ -47,12 +50,10 @@ mod code;
 mod envelope;
 mod error;
 mod ids;
+mod models;
 pub mod schema;
+mod trace;
 
-#[cfg(feature = "judge")]
-mod judge;
-#[cfg(feature = "judge")]
-mod payload;
 #[cfg(feature = "secret")]
 mod secret;
 
@@ -60,8 +61,6 @@ mod secret;
 pub mod git;
 #[cfg(feature = "obs")]
 pub mod observability;
-#[cfg(feature = "test-util")]
-pub mod test_util;
 
 #[doc(inline)]
 pub use cancel::CancelToken;
@@ -73,20 +72,13 @@ pub use envelope::ScAgentErrorResponse;
 pub use error::{ErrorCode, JevError, NetworkErrorKind, OperationalArea};
 #[doc(inline)]
 pub use ids::{
-    BackendId, BackendKeyId, BackendSet, BlobSha, ChoiceId, Operation, QuestionId,
+    AnswerId, BackendId, BackendKeyId, BackendSet, BlobSha, Operation, ProjectLabel,
     RepoRelativePath, RepoRoot, Rev, SessionId, Sha256Digest,
 };
-#[cfg(feature = "judge")]
 #[doc(inline)]
-pub use judge::{
-    Attestation, BackendAttestation, BackendCapabilities, EqualInputRecord, JudgeBackend,
-    JudgeOutcome, JudgeRequest, LlmWireContext, MultiBackendMode, QuestionAnswer,
-};
-#[cfg(feature = "judge")]
-#[doc(inline)]
-pub use payload::{
-    CanonicalJudgePayload, ChoiceAnswer, PayloadBundle, Question, canonical_json_bytes,
-};
+pub use models::{MODELS, ModelAliases, ModelDescriptor, ModelFamily, ModelId, UnknownModel};
 #[cfg(feature = "secret")]
 #[doc(inline)]
 pub use secret::ResolvedApiKey;
+#[doc(inline)]
+pub use trace::SendTrace;

@@ -14,7 +14,9 @@ use sc_agent_http::{
     BusyPolicy, Endpoint, HeaderName, HttpRequest, Method, SecretHeader, Timeouts, Transport,
     UreqTransport, send_with_busy_retry,
 };
-use sc_agent_types::{BackendKeyId, CancelToken, JevError, NetworkErrorKind, ResolvedApiKey};
+use sc_agent_types::{
+    BackendKeyId, CancelToken, JevError, NetworkErrorKind, ResolvedApiKey, SendTrace,
+};
 use support::{LoopbackServer, Reply, refused_port};
 
 const KEY: &str = "sk-loopback-secret";
@@ -34,7 +36,7 @@ fn loopback() -> UreqTransport {
 }
 
 fn post(endpoint: Endpoint, secret: Option<SecretHeader>) -> HttpRequest {
-    let request = HttpRequest::new(Method::Post, endpoint, Arc::from(&br#"{"q":1}"#[..]))
+    let request = HttpRequest::new(Method::Post, endpoint, Arc::from(r#"{"q":1}"#))
         .with_header(HeaderName::new("content-type"), "application/json");
     match secret {
         Some(secret) => request.with_secret(secret),
@@ -214,6 +216,7 @@ fn test_timeout_is_network_error_without_the_key() {
         &post(server.endpoint("/slow"), Some(api_key_header())),
         &BusyPolicy::default(),
         &CancelToken::new(),
+        SendTrace::new(),
     )
     .expect_err("timeout");
     assert!(
@@ -243,6 +246,7 @@ fn test_connect_phase_failure_is_retryable_and_not_retried() {
         &post(endpoint, Some(api_key_header())),
         &BusyPolicy::default(),
         &CancelToken::new(),
+        SendTrace::new(),
     )
     .expect_err("refused");
     assert!(
@@ -274,6 +278,7 @@ fn test_busy_retry_over_loopback_resends_the_same_body() {
         &post(server.endpoint("/retry"), Some(api_key_header())),
         &policy,
         &CancelToken::new(),
+        SendTrace::new(),
     )
     .expect("retried");
     assert_eq!((response.status(), response.body()), (200, &b"done"[..]));

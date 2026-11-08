@@ -228,7 +228,7 @@ pub fn extract(input: &ExtractInput<'_>) -> Result<SubjectsDocument, JevError> {
             language: info.id.to_owned(),
             grammar: info.grammar.to_owned(),
             grammar_version: info.grammar_version.to_owned(),
-            query_sha256: Sha256Digest::of(input.query.as_bytes()),
+            query_sha256: Sha256Digest::of_text(&input.query),
             mode: PRODUCER_MODE.to_owned(),
         },
     );

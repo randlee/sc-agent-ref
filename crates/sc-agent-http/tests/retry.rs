@@ -13,7 +13,9 @@ use sc_agent_http::{
     BusyExhaustion, BusyPolicy, Endpoint, HttpClient, HttpRequest, HttpResponse, Method,
     SecretHeader, send_and_parse, send_with_busy_retry,
 };
-use sc_agent_types::{BackendKeyId, CancelToken, JevError, NetworkErrorKind, ResolvedApiKey};
+use sc_agent_types::{
+    BackendKeyId, CancelToken, JevError, NetworkErrorKind, ResolvedApiKey, SendTrace,
+};
 
 const KEY: &str = "sk-retry-secret";
 
@@ -26,7 +28,7 @@ fn request() -> HttpRequest {
     HttpRequest::new(
         Method::Post,
         Endpoint::parse("https://api.example.test/v1/x").expect("https"),
-        Arc::from(&b"{\"same\":\"body\"}"[..]),
+        Arc::from("{\"same\":\"body\"}"),
     )
     .with_secret(SecretHeader::bearer(key))
 }
@@ -61,7 +63,13 @@ fn fake(jitter: Duration) -> Hooks {
 }
 
 fn run(transport: &ScriptedTransport, policy: &BusyPolicy) -> Result<HttpResponse, JevError> {
-    send_with_busy_retry(transport, &request(), policy, &CancelToken::new())
+    send_with_busy_retry(
+        transport,
+        &request(),
+        policy,
+        &CancelToken::new(),
+        SendTrace::new(),
+    )
 }
 
 fn network_kind(error: &JevError) -> NetworkErrorKind {
@@ -99,10 +107,10 @@ fn test_busy_policy_numbers() {
             detail(&error),
             format!("HTTP {status} busy; 4 sends exhausted")
         );
-        let bodies: Vec<Vec<u8>> = transport
+        let bodies: Vec<String> = transport
             .requests()
             .iter()
-            .map(|sent| sent.body().to_vec())
+            .map(|sent| sent.body().to_owned())
             .collect();
         assert!(bodies.windows(2).all(|pair| pair[0] == pair[1]));
     }
@@ -252,8 +260,8 @@ fn test_cancel_interrupts_sleep() {
         .with_cancel_after(cancel.clone(), Duration::from_millis(1_050));
     let policy = BusyPolicy::with_test_hooks(clock, sleeper.clone(), Duration::ZERO);
     let transport = ScriptedTransport::responses(vec![busy(429, Some("30")), ok()]);
-    let error =
-        send_with_busy_retry(&transport, &request(), &policy, &cancel).expect_err("cancelled");
+    let error = send_with_busy_retry(&transport, &request(), &policy, &cancel, SendTrace::new())
+        .expect_err("cancelled");
     assert_eq!(network_kind(&error), NetworkErrorKind::Cancelled);
     assert!(!error.retryable());
     assert_eq!(transport.sends(), 1);
@@ -271,8 +279,14 @@ fn test_cancel_interrupts_sleep() {
     let cancelled = CancelToken::new();
     cancelled.cancel();
     let transport = ScriptedTransport::responses(vec![ok()]);
-    let error = send_with_busy_retry(&transport, &request(), &BusyPolicy::default(), &cancelled)
-        .expect_err("cancelled before send");
+    let error = send_with_busy_retry(
+        &transport,
+        &request(),
+        &BusyPolicy::default(),
+        &cancelled,
+        SendTrace::new(),
+    )
+    .expect_err("cancelled before send");
     assert_eq!(network_kind(&error), NetworkErrorKind::Cancelled);
     assert_eq!(transport.sends(), 0);
 }
@@ -365,6 +379,7 @@ fn test_send_and_parse_redacts_parse_errors() {
         &request(),
         &hooks.policy,
         &CancelToken::new(),
+        SendTrace::new(),
         |response| -> Result<(), JevError> {
             Err(JevError::response_invalid(
                 String::from_utf8_lossy(response.body()).into_owned(),
@@ -379,7 +394,9 @@ fn test_send_and_parse_redacts_parse_errors() {
     let client = HttpClient::new(ScriptedTransport::responses(vec![ok()]))
         .with_busy_policy(fake(Duration::ZERO).policy);
     let status = client
-        .send_and_parse(&request(), |response| Ok(response.status()))
+        .send_and_parse(&request(), SendTrace::new(), |response| {
+            Ok(response.status())
+        })
         .expect("ok");
     assert_eq!(status, 200);
     assert_eq!(client.transport().sends(), 1);
@@ -397,20 +414,22 @@ fn test_transport_adapters_and_doubles() {
     let plain = HttpRequest::new(
         Method::Get,
         Endpoint::parse("https://api.example.test/").expect("https"),
-        Arc::from(&b""[..]),
+        Arc::from(""),
     );
     assert_eq!(plain.method().to_string(), "GET");
-    let sent = send_with_busy_retry(&by_ref, &plain, &policy, &cancel).expect("by ref");
+    let sent =
+        send_with_busy_retry(&by_ref, &plain, &policy, &cancel, SendTrace::new()).expect("by ref");
     assert_eq!(sent.status(), 200);
     // The script is shared, so the Arc clone sees it exhausted.
-    let exhausted = send_with_busy_retry(&shared, &plain, &policy, &cancel).expect_err("empty");
+    let exhausted = send_with_busy_retry(&shared, &plain, &policy, &cancel, SendTrace::new())
+        .expect_err("empty");
     assert_eq!(detail(&exhausted), "script exhausted");
     assert_eq!(scripted.sends(), 2);
     // Without a secret, redaction leaves the error alone.
     assert_eq!(sc_agent_http::redact(exhausted.clone(), &plain), exhausted);
 
     let recording = sc_agent_http::test_util::RecordingTransport::new(scripted.clone());
-    let _ = send_with_busy_retry(&recording, &request(), &policy, &cancel);
+    let _ = send_with_busy_retry(&recording, &request(), &policy, &cancel, SendTrace::new());
     assert_eq!(recording.requests().len(), 1);
     for rendered in [format!("{scripted:?}"), format!("{recording:?}")] {
         assert!(rendered.contains("requests"), "{rendered}");

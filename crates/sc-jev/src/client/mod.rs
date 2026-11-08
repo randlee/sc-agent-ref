@@ -13,9 +13,9 @@ use sc_agent_http::{
     UreqTransport,
 };
 use sc_agent_types::{
-    BackendId, CancelToken, JevError, JudgeBackend, JudgeOutcome, JudgeRequest, NetworkErrorKind,
-    ResolvedApiKey,
+    BackendId, CancelToken, JevError, ModelId, NetworkErrorKind, ResolvedApiKey, SendTrace,
 };
+use sc_decision_schema::{JudgeBackend, JudgeOutcome, JudgeRequest};
 
 #[cfg(feature = "test-util")]
 use crate::check::WireFault;
@@ -39,17 +39,15 @@ const CONTENT_TYPE: HeaderName = HeaderName::new("Content-Type");
 /// use std::sync::Arc;
 ///
 /// use sc_agent_http::{HttpRequest, HttpResponse, Transport};
-/// use sc_agent_types::{
-///     BackendKeyId, CanonicalJudgePayload, JevError, JudgeBackend, JudgeRequest, PayloadBundle,
-///     ResolvedApiKey,
-/// };
+/// use sc_agent_types::{BackendKeyId, JevError, ResolvedApiKey, SendTrace};
+/// use sc_decision_schema::{CanonicalJudgePayload, JudgeBackend, JudgeRequest, PayloadBundle};
 /// use sc_jev::JevClient;
 ///
 /// struct Scripted;
 ///
 /// impl Transport for Scripted {
 ///     fn send(&self, request: &HttpRequest) -> Result<HttpResponse, JevError> {
-///         assert!(request.body().starts_with(br#"{"model":"jev-1.13.0","#));
+///         assert!(request.body().starts_with(r#"{"model":"jev-1.13.0","#));
 ///         assert!(request.secret().expect("bearer").matches("test-key"));
 ///         Ok(HttpResponse::new(
 ///             200,
@@ -69,7 +67,7 @@ const CONTENT_TYPE: HeaderName = HeaderName::new("Content-Type");
 ///     ResolvedApiKey::try_new(BackendKeyId::TypeSafe, "test-key".to_owned())?,
 ///     Scripted,
 /// );
-/// let outcome = client.judge(&JudgeRequest::new(Arc::new(bundle), None))?;
+/// let outcome = client.judge(&JudgeRequest::new(Arc::new(bundle), None), &SendTrace::new())?;
 /// assert_eq!(outcome.answers()["q"].choice().as_str(), "yes");
 /// # Ok::<(), JevError>(())
 /// ```
@@ -139,6 +137,14 @@ impl<T: Transport> JevClient<T> {
         self
     }
 
+    /// Sets the evaluator model (the catalog default unless the factory
+    /// applies a `check.toml` `[models]` override).
+    #[must_use]
+    pub fn with_model(mut self, model: ModelId) -> Self {
+        self.config = self.config.with_model(model);
+        self
+    }
+
     /// Replaces the busy-retry policy, its send count included.
     ///
     /// Tests pass `BusyPolicy::with_test_hooks` (feature
@@ -194,6 +200,7 @@ impl<T: Transport> JevClient<T> {
         &self,
         prepared: PreparedCheck,
         judged: &JudgeRequest,
+        trace: &SendTrace,
     ) -> Result<JudgeOutcome, JevError> {
         let PreparedCheck { body, criteria } = prepared;
         let request = HttpRequest::new(
@@ -206,14 +213,19 @@ impl<T: Transport> JevClient<T> {
         // Every error, transport or reply, is redacted inside
         // `send_and_parse` and then labelled with the backend name.
         self.http
-            .send_and_parse(&request, |response| {
+            .send_and_parse(&request, trace.clone(), |response| {
                 if response.status() != 200 {
                     return Err(JevError::network(
                         NetworkErrorKind::Status,
                         format!("HTTP {}", response.status()),
                     ));
                 }
-                check::parse_outcome(response.body(), self.config.model(), &criteria, judged)
+                check::parse_outcome(
+                    response.body(),
+                    self.config.model().as_str(),
+                    &criteria,
+                    judged,
+                )
             })
             .map_err(|error| error.map_detail(|detail| format!("Jev {detail}")))
     }
@@ -228,14 +240,20 @@ impl<T: Transport> JudgeBackend for JevClient<T> {
         check::prepare(&self.config, self.limit_bytes(), req.payload()).map(|_| ())
     }
 
-    fn judge(&self, req: &JudgeRequest) -> Result<JudgeOutcome, JevError> {
+    fn model_id(&self) -> ModelId {
+        self.config.model().clone()
+    }
+
+    fn judge(&self, req: &JudgeRequest, trace: &SendTrace) -> Result<JudgeOutcome, JevError> {
         let prepared = check::prepare(&self.config, self.limit_bytes(), req.payload())?;
         let prepared = self.apply_wire_fault(prepared, req);
         // REQ-SAG-0606: the digest is recovered from the final serialized
         // body, before it is handed to `send_with_busy_retry`. A body that
         // cannot be parsed fails here and nothing is sent.
         let digest = check::recovered_digest(&prepared.body)?;
-        Ok(self.execute(prepared, req)?.with_input_sha256(digest))
+        Ok(self
+            .execute(prepared, req, trace)?
+            .with_input_sha256(digest))
     }
 }
 

@@ -11,10 +11,10 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 use sc_agent_types::observability::v2::{NoopSessionLog, SharedSessionLog};
-use sc_agent_types::test_util::MockJudgeBackend;
-use sc_agent_types::{
-    BackendId, BackendSet, CanonicalJudgePayload, JevError, JudgeBackend, JudgeOutcome,
-    JudgeRequest, PayloadBundle, RepoRoot, SessionId,
+use sc_agent_types::{BackendId, BackendSet, JevError, RepoRoot, SessionId};
+use sc_decision_schema::test_util::MockJudgeBackend;
+use sc_decision_schema::{
+    CanonicalJudgePayload, JudgeBackend, JudgeOutcome, JudgeRequest, PayloadBundle,
 };
 use sc_jev_check::registry::BackendRegistry;
 use sc_jev_check::run::{CheckSource, RunConfig, ask, prepare, run};

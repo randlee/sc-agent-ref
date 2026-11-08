@@ -39,6 +39,7 @@ mimalloc = { workspace = true, optional = true }
 # list; compose's signatures name sc-jev-check types).
 sc-jev-host.workspace = true
 sc-agent-types = { path = "../sc-agent-types", version = "0.1.0" }
+sc-decision-schema = { path = "../sc-decision-schema", version = "0.1.0" }
 sc-jev-check = { path = "../sc-jev-check", version = "0.1.0" }
 serde.workspace = true
 serde_json.workspace = true

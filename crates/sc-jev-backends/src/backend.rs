@@ -11,7 +11,6 @@
 //! and redaction are `sc-agent-http` (ADR-SAG-0026); this module builds the
 //! provider requests and reads the replies.
 
-use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::sync::Arc;
 
@@ -20,9 +19,10 @@ use sc_agent_http::{
     UreqTransport,
 };
 use sc_agent_types::{
-    BackendId, CancelToken, ChoiceId, JevError, JudgeBackend, JudgeOutcome, JudgeRequest,
-    NetworkErrorKind, QuestionAnswer, QuestionId, ResolvedApiKey,
+    BackendId, CancelToken, JevError, ModelId, NetworkErrorKind, ResolvedApiKey, SendTrace,
 };
+use sc_decision_schema::llm::v1;
+use sc_decision_schema::{JudgeBackend, JudgeOutcome, JudgeRequest};
 
 use crate::validate;
 #[cfg(feature = "test-util")]
@@ -33,7 +33,7 @@ use crate::wire::{self, ProviderKind};
 struct Provider {
     id: BackendId,
     name: &'static str,
-    model: &'static str,
+    model: ModelId,
     host: &'static str,
     message_endpoint: Endpoint,
     count_endpoint: Endpoint,
@@ -56,7 +56,7 @@ impl Provider {
         Self {
             id: BackendId::AnthropicHaiku,
             name: "haiku",
-            model: wire::HAIKU_MODEL,
+            model: BackendId::AnthropicHaiku.descriptor().default_model(),
             host: wire::ANTHROPIC_HOST,
             message_endpoint: constant_endpoint(wire::ANTHROPIC_HOST, wire::HAIKU_MESSAGE_PATH),
             count_endpoint: constant_endpoint(wire::ANTHROPIC_HOST, wire::HAIKU_COUNT_PATH),
@@ -68,7 +68,7 @@ impl Provider {
         Self {
             id: BackendId::OpenAiLuna,
             name: "luna",
-            model: wire::LUNA_MODEL,
+            model: BackendId::OpenAiLuna.descriptor().default_model(),
             host: wire::OPENAI_HOST,
             message_endpoint: constant_endpoint(wire::OPENAI_HOST, wire::LUNA_MESSAGE_PATH),
             count_endpoint: constant_endpoint(wire::OPENAI_HOST, wire::LUNA_COUNT_PATH),
@@ -78,36 +78,8 @@ impl Provider {
 }
 
 struct Prepared {
-    message_body: Arc<[u8]>,
-    count_body: Arc<[u8]>,
-}
-
-/// Converts the normalized answer object into typed answers.
-///
-/// A confidence or probability outside `[0, 1]` is `RESPONSE_INVALID`.
-fn typed_answers(
-    normalized: serde_json::Value,
-    questions: &BTreeMap<QuestionId, BTreeSet<ChoiceId>>,
-) -> Result<BTreeMap<QuestionId, QuestionAnswer>, JevError> {
-    let serde_json::Value::Object(map) = normalized else {
-        return Err(JevError::response_invalid("LLM answers are not an object"));
-    };
-    map.into_iter()
-        .map(|(id, answer)| {
-            // `parse_answers` already matched every id to the payload's.
-            let question = questions
-                .keys()
-                .find(|question| question.as_str() == id)
-                .cloned()
-                .ok_or_else(|| {
-                    JevError::response_invalid(format!("answer id {id:?} is not valid"))
-                })?;
-            let answer: QuestionAnswer = serde_json::from_value(answer).map_err(|error| {
-                JevError::response_invalid(format!("answer {id} is invalid: {error}"))
-            })?;
-            Ok((question, answer))
-        })
-        .collect()
+    message_body: Arc<str>,
+    count_body: Arc<str>,
 }
 
 #[derive(Clone)]
@@ -146,7 +118,7 @@ impl<T: Transport> Client<T> {
 
     /// The serialized message body after any seeded fault.
     #[cfg(feature = "test-util")]
-    fn faulted_body(&self, body: Vec<u8>) -> Vec<u8> {
+    fn faulted_body(&self, body: String) -> String {
         match self.wire_fault {
             Some(fault) => fault.apply_to_body(body),
             None => body,
@@ -154,7 +126,7 @@ impl<T: Transport> Client<T> {
     }
 
     #[cfg(not(feature = "test-util"))]
-    fn faulted_body(&self, body: Vec<u8>) -> Vec<u8> {
+    fn faulted_body(&self, body: String) -> String {
         body
     }
 
@@ -173,7 +145,7 @@ impl<T: Transport> Client<T> {
         self.prepare_checked(request).map(|_| ())
     }
 
-    fn judge(&self, request: &JudgeRequest) -> Result<JudgeOutcome, JevError> {
+    fn judge(&self, request: &JudgeRequest, trace: &SendTrace) -> Result<JudgeOutcome, JevError> {
         let prepared = self.prepare_checked(request)?;
         // REQ-SAG-0606: the digest is recovered from the final serialized
         // message body before any request is handed to `send_with_busy_retry`.
@@ -182,29 +154,28 @@ impl<T: Transport> Client<T> {
         let prompt_tokens = self.exchange(
             &self.provider.count_endpoint,
             &prepared.count_body,
+            trace,
             |response| wire::parse_count(response.body()),
         )?;
         validate::enforce_input_token_limit(prompt_tokens)?;
         let (reply, answers) = self.exchange(
             &self.provider.message_endpoint,
             &prepared.message_body,
+            trace,
             |response| {
                 let reply = wire::parse_vendor(self.provider.kind, response.body())?;
                 if let Some(reason) = &reply.truncation {
                     return Err(JevError::response_invalid(reason.clone()));
                 }
                 let answers =
-                    wire::parse_answers(&reply.text, request.payload().question_choices())
-                        .and_then(|normalized| {
-                            typed_answers(normalized, request.payload().question_choices())
-                        })?;
+                    v1::parse_output(self.provider.model.family(), &reply.text, request.payload())?;
                 Ok((reply, answers))
             },
         )?;
         Ok(JudgeOutcome::new(self.provider.id, request, answers)?
             .with_provider_meta(wire::provider_meta(
                 &reply,
-                self.provider.model,
+                self.provider.model.as_str(),
                 prompt_tokens,
             ))
             .with_input_sha256(input_sha256))
@@ -216,15 +187,15 @@ impl<T: Transport> Client<T> {
             .ok_or_else(|| JevError::input_invalid("LLM system prompt is required"))?;
         let payload_text = self.embedded_text(request.payload().as_str());
         validate::validate_questions(request.payload())?;
-        let message_body: Arc<[u8]> = Arc::from(self.faulted_body(wire::message_body(
+        let message_body: Arc<str> = Arc::from(self.faulted_body(wire::message_body(
             self.provider.kind,
-            self.provider.model,
+            self.provider.model.as_str(),
             &payload_text,
             &prompt.system_prompt,
         )));
-        let count_body: Arc<[u8]> = Arc::from(wire::count_body(
+        let count_body: Arc<str> = Arc::from(wire::count_body(
             self.provider.kind,
-            self.provider.model,
+            self.provider.model.as_str(),
             &payload_text,
             &prompt.system_prompt,
         ));
@@ -240,12 +211,13 @@ impl<T: Transport> Client<T> {
     fn exchange<R>(
         &self,
         endpoint: &Endpoint,
-        body: &Arc<[u8]>,
+        body: &Arc<str>,
+        trace: &SendTrace,
         parse: impl FnOnce(HttpResponse) -> Result<R, JevError>,
     ) -> Result<R, JevError> {
         let request = self.http_request(endpoint, body);
         self.http
-            .send_and_parse(&request, |response| {
+            .send_and_parse(&request, trace.clone(), |response| {
                 if response.status() != 200 {
                     return Err(http_failure(&response));
                 }
@@ -254,7 +226,7 @@ impl<T: Transport> Client<T> {
             .map_err(|error| error.map_detail(|detail| format!("{} {detail}", self.provider.name)))
     }
 
-    fn http_request(&self, endpoint: &Endpoint, body: &Arc<[u8]>) -> HttpRequest {
+    fn http_request(&self, endpoint: &Endpoint, body: &Arc<str>) -> HttpRequest {
         wire::unsigned_headers(self.provider.kind)
             .into_iter()
             .fold(
@@ -324,6 +296,15 @@ macro_rules! llm_backend {
                 }
             }
 
+            /// Sets the model sent and reported (default: the catalog
+            /// default of this backend, REQ-SAG-0148). A model string this
+            /// build does not know is sent verbatim.
+            #[must_use]
+            pub fn with_model(mut self, model: ModelId) -> Self {
+                self.client.provider.model = model;
+                self
+            }
+
             /// Replaces the busy-retry policy (default
             /// [`BusyPolicy::default`], REQ-SAG-0505).
             ///
@@ -362,7 +343,7 @@ macro_rules! llm_backend {
             fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                 formatter
                     .debug_struct(stringify!($name))
-                    .field("model", &self.client.provider.model)
+                    .field("model", &self.client.provider.model.as_str())
                     .field("host", &self.client.provider.host)
                     .finish_non_exhaustive()
             }
@@ -377,8 +358,16 @@ macro_rules! llm_backend {
                 self.client.validate_for_send(request)
             }
 
-            fn judge(&self, request: &JudgeRequest) -> Result<JudgeOutcome, JevError> {
-                self.client.judge(request)
+            fn model_id(&self) -> ModelId {
+                self.client.provider.model.clone()
+            }
+
+            fn judge(
+                &self,
+                request: &JudgeRequest,
+                trace: &SendTrace,
+            ) -> Result<JudgeOutcome, JevError> {
+                self.client.judge(request, trace)
             }
         }
     };
@@ -392,10 +381,8 @@ llm_backend! {
     /// ```
     /// use std::sync::Arc;
     ///
-    /// use sc_agent_types::{
-    ///     BackendKeyId, CanonicalJudgePayload, JevError, JudgeBackend, JudgeRequest,
-    ///     LlmWireContext, NetworkErrorKind, PayloadBundle, ResolvedApiKey,
-    /// };
+    /// use sc_agent_types::{BackendKeyId, JevError, NetworkErrorKind, ResolvedApiKey, SendTrace};
+    /// use sc_decision_schema::{CanonicalJudgePayload, JudgeBackend, JudgeRequest, LlmWireContext, PayloadBundle};
     /// use sc_agent_http::{HttpRequest, HttpResponse, Transport};
     /// use sc_jev_backends::AnthropicHaikuBackend;
     ///
@@ -419,7 +406,10 @@ llm_backend! {
     ///     Some(LlmWireContext::new("Judge.")),
     /// );
     /// backend.validate_for_send(&request)?;
-    /// assert_eq!(backend.judge(&request).unwrap_err().code(), "NETWORK_ERROR");
+    /// assert_eq!(
+    ///     backend.judge(&request, &SendTrace::new()).unwrap_err().code(),
+    ///     "NETWORK_ERROR"
+    /// );
     /// # Ok::<(), JevError>(())
     /// ```
     AnthropicHaikuBackend, Provider::haiku(), header = "x-api-key"

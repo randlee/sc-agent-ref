@@ -1,6 +1,6 @@
 //! Cooperative cancellation shared by a run and its backends.
 //!
-//! Std-only and always on, so transports can honour it without the `judge`
+//! Std-only and always on, so transports can honour it without any
 //! feature.
 
 use std::sync::Arc;

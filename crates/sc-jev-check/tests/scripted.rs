@@ -4,9 +4,8 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use sc_agent_types::{
-    BackendId, CanonicalJudgePayload, JudgeRequest, LlmWireContext, NetworkErrorKind, PayloadBundle,
-};
+use sc_agent_types::{BackendId, NetworkErrorKind, SendTrace};
+use sc_decision_schema::{CanonicalJudgePayload, JudgeRequest, LlmWireContext, PayloadBundle};
 use sc_jev_check::registry::register_scripted_backends;
 use serde_json::{Value, json};
 
@@ -33,7 +32,7 @@ fn test_scripted_shared_form_unchanged() {
         let registry = register_scripted_backends(&IDS, answers).expect("shared form");
         for id in IDS {
             let judge = registry.get(id).expect("registered");
-            let outcome = judge.judge(&request()).expect("judge");
+            let outcome = judge.judge(&request(), &SendTrace::new()).expect("judge");
             assert_eq!(outcome.answers()["relevant"].choice().as_str(), "yes");
             assert_eq!(
                 outcome.input_sha256(),
@@ -57,7 +56,7 @@ fn test_scripted_per_backend_failure() {
     let failure = registry
         .get(BackendId::Jev)
         .expect("jev")
-        .judge(&request())
+        .judge(&request(), &SendTrace::new())
         .expect_err("scripted failure");
     assert_eq!(failure.code(), "NETWORK_ERROR");
     assert!(matches!(
@@ -70,7 +69,7 @@ fn test_scripted_per_backend_failure() {
     let outcome = registry
         .get(BackendId::AnthropicHaiku)
         .expect("haiku")
-        .judge(&request())
+        .judge(&request(), &SendTrace::new())
         .expect("answers");
     assert_eq!(outcome.answers()["relevant"].choice().as_str(), "yes");
 }
@@ -93,7 +92,9 @@ fn test_scripted_validate_stage_not_sent() {
         "INPUT_TOO_LARGE"
     );
     assert_eq!(
-        jev.judge(&request()).expect_err("refused").code(),
+        jev.judge(&request(), &SendTrace::new())
+            .expect_err("refused")
+            .code(),
         "INPUT_TOO_LARGE"
     );
 }

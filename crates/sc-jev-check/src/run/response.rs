@@ -11,9 +11,9 @@ use serde::ser::{SerializeMap, Serializer};
 use serde_json::Value;
 
 use sc_agent_types::{
-    BackendFamily, BackendId, EqualInputRecord, JevError, JudgeOutcome, ScAgentErrorResponse,
-    SessionId, Sha256Digest,
+    BackendFamily, BackendId, JevError, ScAgentErrorResponse, SessionId, Sha256Digest,
 };
+use sc_decision_schema::{EqualInputRecord, JudgeOutcome};
 
 /// Envelope `version` field.
 pub const ENVELOPE_VERSION: &str = "1";

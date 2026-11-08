@@ -275,8 +275,8 @@ impl fmt::Display for Endpoint {
 
 /// One outbound HTTP request.
 ///
-/// The body is shared (`Arc<[u8]>`), so busy retries resend the same bytes
-/// without copying. [`Debug`](fmt::Debug) prints the body length and redacts
+/// The body is shared text (`Arc<str>`), so busy retries resend the same
+/// bytes without copying and the request digest needs no UTF-8 branch. [`Debug`](fmt::Debug) prints the body length and redacts
 /// the secret.
 ///
 /// # Examples
@@ -291,7 +291,7 @@ impl fmt::Display for Endpoint {
 /// let request = HttpRequest::new(
 ///     Method::Post,
 ///     Endpoint::parse("https://api.anthropic.com/v1/messages")?,
-///     Arc::from(&br#"{"model":"m"}"#[..]),
+///     Arc::from(r#"{"model":"m"}"#),
 /// )
 /// .with_header(HeaderName::new("content-type"), "application/json")
 /// .with_secret(SecretHeader::new(HeaderName::new("x-api-key"), key));
@@ -305,13 +305,13 @@ pub struct HttpRequest {
     endpoint: Endpoint,
     headers: Vec<(HeaderName, String)>,
     secret: Option<SecretHeader>,
-    body: Arc<[u8]>,
+    body: Arc<str>,
 }
 
 impl HttpRequest {
     /// A request with no headers and no secret.
     #[must_use]
-    pub fn new(method: Method, endpoint: Endpoint, body: Arc<[u8]>) -> Self {
+    pub fn new(method: Method, endpoint: Endpoint, body: Arc<str>) -> Self {
         Self {
             method,
             endpoint,
@@ -359,9 +359,9 @@ impl HttpRequest {
         self.secret.as_ref()
     }
 
-    /// The body bytes sent on every attempt.
+    /// The body text; transports send its bytes on every attempt.
     #[must_use]
-    pub fn body(&self) -> &[u8] {
+    pub fn body(&self) -> &str {
         &self.body
     }
 }

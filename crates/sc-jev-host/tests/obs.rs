@@ -35,7 +35,7 @@ fn golden_event(operation: Operation) -> SessionEvent {
     SessionEvent::new(
         serde_json::from_str("\"00000000-0000-0000-0000-000000000000\"").expect("nil session id"),
         BackendId::AnthropicHaiku,
-        Sha256Digest::of(b"payload"),
+        Sha256Digest::of_text("payload"),
         operation,
     )
 }
@@ -88,7 +88,7 @@ fn test_every_operation_is_an_action_name() {
 fn test_adapter_writes_one_line_without_secret_fields() {
     let root = TempDir::new().expect("temp");
     let adapter = ObservabilityAdapter::open(&policy(), root.path()).expect("logger");
-    let digest = Sha256Digest::of(b"payload");
+    let digest = Sha256Digest::of_text("payload");
     let session_id = SessionId::new();
     adapter
         .emit(event(session_id, &digest, Operation::Judge))
@@ -114,7 +114,7 @@ fn test_one_writer_per_log_root_while_any_handle_lives() {
     // A different spelling of the same directory maps to the same key.
     let second = ObservabilityAdapter::open(&policy(), &root.path().join(".")).expect("second");
     assert!(first.shares_writer_with(&second));
-    let digest = Sha256Digest::of(b"payload");
+    let digest = Sha256Digest::of_text("payload");
     first
         .emit(event(SessionId::new(), &digest, Operation::Judge))
         .expect("first line");

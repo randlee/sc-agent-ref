@@ -4,9 +4,8 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use sc_agent_types::{
-    BackendSet, JevError, MultiBackendMode, RepoRoot, Rev, ScAgentErrorResponse, SessionId,
-};
+use sc_agent_types::{BackendSet, JevError, RepoRoot, Rev, ScAgentErrorResponse, SessionId};
+use sc_decision_schema::MultiBackendMode;
 use sc_jev_check::registry::BackendRegistry;
 use sc_jev_check::run::{CallerRequest, CheckSource, Envelope};
 use sc_jev_host::compose::{ComposeInputs, ResolvedPaths, ask_from, explicit_repo_root, run_from};

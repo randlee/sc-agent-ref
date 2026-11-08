@@ -32,8 +32,9 @@ mod scripted;
 
 use sc_agent_secrets::resolve_key;
 use sc_agent_types::{
-    BackendId, BackendKeyId, BackendSet, JevError, JudgeBackend, RepoRoot, ResolvedApiKey,
+    BackendId, BackendKeyId, BackendSet, JevError, ModelAliases, ModelId, RepoRoot, ResolvedApiKey,
 };
+use sc_decision_schema::JudgeBackend;
 use sc_jev::JevClient;
 use sc_jev_backends::{AnthropicHaikuBackend, OpenAiLunaBackend};
 
@@ -41,8 +42,9 @@ use sc_jev_backends::{AnthropicHaikuBackend, OpenAiLunaBackend};
 #[doc(inline)]
 pub use scripted::register_scripted_backends;
 
-/// Builds one production backend from its resolved key.
-type Factory = fn(ResolvedApiKey) -> Arc<dyn JudgeBackend>;
+/// Builds one production backend from its resolved key and the model
+/// aliases (the catalog, or the `check.toml` `[models]` override).
+type Factory = fn(ResolvedApiKey, &ModelAliases) -> Arc<dyn JudgeBackend>;
 
 /// One row per built-in backend (test-and-review convention, ADR-SAG-0027).
 static FACTORIES: &[(BackendId, Factory)] = &[
@@ -51,16 +53,33 @@ static FACTORIES: &[(BackendId, Factory)] = &[
     (BackendId::OpenAiLuna, luna_factory),
 ];
 
-fn jev_factory(key: ResolvedApiKey) -> Arc<dyn JudgeBackend> {
-    Arc::new(JevClient::with_default_transport(key))
+/// The model `id` runs with: `aliases.latest(descriptor.default_model_alias())`.
+///
+/// `aliases` always holds the descriptor's alias (`ModelAliases` keeps its
+/// key set), so the catalog default is only a defensive answer.
+fn model_for(id: BackendId, aliases: &ModelAliases) -> ModelId {
+    let descriptor = id.descriptor();
+    aliases
+        .latest(descriptor.default_model_alias())
+        .unwrap_or_else(|| descriptor.default_model())
 }
 
-fn haiku_factory(key: ResolvedApiKey) -> Arc<dyn JudgeBackend> {
-    Arc::new(AnthropicHaikuBackend::with_default_transport(key))
+fn jev_factory(key: ResolvedApiKey, aliases: &ModelAliases) -> Arc<dyn JudgeBackend> {
+    Arc::new(JevClient::with_default_transport(key).with_model(model_for(BackendId::Jev, aliases)))
 }
 
-fn luna_factory(key: ResolvedApiKey) -> Arc<dyn JudgeBackend> {
-    Arc::new(OpenAiLunaBackend::with_default_transport(key))
+fn haiku_factory(key: ResolvedApiKey, aliases: &ModelAliases) -> Arc<dyn JudgeBackend> {
+    Arc::new(
+        AnthropicHaikuBackend::with_default_transport(key)
+            .with_model(model_for(BackendId::AnthropicHaiku, aliases)),
+    )
+}
+
+fn luna_factory(key: ResolvedApiKey, aliases: &ModelAliases) -> Arc<dyn JudgeBackend> {
+    Arc::new(
+        OpenAiLunaBackend::with_default_transport(key)
+            .with_model(model_for(BackendId::OpenAiLuna, aliases)),
+    )
 }
 
 fn factory_for(id: BackendId) -> Result<Factory, JevError> {
@@ -154,7 +173,21 @@ impl BackendRegistry {
     /// [`JevError::RegistryInvalid`] when an id has no factory row or no
     /// credential.
     pub fn from_env(repo_root: &RepoRoot, backends: &BackendSet) -> Result<Self, JevError> {
-        Self::from_resolver(backends, |key_id| resolve_key(key_id, repo_root))
+        Self::from_env_with_models(repo_root, backends, &ModelAliases::builtin())
+    }
+
+    /// [`Self::from_env`] with `models` deciding each backend's model
+    /// (`check.toml` `[models]`, `RunConfig::models`).
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::from_env`].
+    pub fn from_env_with_models(
+        repo_root: &RepoRoot,
+        backends: &BackendSet,
+        models: &ModelAliases,
+    ) -> Result<Self, JevError> {
+        Self::from_resolver_with_models(backends, models, |key_id| resolve_key(key_id, repo_root))
     }
 
     /// Constructs one production backend per `backends` entry from keys
@@ -187,6 +220,21 @@ impl BackendRegistry {
         backends: &BackendSet,
         resolve: impl Fn(BackendKeyId) -> Result<ResolvedApiKey, JevError>,
     ) -> Result<Self, JevError> {
+        Self::from_resolver_with_models(backends, &ModelAliases::builtin(), resolve)
+    }
+
+    /// [`Self::from_resolver`] with `models` deciding each backend's model:
+    /// each backend is built with
+    /// `models.latest(descriptor.default_model_alias())`.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::from_resolver`].
+    pub fn from_resolver_with_models(
+        backends: &BackendSet,
+        models: &ModelAliases,
+        resolve: impl Fn(BackendKeyId) -> Result<ResolvedApiKey, JevError>,
+    ) -> Result<Self, JevError> {
         let mut registry = Self::new();
         for id in backends.iter() {
             let factory = factory_for(id)?;
@@ -196,7 +244,7 @@ impl BackendRegistry {
                     "Report this build as a bug.",
                 )
             })?;
-            registry.register(factory(resolve(key_id)?))?;
+            registry.register(factory(resolve(key_id)?, models))?;
         }
         Ok(registry)
     }
@@ -218,7 +266,7 @@ mod tests {
 
     use super::*;
     use sc_agent_types::BACKENDS;
-    use sc_agent_types::test_util::MockJudgeBackend;
+    use sc_decision_schema::test_util::MockJudgeBackend;
 
     /// Every descriptor has exactly one factory row and every row has a
     /// descriptor (REQ-SAG-0105).
@@ -246,7 +294,9 @@ mod tests {
                 "test-key".to_owned(),
             )
             .expect("key");
-            assert_eq!(factory_for(row.id()).expect("factory")(key).id(), row.id());
+            let backend = factory_for(row.id()).expect("factory")(key, &ModelAliases::builtin());
+            assert_eq!(backend.id(), row.id());
+            assert_eq!(backend.model_id(), row.default_model());
         }
     }
 

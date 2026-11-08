@@ -3,10 +3,11 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use sc_agent_types::{
-    Attestation, BackendAttestation, BackendCapabilities, BackendId, CanonicalJudgePayload,
-    ChoiceId, EqualInputRecord, JevError, JudgeBackend, JudgeOutcome, JudgeRequest, LlmWireContext,
-    MultiBackendMode, PayloadBundle, QuestionAnswer, QuestionId, Sha256Digest,
+use sc_agent_types::{BackendId, JevError, SendTrace, Sha256Digest};
+use sc_decision_schema::{
+    Attestation, BackendAttestation, BackendCapabilities, CanonicalJudgePayload, ChoiceId,
+    EqualInputRecord, JudgeBackend, JudgeOutcome, JudgeRequest, LlmWireContext, MultiBackendMode,
+    PayloadBundle, QuestionAnswer, QuestionId,
 };
 use serde_json::json;
 
@@ -74,7 +75,7 @@ fn test_answers_serde_golden() {
     );
     assert_eq!(
         map[&qid("r")].to_choice_answer(&qid("r")),
-        sc_agent_types::ChoiceAnswer {
+        sc_decision_schema::ChoiceAnswer {
             question_id: qid("r"),
             choice: choice("yes")
         }
@@ -179,7 +180,7 @@ fn test_equal_input_equal_is_derived() {
 
     for other in [
         Attestation::Mismatched {
-            reported: Sha256Digest::of(b"other"),
+            reported: Sha256Digest::of_text("other"),
         },
         Attestation::Unattested,
         Attestation::Failed,
@@ -227,7 +228,7 @@ fn test_equal_input_equal_is_derived() {
 #[test]
 fn test_payload_bundle_encode_and_question_choices() {
     let bundle = bundle();
-    assert_eq!(bundle.sha256(), &Sha256Digest::of(bundle.bytes()));
+    assert_eq!(bundle.sha256(), &Sha256Digest::of_text(bundle.as_str()));
     let ids: Vec<&str> = bundle.question_ids().map(QuestionId::as_str).collect();
     assert_eq!(ids, ["relevant", "risk"]);
     assert!(bundle.question_choices()[&qid("risk")].contains(&choice("high")));
@@ -264,7 +265,7 @@ fn test_capabilities_come_from_the_descriptor() {
             Ok(())
         }
 
-        fn judge(&self, req: &JudgeRequest) -> Result<JudgeOutcome, JevError> {
+        fn judge(&self, req: &JudgeRequest, _trace: &SendTrace) -> Result<JudgeOutcome, JevError> {
             JudgeOutcome::new(self.id(), req, BTreeMap::new())
         }
     }

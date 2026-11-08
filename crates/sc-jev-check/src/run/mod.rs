@@ -87,9 +87,12 @@ use std::sync::Arc;
 use sc_agent_types::observability::v2::{LogEvent, SharedSessionLog};
 use sc_agent_types::schema::subjects::SubjectsProducer;
 use sc_agent_types::{
-    Attestation, BackendAttestation, BackendId, BackendSet, CancelToken, EqualInputRecord,
-    JevError, JudgeBackend, JudgeOutcome, JudgeRequest, LlmWireContext, MultiBackendMode,
-    Operation, PayloadBundle, RepoRelativePath, RepoRoot, Rev, SessionId, Sha256Digest,
+    BackendId, BackendSet, CancelToken, JevError, ModelAliases, Operation, RepoRelativePath,
+    RepoRoot, Rev, SendTrace, SessionId, Sha256Digest,
+};
+use sc_decision_schema::{
+    Attestation, BackendAttestation, EqualInputRecord, JudgeBackend, JudgeOutcome, JudgeRequest,
+    LlmWireContext, MultiBackendMode, PayloadBundle,
 };
 
 use crate::config::{CheckSpec, load_check_at};
@@ -249,6 +252,7 @@ pub struct RunConfig {
     registry: Option<Arc<BackendRegistry>>,
     cancel: CancelToken,
     mode: MultiBackendMode,
+    models: Option<ModelAliases>,
 }
 
 impl RunConfig {
@@ -267,6 +271,7 @@ impl RunConfig {
             registry: None,
             cancel: CancelToken::new(),
             mode: MultiBackendMode::Independent,
+            models: None,
         }
     }
 
@@ -327,6 +332,17 @@ impl RunConfig {
         self
     }
 
+    /// Decides each production backend's model from `models` (REQ-SAG-0148).
+    ///
+    /// Wins over the check's `[models]` table; without either, the catalog
+    /// defaults apply. A registry set with [`Self::registry`] is already
+    /// built, so it ignores this.
+    #[must_use]
+    pub fn models(mut self, models: ModelAliases) -> Self {
+        self.models = Some(models);
+        self
+    }
+
     /// Cancellation token carried on every judge request.
     #[must_use]
     pub fn cancel(mut self, token: CancelToken) -> Self {
@@ -347,6 +363,7 @@ impl std::fmt::Debug for RunConfig {
             .field("sessions_dir", &self.sessions_dir)
             .field("registry", &self.registry)
             .field("mode", &self.mode)
+            .field("models", &self.models)
             .finish_non_exhaustive()
     }
 }
@@ -359,6 +376,7 @@ pub struct PreparedRun {
     request: JudgeRequest,
     backends: BackendSet,
     producer: Option<SubjectsProducer>,
+    models: ModelAliases,
 }
 
 impl PreparedRun {
@@ -392,6 +410,14 @@ impl PreparedRun {
     #[must_use]
     pub fn backends(&self) -> &BackendSet {
         &self.backends
+    }
+
+    /// The model aliases production backends are built with:
+    /// [`RunConfig::models`], else the check's `[models]` table, else the
+    /// catalog.
+    #[must_use]
+    pub fn models(&self) -> &ModelAliases {
+        &self.models
     }
 }
 
@@ -444,11 +470,17 @@ pub fn prepare(source: CheckSource, config: RunConfig) -> Result<PreparedRun, Je
     };
     let request = JudgeRequest::new(Arc::new(bundle), system_prompt.map(LlmWireContext::new))
         .with_cancel(config.cancel.clone());
+    let models = config
+        .models
+        .clone()
+        .or_else(|| spec.as_ref().map(|spec| spec.models.clone()))
+        .unwrap_or_else(ModelAliases::builtin);
     Ok(PreparedRun {
         config,
         request,
         backends,
         producer,
+        models,
     })
 }
 
@@ -530,11 +562,16 @@ fn live_run(prepared: PreparedRun) -> Result<RunResponse, JevError> {
         request,
         backends,
         producer,
+        models,
     } = prepared;
     let store = open_session_store(&config, &backends)?;
     let registry = match &config.registry {
         Some(registry) => Arc::clone(registry),
-        None => Arc::new(BackendRegistry::from_env(&config.repo_root, &backends)?),
+        None => Arc::new(BackendRegistry::from_env_with_models(
+            &config.repo_root,
+            &backends,
+            &models,
+        )?),
     };
     let judges = backends
         .iter()
@@ -750,7 +787,10 @@ fn send(
     session_id: SessionId,
     operation: Operation,
 ) -> Result<JudgeOutcome, JevError> {
-    let judged = judge.judge(request);
+    // One trace per send. Nothing records into it in r-7; r-6 reads the
+    // request digest from this handle after the call returns.
+    let trace = SendTrace::new();
+    let judged = judge.judge(request, &trace);
     emit_log(
         log,
         LogEvent::new(
@@ -772,8 +812,8 @@ fn send(
 /// follow-ups and then `follow_up`; it is validated, then sent through the
 /// same send step as `run`, with one [`Operation::Ask`] log event on
 /// [`RunConfig`]'s session log. The session file is read and never
-/// rewritten. Only `repo_root`, `session_log`, `registry` and `cancel` of
-/// `config` are used.
+/// rewritten. Only `repo_root`, `session_log`, `registry`, `cancel` and
+/// `models` of `config` are used.
 ///
 /// # Errors
 ///
@@ -791,9 +831,10 @@ pub fn ask(
     check_follow_up(&stored, follow_up)?;
     let registry = match &config.registry {
         Some(registry) => Arc::clone(registry),
-        None => Arc::new(BackendRegistry::from_env(
+        None => Arc::new(BackendRegistry::from_env_with_models(
             &config.repo_root,
             &BackendSet::try_from(vec![stored.backend])?,
+            &config.models.clone().unwrap_or_else(ModelAliases::builtin),
         )?),
     };
     let judge = registry.get(stored.backend)?;

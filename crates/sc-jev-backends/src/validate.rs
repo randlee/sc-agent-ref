@@ -9,7 +9,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use sc_agent_types::{ChoiceId, JevError, PayloadBundle, QuestionId};
+use sc_agent_types::JevError;
+use sc_decision_schema::{ChoiceId, PayloadBundle, QuestionId};
 
 /// Pre-send input token ceiling for one judge call (ADR-SAG-0004).
 ///
@@ -54,15 +55,15 @@ pub(crate) fn enforce_input_token_limit(tokens: u64) -> Result<(), JevError> {
 /// estimate exceeds [`MAX_INPUT_TOKENS`].
 pub(crate) fn enforce_count_and_message_limits(
     limit_bytes: u64,
-    count_body: &[u8],
-    message_body: &[u8],
+    count_body: &str,
+    message_body: &str,
 ) -> Result<(), JevError> {
     for body in [count_body, message_body] {
         let actual = u64::try_from(body.len()).unwrap_or(u64::MAX);
         if actual > limit_bytes {
             return Err(JevError::input_too_large(limit_bytes, actual));
         }
-        enforce_input_token_limit(local_input_tokens(body))?;
+        enforce_input_token_limit(local_input_tokens(body.as_bytes()))?;
     }
     Ok(())
 }
@@ -97,7 +98,7 @@ pub(crate) fn validate_questions(
 /// Refusal paths of `validate_questions` on bundles built from payloads.
 #[cfg(test)]
 mod refusals {
-    use sc_agent_types::{CanonicalJudgePayload, PayloadBundle};
+    use sc_decision_schema::{CanonicalJudgePayload, PayloadBundle};
     use serde_json::json;
 
     use super::validate_questions;

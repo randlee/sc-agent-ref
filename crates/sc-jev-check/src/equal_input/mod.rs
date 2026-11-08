@@ -12,10 +12,9 @@
 
 use std::collections::BTreeMap;
 
+use sc_agent_types::JevError;
 use sc_agent_types::schema::subjects::SubjectsProducer;
-use sc_agent_types::{
-    BackendAttestation, EqualInputRecord, JevError, MultiBackendMode, PayloadBundle,
-};
+use sc_decision_schema::{BackendAttestation, EqualInputRecord, MultiBackendMode, PayloadBundle};
 
 use crate::extract::Extracted;
 
@@ -89,7 +88,8 @@ pub fn producer_from_extractions(
 mod tests {
     use super::*;
     use sc_agent_types::schema::subjects::SubjectsDocument;
-    use sc_agent_types::{Attestation, BackendId, CanonicalJudgePayload, Sha256Digest};
+    use sc_agent_types::{BackendId, Sha256Digest};
+    use sc_decision_schema::{Attestation, CanonicalJudgePayload};
 
     fn bundle() -> PayloadBundle {
         PayloadBundle::encode(&CanonicalJudgePayload::new(Vec::new(), Vec::new())).expect("bundle")
@@ -111,7 +111,10 @@ mod tests {
             Some(producer.clone()),
         )
         .expect("record");
-        assert_eq!(built.prompt_sha256(), &Sha256Digest::of(bundle.bytes()));
+        assert_eq!(
+            built.prompt_sha256(),
+            &Sha256Digest::of_text(bundle.as_str())
+        );
         assert!(built.leak());
         assert!(!built.equal());
         assert_eq!(built.backends().len(), 2);

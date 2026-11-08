@@ -6,7 +6,7 @@
 //! depend on the host platform). `cargo tree` runs `--offline` through the
 //! workspace's bounded runner, so it needs a warm registry cache (any prior
 //! `cargo build` or `cargo test` of the workspace provides one). `sha2` is a core dependency because
-//! `Sha256Digest::of` is in core `ids`.
+//! `Sha256Digest::of_text` is in core `ids`.
 
 use std::collections::BTreeSet;
 use std::path::PathBuf;

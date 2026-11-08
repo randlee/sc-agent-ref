@@ -8,7 +8,8 @@ use std::process::Command;
 
 use deadline::spawn_with_deadline;
 
-use sc_agent_types::{Sha256Digest, canonical_json_bytes};
+use sc_agent_types::Sha256Digest;
+use sc_decision_schema::canonical_json_bytes;
 
 fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -45,7 +46,8 @@ fn jev_cross_impl_matches_python_reference() {
     let reference_bytes = std::fs::read(fixture.join("reference.bytes")).expect("reference.bytes");
     let reference_digest =
         std::fs::read_to_string(fixture.join("reference.sha256")).expect("reference.sha256");
-    let rust_digest = Sha256Digest::of(&rust_bytes);
+    let rust_text = std::str::from_utf8(&rust_bytes).expect("canonical JSON is UTF-8");
+    let rust_digest = Sha256Digest::of_text(rust_text);
 
     assert_eq!(rust_bytes, python.stdout, "rust bytes differ from python");
     assert_eq!(

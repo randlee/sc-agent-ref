@@ -7,7 +7,7 @@ use super::*;
 use crate::config::PACKAGED_SYSTEM_PROMPT;
 use crate::extract::test_support::{self, copy_fixture};
 use sc_agent_types::observability::v2::{LogRejected, NoopSessionLog, SessionLog};
-use sc_agent_types::test_util::MockJudgeBackend;
+use sc_decision_schema::test_util::MockJudgeBackend;
 use std::path::PathBuf;
 
 const QUESTIONS: &str = r#"{
@@ -579,7 +579,7 @@ fn ask_sends_through_the_engine_and_refuses_unaskable_sessions() {
 
 #[test]
 fn ask_envelope_carries_digest_warnings_and_readback_in_order() {
-    let payload = PayloadBundle::encode(&sc_agent_types::CanonicalJudgePayload::new(
+    let payload = PayloadBundle::encode(&sc_decision_schema::CanonicalJudgePayload::new(
         Vec::new(),
         Vec::new(),
     ))

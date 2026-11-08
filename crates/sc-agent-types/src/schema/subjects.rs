@@ -323,7 +323,7 @@ fn subject_id(path: &str, line: u32, index_on_line: u32) -> String {
 ///     language: "python".into(),
 ///     grammar: "tree-sitter-python".into(),
 ///     grammar_version: "0.23.6".into(),
-///     query_sha256: Sha256Digest::of(b"q"),
+///     query_sha256: Sha256Digest::of_text("q"),
 ///     mode: "matches".into(),
 /// };
 /// let mut builder = SubjectsBuilder::new(source, producer);

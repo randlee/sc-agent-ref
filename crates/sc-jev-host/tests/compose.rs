@@ -3,8 +3,8 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use sc_agent_types::test_util::MockJudgeBackend;
 use sc_agent_types::{BackendId, BackendSet, JevError, RepoRoot, SessionId};
+use sc_decision_schema::test_util::MockJudgeBackend;
 use sc_jev_check::registry::BackendRegistry;
 use sc_jev_check::run::CheckSource;
 use sc_jev_host::compose::{ComposeInputs, ask_from, explicit_repo_root, run_from};

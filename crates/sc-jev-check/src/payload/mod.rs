@@ -13,9 +13,8 @@ use std::collections::BTreeMap;
 pub(crate) mod caller;
 mod questions;
 
-use sc_agent_types::{
-    CanonicalJudgePayload, ChoiceAnswer, JevError, PayloadBundle, Question, RepoRoot, Rev,
-};
+use sc_agent_types::{JevError, RepoRoot, Rev};
+use sc_decision_schema::{CanonicalJudgePayload, ChoiceAnswer, PayloadBundle, Question};
 
 use crate::config::CheckSpec;
 use crate::extract::{Extracted, extract_input, read_repo_text};
@@ -181,7 +180,7 @@ mod tests {
         assert!(!text.contains(crate::config::PACKAGED_SYSTEM_PROMPT.trim()));
         assert_eq!(
             built.bundle.sha256(),
-            &sc_agent_types::Sha256Digest::of(built.bundle.bytes())
+            &sc_agent_types::Sha256Digest::of_text(built.bundle.as_str())
         );
     }
 

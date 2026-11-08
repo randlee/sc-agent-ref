@@ -137,7 +137,7 @@ impl Transport for UreqTransport {
         // A request that cannot be built (bad header value) is deterministic,
         // so it is INPUT_INVALID, not a retryable network kind.
         let outbound = builder
-            .body(request.body())
+            .body(request.body().as_bytes())
             .map_err(|error| JevError::input_invalid(format!("request is invalid: {error}")))?;
         let response = self.agent.run(outbound).map_err(ureq_error)?;
         read_response(response)

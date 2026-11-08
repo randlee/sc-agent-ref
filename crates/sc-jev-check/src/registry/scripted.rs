@@ -11,10 +11,9 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use sc_agent_types::test_util::MockJudgeBackend;
-use sc_agent_types::{
-    BackendId, JevError, JudgeBackend, NetworkErrorKind, QuestionAnswer, QuestionId,
-};
+use sc_agent_types::{BackendId, JevError, NetworkErrorKind};
+use sc_decision_schema::test_util::MockJudgeBackend;
+use sc_decision_schema::{JudgeBackend, QuestionAnswer, QuestionId};
 use serde_json::Value;
 
 use super::BackendRegistry;

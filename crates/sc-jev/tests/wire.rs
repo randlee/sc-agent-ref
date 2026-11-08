@@ -7,10 +7,8 @@ use std::time::Duration;
 
 use sc_agent_http::HttpResponse;
 use sc_agent_http::test_util::ScriptedTransport;
-use sc_agent_types::{
-    BackendKeyId, CanonicalJudgePayload, JudgeBackend, JudgeRequest, PayloadBundle, ResolvedApiKey,
-    ScAgentErrorResponse,
-};
+use sc_agent_types::{BackendKeyId, ResolvedApiKey, ScAgentErrorResponse, SendTrace};
+use sc_decision_schema::{CanonicalJudgePayload, JudgeBackend, JudgeRequest, PayloadBundle};
 use sc_jev::{JevClient, JevClientConfig, WireFault};
 use serde_json::json;
 
@@ -19,7 +17,7 @@ const PAYLOAD_SENTINEL: &str = "sentinel-payload-text-4d2c";
 
 fn config() -> JevClientConfig {
     JevClientConfig::try_new(
-        "jev-test",
+        "jev-test".parse().expect("model"),
         "jev.invalid",
         "/v1/x",
         1,
@@ -58,7 +56,9 @@ fn request(bundle: &PayloadBundle) -> JudgeRequest {
 fn test_real_wire_builder_reports_prompt_digest() {
     let bundle = bundle();
     let transport = ScriptedTransport::responses(vec![ok_reply()]);
-    let outcome = client(&transport).judge(&request(&bundle)).expect("judge");
+    let outcome = client(&transport)
+        .judge(&request(&bundle), &SendTrace::new())
+        .expect("judge");
     assert_eq!(outcome.input_sha256(), Some(bundle.sha256()));
 }
 
@@ -68,7 +68,7 @@ fn test_digest_detects_faulty_wire_builder() {
     let transport = ScriptedTransport::responses(vec![ok_reply()]);
     let outcome = client(&transport)
         .with_wire_fault(WireFault::DropEmbeddedByte)
-        .judge(&request(&bundle))
+        .judge(&request(&bundle), &SendTrace::new())
         .expect("judge");
     let reported = outcome.input_sha256().expect("reported digest");
     assert_ne!(reported, bundle.sha256());
@@ -81,7 +81,7 @@ fn test_digest_recovery_error_carries_no_body_bytes() {
     let transport = ScriptedTransport::responses(vec![ok_reply()]);
     let error = client(&transport)
         .with_wire_fault(WireFault::TruncateBody)
-        .judge(&request(&bundle))
+        .judge(&request(&bundle), &SendTrace::new())
         .expect_err("unparseable body");
     assert_eq!(error.code(), "INPUT_INVALID");
     assert_eq!(transport.sends(), 0, "nothing is sent");

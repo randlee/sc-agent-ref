@@ -3,8 +3,8 @@
 use std::collections::BTreeSet;
 
 use sc_agent_types::{
-    BACKENDS, BackendFamily, BackendId, BackendKeyId, BackendSet, BlobSha, ChoiceId, QuestionId,
-    RepoRelativePath,
+    AnswerId, BACKENDS, BackendFamily, BackendId, BackendKeyId, BackendSet, BlobSha, ModelAliases,
+    ProjectLabel, RepoRelativePath,
 };
 
 /// serde, `Display`, `FromStr`, and the aliases agree for every descriptor.
@@ -38,6 +38,13 @@ fn test_backend_catalog_roundtrip() {
             row.family() == BackendFamily::Llm
         );
         assert!(row.request_limit_bytes() > 0);
+        // D7.2: the default alias resolves to the row's default model.
+        assert_eq!(
+            ModelAliases::builtin().latest(row.default_model_alias()),
+            Some(row.default_model()),
+            "{}",
+            row.name()
+        );
     }
     for rejected in ["anthropic-haiku", "openai-luna", "Jev", "", "haiku"] {
         let error = rejected.parse::<BackendId>().expect_err("rejected");
@@ -113,9 +120,60 @@ fn test_newtypes_validate_on_every_path() {
     for bad in ["a".repeat(39), "A".repeat(40), "g".repeat(40)] {
         assert!(BlobSha::try_from(bad.as_str()).is_err(), "{bad}");
     }
-    for bad in ["", "a\nb", "\t"] {
-        assert!(QuestionId::try_from(bad).is_err());
-        assert!(ChoiceId::try_from(bad).is_err());
-        assert!(serde_json::from_value::<ChoiceId>(serde_json::json!(bad)).is_err());
+}
+
+/// The one validator the CLI, Python inputs and `try_from_fields` share.
+#[test]
+fn test_project_label_limits() {
+    assert!(ProjectLabel::new("billing").is_ok());
+    assert!(ProjectLabel::new("").is_ok());
+    assert!(ProjectLabel::new("é".repeat(128)).is_ok(), "256 bytes");
+    assert_eq!(
+        ProjectLabel::new("a".repeat(256))
+            .expect("limit")
+            .as_str()
+            .len(),
+        256
+    );
+    for bad in [
+        "a".repeat(257),
+        "é".repeat(129),
+        "a\nb".to_owned(),
+        "\u{7f}".to_owned(),
+    ] {
+        let error = ProjectLabel::new(bad.clone()).expect_err("rejected");
+        assert_eq!(error.code(), "INPUT_INVALID");
+        let hint = error.fix_hint();
+        assert!(hint.contains("256 bytes"), "{hint}");
+        assert!(hint.contains("control"), "{hint}");
+        assert!(bad.parse::<ProjectLabel>().is_err());
+        assert!(serde_json::from_value::<ProjectLabel>(serde_json::json!(bad)).is_err());
+    }
+    let label: ProjectLabel = serde_json::from_str("\"alpha\"").expect("serde");
+    assert_eq!(label.to_string(), "alpha");
+    assert_eq!(serde_json::to_string(&label).expect("write"), "\"alpha\"");
+    assert_eq!(format!("{label:?}"), "ProjectLabel(\"alpha\")");
+}
+
+#[test]
+fn test_answer_id_is_ulid_text() {
+    let id = AnswerId::new();
+    assert_eq!(id.to_string().len(), 26);
+    assert_eq!(id.to_string().parse::<AnswerId>().expect("roundtrip"), id);
+    assert_ne!(AnswerId::new(), AnswerId::new());
+    for bad in [
+        "",
+        "nope",
+        &"Z".repeat(26),
+        &"0".repeat(25),
+        &"i".repeat(26),
+    ] {
+        let error = bad.parse::<AnswerId>().expect_err("rejected");
+        assert_eq!(error.code(), "INPUT_INVALID");
+        assert!(
+            error.fix_hint().contains("answer_id"),
+            "{}",
+            error.fix_hint()
+        );
     }
 }
