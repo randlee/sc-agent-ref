@@ -50,3 +50,44 @@ fn test_jev_model_id_is_configured_model() {
     .expect_err("model key removed");
     assert_eq!(error.code(), "CONFIG_INVALID");
 }
+
+/// `jev` (the latest) is requested on the wire as `jev-latest`, the value
+/// `jev-api.md` documents; that mapping is UNVERIFIED against the live API
+/// (nothing in this repository can call it). The answering version is kept.
+#[test]
+fn test_jev_latest_is_sent_as_the_documented_wire_value() {
+    use sc_agent_http::HttpResponse;
+    use sc_agent_types::SendTrace;
+    use sc_decision_schema::{CanonicalJudgePayload, JudgeRequest, PayloadBundle};
+    use std::sync::Arc;
+
+    let reply = serde_json::json!({
+        "model": "jev-1.13.0",
+        "answers": {"q": {"type": "choice", "choice": "no", "confidence": 0.9,
+            "probabilities": {"yes": 0.1, "no": 0.9}}},
+        "usage": {}
+    });
+    let transport = ScriptedTransport::responses(vec![HttpResponse::new(
+        200,
+        Vec::new(),
+        serde_json::to_vec(&reply).expect("json"),
+    )]);
+    let client = JevClient::new(key(), transport.clone()).with_model(ModelId::Jev);
+    assert_eq!(client.model_id(), ModelId::Jev);
+    let canonical: CanonicalJudgePayload = serde_json::from_value(serde_json::json!({
+        "questions": [{"id": "q", "prompt": "x", "choices": ["no", "yes"]}],
+        "state": []
+    }))
+    .expect("payload");
+    let bundle = PayloadBundle::encode(&canonical).expect("bundle");
+    let outcome = client
+        .judge(
+            &JudgeRequest::new(Arc::new(bundle), None),
+            &SendTrace::new(),
+        )
+        .expect("answered");
+    let sent = transport.requests();
+    let body = String::from_utf8(sent[0].body().as_bytes().to_vec()).expect("utf8");
+    assert!(body.starts_with(r#"{"model":"jev-latest","#), "{body}");
+    assert_eq!(outcome.answered_model(), Some(ModelId::Jev1_13_0));
+}

@@ -59,8 +59,36 @@ const MAX_SCORE_CRITERIA: usize = 10;
 /// How far a probability sum may sit from 1. Jev rounds its probabilities, so
 /// the sum is never exact; a wider gap is a malformed reply.
 const PROBABILITY_SUM_TOLERANCE: f64 = 1e-6;
-/// The model the reply must name is reported with this text.
+/// The wire value `jev-api.md` (plan-anchor) documents for the latest Jev
+/// model. UNVERIFIED against the live API: plan-anchor sends `jev-latest`
+/// (`jev_judge.py` `DEFAULT_MODEL`), and nothing confirms the API accepts the
+/// bare `jev`. This constant is the one place that mapping lives.
+const JEV_LATEST_WIRE: &str = "jev-latest";
+/// A reply that is not a check reply is reported with this text.
 const MODEL_OR_SHAPE: &str = "unexpected Jev response model or shape";
+
+/// The model string sent on the wire for `model`.
+///
+/// `jev` (the latest Jev model, [`ModelId::Jev`]) is sent as `jev-latest`,
+/// the value `jev-api.md` documents; every other model is sent as is.
+/// UNVERIFIED against the live API (see the `JEV_LATEST_WIRE` constant).
+///
+/// # Examples
+///
+/// ```
+/// use sc_decision_schema::jev::v1::wire_model;
+///
+/// assert_eq!(wire_model(&"jev".parse()?), "jev-latest");
+/// assert_eq!(wire_model(&"jev-1.13.0".parse()?), "jev-1.13.0");
+/// # Ok::<(), sc_agent_types::JevError>(())
+/// ```
+#[must_use]
+pub fn wire_model(model: &ModelId) -> &str {
+    match model {
+        ModelId::Jev => JEV_LATEST_WIRE,
+        other => other.as_str(),
+    }
+}
 
 fn duplicate_message(key: &dyn fmt::Display) -> String {
     format!("duplicate key `{key}`; give every key once")
@@ -546,6 +574,10 @@ impl CheckRequest {
                     .map_err(|error| JevError::encode_failed("prior answer", &error))
             })
             .collect::<Result<Vec<_>, _>>()?;
+        // The wire form of the requested model (`jev` becomes `jev-latest`).
+        let model = wire_model(&model)
+            .parse()
+            .map_err(|_| JevError::input_invalid("model id is not a valid model string"))?;
         Ok(Self {
             model,
             state: JevState::Array(state),
@@ -618,7 +650,7 @@ impl CheckRequest {
         PayloadBundle::encode(&self.to_canonical()?)
     }
 
-    /// The model the request names.
+    /// The model the request names on the wire (`jev-latest` for `jev`).
     #[must_use]
     pub fn model(&self) -> &ModelId {
         &self.model
@@ -874,7 +906,9 @@ impl CheckResponse {
 
     /// Checks this reply against `request` and maps it to answers.
     ///
-    /// The reply `model` equals the request model; answer ids equal the
+    /// The reply `model` may differ from the request model (`jev` is
+    /// answered by a concrete version such as `jev-1.13.0`); it is not an
+    /// error and is read with [`Self::model`]. Answer ids equal the
     /// question ids; each answer type matches its question type; a `choice`
     /// or `score` answer names a criteria option, its probability keys equal
     /// the criteria keys and sum to 1 within 1e-6, and its confidence and
@@ -886,9 +920,6 @@ impl CheckResponse {
     ///
     /// `RESPONSE_INVALID` on any rule above.
     pub fn into_answers(self, request: &CheckRequest) -> Result<DecisionAnswers, JevError> {
-        if self.model != request.model {
-            return Err(JevError::response_invalid(MODEL_OR_SHAPE));
-        }
         let ids_differ = || JevError::response_invalid("answer ids differ from the question ids");
         // Answer ids are unique, so equal counts and one answer per question
         // make the two id sets equal.

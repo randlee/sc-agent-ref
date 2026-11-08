@@ -51,6 +51,15 @@ impl UnknownModel {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum ModelId {
+    /// `jev`: the latest TypeSafe Jev model, whichever version that is.
+    ///
+    /// sc-agent accepts `jev` or any supported version such as
+    /// `jev-1.13.0`. `jev` follows the vendor's latest release, so an API
+    /// change this build does not know can break it; that is expected, and
+    /// the remedy is upgrading sc-agent. Pin a version (`jev-1.13.0`) to
+    /// avoid the exposure. The wire value `jev` is sent as is decided in one
+    /// place, `sc_decision_schema::jev::v1::wire_model`.
+    Jev,
     /// `jev-1.13.0`.
     Jev1_13_0,
     /// `claude-haiku-5-5`.
@@ -65,6 +74,7 @@ impl ModelId {
     /// The known variant for `text`, if the catalog has one.
     pub(crate) fn known(text: &str) -> Option<Self> {
         match text {
+            "jev" => Some(Self::Jev),
             "jev-1.13.0" => Some(Self::Jev1_13_0),
             "claude-haiku-5-5" => Some(Self::ClaudeHaiku5_5),
             "gpt-6-luna" => Some(Self::Gpt6Luna),
@@ -76,6 +86,7 @@ impl ModelId {
     #[must_use]
     pub fn as_str(&self) -> &str {
         match self {
+            Self::Jev => "jev",
             Self::Jev1_13_0 => "jev-1.13.0",
             Self::ClaudeHaiku5_5 => "claude-haiku-5-5",
             Self::Gpt6Luna => "gpt-6-luna",
@@ -89,6 +100,11 @@ impl ModelId {
     /// consumes. It is never derived from `BackendFamily`.
     #[must_use]
     pub fn family(&self) -> ModelFamily {
+        // `jev` is not a `MODELS` row: it names no one release, so it has no
+        // release date and must not become the `jev` alias default.
+        if matches!(self, Self::Jev) {
+            return ModelFamily::TypeSafeJev;
+        }
         MODELS
             .iter()
             .find(|row| row.model == self.as_str())

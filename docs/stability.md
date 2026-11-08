@@ -25,6 +25,33 @@ one module per API shape and per version, and `v1` is the only version today.
 It encodes the Jev service's documented API, so its shape is set by that
 service.
 
+### Models
+
+sc-agent accepts `jev` or any supported version such as `jev-1.13.0`
+(`ModelId`). `jev` means the latest Jev model. It follows the vendor's
+releases, so an API change this build does not know can break it. That is
+expected; the remedy is upgrading sc-agent. Pin a version such as
+`jev-1.13.0` (`check.toml` `[models]`) to avoid it.
+
+The wire value for `jev` is `jev-latest`, the value plan-anchor's `jev-api.md`
+documents; `jev::v1::wire_model` is the one place that maps it. This is
+**unverified against the live API**: nothing confirms the API accepts the bare
+`jev`, and no test in this repository calls the live API.
+
+A reply naming a different model than the request is not an error (`jev` is
+answered by a concrete version). The answered model is the reply's `model`,
+printed as `model` in `sc-ai jev run` output and read with
+`JudgeOutcome::answered_model`. Output is byte-identical where the models match.
+
+### Numbers
+
+Probabilities, confidence and combined statistics are `f64`. sc-agent never
+rounds: values pass through unchanged, and a combined statistic is returned at
+full double precision. Jev rounds what it sends, so the sum of a reply's
+probabilities is checked within 0.01 per option (the plan-anchor rule), which
+validates input and changes no value. Each probability and confidence must lie
+in `[0, 1]`.
+
 ## Session-log record: `SESSION_LOG_SCHEMA_VERSION`
 
 The record is the `fields` object of each log line (the keys are

@@ -297,7 +297,7 @@ mod refusals {
             (json!({"model": "jev-1.13.0"}).to_string(), "model or shape"),
             (
                 json!({"model": "jev-other", "answers": {}}).to_string(),
-                "model or shape",
+                "answer ids differ",
             ),
             (answer(json!(1)), "model or shape"),
             (good(json!({"choice": "maybe"})), "not one of its criteria"),

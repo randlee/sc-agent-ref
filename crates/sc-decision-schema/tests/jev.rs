@@ -172,7 +172,6 @@ fn test_response_rules_rejected() {
         reply
     };
     let cases: Vec<(&str, Value)> = vec![
-        ("model", edit(&|r| r["model"] = json!("jev-9.9.9"))),
         (
             "id mismatch",
             edit(&|r| {
@@ -241,6 +240,13 @@ fn test_response_rules_rejected() {
     for (name, reply) in cases {
         assert_eq!(rejected(&reply).code(), "RESPONSE_INVALID", "{name}");
     }
+    // A reply naming another model than requested is accepted (agt-cac) and
+    // keeps the answered model.
+    let request = CheckRequest::parse(&fixture("check-request-all-types.json")).expect("request");
+    let other = edit(&|r| r["model"] = json!("jev-9.9.9"));
+    let parsed = CheckResponse::parse(&serde_json::to_vec(&other).expect("json")).expect("parse");
+    assert_eq!(parsed.model().as_str(), "jev-9.9.9");
+    parsed.into_answers(&request).expect("other model accepted");
     // The tolerance is inclusive of rounding: a sum within 1e-6 is accepted.
     let request = CheckRequest::parse(&fixture("check-request-all-types.json")).expect("request");
     let mut near = golden_reply();

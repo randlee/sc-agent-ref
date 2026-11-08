@@ -249,6 +249,24 @@ impl JudgeOutcome {
         self.provider_meta.as_ref()
     }
 
+    /// The model that answered, as the backend's reply named it.
+    ///
+    /// It is read from the `model` field of [`Self::provider_meta`], so it
+    /// adds nothing to the serialized outcome and the bytes are the same
+    /// whether or not it equals the model requested. The two differ when the
+    /// request named `jev` (the latest) and the reply names a version such
+    /// as `jev-1.13.0`; that is not an error. `None` when there is no
+    /// metadata or its `model` is absent or not a valid model string.
+    #[must_use]
+    pub fn answered_model(&self) -> Option<ModelId> {
+        self.provider_meta
+            .as_ref()?
+            .get("model")?
+            .as_str()?
+            .parse()
+            .ok()
+    }
+
     /// The reported input digest; `None` means "this backend does not attest".
     #[must_use]
     pub fn input_sha256(&self) -> Option<&Sha256Digest> {
