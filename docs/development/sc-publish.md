@@ -196,6 +196,28 @@ handles later updates). Until then, to get `sc-treesitter` on `PATH` from
 WinGet, add the package's `bin` directory to `PATH` or install it with `cargo
 install`.
 
+## Windows C runtime
+
+`.cargo/config.toml` sets `-C target-feature=+crt-static` for
+`x86_64-pc-windows-msvc`, so released Windows binaries link the C runtime
+statically and need no Visual C++ redistributable (sc-lint failed with
+`STATUS_DLL_NOT_FOUND`, `0xC0000135`, without it). Points to know:
+
+- The kit's `release.yml` does not set `RUSTFLAGS` at the current pin, so the
+  config file is not overridden. If a future pin sets `RUSTFLAGS`, it replaces
+  `target.*.rustflags` entirely and the flag is lost; re-check on a pin bump.
+- The flag is per target triple, so Linux and macOS builds are unaffected. It
+  also applies to the `sc-jev-py` wheel built on Windows, because cargo
+  configuration cannot be scoped to one package and the kit's `maturin build`
+  runs from the repository root. A statically linked CRT in a Python
+  extension is generally workable but is not verified here (no Windows host
+  in local validation); the Windows CI jobs are the check. If it proves a
+  problem, the fix is a kit-side `RUSTFLAGS` override for the wheel step, not
+  a repo edit.
+- The file merges with a developer's `~/.cargo/config.toml`. It sets only
+  `target.x86_64-pc-windows-msvc.rustflags`, so a global `[build] build-dir`
+  does not conflict.
+
 ## Pin bump
 
 1. Pick a qualified kit SHA on `randlee/sc-publish` (full 40 characters; see

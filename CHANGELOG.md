@@ -95,6 +95,8 @@ First release. Channels once published: crates.io (ten crates), PyPI
   `agt-scoop-multi-shim` resolved). The kit pins Komac 2.16.0 for WinGet
   updates; the hand-submitted first manifest must list both binaries with
   aliases.
+- Windows binaries link the C runtime statically (`.cargo/config.toml`), so
+  they run without the Visual C++ redistributable.
 
 ### Known limits
 
