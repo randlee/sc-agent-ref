@@ -4,9 +4,8 @@ use sc_agent_types::JevError;
 use serde::de;
 use serde::{Deserialize, Deserializer, Serialize};
 
-/// Text of the error a [`Probability`] out of range raises; `CheckResponse::parse`
-/// matches it to report the range rather than the generic shape error.
-pub(crate) const PROBABILITY_RANGE: &str = "not a finite number in [0, 1]";
+/// Text of the serde error a [`Probability`] out of range raises.
+const PROBABILITY_RANGE: &str = "not a finite number in [0, 1]";
 
 /// A finite number in `[0, 1]`: a probability or a confidence.
 ///

@@ -48,7 +48,7 @@ use crate::payload::{
     CanonicalJudgePayload, ChoiceAnswer, DecisionAnswers, PayloadBundle, Question, QuestionKind,
     decode_failed,
 };
-use crate::probability::{PROBABILITY_RANGE, Probability};
+use crate::probability::Probability;
 
 /// Fewest options a `choice` or `score` question has.
 const MIN_CRITERIA: usize = 2;
@@ -717,18 +717,119 @@ pub struct CheckResponse {
 #[derive(Deserialize)]
 struct RawCheckResponse {
     model: ModelId,
-    answers: Pairs<QuestionId, JevAnswer>,
+    answers: Pairs<QuestionId, RawAnswer>,
     #[serde(default)]
     usage: Map<String, Value>,
     #[serde(flatten)]
     extra: Map<String, Value>,
 }
 
+/// An answer as it arrives: probabilities and confidence are plain numbers,
+/// checked against `[0, 1]` once the answer id is in scope.
+#[derive(Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum RawAnswer {
+    Choice {
+        choice: ChoiceId,
+        probabilities: BTreeMap<ChoiceId, f64>,
+        confidence: f64,
+    },
+    Score {
+        choice: ChoiceId,
+        probabilities: BTreeMap<ChoiceId, f64>,
+        confidence: f64,
+    },
+    Noul {
+        probabilities: RawNoulProbabilities,
+    },
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawNoulProbabilities {
+    yes: f64,
+}
+
+impl RawAnswer {
+    /// Builds the typed answer for `id`.
+    ///
+    /// The error names the answer id and the field (`confidence` or
+    /// `probabilities`), never the value (ADR-SAG-0020).
+    fn into_answer(self, id: &QuestionId) -> Result<JevAnswer, JevError> {
+        let out_of_range = |field: &str| {
+            JevError::response_invalid(format!(
+                "answer {id} {field} has a value that is not a number in [0, 1]"
+            ))
+        };
+        let probabilities = |map: BTreeMap<ChoiceId, f64>| {
+            map.into_iter()
+                .map(|(key, value)| Probability::new(value).map(|value| (key, value)))
+                .collect::<Result<BTreeMap<_, _>, _>>()
+                .map_err(|_| out_of_range("probabilities"))
+        };
+        match self {
+            Self::Choice {
+                choice,
+                probabilities: map,
+                confidence,
+            } => {
+                let confidence =
+                    Probability::new(confidence).map_err(|_| out_of_range("confidence"))?;
+                Ok(JevAnswer::Choice {
+                    choice,
+                    probabilities: probabilities(map)?,
+                    confidence,
+                })
+            }
+            Self::Score {
+                choice,
+                probabilities: map,
+                confidence,
+            } => {
+                let confidence =
+                    Probability::new(confidence).map_err(|_| out_of_range("confidence"))?;
+                Ok(JevAnswer::Score {
+                    choice,
+                    probabilities: probabilities(map)?,
+                    confidence,
+                })
+            }
+            Self::Noul { probabilities } => {
+                let yes = Probability::new(probabilities.yes)
+                    .map_err(|_| out_of_range("probabilities"))?;
+                Ok(JevAnswer::Noul {
+                    probabilities: NoulProbabilities::new(yes),
+                })
+            }
+        }
+    }
+}
+
 impl TryFrom<RawCheckResponse> for CheckResponse {
     type Error = JevError;
 
     fn try_from(raw: RawCheckResponse) -> Result<Self, Self::Error> {
-        let answers = OrderedMap::try_from_pairs(raw.answers.0)
+        // Report the out-of-range answer with the least id, whatever order
+        // the reply lists them in.
+        let mut typed = Vec::with_capacity(raw.answers.0.len());
+        let mut first_error: Option<(QuestionId, JevError)> = None;
+        for (id, answer) in raw.answers.0 {
+            match answer.into_answer(&id) {
+                Ok(answer) => typed.push((id, answer)),
+                Err(error) => {
+                    if first_error
+                        .as_ref()
+                        .is_none_or(|(least, _)| id.as_str() < least.as_str())
+                    {
+                        first_error = Some((id, error));
+                    }
+                }
+            }
+        }
+        if let Some((_, error)) = first_error {
+            return Err(error);
+        }
+        let answers = OrderedMap::try_from_pairs(typed)
             .map_err(|error| JevError::response_invalid(detail(&error)))?;
         Ok(Self {
             model: raw.model,
@@ -748,15 +849,11 @@ impl CheckResponse {
     /// `noul` answer has a key other than `yes`, a probability or confidence
     /// is outside `[0, 1]`, or an answer id repeats (the detail names the id).
     pub fn parse(raw: &[u8]) -> Result<Self, JevError> {
-        let parsed: RawCheckResponse = serde_json::from_slice(raw).map_err(|error| match error
-            .classify()
-        {
-            serde_json::error::Category::Data if error.to_string().contains(PROBABILITY_RANGE) => {
-                JevError::response_invalid(out_of_range_detail(raw))
-            }
-            serde_json::error::Category::Data => JevError::response_invalid(MODEL_OR_SHAPE),
-            _ => JevError::response_invalid("response is not JSON"),
-        })?;
+        let parsed: RawCheckResponse =
+            serde_json::from_slice(raw).map_err(|error| match error.classify() {
+                serde_json::error::Category::Data => JevError::response_invalid(MODEL_OR_SHAPE),
+                _ => JevError::response_invalid("response is not JSON"),
+            })?;
         Self::try_from(parsed)
     }
 
@@ -808,37 +905,6 @@ impl CheckResponse {
         }
         Ok(typed)
     }
-}
-
-/// The range error for `raw`, naming the first answer id and field out of
-/// range. The id is named only when it is a valid [`QuestionId`] and the value
-/// is never echoed (ADR-SAG-0020).
-fn out_of_range_detail(raw: &[u8]) -> String {
-    const GENERIC: &str = "a probability or confidence is not a number in [0, 1]";
-    let in_range = |value: &Value| value.as_f64().is_none_or(|n| (0.0..=1.0).contains(&n));
-    let Ok(Value::Object(root)) = serde_json::from_slice::<Value>(raw) else {
-        return GENERIC.to_owned();
-    };
-    let Some(Value::Object(answers)) = root.get("answers") else {
-        return GENERIC.to_owned();
-    };
-    for (id, answer) in answers {
-        let field = if !answer.get("confidence").is_none_or(in_range) {
-            "confidence"
-        } else if answer
-            .get("probabilities")
-            .and_then(Value::as_object)
-            .is_some_and(|map| !map.values().all(in_range))
-        {
-            "probabilities"
-        } else {
-            continue;
-        };
-        if QuestionId::try_from(id.as_str()).is_ok() {
-            return format!("answer {id} {field} has a value that is not a number in [0, 1]");
-        }
-    }
-    GENERIC.to_owned()
 }
 
 fn map_answer(

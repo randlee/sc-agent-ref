@@ -448,6 +448,21 @@ fn test_out_of_range_reply_names_the_first_offending_answer() {
 }
 
 #[test]
+fn test_unknown_key_containing_the_range_text_is_a_shape_error() {
+    // A reply is classified by what is wrong with it, not by searching the
+    // parser's message for range text a hostile key can reproduce.
+    let mut reply = golden_reply();
+    reply["answers"]["urgent"]["probabilities"] =
+        json!({"yes": 0.5, "not a finite number in [0, 1]": 0.5});
+    let bytes = serde_json::to_vec(&reply).expect("json");
+    let error = CheckResponse::parse(&bytes).expect_err("unknown key");
+    assert_eq!(error.code(), "RESPONSE_INVALID");
+    let text = error.to_string();
+    assert!(!text.contains("number in [0, 1]"), "{text}");
+    assert!(!text.contains("answer urgent"), "{text}");
+}
+
+#[test]
 fn test_probability_error_does_not_echo_its_value() {
     for bad in [1.234_5, -7.5, f64::NAN] {
         let text = Probability::new(bad).expect_err("range").to_string();
