@@ -1,0 +1,205 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R7-QA1-RSH-002>
+  a triage:Finding ;
+  triage:findingId "R7-QA1-RSH-002" ;
+  triage:title "Git subprocesses used for revision reads (rev-parse, cat-file -t, cat-file -s, cat-file blob) have no wall-clock deadline" ;
+  triage:description "Git subprocesses used for revision reads (rev-parse, cat-file -t, cat-file -s, cat-file blob) have no wall-clock deadline. A command that blocks, for example on a partial clone that lazily fetches a missing blob from a promisor remote, a stalled network filesystem, or a hung lock, can pin the calling thread indefinitely. The sc-jev-check command extractor enforces a deadline for its own subprocess, so this is inconsistent." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "timeouts" ;
+  triage:severity "important" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T02:34:02Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R7 ;
+  triage:foundAt "2026-11-08T02:30:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-002/INT-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-002/INT-2> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-002/INT-3> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-002/INT-4> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-002/INT-5> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-002/INT-6> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-002/INT-7> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-002/SPR-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-002/SPR-2> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-002/SPR-3> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-002/SPR-4> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-002/SPR-5> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-002/SPR-6> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-002/SPR-7> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-002/INT-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/git.rs" ;
+  triage:line 92 ;
+  triage:snippet "run helper calls .output() with no deadline" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1983412ff750b775ed40c3261fe17383dd" ;
+  triage:occursIn <urn:atm:triage:worktree/INT/0d0ebc1> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-002/INT-2>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/git.rs" ;
+  triage:line 148 ;
+  triage:snippet "rev-parse --verify --quiet revision resolve" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1983412ff750b775ed40c3261fe17383dd" ;
+  triage:occursIn <urn:atm:triage:worktree/INT/0d0ebc1> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-002/INT-3>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/git.rs" ;
+  triage:line 166 ;
+  triage:snippet "cat-file -t kind probe" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1983412ff750b775ed40c3261fe17383dd" ;
+  triage:occursIn <urn:atm:triage:worktree/INT/0d0ebc1> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-002/INT-4>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/git.rs" ;
+  triage:line 175 ;
+  triage:snippet "cat-file -s size probe" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1983412ff750b775ed40c3261fe17383dd" ;
+  triage:occursIn <urn:atm:triage:worktree/INT/0d0ebc1> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-002/INT-5>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/git.rs" ;
+  triage:line 191 ;
+  triage:snippet "cat-file blob spawn in read_at_rev" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1983412ff750b775ed40c3261fe17383dd" ;
+  triage:occursIn <urn:atm:triage:worktree/INT/0d0ebc1> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-002/INT-6>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/git.rs" ;
+  triage:line 208 ;
+  triage:snippet "cat-file blob child wait in read_at_rev" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1983412ff750b775ed40c3261fe17383dd" ;
+  triage:occursIn <urn:atm:triage:worktree/INT/0d0ebc1> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-002/INT-7>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/git.rs" ;
+  triage:line 313 ;
+  triage:snippet "cat-file -e tree existence probe" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1983412ff750b775ed40c3261fe17383dd" ;
+  triage:occursIn <urn:atm:triage:worktree/INT/0d0ebc1> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-002/SPR-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/git.rs" ;
+  triage:line 92 ;
+  triage:snippet "run helper calls .output() with no deadline" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "94972978d9e6321be71e884368721cf0f79d3d54" ;
+  triage:occursIn <urn:atm:triage:worktree/SPR/9497297> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-002/SPR-2>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/git.rs" ;
+  triage:line 148 ;
+  triage:snippet "rev-parse --verify --quiet revision resolve" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "94972978d9e6321be71e884368721cf0f79d3d54" ;
+  triage:occursIn <urn:atm:triage:worktree/SPR/9497297> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-002/SPR-3>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/git.rs" ;
+  triage:line 166 ;
+  triage:snippet "cat-file -t kind probe" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "94972978d9e6321be71e884368721cf0f79d3d54" ;
+  triage:occursIn <urn:atm:triage:worktree/SPR/9497297> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-002/SPR-4>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/git.rs" ;
+  triage:line 175 ;
+  triage:snippet "cat-file -s size probe" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "94972978d9e6321be71e884368721cf0f79d3d54" ;
+  triage:occursIn <urn:atm:triage:worktree/SPR/9497297> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-002/SPR-5>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/git.rs" ;
+  triage:line 191 ;
+  triage:snippet "cat-file blob spawn in read_at_rev" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "94972978d9e6321be71e884368721cf0f79d3d54" ;
+  triage:occursIn <urn:atm:triage:worktree/SPR/9497297> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-002/SPR-6>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/git.rs" ;
+  triage:line 208 ;
+  triage:snippet "cat-file blob child wait in read_at_rev" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "94972978d9e6321be71e884368721cf0f79d3d54" ;
+  triage:occursIn <urn:atm:triage:worktree/SPR/9497297> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-002/SPR-7>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/git.rs" ;
+  triage:line 313 ;
+  triage:snippet "cat-file -e tree existence probe" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "94972978d9e6321be71e884368721cf0f79d3d54" ;
+  triage:occursIn <urn:atm:triage:worktree/SPR/9497297> .
+
+<urn:atm:triage:worktree/INT/0d0ebc1>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1983412ff750b775ed40c3261fe17383dd" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/SPR/9497297>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-7-decision-schema" ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "94972978d9e6321be71e884368721cf0f79d3d54" ;
+  triage:orderIndex 1 .

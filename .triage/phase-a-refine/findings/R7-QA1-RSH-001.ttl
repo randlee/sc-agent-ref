@@ -1,0 +1,109 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R7-QA1-RSH-001>
+  a triage:Finding ;
+  triage:findingId "R7-QA1-RSH-001" ;
+  triage:title "Busy retry resends non-idempotent POST bodies on status 502 as well as 429 and 529. For LL" ;
+  triage:description "Busy retry resends non-idempotent POST bodies on status 502 as well as 429 and 529. For LLM provider calls (judge message and count requests) a 502 can come from a gateway after the provider already processed and billed the request, so a resend can double-charge or double-process." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "retries" ;
+  triage:severity "important" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T02:33:43Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R7 ;
+  triage:foundAt "2026-11-08T02:30:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-001/IA-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-001/IA-2> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-001/IA-3> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-001/RS-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-001/RS-2> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-001/RS-3> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-001/IA-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-http/src/retry.rs" ;
+  triage:line 45 ;
+  triage:snippet "const BUSY_STATUSES: [u16; 3] = [429, 502, 529];" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1983412ff750b775ed40c3261fe17383dd" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/0d0ebc1> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-001/IA-2>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-http/src/retry.rs" ;
+  triage:line 404 ;
+  triage:snippet "if !BUSY_STATUSES.contains(&status) {" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1983412ff750b775ed40c3261fe17383dd" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/0d0ebc1> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-001/IA-3>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-http/src/retry.rs" ;
+  triage:line 597 ;
+  triage:snippet "assert_eq!(busy, [429, 502, 529]);" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1983412ff750b775ed40c3261fe17383dd" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/0d0ebc1> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-001/RS-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-http/src/retry.rs" ;
+  triage:line 45 ;
+  triage:snippet "const BUSY_STATUSES: [u16; 3] = [429, 502, 529];" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "94972978d9e6321be71e884368721cf0f79d3d54" ;
+  triage:occursIn <urn:atm:triage:worktree/r-7-decision-schema/9497297> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-001/RS-2>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-http/src/retry.rs" ;
+  triage:line 422 ;
+  triage:snippet "if !BUSY_STATUSES.contains(&status) {" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "94972978d9e6321be71e884368721cf0f79d3d54" ;
+  triage:occursIn <urn:atm:triage:worktree/r-7-decision-schema/9497297> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-001/RS-3>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-http/src/retry.rs" ;
+  triage:line 615 ;
+  triage:snippet "assert_eq!(busy, [429, 502, 529]);" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "94972978d9e6321be71e884368721cf0f79d3d54" ;
+  triage:occursIn <urn:atm:triage:worktree/r-7-decision-schema/9497297> .
+
+<urn:atm:triage:worktree/integrate-phase-a/0d0ebc1>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1983412ff750b775ed40c3261fe17383dd" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/r-7-decision-schema/9497297>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-7-decision-schema" ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "94972978d9e6321be71e884368721cf0f79d3d54" ;
+  triage:orderIndex 1 .

@@ -1,0 +1,205 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R7-QA1-RSH-006>
+  a triage:Finding ;
+  triage:findingId "R7-QA1-RSH-006" ;
+  triage:title "The main clippy and test steps do not pass --locked, so CI can resolve dependency versions" ;
+  triage:description "The main clippy and test steps do not pass --locked, so CI can resolve dependency versions that differ from the committed Cargo.lock. Only some later steps (treesitter, sc-ai cli, workspace-tests) use --locked." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "ci_release_checklist" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T02:33:54Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R7 ;
+  triage:foundAt "2026-11-08T02:30:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-006/PA-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-006/PA-2> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-006/PA-3> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-006/PA-4> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-006/PA-5> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-006/RS-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-006/RS-2> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-006/RS-3> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-006/RS-4> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-006/RS-5> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-006/RS-6> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-006/RS-7> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-006/RS-8> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-006/RS-9> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-006/PA-1>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 127 ;
+  triage:snippet "cargo clippy --workspace --all-targets --all-features -- -D warnings" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/0d0ebc1> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-006/PA-2>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 131 ;
+  triage:snippet "cargo test --workspace" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/0d0ebc1> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-006/PA-3>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 137 ;
+  triage:snippet "cargo test -p sc-agent-types --features git,test-util" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/0d0ebc1> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-006/PA-4>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 144 ;
+  triage:snippet "cargo test -p sc-agent-http --features test-util" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/0d0ebc1> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-006/PA-5>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 150 ;
+  triage:snippet "cargo test -p sc-ai --features test-util" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/0d0ebc1> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-006/RS-1>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 128 ;
+  triage:snippet "cargo clippy --workspace --all-targets --all-features -- -D warnings" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "9497297" ;
+  triage:occursIn <urn:atm:triage:worktree/sprint-r-7-decision-schema/9497297> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-006/RS-2>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 132 ;
+  triage:snippet "cargo test --workspace" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "9497297" ;
+  triage:occursIn <urn:atm:triage:worktree/sprint-r-7-decision-schema/9497297> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-006/RS-3>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 138 ;
+  triage:snippet "cargo test -p sc-agent-types --features git" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "9497297" ;
+  triage:occursIn <urn:atm:triage:worktree/sprint-r-7-decision-schema/9497297> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-006/RS-4>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 142 ;
+  triage:snippet "cargo test -p sc-decision-schema --features test-util" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "9497297" ;
+  triage:occursIn <urn:atm:triage:worktree/sprint-r-7-decision-schema/9497297> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-006/RS-5>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 146 ;
+  triage:snippet "cargo test -p sc-jev-check --features test-util" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "9497297" ;
+  triage:occursIn <urn:atm:triage:worktree/sprint-r-7-decision-schema/9497297> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-006/RS-6>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 150 ;
+  triage:snippet "cargo test -p sc-jev --features test-util" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "9497297" ;
+  triage:occursIn <urn:atm:triage:worktree/sprint-r-7-decision-schema/9497297> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-006/RS-7>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 154 ;
+  triage:snippet "cargo test -p sc-jev-backends --features test-util" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "9497297" ;
+  triage:occursIn <urn:atm:triage:worktree/sprint-r-7-decision-schema/9497297> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-006/RS-8>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 161 ;
+  triage:snippet "cargo test -p sc-agent-http --features test-util" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "9497297" ;
+  triage:occursIn <urn:atm:triage:worktree/sprint-r-7-decision-schema/9497297> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-006/RS-9>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 167 ;
+  triage:snippet "cargo test -p sc-ai --features test-util" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "9497297" ;
+  triage:occursIn <urn:atm:triage:worktree/sprint-r-7-decision-schema/9497297> .
+
+<urn:atm:triage:worktree/integrate-phase-a/0d0ebc1>
+  a triage:WorktreeSnapshot ;
+  triage:path "worktrees/integrate-phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/sprint-r-7-decision-schema/9497297>
+  a triage:WorktreeSnapshot ;
+  triage:path "worktrees/sprint-r-7-decision-schema" ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "9497297" ;
+  triage:orderIndex 1 .

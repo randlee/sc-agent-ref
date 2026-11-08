@@ -1,0 +1,61 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R7-QA1-FTQ-001>
+  a triage:Finding ;
+  triage:findingId "R7-QA1-FTQ-001" ;
+  triage:title "tree() runs `cargo tree` through spawn_with_deadline(&mut cargo, None), which applies the " ;
+  triage:description "tree() runs `cargo tree` through spawn_with_deadline(&mut cargo, None), which applies the shared 60 s SUBPROCESS_DEADLINE. The command has no --locked and no --offline, so it may touch the network to refresh the registry index and may wait on Cargo's package-cache or build-directory lock while a concurrent cargo process (for example the outer `cargo test --workspace`) holds it. On a cold or contended CI host the call can exceed 60 s and the runner kills it, so the test fails on some runs and passes on others depending on cache state and network speed. The test calls tree() 7 times (1 control, 1 workspace, 5 inverted queries), so it has 7 independent exposures to this window. The sprint already documents the same class of problem for builds: bin_path.rs gives cold release builds a 20 min deadline with a comment about 'Blocking waiting for file lock'. The cargo tree calls get no such treatment." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "timing_assertion" ;
+  triage:severity "important" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T02:33:42Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R7 ;
+  triage:foundAt "2026-11-08T02:30:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-FTQ-001/IPA-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-FTQ-001/SDR-1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R7-QA1-FTQ-001/IPA-1>
+  a triage:Occurrence ;
+  triage:file "crates/workspace-tests/tests/test_util_off.rs" ;
+  triage:line 39 ;
+  triage:snippet "let output = spawn_with_deadline(&mut cargo, None);" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1983412ff750b775ed40c3261fe17383dd" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/0d0ebc1> .
+
+<urn:atm:triage:occurrence/R7-QA1-FTQ-001/SDR-1>
+  a triage:Occurrence ;
+  triage:file "crates/workspace-tests/tests/test_util_off.rs" ;
+  triage:line 39 ;
+  triage:snippet "let output = spawn_with_deadline(&mut cargo, None);" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "94972978d9e6321be71e884368721cf0f79d3d54" ;
+  triage:occursIn <urn:atm:triage:worktree/sprint-r-7-decision-schema/9497297> .
+
+<urn:atm:triage:worktree/integrate-phase-a/0d0ebc1>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1983412ff750b775ed40c3261fe17383dd" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/sprint-r-7-decision-schema/9497297>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-7-decision-schema" ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "94972978d9e6321be71e884368721cf0f79d3d54" ;
+  triage:orderIndex 1 .
