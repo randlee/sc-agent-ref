@@ -12,6 +12,9 @@
 //!   cannot block the runner;
 //! - the child must exit within [`SUBPROCESS_DEADLINE`], or it is killed and
 //!   the test panics with the stderr captured so far;
+//! - a killed child is reaped with a bounded `try_wait` poll (never `wait`),
+//!   and the `kill` helper process is bounded the same way; if the budget
+//!   expires the panic says so and carries the captured stderr;
 //! - stdout and stderr drain on threads that append to shared buffers. After
 //!   the child exits (or is killed) the runner waits at most [`PIPE_GRACE`]
 //!   for each pipe to close. A pipe still open then is held by a grandchild;
@@ -95,10 +98,16 @@ fn run_with_limits(
     };
     let Some(exit) = exit else {
         kill_tree(&mut child);
-        let _ = child.wait();
+        // `wait` has no limit, so reap with a bounded poll.
+        let reaped = reap_within(&mut child, REAP_BUDGET);
         let captured = stderr.finish(grace, "stderr", &mut child);
+        let note = if reaped {
+            ""
+        } else {
+            " (the killed child was not reaped within the reap budget)"
+        };
         panic!(
-            "subprocess exceeded {deadline:?}; stderr: {}",
+            "subprocess exceeded {deadline:?}{note}; stderr: {}",
             String::from_utf8_lossy(&captured)
         );
     };
@@ -106,6 +115,22 @@ fn run_with_limits(
         status: exit,
         stdout: stdout.finish(grace, "stdout", &mut child),
         stderr: stderr.finish(grace, "stderr", &mut child),
+    }
+}
+
+/// Longest the runner waits to reap a killed child, and for the `kill` helper.
+const REAP_BUDGET: Duration = Duration::from_secs(5);
+
+/// Polls `child` with `try_wait` until it exits or `budget` passes; true when
+/// the child was reaped.
+fn reap_within(child: &mut Child, budget: Duration) -> bool {
+    let started = Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => return true,
+            Ok(None) if started.elapsed() < budget => thread::sleep(Duration::from_millis(10)),
+            Ok(None) | Err(_) => return false,
+        }
     }
 }
 
@@ -177,12 +202,19 @@ fn kill_tree(child: &mut Child) {
     {
         // The child leads its group, so its pid is the group id. A group
         // that is already gone makes `kill` fail, which is fine.
-        let _ = Command::new("kill")
+        // The helper is bounded like the child: it is polled, and killed if it
+        // outlives the budget.
+        if let Ok(mut helper) = Command::new("kill")
             .args(["-KILL", "--", &format!("-{}", child.id())])
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
-            .status();
+            .spawn()
+            && !reap_within(&mut helper, REAP_BUDGET)
+        {
+            let _ = helper.kill();
+            let _ = reap_within(&mut helper, REAP_BUDGET);
+        }
     }
     let _ = child.kill();
 }
