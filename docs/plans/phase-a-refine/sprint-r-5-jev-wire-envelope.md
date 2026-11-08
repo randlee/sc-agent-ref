@@ -1,7 +1,7 @@
 ---
 id: r-5
 phase: r
-status: in-review
+status: complete
 closure_type: boundary
 target_boundary: jev
 track: jev
@@ -383,3 +383,8 @@ Choices where the sprint doc is silent (all conservative):
   errors instead of message prefixes. Question-set files (`check.toml`) stay
   `choice`-only (docs/sc-jev-check/requirements.md).
 - No release-consumer input changed (no new crate, no dependency edge).
+
+- Status stayed `in-review` through QA; the coordinator flipped it to
+  `complete` once follow-up QA left no open finding. Finding closure is
+  recorded by the quality-mgr report on PR 34, not by the triage records
+  (triaging-findings, Closure Rules).
