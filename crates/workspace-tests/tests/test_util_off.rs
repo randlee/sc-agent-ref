@@ -8,8 +8,9 @@ mod deadline;
 
 use std::path::Path;
 use std::process::Command;
+use std::time::Duration;
 
-use deadline::spawn_with_deadline;
+use deadline::{spawn_with_deadline, spawn_with_limit};
 use sc_agent_types::ScAgentErrorResponse;
 use support::bin_path::bin_path;
 
@@ -21,7 +22,12 @@ fn command(program: &Path) -> Command {
     Command::new(program)
 }
 
-/// `cargo tree -e normal,features --prefix none --no-dedupe <extra>`.
+/// Longest one `cargo tree` may take. It is a graph query, but a cold registry
+/// index or a held Cargo file lock can exceed the 60 s runner default; bounded
+/// so a stuck invocation cannot hang CI (FTQ-001).
+const CARGO_TREE_DEADLINE: Duration = Duration::from_secs(5 * 60);
+
+/// `cargo tree -e normal,features --prefix none --no-dedupe --locked --offline <extra>`.
 fn tree(extra: &[&str]) -> String {
     let root = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."));
     let mut cargo = command(Path::new(env!("CARGO")));
@@ -34,9 +40,11 @@ fn tree(extra: &[&str]) -> String {
             "--prefix",
             "none",
             "--no-dedupe",
+            "--locked",
+            "--offline",
         ])
         .args(extra);
-    let output = spawn_with_deadline(&mut cargo, None);
+    let output = spawn_with_limit(&mut cargo, None, CARGO_TREE_DEADLINE);
     assert!(
         output.status.success(),
         "cargo tree failed: {}",
@@ -51,11 +59,11 @@ fn test_util_lines(tree: &str) -> Vec<&str> {
         .collect()
 }
 
-/// The workspace libraries that define a `test-util` feature. `cargo tree`
-/// prints a package's own feature nodes only in the inverted view, so each
-/// is queried with `-i`, which lists every feature node on a path to it.
+/// The workspace libraries that define a `test-util` feature; each must be in
+/// the graph the test inspects, so an empty result cannot pass on a dead tree.
 const TEST_UTIL_PACKAGES: &[&str] = &[
     "sc-agent-types",
+    "sc-decision-schema",
     "sc-agent-http",
     "sc-jev",
     "sc-jev-backends",
@@ -64,39 +72,44 @@ const TEST_UTIL_PACKAGES: &[&str] = &[
 
 /// `cargo tree --workspace -e normal,features` is a graph query: no test
 /// build and no dev edges, so a `test-util` feature appears only if a normal
-/// edge enables it.
+/// edge enables it. `cargo tree` prints a package's own feature nodes only in
+/// the inverted view, so one invocation inverts every package that defines the
+/// feature (`-i` repeats) and the output is parsed once. A second query with
+/// the feature switched on is the detector's control.
 #[test]
 fn test_test_util_absent_from_normal_graph() {
-    // Control: the detector sees the feature when it is switched on.
     let control = tree(&[
         "-p",
         "sc-jev-check",
         "--features",
         "test-util",
         "-i",
-        "sc-agent-types",
+        "sc-decision-schema",
     ]);
     assert!(
         !test_util_lines(&control).is_empty(),
         "the detector must see test-util when it is enabled: {control}"
     );
-    let workspace = tree(&["--workspace"]);
+    let mut args = vec!["--workspace"];
+    for package in TEST_UTIL_PACKAGES {
+        args.extend(["-i", package]);
+    }
+    let workspace = tree(&args);
     assert!(
         workspace.contains("sc-ai v"),
         "the tree must list the workspace crates: {workspace}"
     );
     for package in TEST_UTIL_PACKAGES {
-        let inverted = tree(&["--workspace", "-i", package]);
         assert!(
-            inverted.contains(&format!("{package} v")),
-            "{package} is in the graph: {inverted}"
-        );
-        let offenders = test_util_lines(&inverted);
-        assert!(
-            offenders.is_empty(),
-            "test-util is enabled on a normal edge of {package}: {offenders:?}"
+            workspace.contains(&format!("{package} v")),
+            "{package} is in the graph: {workspace}"
         );
     }
+    let offenders = test_util_lines(&workspace);
+    assert!(
+        offenders.is_empty(),
+        "test-util is enabled on a normal edge: {offenders:?}"
+    );
 }
 
 /// RBQA-F103 (a): the published `sc-ai` binary has no `--scripted-answers`.

@@ -15,6 +15,10 @@ use std::process::Command;
 #[path = "../../../tests/support/deadline.rs"]
 mod deadline;
 
+/// Longest one `cargo tree` may take: a cold registry index or a held Cargo
+/// file lock can exceed the 60 s runner default (FTQ-001).
+const CARGO_TREE_DEADLINE: std::time::Duration = std::time::Duration::from_secs(5 * 60);
+
 #[expect(
     clippy::disallowed_methods,
     reason = "process spawn: runs `cargo tree`, a graph query"
@@ -35,7 +39,7 @@ fn tree(args: &[&str]) -> BTreeSet<String> {
         ])
         .args(["--locked", "--offline", "--target", "all"])
         .args(args);
-    let output = deadline::spawn_with_deadline(&mut command, None);
+    let output = deadline::spawn_with_limit(&mut command, None, CARGO_TREE_DEADLINE);
     assert!(
         output.status.success(),
         "cargo tree failed: {}",
