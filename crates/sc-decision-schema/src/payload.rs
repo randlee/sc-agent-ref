@@ -225,10 +225,9 @@ impl Question {
     ///
     /// # Errors
     ///
-    /// `INPUT_INVALID`. A question that breaks a kind rule is an
-    /// [`JevError::InputInvalid`] whose detail names the id, the kind and the
-    /// counts; any other malformed value is an `EncodeFailed` error that
-    /// names only the failure category and position.
+    /// `INPUT_INVALID` with a fix hint. A question that breaks a kind rule
+    /// has a detail naming the id, the kind and the counts; any other
+    /// malformed value names only the failure category and position.
     ///
     /// # Examples
     ///
@@ -241,8 +240,8 @@ impl Question {
     /// assert!(Question::from_json(bad).is_err());
     /// ```
     pub fn from_json(value: Value) -> Result<Self, JevError> {
-        let raw: RawQuestion = serde_json::from_value(value)
-            .map_err(|error| JevError::encode_failed("question", &error))?;
+        let raw: RawQuestion =
+            serde_json::from_value(value).map_err(|error| decode_failed("question", &error))?;
         Ok(Self::try_from(raw)?)
     }
 
@@ -517,7 +516,7 @@ impl PayloadBundle {
     /// `INPUT_INVALID` when the bytes are not a canonical payload.
     pub fn decode(bytes: &[u8]) -> Result<Self, JevError> {
         let payload: CanonicalJudgePayload = serde_json::from_slice(bytes)
-            .map_err(|error| JevError::encode_failed("canonical payload", &error))?;
+            .map_err(|error| decode_failed("canonical payload", &error))?;
         let bundle = Self::encode(&payload)?;
         if bundle.text.as_bytes() != bytes {
             return Err(JevError::input_invalid(

@@ -65,12 +65,12 @@ struct RequestDocument {
     backends: Vec<String>,
 }
 
-/// One question of the document. A question that breaks its kind's rules
-/// keeps the rule text (question id, kind and counts only); any other
-/// malformed question gets the generic hint.
+/// One question of the document. Its error detail is safe to show: a kind
+/// rule violation names the question id, kind and counts, and a malformed
+/// question names only the failure category and position.
 fn parse_question(value: Value) -> Result<Question, JevError> {
     Question::from_json(value).map_err(|error| match error {
-        rule @ JevError::InputInvalid { .. } => rule,
+        shown @ JevError::InputInvalid { .. } => shown,
         _ => request_json_error_data(),
     })
 }
@@ -174,7 +174,8 @@ mod tests {
 
         let shape = br#"{"questions":[{"id":"q","prompt":"p"}]}"#;
         let hint = parse_caller_request(shape).expect_err("shape").fix_hint();
-        assert!(hint.contains("must contain a questions array"), "{hint}");
+        assert!(hint.contains("question is not valid: data error"), "{hint}");
+        assert!(!hint.contains("\"prompt\""), "{hint}");
     }
 
     #[test]

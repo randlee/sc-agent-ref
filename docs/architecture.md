@@ -1034,9 +1034,11 @@ endpoints extend `sc-jev` in place.
 
 - (Active, r-5) The Jev request and response shapes are versioned data
   types in `sc_decision_schema::jev` (one serde struct per API call,
-  ADR-SAG-0030). `sc-jev` still implements every Jev HTTP operation:
-  endpoints, building and sending the body, and mapping responses. No other
-  crate sends Jev requests.
+  ADR-SAG-0030). `sc-jev` still performs every Jev HTTP operation: the
+  endpoint, sending the body, status mapping, busy retry and the call site of
+  the `input_sha256` recovery. The `jev::v1` data types own parsing and the
+  pure response-to-`DecisionAnswers` mapping (`CheckResponse::into_answers`),
+  which has no HTTP and no I/O. No other crate sends Jev requests.
 
 ## ADR-SAG-0029 — Phase A hardening amendments
 
