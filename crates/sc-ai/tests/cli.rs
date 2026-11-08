@@ -98,14 +98,22 @@ fn stdout_json(output: &Output) -> Value {
         output.status,
         String::from_utf8_lossy(&output.stderr)
     );
-    assert!(output.stderr.is_empty(), "stderr must be empty on success");
+    assert!(
+        output.stderr.is_empty(),
+        "stderr must be empty on success, got: {:?}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     serde_json::from_slice(&output.stdout).expect("stdout json")
 }
 
 fn stderr_json(output: &Output) -> Value {
     assert_eq!(output.status.code(), Some(2), "status {:?}", output.status);
     let stderr = output.stderr.strip_suffix(b"\n").unwrap_or(&output.stderr);
-    assert!(!stderr.contains(&b'\n'), "stderr must be one line");
+    assert!(
+        !stderr.contains(&b'\n'),
+        "stderr must be one line, got: {:?}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     serde_json::from_slice(stderr).expect("stderr json")
 }
 
