@@ -213,7 +213,7 @@
       "manifest_path": "bucket/sc-ai.json",
       "manifest_template": "release/scoop/manifest.json.j2",
       "installer_target": "x86_64-pc-windows-msvc",
-      "binary": "bin/sc-ai.exe",
+      "binaries": ["sc-ai", "sc-treesitter"],
       "renderer_target": "x86_64-unknown-linux-gnu"
     },
     "winget": {
