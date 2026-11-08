@@ -169,7 +169,7 @@ owned_paths:
   - "docs/architecture.md#ADR index row ADR-SAG-0030 (Status cell: r-7 part)"
   - "docs/architecture.md#ADR-SAG-0031 storage-schema subsection (Status line and bullet markers)"
   - "docs/architecture.md#ADR index row ADR-SAG-0031 (Status cell: r-7 part)"
-  - "docs/architecture.md#ADR-SAG-0005, 0009, 0016, 0017, 0019, 0022, 0026, 0027 amendment subsections (r-7) and their index Amended-by markers (r-7)"
+  - "docs/architecture.md#ADR-SAG-0005, 0009, 0016, 0017, 0019, 0022, 0026, 0027, 0028 amendment subsections (r-7) and their index Amended-by markers (r-7); ADR-SAG-0027 git deadline bullet; ADR-SAG-0028 amendment (QA fix)"
   - "docs/architecture.md#Phase A.1 crate graph, \"Trait boundary\" sentence"
   - "docs/requirements.md#REQ-SAG-0140..0142, 0144..0148 rows; REQ-SAG-0103, 0107 and 0130 (r-7) amendment rows"
   - "docs/sc-agent-types/**"
@@ -177,6 +177,17 @@ owned_paths:
   - "docs/sc-jev-check/**#check.toml [models] table"
   - "docs/sc-jev-backends/**#model from the catalog"
   - "docs/sc-jev/architecture.md#config row: model from the catalog, not jev.toml"
+  - "crates/sc-agent-types/src/git.rs#60 s GIT_DEADLINE on every git subprocess (QA fix)"
+  - "crates/sc-agent-types/src/error.rs#JevError::GitTimeout, git_timeout, EXTRACTION_TIMEOUT wording (QA fix)"
+  - "crates/sc-agent-types/tests/errors.rs, tests/fixtures/error-codes.json#GitTimeout row (QA fix)"
+  - "tests/support/deadline.rs#bounded reap after kill (QA fix)"
+  - "crates/workspace-tests/tests/test_util_off.rs#one serialized, bounded cargo tree (QA fix)"
+  - "crates/sc-agent-http/tests/support/mod.rs#request-received signal, refused_port removed (QA fix)"
+  - "crates/sc-jev-check/src/run/tests.rs#cancelled call still logs once (QA fix)"
+  - "crates/sc-jev-backends/src/backend.rs#worst-case wall-time rustdoc (QA fix)"
+  - ".github/workflows/sc-agent-ci.yml#--locked on every cargo invocation (QA fix)"
+  - "docs/sc-jev-check/extraction.md#EXTRACTION_TIMEOUT also covers git reads (QA fix)"
+  - "docs/plans/phase-a-refine/plan.md#ADR-SAG-0009 index row (QA fix)"
 ---
 
 # Sprint r-7 — `sc-decision-schema` crate and model catalog

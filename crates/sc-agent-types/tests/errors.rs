@@ -90,6 +90,7 @@ fn every_variant() -> Vec<(&'static str, JevError)> {
         ("ExtractionInvalid", JevError::extraction_invalid("schema")),
         ("ExtractionFailed", JevError::extraction_failed("exit 1")),
         ("ExtractionTimeout", JevError::extraction_timeout(30)),
+        ("GitTimeout", JevError::git_timeout(60)),
         (
             "LanguageUnavailable",
             JevError::language_unavailable("sc-treesitter", "cobol"),

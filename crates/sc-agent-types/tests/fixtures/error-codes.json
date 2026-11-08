@@ -31,6 +31,10 @@
     "code": "EXTRACTION_TIMEOUT",
     "fix_hint": "Raise timeout_seconds above 30 or reduce the input so extraction finishes in time."
   },
+  "GitTimeout": {
+    "code": "EXTRACTION_TIMEOUT",
+    "fix_hint": "git did not finish within 60s. Check for a stalled git process, a lock file (such as .git/index.lock) or a slow filesystem, then retry."
+  },
   "InputEmpty": {
     "code": "INPUT_EMPTY",
     "fix_hint": "Provide a non-empty input and retry."

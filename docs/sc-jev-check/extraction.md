@@ -34,7 +34,9 @@ The child gets `env_clear()` plus the a-10 allowlist (`PATH`, `HOME`,
 `USERPROFILE`, `SYSTEMROOT`, `TEMP`, `TMP`, `TMPDIR`, `LANG`, `LC_*`, `TERM`); no
 API-key variable is ever passed (ADR-SAG-0020).
 
-Failures: timeout → `EXTRACTION_TIMEOUT`; invalid stdout → `EXTRACTION_INVALID`;
+Failures: timeout → `EXTRACTION_TIMEOUT` (`ExtractionTimeout`; a git read
+that does not finish within its fixed 60 s deadline reports the same id as
+`GitTimeout`, with a git-specific hint); invalid stdout → `EXTRACTION_INVALID`;
 zero subjects → `EXTRACTION_EMPTY`. On a non-zero exit the last non-empty
 stderr line (within the 4 KiB stderr tail) is tried as an
 `ScAgentErrorResponse` (REQ-SAG-0313): a known id is re-raised as

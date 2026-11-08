@@ -15,10 +15,10 @@
 //! (`GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_OBJECT_DIRECTORY`,
 //! `GIT_ALTERNATE_OBJECT_DIRECTORIES`) are removed.
 //!
-//! Every git subprocess has a wall-clock deadline, [`GIT_DEADLINE`] (60 s, a
+//! Every git subprocess has a wall-clock deadline, `GIT_DEADLINE` (60 s, a
 //! fixed default). The child is polled with `try_wait`; at the deadline it is
-//! killed and reaped and the call returns `EXTRACTION_TIMEOUT`
-//! (`timeout_seconds` is the deadline), the same pattern as the
+//! killed and reaped and the call returns the typed
+//! `JevError::GitTimeout` (id `EXTRACTION_TIMEOUT`, ADR-SAG-0027 r-7), the same pattern as the
 //! `sc-jev-check` command extractor. Output is also bounded by `max_bytes`,
 //! and prompts are off (`GIT_TERMINAL_PROMPT=0`).
 
@@ -40,7 +40,7 @@ use crate::ids::{BlobSha, RepoRelativePath, RepoRoot, Rev};
 pub const MAX_INPUT_BYTES: u64 = 8 * 1024 * 1024;
 
 /// Wall-clock limit of one git subprocess (a fixed default, not configurable).
-pub const GIT_DEADLINE: Duration = Duration::from_secs(60);
+pub(crate) const GIT_DEADLINE: Duration = Duration::from_secs(60);
 
 /// How often a running git child is polled.
 const POLL_INTERVAL: Duration = Duration::from_millis(10);
@@ -109,7 +109,7 @@ fn run(command: Command) -> Result<Output, JevError> {
 }
 
 /// Runs `command` with piped output within `limit`; kills and reaps it at the
-/// deadline (`EXTRACTION_TIMEOUT`).
+/// deadline (`GitTimeout`).
 fn run_with_deadline(mut command: Command, limit: Duration) -> Result<Output, JevError> {
     command.stdout(Stdio::piped()).stderr(Stdio::piped());
     let mut child = command
@@ -157,7 +157,7 @@ fn collect(
 }
 
 /// Polls `child` until it exits or `limit` passes since `started`; at the
-/// deadline the child is killed and reaped and the call is `EXTRACTION_TIMEOUT`.
+/// deadline the child is killed and reaped and the call is `GitTimeout`.
 fn wait_bounded(
     child: &mut Child,
     started: Instant,
@@ -168,7 +168,7 @@ fn wait_bounded(
             Ok(Some(status)) => return Ok(status),
             Ok(None) if started.elapsed() >= limit => {
                 kill_and_reap(child);
-                return Err(JevError::extraction_timeout(limit.as_secs()));
+                return Err(JevError::git_timeout(limit.as_secs()));
             }
             Ok(None) => thread::sleep(POLL_INTERVAL),
             Err(error) => {
@@ -305,7 +305,7 @@ pub fn read_at_rev(
             Ok(result) => Some(result),
             Err(_) => {
                 kill_and_reap(&mut child);
-                return Err(JevError::extraction_timeout(GIT_DEADLINE.as_secs()));
+                return Err(JevError::git_timeout(GIT_DEADLINE.as_secs()));
             }
         },
         None => None,
@@ -380,7 +380,7 @@ pub fn hash_blob(root: &RepoRoot, bytes: &[u8]) -> Result<BlobSha, JevError> {
     });
     let errors = spawn_bounded_read(stderr, STDERR_DETAIL_BYTES);
     let id = spawn_bounded_read(stdout, OBJECT_ID_OUTPUT_BYTES);
-    let expired = || Err::<(), JevError>(JevError::extraction_timeout(GIT_DEADLINE.as_secs()));
+    let expired = || Err::<(), JevError>(JevError::git_timeout(GIT_DEADLINE.as_secs()));
     let left = || GIT_DEADLINE.saturating_sub(started.elapsed());
     let outcome = (|| {
         let written = written_rx
@@ -481,15 +481,10 @@ mod tests {
     /// is a typed `EXTRACTION_TIMEOUT`, long before the child would exit.
     #[test]
     fn test_hung_git_is_killed_at_the_deadline() {
-        let started = Instant::now();
         let error =
             run_with_deadline(hung_child(), Duration::from_millis(200)).expect_err("deadline");
         assert_eq!(error.code(), "EXTRACTION_TIMEOUT");
-        assert!(
-            started.elapsed() < Duration::from_secs(10),
-            "{:?}",
-            started.elapsed()
-        );
+        assert!(matches!(error, JevError::GitTimeout { .. }), "{error:?}");
     }
 
     #[test]

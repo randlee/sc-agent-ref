@@ -52,6 +52,15 @@ snake-case constructor. `fix_hint()` is the one renderer of recovery text;
 `retryable()` is true only for `NetworkError` of kind `Busy`, `Timeout`,
 `Connect`; `Error::source()` is `None` for every variant.
 
+**Git deadline (r-7, ADR-SAG-0027).** Every git subprocess in `git` has a fixed
+60 s wall-clock deadline (`GIT_DEADLINE`, crate-private, not configurable). The
+child is polled with `try_wait`; at the deadline it is killed and reaped and
+the call returns `JevError::GitTimeout { seconds }`. `GitTimeout` maps to the
+existing `EXTRACTION_TIMEOUT` id (an id may have several variants) and has its
+own `Display` ("git did not finish within Ns") and hint (a stalled git
+process, a lock file or a slow filesystem), not the extractor's "raise
+`timeout_seconds`".
+
 `ScAgentErrorResponse` keys, in order: `error`, `message`, `schema_version`
 (always `1`), `retryable` (only when `true`), `details` (only for
 `ProducerError`, `{"producer": ...}`). Readers deny unknown keys and accept

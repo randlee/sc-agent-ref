@@ -135,9 +135,9 @@ cell and its own marker text to `(Active, r-N)`; it adds or removes no entry.
 | ADR-SAG-0025 | Multi-backend semantics and equal-input attestation | Active | Amends ADR-SAG-0004, ADR-SAG-0008, ADR-SAG-0019, ADR-SAG-0022 |
 | ADR-SAG-0026 | Shared HTTP crate and host crate | Active (HTTP half, r-3; host half, r-3b) | Amends ADR-SAG-0006, ADR-SAG-0007, ADR-SAG-0020, ADR-SAG-0017 (HTTP half); ADR-SAG-0010, ADR-SAG-0011, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0017 (host half); amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Proposed, r-6) |
 | ADR-SAG-0027 | Error taxonomy and extensibility | Active (r-1) | Amends ADR-SAG-0001, ADR-SAG-0009, ADR-SAG-0016; amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Proposed, r-6) |
-| ADR-SAG-0028 | workspace-tests crate | Active (r-3b) | — |
+| ADR-SAG-0028 | workspace-tests crate | Active (r-3b) | Amended by ADR-SAG-0030 (Active, r-7) |
 | ADR-SAG-0029 | Phase A hardening amendments | Active (a-10) | Amends ADR-SAG-0020 and ADR-SAG-0022; A.1 supersedes named sentences of (a) (Active, r-1), (Active, r-3) and of (b) (Active, r-1), (Active, r-2) |
-| ADR-SAG-0030 | Decision schema crate and model catalog | Active (r-7); jev::v1 Proposed (r-5) | Amends ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0012, ADR-SAG-0016, ADR-SAG-0017, ADR-SAG-0019, ADR-SAG-0022, ADR-SAG-0026, ADR-SAG-0027 |
+| ADR-SAG-0030 | Decision schema crate and model catalog | Active (r-7); jev::v1 Proposed (r-5) | Amends ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0012, ADR-SAG-0016, ADR-SAG-0017, ADR-SAG-0019, ADR-SAG-0022, ADR-SAG-0026, ADR-SAG-0027, ADR-SAG-0028 |
 | ADR-SAG-0031 | Session log storage schema | Active (storage schema, r-7); wiring Proposed (r-6) | Amends ADR-SAG-0008, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0026, ADR-SAG-0027 (wiring) |
 
 ## ADR-SAG-0001 — Error enum is CLI authority
@@ -1509,6 +1509,17 @@ HTTP half amends ADR-SAG-0006, 0007,
   takes `&ModelAliases`.
 - (Active, r-7) The core (always-on) surface gains `SendTrace` and
   `ProjectLabel` (ADR-SAG-0031).
+- (Active, r-7) **Git deadline contract.** Every git subprocess started by
+  `sc_agent_types::git` has a fixed wall-clock deadline (`GIT_DEADLINE`,
+  60 s, crate-private, not configurable). At the deadline the child is killed
+  and reaped and the call returns the new variant
+  `JevError::GitTimeout { seconds }`. It maps to the existing
+  `EXTRACTION_TIMEOUT` id (an id may have several variants; no new stable
+  code, `errors.json` is unchanged), with `Display` "git did not finish
+  within Ns" and a hint about a stalled git process, a lock file or a slow
+  filesystem. `ExtractionTimeout` keeps the `command` extractor's
+  `timeout_seconds` meaning. `JevError` is `#[non_exhaustive]`, so the
+  variant is additive.
 
 ### Amendment (Phase A.1, r-6)
 
@@ -1562,13 +1573,28 @@ HTTP half amends ADR-SAG-0006, 0007,
   that needs one of them goes through a built binary or into that crate's own
   tests.
 
+### Amendment (Phase A.1, r-7)
+
+**Status:** Active (Phase A.1, r-7).
+
+- (Active, r-7) **Dev-only edges.** The "exactly" dev-dependency list of the
+  r-3b bullet is replaced: `workspace-tests` dev-dependencies are
+  `sc-agent-types` (`features = ["git"]`), `sc-decision-schema`
+  (`features = ["test-util"]`), `sc-jev-check`, `sc-jev-host`, `serde_json`,
+  `tempfile`. The new `sc-decision-schema` dev edge is counted by
+  `sc-boundary` like the others: the `workspace-tests` manifest lists
+  `sc-decision-schema` in its dependency allowlist and the
+  `sc-decision-schema` manifest lists `workspace-tests` in
+  `allowed_dependents`. Its source scans, `jev_cross_impl` and the other
+  targets import the moved decision types from `sc_decision_schema`.
+
 ## ADR-SAG-0030 — Decision schema crate and model catalog
 
 **Status:** Active (Phase A.1, r-7); the "Jev API structs" bullet and the
 ADR-SAG-0012 subsection stay Proposed until r-5 lands them. Amends
 ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0016, ADR-SAG-0017, ADR-SAG-0019,
-ADR-SAG-0022, ADR-SAG-0026 and ADR-SAG-0027 (an r-7 subsection in each) and
-ADR-SAG-0012 (an r-5 subsection).
+ADR-SAG-0022, ADR-SAG-0026, ADR-SAG-0027 and ADR-SAG-0028 (an r-7
+subsection in each) and ADR-SAG-0012 (an r-5 subsection).
 Owner decisions 2026-11-07.
 
 - (Active, r-7) **Crate.** `sc-decision-schema` (published) is
