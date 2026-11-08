@@ -52,6 +52,7 @@ def main() -> None:
         fail("release_binaries lists fewer than two binaries; nothing to shim twice")
 
     # Evaluate only the kit's own expression, with no builtins or other names.
+    # The input is the workflow at the exact kit SHA in release/sc-publish-pin.toml.
     binary = eval(kit_binary_expression(kit), {"__builtins__": {}}, {"channel": channel})  # noqa: S307
     variables = {
         "version": "0.0.0",

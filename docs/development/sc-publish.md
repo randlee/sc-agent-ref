@@ -278,7 +278,7 @@ Dry-run gate (local and CI, on the release candidate commit):
 - [ ] `just lint` and `just test`.
 - [ ] `install.py --dry-run` exits 0.
 - [ ] `bash .github/scripts/run-consumer-preflight.sh` exits 0.
-- [ ] `cargo publish --dry-run --locked -p sc-agent-types -p sc-agent-secrets
+- [ ] `cargo publish --dry-run --locked -p sc-agent-types -p sc-decision-schema -p sc-agent-secrets
       -p sc-agent-http -p sc-jev -p sc-jev-backends -p sc-jev-check -p sc-jev-host
       -p sc-treesitter -p sc-ai`.
       A single multi-package invocation resolves the unpublished in-workspace

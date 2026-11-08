@@ -125,8 +125,8 @@ fn test_busy_policy_numbers() {
     }
 }
 
-/// Absent and malformed `Retry-After` are treated alike: 1, 2, 4 s with the
-/// default sends: 1, 2, 4, 8 s.
+/// Absent and malformed `Retry-After` are treated alike: 1, 2, 4, 8 s with the
+/// default sends.
 #[test]
 fn test_missing_and_malformed_retry_after_back_off_exponentially() {
     let hooks = fake(Duration::ZERO);
