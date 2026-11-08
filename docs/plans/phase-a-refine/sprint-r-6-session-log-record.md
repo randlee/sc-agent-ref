@@ -1,7 +1,7 @@
 ---
 id: r-6
 phase: r
-status: in-review
+status: complete
 closure_type: contract
 target_boundary: session-log
 track: observability
@@ -537,3 +537,8 @@ Choices where the sprint doc is silent (all conservative):
 - Release input: no `release/` change. `Cargo.lock` now has `ulid`, `rand`
   0.9 and `sc-sha`; the parent runs `install.py` if the kit input needs a
   refresh.
+
+- Status stayed `in-review` through QA; the coordinator flipped it to
+  `complete` once follow-up QA left no open finding. Finding closure is
+  recorded by the quality-mgr report on PR 35, not by the triage records
+  (triaging-findings, Closure Rules).
