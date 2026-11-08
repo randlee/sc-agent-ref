@@ -666,7 +666,7 @@ Source: `.cursor/phase-a-orchestration.json` key `owner_decisions_2026_11_07`.
     own provider HTTP) and consumers built only on it, such as
     `sc-jev-py`; other decision APIs get their own `sc-decider*`, `sc-laya*`,
     `sc-kev*` crates; `sc-decision-*` is the API-agnostic layer, which also
-    hosts one versioned module per API (`jev::v1` today). Post-MVP order: decider crates first, then laya; kev
+    hosts one versioned module per API (`jev::v1` from r-5). Post-MVP order: decider crates first, then laya; kev
     unscheduled. See `docs/architecture.md` "Crate naming convention".
 
 No owner questions remain open.

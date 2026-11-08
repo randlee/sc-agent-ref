@@ -60,7 +60,7 @@ alongside `sc-ai`. Direct dependencies of every crate are listed in its
   `sc-laya*`, `sc-kev*`.
 - `sc-decision-*` (for example `sc-decision-schema`) is the API-agnostic layer
   across all decision APIs. Its shared types are API-agnostic; it also hosts
-  one versioned module per API (`jev::v1` today; `decider::`, `laya::`,
+  one versioned module per API (`jev::v1` from r-5; `decider::`, `laya::`,
   `kev::` reserved), so each API's wire types live in one place.
 
 ## Phase A.1 crate graph

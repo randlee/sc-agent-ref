@@ -24,6 +24,7 @@ requirements:
   - REQ-SAG-0147
   - REQ-SAG-0148
   - REQ-SAG-0613   # seam only (boundary:send-trace row): SendTrace type and required parameter; r-6 records the digest and closes it
+  - REQ-SAG-0143   # regression: jev::v1 (r-5) carried unchanged; r-7 touches the sc-jev and sc-jev-backends body paths
   - REQ-SAG-0103   # amended: the frozen judge contract's home is sc-decision-schema
   - REQ-SAG-0107   # amended: sc-agent-types loses the judge and test-util features
   - REQ-SAG-0130   # amended: consumer input publishes sc-decision-schema (order 2)
