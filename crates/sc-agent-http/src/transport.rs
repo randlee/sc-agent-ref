@@ -48,6 +48,11 @@ impl<T: Transport + ?Sized> Transport for std::sync::Arc<T> {
 /// The request deadline covers the send and the full body read. The defaults
 /// are 10 s connect and 120 s request.
 ///
+/// The bounds are enforced here so every backend gets them (RSH-002):
+/// [`Timeouts::new`] clamps the connect deadline to 1 ms through 10 s and
+/// the request deadline to 1 ms through 120 s. Callers that must report a
+/// bad value (such as the Jev config) check their own range first.
+///
 /// # Examples
 ///
 /// ```
@@ -72,10 +77,23 @@ impl Timeouts {
     /// Default deadline for one request, including the response body.
     pub const DEFAULT_REQUEST: Duration = Duration::from_secs(120);
 
-    /// Timeouts with the given connect and request deadlines.
+    /// Smallest accepted deadline, for connect and request alike.
+    pub const MIN: Duration = Duration::from_millis(1);
+
+    /// Largest accepted connect deadline.
+    pub const MAX_CONNECT: Duration = Duration::from_secs(10);
+
+    /// Largest accepted request deadline.
+    pub const MAX_REQUEST: Duration = Duration::from_secs(120);
+
+    /// Timeouts with the given connect and request deadlines, clamped to
+    /// 1 ms through 10 s (connect) and 1 ms through 120 s (request).
     #[must_use]
     pub const fn new(connect: Duration, request: Duration) -> Self {
-        Self { connect, request }
+        Self {
+            connect: clamp(connect, Self::MAX_CONNECT),
+            request: clamp(request, Self::MAX_REQUEST),
+        }
     }
 
     /// TCP connect deadline.
@@ -91,8 +109,40 @@ impl Timeouts {
     }
 }
 
+/// `value` limited to `Timeouts::MIN..=max` (`Ord::clamp` is not `const`).
+const fn clamp(value: Duration, max: Duration) -> Duration {
+    // `Duration` has no const comparison operators; compare nanoseconds.
+    if value.as_nanos() < Timeouts::MIN.as_nanos() {
+        Timeouts::MIN
+    } else if value.as_nanos() > max.as_nanos() {
+        max
+    } else {
+        value
+    }
+}
+
 impl Default for Timeouts {
     fn default() -> Self {
         Self::new(Self::DEFAULT_CONNECT, Self::DEFAULT_REQUEST)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn deadlines_are_clamped_to_the_decided_bounds() {
+        let ms = Duration::from_millis;
+        let secs = Duration::from_secs;
+        let low = Timeouts::new(Duration::ZERO, Duration::ZERO);
+        assert_eq!((low.connect(), low.request()), (ms(1), ms(1)));
+        let high = Timeouts::new(secs(3_600), secs(3_600));
+        assert_eq!((high.connect(), high.request()), (secs(10), secs(120)));
+        let edge = Timeouts::new(secs(10), secs(120));
+        assert_eq!((edge.connect(), edge.request()), (secs(10), secs(120)));
+        let mid = Timeouts::new(ms(250), secs(5));
+        assert_eq!((mid.connect(), mid.request()), (ms(250), secs(5)));
+        assert_eq!(Timeouts::default().connect(), secs(10));
     }
 }
