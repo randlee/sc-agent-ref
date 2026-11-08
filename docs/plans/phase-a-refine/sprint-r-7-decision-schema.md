@@ -1,7 +1,7 @@
 ---
 id: r-7
 phase: r
-status: in-review
+status: complete
 closure_type: contract
 target_boundary: decision-schema
 track: schema
