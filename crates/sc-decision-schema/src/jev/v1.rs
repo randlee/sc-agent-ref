@@ -638,8 +638,7 @@ impl CheckRequest {
 }
 
 /// One answer of a check reply.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub enum JevAnswer {
     /// The answer to a `choice` question.
@@ -678,14 +677,12 @@ pub enum JevAnswer {
 /// use sc_decision_schema::Probability;
 /// use sc_decision_schema::jev::v1::NoulProbabilities;
 ///
-/// let noul: NoulProbabilities = serde_json::from_str(r#"{"yes":0.25}"#)?;
+/// let noul = NoulProbabilities::new(Probability::new(0.25)?);
 /// assert_eq!(noul.yes().get(), 0.25);
-/// assert_eq!(NoulProbabilities::new(Probability::new(0.25)?), noul);
-/// assert!(serde_json::from_str::<NoulProbabilities>(r#"{"yes":1.5}"#).is_err());
+/// assert!(Probability::new(1.5).is_err());
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct NoulProbabilities {
     yes: Probability,
 }

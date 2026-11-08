@@ -88,10 +88,21 @@ First release. Channels once published: crates.io (ten crates), PyPI
   `GrammarRef { language, grammar, grammar_version }` instead of three
   positional strings.
 
+### Changed
+
+- Release kit re-pinned to sc-publish `34dab3f`. Scoop now shims both `sc-ai`
+  and `sc-treesitter` (`[channels.scoop].binaries`; bead
+  `agt-scoop-multi-shim` resolved). The kit pins Komac 2.16.0 for WinGet
+  updates; the hand-submitted first manifest must list both binaries with
+  aliases.
+- Windows binaries link the C runtime statically (`.cargo/config.toml`), so
+  they run without the Visual C++ redistributable.
+
 ### Known limits
 
-- Scoop and WinGet expose only `sc-ai`; `sc-treesitter` is in the archive but
-  has no shim or alias (beads `agt-scoop-multi-shim`, `agt-sft`).
+- WinGet exposes only `sc-ai` until the first manifest is hand-submitted with
+  an alias for each binary (bead `agt-sft`); `sc-treesitter` is in the
+  package but has no alias yet.
 - The Luna live token count is unverified (bead `agt-luna-live-count`).
 - Backend ids are written `openai_luna` / `openai`; the old spellings
   `open_ai_luna` / `open_ai` are still read in config and caller-request input.

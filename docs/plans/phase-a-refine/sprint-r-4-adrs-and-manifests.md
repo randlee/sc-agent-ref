@@ -53,6 +53,7 @@ owned_paths:
   - "docs/architecture.md#ADR-SAG-0016 amendment (r-4)"
   - "docs/architecture.md#ADR-SAG-0017 amendment (r-4)"
   - "docs/architecture.md#ADR-SAG-0023 (Status line and r-4 bullets)"
+  - "docs/architecture.md#ADR-SAG-0023 phase-end amendment (Windows CRT; wheel matrix)"
   - "docs/architecture.md#ADR index row ADR-SAG-0023 (Status cell: r-4)"
   - "docs/architecture.md#ADR index Amended-by marker (r-4) in ADR-SAG-0005, 0016, 0017"
   - "docs/requirements.md#REQ-SAG-0133, REQ-SAG-0134, NFR-SAG-0004 rows"
@@ -282,8 +283,9 @@ REQ-QA-001): the owner directed the upstream change as a PR instead of an
 issue, and it merged as https://github.com/randlee/sc-publish/pull/176 (optional
 `[channels.scoop].binaries`). The URL is recorded in REQ-SAG-0133, the
 ADR-SAG-0017 r-4 amendment and `docs/development/sc-publish.md`. Current
-state: sc-agent's consumer input still has a single Scoop binary until it
-re-pins the kit and sets `binaries` (separate work). WinGet command aliases
-are not an upstream issue; the first hand-submitted manifest must list them
-(bead `agt-sft`). Everything else in the sprint was delivered and QA-2 PASS
+state: sc-agent has since re-pinned the kit (sc-publish `34dab3f`) and sets
+`binaries`, so Scoop shims both `sc-ai` and `sc-treesitter` (bead
+`agt-scoop-multi-shim` resolved). WinGet command aliases are not an upstream
+issue; the kit pins Komac 2.16.0 and the first hand-submitted manifest must
+list both binaries with aliases (bead `agt-sft`). Everything else in the sprint was delivered and QA-2 PASS
 (arch-qa, rust-qa, flaky-test-qa).

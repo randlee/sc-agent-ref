@@ -220,7 +220,7 @@ paths only in the wave named.
 | `sc-agent-types` | `boundaries/sc-agent-types/agent-types.toml` | The whole types break (D1, D6, D7, D10-break, D11 types part): `BackendDescriptor` static facts + `BACKENDS`; provided `capabilities()`; `BackendCapabilities` ctor + private fields; explicit `JevError` variants (constructor per struct-like variant) + `ProducerError`; `ErrorCode`; `ScAgentErrorResponse` `schema_version`/`retryable`/`details` with a per-field rule (`from_jev_error` name kept); `NetworkErrorKind`; `retryable()`; `RepoRelativePath`, `QuestionId`, `ChoiceId`, `BlobSha`, `Operation`, `BackendSet`, `CancelToken` (always-on core); typed `answers`; `JudgeOutcome.input_sha256: Option`; `Attestation` enum; `MultiBackendMode`; `PayloadBundle::encode`; private `CanonicalJudgePayload` fields; `schema::subjects` + `SubjectsBuilder`, `SubjectsDocument` as the one validated type; `LogRejected`; `git` module; features `judge`/`secret`/`obs` (default) and `git` (non-default), `test-util`; `ResolvedApiKey` on `Arc<str>`, unchecked `new` deleted in every build; `QuestionAnswer.confidence`; `PayloadBundle::question_choices`; `sha2` in core; `MockJudgeBackend` full contract (r-1 D10.11); the a-10 `#[allow]` in `ids.rs` → `#[expect]`. Manifest: facade, features, `-sc-observability-types`, the D0 spike paragraph in `boundaries/README.md` (r-1); `allowed_dependents` `+sc-agent-http` (r-3), `+sc-jev-host` and (in the "dev edges counted" branch of r-1's D0 spike) `+workspace-tests` (r-3b) | r-1 (1); manifest r-3 (2), r-3b (4); decision types moved out, model catalog, `SendTrace`, `ProjectLabel` r-7 (5); ULID, `sc-sha`, `LogEvent` fields r-6 (6). `judge.rs` moves to `sc-decision-schema` in r-7, so r-5's payload edit lands there |
 | `sc-decision-schema` (new, published) | `boundaries/sc-decision-schema/decision-schema.toml` (new) | Created (ADR-SAG-0030): the decision types moved from `sc-agent-types`, `DecisionSchemaId` versions, `llm::v1`, `variants`, `session_log` (DDL + `fields{}` projection, ADR-SAG-0031), `JudgeBackend::model_id`, `judge(req, &SendTrace)`, `test_util::MockJudgeBackend`. Manifest text in the r-7 sprint doc. r-5 owns `payload.rs` + `jev/**` (`jev::v1`) (6); r-6 owns `MockJudgeBackend::with_sent_body` (6) | r-7 (5), r-5 (6), r-6 (6) |
 | `sc-agent-secrets` | `boundaries/sc-agent-secrets/agent-secrets.toml` | Call sites only (`ResolvedApiKey` shape). No manifest change | r-1 (1) |
-| `sc-agent-http` (new, published) | `boundaries/sc-agent-http/agent-http.toml` (new) | Created: `HttpRequest` (`body: Arc<[u8]>`), `HttpResponse`, `Method`, `Endpoint`, `SecretHeader`, `Transport`, `UreqTransport`, `BusyPolicy`, `send_with_busy_retry`, `redact`. Manifest text below | r-3 (2), r-7 required `SendTrace` parameter on the exchange fns (5), r-6 digest recording in `retry.rs` (6) |
+| `sc-agent-http` (new, published) | `boundaries/sc-agent-http/agent-http.toml` (new) | Created: `HttpRequest` (`body: Arc<[u8]>`, later `Arc<str>` per r-7), `HttpResponse`, `Method`, `Endpoint`, `SecretHeader`, `Transport`, `UreqTransport`, `BusyPolicy`, `send_with_busy_retry`, `redact`. Manifest text below | r-3 (2), r-7 required `SendTrace` parameter on the exchange fns (5), r-6 digest recording in `retry.rs` (6) |
 | `sc-jev` | `boundaries/sc-jev/jev.toml` | r-1: infallible `JevClient::new`, `with_default_transport`, descriptor-read byte cap, typed answers (with `confidence`), `#[allow]` in `client/https.rs` → `#[expect]`. r-3: `client/{transport,retry,https}.rs` deleted, built on `sc-agent-http`; `JevClient` stays in `client/mod.rs`; dependencies `-ureq +sc-agent-http`. r-2b (`check.rs`, `client/**`, `lib.rs`): `input_sha256` recovered from the final body; `test-util` feature with the `WireFault` hook and `JevClient::with_wire_fault`; real-wire-builder digest test. r-5: envelope | r-1 (1), r-3 (2), r-2b (3), r-7 imports, `ModelId` config, `fn model_id`, request-trace hand-off (5), r-5 (6) |
 | `sc-jev-backends` | `boundaries/sc-jev-backends/jev-backends.toml` | Same split as `sc-jev` (r-1 ctor/limit/answers and the `transport.rs` `#[allow]`; r-3 transport; r-2b digest, `test-util`/`WireFault`, real-wire-builder digest test; r-5 validate) | r-1 (1), r-3 (2), r-2b (3), r-7 imports, catalog model, `fn model_id`, request-trace hand-off, `llm::v1` parse (5), r-5 `validate.rs`/`wire.rs` (6) |
 | `sc-jev-check` | `boundaries/sc-jev-check/jev-check.toml` | r-1: call sites, session document v2, `InputSpec` moved in unchanged from types, private backend factory table (`--lib` coverage test), `ScriptedJudge`/`RequestLog` deleted (`register_scripted_backends` over `MockJudgeBackend`), and the one `Cargo.toml` line `test-util = ["sc-agent-types/test-util"]`. r-2: `Cargo.toml` (`sc-agent-types` `features = ["git"]`, `[[test]] required-features = ["test-util"]` entries; no self dev-dependency), `prepare`/`run`/`discover_repo_root`, `RunConfig`, `PreparedRun`, `CheckSource`, `CallerRequest`, `RunResponse` (incl. `warnings`) + `Envelope`, `RunResponse::test_builder` (`test-util`), `FileSessionStore`, `BackendRegistry::{from_env, register}`, `InputSpec::Command.path`; facade rewritten. r-2b: run-loop semantics, `registry/scripted.rs` digest reporting. r-3b: manifest `allowed_dependents` `+sc-jev-host` (and `+workspace-tests` in the "dev edges counted" branch of r-1's D0 spike) | r-1 (1), r-2 (2), r-2b (3), r-3b manifest (4), r-7 imports + `[models]` (5), r-6 row emission, ULID, `discover_main_repo_root` (6) |
@@ -804,14 +804,20 @@ REQ-SAG-0130 amendment. (REQ-QA-002, CPR-019.)
 "Owner confirmation (2026-11-06, retry policy)").** (CPR-M7, OBS-F,
 REQ-SAG-0505.) Encoded by r-3 in `BusyPolicy::default()`; ADR-SAG-0007 r-3
 amendment and the REQ-SAG-0505 amendment record it.
-- Statuses 429/502/529 only; at most 4 sends.
+> Later change: owner decision of 2026-11-08 set busy retry to 5 sends with
+> waits of 1, 2, 4, 8 s. See the ADR-SAG-0007 phase-end amendment and
+> REQ-SAG-0505 amendment. The 4-send text here describes what r-3 shipped.
+
+- Statuses 429/502/529 only; at most 4 sends at r-3 (5 since the phase-end
+  amendment).
 - A valid Retry-After is honoured, clamped 0–30 s. Valid means at most 32
   bytes of ASCII digits with an optional `.` and ASCII-digit fraction
   (`^[0-9]+(\.[0-9]+)?$`); anything else (HTTP-date, sign, exponent, `inf`,
   `NaN`, empty) is malformed. Absent **or malformed** Retry-After (malformed
   is treated like missing, not 30 s): exponential backoff from about 1 s —
-  1, 2, 4, 8 … capped at 30 s. With at most 4 sends there are at most three
-  waits, so the default sequence is 1, 2, 4 s; 8 s and the 30 s cap apply only
+  1, 2, 4, 8 … capped at 30 s. With at most 4 sends at r-3 there are at most three
+  waits, so the r-3 default sequence is 1, 2, 4 s (1, 2, 4, 8 s since the
+  phase-end amendment); 8 s and the 30 s cap apply only
   to a non-default `BusyPolicy` with more sends. Every wait adds up to 250 ms
   jitter.
 - 90 s budget from the first send for **starting** new attempts; every wait
@@ -825,7 +831,8 @@ amendment and the REQ-SAG-0505 amendment record it.
   immediately, and the caller (CLI, Python, future MCP) decides whether to
   retry. A transport error or timeout after the body was sent is never
   retried.
-- This removes round 1's malformed-header exhaustion (CPR-M7): 4 sends fit
+- This removes round 1's malformed-header exhaustion (CPR-M7): 4 sends (5 since
+  the phase-end amendment) fit
   inside the budget unless the server's own Retry-After values exceed it.
 
 **(c) D9 Jev payload shape — resolved (owner, 2026-11-07).** The source of

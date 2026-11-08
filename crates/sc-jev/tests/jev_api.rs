@@ -503,7 +503,7 @@ mod jev_api {
                 "api.typesafe.ai",
                 "/v1/systemone",
                 96_000,
-                4,
+                5,
                 Duration::from_secs(60)
             )
         );

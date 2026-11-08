@@ -15,7 +15,7 @@ All modules are private; the crate root re-exports the public items, plus the
 
 | Module | Public items | Role |
 | --- | --- | --- |
-| `request` | `HttpRequest`, `HttpResponse`, `Method`, `HeaderName`, `SecretHeader`, `Endpoint` | Values with private fields, constructors and accessors. `HttpRequest::new(method, endpoint, body: Arc<[u8]>)`, `with_header`, `with_secret`; `HttpResponse::new(status, headers, body)`, `status`, `header` (case-insensitive), `body`, `into_body`. `HeaderName` is a `&'static str` RFC 9110 token (`const fn new`). `Endpoint::parse` accepts only `https://` URLs |
+| `request` | `HttpRequest`, `HttpResponse`, `Method`, `HeaderName`, `SecretHeader`, `Endpoint` | Values with private fields, constructors and accessors. `HttpRequest::new(method, endpoint, body: Arc<str>)`, `with_header`, `with_secret`; `HttpResponse::new(status, headers, body)`, `status`, `header` (case-insensitive), `body`, `into_body`. `HeaderName` is a `&'static str` RFC 9110 token (`const fn new`). `Endpoint::parse` accepts only `https://` URLs |
 | `transport` | `Transport`, `Timeouts` | The open transport trait; connect and request deadlines (10 s / 120 s default) |
 | `ureq_transport` | `UreqTransport` | The production transport and the single secret read site |
 | `retry` | `BusyPolicy`, `BusyExhaustion`, `send_with_busy_retry`, `send_and_parse`, `HttpClient` | Busy retry with the decided numbers and the cancel hook; the one exchange (send, retry, parse, redact) and the transport + policy + token state every backend holds |
@@ -74,8 +74,8 @@ every text field, so a header echo or body excerpt containing the key becomes
 ## Busy retry and cancel latency
 
 `BusyPolicy::default()` encodes owner decision (b) (REQ-SAG-0505 amended,
-ADR-SAG-0007 r-3): 429/502/529 only; 4 sends; a valid Retry-After clamped to
-0–30 s; absent or malformed → 1, 2, 4, 8 … s capped at 30 s; up to 250 ms
+ADR-SAG-0007 r-3 and its phase-end amendment): 429/502/529 only; 5 sends; a valid Retry-After clamped to
+0–30 s; absent or malformed → 1, 2, 4, 8 s; up to 250 ms
 jitter (std `RandomState` hashed with the current time); a 90 s budget from
 the first send, every wait `min(wait + jitter, remaining)`, no attempt
 starts once it is spent. Exhausting the sends gives detail

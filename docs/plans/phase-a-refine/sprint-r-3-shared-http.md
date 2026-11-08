@@ -120,7 +120,7 @@ local `rg` check.)
    Modules and public items:
    - `request`: `HttpRequest` and `HttpResponse` with **private fields,
      constructors and accessors** (implementors of `Transport` build
-     `HttpResponse`, so no public fields): `HttpRequest::new(method, endpoint, body: Arc<[u8]>)`,
+     `HttpResponse`, so no public fields): `HttpRequest::new(method, endpoint, body: Arc<[u8]>)` (later `Arc<str>` per r-7),
      `with_header(name, value)`, `with_secret(SecretHeader)`, accessors
      `method()`, `endpoint()`, `headers()`, `secret()`, `body()`;
      `HttpResponse::new(status: u16, headers, body: Vec<u8>)`, accessors
@@ -193,6 +193,10 @@ local `rg` check.)
      "Dev-dependency and self edges"; plan "Test seams"); loopback tests in
      `--test ureq` use `Endpoint::loopback_http` and run against a std
      `TcpListener` on 127.0.0.1.
+> Later change: owner decision of 2026-11-08 set busy retry to 5 sends with
+> waits of 1, 2, 4, 8 s. See the ADR-SAG-0007 phase-end amendment and
+> REQ-SAG-0505 amendment. The 4-send text here describes what r-3 shipped.
+
 2. **Retry rules** (owner decision (b), DECIDED 2026-11-06; REQ-SAG-0505
    amendment; ADR-SAG-0007 r-3 amendment). `BusyPolicy::default()`:
    statuses 429/502/529 only; at most 4 sends; a valid Retry-After honoured,
@@ -220,14 +224,15 @@ local `rg` check.)
    caller decides. A transport error or timeout after the body was sent is
    never retried. 502 retry can double-charge a provider that processed the
    request; documented in the amendment. Tests (target `retry`):
-   `test_busy_policy_numbers` (default: three waits 1, 2, 4 s + jitter),
+   `test_busy_policy_numbers` (default at r-3: three waits 1, 2, 4 s + jitter;
+   four waits 1, 2, 4, 8 s since the phase-end amendment),
    `test_missing_and_malformed_retry_after_back_off_exponentially`,
    `test_retry_after_grammar` (table: `"3"`, `"2.5"` valid; `"0"` valid with
-   a zero wait, bounded by the 4-send cap; 32 nines valid and saturating to
+   a zero wait, bounded by the send cap; 32 nines valid and saturating to
    the 30 s clamp without overflow; `"-1"`, `"1e9"`, `"inf"`, `"NaN"`, `""`,
    an HTTP-date, 33 digits malformed),
    `test_exhaustion_reason_distinguishable` (the error after the fourth
-   send's busy status says "4 sends exhausted"; the error when the 90 s
+   send's busy status says "4 sends exhausted" at r-3, "5 sends exhausted" since the phase-end amendment; the error when the 90 s
    budget forbids the next attempt says "retry budget exhausted"; both are
    `NetworkError { kind: Busy }` with `retryable() == true`, distinguished by
    detail text),
@@ -475,9 +480,9 @@ input's.
 | `SecretHeader::matches` is implemented in `ureq_transport.rs` through the one `expose` fn | ADR-SAG-0020 r-3 | keeps a single `as_str` call site and a single `#[expect]` |
 | `UreqTransport::loopback_for_tests(Timeouts)` takes timeouts | test-util seam | the loopback timeout test needs a short request timeout; production constructor unchanged |
 | Exhaustion details: `HTTP <s> busy; N sends exhausted` / `HTTP <s> busy after N sends; retry budget exhausted`; backends prefix their name (`Jev …`, `luna …`) with `JevError::map_detail` | REQ-SAG-0505, ADR-SAG-0007 r-3 | RSH: distinguishable reasons; the old "retry attempts exhausted" wording in `jev_api`/`llm` tests updated |
-| Malformed Retry-After now backs off (1, 2, 4 s) instead of waiting 30 s; `test_llm_busy_retry_same_body` expects 30, 1, 2 s | REQ-SAG-0505 (decided) | owner decision (b) |
+| Malformed Retry-After now backs off (1, 2, 4 s at r-3; 1, 2, 4, 8 s since the phase-end amendment) instead of waiting 30 s; `test_llm_busy_retry_same_body` expects 30, 1, 2 s | REQ-SAG-0505 (decided) | owner decision (b) |
 | Removed `with_timeouts`, `with_retry_sleeper`, `JevClient::with_retry_delay`, `RetrySleeper`, `RetryDelay`, `DEFAULT_CONNECT_TIMEOUT` / `DEFAULT_REQUEST_TIMEOUT`; added `with_busy_policy`, `with_cancel` on every backend | ADR-SAG-0006, ADR-SAG-0007 ("configurable … for tests") | timeouts are transport construction state (`new(key, UreqTransport::new(Timeouts::new(..)))`); supersedes a-10 ARCHC-018's `with_timeouts`; `test_with_timeouts_reaches_every_request` replaced by `test_timeouts_are_transport_construction_state` |
-| `JevClient<T: Transport = UreqTransport>` is generic too; `with_config` keeps `jev.toml` `attempts` (packaged 4 = `BusyPolicy::default()`, test `packaged_attempts_match_the_shared_busy_policy`); `JevClientConfig::endpoint()` returns `&Endpoint`, validated in `try_new` | REQ-SAG-0400/0401, ADR-SAG-0009 (registry unchanged) | one transport model for every backend |
+| `JevClient<T: Transport = UreqTransport>` is generic too; `with_config` keeps `jev.toml` `attempts` (packaged 4 at r-3, 5 since the phase-end amendment, = `BusyPolicy::default()`, test `packaged_attempts_match_the_shared_busy_policy`); `JevClientConfig::endpoint()` returns `&Endpoint`, validated in `try_new` | REQ-SAG-0400/0401, ADR-SAG-0009 (registry unchanged) | one transport model for every backend |
 | `User-Agent` is `sc-agent-http/<ver>` for every backend (was `sc-jev/…`, `sc-jev-backends/…`) | REQ-SAG-0402 | one agent configuration |
 | Also deleted: both `retry_policy.rs` and `test_server.rs` copies and the `shared_copies` test; loopback tests moved to `sc-agent-http --test ureq` (`tests/support/mod.rs`); the sc-jev client-over-loopback test is covered by `jev_api` (scripted) plus `--test ureq` | REQ-SAG-0402 | the copies existed only until D5 |
 | Backends redact non-2xx snippets and reply-parse errors with `sc_agent_http::redact` (no redaction code of their own) | NFR-SAG-0002, ADR-SAG-0020 r-3 | a response body may echo the key; `test_llm_non_2xx_detail_is_redacted` |
@@ -511,7 +516,7 @@ keeps r-3c's `allow-invalid = true` with r-3's single-read-site text;
 | FTQ-001 | — | stall test request timeout 1 s | `39454b4` |
 | FTQ-002 | plan "Test seams" | CI test job runs `cargo test -p sc-agent-http --features test-util` on all three OSes | `9b333dd` |
 | RBP minors | REQ-SAG-0402 | endpoints built once per `Provider`; request-build failure is `INPUT_INVALID` (deterministic, not retryable); oversize response is `RESPONSE_INVALID` on both paths (ureq `BodyExceedsLimit` mapped there; the `BodyTooLarge` mapping dropped; `NetworkErrorKind::BodyTooLarge` itself is sc-agent-types', unchanged); `test_util` documents its `Arc<Mutex<_>>` | `cc9c4cb`, `0b208fd` |
-| RSH observations | REQ-SAG-0505, ADR-SAG-0007 | `JevClientConfig` attempts 1..=4, timeout ≤ 120 s, with a bounds test; retry docs give the double-charge rationale | `0b208fd` |
+| RSH observations | REQ-SAG-0505, ADR-SAG-0007 | `JevClientConfig` attempts 1..=4 at r-3 (1..=5 since the phase-end amendment), timeout ≤ 120 s, with a bounds test; retry docs give the double-charge rationale | `0b208fd` |
 | QA-001 | NFR coverage baseline | tests for sc-jev `check.rs`, client cancel/labels, backends `validate.rs`, cancel/labels, sc-agent-http adapters and doubles. Line coverage (`cargo llvm-cov --workspace --exclude sc-jev-py --all-features`): workspace 90.08 → 92.44 %; sc-agent-http 92.30 → 97.52; sc-jev 78.94 → 97.83; sc-jev-backends 87.76 → 95.56 | `93e53d5` |
 | QA-002 | REQ-SAG-0505 | kind stays `Busy`; `BusyExhaustion::of(&JevError)` returns `Sends` / `Budget` from the fixed detail endings (`SENDS_SUFFIX`, `BUDGET_SUFFIX`), unaffected by a backend label; asserted in `test_exhaustion_reason_distinguishable` | `3c1c6a8` |
 

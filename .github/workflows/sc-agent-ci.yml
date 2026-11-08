@@ -15,6 +15,7 @@
 #             .github/scripts/cargo-tree-gates.sh (REQ-SAG-0134, REQ-SAG-0135);
 #             .github/scripts/check-exact-pins.sh and its --self-test
 #             (NFR-SAG-0004, ADR-SAG-0023)
+#   advisories cargo deny --locked check advisories (deny.toml; RustSec)
 #   wheel     default `maturin build` of sc-jev-py: the release wheel has no
 #             `_testing` submodule (ADR-SAG-0029 (b))
 #   workspace-tests  cargo test -p workspace-tests (cross-crate proofs,
@@ -50,6 +51,7 @@ env:
   PYTHON_VERSION: "3.11.9"
   JUST_VERSION: "1.58.0"
   CARGO_HACK_VERSION: "0.6.46"
+  CARGO_DENY_VERSION: "0.20.2"
   CARGO_LLVM_COV_VERSION: "0.9.1"
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: "0"
@@ -368,10 +370,43 @@ jobs:
         timeout-minutes: 5
         run: bash .github/scripts/check-exact-pins.sh --self-test
 
-  wheel:
-    name: release wheel has no _testing
+  advisories:
+    name: RustSec advisories
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        timeout-minutes: 5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        timeout-minutes: 10
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
+        timeout-minutes: 5
+        with:
+          tool: cargo-deny@${{ env.CARGO_DENY_VERSION }}
+
+      # deny.toml ignores only the three unmaintained zvariant-chain entries.
+      - name: cargo deny check advisories
+        timeout-minutes: 5
+        run: cargo deny --locked check advisories
+
+  wheel:
+    # The ubuntu name is unchanged so existing required checks still match.
+    # The Windows legs are the acceptance check for the static CRT
+    # (`.cargo/config.toml`, ADR-SAG-0023 phase-end amendment): they build
+    # the release-shape wheel and import it.
+    name: release wheel has no _testing${{ matrix.os == 'ubuntu-24.04' && '' || format(' ({0})', matrix.os) }}
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022, windows-11-arm]
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         timeout-minutes: 5
@@ -396,21 +431,59 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: sc-agent-ci-wheel-${{ runner.os }}-rust-${{ env.RUST_TOOLCHAIN }}-${{ hashFiles('**/Cargo.lock') }}
+          key: sc-agent-ci-wheel-${{ runner.os }}-${{ runner.arch }}-rust-${{ env.RUST_TOOLCHAIN }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            sc-agent-ci-wheel-${{ runner.os }}-rust-${{ env.RUST_TOOLCHAIN }}-
+            sc-agent-ci-wheel-${{ runner.os }}-${{ runner.arch }}-rust-${{ env.RUST_TOOLCHAIN }}-
 
       # The default `maturin build` is the publish shape: no `test-util`, so
       # no `_testing` submodule (ADR-SAG-0029 (b)). maturin installs from the
       # hash-pinned lock the pytest job uses.
       - name: maturin build (release shape) and import check
         timeout-minutes: 25
+        shell: bash
         run: |
-          python -m venv "$RUNNER_TEMP/wheel-venv"
-          "$RUNNER_TEMP/wheel-venv/bin/python" -m pip install --require-hashes -r tests/fixtures/jev-python/constraints.txt
-          "$RUNNER_TEMP/wheel-venv/bin/maturin" build -m crates/sc-jev-py/Cargo.toml -o "$RUNNER_TEMP/wheels"
-          "$RUNNER_TEMP/wheel-venv/bin/python" -m pip install "$RUNNER_TEMP"/wheels/sc_jev_py-*.whl
-          "$RUNNER_TEMP/wheel-venv/bin/python" -c 'import sc_jev_py, sys; sys.exit(1 if hasattr(sc_jev_py, "_testing") else 0)'
+          set -euo pipefail
+          # Relative paths keep the glob and venv path identical under Git
+          # Bash on Windows. Windows venvs use Scripts\ with .exe names.
+          # The venv and wheel directory sit outside `target/`, which the
+          # cache step restores: a cached venv from another architecture kept
+          # an x64 sc_jev_py in place and pip skipped the arm64 wheel.
+          venv=wheel-ci/venv
+          wheels=wheel-ci/wheels
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            bindir="$venv/Scripts"
+          else
+            bindir="$venv/bin"
+          fi
+          rm -rf wheel-ci
+          python -m venv "$venv"
+          "$bindir/python" -m pip install --require-hashes -r tests/fixtures/jev-python/constraints.txt
+          "$bindir/maturin" build --release -m crates/sc-jev-py/Cargo.toml -o "$wheels"
+          "$bindir/python" -m pip install --force-reinstall --no-deps "$wheels"/sc_jev_py-*.whl
+          "$bindir/python" -c 'import sc_jev_py, sys; sys.exit(1 if hasattr(sc_jev_py, "_testing") else 0)'
+
+      # Failure diagnostics: the PE machine of every native module in the
+      # wheel and the installed package, to separate a wrong-architecture
+      # binary from an import-library or CRT fault.
+      - name: Print PE machine of wheel binaries
+        if: failure()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import glob, struct, sys, zipfile
+          names = {0x8664: "x64", 0xAA64: "arm64", 0x14C: "x86"}
+          def machine(data):
+              offset = struct.unpack_from("<I", data, 0x3C)[0]
+              return names.get(struct.unpack_from("<H", data, offset + 4)[0], "other")
+          print("python:", sys.version, struct.calcsize("P") * 8, "bit")
+          for wheel in glob.glob("wheel-ci/wheels/*.whl"):
+              with zipfile.ZipFile(wheel) as archive:
+                  for name in archive.namelist():
+                      if name.endswith((".pyd", ".dll")):
+                          print("wheel", name, machine(archive.read(name)))
+          for path in glob.glob("wheel-ci/venv/Lib/site-packages/sc_jev_py/*.pyd"):
+              print("installed", path, machine(open(path, "rb").read()))
+          PY
 
   workspace-tests:
     name: workspace-tests (cross-crate proofs)
@@ -539,6 +612,14 @@ jobs:
       - name: cargo fetch --locked (all targets)
         timeout-minutes: 10
         run: cargo fetch --locked
+
+      # The cargo cache restores `target`, including .profraw files from earlier
+      # runs. `--no-report` runs never clean, so stale profile data from a
+      # previous run (CI process ids repeat run to run) would be merged into
+      # this run's. Start from no profile data; build artifacts stay cached.
+      - name: Remove stale profile data
+        timeout-minutes: 5
+        run: cargo llvm-cov clean --profraw-only
 
       - name: cargo llvm-cov (run tests, no report)
         timeout-minutes: 30

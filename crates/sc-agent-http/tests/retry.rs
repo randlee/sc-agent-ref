@@ -86,26 +86,26 @@ fn detail(error: &JevError) -> &str {
     }
 }
 
-/// `BusyPolicy::default()`: 429/502/529 only, 4 sends, three waits of
-/// 1, 2, 4 s, each plus the jitter (here the 250 ms maximum).
+/// `BusyPolicy::default()`: 429/502/529 only, 5 sends, four waits of
+/// 1, 2, 4, 8 s, each plus the jitter (here the 250 ms maximum).
 #[test]
 fn test_busy_policy_numbers() {
-    assert_eq!(BusyPolicy::default().max_sends(), 4);
+    assert_eq!(BusyPolicy::default().max_sends(), 5);
     let jitter = Duration::from_millis(250);
     for status in [429_u16, 502, 529] {
         let hooks = fake(jitter);
-        let transport = ScriptedTransport::responses(vec![busy(status, None); 5]);
+        let transport = ScriptedTransport::responses(vec![busy(status, None); 6]);
         let error = run(&transport, &hooks.policy).expect_err("exhausted");
-        assert_eq!(transport.sends(), 4, "status {status}");
+        assert_eq!(transport.sends(), 5, "status {status}");
         assert_eq!(
             hooks.sleeper.waits(),
-            [secs(1.25), secs(2.25), secs(4.25)],
+            [secs(1.25), secs(2.25), secs(4.25), secs(8.25)],
             "status {status}"
         );
         assert_eq!(network_kind(&error), NetworkErrorKind::Busy);
         assert_eq!(
             detail(&error),
-            format!("HTTP {status} busy; 4 sends exhausted")
+            format!("HTTP {status} busy; 5 sends exhausted")
         );
         let bodies: Vec<String> = transport
             .requests()
@@ -125,8 +125,8 @@ fn test_busy_policy_numbers() {
     }
 }
 
-/// Absent and malformed `Retry-After` are treated alike: 1, 2, 4 s with the
-/// default sends; 8, 16 s and the 30 s cap only with more sends.
+/// Absent and malformed `Retry-After` are treated alike: 1, 2, 4, 8 s with the
+/// default sends.
 #[test]
 fn test_missing_and_malformed_retry_after_back_off_exponentially() {
     let hooks = fake(Duration::ZERO);
@@ -134,21 +134,20 @@ fn test_missing_and_malformed_retry_after_back_off_exponentially() {
         busy(429, None),
         busy(502, Some("soon")),
         busy(529, Some("Wed, 21 Oct 2026 07:28:00 GMT")),
+        busy(429, Some("-1")),
         ok(),
     ]);
-    run(&transport, &hooks.policy).expect("fourth send succeeds");
-    assert_eq!(hooks.sleeper.waits(), [secs(1.0), secs(2.0), secs(4.0)]);
+    run(&transport, &hooks.policy).expect("fifth send succeeds");
+    assert_eq!(hooks.sleeper.waits(), [1.0, 2.0, 4.0, 8.0].map(secs));
 
+    // A policy asked for more than five sends is held to five.
     let hooks = fake(Duration::ZERO);
     let policy = hooks.policy.clone().with_max_sends(7);
     let transport = ScriptedTransport::responses(vec![busy(429, Some("-1")); 7]);
     let error = run(&transport, &policy).expect_err("exhausted");
-    assert_eq!(
-        hooks.sleeper.waits(),
-        [1.0, 2.0, 4.0, 8.0, 16.0, 30.0].map(secs)
-    );
-    assert_eq!(detail(&error), "HTTP 429 busy; 7 sends exhausted");
-    assert_eq!(hooks.clock.now(), secs(61.0));
+    assert_eq!(transport.sends(), 5);
+    assert_eq!(detail(&error), "HTTP 429 busy; 5 sends exhausted");
+    assert_eq!(hooks.clock.now(), secs(15.0));
 }
 
 /// The `Retry-After` grammar table (owner decision (b)).
@@ -178,22 +177,22 @@ fn test_retry_after_grammar() {
         run(&transport, &hooks.policy).expect("second send succeeds");
         assert_eq!(hooks.sleeper.waits(), [expected], "{header:?}");
     }
-    // A valid zero wait does not loop: the 4-send cap still bounds it.
+    // A valid zero wait does not loop: the 5-send cap still bounds it.
     let hooks = fake(Duration::ZERO);
-    let transport = ScriptedTransport::responses(vec![busy(429, Some("0")); 6]);
+    let transport = ScriptedTransport::responses(vec![busy(429, Some("0")); 7]);
     let error = run(&transport, &hooks.policy).expect_err("exhausted");
-    assert_eq!(transport.sends(), 4);
-    assert_eq!(hooks.sleeper.waits(), [Duration::ZERO; 3]);
-    assert_eq!(detail(&error), "HTTP 429 busy; 4 sends exhausted");
+    assert_eq!(transport.sends(), 5);
+    assert_eq!(hooks.sleeper.waits(), [Duration::ZERO; 4]);
+    assert_eq!(detail(&error), "HTTP 429 busy; 5 sends exhausted");
 }
 
 /// Both exhaustion reasons are `Busy` and retryable, told apart by detail.
 #[test]
 fn test_exhaustion_reason_distinguishable() {
     let hooks = fake(Duration::ZERO);
-    let transport = ScriptedTransport::responses(vec![busy(429, Some("1")); 4]);
+    let transport = ScriptedTransport::responses(vec![busy(429, Some("1")); 5]);
     let sends = run(&transport, &hooks.policy).expect_err("sends");
-    assert_eq!(transport.sends(), 4);
+    assert_eq!(transport.sends(), 5);
 
     let hooks = fake(Duration::ZERO);
     // Each send takes 45 s: after the second busy reply (t = 120 s) no
@@ -209,7 +208,7 @@ fn test_exhaustion_reason_distinguishable() {
         assert_eq!(network_kind(error), NetworkErrorKind::Busy);
         assert!(error.retryable());
     }
-    assert!(detail(&sends).contains("4 sends exhausted"), "{sends}");
+    assert!(detail(&sends).contains("5 sends exhausted"), "{sends}");
     assert!(!detail(&sends).contains("budget"), "{sends}");
     assert!(
         detail(&budget).contains("retry budget exhausted"),

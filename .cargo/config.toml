@@ -1,0 +1,10 @@
+# Link the C runtime statically on Windows so released binaries run without
+# the Visual C++ redistributable (sc-lint failed with STATUS_DLL_NOT_FOUND,
+# 0xC0000135, on a runner without it). Applies to the target triple only, so
+# macOS and Linux builds are unaffected. Decision and re-qualification
+# triggers: ADR-SAG-0023, phase-end amendment (docs/architecture.md).
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.aarch64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

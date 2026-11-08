@@ -128,7 +128,7 @@ own row's Status cell and its own marker text, and added or removed no entry).
 | ADR-SAG-0004 | One check, one request | Active | Amended by ADR-SAG-0025 (Active, r-2b) |
 | ADR-SAG-0005 | Facade owns payload assembly | Active | Amended by ADR-SAG-0024 (Active, r-2); A.1 subsections (Active, r-4), (Active, r-5); ADR-SAG-0030 (Active, r-7) |
 | ADR-SAG-0006 | Transport injection | Active | Amended by ADR-SAG-0026 (Active, r-3) |
-| ADR-SAG-0007 | API-direct LLM backends | Active | Amended by ADR-SAG-0026 (Active, r-3) |
+| ADR-SAG-0007 | API-direct LLM backends | Active (r-3; retry numbers phase-end) | Amended by ADR-SAG-0026 (Active, r-3) |
 | ADR-SAG-0008 | Sessions carry prior answers to later backends | Active | A.1 subsection (Active, r-1); amended by ADR-SAG-0025 (Active, r-2b); ADR-SAG-0031 (Active, r-6) |
 | ADR-SAG-0009 | Local backend registers without caller changes | Active | Amended by ADR-SAG-0022; ADR-SAG-0027 (Active, r-1); ADR-SAG-0024 (Active, r-2); ADR-SAG-0030 (Active, r-7) |
 | ADR-SAG-0010 | CLI thin adapter | Active | Amended by ADR-SAG-0026 (Active, r-3b) |
@@ -144,7 +144,7 @@ own row's Status cell and its own marker text, and added or removed no entry).
 | ADR-SAG-0020 | Secret injection and redaction | Active | Amends ADR-SAG-0003; amended by ADR-SAG-0029; A.1 subsection (Active, r-1); ADR-SAG-0026 (Active, r-3); A.1 subsection (Active, r-3b) |
 | ADR-SAG-0021 | Log and session path precedence | Active | Amends ADR-SAG-0013 |
 | ADR-SAG-0022 | Scripted backends are a test-util feature | Active | Amends ADR-SAG-0009; amended by ADR-SAG-0029; A.1 subsection (Active, r-1); ADR-SAG-0024 (Active, r-2); ADR-SAG-0025 (Active, r-2b); ADR-SAG-0030 (Active, r-7) |
-| ADR-SAG-0023 | Dependency pins, allocator, released binaries | Active (r-4; host pin r-3b) | Amends ADR-SAG-0016, ADR-SAG-0017 |
+| ADR-SAG-0023 | Dependency pins, allocator, released binaries | Active (r-4; host pin r-3b; Windows CRT phase-end) | Amends ADR-SAG-0016, ADR-SAG-0017 |
 | ADR-SAG-0024 | Engine entry point and response contract | Active (r-2) | Amends ADR-SAG-0003, ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0014, ADR-SAG-0019, ADR-SAG-0022; supersedes the ADR-SAG-0014 A.1 r-1 interim subsection |
 | ADR-SAG-0025 | Multi-backend semantics and equal-input attestation | Active (r-2b) | Amends ADR-SAG-0004, ADR-SAG-0008, ADR-SAG-0019, ADR-SAG-0022 |
 | ADR-SAG-0026 | Shared HTTP crate and host crate | Active (HTTP half, r-3; host half, r-3b) | Amends ADR-SAG-0006, ADR-SAG-0007, ADR-SAG-0020, ADR-SAG-0017 (HTTP half); ADR-SAG-0010, ADR-SAG-0011, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0017 (host half); amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6) |
@@ -703,7 +703,9 @@ configured on the injected `UreqTransport`, not on a backend builder.
 ### Amendment (Phase A.1, r-3)
 
 **Status:** Active (Phase A.1) — landed in r-3. Numbers decided by the
-owner (2026-11-06).
+owner (2026-11-06). The send count and default waits below are what r-3
+shipped; the phase-end amendment below supersedes them with 5 sends and waits
+of 1, 2, 4, 8 s.
 
 - (Active, r-3) One busy-retry policy for every backend, in
   `sc_agent_http::BusyPolicy`: statuses 429/502/529 only; at most 4 sends;
@@ -734,6 +736,20 @@ owner (2026-11-06).
   passes `new(key, UreqTransport::new(Timeouts::new(..)))`. The backend
   builder `with_timeouts` is removed. This supersedes the base sentence
   "configurable on backend builder for tests".
+
+### Amendment (Phase A.1, phase-end, 2026-11-08)
+
+**Status:** Active (Phase A.1). Owner decision (2026-11-08).
+
+Amends the r-3 busy-retry numbers above; the rest of r-3 stands.
+
+- `BusyPolicy` makes at most 5 sends in total, and no policy may exceed 5.
+  With the default 5 sends, four waits occur when Retry-After is absent or
+  malformed, of 1, 2, 4 and 8 s (15 s total before jitter). The 30 s cap applies only to an
+  honoured Retry-After. The 90 s budget stays as a ceiling for slow or
+  Retry-After-heavy sequences.
+- The shared layer bounds the transport deadlines for every backend: request
+  1 ms–120 s, connect 1 ms–10 s.
 
 ## ADR-SAG-0010 — CLI thin adapter
 
@@ -801,20 +817,21 @@ preflight CI, and publish dry-run).
   | GitHub Release archive | yes | yes |
   | crates.io (`cargo install`) | yes | yes |
   | Homebrew | yes | yes (same formula) |
-  | Scoop | shim | in archive, no shim |
+  | Scoop | shim | shim |
   | WinGet | alias | in package, no alias |
 
-  Scoop: `[channels.scoop].binary` is one string at the pinned kit, so
-  sc-agent's consumer input still has a single Scoop binary. The upstream
-  change landed in sc-publish as https://github.com/randlee/sc-publish/pull/176 (optional
-  `[channels.scoop].binaries`). The owner directed a PR instead of an issue.
-  sc-agent gets the second shim only after it re-pins the kit and sets
-  `binaries` (not part of this amendment). Bead `agt-scoop-multi-shim`.
+  Scoop: the upstream change landed in sc-publish as
+  https://github.com/randlee/sc-publish/pull/176 (optional
+  `[channels.scoop].binaries`; the owner directed a PR instead of an issue).
+  sc-agent has re-pinned the kit (sc-publish `34dab3f`) and sets
+  `binaries = ["sc-ai", "sc-treesitter"]`, so Scoop shims both. Bead
+  `agt-scoop-multi-shim` is resolved.
 
   WinGet: command aliases are not an upstream issue. The first manifest is
   submitted by hand and must list a `PortableCommandAlias` for each of
-  `sc-ai` and `sc-treesitter` (bead `agt-sft`; the related upstream PR
-  randlee/sc-publish#182 is open). The Windows invocation path for
+  `sc-ai` and `sc-treesitter` (bead `agt-sft`). The kit pins Komac 2.16.0 for
+  later updates (the related upstream PR randlee/sc-publish#182 was open when
+  this was written). The Windows invocation path for
   `sc-treesitter` is in `docs/development/sc-publish.md`. REQ-SAG-0133.
 
 ### Amendment (Phase A.1, r-3)
@@ -824,6 +841,11 @@ preflight CI, and publish dry-run).
 - (Active, r-3) Published library crates gain `sc-agent-http`. crates.io
   publish order: `sc-agent-types`, `sc-agent-secrets`, `sc-agent-http`,
   `sc-jev`, `sc-jev-backends`, `sc-jev-check`, `sc-treesitter`, `sc-ai`.
+  **Superseded** for the order by the r-3b amendment (`sc-jev-host` joins
+  directly after `sc-jev-check`) and the r-7 amendment (`sc-decision-schema`
+  joins at order 2); the authoritative list is the r-7 amendment and
+  `release/sc-publish-consumer-input.json`. Only the addition of
+  `sc-agent-http` stands.
 
 ### Amendment (Phase A.1, r-3b)
 
@@ -1237,6 +1259,33 @@ comparison flows.
   `sc-ai` and `sc-jev-py` is `=`-pinned (it is already on the list above);
   `check-exact-pins.sh` re-runs green with the pin present.
 
+### Amendment (Phase A.1, phase-end)
+
+**Status:** Active (Phase A.1) — landed in the phase-end release layer.
+
+- (Active, phase-end) Windows MSVC targets link the C runtime statically
+  for released binaries and for the `sc-jev-py` wheel, so they run without
+  the Visual C++ redistributable (sc-lint failed with `STATUS_DLL_NOT_FOUND`,
+  `0xC0000135`, without it). The flag
+  `-C target-feature=+crt-static` lives in the repository
+  `.cargo/config.toml` under `[target.x86_64-pc-windows-msvc]` and
+  `[target.aarch64-pc-windows-msvc]`; Linux and macOS builds are unaffected.
+  Cargo configuration cannot be scoped to one package, so the wheel built
+  from the repository root gets it too.
+- (Active, phase-end) **Re-qualification trigger.** `RUSTFLAGS` replaces
+  `target.*.rustflags` entirely. A sc-publish pin that sets `RUSTFLAGS` in a
+  build step silently drops the flag; any pin bump must re-check this and
+  re-qualify the Windows binaries and wheel before it merges. A kit-side
+  override for the wheel step is the fix if a statically linked CRT in the
+  Python extension proves a problem; it is not a repo edit.
+- (Active, phase-end) The Windows legs (`windows-2022`, `windows-11-arm`) of
+  the `wheel` job in `.github/workflows/sc-agent-ci.yml` are the wheel's
+  acceptance check: they build the release-shape wheel, install it in a fresh
+  virtual environment and import `sc_jev_py` without `_testing`. The wheel
+  matrix is six wheels (Linux, macOS and Windows on x86_64 and arm64,
+  `abi3-py311`), declared in `release/sc-publish-consumer-input.json`
+  (REQ-SAG-0802). Operational notes: `docs/development/sc-publish.md`.
+
 ## ADR-SAG-0024 — Engine entry point and response contract
 
 **Status:** Active (Phase A.1, landed in r-2). Amends ADR-SAG-0003,
@@ -1372,7 +1421,7 @@ HTTP half amends ADR-SAG-0006, 0007,
 **Status:** Active (Phase A.1) — landed in r-3.
 
 - (Active, r-3) `sc-agent-http` (published) owns `HttpRequest`
-  (`body: Arc<[u8]>`) / `HttpResponse`, `Endpoint`, `SecretHeader`,
+  (`body: Arc<str>`) / `HttpResponse`, `Endpoint`, `SecretHeader`,
   `Transport`, `UreqTransport` (one `Agent` built in `new`, 8 MiB streaming
   response cap; private module `ureq_transport`), `BusyPolicy` /
   `send_with_busy_retry` (with `CancelToken`) and redaction of every error it

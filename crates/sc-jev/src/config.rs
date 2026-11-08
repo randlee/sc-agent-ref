@@ -10,7 +10,7 @@ use sc_agent_types::{BackendId, JevError, ModelId};
 use serde::Deserialize;
 
 /// Most sends per call (owner decision (b), `BusyPolicy::default`).
-const MAX_ATTEMPTS: u32 = 4;
+const MAX_ATTEMPTS: u32 = 5;
 
 /// Longest in-flight request (owner decision (b), ADR-SAG-0007).
 const MAX_TIMEOUT: Duration = Duration::from_secs(120);
@@ -103,9 +103,9 @@ impl JevClientConfig {
                 "path must be an absolute URL path such as /v1/systemone",
             ));
         }
-        // Owner decision (b): at most 4 sends and a 120 s in-flight request.
+        // Owner decision (b): at most 5 sends and a 120 s in-flight request.
         if !(1..=MAX_ATTEMPTS).contains(&attempts) {
-            return Err(invalid("attempts must be from 1 to 4"));
+            return Err(invalid("attempts must be from 1 to 5"));
         }
         if timeout.is_zero() || timeout > MAX_TIMEOUT {
             return Err(invalid("timeout must be from 1 second to 120 seconds"));
@@ -150,7 +150,7 @@ impl JevClientConfig {
 
     /// Total sends on a busy reply, including the first.
     ///
-    /// The packaged value is 4, the `sc_agent_http::BusyPolicy::default`
+    /// The packaged value is 5, the `sc_agent_http::BusyPolicy::default`
     /// count (REQ-SAG-0505).
     #[must_use]
     pub fn attempts(&self) -> u32 {
@@ -193,10 +193,10 @@ mod tests {
     #[test]
     fn ranges_stop_at_the_owner_decided_bounds() {
         let at_bounds = VALID
-            .replace("attempts = 2", "attempts = 4")
+            .replace("attempts = 2", "attempts = 5")
             .replace("timeout_seconds = 5", "timeout_seconds = 120");
         let config = JevClientConfig::from_toml(&at_bounds).expect("bounds are valid");
-        assert_eq!((config.attempts(), config.timeout()), (4, MAX_TIMEOUT));
+        assert_eq!((config.attempts(), config.timeout()), (5, MAX_TIMEOUT));
     }
 
     #[test]
@@ -217,7 +217,7 @@ mod tests {
                 &VALID.replace("timeout_seconds = 5", "timeout_seconds = -1"),
                 "jev.toml",
             ),
-            (&VALID.replace("attempts = 2", "attempts = 5"), "attempts"),
+            (&VALID.replace("attempts = 2", "attempts = 6"), "attempts"),
             (&VALID.replace("attempts = 2", "attempts = 0"), "attempts"),
             (
                 &format!("{VALID}max_request_bytes = 10\n"),

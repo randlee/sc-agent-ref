@@ -32,7 +32,7 @@ const CONTENT_TYPE: HeaderName = HeaderName::new("Content-Type");
 /// [`UreqTransport`]). Ignores `JudgeRequest::llm`. Busy replies (429, 502,
 /// 529) are retried with the same body under
 /// [`BusyPolicy`] (REQ-SAG-0505): `Retry-After` honoured up to 30 s,
-/// otherwise 1, 2, 4 s backoff, plus jitter, within a 90 s budget.
+/// otherwise 1, 2, 4, 8 s backoff, plus jitter, within a 90 s budget.
 ///
 /// # Examples
 ///

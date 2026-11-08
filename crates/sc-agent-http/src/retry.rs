@@ -4,7 +4,7 @@
 //! [`BusyPolicy::default`] encodes the decided numbers:
 //!
 //! - Busy statuses are 429, 502 and 529, and only those. The same body is
-//!   resent. At most 4 sends.
+//!   resent. At most 5 sends.
 //! - A valid `Retry-After` is honoured, clamped to 0–30 s. Valid is 1–32
 //!   bytes matching `^[0-9]+(\.[0-9]+)?$`. The digits are parsed as integers,
 //!   so sign, exponent, `inf`, `NaN` and overflow cannot occur; a long
@@ -12,7 +12,8 @@
 //!   `-1`, `1e9`, empty, more than 32 bytes) is malformed.
 //! - An absent **or malformed** `Retry-After` (treated alike) backs off
 //!   exponentially: 1, 2, 4, 8 … s for the 1st, 2nd, 3rd, 4th … wait, capped
-//!   at 30 s. With 4 sends there are at most three waits (1, 2, 4 s).
+//!   at 30 s. With 5 sends there are at most four waits (1, 2, 4, 8 s, 15 s
+//!   in all before jitter).
 //! - Every wait adds up to 250 ms of jitter.
 //! - A 90 s budget, from the first send, governs starting attempts. Every
 //!   wait is `min(wait + jitter, budget remaining)`; when no budget remains
@@ -45,7 +46,11 @@ use crate::test_util::{FakeClock, RecordingSleeper};
 const BUSY_STATUSES: [u16; 3] = [429, 502, 529];
 
 /// Sends per call under [`BusyPolicy::default`], including the first.
-const DEFAULT_MAX_SENDS: u32 = 4;
+const DEFAULT_MAX_SENDS: u32 = 5;
+
+/// Most sends per call under any policy (RSH-002). [`BusyPolicy::new`] and
+/// [`BusyPolicy::with_max_sends`] clamp to `1..=MAX_SENDS`.
+const MAX_SENDS: u32 = 5;
 
 /// Upper clamp of an honoured `Retry-After`.
 const RETRY_AFTER_MAX: Duration = Duration::from_secs(30);
@@ -71,7 +76,8 @@ const WAIT_SLICE: Duration = Duration::from_millis(100);
 /// How busy replies are retried.
 ///
 /// Private fields. [`BusyPolicy::default`] is the decided policy (module
-/// docs); [`BusyPolicy::new`] changes only the number of sends. Sleeping,
+/// docs); [`BusyPolicy::new`] changes only the number of sends, which is
+/// clamped to 1 through 5 so no backend can exceed the decided bound. Sleeping,
 /// the monotonic clock and jitter are part of the policy: production uses
 /// the thread clock, `std::thread::sleep` and std-seeded jitter. With the
 /// `test-util` feature, `BusyPolicy::with_test_hooks` replaces all three so
@@ -82,8 +88,9 @@ const WAIT_SLICE: Duration = Duration::from_millis(100);
 /// ```
 /// use sc_agent_http::BusyPolicy;
 ///
-/// assert_eq!(BusyPolicy::default().max_sends(), 4);
+/// assert_eq!(BusyPolicy::default().max_sends(), 5);
 /// assert_eq!(BusyPolicy::new(0).max_sends(), 1);
+/// assert_eq!(BusyPolicy::new(99).max_sends(), 5);
 /// ```
 #[derive(Debug, Clone)]
 pub struct BusyPolicy {
@@ -92,19 +99,21 @@ pub struct BusyPolicy {
 }
 
 impl BusyPolicy {
-    /// The default policy with `max_sends` total sends (at least 1).
+    /// The default policy with `max_sends` total sends, clamped to 1 through
+    /// 5.
     #[must_use]
     pub fn new(max_sends: u32) -> Self {
         Self {
-            max_sends: max_sends.max(1),
+            max_sends: max_sends.clamp(1, MAX_SENDS),
             hooks: Hooks::System,
         }
     }
 
-    /// Replaces the number of sends (at least 1), keeping the hooks.
+    /// Replaces the number of sends (clamped to 1 through 5), keeping the
+    /// hooks.
     #[must_use]
     pub fn with_max_sends(mut self, max_sends: u32) -> Self {
-        self.max_sends = max_sends.max(1);
+        self.max_sends = max_sends.clamp(1, MAX_SENDS);
         self
     }
 
@@ -610,6 +619,27 @@ mod tests {
         for _ in 0..64 {
             assert!(Hooks::System.jitter() <= JITTER_MAX);
         }
+    }
+
+    #[test]
+    fn sends_are_bounded_to_one_through_five() {
+        assert_eq!(BusyPolicy::default().max_sends(), 5);
+        let counts: Vec<u32> = [0, 1, 5, 6, u32::MAX]
+            .into_iter()
+            .map(|n| BusyPolicy::new(n).max_sends())
+            .collect();
+        assert_eq!(counts, [1, 1, 5, 5, 5]);
+        assert_eq!(BusyPolicy::new(2).with_max_sends(99).max_sends(), 5);
+        assert_eq!(BusyPolicy::new(2).with_max_sends(0).max_sends(), 1);
+    }
+
+    #[test]
+    fn default_delays_are_one_two_four_eight() {
+        let delays: Vec<u64> = (1..DEFAULT_MAX_SENDS)
+            .map(|nth| backoff(nth).as_secs())
+            .collect();
+        assert_eq!(delays, [1, 2, 4, 8]);
+        assert_eq!(delays.iter().sum::<u64>(), 15);
     }
 
     #[test]

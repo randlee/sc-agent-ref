@@ -3,5 +3,5 @@
 # here: the sc-agent-types model catalog is its one source (ADR-SAG-0030).
 host = "api.typesafe.ai"
 path = "/v1/systemone"
-attempts = 4
+attempts = 5
 timeout_seconds = 60
