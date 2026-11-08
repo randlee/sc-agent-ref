@@ -1,7 +1,7 @@
 ---
 id: r-3b
 phase: r
-status: in-review
+status: complete # QA-2 PASS (a7b68f6)
 closure_type: integration
 target_boundary: jev-host
 track: integration
