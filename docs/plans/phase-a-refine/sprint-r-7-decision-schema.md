@@ -199,6 +199,9 @@ document byte changes.
 
 ## Layering (decided; ADR-SAG-0030)
 
+Module layout: the per-API modules (`jev::`, `decider::`, `laya::`, `kev::`)
+are reserved, and only `jev::` is built in r-7.
+
 ```text
 sc-agent-types        ids, JevError/ErrorCode, ScAgentErrorResponse, BackendId + BACKENDS,
   (below)             ModelId/ModelFamily/ModelAliases, Sha256Digest, CancelToken, SendTrace, ProjectLabel,

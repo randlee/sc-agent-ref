@@ -48,6 +48,16 @@ through a `command` input. The crate ships a **second released binary**, `sc-tre
 alongside `sc-ai`. Direct dependencies of every crate are listed in its
 `boundaries/<crate>/*.toml` manifest ([`boundaries/README.md`](../boundaries/README.md)).
 
+## Crate naming convention
+
+- `sc-jev-*` is anything that speaks the TypeSafe Jev API, including Haiku and
+  Luna through Jev-schema I/O. Today: `sc-jev`, `sc-jev-backends`,
+  `sc-jev-check` and `sc-jev-host`.
+- Each other decision API gets its own API-specific crates: `sc-decider*`,
+  `sc-laya*`, `sc-kev*`.
+- `sc-decision-*` (for example `sc-decision-schema`) is the API-agnostic layer
+  across all decision APIs.
+
 ## Phase A.1 crate graph
 
 **Status:** Active (Phase A.1) — landed in r-3b.
@@ -1598,6 +1608,11 @@ Owner decisions 2026-11-07.
   `llm::v1::parse_output` holds the one `match`. A future local decision
   model with a slightly different schema adds a `SchemaFamily` variant, a
   module and one arm in this crate; callers do not change.
+- (Recorded; post-MVP) **Per-API modules.** `sc-decision-schema` keeps one
+  versioned module per decision API: `jev::v1` now, with `decider::` and
+  `laya::` reserved for the first post-MVP crates (decider first, then laya)
+  and `kev::` reserved later. It stays API-agnostic, so those crates plug in
+  without changing the jev crates.
 - (Proposed, r-7) **Model catalog** (`sc-agent-types`). `ModelId` is an open
   enum: known variants that track recent releases plus `Other(UnknownModel)`, so a
   model released after the build still parses, is sent verbatim and is

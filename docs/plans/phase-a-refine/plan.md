@@ -475,6 +475,9 @@ optional, facade and `git` note (r-3c). Every manifest of a crate with a
 | D9, `jev::v1` | r-5 | Jev wire body as the documented API (all question types) | L |
 | Owner decisions 2026-11-07 (items 5, 6, 8, 9) | r-6 | session log wiring | L |
 
+Post-MVP (not scheduled here): decider crates, then laya; kev unscheduled
+(owner decision 12).
+
 Sizes: M = 2–3 dev-days, L = 4–5, XL = 6–8. r-1 and r-3b are XL by honest
 count (r-1 touches every crate's call sites and tests, both `main.rs` and the
 `sc-treesitter` error sites; r-3b creates two crates, migrates two consumers,
@@ -657,6 +660,12 @@ Source: `.cursor/phase-a-orchestration.json` key `owner_decisions_2026_11_07`.
     the digest equals SHA-256 of the sent bytes (query text is identified in
     its LF-normalized form). `sc-sha` depends on `sha2`, so `sha2` appears only
     transitively (the `--depth 1` checks allow it).
+12. **Crate naming and post-MVP roadmap** (owner, 2026-11-07, recorded, not
+    built): `sc-jev-*` is anything speaking the TypeSafe Jev API (including
+    Haiku/Luna via Jev-schema I/O); other decision APIs get their own
+    `sc-decider*`, `sc-laya*`, `sc-kev*` crates; `sc-decision-*` is the
+    API-agnostic layer. Post-MVP order: decider crates first, then laya; kev
+    unscheduled. See `docs/architecture.md` "Crate naming convention".
 
 No owner questions remain open.
 
