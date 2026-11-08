@@ -188,6 +188,7 @@ fn top_level_keys(text: &str) -> Vec<String> {
 fn single_jev() -> RunResponse {
     RunResponse::test_builder()
         .payload_bytes(payload_bytes())
+        .questions_sha256(payload().questions_sha256().expect("questions digest"))
         .ok(outcome(BackendId::Jev, "no", a10_jev_body()))
         .build(equal_input(
             &[(BackendId::Jev, Attestation::Unattested)],
@@ -199,6 +200,7 @@ fn jev_haiku() -> RunResponse {
     RunResponse::test_builder()
         .session_saved(session_id())
         .payload_bytes(payload_bytes())
+        .questions_sha256(payload().questions_sha256().expect("questions digest"))
         .ok(outcome(BackendId::Jev, "no", a10_jev_body()))
         .ok(outcome(BackendId::AnthropicHaiku, "yes", haiku_meta()))
         .build(equal_input(
@@ -214,6 +216,7 @@ fn jev_failed_haiku_ok() -> RunResponse {
     RunResponse::test_builder()
         .session_saved(session_id())
         .payload_bytes(payload_bytes())
+        .questions_sha256(payload().questions_sha256().expect("questions digest"))
         .failed(
             BackendId::Jev,
             JevError::network(NetworkErrorKind::Connect, "connect to the Jev API failed"),
@@ -231,6 +234,7 @@ fn jev_failed_haiku_ok() -> RunResponse {
 fn session_save_failed() -> RunResponse {
     RunResponse::test_builder()
         .payload_bytes(payload_bytes())
+        .questions_sha256(payload().questions_sha256().expect("questions digest"))
         .ok(outcome(BackendId::AnthropicHaiku, "yes", haiku_meta()))
         .warning("session not saved: CONFIG_INVALID")
         .build(equal_input(
@@ -246,7 +250,7 @@ const QUESTIONS: &str = r#"{
     "relevant": {
       "type": "choice",
       "instructions": "Does it apply?",
-      "criteria": {"no": "No.", "yes": "Yes."}
+      "criteria": {"no": "no", "yes": "yes"}
     }
   }
 }"#;
@@ -312,6 +316,7 @@ fn test_run_response_contract() {
             "session_id",
             "session_saved",
             "prompt_sha256",
+            "questions_sha256",
             "payload_bytes",
             "results",
             "equal_input"

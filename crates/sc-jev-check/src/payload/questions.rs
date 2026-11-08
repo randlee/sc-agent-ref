@@ -15,7 +15,11 @@ pub(crate) const STATE_SCHEMA: &str = "plan-anchoring/state/1";
 /// Parses a `plan-anchoring/questions/1` document into judge questions.
 ///
 /// Choices are the criteria keys in lexicographic order. `prompt` is the
-/// question `instructions` text, before input substitution.
+/// question `instructions` text, before input substitution. The criteria
+/// values are kept as the question's descriptions, one per choice in the same
+/// order, so tuned wording reaches Jev; a question whose every value equals
+/// its key carries none, which leaves the canonical payload bytes as they
+/// were.
 ///
 /// # Errors
 ///
@@ -58,9 +62,12 @@ pub fn parse_question_set(text: &str) -> Result<Vec<Question>, JevError> {
                 "question {id} criteria are empty"
             )));
         }
-        let choices = question
-            .criteria
-            .into_keys()
+        // `BTreeMap` iterates in key order, so the descriptions line up with
+        // the choices; the tuned wording reaches the wire as `criteria`.
+        let (keys, descriptions): (Vec<String>, Vec<String>) =
+            question.criteria.into_iter().unzip();
+        let choices = keys
+            .into_iter()
             .map(ChoiceId::try_from)
             .collect::<Result<Vec<_>, _>>()?;
         questions.push(Question::try_new(
@@ -68,7 +75,7 @@ pub fn parse_question_set(text: &str) -> Result<Vec<Question>, JevError> {
             question.instructions,
             choices,
             QuestionKind::Choice,
-            None,
+            Some(descriptions),
         )?);
     }
     validate_question_set(&questions)?;
@@ -229,6 +236,56 @@ mod tests {
             question_id: QuestionId::try_from(id).expect("id"),
             choice: ChoiceId::try_from(choice).expect("choice"),
         }
+    }
+
+    fn set(criteria: &str) -> String {
+        format!(
+            r#"{{"schema":"plan-anchoring/questions/1","version":1,"questions":{{"q":{{"type":"choice","instructions":"Does it apply?","criteria":{criteria}}}}}}}"#
+        )
+    }
+
+    #[test]
+    fn tuned_criteria_descriptions_are_kept_in_key_order() {
+        let questions =
+            parse_question_set(&set(r#"{"yes":"It applies.","no":"It does not."}"#)).expect("set");
+        let question = &questions[0];
+        assert_eq!(
+            question
+                .choices()
+                .iter()
+                .map(ChoiceId::as_str)
+                .collect::<Vec<_>>(),
+            ["no", "yes"]
+        );
+        assert_eq!(
+            question.descriptions().expect("descriptions"),
+            ["It does not.", "It applies."]
+        );
+    }
+
+    #[test]
+    fn criteria_equal_to_their_keys_leave_the_payload_bytes_unchanged() {
+        use sc_decision_schema::{CanonicalJudgePayload, PayloadBundle};
+        let bytes = |text: &str| {
+            let questions = parse_question_set(text).expect("set");
+            assert!(questions[0].descriptions().is_none() || text.contains("applies"));
+            PayloadBundle::encode(&CanonicalJudgePayload::new(questions, Vec::new()))
+                .expect("bundle")
+                .bytes()
+                .to_vec()
+        };
+        let plain = bytes(&set(r#"{"no":"no","yes":"yes"}"#));
+        assert_eq!(
+            plain,
+            br#"{"questions":[{"choices":["no","yes"],"id":"q","prompt":"Does it apply?"}],"state":[]}"#
+        );
+        let tuned = bytes(&set(r#"{"no":"does not apply","yes":"applies"}"#));
+        assert_ne!(plain, tuned);
+        assert!(
+            String::from_utf8(tuned)
+                .expect("utf8")
+                .contains(r#""descriptions":["does not apply","applies"]"#)
+        );
     }
 
     #[test]

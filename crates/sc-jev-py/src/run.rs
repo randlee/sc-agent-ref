@@ -68,11 +68,16 @@ impl FinishedRun {
     fn prompt_sha256(&self) -> &Sha256Digest {
         self.response.prompt_sha256()
     }
+
+    fn questions_sha256(&self) -> &Sha256Digest {
+        self.response.questions_sha256()
+    }
 }
 
 struct PreparedRequest {
     payload: String,
     prompt_sha256: Sha256Digest,
+    questions_sha256: Sha256Digest,
     producer: Option<SubjectsProducer>,
 }
 
@@ -205,6 +210,7 @@ fn build(
     Ok(PreparedRequest {
         payload: prepared.request().payload().as_str().to_owned(),
         prompt_sha256: prepared.prompt_sha256().clone(),
+        questions_sha256: prepared.request().payload().questions_sha256()?,
         producer: prepared.producer().cloned(),
     })
 }
@@ -323,6 +329,14 @@ impl CheckResult {
     #[getter]
     fn prompt_sha256(&self) -> &str {
         self.inner.prompt_sha256().as_str()
+    }
+
+    /// SHA-256 of the question set alone (ids, kinds, instructions and
+    /// criteria descriptions), for a consumer's cache lookup. The exact bytes
+    /// are in `tests/fixtures/README.md`.
+    #[getter]
+    fn questions_sha256(&self) -> &str {
+        self.inner.questions_sha256().as_str()
     }
 
     /// Canonical payload JSON.
@@ -451,7 +465,7 @@ impl Session {
 /// current directory (the directory itself outside git).
 /// `rev` defaults to `WORKTREE`. The GIL is released while the request is
 /// assembled (git reads and command extractors may take seconds). The result
-/// mapping contains `payload`, `prompt_sha256`, and `producer`.
+/// mapping contains `payload`, `prompt_sha256`, `questions_sha256`, and `producer`.
 ///
 /// # Errors
 ///
@@ -478,6 +492,7 @@ pub(crate) fn build_request(
     let body = serde_json::json!({
         "payload": built.payload,
         "prompt_sha256": built.prompt_sha256,
+        "questions_sha256": built.questions_sha256,
         "producer": built.producer,
     });
     to_py(py, "build_request JSON", Ok(body))

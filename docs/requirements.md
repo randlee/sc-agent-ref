@@ -71,7 +71,7 @@ the **`sc-ai`** CLI. Behavioural contract for errors and parity rows:
 | REQ-SAG-0309 | `table-column`: unescaped pipe splitting only (tighten #9) |
 | REQ-SAG-0301 | Refuse send on `CONFIG_INVALID`, `INPUT_*` errors |
 | REQ-SAG-0302 | Git repo-root resolution for relative paths |
-| REQ-SAG-0303 | Question-set schema `plan-anchoring/questions/1` |
+| REQ-SAG-0303 | Question-set schema `plan-anchoring/questions/1`; `criteria` values load as question descriptions |
 
 ## Phase A — Jev API in sc-jev (sprint a-4)
 
@@ -175,6 +175,7 @@ verbatim. Plan: [`plans/phase-a-refine/plan.md`](plans/phase-a-refine/plan.md).
 | REQ-SAG-0606 | `equal` computed from backend-reported digests of the canonical blob recovered from each final wire body — (Active, r-2b) |
 | REQ-SAG-0607 | Stateless `FileSessionStore` with a written no-lock concurrency model; session written once per run, only when an `ask`-capable backend returned `Ok` — (Active, r-2) |
 | REQ-SAG-0620 | One engine API (`prepare` → `run`) and one `RunResponse` with one serialization printed by every consumer — (Active, r-2) |
+| REQ-SAG-0621 | Every run result carries `questions_sha256`: the sc-sha SHA-256 of the question set alone (ids, kinds, instructions, criteria descriptions) in plan-anchor's sorted compact form, for a consumer's cache lookup; sc-agent builds no cache; printed by `sc-ai` and Python additively; bytes documented in `tests/fixtures/README.md` — (Active) |
 | REQ-SAG-0712 | `sc-ai` and `sc-treesitter` parse argv with clap derive behind the `cli` feature; error contract unchanged — (Active, r-3b) |
 | REQ-SAG-0140 | `sc-decision-schema` is a published, data-only crate above `sc-agent-types`: dependencies `sc-agent-types` (core only), `serde`, `serde_json`; no HTTP, git, process, file or logging dependency and no I/O — (Active, r-7) |
 | REQ-SAG-0141 | Each decision type has one home: the question/answer payload, judge contract and attestation types move (not copy) from `sc-agent-types` to `sc-decision-schema`, with no re-export — (Active, r-7) |

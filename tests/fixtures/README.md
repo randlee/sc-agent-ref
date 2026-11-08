@@ -73,3 +73,49 @@ hex) of the query text after CRLF and bare CR are normalized to LF, which is
 the SHA-256 of the file bytes since the query contains no CR. The rules for line
 numbers, byte spans, ids and ordering are in
 [`docs/sc-agent-types/subjects-schema.md`](../../docs/sc-agent-types/subjects-schema.md).
+
+## 3. Questions digest: `questions_sha256`
+
+`questions_sha256` is the SHA-256 (lowercase hex, computed with `sc-sha`) of the
+question set alone, for a consumer that looks results up in its own cache. It
+appears in `sc-ai jev run` and `dry-run` output (`data.questions_sha256`, right
+after `prompt_sha256`), on the run result (`RunResponse::questions_sha256`) and
+in Python (`CheckResult.questions_sha256`, `build_request(...)["questions_sha256"]`).
+sc-agent builds no cache. The public functions are
+`sc_decision_schema::jev::v1::questions_sha256` and
+`PayloadBundle::questions_sha256`.
+
+The bytes hashed are the form plan-anchor's `questions_digest` uses
+(`json.dumps(questions, sort_keys=True, separators=(",", ":"),
+ensure_ascii=False)` encoded as UTF-8), over this object:
+
+- One key per question id; the value is `{"type", "instructions", "criteria"}`.
+- `type` is `choice`, `score` or `noul`; `instructions` is the question prompt
+  exactly as in the payload (after input substitution).
+- `criteria` maps each choice to its description: the tuned description when the
+  question has one, else the choice label itself. A `noul` question has no
+  `criteria` key.
+- Keys are sorted at every level (by Unicode code point, as Python sorts), with
+  no whitespace; non-ASCII characters are written as UTF-8, not `\uXXXX`;
+  control characters are escaped (`\n`, `\u001f`).
+
+The digest does not cover `state` or the model, so it is not `prompt_sha256`.
+Descriptions are covered: tuning a description changes the digest. The
+question order in the payload does not matter. Example (checked by
+`cargo test -p sc-decision-schema --test jev -- test_questions_sha256_is_pinned_to_the_documented_bytes`):
+
+```text
+{"plain":{"criteria":{"no":"no","yes":"yes"},"instructions":"Plain?","type":"choice"},"relevant":{"criteria":{"no":"It does not.","yes":"It applies."},"instructions":"Does it apply? é\n","type":"choice"},"urgent":{"instructions":"Urgent?","type":"noul"}}
+```
+
+SHA-256: `ad8e0a8cebca33763fd388d96ce884066babd5aa09372aba4d55a40d0c1da8b7`.
+
+Differences from plan-anchor to know: plan-anchor hashes the gate questions
+without its extra questions and keys by its own ids; sc-agent hashes the payload's
+questions. A question set whose criteria equal the choice labels hashes the
+same as one with no descriptions.
+
+Question sets loaded from `plan-anchoring/questions/1` keep their `criteria`
+values as descriptions. The pinned `cross-impl/branches` digest above uses a
+question set whose criteria equal their keys (no descriptions), so its bytes did
+not change.

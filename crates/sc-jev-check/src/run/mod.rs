@@ -584,6 +584,7 @@ fn dry_run_response(prepared: &PreparedRun) -> Result<RunResponse, JevError> {
         prepared.producer.clone(),
     )?;
     Ok(RunResponse::from_parts(ResponseParts {
+        questions_sha256: bundle.questions_sha256()?,
         session_id: None,
         payload_bytes,
         equal_input,
@@ -684,6 +685,7 @@ fn live_run(prepared: PreparedRun) -> Result<RunResponse, JevError> {
         producer,
     )?;
     let response = RunResponse::from_parts(ResponseParts {
+        questions_sha256: request.payload().questions_sha256()?,
         session_id: saved.then_some(session_id),
         payload_bytes: payload_len(request.payload()),
         equal_input,

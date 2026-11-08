@@ -496,3 +496,38 @@ fn test_probability_error_does_not_echo_its_value() {
         assert!(!text.contains("NaN"), "{text}");
     }
 }
+
+/// The questions digest is pinned by a literal: the bytes are plan-anchor's
+/// `questions_digest` form (sorted keys, compact, UTF-8, non-ASCII kept) over
+/// `{id: {type, instructions, criteria}}`, with descriptions. The expected
+/// digest was computed independently with Python `json.dumps(sort_keys=True,
+/// separators=(",", ":"), ensure_ascii=False)` and `hashlib.sha256`.
+#[test]
+fn test_questions_sha256_is_pinned_to_the_documented_bytes() {
+    use sc_decision_schema::jev::v1::{questions_canonical_text, questions_sha256};
+    let payload = CanonicalJudgePayload::from_bytes(
+        r#"{"questions":[
+            {"id":"urgent","prompt":"Urgent?","choices":[],"kind":"noul"},
+            {"id":"relevant","prompt":"Does it apply? é\n","choices":["no","yes"],"descriptions":["It does not.","It applies."]},
+            {"id":"plain","prompt":"Plain?","choices":["no","yes"]}
+        ],"state":[]}"#
+            .as_bytes(),
+    )
+    .expect("payload");
+    let text = questions_canonical_text(payload.questions()).expect("text");
+    assert_eq!(
+        text,
+        "{\"plain\":{\"criteria\":{\"no\":\"no\",\"yes\":\"yes\"},\"instructions\":\"Plain?\",\"type\":\"choice\"},\"relevant\":{\"criteria\":{\"no\":\"It does not.\",\"yes\":\"It applies.\"},\"instructions\":\"Does it apply? \u{e9}\\n\",\"type\":\"choice\"},\"urgent\":{\"instructions\":\"Urgent?\",\"type\":\"noul\"}}"
+    );
+    let digest = questions_sha256(payload.questions()).expect("digest");
+    assert_eq!(
+        digest.as_str(),
+        "ad8e0a8cebca33763fd388d96ce884066babd5aa09372aba4d55a40d0c1da8b7"
+    );
+    // Order of the questions does not matter; descriptions do.
+    let mut reversed = payload.questions().to_vec();
+    reversed.reverse();
+    assert_eq!(questions_sha256(&reversed).expect("digest"), digest);
+    let bundle = sc_decision_schema::PayloadBundle::encode(&payload).expect("bundle");
+    assert_eq!(bundle.questions_sha256().expect("bundle digest"), digest);
+}

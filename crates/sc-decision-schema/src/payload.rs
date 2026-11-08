@@ -527,6 +527,20 @@ impl PayloadBundle {
         Ok(bundle)
     }
 
+    /// The SHA-256 of this payload's question set (not its state), for a
+    /// consumer's cache lookup; see
+    /// [`questions_sha256`](crate::jev::v1::questions_sha256) for the exact
+    /// bytes.
+    ///
+    /// # Errors
+    ///
+    /// `INPUT_INVALID` when the stored payload cannot be read back as
+    /// questions, or a question breaks its criteria count.
+    pub fn questions_sha256(&self) -> Result<Sha256Digest, JevError> {
+        let payload = CanonicalJudgePayload::from_bytes(self.text.as_bytes())?;
+        crate::jev::v1::questions_sha256(payload.questions())
+    }
+
     /// Sorted-key compact JSON, UTF-8.
     #[must_use]
     pub fn bytes(&self) -> &[u8] {

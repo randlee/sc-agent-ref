@@ -30,13 +30,19 @@ acceptance root, when it differs, is shown as "root a-N"; the closure table in
 | REQ-SAG-0314 | Request byte cap owned by each backend; dry-run reports `over_limit` | r-2 |
 | REQ-SAG-0607 | Stateless `FileSessionStore`, no-lock concurrency model, one write per run | r-2 |
 | REQ-SAG-0620 | One engine API (`prepare` → `run`) and one `RunResponse` | r-2 |
+| REQ-SAG-0621 | `RunResponse::questions_sha256`: SHA-256 of the question set alone, for a consumer cache lookup (no cache here) | agt-uum |
 
 Consumer boundary: [`extraction.md`](extraction.md). Subjects schema: [`subjects-schema.md`](../sc-agent-types/subjects-schema.md).
 
 ## Phase A.1 (r-5): question kinds
 
 Question-set files (`plan-anchoring/questions/1`, `check.toml`) stay
-`choice`-only: they carry `criteria`, never `kind` or `descriptions`. Caller
+`choice`-only: they carry `criteria`, never `kind` or `descriptions`. The
+loader keeps each question's `criteria` values as that question's
+`descriptions` (one per choice, in key order), so tuned wording reaches Jev; a
+question whose values all equal their keys carries none and its payload bytes
+are unchanged. Document order and `roles` are not kept (`roles` is accepted and
+ignored). Caller
 `--request-json` documents may carry `kind` (`choice`, `score`, `noul`) and
 `descriptions` on a question. `validate_question_set` requires choices only for
 `choice` and `score` questions; the payload deserializer enforces the counts

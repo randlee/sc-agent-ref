@@ -30,7 +30,7 @@ const QUESTIONS: &str = r#"{
     "branches": {
       "type": "choice",
       "instructions": "Which branch applies?\n\n{branches}",
-      "criteria": {"no": "No.", "yes": "Yes."}
+      "criteria": {"no": "no", "yes": "yes"}
     }
   }
 }"#;

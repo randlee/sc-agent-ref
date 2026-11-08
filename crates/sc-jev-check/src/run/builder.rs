@@ -5,7 +5,7 @@
 
 use serde_json::Value;
 
-use sc_agent_types::{BackendId, JevError, SessionId};
+use sc_agent_types::{BackendId, JevError, SessionId, Sha256Digest};
 use sc_decision_schema::{EqualInputRecord, JudgeOutcome};
 
 use super::response::{BackendLimit, BackendResult, ResponseParts, RunResponse};
@@ -23,6 +23,7 @@ pub struct RunResponseBuilder {
     warnings: Vec<String>,
     payload: Option<Value>,
     limits: Vec<BackendLimit>,
+    questions_sha256: Option<Sha256Digest>,
 }
 
 impl RunResponse {
@@ -77,11 +78,21 @@ impl RunResponseBuilder {
         self
     }
 
+    /// Sets `questions_sha256`; the default is the digest of empty text.
+    #[must_use]
+    pub fn questions_sha256(mut self, digest: Sha256Digest) -> Self {
+        self.questions_sha256 = Some(digest);
+        self
+    }
+
     /// Finishes the response. `prompt_sha256` is `equal_input`'s.
     #[must_use]
     pub fn build(self, equal_input: EqualInputRecord) -> RunResponse {
         let response = RunResponse::from_parts(ResponseParts {
             session_id: self.session_id,
+            questions_sha256: self
+                .questions_sha256
+                .unwrap_or_else(|| Sha256Digest::of_text("")),
             payload_bytes: self.payload_bytes,
             equal_input,
             results: self.results,

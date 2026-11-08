@@ -43,6 +43,15 @@ answered by a concrete version). The answered model is the reply's `model`,
 printed as `model` in `sc-ai jev run` output and read with
 `JudgeOutcome::answered_model`. Output is byte-identical where the models match.
 
+### Questions digest
+
+Run output carries `questions_sha256`, the SHA-256 of the question set alone,
+for a consumer's cache lookup (sc-agent builds no cache). Its exact bytes are
+in [`tests/fixtures/README.md`](../tests/fixtures/README.md); a change to those
+bytes changes every consumer's cache keys, so it is a breaking change. The key
+is added after `prompt_sha256`; consumers that read keys by name are
+unaffected.
+
 ### Numbers
 
 Probabilities, confidence and combined statistics are `f64`. sc-agent never

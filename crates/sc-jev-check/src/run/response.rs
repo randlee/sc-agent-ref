@@ -39,6 +39,7 @@ const BODY_KEYS: &[&str] = &[
     "session_id",
     "session_saved",
     "prompt_sha256",
+    "questions_sha256",
     "payload_bytes",
     "results",
     "equal_input",
@@ -61,7 +62,10 @@ const BODY_KEYS: &[&str] = &[
 /// 2. `primary_backend` (omitted when no backend returned `Ok`, as on a dry
 ///    run);
 /// 3. `session_id` (null unless `session_saved`), `session_saved`,
-///    `prompt_sha256`, `payload_bytes`, `results`, `equal_input`;
+///    `prompt_sha256`, `questions_sha256` (the sc-sha digest of the question
+///    set alone, for a consumer's cache lookup; bytes in
+///    `tests/fixtures/README.md`), `payload_bytes`, `results`,
+///    `equal_input`;
 /// 4. on a dry run only, `payload` (the canonical payload object) and
 ///    `limits`;
 /// 5. `warnings`, omitted when empty.
@@ -88,6 +92,7 @@ pub struct RunResponse {
     session_id: Option<SessionId>,
     session_saved: bool,
     prompt_sha256: Sha256Digest,
+    questions_sha256: Sha256Digest,
     payload_bytes: u64,
     dry_run: bool,
     equal_input: EqualInputRecord,
@@ -100,6 +105,7 @@ pub struct RunResponse {
 /// Run-level facts shared by a live and a dry response.
 pub(crate) struct ResponseParts {
     pub(crate) session_id: Option<SessionId>,
+    pub(crate) questions_sha256: Sha256Digest,
     pub(crate) payload_bytes: u64,
     pub(crate) equal_input: EqualInputRecord,
     pub(crate) results: Vec<BackendResult>,
@@ -115,6 +121,7 @@ impl RunResponse {
             session_saved: parts.session_id.is_some(),
             session_id: parts.session_id,
             prompt_sha256: parts.equal_input.prompt_sha256().clone(),
+            questions_sha256: parts.questions_sha256,
             payload_bytes: parts.payload_bytes,
             dry_run: parts.payload.is_some(),
             equal_input: parts.equal_input,
@@ -142,6 +149,14 @@ impl RunResponse {
     #[must_use]
     pub fn prompt_sha256(&self) -> &Sha256Digest {
         &self.prompt_sha256
+    }
+
+    /// SHA-256 (sc-sha) of the question set alone, for a consumer's cache
+    /// lookup. Unlike [`Self::prompt_sha256`] it does not cover the state, and
+    /// it covers the criteria descriptions. sc-agent builds no cache.
+    #[must_use]
+    pub fn questions_sha256(&self) -> &Sha256Digest {
+        &self.questions_sha256
     }
 
     /// Size of the canonical payload in bytes.
@@ -252,6 +267,7 @@ impl RunResponse {
         map.serialize_entry("session_id", &self.session_id)?;
         map.serialize_entry("session_saved", &self.session_saved)?;
         map.serialize_entry("prompt_sha256", &self.prompt_sha256)?;
+        map.serialize_entry("questions_sha256", &self.questions_sha256)?;
         map.serialize_entry("payload_bytes", &self.payload_bytes)?;
         map.serialize_entry("results", &self.results)?;
         map.serialize_entry("equal_input", &self.equal_input)?;

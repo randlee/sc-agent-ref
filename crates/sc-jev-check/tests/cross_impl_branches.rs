@@ -14,6 +14,9 @@ use sc_decision_schema::{CanonicalJudgePayload, PayloadBundle};
 use sc_jev_check::config::{CheckSpec, InputName, InputSpec};
 use sc_jev_check::run::{CheckSource, RunConfig, prepare, run};
 
+/// Criteria equal to their keys are no tuned descriptions, so the payload
+/// carries none and keeps the pinned digest. Tuned wording is tested in
+/// `payload::questions` (agt-lh5).
 const QUESTIONS: &str = r#"{
   "schema": "plan-anchoring/questions/1",
   "version": 1,
@@ -21,7 +24,7 @@ const QUESTIONS: &str = r#"{
     "branches": {
       "type": "choice",
       "instructions": "Which branch applies?\n\n{branches}",
-      "criteria": {"no": "No.", "yes": "Yes."}
+      "criteria": {"no": "no", "yes": "yes"}
     }
   }
 }"#;

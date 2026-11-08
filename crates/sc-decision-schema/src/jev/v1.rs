@@ -35,7 +35,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::marker::PhantomData;
 
-use sc_agent_types::{JevError, ModelId};
+use sc_agent_types::{JevError, ModelId, Sha256Digest};
 use serde::de::value::MapAccessDeserializer;
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::ser::SerializeMap;
@@ -46,7 +46,7 @@ use crate::ids::{ChoiceId, QuestionId};
 use crate::judge::QuestionAnswer;
 use crate::payload::{
     CanonicalJudgePayload, ChoiceAnswer, DecisionAnswers, PayloadBundle, Question, QuestionKind,
-    decode_failed,
+    canonical_json_bytes, decode_failed,
 };
 use crate::probability::Probability;
 
@@ -90,6 +90,60 @@ pub fn wire_model(model: &ModelId) -> &str {
         ModelId::Jev => JEV_LATEST_WIRE,
         other => other.as_str(),
     }
+}
+
+/// The canonical text of a question set, the bytes `questions_sha256` hashes.
+///
+/// It is the JSON object of the questions keyed by question id, each value the
+/// Jev question `{"criteria": {option: description}, "instructions": prompt,
+/// "type": kind}` (a `noul` question has no `criteria`). `criteria` carries
+/// the tuned descriptions (the option label where a question has none).
+/// Object keys are sorted at every level, separators are `,` and `:` with no
+/// spaces, and the text is UTF-8 with non-ASCII characters left as is. That is
+/// plan-anchor's `questions_digest` (`json.dumps(questions, sort_keys=True,
+/// separators=(",", ":"), ensure_ascii=False)`) over the same question map.
+///
+/// # Errors
+///
+/// `INPUT_INVALID` when a question id repeats or a question breaks its kind's
+/// criteria count.
+pub fn questions_canonical_text(questions: &[Question]) -> Result<String, JevError> {
+    let pairs = questions
+        .iter()
+        .map(|question| Ok((question.id().clone(), JevQuestion::from_question(question)?)))
+        .collect::<Result<Vec<_>, JevError>>()?;
+    let map = OrderedMap::try_from_pairs(pairs)?;
+    let value = serde_json::to_value(&map)
+        .map_err(|error| JevError::encode_failed("question set", &error))?;
+    let bytes = canonical_json_bytes(&value)?;
+    String::from_utf8(bytes).map_err(|_| JevError::input_invalid("question set is not UTF-8"))
+}
+
+/// The sc-sha SHA-256 of a question set, for a consumer's cache lookup.
+///
+/// The digest is of [`questions_canonical_text`]. It covers the question ids,
+/// kinds, instructions and criteria descriptions, and nothing about the state
+/// or the model, so two runs that ask the same questions share it whatever
+/// they ask about. sc-agent computes it; it builds no cache.
+///
+/// # Errors
+///
+/// As [`questions_canonical_text`].
+///
+/// # Examples
+///
+/// ```
+/// use sc_decision_schema::CanonicalJudgePayload;
+/// use sc_decision_schema::jev::v1::questions_sha256;
+///
+/// let payload = CanonicalJudgePayload::from_bytes(
+///     br#"{"questions":[{"id":"q","prompt":"Is it?","choices":["no","yes"]}],"state":[]}"#,
+/// )?;
+/// assert_eq!(questions_sha256(payload.questions())?.as_str().len(), 64);
+/// # Ok::<(), sc_agent_types::JevError>(())
+/// ```
+pub fn questions_sha256(questions: &[Question]) -> Result<Sha256Digest, JevError> {
+    Ok(Sha256Digest::of_text(&questions_canonical_text(questions)?))
 }
 
 fn duplicate_message(key: &dyn fmt::Display) -> String {

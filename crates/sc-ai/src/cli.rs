@@ -43,7 +43,8 @@ Session files: <repo-root>/.sc-ai/sessions (override with --sessions-dir).
 
 data is the run response: the primary backend's answers at the top level (the
 verbatim Jev response when Jev answered), primary_backend, session_id,
-prompt_sha256, payload_bytes, results, and equal_input. Dry-run adds payload
+prompt_sha256, questions_sha256 (SHA-256 of the question set alone, for cache
+lookup), payload_bytes, results, and equal_input. Dry-run adds payload
 and per-backend limits, and does not resolve API keys. Without --repo-root the
 repo root is the git toplevel of the current directory, or the current
 directory outside git.";
