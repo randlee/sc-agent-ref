@@ -1,0 +1,61 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R7-QA4-ARCH-002>
+  a triage:Finding ;
+  triage:findingId "R7-QA4-ARCH-002" ;
+  triage:title "Carry-forward, outside this delta but reported under the zero-tolerance rule" ;
+  triage:description "Carry-forward, outside this delta but reported under the zero-tolerance rule. The [public] notes field says dev-dependencies are sc-agent-types (features = [git]), sc-jev-check, sc-jev-host, serde_json, tempfile. The same manifest's allowed_dependencies (line 31) now includes sc-decision-schema, and the amended ADR-SAG-0028 lists it as a dev edge. The boundary manifest text contradicts the binding amendment." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "RULE-ADR-CODE" ;
+  triage:severity "blocking" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T04:54:55Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R7 ;
+  triage:foundAt "2026-11-08T04:53:55Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA4-ARCH-002/INT-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA4-ARCH-002/R7-1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R7-QA4-ARCH-002/INT-1>
+  a triage:Occurrence ;
+  triage:file "boundaries/workspace-tests/workspace-tests.toml" ;
+  triage:line 18 ;
+  triage:snippet "dev-dependencies on sc-agent-types (features = [git]), sc-jev-check, sc-jev-host, serde_json, tempfile" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "b58ffd2a55f03c54b63ab55db33819244b1a8a48" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/b58ffd2> .
+
+<urn:atm:triage:occurrence/R7-QA4-ARCH-002/R7-1>
+  a triage:Occurrence ;
+  triage:file "boundaries/workspace-tests/workspace-tests.toml" ;
+  triage:line 18 ;
+  triage:snippet "dev-dependencies on sc-agent-types (features = [git]), sc-jev-check, sc-jev-host, serde_json, tempfile" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "20a46a88dcfcc1899d8baec0934837912d638b88" ;
+  triage:occursIn <urn:atm:triage:worktree/sprint-r-7-decision-schema/20a46a8> .
+
+<urn:atm:triage:worktree/integrate-phase-a/b58ffd2>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "b58ffd2a55f03c54b63ab55db33819244b1a8a48" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/sprint-r-7-decision-schema/20a46a8>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-7-decision-schema" ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "20a46a88dcfcc1899d8baec0934837912d638b88" ;
+  triage:orderIndex 1 .
