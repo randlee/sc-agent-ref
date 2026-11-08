@@ -45,14 +45,14 @@ pub fn build_payload(
     repo: &RepoRoot,
     rev: &Rev,
 ) -> Result<BuiltPayload, JevError> {
-    let questions = parse_question_set(&read_repo_text(repo, rev, &spec.questions_path)?)?;
-    let state = match &spec.state_path {
+    let questions = parse_question_set(&read_repo_text(repo, rev, spec.questions_path())?)?;
+    let state = match spec.state_path() {
         Some(path) => parse_state(&read_repo_text(repo, rev, path)?, &questions)?,
         None => Vec::new(),
     };
     let mut extractions = BTreeMap::new();
-    for (name, input) in &spec.inputs {
-        extractions.insert(name.clone(), extract_input(repo, rev, input)?);
+    for (name, input) in spec.inputs() {
+        extractions.insert(name.as_str().to_owned(), extract_input(repo, rev, input)?);
     }
     let questions = substitute_inputs(questions, &extractions);
     let bundle = encode_payload(&questions, &state)?;
@@ -126,9 +126,13 @@ pub(crate) fn encode_payload(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::load_check_at;
+    use crate::config::{InputName, InputSpec, load_check_at};
     use crate::extract::test_support::{self, copy_fixture, git_fixture, rel, rev, workspace_root};
     use sc_agent_types::Rev;
+
+    fn name(text: &str) -> InputName {
+        InputName::try_from(text).expect("input name")
+    }
 
     #[test]
     fn placeholder_text_inside_a_subject_is_not_re_expanded() {
@@ -140,17 +144,9 @@ mod tests {
         .expect("questions");
         std::fs::write(dir.path().join("a.txt"), "f\"{b}\" literal").expect("a");
         std::fs::write(dir.path().join("b.txt"), "BEE").expect("b");
-        let mut spec = CheckSpec::new(rel("questions.json"));
-        spec.inputs = BTreeMap::from([
-            (
-                "a".into(),
-                crate::config::InputSpec::File { path: rel("a.txt") },
-            ),
-            (
-                "b".into(),
-                crate::config::InputSpec::File { path: rel("b.txt") },
-            ),
-        ]);
+        let spec = CheckSpec::new(rel("questions.json"))
+            .with_input(name("a"), InputSpec::file(rel("a.txt")))
+            .with_input(name("b"), InputSpec::file(rel("b.txt")));
         let built =
             build_payload(&spec, &RepoRoot::new(dir.path()), &Rev::worktree()).expect("payload");
         let value: serde_json::Value = serde_json::from_slice(built.bundle.bytes()).expect("json");
@@ -189,9 +185,9 @@ mod tests {
         let dir = copy_fixture();
         let repo = RepoRoot::new(dir.path());
         let rev = Rev::worktree();
-        let mut spec = load_check_at(&repo, &rev, &rel("check.toml")).expect("check");
+        let spec = load_check_at(&repo, &rev, &rel("check.toml")).expect("check");
         let first = build_payload(&spec, &repo, &rev).expect("first");
-        spec.system_prompt_file = Some(rel("other-prompt.md"));
+        let spec = spec.with_system_prompt_file(rel("other-prompt.md"));
         let second = build_payload(&spec, &repo, &rev).expect("second");
         assert_eq!(first.bundle.sha256(), second.bundle.sha256());
         assert_ne!(
@@ -211,13 +207,8 @@ mod tests {
             r#"{"schema":"other","questions":{}}"#,
         )
         .expect("write");
-        let mut spec = CheckSpec::new(rel("questions.json"));
-        spec.inputs = BTreeMap::from([(
-            "missing".into(),
-            crate::config::InputSpec::File {
-                path: rel("no-such-file.txt"),
-            },
-        )]);
+        let spec = CheckSpec::new(rel("questions.json"))
+            .with_input(name("missing"), InputSpec::file(rel("no-such-file.txt")));
         let error =
             build_payload(&spec, &RepoRoot::new(dir.path()), &Rev::worktree()).expect_err("schema");
         assert_eq!(error.code(), "INPUT_INVALID");

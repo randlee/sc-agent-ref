@@ -59,14 +59,8 @@ mod tests {
         assert_eq!(error.code(), "INPUT_MISSING");
         let found = extract_file(&repo, &Rev::worktree(), &rel("note.txt")).expect("note");
         assert_eq!(found.subjects[0].text(), "from-root\n");
-        let dispatched = extract_input(
-            &repo,
-            &Rev::worktree(),
-            &InputSpec::File {
-                path: rel("note.txt"),
-            },
-        )
-        .expect("extract_input dispatches file");
+        let dispatched = extract_input(&repo, &Rev::worktree(), &InputSpec::file(rel("note.txt")))
+            .expect("extract_input dispatches file");
         assert_eq!(dispatched, found);
     }
 }

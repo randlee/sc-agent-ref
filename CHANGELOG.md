@@ -49,6 +49,17 @@ First release. Channels once published: crates.io (ten crates), PyPI
   so a malformed value fails where the caller builds it; `extract` still
   rejects an input whose path, revision or blob id was never set. CLI error
   codes and messages are unchanged.
+- `sc_jev_check::config`: `InputSpec` and each of its struct variants are
+  `#[non_exhaustive]` and gain the constructors `file`, `table_column`,
+  `subjects` and `command` plus the `with_timeout_seconds`, `with_path` and
+  `with_producer` setters (command inputs). `CheckSpec` has private fields
+  with accessors (`questions_path()`, `state_path()`, `system_prompt_file()`,
+  `inputs()`, `backends()`, `models()`) and by-value setters
+  (`with_state_path`, `with_system_prompt_file`, `with_input`,
+  `with_backends`, `with_models`). New `InputName` newtype (`[A-Za-z0-9_-]+`)
+  keys `CheckSpec::inputs()`; `check.toml` parsing and hand-built specs share
+  its validation, so a bad name fails at construction. `check.toml` behaviour
+  and error text are unchanged.
 
 ### Known limits
 

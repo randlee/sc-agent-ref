@@ -13,6 +13,8 @@
 #![warn(missing_docs)]
 
 use std::collections::BTreeMap;
+use std::fmt;
+use std::str::FromStr;
 
 use sc_agent_types::{BackendId, BackendSet, JevError, ModelAliases, ModelId, RepoRelativePath};
 use serde::{Deserialize, Serialize};
@@ -25,15 +27,36 @@ use serde::{Deserialize, Serialize};
 /// `{path}`, an optional `producer` name, and optional `timeout_seconds`
 /// (default 30). Only these four
 /// kinds exist; a new kind is a new variant plus an ADR.
+///
+/// The enum and every variant are `#[non_exhaustive]`, so outside this crate
+/// a spec is built with [`InputSpec::file`], [`InputSpec::table_column`],
+/// [`InputSpec::subjects`] or [`InputSpec::command`] and the `with_*`
+/// setters, and a new field or kind is not a breaking change.
+///
+/// # Examples
+///
+/// ```
+/// use sc_agent_types::RepoRelativePath;
+/// use sc_jev_check::config::InputSpec;
+///
+/// let spec = InputSpec::command(vec!["tool".to_owned(), "{path}".to_owned()])
+///     .with_path(RepoRelativePath::try_from("src/lib.rs")?)
+///     .with_timeout_seconds(5);
+/// assert!(matches!(spec, InputSpec::Command { timeout_seconds: 5, .. }));
+/// # Ok::<(), sc_agent_types::JevError>(())
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
+#[non_exhaustive]
 pub enum InputSpec {
     /// Read a file at the caller-supplied revision.
+    #[non_exhaustive]
     File {
         /// Repo-relative path.
         path: RepoRelativePath,
     },
     /// Read one markdown table column.
+    #[non_exhaustive]
     TableColumn {
         /// Repo-relative path.
         path: RepoRelativePath,
@@ -41,11 +64,13 @@ pub enum InputSpec {
         column: String,
     },
     /// Read a `sc/subjects/1` document from `path`.
+    #[non_exhaustive]
     Subjects {
         /// Repo-relative path of the artifact.
         path: RepoRelativePath,
     },
     /// Run an argv array. No shell.
+    #[non_exhaustive]
     Command {
         /// Argument vector. The check.toml key is `command`.
         command: Vec<String>,
@@ -68,6 +93,155 @@ pub enum InputSpec {
 
 fn default_command_timeout_seconds() -> u64 {
     30
+}
+
+impl InputSpec {
+    /// A `file` input reading `path`.
+    #[must_use]
+    pub fn file(path: RepoRelativePath) -> Self {
+        Self::File { path }
+    }
+
+    /// A `table-column` input reading `column` of the markdown table at `path`.
+    #[must_use]
+    pub fn table_column(path: RepoRelativePath, column: impl Into<String>) -> Self {
+        Self::TableColumn {
+            path,
+            column: column.into(),
+        }
+    }
+
+    /// A `subjects` input reading the `sc/subjects/1` document at `path`.
+    #[must_use]
+    pub fn subjects(path: RepoRelativePath) -> Self {
+        Self::Subjects { path }
+    }
+
+    /// A `command` input running the argv array `command` with the default
+    /// 30 second limit, no `{path}` file, and no producer name.
+    #[must_use]
+    pub fn command(command: Vec<String>) -> Self {
+        Self::Command {
+            command,
+            timeout_seconds: default_command_timeout_seconds(),
+            path: None,
+            producer: None,
+        }
+    }
+
+    /// Sets the process time limit of a `command` input; other kinds are
+    /// returned unchanged.
+    #[must_use]
+    pub fn with_timeout_seconds(mut self, seconds: u64) -> Self {
+        if let Self::Command {
+            timeout_seconds, ..
+        } = &mut self
+        {
+            *timeout_seconds = seconds;
+        }
+        self
+    }
+
+    /// Sets the file substituted for `{path}` in a `command` input; other
+    /// kinds are returned unchanged.
+    #[must_use]
+    pub fn with_path(mut self, file: RepoRelativePath) -> Self {
+        if let Self::Command { path, .. } = &mut self {
+            *path = Some(file);
+        }
+        self
+    }
+
+    /// Sets the producer name of a `command` input; other kinds are returned
+    /// unchanged.
+    #[must_use]
+    pub fn with_producer(mut self, name: impl Into<String>) -> Self {
+        if let Self::Command { producer, .. } = &mut self {
+            *producer = Some(name.into());
+        }
+        self
+    }
+}
+
+/// The name of a check input: the `<name>` of `[inputs.<name>]`, matching
+/// `[A-Za-z0-9_-]+`.
+///
+/// One validation path serves `check.toml` parsing and hand-built specs, so
+/// an input name that would break a `{name}` placeholder cannot exist.
+///
+/// # Examples
+///
+/// ```
+/// use sc_jev_check::config::InputName;
+///
+/// assert_eq!(InputName::try_from("rule-1")?.as_str(), "rule-1");
+/// assert_eq!(InputName::try_from("bad name").unwrap_err().code(), "CONFIG_INVALID");
+/// assert!(InputName::try_from("").is_err());
+/// # Ok::<(), sc_agent_types::JevError>(())
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct InputName(String);
+
+impl InputName {
+    /// The name as text.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl TryFrom<&str> for InputName {
+    type Error = JevError;
+
+    /// # Errors
+    ///
+    /// `CONFIG_INVALID` unless `name` is one or more of `A-Z a-z 0-9 _ -`.
+    fn try_from(name: &str) -> Result<Self, Self::Error> {
+        if is_input_name(name) {
+            Ok(Self(name.to_owned()))
+        } else {
+            Err(JevError::config_invalid(format!(
+                "check.toml input name {name} must be [A-Za-z0-9_-]+"
+            )))
+        }
+    }
+}
+
+impl TryFrom<String> for InputName {
+    type Error = JevError;
+
+    /// # Errors
+    ///
+    /// `CONFIG_INVALID` as for `TryFrom<&str>`.
+    fn try_from(name: String) -> Result<Self, Self::Error> {
+        Self::try_from(name.as_str())
+    }
+}
+
+impl FromStr for InputName {
+    type Err = JevError;
+
+    fn from_str(name: &str) -> Result<Self, Self::Err> {
+        Self::try_from(name)
+    }
+}
+
+impl fmt::Display for InputName {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.0)
+    }
+}
+
+impl std::borrow::Borrow<str> for InputName {
+    fn borrow(&self) -> &str {
+        &self.0
+    }
+}
+
+impl AsRef<str> for InputName {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
 }
 
 /// Packaged evaluator instructions (`include_str` of the asset file).
@@ -96,25 +270,34 @@ pub(crate) struct ResolvedPromptPath {
 
 /// A parsed `check.toml`.
 ///
-/// Input names are `[inputs.<name>]` table keys. `sc-jev-check` is the only
-/// crate that runs those inputs.
+/// Input names are `[inputs.<name>]` table keys, held as validated
+/// [`InputName`]s. `sc-jev-check` is the only crate that runs those inputs.
+/// The fields are private: read them through the accessors and build a spec
+/// with [`CheckSpec::new`] and the by-value `with_*` setters.
+///
+/// # Examples
+///
+/// ```
+/// use sc_agent_types::RepoRelativePath;
+/// use sc_jev_check::config::{CheckSpec, InputName, InputSpec};
+///
+/// let spec = CheckSpec::new(RepoRelativePath::try_from("questions.json")?)
+///     .with_input(
+///         InputName::try_from("rule")?,
+///         InputSpec::file(RepoRelativePath::try_from("rule.md")?),
+///     );
+/// assert_eq!(spec.inputs().len(), 1);
+/// assert!(spec.state_path().is_none());
+/// # Ok::<(), sc_agent_types::JevError>(())
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CheckSpec {
-    /// Repo-relative `plan-anchoring/questions/1` document.
-    pub questions_path: RepoRelativePath,
-    /// Repo-relative state document. Absent means an empty state.
-    pub state_path: Option<RepoRelativePath>,
-    /// Optional override of the packaged system-prompt path.
-    pub system_prompt_file: Option<RepoRelativePath>,
-    /// Named extractors, in table-key order.
-    pub inputs: BTreeMap<String, InputSpec>,
-    /// Top-level `backends` list. `RunConfig::backends` wins over it, and
-    /// `[jev]` applies when both are absent (ADR-SAG-0024).
-    pub backends: Option<BackendSet>,
-    /// The `[models]` table applied over the catalog (`alias = model
-    /// string`); the catalog's own aliases when the table is absent.
-    /// `RunConfig::models` wins over it (REQ-SAG-0148).
-    pub models: ModelAliases,
+    questions_path: RepoRelativePath,
+    state_path: Option<RepoRelativePath>,
+    system_prompt_file: Option<RepoRelativePath>,
+    inputs: BTreeMap<InputName, InputSpec>,
+    backends: Option<BackendSet>,
+    models: ModelAliases,
 }
 
 impl CheckSpec {
@@ -130,6 +313,80 @@ impl CheckSpec {
             backends: None,
             models: ModelAliases::builtin(),
         }
+    }
+
+    /// Sets the state document; absent means an empty state.
+    #[must_use]
+    pub fn with_state_path(mut self, path: RepoRelativePath) -> Self {
+        self.state_path = Some(path);
+        self
+    }
+
+    /// Overrides the packaged system-prompt path.
+    #[must_use]
+    pub fn with_system_prompt_file(mut self, path: RepoRelativePath) -> Self {
+        self.system_prompt_file = Some(path);
+        self
+    }
+
+    /// Adds the extractor `name`; a later call with the same name replaces it.
+    #[must_use]
+    pub fn with_input(mut self, name: InputName, input: InputSpec) -> Self {
+        self.inputs.insert(name, input);
+        self
+    }
+
+    /// Sets the top-level `backends` list. `RunConfig::backends` wins over it.
+    #[must_use]
+    pub fn with_backends(mut self, backends: BackendSet) -> Self {
+        self.backends = Some(backends);
+        self
+    }
+
+    /// Sets the model aliases applied over the catalog (REQ-SAG-0148).
+    #[must_use]
+    pub fn with_models(mut self, models: ModelAliases) -> Self {
+        self.models = models;
+        self
+    }
+
+    /// Repo-relative `plan-anchoring/questions/1` document.
+    #[must_use]
+    pub fn questions_path(&self) -> &RepoRelativePath {
+        &self.questions_path
+    }
+
+    /// Repo-relative state document. Absent means an empty state.
+    #[must_use]
+    pub fn state_path(&self) -> Option<&RepoRelativePath> {
+        self.state_path.as_ref()
+    }
+
+    /// Optional override of the packaged system-prompt path.
+    #[must_use]
+    pub fn system_prompt_file(&self) -> Option<&RepoRelativePath> {
+        self.system_prompt_file.as_ref()
+    }
+
+    /// Named extractors, in table-key order.
+    #[must_use]
+    pub fn inputs(&self) -> &BTreeMap<InputName, InputSpec> {
+        &self.inputs
+    }
+
+    /// Top-level `backends` list. `RunConfig::backends` wins over it, and
+    /// `[jev]` applies when both are absent (ADR-SAG-0024).
+    #[must_use]
+    pub fn backends(&self) -> Option<&BackendSet> {
+        self.backends.as_ref()
+    }
+
+    /// The `[models]` table applied over the catalog (`alias = model
+    /// string`); the catalog's own aliases when the table is absent.
+    /// `RunConfig::models` wins over it (REQ-SAG-0148).
+    #[must_use]
+    pub fn models(&self) -> &ModelAliases {
+        &self.models
     }
 
     /// Selects the system-prompt path without reading the file.
@@ -162,12 +419,9 @@ impl CheckSpec {
 pub(crate) fn load_check_str(text: &str) -> Result<CheckSpec, JevError> {
     let raw: RawCheck = toml::from_str(text)
         .map_err(|error| JevError::config_invalid(format!("check.toml: {error}")))?;
-    for name in raw.inputs.keys() {
-        if !is_input_name(name) {
-            return Err(JevError::config_invalid(format!(
-                "check.toml input name {name} must be [A-Za-z0-9_-]+"
-            )));
-        }
+    let mut inputs = BTreeMap::new();
+    for (name, input) in raw.inputs {
+        inputs.insert(InputName::try_from(name)?, input);
     }
     let backends = match raw.backends {
         Some(ids) => Some(BackendSet::try_from(ids)?),
@@ -178,7 +432,7 @@ pub(crate) fn load_check_str(text: &str) -> Result<CheckSpec, JevError> {
         questions_path: raw.questions.path,
         state_path: raw.state.map(|state| state.path),
         system_prompt_file: raw.llm_judge.map(|llm| llm.system_prompt_file),
-        inputs: raw.inputs,
+        inputs,
         backends,
         models,
     })
@@ -309,9 +563,31 @@ mod tests {
         )
         .expect("backends");
         assert_eq!(
-            spec.backends.expect("set").as_slice(),
+            spec.backends().expect("set").as_slice(),
             [BackendId::AnthropicHaiku, BackendId::Jev]
         );
+    }
+
+    #[test]
+    fn input_name_is_validated_on_construction_and_on_parse() {
+        for good in ["a", "rule-1", "A_b-9"] {
+            assert_eq!(InputName::try_from(good).expect(good).as_str(), good);
+        }
+        for bad in ["", "has space", "a.b", "{a}", "caf\u{e9}", "a/b"] {
+            let error = InputName::try_from(bad).expect_err(bad);
+            assert_eq!(error.code(), "CONFIG_INVALID", "{bad:?}");
+            assert_eq!(
+                error.to_string(),
+                load_check_str(&format!(
+                    "[questions]\npath = \"q.json\"\n[inputs.\"{bad}\"]\nkind = \"file\"\npath = \"a\"\n"
+                ))
+                .expect_err(bad)
+                .to_string(),
+                "{bad:?}: one validation path, one message"
+            );
+        }
+        // A hand-built spec cannot carry a bad name: it fails before the spec.
+        assert!(InputName::try_from("bad name").is_err());
     }
 
     #[test]
@@ -332,7 +608,7 @@ mod tests {
             "#,
         )
         .expect("check");
-        match &spec.inputs["live"] {
+        match &spec.inputs()["live"] {
             InputSpec::Command {
                 timeout_seconds,
                 path,
@@ -343,7 +619,7 @@ mod tests {
             }
             other => panic!("expected command, got {other:?}"),
         }
-        match &spec.inputs["with_path"] {
+        match &spec.inputs()["with_path"] {
             InputSpec::Command { path, .. } => {
                 assert_eq!(
                     path.as_ref().map(RepoRelativePath::as_str),

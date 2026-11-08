@@ -510,7 +510,7 @@ pub fn prepare(source: CheckSource, config: RunConfig) -> Result<PreparedRun, Je
     let models = config
         .models
         .clone()
-        .or_else(|| spec.as_ref().map(|spec| spec.models.clone()))
+        .or_else(|| spec.as_ref().map(|spec| spec.models().clone()))
         .unwrap_or_else(ModelAliases::builtin);
     Ok(PreparedRun {
         config,
@@ -531,7 +531,7 @@ type Assembled = (
 fn assemble(spec: CheckSpec, config: &RunConfig) -> Result<Assembled, JevError> {
     let built = build_payload(&spec, &config.repo_root, &config.rev)?;
     let producer = producer_from_extractions(&built.extractions)?;
-    let backends = spec.backends.clone();
+    let backends = spec.backends().cloned();
     Ok((Some(spec), built.bundle, producer, backends))
 }
 
