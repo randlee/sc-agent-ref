@@ -50,6 +50,18 @@ First release. Channels once published: crates.io (ten crates), PyPI
   cannot lack one; there are no `with_path`, `with_rev` or `with_blob_sha`
   setters and the accessors return the values directly. Only `with_captures`
   remains. CLI error codes and messages are unchanged.
+- `sc_agent_types::schema::subjects`: `SubjectsBuilder::push_subject(span,
+  text, kind)` no longer takes a path (ids use `source.path`) and takes and
+  returns `self`, so calls chain; `Subject::span()` returns `Span` by value.
+  `GrammarRef` keeps its three public fields, which are frozen for
+  `sc/subjects/1`. Serialized subject ids are unchanged.
+- `sc_agent_types` ids: `BlobSha` gains `AsRef<str>` and `Ord`; `Rev` gains
+  `FromStr`, `TryFrom<&str>` and `AsRef<str>`. `AnswerId` no longer
+  implements `Default` (use `AnswerId::new()`), like `SessionId`.
+- `sc_decision_schema::jev::v1::CheckResponse::parse` range-checks
+  probabilities and confidence on typed values rather than by matching error
+  text. Error text and codes are unchanged, except that a reply with several
+  out-of-range answers still names the least answer id.
 - `sc_jev_check::config`: `InputSpec` and its struct variants are
   `#[non_exhaustive]` and gain the constructors `file`, `table_column`,
   `subjects` and `command`. A command input is `InputSpec::Command(CommandSpec)`;
