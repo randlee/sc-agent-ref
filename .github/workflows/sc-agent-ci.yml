@@ -613,6 +613,14 @@ jobs:
         timeout-minutes: 10
         run: cargo fetch --locked
 
+      # The cargo cache restores `target`, including .profraw files from earlier
+      # runs. `--no-report` runs never clean, so stale profile data from a
+      # previous run (CI process ids repeat run to run) would be merged into
+      # this run's. Start from no profile data; build artifacts stay cached.
+      - name: Remove stale profile data
+        timeout-minutes: 5
+        run: cargo llvm-cov clean --profraw-only
+
       - name: cargo llvm-cov (run tests, no report)
         timeout-minutes: 30
         run: cargo llvm-cov --locked --workspace --no-report
