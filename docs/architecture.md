@@ -801,20 +801,21 @@ preflight CI, and publish dry-run).
   | GitHub Release archive | yes | yes |
   | crates.io (`cargo install`) | yes | yes |
   | Homebrew | yes | yes (same formula) |
-  | Scoop | shim | in archive, no shim |
+  | Scoop | shim | shim |
   | WinGet | alias | in package, no alias |
 
-  Scoop: `[channels.scoop].binary` is one string at the pinned kit, so
-  sc-agent's consumer input still has a single Scoop binary. The upstream
-  change landed in sc-publish as https://github.com/randlee/sc-publish/pull/176 (optional
-  `[channels.scoop].binaries`). The owner directed a PR instead of an issue.
-  sc-agent gets the second shim only after it re-pins the kit and sets
-  `binaries` (not part of this amendment). Bead `agt-scoop-multi-shim`.
+  Scoop: the upstream change landed in sc-publish as
+  https://github.com/randlee/sc-publish/pull/176 (optional
+  `[channels.scoop].binaries`; the owner directed a PR instead of an issue).
+  sc-agent has re-pinned the kit (sc-publish `34dab3f`) and sets
+  `binaries = ["sc-ai", "sc-treesitter"]`, so Scoop shims both. Bead
+  `agt-scoop-multi-shim` is resolved.
 
   WinGet: command aliases are not an upstream issue. The first manifest is
   submitted by hand and must list a `PortableCommandAlias` for each of
-  `sc-ai` and `sc-treesitter` (bead `agt-sft`; the related upstream PR
-  randlee/sc-publish#182 is open). The Windows invocation path for
+  `sc-ai` and `sc-treesitter` (bead `agt-sft`). The kit pins Komac 2.16.0 for
+  later updates (the related upstream PR randlee/sc-publish#182 was open when
+  this was written). The Windows invocation path for
   `sc-treesitter` is in `docs/development/sc-publish.md`. REQ-SAG-0133.
 
 ### Amendment (Phase A.1, r-3)

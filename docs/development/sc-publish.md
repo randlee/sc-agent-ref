@@ -47,14 +47,16 @@ pin and re-run install. `install.py` overwrites kit paths without warning.
   (`tar.gz`), `x86_64-pc-windows-msvc` (`zip`).
 - **Homebrew**: formula `Formula/sc-ai.rb` (class `ScAi`) in
   `randlee/homebrew-tap`. It installs both binaries and tests `sc-ai --version`.
-- **Scoop**: `bucket/sc-ai.json` in `randlee/scoop-bucket`, shimming
-  `bin/sc-ai.exe`. The kit's Scoop template takes a single `bin` entry, so
-  `sc-treesitter.exe` ships in the archive without a shim (upstream item 1
-  below).
-- **WinGet**: identifier `randlee.sc-ai`. It names only `sc-ai` until the
-  first manifest is submitted by hand with an alias for each binary (bead
-  `agt-sft`, [First-release checklist](#first-release-checklist-req-sag-0803)); this is not
-  an upstream kit issue.
+- **Scoop**: `bucket/sc-ai.json` in `randlee/scoop-bucket`, shimming both
+  `bin/sc-ai.exe` and `bin/sc-treesitter.exe` (`[channels.scoop].binaries` in
+  the rendered `release/publish-artifacts.toml`, available since the kit
+  re-pin to sc-publish `34dab3f`; upstream item 1 below).
+- **WinGet**: identifier `randlee.sc-ai`. The kit pins Komac 2.16.0 for
+  updates. Komac only updates an existing package, so the hand-submitted first
+  manifest must list both binaries, each with a portable command alias
+  (`sc-ai`, `sc-treesitter`), or `sc-treesitter` never reaches `PATH` (bead
+  `agt-sft`, [First-release checklist](#first-release-checklist-req-sag-0803));
+  this is not an upstream kit issue.
 
 ### Upstream kit items
 
@@ -65,16 +67,14 @@ https://github.com/randlee/sc-publish/pull/176. Item 2 is not filed.
 sc-lint kit issues (Windows bootstrap) are listed separately in
 [`ci.md`](ci.md#upstream-issues-to-file-sc-lint).
 
-1. **Scoop template is single-binary.** (Merged upstream:
+1. **Scoop template was single-binary. Resolved.** (Merged upstream:
    https://github.com/randlee/sc-publish/pull/176, optional
-   `[channels.scoop].binaries`.) The Scoop manifest takes one `bin` entry, so
-   only `sc-ai.exe` gets a shim; `sc-treesitter.exe` is in the archive but not
-   on `PATH`. Homebrew installs both binaries. sc-agent's input still has a
-   single Scoop binary (`[channels.scoop].binary`, one string) until it
-   re-pins the kit and sets `binaries`; the re-pin is separate work. Bead
-   `agt-scoop-multi-shim`; ADR-SAG-0017 r-4 amendment (phase-end ARCH-002,
-   decision D8). WinGet is not part of this item: the first hand-submitted
-   manifest lists a command alias per binary (bead `agt-sft`).
+   `[channels.scoop].binaries`.) sc-agent re-pinned the kit to sc-publish
+   `34dab3f` and sets `binaries = ["sc-ai", "sc-treesitter"]`, so Scoop shims
+   both executables. Bead `agt-scoop-multi-shim` is closed; ADR-SAG-0017 r-4
+   amendment (phase-end ARCH-002, decision D8). WinGet is not part of this
+   item: the first hand-submitted manifest lists a command alias per binary
+   (bead `agt-sft`).
 2. **`list-publish-plan` ignores `publish: false`.** `release_artifacts.py
    list-publish-plan` prints every entry in the consumer `crates` list without
    checking its `publish` flag, and `cargo publish` and the dry-run consume
@@ -185,15 +185,16 @@ dependency versions match the tested release. Both binaries need the default
 
 | Channel | `sc-ai` | `sc-treesitter` |
 | --- | --- | --- |
-| Scoop (`scoop install sc-ai` from `randlee/scoop-bucket`) | on `PATH` (shim) | `& "$(scoop prefix sc-ai)\bin\sc-treesitter.exe"` |
+| Scoop (`scoop install sc-ai` from `randlee/scoop-bucket`) | on `PATH` (shim) | on `PATH` (shim) |
 | WinGet (`winget install randlee.sc-ai`) | on `PATH` (alias) | run `bin\sc-treesitter.exe` from the package directory under `%LOCALAPPDATA%\Microsoft\WinGet\Packages\` (`randlee.sc-ai_*`) |
 | GitHub Release zip (`x86_64-pc-windows-msvc`) | `bin\sc-ai.exe` | `bin\sc-treesitter.exe` |
 | crates.io | `cargo install sc-ai --locked` | `cargo install sc-treesitter --locked` |
 
-Scoop and WinGet put only `sc-ai` on `PATH` today (Scoop: single `binary` in
-sc-agent's input until the kit re-pin, bead `agt-scoop-multi-shim`; WinGet:
-until the first manifest is hand-submitted with both aliases, bead `agt-sft`). To get `sc-treesitter` on `PATH`, add the
-package's `bin` directory to `PATH` or install it with `cargo install`.
+Scoop shims both binaries. WinGet puts only `sc-ai` on `PATH` until the first
+manifest is hand-submitted with both aliases (bead `agt-sft`; Komac 2.16.0
+handles later updates). Until then, to get `sc-treesitter` on `PATH` from
+WinGet, add the package's `bin` directory to `PATH` or install it with `cargo
+install`.
 
 ## Pin bump
 

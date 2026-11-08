@@ -282,8 +282,9 @@ REQ-QA-001): the owner directed the upstream change as a PR instead of an
 issue, and it merged as https://github.com/randlee/sc-publish/pull/176 (optional
 `[channels.scoop].binaries`). The URL is recorded in REQ-SAG-0133, the
 ADR-SAG-0017 r-4 amendment and `docs/development/sc-publish.md`. Current
-state: sc-agent's consumer input still has a single Scoop binary until it
-re-pins the kit and sets `binaries` (separate work). WinGet command aliases
-are not an upstream issue; the first hand-submitted manifest must list them
-(bead `agt-sft`). Everything else in the sprint was delivered and QA-2 PASS
+state: sc-agent has since re-pinned the kit (sc-publish `34dab3f`) and sets
+`binaries`, so Scoop shims both `sc-ai` and `sc-treesitter` (bead
+`agt-scoop-multi-shim` resolved). WinGet command aliases are not an upstream
+issue; the kit pins Komac 2.16.0 and the first hand-submitted manifest must
+list both binaries with aliases (bead `agt-sft`). Everything else in the sprint was delivered and QA-2 PASS
 (arch-qa, rust-qa, flaky-test-qa).
