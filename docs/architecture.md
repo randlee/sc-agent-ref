@@ -265,6 +265,11 @@ r-2b); bullet 2 (session document v2) stays in force.
   `SessionDocumentInvalid` (`INPUT_INVALID`) with "re-run the check"
   recovery. The rest of that bullet stays in force.
 
+- (Active, r-6) Retention: opening a `FileSessionStore` removes session
+  documents past the TTL plus one TTL of grace (version 1 and 2 documents
+  included), so `SESSION_EXPIRED` stays reachable for one more TTL before a
+  document reads as `SESSION_NOT_FOUND`.
+
 ## ADR-SAG-0009 — Local backend registers without caller changes
 
 **Status:** Active
@@ -863,6 +868,10 @@ composition roots is ADR-SAG-0021.
   unset. "Secrets never appear in log lines" stands; the row's one path is
   `repo`.
 
+- (Active, r-6) Envelope fields: `correlation_id` is the session id and
+  `request_id` is the answer id; the level is `Warn` when `send_outcome` is
+  `failed`, otherwise `Info`. `fields{}` is unchanged.
+
 ## ADR-SAG-0021 — Log and session path precedence
 
 **Status:** Active
@@ -954,6 +963,11 @@ the module** and drop the types dependency if possible (bead:
   object: `LogEvent::new(session_id, operation, fields)` with `fields()`; the
   `backend()` / `prompt_sha256()` accessors are removed (the values are in
   `fields`). The port does not name the row type (ADR-SAG-0031 "Wiring").
+
+- (Active, r-6) The adapter maps the row onto the v2 envelope: `request_id` is
+  the row's `answer_id` and `correlation_id` is the session id (both ULIDs,
+  built through serde because `sc-observability-types` is not a direct
+  dependency), and the level follows `send_outcome` (ADR-SAG-0013 r-6).
 
 ## ADR-SAG-0014 — CLI success body
 
@@ -1754,3 +1768,7 @@ ADR-SAG-0027 (an r-6 subsection in each). Owner decisions 2026-11-07.
 - (Active, r-6) Log-write failure policy: a rejected or failed log row
   never fails the run; `SessionLog::emit` is best effort and a flush failure
   is a `data.warnings` entry (plan.md owner decisions 2026-11-07, item 9).
+- (Active, r-6) On the error path (`run` or `ask` returned an error) the log is
+  still flushed; a flush failure there is appended once to the error detail
+  and the error code is unchanged, because no response exists to carry a
+  `data.warnings` entry.

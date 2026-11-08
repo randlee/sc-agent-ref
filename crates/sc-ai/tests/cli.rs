@@ -376,11 +376,14 @@ fn test_cli_log_flush_warning_in_data() {
     reason = "process spawn: mkfifo creates the unreadable log file; std has no safe mkfifo"
 )]
 fn make_fifo(path: &Path) {
-    let status = Command::new("mkfifo")
-        .arg(path)
-        .status()
-        .expect("spawn mkfifo");
-    assert!(status.success(), "mkfifo {}", path.display());
+    let mut command = Command::new("mkfifo");
+    let output = spawn_with_deadline(command.arg(path), None);
+    assert!(
+        output.status.success(),
+        "mkfifo {}: {}",
+        path.display(),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 /// ADR-SAG-0019: `--llm-system-prompt-file` (clap) reaches

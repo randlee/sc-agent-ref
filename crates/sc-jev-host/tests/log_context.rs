@@ -108,15 +108,33 @@ fn inputs(worktree: &Path) -> ComposeInputs {
         .registry(registry())
 }
 
-fn rows(log: &Path) -> Vec<serde_json::Value> {
+/// Every written line, whole (envelope plus `fields`).
+fn lines(log: &Path) -> Vec<serde_json::Value> {
     std::fs::read_to_string(log)
         .expect("jsonl")
         .lines()
         .filter(|line| !line.is_empty())
-        .map(|line| {
-            serde_json::from_str::<serde_json::Value>(line).expect("line")["fields"].clone()
-        })
+        .map(|line| serde_json::from_str::<serde_json::Value>(line).expect("line"))
         .collect()
+}
+
+fn rows(log: &Path) -> Vec<serde_json::Value> {
+    lines(log)
+        .iter()
+        .map(|line| line["fields"].clone())
+        .collect()
+}
+
+/// The envelope carries the level and correlation ids derived from the row
+/// (RSH-003, RSH-004); `fields` is unchanged.
+fn assert_envelope(line: &serde_json::Value, level: &str) {
+    assert_eq!(line["level"], level, "{line}");
+    assert_eq!(
+        line["correlation_id"], line["fields"]["session_id"],
+        "{line}"
+    );
+    assert_eq!(line["request_id"], line["fields"]["answer_id"], "{line}");
+    assert!(line["correlation_id"].is_string() && line["request_id"].is_string());
 }
 
 /// The row's `repo` canonicalized the same way, so the comparison holds on
@@ -151,6 +169,10 @@ fn test_log_context_repo_is_main_repo_paths_stay_on_worktree() {
         "nothing under the main repo"
     );
 
+    let envelopes = lines(&linked.join(".sc-ai/logs/sc-ai.log.jsonl"));
+    assert_eq!(envelopes.len(), 1);
+    assert_envelope(&envelopes[0], "Info");
+    assert_eq!(envelopes[0]["correlation_id"], id.to_string());
     let rows = rows(&linked.join(".sc-ai/logs/sc-ai.log.jsonl"));
     assert_eq!(rows.len(), 1);
     assert_eq!(logged_repo(&rows[0]), canonical(main.path()));
@@ -243,7 +265,8 @@ fn test_error_path_flushes_the_failed_row() {
         .registry(Arc::new(failing));
     let error = run_from(source, inputs).expect_err("every backend failed");
     assert_eq!(error.code(), "RESPONSE_INVALID");
-    let rows = rows(&dir.path().join(".sc-ai/logs/sc-ai.log.jsonl"));
-    assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0]["send_outcome"], "failed");
+    let envelopes = lines(&dir.path().join(".sc-ai/logs/sc-ai.log.jsonl"));
+    assert_eq!(envelopes.len(), 1);
+    assert_envelope(&envelopes[0], "Warn");
+    assert_eq!(envelopes[0]["fields"]["send_outcome"], "failed");
 }

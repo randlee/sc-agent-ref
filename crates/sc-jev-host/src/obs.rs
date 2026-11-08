@@ -38,6 +38,20 @@ use sc_observability::{
 /// Target category recorded on every session-log line.
 const TARGET: &str = "jev.session";
 
+/// An envelope id from ULID text. A ULID is always a valid id, so a `None`
+/// here is a bug: it fails loudly in debug builds and drops the id in release.
+/// A macro, not a generic function, because the id type is only nameable
+/// through the `LogEvent` field it is assigned to (`serde` is not a direct
+/// dependency, so there is no `DeserializeOwned` bound to write).
+macro_rules! envelope_id {
+    ($text:expr) => {{
+        let text: &str = $text;
+        let id = serde_json::from_value(Value::String(text.to_owned())).ok();
+        debug_assert!(id.is_some(), "{text:?} is not a valid envelope id");
+        id
+    }};
+}
+
 /// Owns one running logger. Dropping it flushes and shuts the writer down.
 ///
 /// Shutdown runs exactly once, when the last [`Arc`] goes away, so there is
@@ -202,9 +216,9 @@ impl ObservabilityAdapter {
             request_id: event
                 .fields()
                 .get("answer_id")
-                .and_then(|id| serde_json::from_value(id.clone()).ok()),
-            correlation_id: serde_json::from_value(Value::String(event.session_id().to_string()))
-                .ok(),
+                .and_then(Value::as_str)
+                .and_then(|id| envelope_id!(id)),
+            correlation_id: envelope_id!(&event.session_id().to_string()),
             outcome: None,
             diagnostic: None,
             state_transition: None,

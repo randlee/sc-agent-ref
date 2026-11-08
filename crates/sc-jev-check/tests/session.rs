@@ -186,6 +186,41 @@ fn test_new_store_sweeps_expired_session_documents() {
     reopened.load(&fresh_id).expect("fresh session still loads");
 }
 
+/// A document between TTL and TTL plus grace survives the open-time sweep and
+/// still reads as `SESSION_EXPIRED` (RSH-001).
+#[test]
+fn test_expired_document_inside_grace_survives_sweep_and_reads_expired() {
+    let dir = tempfile::tempdir().expect("temp");
+    let store = FileSessionStore::new(dir.path()).expect("store");
+    let id = SessionId::new();
+    let document: serde_json::Value = serde_json::from_str(&fixture()).expect("json");
+    let payload = PayloadBundle::decode(
+        document["payload_utf8"]
+            .as_str()
+            .expect("payload")
+            .as_bytes(),
+    )
+    .expect("bundle");
+    // 30 h old: past the 24 h TTL, inside TTL plus one TTL of grace.
+    store
+        .save(&StoredSession {
+            session_id: id,
+            backend: BackendId::AnthropicHaiku,
+            created_at: SystemTime::now() - Duration::from_secs(30 * 60 * 60),
+            payload,
+            system_prompt: None,
+            outcomes: Vec::new(),
+            follow_ups: Vec::new(),
+        })
+        .expect("save");
+    let reopened = FileSessionStore::new(dir.path()).expect("reopen sweeps");
+    assert!(store.path(&id).is_file(), "inside the grace window");
+    assert_eq!(
+        reopened.load(&id).expect_err("expired").code(),
+        "SESSION_EXPIRED"
+    );
+}
+
 #[test]
 fn test_newer_session_version_is_invalid() {
     let mut newer: serde_json::Value = serde_json::from_str(&fixture()).expect("json");
@@ -445,8 +480,14 @@ fn test_two_stores_same_dir_last_writer_wins() {
     );
 }
 
+/// Longest a writer thread may take: ten save/load rounds finish in well under
+/// a second, so this only fires on a real hang.
+#[cfg(unix)]
+const WRITER_TIMEOUT: Duration = Duration::from_secs(30);
+
 #[cfg(unix)]
 fn concurrent_writers(first: &FileSessionStore, second: &FileSessionStore, id: SessionId) {
+    let (done, rx) = std::sync::mpsc::channel::<usize>();
     let writers: Vec<_> = (0..8)
         .map(|index| {
             let store = if index % 2 == 0 {
@@ -455,14 +496,33 @@ fn concurrent_writers(first: &FileSessionStore, second: &FileSessionStore, id: S
                 second.clone()
             };
             let choice = if index % 2 == 0 { "yes" } else { "no" };
+            let done = done.clone();
             std::thread::spawn(move || {
                 for _ in 0..10 {
                     store.save(&stored(&store, id, choice)).expect("save");
                     store.load(&id).expect("a reader never sees a torn file");
                 }
+                // The receiver may have timed out and gone; nothing to do then.
+                let _ = done.send(index);
             })
         })
         .collect();
+    // Each writer reports completion; a stuck one fails the test by name
+    // instead of hanging the join.
+    let mut finished = std::collections::BTreeSet::new();
+    for _ in 0..writers.len() {
+        match rx.recv_timeout(WRITER_TIMEOUT) {
+            Ok(index) => {
+                finished.insert(index);
+            }
+            Err(_) => {
+                let stuck: Vec<usize> = (0..writers.len())
+                    .filter(|index| !finished.contains(index))
+                    .collect();
+                panic!("writer(s) {stuck:?} did not finish within {WRITER_TIMEOUT:?}");
+            }
+        }
+    }
     for writer in writers {
         writer.join().expect("writer");
     }
