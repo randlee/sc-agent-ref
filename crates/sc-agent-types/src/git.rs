@@ -45,8 +45,16 @@ pub(crate) const GIT_DEADLINE: Duration = Duration::from_secs(60);
 /// How often a running git child is polled.
 const POLL_INTERVAL: Duration = Duration::from_millis(10);
 
-/// Bound on killing a child and collecting its pipes once the deadline fired.
-const CLEANUP_BUDGET: Duration = Duration::from_secs(2);
+/// Bound on killing a child and collecting its pipes once the child has
+/// exited or the deadline fired.
+///
+/// This bounds an inherited pipe, not a success-path timing assumption: a
+/// process the child leaves behind (a git helper or daemon) can hold the pipe
+/// open, so EOF is not guaranteed and the wait cannot be unbounded. A child
+/// that exits normally closes its pipes at once, so a healthy run never
+/// approaches this value; it is generous so a starved host does not turn a
+/// finished child into a false `pipe did not close` error.
+const CLEANUP_BUDGET: Duration = Duration::from_secs(10);
 
 /// Bytes of git's stderr kept for an error detail.
 const STDERR_DETAIL_BYTES: u64 = 4096;

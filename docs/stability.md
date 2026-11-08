@@ -53,6 +53,13 @@ sees another value treats the line as an unknown error shape and falls back to
 the exit code (ADR-SAG-0027). Error ids come from a closed set shared with
 Python (`tests/fixtures/jev/README-contract/errors.json`).
 
+`INPUT_INVALID` is not only a malformed-input code. It also covers I/O
+failures (`JevError::IoFailed`: a file or process operation failed, with the
+`io::ErrorKind` in the message), as well as session-document and encode
+failures. The code alone does not tell a bad input from a failed read, so a
+consumer that must distinguish them reads the `message`. A missing file stays
+`INPUT_MISSING`.
+
 ## Python: `sc_jev_py`
 
 The wheel version moves in lockstep with the Rust crates (one tag). The

@@ -1,6 +1,6 @@
 # sc-agent project plan
 
-**Status:** Phase A and Phase A.1 (`r`) implementation have landed on `integrate/phase-a`; the phase is in phase-end review and is not closed — see `PHASE-A-REVIEW.md` items  
+**Status:** Phase A and Phase A.1 (`r`) implementation have landed on `integrate/phase-a`; the phase is in phase-end review and is not closed — see the open items in `PHASE-A-REVIEW.md`, the owner's working notes (not committed).  
 **Default branch:** `develop`
 
 ## Phases
