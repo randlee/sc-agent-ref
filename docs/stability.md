@@ -43,14 +43,26 @@ answered by a concrete version). The answered model is the reply's `model`,
 printed as `model` in `sc-ai jev run` output and read with
 `JudgeOutcome::answered_model`. Output is byte-identical where the models match.
 
-### Questions digest
+### Digests
 
-Run output carries `questions_sha256`, the SHA-256 of the question set alone,
-for a consumer's cache lookup (sc-agent builds no cache). Its exact bytes are
-in [`tests/fixtures/README.md`](../tests/fixtures/README.md); a change to those
-bytes changes every consumer's cache keys, so it is a breaking change. The key
-is added after `prompt_sha256`; consumers that read keys by name are
-unaffected.
+Run output carries three digests. Their exact bytes are in
+[`tests/fixtures/README.md`](../tests/fixtures/README.md); a change to those
+bytes changes every consumer's cache keys, so it is a breaking change. sc-agent
+builds no cache.
+
+| Digest | Identifies | Use |
+| --- | --- | --- |
+| `questions_sha256` | The question set (ids, kinds, instructions, criteria descriptions). Same questions, any state. | Compare runs of the same questions against different state. |
+| `prompt_sha256` | The canonical payload: questions and state. Backend-neutral; excludes the LLM system prompt and the model. | The equal-input proof that every backend judged the same input. |
+| `request_sha256` (per backend) | The exact first request body for that backend and model, computed before sending. | Substitute a cached response for an identical request. |
+
+`request_sha256` is computed with no key and no send, and equals the
+session-log `request_sha256` of the same send. It is absent for a backend whose
+bytes depend on an earlier answer (an LLM backend after another in
+`chain_context` mode) or that refuses the questions (a `noul` question to an
+LLM backend). `jev` is sent as `jev-latest`, so a key made with `jev` can
+return a stale answer after Jev moves: for caching, use a pinned version such
+as `jev-1.13.0`.
 
 ### Numbers
 

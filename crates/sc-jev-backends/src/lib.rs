@@ -20,7 +20,7 @@ mod validate;
 mod wire;
 
 #[doc(inline)]
-pub use backend::{AnthropicHaikuBackend, OpenAiLunaBackend};
+pub use backend::{AnthropicHaikuBackend, OpenAiLunaBackend, request_sha256};
 #[cfg(feature = "test-util")]
 #[doc(inline)]
 pub use wire::WireFault;

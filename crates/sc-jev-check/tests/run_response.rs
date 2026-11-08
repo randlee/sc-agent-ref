@@ -317,6 +317,7 @@ fn test_run_response_contract() {
             "session_saved",
             "prompt_sha256",
             "questions_sha256",
+            "request_sha256",
             "payload_bytes",
             "results",
             "equal_input"

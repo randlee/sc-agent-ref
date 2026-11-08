@@ -835,3 +835,68 @@ fn test_score_question_embeds_levels_and_descriptions() {
     );
     assert_eq!(outcome.input_sha256(), Some(request.payload().sha256()));
 }
+
+/// `request_sha256` is computed before sending and equals the digest the
+/// send records in its `SendTrace` (the session-log `request_sha256`), which
+/// is the first body posted: the token-count body.
+#[test]
+fn test_request_sha256_equals_the_digest_a_send_records() {
+    let request = standard_request(PROMPT);
+    let (backend, recorded) = haiku(vec![
+        haiku_message(&answer_text(), "end_turn", 100),
+        count_reply(100),
+    ]);
+    let before =
+        sc_jev_backends::request_sha256(BackendId::AnthropicHaiku, &backend.model_id(), &request)
+            .expect("digest before sending");
+    let trace = SendTrace::new();
+    backend.judge(&request, &trace).expect("judge");
+    assert_eq!(trace.request_sha256(), Some(before.clone()));
+    let first = posts(&recorded).remove(0);
+    assert_eq!(Sha256Digest::of_text(first.body()), before);
+
+    let (luna_backend, luna_recorded) = luna(vec![
+        luna_message(&answer_text(), "completed", 100),
+        count_reply(100),
+    ]);
+    let before =
+        sc_jev_backends::request_sha256(BackendId::OpenAiLuna, &luna_backend.model_id(), &request)
+            .expect("luna digest");
+    let trace = SendTrace::new();
+    luna_backend.judge(&request, &trace).expect("judge");
+    assert_eq!(trace.request_sha256(), Some(before.clone()));
+    assert_eq!(
+        Sha256Digest::of_text(posts(&luna_recorded).remove(0).body()),
+        before
+    );
+}
+
+/// The digest moves with the model, the system prompt and the question, and
+/// stays put for the same inputs; a Jev-only `noul` question has no digest.
+#[test]
+fn test_request_sha256_changes_with_each_input() {
+    let model: ModelId = "claude-haiku-5-5".parse().expect("model");
+    let digest = |model: &ModelId, request: &JudgeRequest| {
+        sc_jev_backends::request_sha256(BackendId::AnthropicHaiku, model, request).expect("digest")
+    };
+    let base = digest(&model, &standard_request(PROMPT));
+    assert_eq!(base, digest(&model, &standard_request(PROMPT)));
+    assert_ne!(base, digest(&model, &standard_request("another prompt")));
+    assert_ne!(
+        base,
+        digest(
+            &"claude-haiku-9".parse().expect("model"),
+            &standard_request(PROMPT)
+        )
+    );
+    let other_question = request_with(json!([question(&["yes", "maybe"])]), Some(PROMPT));
+    assert_ne!(base, digest(&model, &other_question));
+    let noul = request_with(
+        json!([{"id": "q", "prompt": "judge this", "choices": [], "kind": "noul"}]),
+        Some(PROMPT),
+    );
+    assert!(
+        sc_jev_backends::request_sha256(BackendId::AnthropicHaiku, &model, &noul).is_err(),
+        "an LLM backend refuses noul, so nothing would be sent"
+    );
+}

@@ -74,10 +74,11 @@ the SHA-256 of the file bytes since the query contains no CR. The rules for line
 numbers, byte spans, ids and ordering are in
 [`docs/sc-agent-types/subjects-schema.md`](../../docs/sc-agent-types/subjects-schema.md).
 
-## 3. Questions digest: `questions_sha256`
+## 3. Question and request digests: `questions_sha256`, `request_sha256`
 
-`questions_sha256` is the SHA-256 (lowercase hex, computed with `sc-sha`) of the
-question set alone, for a consumer that looks results up in its own cache. It
+`questions_sha256` identifies a question set, so runs of the same questions
+against different state can be compared. It is the SHA-256 (lowercase hex,
+computed with `sc-sha`) of the question set alone. It
 appears in `sc-ai jev run` and `dry-run` output (`data.questions_sha256`, right
 after `prompt_sha256`), on the run result (`RunResponse::questions_sha256`) and
 in Python (`CheckResult.questions_sha256`, `build_request(...)["questions_sha256"]`).
@@ -119,3 +120,30 @@ Question sets loaded from `plan-anchoring/questions/1` keep their `criteria`
 values as descriptions. The pinned `cross-impl/branches` digest above uses a
 question set whose criteria equal their keys (no descriptions), so its bytes did
 not change.
+
+### `request_sha256`
+
+`request_sha256` identifies an identical request, so a consumer can substitute a
+cached response. It is an object keyed by backend id (`jev`, `anthropic_haiku`,
+`openai_luna`) in `data.request_sha256`, `RunResponse::request_sha256()`,
+`CheckResult.request_sha256` and `build_request(...)["request_sha256"]`. Each
+value is the SHA-256 (lowercase hex, `sc-sha`) of the exact UTF-8 body of the
+first HTTP request that backend is sent, for the model it runs with:
+
+- Jev: the body `{"model":...,"state":...,"questions":...}`. `jev` is sent as
+  `jev-latest`.
+- Anthropic Haiku and OpenAI Luna: the token-count body, which is sent before
+  the judge message and is the one the session log records. It holds the model,
+  the canonical payload and the LLM system prompt.
+
+It is computed before sending, with no API key, and equals the
+`request_sha256` the session-log row records for the same send (tests:
+`cargo test -p sc-jev-check --test request_digest`). It changes when a
+question, the state, the model or the LLM system prompt changes. `prompt_sha256`
+covers none of the model or the system prompt, so it cannot key a cache.
+
+A backend is left out of the object when its bytes cannot be known before a
+send or nothing would be sent: an LLM backend after another backend in
+`chain_context` mode (its system prompt carries the earlier answers), or an LLM
+backend given a question it refuses (`noul`). The size limit is not applied: a
+dry run reports the digest of an over-limit body next to its `over_limit` flag.

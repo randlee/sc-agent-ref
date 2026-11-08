@@ -30,7 +30,7 @@ acceptance root, when it differs, is shown as "root a-N"; the closure table in
 | REQ-SAG-0314 | Request byte cap owned by each backend; dry-run reports `over_limit` | r-2 |
 | REQ-SAG-0607 | Stateless `FileSessionStore`, no-lock concurrency model, one write per run | r-2 |
 | REQ-SAG-0620 | One engine API (`prepare` → `run`) and one `RunResponse` | r-2 |
-| REQ-SAG-0621 | `RunResponse::questions_sha256`: SHA-256 of the question set alone, for a consumer cache lookup (no cache here) | agt-uum |
+| REQ-SAG-0621 | `RunResponse::questions_sha256` (identifies a question set) and per-backend `request_sha256` (identifies an identical request, for cached-response substitution), both computed before sending; no cache here | agt-uum |
 
 Consumer boundary: [`extraction.md`](extraction.md). Subjects schema: [`subjects-schema.md`](../sc-agent-types/subjects-schema.md).
 

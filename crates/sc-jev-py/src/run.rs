@@ -15,7 +15,7 @@ use std::sync::Arc;
 use pyo3::prelude::*;
 use pyo3::types::{PyAnyMethods, PyBytes};
 use sc_agent_types::schema::subjects::SubjectsProducer;
-use sc_agent_types::{BackendSet, JevError, ProjectLabel, Rev, SessionId, Sha256Digest};
+use sc_agent_types::{BackendId, BackendSet, JevError, ProjectLabel, Rev, SessionId, Sha256Digest};
 use sc_decision_schema::{MultiBackendMode, canonical_json_bytes};
 use sc_jev_check::run::{CheckSource, RunResponse};
 use sc_jev_host::compose::{ComposeInputs, ask_from, explicit_repo_root, prepare_from};
@@ -78,6 +78,7 @@ struct PreparedRequest {
     payload: String,
     prompt_sha256: Sha256Digest,
     questions_sha256: Sha256Digest,
+    request_sha256: Vec<(BackendId, Sha256Digest)>,
     producer: Option<SubjectsProducer>,
 }
 
@@ -211,6 +212,7 @@ fn build(
         payload: prepared.request().payload().as_str().to_owned(),
         prompt_sha256: prepared.prompt_sha256().clone(),
         questions_sha256: prepared.request().payload().questions_sha256()?,
+        request_sha256: prepared.request_sha256(),
         producer: prepared.producer().cloned(),
     })
 }
@@ -294,7 +296,23 @@ pub(crate) struct CheckResult {
     inner: FinishedRun,
     outcomes: Py<PyAny>,
     equal_input: Py<PyAny>,
+    request_sha256: Py<PyAny>,
     data: Py<PyAny>,
+}
+
+/// `request_sha256` as a backend-id to digest mapping.
+fn request_digest_map(digests: &[(BackendId, Sha256Digest)]) -> serde_json::Value {
+    serde_json::Value::Object(
+        digests
+            .iter()
+            .map(|(backend, digest)| {
+                (
+                    backend.to_string(),
+                    serde_json::Value::String(digest.as_str().to_owned()),
+                )
+            })
+            .collect(),
+    )
 }
 
 impl CheckResult {
@@ -306,11 +324,17 @@ impl CheckResult {
             "equal-input JSON",
             serde_json::to_value(inner.response.equal_input()),
         )?;
+        let request_sha256 = to_py(
+            py,
+            "request digests JSON",
+            Ok(request_digest_map(inner.response.request_sha256())),
+        )?;
         let data = to_py(py, "run data JSON", serde_json::to_value(&inner.response))?;
         Ok(Self {
             inner,
             outcomes,
             equal_input,
+            request_sha256,
             data,
         })
     }
@@ -337,6 +361,18 @@ impl CheckResult {
     #[getter]
     fn questions_sha256(&self) -> &str {
         self.inner.questions_sha256().as_str()
+    }
+
+    /// Per backend id, the SHA-256 of the exact first request body that
+    /// backend is sent, computed before sending (no key, no send). It
+    /// identifies an identical request, so a consumer can substitute a cached
+    /// response. Equals the session-log `request_sha256` of the same send.
+    /// A backend is absent when its bytes depend on an earlier answer
+    /// (`chain_context`) or it refuses the questions. `jev` is sent as
+    /// `jev-latest`: cache on pinned versions.
+    #[getter]
+    fn request_sha256(&self, py: Python<'_>) -> Py<PyAny> {
+        self.request_sha256.clone_ref(py)
     }
 
     /// Canonical payload JSON.
@@ -465,7 +501,7 @@ impl Session {
 /// current directory (the directory itself outside git).
 /// `rev` defaults to `WORKTREE`. The GIL is released while the request is
 /// assembled (git reads and command extractors may take seconds). The result
-/// mapping contains `payload`, `prompt_sha256`, `questions_sha256`, and `producer`.
+/// mapping contains `payload`, `prompt_sha256`, `questions_sha256`, `request_sha256` (a backend-id to digest mapping), and `producer`.
 ///
 /// # Errors
 ///
@@ -493,6 +529,7 @@ pub(crate) fn build_request(
         "payload": built.payload,
         "prompt_sha256": built.prompt_sha256,
         "questions_sha256": built.questions_sha256,
+        "request_sha256": request_digest_map(&built.request_sha256),
         "producer": built.producer,
     });
     to_py(py, "build_request JSON", Ok(body))

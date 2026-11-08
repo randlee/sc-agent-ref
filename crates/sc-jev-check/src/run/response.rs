@@ -40,6 +40,7 @@ const BODY_KEYS: &[&str] = &[
     "session_saved",
     "prompt_sha256",
     "questions_sha256",
+    "request_sha256",
     "payload_bytes",
     "results",
     "equal_input",
@@ -93,6 +94,7 @@ pub struct RunResponse {
     session_saved: bool,
     prompt_sha256: Sha256Digest,
     questions_sha256: Sha256Digest,
+    request_sha256: Vec<(BackendId, Sha256Digest)>,
     payload_bytes: u64,
     dry_run: bool,
     equal_input: EqualInputRecord,
@@ -106,6 +108,7 @@ pub struct RunResponse {
 pub(crate) struct ResponseParts {
     pub(crate) session_id: Option<SessionId>,
     pub(crate) questions_sha256: Sha256Digest,
+    pub(crate) request_sha256: Vec<(BackendId, Sha256Digest)>,
     pub(crate) payload_bytes: u64,
     pub(crate) equal_input: EqualInputRecord,
     pub(crate) results: Vec<BackendResult>,
@@ -122,6 +125,7 @@ impl RunResponse {
             session_id: parts.session_id,
             prompt_sha256: parts.equal_input.prompt_sha256().clone(),
             questions_sha256: parts.questions_sha256,
+            request_sha256: parts.request_sha256,
             payload_bytes: parts.payload_bytes,
             dry_run: parts.payload.is_some(),
             equal_input: parts.equal_input,
@@ -157,6 +161,17 @@ impl RunResponse {
     #[must_use]
     pub fn questions_sha256(&self) -> &Sha256Digest {
         &self.questions_sha256
+    }
+
+    /// Per backend, the SHA-256 of the first body it was (or would be) sent,
+    /// computed before sending, in `BackendSet` order. It identifies an
+    /// identical request, so a consumer can substitute a cached response; it
+    /// equals the session-log `request_sha256` of the same send. Absent for
+    /// a backend whose bytes depend on an earlier answer (an LLM backend after
+    /// another in `chain_context` mode) or that refuses the questions.
+    #[must_use]
+    pub fn request_sha256(&self) -> &[(BackendId, Sha256Digest)] {
+        &self.request_sha256
     }
 
     /// Size of the canonical payload in bytes.
@@ -268,6 +283,7 @@ impl RunResponse {
         map.serialize_entry("session_saved", &self.session_saved)?;
         map.serialize_entry("prompt_sha256", &self.prompt_sha256)?;
         map.serialize_entry("questions_sha256", &self.questions_sha256)?;
+        map.serialize_entry("request_sha256", &RequestDigests(&self.request_sha256))?;
         map.serialize_entry("payload_bytes", &self.payload_bytes)?;
         map.serialize_entry("results", &self.results)?;
         map.serialize_entry("equal_input", &self.equal_input)?;
@@ -633,6 +649,19 @@ impl Serialize for Envelope {
         map.serialize_entry("version", ENVELOPE_VERSION)?;
         map.serialize_entry("operation", self.operation)?;
         map.serialize_entry("data", &Data(self))?;
+        map.end()
+    }
+}
+
+/// `request_sha256` as a JSON object keyed by backend id, in backend order.
+struct RequestDigests<'a>(&'a [(BackendId, Sha256Digest)]);
+
+impl Serialize for RequestDigests<'_> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut map = serializer.serialize_map(Some(self.0.len()))?;
+        for (backend, digest) in self.0 {
+            map.serialize_entry(backend, digest)?;
+        }
         map.end()
     }
 }

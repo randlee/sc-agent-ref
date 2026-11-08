@@ -24,6 +24,7 @@ pub struct RunResponseBuilder {
     payload: Option<Value>,
     limits: Vec<BackendLimit>,
     questions_sha256: Option<Sha256Digest>,
+    request_sha256: Vec<(BackendId, Sha256Digest)>,
 }
 
 impl RunResponse {
@@ -85,11 +86,19 @@ impl RunResponseBuilder {
         self
     }
 
+    /// Adds a backend's pre-send `request_sha256`.
+    #[must_use]
+    pub fn request_sha256(mut self, backend: BackendId, digest: Sha256Digest) -> Self {
+        self.request_sha256.push((backend, digest));
+        self
+    }
+
     /// Finishes the response. `prompt_sha256` is `equal_input`'s.
     #[must_use]
     pub fn build(self, equal_input: EqualInputRecord) -> RunResponse {
         let response = RunResponse::from_parts(ResponseParts {
             session_id: self.session_id,
+            request_sha256: self.request_sha256,
             questions_sha256: self
                 .questions_sha256
                 .unwrap_or_else(|| Sha256Digest::of_text("")),

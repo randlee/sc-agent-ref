@@ -6,7 +6,7 @@
 //! canonical bytes (ADR-SAG-0002); `input_sha256` is recovered by inverting
 //! the final body back to canonical bytes (ADR-SAG-0025).
 
-use sc_agent_types::{BackendId, JevError, Sha256Digest};
+use sc_agent_types::{BackendId, JevError, ModelId, Sha256Digest};
 use sc_decision_schema::jev::v1::{CheckRequest, CheckResponse};
 use sc_decision_schema::{CanonicalJudgePayload, JudgeOutcome, JudgeRequest, PayloadBundle};
 use serde_json::Value;
@@ -44,6 +44,25 @@ pub(crate) fn prepare(
         return Err(JevError::input_too_large(limit_bytes, actual_bytes));
     }
     Ok(PreparedCheck { body, request })
+}
+
+/// The SHA-256 of the exact body `send` would post for `payload` and `model`,
+/// without a key or a send (the digest `SendTrace` records and the session-log
+/// `request_sha256` column holds).
+///
+/// The size limit is not applied, so a dry run can report the digest of an
+/// over-limit body next to its `over_limit` flag.
+///
+/// # Errors
+///
+/// As [`CheckRequest::from_canonical`].
+pub(crate) fn request_sha256(
+    model: &ModelId,
+    payload: &PayloadBundle,
+) -> Result<Sha256Digest, JevError> {
+    let canonical = CanonicalJudgePayload::from_bytes(payload.bytes())?;
+    let request = CheckRequest::from_canonical(model.clone(), &canonical)?;
+    Ok(Sha256Digest::of_text(&request.to_body()?))
 }
 
 /// The digest of the canonical blob recovered from a serialized Jev wire

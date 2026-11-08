@@ -80,12 +80,13 @@ fn test_jev_latest_is_sent_as_the_documented_wire_value() {
     }))
     .expect("payload");
     let bundle = PayloadBundle::encode(&canonical).expect("bundle");
+    let before = sc_jev::request_sha256(&ModelId::Jev, &bundle).expect("digest before sending");
+    let trace = SendTrace::new();
     let outcome = client
-        .judge(
-            &JudgeRequest::new(Arc::new(bundle), None),
-            &SendTrace::new(),
-        )
+        .judge(&JudgeRequest::new(Arc::new(bundle), None), &trace)
         .expect("answered");
+    // The digest computed before sending is the one the send records.
+    assert_eq!(trace.request_sha256(), Some(before));
     let sent = transport.requests();
     let body = String::from_utf8(sent[0].body().as_bytes().to_vec()).expect("utf8");
     assert!(body.starts_with(r#"{"model":"jev-latest","#), "{body}");
