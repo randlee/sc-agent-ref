@@ -125,46 +125,46 @@ jobs:
 
       - name: cargo clippy --all-features
         timeout-minutes: 20
-        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+        run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 
       - name: cargo test --workspace
         timeout-minutes: 30
-        run: cargo test --workspace
+        run: cargo test --locked --workspace
 
       # r-1 D0: sc-agent-types' `git` target declares required-features, so
       # the workspace run skips it. r-7: `mock` moved to sc-decision-schema.
       - name: cargo test -p sc-agent-types --features git
         timeout-minutes: 15
-        run: cargo test -p sc-agent-types --features git
+        run: cargo test --locked -p sc-agent-types --features git
 
       - name: cargo test -p sc-decision-schema --features test-util
         timeout-minutes: 15
-        run: cargo test -p sc-decision-schema --features test-util
+        run: cargo test --locked -p sc-decision-schema --features test-util
 
       - name: cargo test -p sc-jev-check --features test-util
         timeout-minutes: 20
-        run: cargo test -p sc-jev-check --features test-util
+        run: cargo test --locked -p sc-jev-check --features test-util
 
       - name: cargo test -p sc-jev --features test-util
         timeout-minutes: 15
-        run: cargo test -p sc-jev --features test-util
+        run: cargo test --locked -p sc-jev --features test-util
 
       - name: cargo test -p sc-jev-backends --features test-util
         timeout-minutes: 15
-        run: cargo test -p sc-jev-backends --features test-util
+        run: cargo test --locked -p sc-jev-backends --features test-util
 
       # r-3 (FTQ-002): sc-agent-http's `retry` and `ureq` targets declare
       # required-features = ["test-util"]; run them explicitly instead of
       # relying on feature unification through other crates' dev-deps.
       - name: cargo test -p sc-agent-http --features test-util
         timeout-minutes: 15
-        run: cargo test -p sc-agent-http --features test-util
+        run: cargo test --locked -p sc-agent-http --features test-util
 
       # r-3b (D3): sc-ai's `cli` target needs the hidden --scripted-answers
       # flag, present only with `test-util`; `argv` runs the cli binary.
       - name: cargo test -p sc-ai --features test-util
         timeout-minutes: 15
-        run: cargo test -p sc-ai --features test-util
+        run: cargo test --locked -p sc-ai --features test-util
 
   python:
     name: python (${{ matrix.os }})
@@ -482,7 +482,7 @@ jobs:
         timeout-minutes: 20
         env:
           RUSTDOCFLAGS: -D warnings
-        run: cargo doc --workspace --no-deps
+        run: cargo doc --locked --workspace --no-deps
 
   coverage:
     name: coverage (llvm-cov)
