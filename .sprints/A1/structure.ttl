@@ -14,4 +14,4 @@ triage:A1-PLAN67 a triage:Sprint ; triage:inPhase triage:PhaseA1 ; triage:order 
 triage:A1-R3B a triage:Sprint ; triage:inPhase triage:PhaseA1 ; triage:order 9 ; triage:criteria "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md" ; triage:branch "sprint/r-3b-compose-and-workspace-tests" .
 triage:A1-R7 a triage:Sprint ; triage:inPhase triage:PhaseA1 ; triage:order 10 ; triage:criteria "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ; triage:branch "sprint/r-7-decision-schema" .
 triage:A1-R5 a triage:Sprint ; triage:inPhase triage:PhaseA1 ; triage:order 11 ; triage:criteria "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md" ; triage:branch "sprint/r-5-jev-wire-envelope" .
-triage:A1-R6 a triage:Sprint ; triage:inPhase triage:PhaseA1 ; triage:order 12 ; triage:criteria "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md" ; triage:branch "sprint/r-6-session-log-wiring" .
+triage:A1-R6 a triage:Sprint ; triage:inPhase triage:PhaseA1 ; triage:order 12 ; triage:criteria "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md" ; triage:branch "sprint/r-6-session-log-record" .
