@@ -120,7 +120,7 @@ local `rg` check.)
    Modules and public items:
    - `request`: `HttpRequest` and `HttpResponse` with **private fields,
      constructors and accessors** (implementors of `Transport` build
-     `HttpResponse`, so no public fields): `HttpRequest::new(method, endpoint, body: Arc<[u8]>)`,
+     `HttpResponse`, so no public fields): `HttpRequest::new(method, endpoint, body: Arc<[u8]>)` (later `Arc<str>` per r-7),
      `with_header(name, value)`, `with_secret(SecretHeader)`, accessors
      `method()`, `endpoint()`, `headers()`, `secret()`, `body()`;
      `HttpResponse::new(status: u16, headers, body: Vec<u8>)`, accessors

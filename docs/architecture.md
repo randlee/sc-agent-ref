@@ -1408,7 +1408,7 @@ HTTP half amends ADR-SAG-0006, 0007,
 **Status:** Active (Phase A.1) — landed in r-3.
 
 - (Active, r-3) `sc-agent-http` (published) owns `HttpRequest`
-  (`body: Arc<[u8]>`) / `HttpResponse`, `Endpoint`, `SecretHeader`,
+  (`body: Arc<str>`) / `HttpResponse`, `Endpoint`, `SecretHeader`,
   `Transport`, `UreqTransport` (one `Agent` built in `new`, 8 MiB streaming
   response cap; private module `ureq_transport`), `BusyPolicy` /
   `send_with_busy_retry` (with `CancelToken`) and redaction of every error it
