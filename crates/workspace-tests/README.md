@@ -46,5 +46,7 @@ the helper runs release-shaped binaries only.
   `test_env_reads_only_in_owners` (a text scan: an aliased import evades it,
   and review covers that).
 - **`test_util_off`**: no workspace crate's `test-util` feature is on a normal
-  edge (`cargo tree -e normal,features`, with a positive control), and the
-  release-built `sc-ai` rejects `--scripted-answers`.
+  edge (`cargo tree -e normal,features`, with a positive control).
+- **`test_util_off_binary`**: the release-built `sc-ai` rejects
+  `--scripted-answers`. A separate target, so its `cargo build` never runs
+  alongside `test_util_off`'s serialized `cargo tree` calls.

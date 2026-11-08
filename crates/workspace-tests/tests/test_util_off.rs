@@ -1,22 +1,24 @@
 //! The dev-only `test-util` seams stay out of production (plan "Test
-//! seams", RBQA-F103).
-
-mod support;
+//! seams", RBQA-F103): the graph half. The release-binary half is
+//! `test_util_off_binary`, a separate test binary, so this one never runs a
+//! `cargo build` alongside its serialized `cargo tree` calls (FTQ-004).
 
 #[path = "../../../tests/support/deadline.rs"]
+#[expect(
+    dead_code,
+    reason = "the shared runner is included whole; this target uses only spawn_with_limit"
+)]
 mod deadline;
 
 use std::path::Path;
 use std::process::Command;
 use std::time::Duration;
 
-use deadline::{spawn_with_deadline, spawn_with_limit};
-use sc_agent_types::ScAgentErrorResponse;
-use support::bin_path::bin_path;
+use deadline::spawn_with_limit;
 
 #[expect(
     clippy::disallowed_methods,
-    reason = "process spawn: runs cargo tree (a graph query, no build) and the built sc-ai binary"
+    reason = "process spawn: runs cargo tree, a graph query with no build"
 )]
 fn command(program: &Path) -> Command {
     Command::new(program)
@@ -134,33 +136,5 @@ fn test_test_util_absent_from_normal_graph() {
     assert!(
         offenders.is_empty(),
         "test-util is enabled on a normal edge: {offenders:?}"
-    );
-}
-
-/// RBQA-F103 (a): the published `sc-ai` binary has no `--scripted-answers`.
-#[test]
-fn test_release_binary_rejects_scripted_answers() {
-    let binary = bin_path("sc-ai", "sc-ai");
-    let output = spawn_with_deadline(
-        command(&binary)
-            .args(["jev", "run", "--scripted-answers", "x"])
-            .env_remove("SC_LOG_ROOT"),
-        None,
-    );
-    assert_eq!(output.status.code(), Some(2), "{:?}", output.status);
-    assert!(output.stdout.is_empty());
-    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
-    let lines: Vec<&str> = stderr.lines().collect();
-    assert_eq!(lines.len(), 1, "one ScAgentErrorResponse line: {stderr}");
-    let error: ScAgentErrorResponse = serde_json::from_str(lines[0]).expect("typed error line");
-    assert_eq!(error.schema_version(), 1);
-    let value: serde_json::Value = serde_json::from_str(lines[0]).expect("json");
-    assert_eq!(value["error"], "INPUT_INVALID");
-    assert!(
-        value["message"]
-            .as_str()
-            .expect("message")
-            .contains("--scripted-answers"),
-        "{value}"
     );
 }
