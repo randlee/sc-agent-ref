@@ -190,7 +190,7 @@ where
     V: Deserialize<'de>,
 {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let Pairs(pairs) = Pairs::deserialize(deserializer)?;
+        let Pairs(pairs) = Pairs::<K, V>::deserialize(deserializer)?;
         match duplicate_key(&pairs) {
             Some(key) => Err(de::Error::custom(duplicate_message(key))),
             None => Ok(Self(pairs)),
