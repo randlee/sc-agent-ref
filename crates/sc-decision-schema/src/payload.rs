@@ -99,6 +99,25 @@ struct RawQuestion {
     descriptions: Option<Vec<String>>,
 }
 
+/// `INPUT_INVALID` for a body that did not parse: the serde category and the
+/// line and column only, never body bytes, with a hint to fix the body.
+pub(crate) fn decode_failed(what: &str, error: &serde_json::Error) -> JevError {
+    let category = match error.classify() {
+        serde_json::error::Category::Io => "I/O error",
+        serde_json::error::Category::Syntax => "syntax error",
+        serde_json::error::Category::Data => "data error (a field is missing, unknown or mistyped)",
+        serde_json::error::Category::Eof => "unexpected end of input",
+    };
+    let at = if error.line() == 0 {
+        String::new()
+    } else {
+        format!(" at line {} column {}", error.line(), error.column())
+    };
+    JevError::input_invalid(format!(
+        "{what} is not valid: {category}{at}; fix the {what}"
+    ))
+}
+
 /// A question broke its kind's rules. The text names the question id, the
 /// kind and the counts, never the prompt.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -406,7 +425,7 @@ impl CanonicalJudgePayload {
     /// ```
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, JevError> {
         let raw: RawPayload = serde_json::from_slice(bytes)
-            .map_err(|error| JevError::encode_failed("canonical payload", &error))?;
+            .map_err(|error| decode_failed("canonical payload", &error))?;
         Ok(Self::try_from(raw)?)
     }
 

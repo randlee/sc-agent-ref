@@ -364,3 +364,22 @@ fn test_duplicate_key_rejected() {
         "INPUT_INVALID"
     );
 }
+
+/// A malformed caller body is a fix-the-body error, not an encoder bug: the
+/// hint carries the category and position only.
+#[test]
+fn test_malformed_body_hint_is_fix_the_body() {
+    let secret = "SECRET-BODY-TEXT";
+    for error in [
+        CheckRequest::parse(&format!(r#"{{"model": "{secret}", "#)).expect_err("eof"),
+        CheckRequest::parse(r#"{"model":"jev-1.13.0"}"#).expect_err("data"),
+        CanonicalJudgePayload::from_bytes(format!("{{{secret}").as_bytes()).expect_err("syntax"),
+    ] {
+        assert_eq!(error.code(), "INPUT_INVALID");
+        let hint = error.fix_hint();
+        assert!(hint.contains("fix the"), "{hint}");
+        assert!(!hint.contains("encoded"), "{hint}");
+        assert!(!hint.contains("bug"), "{hint}");
+        assert!(!hint.contains(secret), "{hint}");
+    }
+}

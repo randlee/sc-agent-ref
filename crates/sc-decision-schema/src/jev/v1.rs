@@ -46,6 +46,7 @@ use crate::ids::{ChoiceId, QuestionId};
 use crate::judge::QuestionAnswer;
 use crate::payload::{
     CanonicalJudgePayload, ChoiceAnswer, DecisionAnswers, PayloadBundle, Question, QuestionKind,
+    decode_failed,
 };
 
 /// Fewest options a `choice` or `score` question has.
@@ -560,8 +561,8 @@ impl CheckRequest {
     /// a question breaks its criteria count. Any other failure names only
     /// the category and position, never body bytes (ADR-SAG-0020).
     pub fn parse(body: &str) -> Result<Self, JevError> {
-        let raw: RawCheckRequest = serde_json::from_str(body)
-            .map_err(|error| JevError::encode_failed("Jev wire body", &error))?;
+        let raw: RawCheckRequest =
+            serde_json::from_str(body).map_err(|error| decode_failed("request body", &error))?;
         Self::try_from(raw)
     }
 
