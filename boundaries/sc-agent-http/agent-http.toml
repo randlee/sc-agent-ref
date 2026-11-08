@@ -9,7 +9,7 @@
 # (SCB-MANIFEST-004). Dev-only edges are counted (D0 spike); this crate has
 # no self dev-dependency: its `retry` and `ureq` targets declare
 # `[[test]] required-features = ["test-util"]`.
-# The plan text's `sc-agent-compose` forbidden edge is added by r-3b with that
+# The plan text's `sc-jev-host` forbidden edge is added by r-3b with that
 # crate: sc-lint 0.8.0 rejects an edge to a package that is not a workspace
 # member yet (CLI.CONFIG_ERROR).
 

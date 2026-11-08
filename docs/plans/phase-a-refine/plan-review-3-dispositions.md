@@ -128,7 +128,7 @@ D1–D13 and owner decisions (a), (b) are not reopened; (c) D9 stays pending.
 | EXT-030 | Applied: consumer rule (a `schema_version` other than `1` = unknown shape; fall back to exit code and raw line; bumps announced in the changelog) in ADR-SAG-0027 and r-1 D6.7; r-3b adds it to `docs/sc-ai` and `docs/sc-jev-py`. | arch ADR-0027; r-1; r-3b D2.4 |
 | EXT-031 | Applied: `DefaultRoot` / `SessionDefault` are data-carrying enums with `Fixed(PathBuf)`; `PathPolicy` has public fields; `test_custom_path_policy_resolves`. | r-3b D2.2, acceptance, validation |
 | EXT-032 | Partial, as directed (consistent with RBQA-F102): kept the mechanism scans and the one robust allow check (`test_no_allow_attributes` now catches forms clippy and `rg` miss, and replaces the `rg` gate from r-3b on); dropped the text-match `test_git_spawn_only_in_types_git` (superseded by the type-aware clippy rule plus the expect-site scan); dropped `docs/workspace-tests/**` for one README paragraph per target. Declined: folding ADR-SAG-0028 away, because the ADR index, the r-3b `adrs` lists and arch-qa's ARCH-017 depend on it; compose's per-crate docs stay because compose is published. | r-3b D7.3, ADR text, owned_paths; plan boundary map; arch ADR-0028 |
-| EXT-033 | Applied: type note in r-3b D2 (compose README/rustdoc) and ADR-SAG-0026 compose half. | r-3b D2.2, D2.4; arch ADR-0026 |
+| EXT-033 | Applied: type note in r-3b D2 (compose README/rustdoc) and ADR-SAG-0026 host half. | r-3b D2.2, D2.4; arch ADR-0026 |
 
 ## rust-best-practices-agent (minor notes)
 

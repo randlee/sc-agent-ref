@@ -64,6 +64,10 @@ impl GitBlob {
     }
 }
 
+#[expect(
+    clippy::disallowed_methods,
+    reason = "process spawn: the one argv-only `git` command every revision read goes through (ADR-SAG-0028)"
+)]
 fn git(dir: &Path) -> Command {
     let mut command = Command::new("git");
     command

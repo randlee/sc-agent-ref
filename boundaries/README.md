@@ -13,6 +13,8 @@ id referenced in `docs/plans/phase-a/plan.md`:
 | `treesitter` | `sc-treesitter` | `sc-treesitter` |
 | `jev-py` | `sc-jev-py` | `sc-jev-py` |
 | `sc-ai-cli` | `sc-ai` | `sc-ai` |
+| `jev-host` | `sc-jev-host` | `sc-jev-host` |
+| `workspace-tests` | `workspace-tests` | `workspace-tests` |
 
 Sprint **a-1** commits stub manifests next to this README. Each directory name
 is the Cargo package name (`sc-lint` requires that). `boundary_id` and `name`
@@ -42,7 +44,7 @@ carry the Phase A boundary id. `boundaries/planning.toml` sets
 | `SCB-DEPENDENCY-002` | `allowed_dependents` | A workspace crate depending on this one without permission |
 | `SCB-DEPENDENCY-003` | `forbidden_edges` | A forbidden direct workspace-to-workspace edge that exists |
 | `SCB-DEPENDENCY-004` | `allowed_dependents` | A permission with no matching edge (stale) |
-| `SCB-MANIFEST-004` | `sc-lint.toml` `global_dependency_ownership` | A third-party crate (`ureq`, `pyo3`, `tree-sitter*`, `keyring`, `sc-observability`, `sc-observability-types`, `mimalloc`) declared or imported outside its owning crates |
+| `SCB-MANIFEST-004` | `sc-lint.toml` `global_dependency_ownership` | A third-party crate (`ureq`, `pyo3`, `tree-sitter*`, `keyring`, `sc-observability`, `mimalloc`, `clap`) declared or imported outside its owning crates |
 
 sc-boundary 0.8.0 accepts third-party names in `allowed_dependencies` and
 `forbidden_edges` but does not check them. The ownership records in
@@ -106,7 +108,7 @@ which no manifest owns). So, from r-1 on:
   depending crate's `allowed_dev_dependencies` (or `allowed_dependencies`)
   and the dependent in the target's `allowed_dependents`. r-3b's
   `workspace-tests` takes the "counted" branch (`sc-agent-types`,
-  `sc-jev-check`, `sc-agent-compose` add `workspace-tests` to
+  `sc-jev-check`, `sc-jev-host` add `workspace-tests` to
   `allowed_dependents`).
 - `facade = ""` is rejected, so r-3b's `workspace-tests` manifest uses
   `facade = "workspace_tests"` (plan.md "New boundary manifests").

@@ -7,9 +7,11 @@ members = [
     "crates/sc-jev",
     "crates/sc-jev-backends",
     "crates/sc-jev-check",
+    "crates/sc-jev-host",
     "crates/sc-treesitter",
     "crates/sc-ai",
     "crates/sc-jev-py",
+    "crates/workspace-tests",
 ]
 
 [workspace.package]
@@ -39,6 +41,9 @@ sc-agent-http = { version = "0.1.0", path = "crates/sc-agent-http" }
 # the deliberate-lockstep crates listed there; .github/scripts/check-exact-pins.sh
 # fails on any other `=` requirement (NFR-SAG-0004).
 sc-observability = "=1.5.0"
+# Intra-workspace lockstep (ADR-SAG-0023 r-3b): sc-ai and sc-jev-py pin the
+# composition crate exactly; its signatures name sc-jev-check types.
+sc-jev-host = { version = "=0.1.0", path = "crates/sc-jev-host" }
 # Binary-only: optional behind the `cli` feature of sc-ai and sc-treesitter.
 mimalloc = "0.1.52"
 clap = { version = "4", features = ["derive"] }

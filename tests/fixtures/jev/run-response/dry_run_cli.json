@@ -1,0 +1,47 @@
+{
+  "session_id": null,
+  "session_saved": false,
+  "prompt_sha256": "db1717b314bddc4df41d31336ed0904363d32d69314f825468d1300f8e0b7600",
+  "payload_bytes": 156,
+  "results": [],
+  "equal_input": {
+    "prompt_sha256": "db1717b314bddc4df41d31336ed0904363d32d69314f825468d1300f8e0b7600",
+    "mode": "independent",
+    "backends": [
+      {
+        "backend": "jev",
+        "attestation": {
+          "status": "not_sent"
+        }
+      }
+    ],
+    "leak": false,
+    "equal": false,
+    "producer": null
+  },
+  "payload": {
+    "questions": [
+      {
+        "choices": [
+          "no",
+          "yes"
+        ],
+        "id": "relevant",
+        "prompt": "Does the note apply?\n\nalpha note\n"
+      }
+    ],
+    "state": [
+      {
+        "choice": "yes",
+        "question_id": "relevant"
+      }
+    ]
+  },
+  "limits": [
+    {
+      "backend": "jev",
+      "request_limit_bytes": 96000,
+      "over_limit": false
+    }
+  ]
+}

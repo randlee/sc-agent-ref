@@ -203,7 +203,7 @@ other design points are applied unless they contradict an accepted D decision.
   D0 spike result), r-3, r-3b, r-4.
 - **Publish order** (crates.io): `sc-agent-types`, `sc-agent-secrets`,
   `sc-agent-http` (from r-3), `sc-jev`, `sc-jev-backends`, `sc-jev-check`,
-  `sc-agent-compose` (from r-3b), `sc-treesitter`, `sc-ai`; from r-7 the
+  `sc-jev-host` (from r-3b), `sc-treesitter`, `sc-ai`; from r-7 the
   order in r-7 D1.5 (`sc-decision-schema` second). `sc-jev-py` ships
   to PyPI only. `workspace-tests` is `publish = false`.
 
@@ -215,19 +215,19 @@ paths only in the wave named.
 
 | Crate / file | Manifest | Contract delta in A.1 | Owning sprint (wave) |
 | --- | --- | --- | --- |
-| `sc-agent-types` | `boundaries/sc-agent-types/agent-types.toml` | The whole types break (D1, D6, D7, D10-break, D11 types part): `BackendDescriptor` static facts + `BACKENDS`; provided `capabilities()`; `BackendCapabilities` ctor + private fields; explicit `JevError` variants (constructor per struct-like variant) + `ProducerError`; `ErrorCode`; `ScAgentErrorResponse` `schema_version`/`retryable`/`details` with a per-field rule (`from_jev_error` name kept); `NetworkErrorKind`; `retryable()`; `RepoRelativePath`, `QuestionId`, `ChoiceId`, `BlobSha`, `Operation`, `BackendSet`, `CancelToken` (always-on core); typed `answers`; `JudgeOutcome.input_sha256: Option`; `Attestation` enum; `MultiBackendMode`; `PayloadBundle::encode`; private `CanonicalJudgePayload` fields; `schema::subjects` + `SubjectsBuilder`, `SubjectsDocument` as the one validated type; `LogRejected`; `git` module; features `judge`/`secret`/`obs` (default) and `git` (non-default), `test-util`; `ResolvedApiKey` on `Arc<str>`, unchecked `new` deleted in every build; `QuestionAnswer.confidence`; `PayloadBundle::question_choices`; `sha2` in core; `MockJudgeBackend` full contract (r-1 D10.11); the a-10 `#[allow]` in `ids.rs` → `#[expect]`. Manifest: facade, features, `-sc-observability-types`, the D0 spike paragraph in `boundaries/README.md` (r-1); `allowed_dependents` `+sc-agent-http` (r-3), `+sc-agent-compose` and (in the "dev edges counted" branch of r-1's D0 spike) `+workspace-tests` (r-3b) | r-1 (1); manifest r-3 (2), r-3b (4); decision types moved out, model catalog, `SendTrace`, `ProjectLabel` r-7 (5); ULID, `sc-sha`, `LogEvent` fields r-6 (6). `judge.rs` moves to `sc-decision-schema` in r-7, so r-5's payload edit lands there |
+| `sc-agent-types` | `boundaries/sc-agent-types/agent-types.toml` | The whole types break (D1, D6, D7, D10-break, D11 types part): `BackendDescriptor` static facts + `BACKENDS`; provided `capabilities()`; `BackendCapabilities` ctor + private fields; explicit `JevError` variants (constructor per struct-like variant) + `ProducerError`; `ErrorCode`; `ScAgentErrorResponse` `schema_version`/`retryable`/`details` with a per-field rule (`from_jev_error` name kept); `NetworkErrorKind`; `retryable()`; `RepoRelativePath`, `QuestionId`, `ChoiceId`, `BlobSha`, `Operation`, `BackendSet`, `CancelToken` (always-on core); typed `answers`; `JudgeOutcome.input_sha256: Option`; `Attestation` enum; `MultiBackendMode`; `PayloadBundle::encode`; private `CanonicalJudgePayload` fields; `schema::subjects` + `SubjectsBuilder`, `SubjectsDocument` as the one validated type; `LogRejected`; `git` module; features `judge`/`secret`/`obs` (default) and `git` (non-default), `test-util`; `ResolvedApiKey` on `Arc<str>`, unchecked `new` deleted in every build; `QuestionAnswer.confidence`; `PayloadBundle::question_choices`; `sha2` in core; `MockJudgeBackend` full contract (r-1 D10.11); the a-10 `#[allow]` in `ids.rs` → `#[expect]`. Manifest: facade, features, `-sc-observability-types`, the D0 spike paragraph in `boundaries/README.md` (r-1); `allowed_dependents` `+sc-agent-http` (r-3), `+sc-jev-host` and (in the "dev edges counted" branch of r-1's D0 spike) `+workspace-tests` (r-3b) | r-1 (1); manifest r-3 (2), r-3b (4); decision types moved out, model catalog, `SendTrace`, `ProjectLabel` r-7 (5); ULID, `sc-sha`, `LogEvent` fields r-6 (6). `judge.rs` moves to `sc-decision-schema` in r-7, so r-5's payload edit lands there |
 | `sc-decision-schema` (new, published) | `boundaries/sc-decision-schema/decision-schema.toml` (new) | Created (ADR-SAG-0030): the decision types moved from `sc-agent-types`, `DecisionSchemaId` versions, `llm::v1`, `variants`, `session_log` (DDL + `fields{}` projection, ADR-SAG-0031), `JudgeBackend::model_id`, `judge(req, &SendTrace)`, `test_util::MockJudgeBackend`. Manifest text in the r-7 sprint doc. r-5 owns `payload.rs` + `jev/**` (`jev::v1`) (6); r-6 owns `MockJudgeBackend::with_sent_body` (6) | r-7 (5), r-5 (6), r-6 (6) |
 | `sc-agent-secrets` | `boundaries/sc-agent-secrets/agent-secrets.toml` | Call sites only (`ResolvedApiKey` shape). No manifest change | r-1 (1) |
 | `sc-agent-http` (new, published) | `boundaries/sc-agent-http/agent-http.toml` (new) | Created: `HttpRequest` (`body: Arc<[u8]>`), `HttpResponse`, `Method`, `Endpoint`, `SecretHeader`, `Transport`, `UreqTransport`, `BusyPolicy`, `send_with_busy_retry`, `redact`. Manifest text below | r-3 (2), r-7 required `SendTrace` parameter on the exchange fns (5), r-6 digest recording in `retry.rs` (6) |
 | `sc-jev` | `boundaries/sc-jev/jev.toml` | r-1: infallible `JevClient::new`, `with_default_transport`, descriptor-read byte cap, typed answers (with `confidence`), `#[allow]` in `client/https.rs` → `#[expect]`. r-3: `client/{transport,retry,https}.rs` deleted, built on `sc-agent-http`; `JevClient` stays in `client/mod.rs`; dependencies `-ureq +sc-agent-http`. r-2b (`check.rs`, `client/**`, `lib.rs`): `input_sha256` recovered from the final body; `test-util` feature with the `WireFault` hook and `JevClient::with_wire_fault`; real-wire-builder digest test. r-5: envelope | r-1 (1), r-3 (2), r-2b (3), r-7 imports, `ModelId` config, `fn model_id`, request-trace hand-off (5), r-5 (6) |
 | `sc-jev-backends` | `boundaries/sc-jev-backends/jev-backends.toml` | Same split as `sc-jev` (r-1 ctor/limit/answers and the `transport.rs` `#[allow]`; r-3 transport; r-2b digest, `test-util`/`WireFault`, real-wire-builder digest test; r-5 validate) | r-1 (1), r-3 (2), r-2b (3), r-7 imports, catalog model, `fn model_id`, request-trace hand-off, `llm::v1` parse (5), r-5 `validate.rs`/`wire.rs` (6) |
-| `sc-jev-check` | `boundaries/sc-jev-check/jev-check.toml` | r-1: call sites, session document v2, `InputSpec` moved in unchanged from types, private backend factory table (`--lib` coverage test), `ScriptedJudge`/`RequestLog` deleted (`register_scripted_backends` over `MockJudgeBackend`), and the one `Cargo.toml` line `test-util = ["sc-agent-types/test-util"]`. r-2: `Cargo.toml` (`sc-agent-types` `features = ["git"]`, `[[test]] required-features = ["test-util"]` entries; no self dev-dependency), `prepare`/`run`/`discover_repo_root`, `RunConfig`, `PreparedRun`, `CheckSource`, `CallerRequest`, `RunResponse` (incl. `warnings`) + `Envelope`, `RunResponse::test_builder` (`test-util`), `FileSessionStore`, `BackendRegistry::{from_env, register}`, `InputSpec::Command.path`; facade rewritten. r-2b: run-loop semantics, `registry/scripted.rs` digest reporting. r-3b: manifest `allowed_dependents` `+sc-agent-compose` (and `+workspace-tests` in the "dev edges counted" branch of r-1's D0 spike) | r-1 (1), r-2 (2), r-2b (3), r-3b manifest (4), r-7 imports + `[models]` (5), r-6 row emission, ULID, `discover_main_repo_root` (6) |
-| `sc-agent-compose` (new, published) | `boundaries/sc-agent-compose/agent-compose.toml` (new) | Created: `obs`, `paths::PathPolicy`, `compose::{run_from, ask_from}`, `ComposeInputs`. Manifest text below | r-3b (4), r-7 imports (5), r-6 `obs.rs` + `compose.rs` (6) |
-| `sc-ai` | `boundaries/sc-ai/sc-ai-cli.toml` | r-1: call sites incl. `main.rs` (error-variant migration; `command.rs` id equality → descriptor fact). r-4: `Cargo.toml` only — `cli` feature, optional mimalloc + clap, `[[bin]] required-features = ["cli"]` (the unconditional `#[global_allocator]` then compiles only with `cli`; `main.rs` unchanged). r-2: engine migration. r-3b: clap parser, compose, partial-failure stdout/stderr/exit 2, `--chain-context`; dependencies `-sc-observability +sc-agent-compose` | r-1 (1), r-4 (1, `Cargo.toml` only), r-2 (2), r-3b (4), r-7 imports (5), r-6 `--project` + ULID (6) |
-| `sc-jev-py` | `boundaries/sc-jev-py/jev-py.toml` | r-1: call sites. r-2: engine migration. r-3b: compose, `chain_context` kwarg, `JevError.response`, `.pyi`; dependencies `-sc-observability +sc-agent-compose`; `jev_cross_impl` `[[test]]` deleted | r-1 (1), r-2 (2), r-3b (4), r-7 imports (5), r-6 `project=` + ULID (6) |
+| `sc-jev-check` | `boundaries/sc-jev-check/jev-check.toml` | r-1: call sites, session document v2, `InputSpec` moved in unchanged from types, private backend factory table (`--lib` coverage test), `ScriptedJudge`/`RequestLog` deleted (`register_scripted_backends` over `MockJudgeBackend`), and the one `Cargo.toml` line `test-util = ["sc-agent-types/test-util"]`. r-2: `Cargo.toml` (`sc-agent-types` `features = ["git"]`, `[[test]] required-features = ["test-util"]` entries; no self dev-dependency), `prepare`/`run`/`discover_repo_root`, `RunConfig`, `PreparedRun`, `CheckSource`, `CallerRequest`, `RunResponse` (incl. `warnings`) + `Envelope`, `RunResponse::test_builder` (`test-util`), `FileSessionStore`, `BackendRegistry::{from_env, register}`, `InputSpec::Command.path`; facade rewritten. r-2b: run-loop semantics, `registry/scripted.rs` digest reporting. r-3b: manifest `allowed_dependents` `+sc-jev-host` (and `+workspace-tests` in the "dev edges counted" branch of r-1's D0 spike) | r-1 (1), r-2 (2), r-2b (3), r-3b manifest (4), r-7 imports + `[models]` (5), r-6 row emission, ULID, `discover_main_repo_root` (6) |
+| `sc-jev-host` (new, published) | `boundaries/sc-jev-host/jev-host.toml` (new) | Created: `obs`, `paths::PathPolicy`, `compose::{run_from, ask_from}`, `ComposeInputs`. Manifest text below | r-3b (4), r-7 imports (5), r-6 `obs.rs` + `compose.rs` (6) |
+| `sc-ai` | `boundaries/sc-ai/sc-ai-cli.toml` | r-1: call sites incl. `main.rs` (error-variant migration; `command.rs` id equality → descriptor fact). r-4: `Cargo.toml` only — `cli` feature, optional mimalloc + clap, `[[bin]] required-features = ["cli"]` (the unconditional `#[global_allocator]` then compiles only with `cli`; `main.rs` unchanged). r-2: engine migration. r-3b: clap parser, compose, partial-failure stdout/stderr/exit 2, `--chain-context`; dependencies `-sc-observability +sc-jev-host` | r-1 (1), r-4 (1, `Cargo.toml` only), r-2 (2), r-3b (4), r-7 imports (5), r-6 `--project` + ULID (6) |
+| `sc-jev-py` | `boundaries/sc-jev-py/jev-py.toml` | r-1: call sites. r-2: engine migration. r-3b: compose, `chain_context` kwarg, `JevError.response`, `.pyi`; dependencies `-sc-observability +sc-jev-host`; `jev_cross_impl` `[[test]]` deleted | r-1 (1), r-2 (2), r-3b (4), r-7 imports (5), r-6 `project=` + ULID (6) |
 | `sc-treesitter` | `boundaries/sc-treesitter/treesitter.toml` | r-1: `SubjectsBuilder`, producer-neutral variants — owns `src/grammar.rs`, `src/query.rs`, `src/git_io.rs`, `src/main.rs`, `src/render.rs`, `src/extract.rs`, `src/lib.rs` for the error-variant migration. r-4: `Cargo.toml` only (`cli` feature, `[[bin]] required-features`). r-3c: clap parser (`main.rs`, `cli/`), `git` helper (`git_io.rs`), `sc-agent-types` `default-features = false`; dependencies `+clap` (optional) | r-1 (1), r-4 (1, `Cargo.toml` only), r-3c (2) |
 | `workspace-tests` (new, `publish = false`) | `boundaries/workspace-tests/workspace-tests.toml` (new) | Created: targets `jev_cross_impl`, `e2e_treesitter_producer`, `consumer_parity`, `git_read_parity`, `source_scans` (allow attributes, `disallowed_methods` expect sites, lint-mechanism presence, lints inheritance, environment-read owners), `test_util_off` (graph + release binary); helper `tests/support/bin_path.rs` (release builds, isolated target dir); one `README.md` paragraph per target, no `docs/workspace-tests/`. Manifest text below | r-3b (4), r-7 imports (5), r-6 ULID goldens (6) |
-| Root `Cargo.toml` | — | r-1: deletes the one `sc-observability-types` line in `[workspace.dependencies]` (section-scoped: that line only). r-4: every other `[workspace.dependencies]` change — caret pins, `clap` workspace dep, `mimalloc` caret, pin-policy comment. r-3: `sc-agent-http` member + dep, `[workspace.lints.clippy]` `allow_attributes = "deny"`, `allow_attributes_without_reason = "deny"`. r-3b: `sc-agent-compose`, `workspace-tests` members | r-1 (1, one line), r-4 (1), r-3 (2), r-3b (4), r-7 `sc-decision-schema` member + dep (5), r-6 `ulid`/`sc-sha` (6) |
+| Root `Cargo.toml` | — | r-1: deletes the one `sc-observability-types` line in `[workspace.dependencies]` (section-scoped: that line only). r-4: every other `[workspace.dependencies]` change — caret pins, `clap` workspace dep, `mimalloc` caret, pin-policy comment. r-3: `sc-agent-http` member + dep, `[workspace.lints.clippy]` `allow_attributes = "deny"`, `allow_attributes_without_reason = "deny"`. r-3b: `sc-jev-host`, `workspace-tests` members | r-1 (1, one line), r-4 (1), r-3 (2), r-3b (4), r-7 `sc-decision-schema` member + dep (5), r-6 `ulid`/`sc-sha` (6) |
 | `sc-lint.toml` | — | Ownership records, table below | r-4 (1), r-3 (2), r-3b (4), r-6 (6) |
 | `.github/workflows/sc-agent-ci.yml`, `.github/scripts/cargo-tree-gates.sh`, `.github/scripts/check-exact-pins.sh` | — | r-4: `--no-default-features` lib builds, mimalloc gates, pin check reading the ADR-SAG-0023 list, `cargo hack check -p sc-agent-types --feature-powerset`; the a-10 `cargo hack --each-feature test -p sc-treesitter` step kept (green through `[[test]] required-features`). r-3b: every remaining gate row (default and `--no-default-features`), the `test-util` row, the r-3c and r-3 `sc-agent-types` feature rows, the duplicate-version rows, the public-API (`cargo doc`, with deps) check in r-3's proven form, the release-wheel check, isolated per-library `cargo build -p <lib>` rows, `workspace-tests` job; pin check re-run | r-4 (1), r-3b (4), r-7 (5) |
 | `clippy.toml` | — | r-3: `disallowed-methods` for `ResolvedApiKey::as_str` (a-10) with the A.1 reason text. r-3b: `std::process::Command::new` added, after r-2 and r-3c moved every `git` caller to `sc_agent_types::git` | r-3 (2), r-3b (4) |
@@ -262,7 +262,7 @@ roots onto them.
 | `ureq` | `crates/sc-agent-http` only (replaces the a-10 `sc-jev` + `sc-jev-backends` record) | r-3 |
 | `pyo3` | `crates/sc-jev-py` (a-10 record, unchanged) | a-10 |
 | `tree-sitter`, `tree-sitter-python`, `tree-sitter-rust` | `crates/sc-treesitter` (a-10 records, unchanged) | a-10 |
-| `sc-observability` | `crates/sc-agent-compose` only | r-3b |
+| `sc-observability` | `crates/sc-jev-host` only | r-3b |
 | `sc-observability-types` | record deleted (no user after r-1); deleted by r-1 with the dependency (coordinated in r-4 QA-1) | r-1 |
 | `mimalloc` | `crates/sc-ai/Cargo.toml`, `crates/sc-treesitter/Cargo.toml` (optional, `cli`) | r-4 |
 | `clap` | `crates/sc-ai/Cargo.toml`, `crates/sc-treesitter/Cargo.toml` (optional, `cli`) | r-4 |
@@ -285,11 +285,11 @@ package name and version so `sc-jev` does not match `sc-jev-check`:
 | `sc-agent-http` | `sc-observability`, `pyo3`, `tree-sitter`, `sc-agent-secrets`, `sc-jev`, `sc-jev-backends`, `sc-jev-check`; `-e normal,features -i sc-agent-types`: features `judge`, `obs`, `git`, `default` (only `secret` may appear) | r-3 (local), r-3b (script); r-7 drops `judge` (feature deleted) |
 | `sc-jev`, `sc-jev-backends` | depth-1 `ureq`, `sc-observability`, `pyo3` | r-3 (local), r-3b (script) |
 | `sc-jev-check` | depth-1 `ureq`, `sc-observability`, `pyo3`, `tree-sitter` | r-3 (local), r-3b (script) |
-| `sc-agent-compose` | depth-1 `ureq`, `pyo3`, `tree-sitter`, `clap`, `mimalloc` | r-3b |
+| `sc-jev-host` | depth-1 `ureq`, `pyo3`, `tree-sitter`, `clap`, `mimalloc` | r-3b |
 | `sc-ai` *(lib)* | `mimalloc`, `clap`; depth-1 `sc-observability`, `ureq` | r-4 (mimalloc), r-3b (rest) |
 | `sc-treesitter` *(lib)* | `mimalloc`, `clap`, `sc-observability`; `-e normal,features -i sc-agent-types`: features `judge`, `secret`, `obs`, `git` | r-4 (mimalloc), r-3c (local clap and features), r-3b (script); r-7 drops `judge` (feature deleted) |
 | `sc-jev-py` | depth-1 `sc-observability`, `ureq` | r-3b |
-| `sc-ai`, `sc-jev-py` | `-e normal -d` (duplicate versions): `sc-jev-check`, `sc-agent-types`, `sc-agent-compose`. Compose's signatures name `sc-jev-check` types and only compose is `=`-pinned, so a split version would give two incompatible `RunResponse` types (RBQA-F106 (b)) | r-3b |
+| `sc-ai`, `sc-jev-py` | `-e normal -d` (duplicate versions): `sc-jev-check`, `sc-agent-types`, `sc-jev-host`. Compose's signatures name `sc-jev-check` types and only compose is `=`-pinned, so a split version would give two incompatible `RunResponse` types (RBQA-F106 (b)) | r-3b |
 | `workspace-tests` | `pyo3`, `tree-sitter` (`-e normal,dev`). (Dev edges are counted by `sc-boundary` per the D0 outcome, so the dev set is policed by the manifest, not by a tree row.) | r-3b |
 | every workspace crate | `-e normal,features` (no dev edges): feature `test-util` of any workspace crate | r-3b |
 | `sc-decision-schema` | rows in r-7 D1.6 | r-7 |
@@ -325,7 +325,7 @@ forbidden_edges = [
     { from = "sc-agent-http", to = "sc-jev" },
     { from = "sc-agent-http", to = "sc-jev-backends" },
     { from = "sc-agent-http", to = "sc-jev-check" },
-    { from = "sc-agent-http", to = "sc-agent-compose" },
+    { from = "sc-agent-http", to = "sc-jev-host" },
     { from = "sc-agent-http", to = "sc-observability" },
     { from = "sc-agent-http", to = "pyo3" },
     { from = "sc-agent-http", to = "tree-sitter" },
@@ -347,19 +347,19 @@ review_gates = []
 state = "concrete_landed"
 ```
 
-`boundaries/sc-agent-compose/agent-compose.toml` (r-3b). Same schema. The
+`boundaries/sc-jev-host/jev-host.toml` (r-3b). Same schema. The
 `[implementation]`, `[references]`, `[enforcement]` and `[status]` blocks are
-copied from the agent-http text above with `module = "sc_agent_compose"`;
+copied from the agent-http text above with `module = "sc_jev_host"`;
 the fields that differ:
 
 ```toml
-boundary_id = "BOUNDARY-agent-compose"
-owner_package = "sc-agent-compose"
-owner_crate_path = "sc_agent_compose"
-name = "agent-compose"
+boundary_id = "BOUNDARY-jev-host"
+owner_package = "sc-jev-host"
+owner_crate_path = "sc_jev_host"
+name = "jev-host"
 
 [public]
-facade = "sc_agent_compose::obs::ObservabilityAdapter, sc_agent_compose::paths::PathPolicy, sc_agent_compose::compose::run_from, sc_agent_compose::compose::ask_from, sc_agent_compose::compose::ComposeInputs"
+facade = "sc_jev_host::obs::ObservabilityAdapter, sc_jev_host::paths::PathPolicy, sc_jev_host::compose::run_from, sc_jev_host::compose::ask_from, sc_jev_host::compose::ComposeInputs"
 notes = "Composition-root support for sc-ai and sc-jev-py. Published as internal support, =-pinned by both, no semver promise of its own (owner decision 2026-11-06). The only crate that links sc-observability."
 
 [composition]
@@ -370,15 +370,15 @@ roots = ["obs", "paths", "compose"]
 allowed_dependents = ["sc-ai", "sc-jev-py", "workspace-tests"]
 allowed_dependencies = ["sc-agent-types", "sc-jev-check", "sc-observability", "serde_json"]
 forbidden_edges = [
-    { from = "sc-agent-compose", to = "sc-jev" },
-    { from = "sc-agent-compose", to = "sc-jev-backends" },
-    { from = "sc-agent-compose", to = "sc-agent-http" },
-    { from = "sc-agent-compose", to = "sc-agent-secrets" },
-    { from = "sc-agent-compose", to = "sc-treesitter" },
-    { from = "sc-agent-compose", to = "ureq" },
-    { from = "sc-agent-compose", to = "pyo3" },
-    { from = "sc-agent-compose", to = "clap" },
-    { from = "sc-agent-compose", to = "tree-sitter" },
+    { from = "sc-jev-host", to = "sc-jev" },
+    { from = "sc-jev-host", to = "sc-jev-backends" },
+    { from = "sc-jev-host", to = "sc-agent-http" },
+    { from = "sc-jev-host", to = "sc-agent-secrets" },
+    { from = "sc-jev-host", to = "sc-treesitter" },
+    { from = "sc-jev-host", to = "ureq" },
+    { from = "sc-jev-host", to = "pyo3" },
+    { from = "sc-jev-host", to = "clap" },
+    { from = "sc-jev-host", to = "tree-sitter" },
 ]
 
 [testing]
@@ -391,7 +391,7 @@ forbidden_test_bypasses = []
 how `sc-boundary` treats dev-only workspace edges (outcome 4, `boundaries/README.md`
 "Dev-dependency and self edges"): dev edges are counted, so this text lands as
 written and the three dependency manifests (`sc-agent-types`, `sc-jev-check`,
-`sc-agent-compose`) add `workspace-tests` to `allowed_dependents`. Third-party
+`sc-jev-host`) add `workspace-tests` to `allowed_dependents`. Third-party
 dev-deps (`serde_json`, `tempfile`) are not checked by `sc-boundary`. The schema
 rejects `facade = ""`, so the facade is `"workspace_tests"` (the empty crate root).
 
@@ -403,7 +403,7 @@ name = "workspace-tests"
 
 [public]
 facade = "workspace_tests"
-notes = "publish = false (ADR-SAG-0028). Cross-crate proofs only: no normal dependencies and an empty src/lib.rs; dev-dependencies on sc-agent-types (features = [git]), sc-jev-check, sc-agent-compose, serde_json, tempfile. The bin-path helper is tests/support/bin_path.rs. sc-treesitter and sc-ai are driven as built binaries (cargo build --features cli --message-format=json), never linked, so pyo3 and tree-sitter stay out of this graph. Source scans read files and link nothing."
+notes = "publish = false (ADR-SAG-0028). Cross-crate proofs only: no normal dependencies and an empty src/lib.rs; dev-dependencies on sc-agent-types (features = [git]), sc-jev-check, sc-jev-host, serde_json, tempfile. The bin-path helper is tests/support/bin_path.rs. sc-treesitter and sc-ai are driven as built binaries (cargo build --features cli --message-format=json), never linked, so pyo3 and tree-sitter stay out of this graph. Source scans read files and link nothing."
 
 [implementation]
 type = "marker"
@@ -416,7 +416,7 @@ roots = []
 
 [dependencies]
 allowed_dependents = []
-allowed_dependencies = ["sc-agent-types", "sc-jev-check", "sc-agent-compose"]
+allowed_dependencies = ["sc-agent-types", "sc-jev-check", "sc-jev-host"]
 forbidden_edges = [
     { from = "workspace-tests", to = "pyo3" },
     { from = "workspace-tests", to = "tree-sitter" },
@@ -447,14 +447,14 @@ state = "concrete_landed"
 Edits to existing manifests: `sc-agent-types` facade (`schema::subjects`,
 `git`, features, `test-util`), `-sc-observability-types` from its
 dependency list (r-1), `allowed_dependents` `+sc-agent-http` (r-3),
-`+sc-agent-compose` and `+workspace-tests` (r-3b; dev edges are counted); `sc-jev` / `sc-jev-backends`
+`+sc-jev-host` and `+workspace-tests` (r-3b; dev edges are counted); `sc-jev` / `sc-jev-backends`
 `allowed_dependencies` `-ureq +sc-agent-http`, forbidden `ureq` direct is
 enforced by the r-3 ownership record (r-3); `sc-jev-check` facade rewritten
-(r-2), `allowed_dependents` `+sc-agent-compose` and `+workspace-tests` (r-3b); the "counted, self entries accepted"
+(r-2), `allowed_dependents` `+sc-jev-host` and `+workspace-tests` (r-3b); the "counted, self entries accepted"
 branch (each crate with a self dev-dependency lists itself) was NOT taken —
 D0 resolved to outcome 4 (`boundaries/README.md`), so no self entries exist;
 `sc-ai` / `sc-jev-py` `allowed_dependencies` `-sc-observability
-+sc-agent-compose`, forbidden `sc-observability`, `ureq` (r-3b), `sc-ai`
++sc-jev-host`, forbidden `sc-observability`, `ureq` (r-3b), `sc-ai`
 `+clap`, `+mimalloc` optional (r-3b; r-4 adds the dependency and the
 `sc-lint.toml` record only); `sc-treesitter` `+clap` optional, `+mimalloc`
 optional, facade and `git` note (r-3c). Every manifest of a crate with a
@@ -494,7 +494,7 @@ backend crates and the scripted-backend digest.
 | http | 2 | r-3 | boundary | agent-http | r-1 | [r-2, r-3c] |
 | producer | 2 | r-3c | boundary | treesitter | r-1, r-4 | [r-2, r-3] |
 | runtime | 3 | r-2b | boundary | jev-check | r-2, r-3 | [] |
-| integration | 4 | r-3b | integration | agent-compose | r-2b, r-3, r-3c | [] |
+| integration | 4 | r-3b | integration | jev-host | r-2b, r-3, r-3c | [] |
 | schema | 5 | r-7 | contract | decision-schema | r-3b | [] |
 | jev | 6 | r-5 | boundary | jev | r-7, r-2b | [r-6] |
 | observability | 6 | r-6 | contract | session-log | r-7 | [r-5] |
@@ -554,7 +554,7 @@ line; r-4 owns the rest) and ordered by the wave-1 merge rule (r-1 first).
 | r-3b → r-3 | `sc-agent-http` in the consumer input publish order |
 | r-3b → r-3c | `sc-treesitter` `cli` binary with clap and `--version` (driven by `e2e_treesitter_producer`) |
 | r-5 → r-2b, r-3, r-3b | `input_sha256` recovery, `sc-jev` as wire-format crate, `workspace-tests --test jev_cross_impl` |
-| r-7 → r-2b, r-3, r-3b | final run loop and `JudgeOutcome` shape (r-2b), `sc-agent-http` `HttpRequest` + consumer input order (r-3), `sc-agent-compose`, `workspace-tests`, rendered release files (r-3b) |
+| r-7 → r-2b, r-3, r-3b | final run loop and `JudgeOutcome` shape (r-2b), `sc-agent-http` `HttpRequest` + consumer input order (r-3), `sc-jev-host`, `workspace-tests`, rendered release files (r-3b) |
 | r-5 → r-7 | `CanonicalJudgePayload` in `sc-decision-schema/src/payload.rs`, `DecisionAnswers`, `ModelId`, `DecisionSchemaId` versioning rule, the request-trace and `fn model_id` lines in `sc-jev` that r-5 keeps |
 | r-6 → r-7 | `SessionLogRow` + `RowContext` + `SESSION_LOG_DDL` + `COLUMNS`, `ModelId` / `ModelAliases`, `JudgeBackend::model_id`, `SendTrace` passed per send to `JudgeBackend::judge` + the required `SendTrace` parameter of `send_with_busy_retry` / `send_and_parse` with the backend hand-offs, `ProjectLabel`, `JudgeBackend` and `MockJudgeBackend` in `sc-decision-schema`, `DecisionSchemaId::CURRENT` |
 
@@ -575,7 +575,7 @@ line; r-4 owns the rest) and ordered by the wave-1 merge rule (r-1 first).
 Amendments to existing rows (each lands once): REQ-SAG-0101, REQ-SAG-0103,
 REQ-SAG-0120, REQ-SAG-0121, REQ-SAG-0701, NFR-SAG-0001 (r-1); REQ-SAG-0601,
 REQ-SAG-0710 (r-2); REQ-SAG-0505 (r-3); REQ-SAG-0130 (r-3 bullet for
-`sc-agent-http`, r-3b bullet for `sc-agent-compose`); REQ-SAG-0711 (r-3b,
+`sc-agent-http`, r-3b bullet for `sc-jev-host`); REQ-SAG-0711 (r-3b,
 root and `docs/sc-ai/requirements.md`); REQ-SAG-0103, REQ-SAG-0107 and
 REQ-SAG-0130 (r-7 bullet for `sc-decision-schema`; root and
 `docs/sc-agent-types/requirements.md`); REQ-SAG-0600 and REQ-SAG-0611 (r-6;
@@ -681,15 +681,15 @@ Details: [`sprint-r-7-decision-schema.md`](sprint-r-7-decision-schema.md),
 | ADR-SAG-0008 | independent default; `chain_context` explicit | r-2b |
 | ADR-SAG-0009 | descriptor + catalog; open = additive; factory table + test-and-review dispatch convention; `register` for existing ids only; `JudgeBackend` intentionally open | r-1 |
 | ADR-SAG-0009 | entry point is `prepare`/`run`; `run_check` deleted | r-2 |
-| ADR-SAG-0010 | `sc-ai` on `sc-agent-compose`; clap | r-3b |
-| ADR-SAG-0011 | `sc-jev-py` → `sc-agent-compose` → `sc-jev-check` | r-3b |
-| ADR-SAG-0013 | roots no longer link `sc-observability`; adapter in `sc-agent-compose` | r-3b |
+| ADR-SAG-0010 | `sc-ai` on `sc-jev-host`; clap | r-3b |
+| ADR-SAG-0011 | `sc-jev-py` → `sc-jev-host` → `sc-jev-check` | r-3b |
+| ADR-SAG-0013 | roots no longer link `sc-observability`; adapter in `sc-jev-host` | r-3b |
 | ADR-SAG-0016 | version text `=1.5.0` | r-4 |
 | ADR-SAG-0016 | `sc-observability-types` dropped from types (`LogRejected`); module features | r-1 |
-| ADR-SAG-0016 | adapter in published `sc-agent-compose`; supersedes "do not publish a separate observability crate" for that crate; retitled "v2 shim in sc-agent-types; adapter in sc-agent-compose" (heading and index title cell) | r-3b |
+| ADR-SAG-0016 | adapter in published `sc-jev-host`; supersedes "do not publish a separate observability crate" for that crate; retitled "v2 shim in sc-agent-types; adapter in sc-jev-host" (heading and index title cell) | r-3b |
 | ADR-SAG-0017 | two released binaries + per-channel coverage | r-4 |
 | ADR-SAG-0017 | published library set + publish order: `sc-agent-http` | r-3 |
-| ADR-SAG-0017 | published library set + publish order: `sc-agent-compose` | r-3b |
+| ADR-SAG-0017 | published library set + publish order: `sc-jev-host` | r-3b |
 | ADR-SAG-0019 | r-1 interim: per-backend `Attestation`, derived `equal`; `Arc<PayloadBundle>` + `CancelToken`. The "until r-2b … `equal = false`" and "r-1 records `ChainContext`" sentences superseded by ADR-SAG-0025 (r-2b); the rest stays in force; r-2b rewrites the Status line (r-2b D7) | r-1 |
 | ADR-SAG-0019 | `RunOptions` text → `RunConfig` | r-2 |
 | ADR-SAG-0019 | equal-input from backend-reported digest | r-2b |
@@ -700,13 +700,13 @@ Details: [`sprint-r-7-decision-schema.md`](sprint-r-7-decision-schema.md),
 | ADR-SAG-0022 | scripted registry via `RunConfig::registry`; `run_check` sentence superseded; `cfg(test)` correction (supersedes 0029 (b) "everything else stands" for that sentence) | r-2 |
 | ADR-SAG-0022 | scripted backend reports the digest of the bundle it received; per-backend scripted-answers form | r-2b |
 | Rust API patterns | Extractor sealing note withdrawn | r-2 |
-| ADR-SAG-0023 (new) | pins (the one lockstep list, including `sc-agent-compose`), allocator, released binaries; amends 0016, 0017 | r-4 |
+| ADR-SAG-0023 (new) | pins (the one lockstep list, including `sc-jev-host`), allocator, released binaries; amends 0016, 0017 | r-4 |
 | ADR-SAG-0023 (new) | compose pin in force (own subsection) | r-3b |
 | ADR-SAG-0024 (new) | engine entry point + `RunResponse` (incl. the `equal_input` shape-pin bullet; no `RunConfig::mode`); amends 0003, 0005, 0009, 0014, 0019, 0022 | r-2 |
 | ADR-SAG-0025 (new) | multi-backend + equal-input, `RunConfig::mode`; amends 0004, 0008, 0019, 0022 | r-2b |
 | ADR-SAG-0025 (new) | REQ-SAG-0604 consumer-output bullet (split out of bullet 2 by r-2b) | r-3b |
 | ADR-SAG-0026 (new) | HTTP half; amends 0006, 0007, 0017, 0020 | r-3 |
-| ADR-SAG-0026 (new) | compose half; amends 0010, 0011, 0013, 0016, 0017 | r-3b |
+| ADR-SAG-0026 (new) | host half; amends 0010, 0011, 0013, 0016, 0017 | r-3b |
 | ADR-SAG-0027 (new) | error taxonomy, `ScAgentErrorResponse` field rule and consumer rule, extensibility, module features, test seams; amends 0001, 0009, 0016 | r-1 |
 | ADR-SAG-0028 (new) | `workspace-tests` crate: purpose, dev-only edges, built-binary contract, forbidden edges | r-3b |
 | ADR-SAG-0030 (new) | decision schema crate and model catalog (whole ADR except the "Jev API structs" bullet, r-5; the "Scope context" bullet stays recorded, owner-gated); amends 0005, 0009, 0012 (r-5), 0016, 0017, 0019, 0022, 0026, 0027 | r-7 |
@@ -728,7 +728,7 @@ Details: [`sprint-r-7-decision-schema.md`](sprint-r-7-decision-schema.md),
 | ADR-SAG-0027 | core dependencies `ulid`, `sc-sha`; `LogEvent` surface change | r-6 |
 
 ADR-SAG-0026 has an ADR-level **Status** line ("Proposed — HTTP half lands in
-r-3, compose half in r-3b"); r-3 sets it to "Active (HTTP half, r-3); compose
+r-3, host half in r-3b"); r-3 sets it to "Active (HTTP half, r-3); compose
 half Proposed (r-3b)" and r-3b to "Active". ADR-SAG-0025 likewise: r-2b
 sets it to "Active (Phase A.1, r-2b); the REQ-SAG-0604 consumer-output
 bullet is Proposed (r-3b)" and r-3b to "Active". The ADR index rows for
@@ -776,12 +776,12 @@ per-root path precedence is unchanged (r-3b acceptance proves it).
 
 ### Owner decisions
 
-**(a) Publishing `sc-agent-compose` — DECIDED (owner, 2026-11-06).**
-`sc-agent-compose` is published to crates.io as an internal-support crate,
+**(a) Publishing `sc-jev-host` — DECIDED (owner, 2026-11-06).**
+`sc-jev-host` is published to crates.io as an internal-support crate,
 `=`-pinned from `sc-ai` and `sc-jev-py`, with no semver promise of its own.
 This amends D2's word "unpublished": `sc-ai` is published and cannot depend on
 an unpublished crate. Consequences, all owned by r-3b: the ADR-SAG-0026
-compose half, the ADR-SAG-0023 pin list (compose pin effective when the crate
+host half, the ADR-SAG-0023 pin list (compose pin effective when the crate
 lands), the ADR-SAG-0017 published-crate set, the ADR-SAG-0016 amendment
 (supersedes "do not publish a separate observability crate" for this crate),
 consumer input `publish_order` directly after `sc-jev-check`, and the
@@ -912,7 +912,7 @@ cargo hack check -p sc-agent-types --feature-powerset --no-dev-deps
 cargo hack --each-feature test -p sc-treesitter
 cargo build -p sc-treesitter --lib --no-default-features
 cargo build -p sc-ai --lib --no-default-features
-for p in sc-agent-types sc-agent-secrets sc-agent-http sc-jev sc-jev-backends sc-jev-check sc-agent-compose; do cargo build -p "$p" --lib || exit 1; done
+for p in sc-agent-types sc-agent-secrets sc-agent-http sc-jev sc-jev-backends sc-jev-check sc-jev-host; do cargo build -p "$p" --lib || exit 1; done
 cargo clippy --workspace --all-targets -- -D warnings
 rm -rf target/doc/sc_agent_http && cargo doc -p sc-agent-http && ! grep -rlE 'href="[^"]*ureq/|title="[a-z]+ ureq::' target/doc/sc_agent_http/
 bash .github/scripts/cargo-tree-gates.sh
@@ -921,7 +921,7 @@ maturin build -m crates/sc-jev-py/Cargo.toml -o /tmp/sc-agent-wheels
 uv run --isolated --no-project --with "$(ls /tmp/sc-agent-wheels/sc_jev_py-*.whl | head -n 1)" python -c 'import sc_jev_py, sys; sys.exit(1 if hasattr(sc_jev_py, "_testing") else 0)'
 uv run --directory tests/fixtures/jev-python pytest -q
 bash .github/scripts/run-consumer-preflight.sh
-cargo publish --dry-run --locked -p sc-agent-types -p sc-agent-secrets -p sc-agent-http -p sc-jev -p sc-jev-backends -p sc-jev-check -p sc-agent-compose -p sc-treesitter -p sc-ai
+cargo publish --dry-run --locked -p sc-agent-types -p sc-agent-secrets -p sc-agent-http -p sc-jev -p sc-jev-backends -p sc-jev-check -p sc-jev-host -p sc-treesitter -p sc-ai
 ```
 
 The allow-attribute check is `source_scans` (`test_no_allow_attributes`);
@@ -1007,7 +1007,7 @@ round-1 ids are dispositioned in `plan-review-1-dispositions.md`.
   multi-file producer owns it. Bead `agt-treesitter-multifile`.
 - **D9** (r-5): resolved; the `"model"` byte-splice remains until r-5 lands.
 - Phase B features: API-direct agents (REQ-SAG-0900/0901), MCP server (a third
-  thin adapter over `sc-agent-compose`), typed `JudgeMeta`, a second session
+  thin adapter over `sc-jev-host`), typed `JudgeMeta`, a second session
   store, a crate split of `sc-agent-types` (module paths are the stable surface
   for a later re-export split, ADR-SAG-0027).
 - `agt-luna-live-count` (Luna live `equal`), still open from Phase A.
@@ -1034,7 +1034,7 @@ round-1 ids are dispositioned in `plan-review-1-dispositions.md`.
 
 ```text
 sc-ai (bin; feature cli: clap + mimalloc) ─┐
-sc-jev-py (PyO3) ──────────────────────────┴── sc-agent-compose (published, = pin; obs, PathPolicy, run_from/ask_from)
+sc-jev-py (PyO3) ──────────────────────────┴── sc-jev-host (published, = pin; obs, PathPolicy, run_from/ask_from)
                                                  ├── sc-observability =1.5.0
                                                  └── sc-jev-check (prepare/run, RunResponse + Envelope, discover_repo_root, InputSpec)
                                                        ├── sc-jev ──────────┐

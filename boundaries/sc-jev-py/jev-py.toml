@@ -28,7 +28,7 @@ name = "jev-py"
 # `_testing::run_check_scripted` (`sc_jev_py._testing.run_check_scripted`)
 # exists only in `test-util` builds.
 facade = "sc_jev_py::build_request, sc_jev_py::run_check, sc_jev_py::Session, sc_jev_py::CheckResult, sc_jev_py::canonical_bytes, sc_jev_py::canonical_sha256, sc_jev_py::default_log_root, sc_jev_py::resolve_log_root, sc_jev_py::resolve_session_dir, sc_jev_py::log_file, sc_jev_py::JevError, sc_jev_py::_testing::run_check_scripted"
-notes = "PyO3 over sc-jev-check; facade items are the Python module surface. Payload bytes and Jev HTTP stay in Rust. Session JSONL is sc-observability v2. Production run_check does not register a judge (ADR-SAG-0009). run_check has one signature and never takes scripted_answers. Feature test-util registers the _testing submodule whose run_check_scripted forwards scripted answers to sc-jev-check register_scripted_backends (ADR-SAG-0022, ADR-SAG-0029)."
+notes = "PyO3 over sc-jev-check; facade items are the Python module surface. Payload bytes and Jev HTTP stay in Rust. Session JSONL, path policy and run wiring come from sc-jev-host (sc-observability v2 lives only there). CheckResult.data is the run response body; run_check takes chain_context; a partial failure raises JevError with a response dict. Production run_check does not register a judge (ADR-SAG-0009). run_check has one signature and never takes scripted_answers. Feature test-util registers the _testing submodule whose run_check_scripted forwards scripted answers to sc-jev-check register_scripted_backends (ADR-SAG-0022, ADR-SAG-0029)."
 
 [implementation]
 type = "marker"
@@ -41,9 +41,11 @@ roots = ["build_request", "run_check", "Session", "canonical_bytes"]
 
 [dependencies]
 allowed_dependents = []
-allowed_dependencies = ["pyo3", "sc-agent-types", "sc-jev-check", "sc-observability", "serde_json"]
+allowed_dependencies = ["pyo3", "sc-agent-types", "sc-jev-check", "sc-jev-host", "serde_json"]
 forbidden_edges = [
     { from = "sc-jev-py", to = "sc-jev" },
+    { from = "sc-jev-py", to = "sc-observability" },
+    { from = "sc-jev-py", to = "ureq" },
 ]
 
 # Required by the sc-lint 0.8.0 inventory schema. Not enforced: the

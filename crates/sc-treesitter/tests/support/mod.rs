@@ -52,6 +52,10 @@ pub fn spawn_with_deadline(command: &mut Command) -> Output {
 }
 
 /// Runs `git args` in `dir` with a fixed identity; panics on failure.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "process spawn: builds fixture repositories with isolated `git`"
+)]
 pub fn git(dir: &Path, args: &[&str]) -> Output {
     let mut command = Command::new("git");
     isolate_git(&mut command)

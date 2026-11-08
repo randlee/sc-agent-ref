@@ -2,6 +2,12 @@
 # `cargo tree` dependency gates (docs/plans/phase-a-refine/plan.md, "`cargo
 # tree` gates"). Consumer-owned: install.py never writes this path.
 #
+# Mode `dup` (duplicate versions) runs `cargo tree -e normal -d` and fails when a
+# listed package is itself a duplicated package, i.e. appears at the start of a
+# line (a top-level entry). `-d` also prints every ancestor of a duplicated
+# third-party crate (two `syn` versions list sc-ai and its dependencies under
+# them), so a pattern that is not anchored to the line start would always match.
+#
 # Each row names a crate, a mode, optional extra `cargo tree` arguments and
 # packages. Mode `both` runs the row twice, with default features and with
 # `--no-default-features`; mode `lib` runs `--no-default-features` only,
@@ -20,8 +26,15 @@
 # (depth-1 rows for sc-jev, sc-jev-backends, sc-jev-check; positive control on
 # sc-agent-http), sc-agent-http's forbidden packages, and the graph rows
 # below (no workspace `test-util` in any normal graph; sc-agent-http reaches
-# sc-agent-types with feature `secret` only). The remaining rows of the plan
-# table are added by r-3b.
+# sc-agent-types with feature `secret` only). Rows added by r-3b (REQ-SAG-0135,
+# ADR-SAG-0026 host half): every remaining row of the plan table. clap in both
+# libraries, ureq / pyo3 / tree-sitter / sc-observability absences, the
+# sc-jev-host depth-1 row, and the duplicate-version rows for sc-ai and
+# sc-jev-py (`-d`: a split sc-jev-check, sc-agent-types or sc-jev-host would
+# give two incompatible `RunResponse` types). There is no workspace-tests
+# dev-set row: sc-boundary counts dev edges (boundaries/README.md). These
+# rows run on `cargo tree` (no test build), so a dev-only feature unified by
+# `cargo test` cannot make them pass.
 #
 # Feature rows (r-3c, ADR-SAG-0015, RBQA-F009) inspect
 # `cargo tree -e normal,features -i <package>` instead of package names: in
@@ -47,8 +60,14 @@ cd "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 
 # crate | mode (both|lib|present) | extra cargo tree args | packages (space-separated)
 rows=(
-  "sc-ai|lib||mimalloc"
-  "sc-treesitter|lib||mimalloc"
+  "sc-ai|lib||mimalloc clap"
+  "sc-treesitter|lib||mimalloc clap sc-observability"
+  "sc-agent-types|both||sc-observability sc-observability-types ureq pyo3 tree-sitter"
+  "sc-ai|both|--depth 1|sc-observability ureq"
+  "sc-jev-py|both|--depth 1|sc-observability ureq"
+  "sc-jev-host|both|--depth 1|ureq pyo3 tree-sitter clap mimalloc"
+  "sc-ai|dup||sc-jev-check sc-agent-types sc-jev-host"
+  "sc-jev-py|dup||sc-jev-check sc-agent-types sc-jev-host"
   "sc-ai|present||mimalloc"
   "sc-treesitter|present||mimalloc"
   "sc-jev|both|--depth 1|ureq sc-observability pyo3"
@@ -114,9 +133,41 @@ run_row() {
   fi
 }
 
+run_dup_row() {
+  local crate="$1" flag="$2" names="$3"
+  local -a args=(tree --locked -p "$crate" -e normal -d)
+  [[ -n "$flag" ]] && args+=("$flag")
+  local label="cargo ${args[*]}"
+  local tree
+  if ! tree="$(cargo "${args[@]}" 2>"$errfile")"; then
+    echo "FAIL  $label: cargo tree failed"
+    sed 's/^/    /' "$errfile"
+    failures=$((failures + 1))
+    return
+  fi
+  local name hits row_failed=0
+  for name in $names; do
+    hits="$(printf '%s\n' "$tree" | grep -E "^${name} v[0-9]" || true)"
+    if [[ -n "$hits" ]]; then
+      echo "FAIL  $label: $name appears in more than one version"
+      printf '%s\n' "$hits" | sort -u | sed 's/^/    /'
+      row_failed=1
+    fi
+  done
+  if [[ "$row_failed" -eq 0 ]]; then
+    echo "ok    $label: no duplicate: $names"
+  else
+    failures=$((failures + 1))
+  fi
+}
+
 for row in "${rows[@]}"; do
   IFS='|' read -r crate mode extra names <<<"$row"
   case "$mode" in
+    dup)
+      run_dup_row "$crate" "" "$names"
+      run_dup_row "$crate" "--no-default-features" "$names"
+      ;;
     both)
       run_row "$crate" "" "$extra" "$names"
       run_row "$crate" "--no-default-features" "$extra" "$names"

@@ -1,0 +1,56 @@
+# Boundary manifest for workspace-tests. Checked by `sc-lint lint sc-boundary` (`just lint`).
+#
+# Text from docs/plans/phase-a-refine/plan.md "New boundary manifests" (r-3b).
+# Dev edges are counted (r-1 D0 outcome 4, boundaries/README.md
+# "Dev-dependency and self edges"): `allowed_dependencies` is the exact
+# workspace dev set, and each of those crates lists `workspace-tests` in
+# `allowed_dependents`. The third-party dev-dependencies (serde_json,
+# tempfile) are not checked by sc-boundary. The schema rejects
+# `facade = ""`, so the facade is the empty crate root.
+
+boundary_id = "BOUNDARY-workspace-tests"
+owner_package = "workspace-tests"
+owner_crate_path = "workspace_tests"
+name = "workspace-tests"
+
+[public]
+facade = "workspace_tests"
+notes = "publish = false (ADR-SAG-0028). Cross-crate proofs only: no normal dependencies and an empty src/lib.rs; dev-dependencies on sc-agent-types (features = [git]), sc-jev-check, sc-jev-host, serde_json, tempfile. The bin-path helper is tests/support/bin_path.rs. sc-treesitter and sc-ai are driven as built binaries (cargo build --features cli --message-format=json), never linked, so pyo3 and tree-sitter stay out of this graph. Source scans read files and link nothing."
+
+[implementation]
+type = "marker"
+module = "workspace_tests"
+visibility = "public"
+constructor = "none"
+
+[composition]
+roots = []
+
+[dependencies]
+allowed_dependents = []
+allowed_dependencies = ["sc-agent-types", "sc-jev-check", "sc-jev-host"]
+forbidden_edges = [
+    { from = "workspace-tests", to = "pyo3" },
+    { from = "workspace-tests", to = "tree-sitter" },
+    { from = "workspace-tests", to = "sc-treesitter" },
+    { from = "workspace-tests", to = "sc-jev-py" },
+    { from = "workspace-tests", to = "sc-ai" },
+    { from = "workspace-tests", to = "sc-agent-http" },
+    { from = "workspace-tests", to = "sc-jev" },
+    { from = "workspace-tests", to = "sc-jev-backends" },
+]
+
+[references]
+scope = "outside_owner_crate"
+forbidden = []
+
+[testing]
+allowed_test_double_paths = []
+forbidden_test_bypasses = []
+
+[enforcement]
+lint_rules = ["SCB-DEPENDENCY-001", "SCB-DEPENDENCY-002", "SCB-DEPENDENCY-003", "SCB-DEPENDENCY-004", "SCB-MANIFEST-004"]
+review_gates = []
+
+[status]
+state = "concrete_landed"

@@ -1,0 +1,26 @@
+[package]
+name = "workspace-tests"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Cross-crate proofs for the sc-agent workspace (not published)."
+readme = "README.md"
+publish = false
+
+[lints]
+workspace = true
+
+# ADR-SAG-0028: no normal dependencies and an empty `src/lib.rs`. The
+# dev-dependencies are the exact set the targets link; `sc-ai` and
+# `sc-treesitter` are driven as built binaries (tests/support/bin_path.rs),
+# never linked, so `pyo3` and `tree-sitter` stay out of this graph.
+[dev-dependencies]
+sc-jev-host = { path = "../sc-jev-host", version = "0.1.0" }
+sc-agent-types = { path = "../sc-agent-types", version = "0.1.0", features = ["git"] }
+sc-jev-check = { path = "../sc-jev-check", version = "0.1.0" }
+serde_json.workspace = true
+tempfile.workspace = true

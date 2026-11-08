@@ -73,7 +73,7 @@ adrs:
   - ADR-SAG-0023  # new workspace dependency, caret; not on the lockstep list
   - ADR-SAG-0024  # RunConfig::models(ModelAliases) added; prepare/run entry points unchanged
   - ADR-SAG-0025  # attestation types move unchanged; input_sha256 recovery unchanged
-  - ADR-SAG-0026  # r-7 amendment: JudgeOutcome owner (compose half); exchange fns take a required SendTrace (HTTP half)
+  - ADR-SAG-0026  # r-7 amendment: JudgeOutcome owner (host half); exchange fns take a required SendTrace (HTTP half)
   - ADR-SAG-0027  # r-7 amendment: feature seams, stable surface (+SendTrace, +ProjectLabel), layering, add-a-backend checklist
   - ADR-SAG-0028  # workspace-tests gains a dev edge on sc-decision-schema
   - ADR-SAG-0029  # (b) scripted seam unchanged; register_scripted_backends over the moved mock
@@ -135,9 +135,9 @@ owned_paths:
   - "crates/sc-jev-check/src/run/**#RunConfig::models"
   - "crates/sc-jev-check/tests/**#import changes"
   - "crates/sc-jev-check/tests/models.rs (new)"
-  - "crates/sc-agent-compose/Cargo.toml#+sc-decision-schema"
-  - "crates/sc-agent-compose/src/**#import changes"
-  - "crates/sc-agent-compose/tests/**#import changes"
+  - "crates/sc-jev-host/Cargo.toml#+sc-decision-schema"
+  - "crates/sc-jev-host/src/**#import changes"
+  - "crates/sc-jev-host/tests/**#import changes"
   - "crates/sc-ai/Cargo.toml#+sc-decision-schema (test-util dev feature)"
   - "crates/sc-ai/src/**#import changes"
   - "crates/sc-ai/tests/**#import changes"
@@ -148,7 +148,7 @@ owned_paths:
   - "boundaries/sc-jev/**#allowed_dependencies +sc-decision-schema"
   - "boundaries/sc-jev-backends/**#allowed_dependencies +sc-decision-schema"
   - "boundaries/sc-jev-check/**#allowed_dependencies +sc-decision-schema"
-  - "boundaries/sc-agent-compose/**#allowed_dependencies +sc-decision-schema"
+  - "boundaries/sc-jev-host/**#allowed_dependencies +sc-decision-schema"
   - "boundaries/sc-ai/**#allowed_dependencies +sc-decision-schema"
   - "boundaries/sc-jev-py/**#allowed_dependencies +sc-decision-schema"
   - "boundaries/workspace-tests/**#allowed_dependencies +sc-decision-schema"
@@ -266,7 +266,7 @@ Every deliverable below lands production-ready for the scope this sprint claims;
 
    [dependencies]
    # "workspace-tests" is listed because dev edges are counted (r-1 D0 outcome 4).
-   allowed_dependents = ["sc-jev", "sc-jev-backends", "sc-jev-check", "sc-agent-compose", "sc-ai", "sc-jev-py", "workspace-tests"]
+   allowed_dependents = ["sc-jev", "sc-jev-backends", "sc-jev-check", "sc-jev-host", "sc-ai", "sc-jev-py", "workspace-tests"]
    allowed_dependencies = ["sc-agent-types", "serde", "serde_json"]
    forbidden_edges = [
        { from = "sc-decision-schema", to = "sc-agent-http" },
@@ -274,7 +274,7 @@ Every deliverable below lands production-ready for the scope this sprint claims;
        { from = "sc-decision-schema", to = "sc-jev" },
        { from = "sc-decision-schema", to = "sc-jev-backends" },
        { from = "sc-decision-schema", to = "sc-jev-check" },
-       { from = "sc-decision-schema", to = "sc-agent-compose" },
+       { from = "sc-decision-schema", to = "sc-jev-host" },
        { from = "sc-decision-schema", to = "sc-observability" },
        { from = "sc-decision-schema", to = "ureq" },
        { from = "sc-decision-schema", to = "pyo3" },
@@ -301,7 +301,7 @@ Every deliverable below lands production-ready for the scope this sprint claims;
    and gains `ModelId`, `UnknownModel`, `ModelFamily`, `ModelDescriptor`, `MODELS`,
    `ModelAliases`, `SendTrace`, `ProjectLabel`; its `allowed_dependents` gains
    `sc-decision-schema`. `sc-jev`, `sc-jev-backends`, `sc-jev-check`,
-   `sc-agent-compose`, `sc-ai`, `sc-jev-py`, `workspace-tests` gain
+   `sc-jev-host`, `sc-ai`, `sc-jev-py`, `workspace-tests` gain
    `sc-decision-schema` in `allowed_dependencies`; `sc-agent-http` gains a
    forbidden edge to it. If sc-boundary reports a type cycle inside one
    module (SCB-CYCLE-001, as in r-1), split the module and record the split
@@ -325,7 +325,7 @@ Every deliverable below lands production-ready for the scope this sprint claims;
    shift later crates. crates.io order after r-7 (authoritative here;
    plan.md "Publish order" points to it): `sc-agent-types`,
    `sc-decision-schema`, `sc-agent-secrets`, `sc-agent-http`, `sc-jev`,
-   `sc-jev-backends`, `sc-jev-check`, `sc-agent-compose`, `sc-treesitter`,
+   `sc-jev-backends`, `sc-jev-check`, `sc-jev-host`, `sc-treesitter`,
    `sc-ai`. **The parent (orchestrator) runs the sc-publish kit
    `install.py`** to regenerate the rendered release files after the
    consumer-input edit; the developer does not hand-edit them
@@ -362,7 +362,7 @@ Every deliverable below lands production-ready for the scope this sprint claims;
    rustdoc "Canonical judge payload" section becomes a pointer to
    `sc-decision-schema`.
 4. Import changes in every crate listed in `owned_paths` (`sc-jev`,
-   `sc-jev-backends`, `sc-jev-check`, `sc-agent-compose`, `sc-ai`,
+   `sc-jev-backends`, `sc-jev-check`, `sc-jev-host`, `sc-ai`,
    `sc-jev-py`, `workspace-tests`): `use sc_agent_types::{JudgeOutcome, …}`
    becomes `use sc_decision_schema::{JudgeOutcome, …}`; `Cargo.toml` gains
    the dependency; `sc-jev-check`'s `test-util` feature becomes
@@ -896,7 +896,7 @@ Every command in the acceptance table, then:
 ```bash
 just lint
 just test
-for p in sc-agent-types sc-decision-schema sc-agent-secrets sc-agent-http sc-jev sc-jev-backends sc-jev-check sc-agent-compose; do cargo build -p "$p" --lib || exit 1; done
+for p in sc-agent-types sc-decision-schema sc-agent-secrets sc-agent-http sc-jev sc-jev-backends sc-jev-check sc-jev-host; do cargo build -p "$p" --lib || exit 1; done
 bash .github/scripts/check-exact-pins.sh
 bash scripts/sc-publish-dry-run.sh
 ```

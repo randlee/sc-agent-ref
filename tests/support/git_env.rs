@@ -48,6 +48,10 @@ pub fn isolate_git(command: &mut Command) -> &mut Command {
 
 /// A `git -C <dir>` command with isolation, a fixed identity, no signing and
 /// no hooks. Callers add the subcommand and run it with a deadline.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "process spawn: builds the isolated `git` fixture command"
+)]
 pub fn git_command(dir: &std::path::Path) -> Command {
     let hooks = format!("core.hooksPath={}", null_device());
     let mut command = Command::new("git");

@@ -20,6 +20,10 @@ fn null_device() -> &'static str {
 use sc_agent_types::git::{MAX_INPUT_BYTES, discover_toplevel, hash_blob, read_at_rev};
 use sc_agent_types::{RepoRelativePath, RepoRoot, Rev};
 
+#[expect(
+    clippy::disallowed_methods,
+    reason = "process spawn: builds fixture repositories with isolated `git`"
+)]
 fn git(dir: &Path, args: &[&str]) {
     let hooks = format!("core.hooksPath={}", null_device());
     let mut command = Command::new("git");

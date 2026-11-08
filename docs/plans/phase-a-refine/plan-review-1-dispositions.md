@@ -21,7 +21,7 @@ sprint doc, `arch` = `docs/architecture.md`, `req` = `docs/requirements.md`).
 | extensibility-qa | 8 | 7 | 1 | 0 |
 | **Total** | **106** | **99** | **3** | **4** |
 
-Owner decisions: (a) publish `sc-agent-compose` — decided 2026-11-06; (b)
+Owner decisions: (a) publish `sc-jev-host` — decided 2026-11-06; (b)
 busy-retry numbers — decided 2026-11-07; (c) D9 payload shape — still pending
 (blocked on the vendor). Partially declined items (RBQA-F004, RBQA-F005, RBQA-F006, RSH-006) count as
 applied because the finding's required outcome is met; the declined part and
@@ -66,7 +66,7 @@ its reason are named in the row.
 
 | Id | Disposition | Where |
 | --- | --- | --- |
-| ARCH-001 | applied — ADR-0026 split: HTTP half Active in r-3, compose half r-3b | arch ADR-0026; r-3, r-3b |
+| ARCH-001 | applied — ADR-0026 split: HTTP half Active in r-3, host half r-3b | arch ADR-0026; r-3, r-3b |
 | ARCH-002 | applied — ADR-0005 narrowing split: kinds sentence r-4 (no ADR-0024 reference), `prepare` sentence r-2 | arch ADR-0005; r-4 D6; r-2 |
 | ARCH-003 | applied — r-2 bullets supersede `run_check` in ADR-0009 and ADR-0022; ADR-0024 header "Amends 0005, 0009, 0019, 0022"; 0009 in r-2 adrs | arch; r-2 |
 | ARCH-004 | applied — ADR-0011 and ADR-0013 r-3b amendments; r-3b adrs list completed | arch; r-3b |
@@ -87,7 +87,7 @@ its reason are named in the row.
 | Id | Disposition | Where |
 | --- | --- | --- |
 | REQ-QA-001 | applied — ARCHC-006, ARCHP-009 in "does not close" with Phase B rationale; ARCHC-010 owned by r-1; phase-level closure table | plan "Findings closure" |
-| REQ-QA-002 | owner decision (decided 2026-11-06) — publish `sc-agent-compose` as internal support | plan (a); arch ADR-0026, 0016, 0017, 0023; r-3b |
+| REQ-QA-002 | owner decision (decided 2026-11-06) — publish `sc-jev-host` as internal support | plan (a); arch ADR-0026, 0016, 0017, 0023; r-3b |
 | REQ-QA-003 | applied — section-scoped ownership in every sprint | plan conventions |
 | REQ-QA-004 | applied — r-3 disjoint from r-2 (r-1 fixed the ctor contract) | r-1 D1.7; r-3 |
 | REQ-QA-005 | applied — consumer behaviour moved to r-3b, which follows r-2b | r-2b, r-3b |

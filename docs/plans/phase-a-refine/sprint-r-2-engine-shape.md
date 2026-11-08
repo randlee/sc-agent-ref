@@ -609,5 +609,5 @@ subsection unchanged.
 
 Per-backend failure semantics, independent/chain modes, digest-based `equal`
 (r-2b); consumer partial-failure output, `--chain-context`, Python kwarg
-(r-3b); `sc-agent-compose`, the e2e producer test and the cross-consumer
+(r-3b); `sc-jev-host`, the e2e producer test and the cross-consumer
 parity test (r-3b); the HTTP crate (r-3); D9 (r-5).

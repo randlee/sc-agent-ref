@@ -10,7 +10,7 @@ names the file (`plan` = `plan.md`, `r-N` = that sprint doc, `arch` =
 `docs/sc-agent-types/requirements.md`, `qp` =
 `.claude/project/quality-policy.md`).
 
-Owner decisions (a) publish `sc-agent-compose` and (b) busy-retry numbers are
+Owner decisions (a) publish `sc-jev-host` and (b) busy-retry numbers are
 DECIDED; only (c) D9 stays pending.
 
 ## Summary
@@ -97,9 +97,9 @@ DECIDED; only (c) D9 stays pending.
 | REQ-QA-R2-006 | applied — plan resolution 11 and the ARCHC-021 closure note now say "r-1 moves `InputSpec`; r-2 adds `Command.path`" | plan |
 | REQ-QA-R2-007 | applied — `QA-003 \| r-3` in the closure table and r-3 "Closes findings" | plan findings closure; r-3 |
 | REQ-QA-R2-008 | applied — exception recorded now in `.claude/project/quality-policy.md` "Repository exceptions" (paths, branch, `r-N` ids, naming `req-qa` and `arch-qa`), as a deliverable of this plan PR | qp; plan header |
-| REQ-QA-R2-009 | applied — `docs/sc-agent-http/{requirements,architecture}.md` (r-3 D6); `docs/sc-agent-compose/…` (r-3b D2.4); `docs/workspace-tests/…` (r-3b ADR text), with `docs/workspace-tests/**` in r-3b owned_paths | r-3, r-3b |
+| REQ-QA-R2-009 | applied — `docs/sc-agent-http/{requirements,architecture}.md` (r-3 D6); `docs/sc-jev-host/…` (r-3b D2.4); `docs/workspace-tests/…` (r-3b ADR text), with `docs/workspace-tests/**` in r-3b owned_paths | r-3, r-3b |
 | REQ-QA-R2-010 | applied — see CPR-111 | arch index; plan conventions |
-| REQ-QA-R2-011 | applied — (a) adjacent-row convention: the second sprint of a wave to merge resolves, keeping both rows verbatim; (b) one lockstep list in ADR-0023 between markers, which `check-exact-pins.sh` reads (no copy in the script), including `sc-agent-compose` (in force r-3b) | plan conventions; req Phase A.1 intro; arch ADR-0023; r-4 D1 |
+| REQ-QA-R2-011 | applied — (a) adjacent-row convention: the second sprint of a wave to merge resolves, keeping both rows verbatim; (b) one lockstep list in ADR-0023 between markers, which `check-exact-pins.sh` reads (no copy in the script), including `sc-jev-host` (in force r-3b) | plan conventions; req Phase A.1 intro; arch ADR-0023; r-4 D1 |
 | REQ-QA-003 (carry) | closed by R2-010 | — |
 | REQ-QA-006 (carry) | closed by R2-006/R2-007 | — |
 | REQ-QA-007 (carry) | closed by R2-004 | — |

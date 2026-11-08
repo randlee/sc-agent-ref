@@ -1,15 +1,26 @@
-//! `sc-ai` command-line adapter over [`sc_jev_check`].
+//! `sc-ai` command-line adapter over [`sc_jev_host`].
 //!
-//! The binary parses argv and prints a versioned JSON envelope. Request
-//! validation, payload assembly, prompt resolution, judge calls, sessions, and
-//! key resolution stay in `sc-jev-check`. This crate does not send HTTP.
+//! The binary parses argv (clap, behind the `cli` feature) into a typed
+//! [`Command`] and [`execute`] runs it through
+//! [`sc_jev_host::compose`]; the rest is printing a versioned JSON
+//! envelope. Request validation, payload assembly, prompt resolution, judge
+//! calls, sessions and key resolution stay in `sc-jev-check`; the session
+//! logger, path defaults and repo discovery live once in `sc-jev-host`.
+//! This crate does not send HTTP.
 //!
 //! # Session logs
 //!
 //! The default log root is `<repo-root>/.sc-ai`. `--log-dir` wins, then the
-//! `SC_LOG_ROOT` environment variable, then that default. The v2 file sink
-//! writes `<log-root>/logs/sc-ai.log.jsonl`. Session files default to
+//! `SC_LOG_ROOT` environment variable, then that default (ADR-SAG-0021,
+//! [`sc_jev_host::paths::PathPolicy::cli`]). The v2 file sink writes
+//! `<log-root>/logs/sc-ai.log.jsonl`. Session files default to
 //! `<repo-root>/.sc-ai/sessions`.
+//!
+//! # Partial failure
+//!
+//! When some, not all, requested backends fail, [`Output`] carries the
+//! envelope with the successful answers on stdout and the first failure's
+//! `ScAgentErrorResponse` for stderr; the process exits 2 (REQ-SAG-0604).
 //!
 //! # Examples
 //!
@@ -26,16 +37,6 @@
 
 mod command;
 mod envelope;
-mod observe;
 
 #[doc(inline)]
-pub use command::{execute, reads_stdin};
-
-// Test seams for `tests/cli.rs`, not part of the API. A crate cannot turn on
-// its own cargo feature for its integration tests without a self
-// dev-dependency, which the boundary lint and crates.io publish reject, so
-// these are hidden rather than feature-gated.
-#[doc(hidden)]
-pub use command::{Clock, ExecuteOverrides, execute_with_overrides};
-#[doc(hidden)]
-pub use observe::{ObservabilitySessionLog, session_log_file};
+pub use command::{AskCommand, Command, Output, RunCommand, execute};

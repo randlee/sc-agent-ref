@@ -10,3 +10,6 @@ acceptance root, when it differs, is shown as "root a-N"; the closure table in
 | REQ-SAG-0801 | Cross-impl pytest harness | a-8 |
 | REQ-SAG-0802 | maturin + `pyproject.toml`; installable wheel | a-8 |
 | REQ-SAG-0803 | First release: all five sc-publish channels — kit install + preflight/dry-run in CI (a-9) | a-9 |
+| REQ-SAG-0604 | Partial failure raises `JevError` with `.response` (the response body as a dict); all-failed has no `.response` | r-3b |
+| REQ-SAG-0605 | `run_check(chain_context=...)`; independent is the default | r-3b |
+| REQ-SAG-0711 | Session log through `sc_jev_host::obs` | r-3b |

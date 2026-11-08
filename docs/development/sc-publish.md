@@ -31,8 +31,9 @@ pin and re-run install. `install.py` overwrites kit paths without warning.
 ## What the consumer input declares
 
 - **crates.io**, in publish order: `sc-agent-types` (1), `sc-agent-secrets` (2),
-  `sc-jev` (3), `sc-jev-backends` (4), `sc-jev-check` (5), `sc-treesitter` (6),
-  `sc-ai` (7). Crates 1 to 5 have dependents, so each waits 30 s and sets
+  `sc-agent-http` (3), `sc-jev` (4), `sc-jev-backends` (5), `sc-jev-check` (6),
+  `sc-jev-host` (7, internal support, `=`-pinned by `sc-ai`), `sc-treesitter`
+  (8), `sc-ai` (9). Crates 1 to 7 have dependents, so each waits 30 s and sets
   `verify_registry_visibility` before the next upload. crates.io is enabled by
   this `crates` list (entries with `publish: true`), not by a `channels` key.
 - **PyPI**: `sc-jev-py`, a maturin wheel plus sdist on Linux, macOS and Windows.
@@ -242,7 +243,8 @@ Dry-run gate (local and CI, on the release candidate commit):
 - [ ] `install.py --dry-run` exits 0.
 - [ ] `bash .github/scripts/run-consumer-preflight.sh` exits 0.
 - [ ] `cargo publish --dry-run --locked -p sc-agent-types -p sc-agent-secrets
-      -p sc-jev -p sc-jev-backends -p sc-jev-check -p sc-treesitter -p sc-ai`.
+      -p sc-agent-http -p sc-jev -p sc-jev-backends -p sc-jev-check -p sc-jev-host
+      -p sc-treesitter -p sc-ai`.
       A single multi-package invocation resolves the unpublished in-workspace
       dependencies in this order.
 - [ ] `maturin build -m crates/sc-jev-py/Cargo.toml -o <dir>` produces a

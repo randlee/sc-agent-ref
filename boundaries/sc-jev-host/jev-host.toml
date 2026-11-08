@@ -1,0 +1,65 @@
+# Boundary manifest for sc-jev-host. Checked by `sc-lint lint sc-boundary` (`just lint`).
+#
+# Text from docs/plans/phase-a-refine/plan.md "New boundary manifests" (r-3b).
+# Conventions as in the other manifests (Phase A phase-end, RBQA-F001
+# option B): `allowed_dependencies` lists every direct normal dependency;
+# `forbidden_edges` are direct edges only. sc-lint 0.8.0 enforces the
+# workspace-to-workspace edges (SCB-DEPENDENCY-001..004); the third-party
+# edges are owned through the `global_dependency_ownership` records in
+# sc-lint.toml (SCB-MANIFEST-004). Dev-only edges are counted (r-1 D0
+# outcome 4), so `workspace-tests` is listed in `allowed_dependents`.
+
+boundary_id = "BOUNDARY-jev-host"
+owner_package = "sc-jev-host"
+owner_crate_path = "sc_jev_host"
+name = "jev-host"
+
+[public]
+facade = "sc_jev_host::obs::ObservabilityAdapter, sc_jev_host::paths::PathPolicy, sc_jev_host::paths::DefaultRoot, sc_jev_host::paths::SessionDefault, sc_jev_host::compose::run_from, sc_jev_host::compose::ask_from, sc_jev_host::compose::ComposeInputs, sc_jev_host::compose::ResolvedPaths, sc_jev_host::compose::explicit_repo_root"
+notes = "Composition-root support for sc-ai and sc-jev-py. Published as internal support, =-pinned by both, no semver promise of its own (owner decision 2026-11-06). The only crate that links sc-observability. Signatures name sc-jev-check and sc-agent-types types; compose re-exports none of them (one path per item)."
+
+[implementation]
+type = "marker"
+module = "sc_jev_host"
+visibility = "public"
+constructor = "none"
+
+[composition]
+roots = ["obs", "paths", "compose"]
+
+[dependencies]
+# "workspace-tests" is listed because dev edges are counted (r-1 D0 outcome 4).
+allowed_dependents = ["sc-ai", "sc-jev-py", "workspace-tests"]
+allowed_dependencies = ["sc-agent-types", "sc-jev-check", "sc-observability", "serde_json"]
+forbidden_edges = [
+    { from = "sc-jev-host", to = "sc-jev" },
+    { from = "sc-jev-host", to = "sc-jev-backends" },
+    { from = "sc-jev-host", to = "sc-agent-http" },
+    { from = "sc-jev-host", to = "sc-agent-secrets" },
+    { from = "sc-jev-host", to = "sc-treesitter" },
+    { from = "sc-jev-host", to = "ureq" },
+    { from = "sc-jev-host", to = "pyo3" },
+    { from = "sc-jev-host", to = "clap" },
+    { from = "sc-jev-host", to = "tree-sitter" },
+]
+
+# Required by the sc-lint 0.8.0 inventory schema. Not enforced: the
+# validator accepts entries here but reports nothing for them.
+[references]
+scope = "outside_owner_crate"
+forbidden = []
+
+# Required by the schema. Declarative: sc-lint 0.8.0 reports nothing for
+# these fields. This crate has no test doubles and no `test-util` feature.
+[testing]
+allowed_test_double_paths = []
+forbidden_test_bypasses = []
+
+# The sc-lint rules that check this boundary on every `just lint`. Listing
+# them here is documentation; sc-lint 0.8.0 does not read this field.
+[enforcement]
+lint_rules = ["SCB-DEPENDENCY-001", "SCB-DEPENDENCY-002", "SCB-DEPENDENCY-003", "SCB-DEPENDENCY-004", "SCB-MANIFEST-004"]
+review_gates = []
+
+[status]
+state = "concrete_landed"

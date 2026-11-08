@@ -36,8 +36,9 @@ test-util = ["sc-jev-check/test-util"]
 pyo3 = { version = "0.26", features = ["abi3-py311"] }
 sc-agent-types = { path = "../sc-agent-types", version = "0.1.0" }
 sc-jev-check = { path = "../sc-jev-check", version = "0.1.0" }
-# Deliberate `=` lockstep with the sc-observability release train; revisited at Phase A review.
-sc-observability.workspace = true
+# Deliberate `=` lockstep with the sc-jev-host release (ADR-SAG-0023
+# list); the host owns the session logger, path policy and run wiring.
+sc-jev-host.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
@@ -45,10 +46,3 @@ serde_json.workspace = true
 # Maturin and `cargo build` do not. The publish wheel leaves `test-util` off.
 sc-jev-check = { path = "../sc-jev-check", version = "0.1.0", features = ["test-util"] }
 tempfile.workspace = true
-
-# Workspace-only Rust/Python canonical-bytes test (REQ-SAG-0102). It lives at
-# the repo root and is hosted here because this crate is `publish = false`, so
-# the test never lands in (or warns about) a crates.io package.
-[[test]]
-name = "jev_cross_impl"
-path = "../../tests/jev_cross_impl/main.rs"

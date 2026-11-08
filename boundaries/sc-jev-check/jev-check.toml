@@ -35,7 +35,7 @@ constructor = "none"
 roots = ["config", "extract", "payload", "run", "session", "equal_input", "registry"]
 
 [dependencies]
-allowed_dependents = ["sc-ai", "sc-jev-py"]
+allowed_dependents = ["sc-ai", "sc-jev-py", "sc-jev-host", "workspace-tests"]
 allowed_dependencies = ["sc-agent-secrets", "sc-agent-types", "sc-jev", "sc-jev-backends", "serde", "serde_json", "toml"]
 forbidden_edges = [
     { from = "sc-jev-check", to = "sc-treesitter" },

@@ -164,6 +164,10 @@ fn exit_error(producer: &str, code: i32, stderr: &[u8]) -> JevError {
     redact_error(JevError::extraction_failed(detail))
 }
 
+#[expect(
+    clippy::disallowed_methods,
+    reason = "process spawn: the extractor runs the configured argv (ADR-SAG-0015, ADR-SAG-0028)"
+)]
 fn run_argv(
     repo: &RepoRoot,
     argv: &[String],
@@ -575,6 +579,10 @@ sys.stdout.write(json.dumps(doc))
     /// environment. `unsafe_code` is forbidden, so the test cannot set the
     /// variable in its own process.
     #[test]
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "process spawn: re-runs this test binary with a sentinel credential in its environment"
+    )]
     fn command_extractor_child_env_excludes_secrets() {
         let exe = std::env::current_exe().expect("test binary");
         let mut command = Command::new(exe);

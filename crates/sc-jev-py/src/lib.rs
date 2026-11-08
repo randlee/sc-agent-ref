@@ -1,9 +1,9 @@
 //! Python bindings for the Jev check facade.
 //!
-//! `sc-jev-py` is a composition root (ADR-SAG-0011, ADR-SAG-0016). It calls
-//! `sc-jev-check` in-process and adapts `sc-observability` 1.5.0
-//! `v2::Logger` to [`sc_agent_types::observability::v2::SharedSessionLog`].
-//! Payload bytes and Jev HTTP stay in the Rust crates. This crate does not
+//! `sc-jev-py` is a thin PyO3 adapter over `sc-jev-host`
+//! (ADR-SAG-0011, ADR-SAG-0026), which calls `sc-jev-check` in-process and
+//! owns the session logger and the path policy. Payload bytes and Jev HTTP
+//! stay in the Rust crates. This crate does not
 //! depend on `sc-jev`.
 //!
 //! # Session log
@@ -39,7 +39,6 @@
 #![warn(missing_docs)]
 
 mod error;
-mod logging;
 mod run;
 
 use pyo3::prelude::*;
@@ -81,7 +80,10 @@ fn sc_jev_py(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(run::resolve_log_root, module)?)?;
     module.add_function(wrap_pyfunction!(run::resolve_session_dir, module)?)?;
     module.add_function(wrap_pyfunction!(run::log_file, module)?)?;
-    module.add("JevError", module.py().get_type::<JevError>())?;
+    let jev_error = module.py().get_type::<JevError>();
+    // `response` is the run body of a partial failure; absent otherwise.
+    jev_error.setattr("response", module.py().None())?;
+    module.add("JevError", jev_error)?;
     #[cfg(feature = "test-util")]
     {
         let testing = PyModule::new(module.py(), "_testing")?;

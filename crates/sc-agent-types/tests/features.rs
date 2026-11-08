@@ -15,6 +15,10 @@ use std::process::Command;
 #[path = "../../../tests/support/deadline.rs"]
 mod deadline;
 
+#[expect(
+    clippy::disallowed_methods,
+    reason = "process spawn: runs `cargo tree`, a graph query"
+)]
 fn tree(args: &[&str]) -> BTreeSet<String> {
     let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_owned());
     let mut command = Command::new(cargo);
