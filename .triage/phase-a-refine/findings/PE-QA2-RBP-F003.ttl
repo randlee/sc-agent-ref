@@ -1,0 +1,42 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/PE-QA2-RBP-F003>
+  a triage:Finding ;
+  triage:findingId "PE-QA2-RBP-F003" ;
+  triage:title "Rev::new is a public unvalidated constructor, so the invariant against a leading dash, whitespace or NUL can be bypassed" ;
+  triage:description "Rev::new is a public unvalidated constructor, so the invariant against a leading dash, whitespace or NUL can be bypassed on a value used as a git argument." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "api-design" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T17:34:57Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R6 ;
+  triage:foundAt "2026-11-08T17:33:18Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/PE-QA2-RBP-F003/IPA-1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/PE-QA2-RBP-F003/IPA-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/ids.rs" ;
+  triage:line 82 ;
+  triage:snippet "pub fn new(rev: impl Into<String>) -> Self {" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "f0171cbd38c3ca5e2b9b984bd591e3ff19838e0f" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/f0171cb> .
+
+<urn:atm:triage:worktree/integrate-phase-a/f0171cb>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "f0171cbd38c3ca5e2b9b984bd591e3ff19838e0f" ;
+  triage:orderIndex 0 .

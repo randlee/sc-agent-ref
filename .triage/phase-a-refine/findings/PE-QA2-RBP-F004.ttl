@@ -1,0 +1,42 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/PE-QA2-RBP-F004>
+  a triage:Finding ;
+  triage:findingId "PE-QA2-RBP-F004" ;
+  triage:title "RowContext has all-public fields and is not non_exhaustive, so a new column breaks downstream struct literals." ;
+  triage:description "RowContext has all-public fields and is not non_exhaustive, so a new column breaks downstream struct literals." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "api-design" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T17:34:52Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R6 ;
+  triage:foundAt "2026-11-08T17:33:18Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/PE-QA2-RBP-F004/IPA-1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/PE-QA2-RBP-F004/IPA-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-decision-schema/src/session_log/mod.rs" ;
+  triage:line 84 ;
+  triage:snippet "pub struct RowContext {" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "f0171cbd38c3ca5e2b9b984bd591e3ff19838e0f" ;
+  triage:occursIn <urn:atm:triage:worktree/IPA/f0171cb> .
+
+<urn:atm:triage:worktree/IPA/f0171cb>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "f0171cbd38c3ca5e2b9b984bd591e3ff19838e0f" ;
+  triage:orderIndex 0 .

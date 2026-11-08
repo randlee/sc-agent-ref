@@ -1,0 +1,66 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/PE-QA2-RBP-F002>
+  a triage:Finding ;
+  triage:findingId "PE-QA2-RBP-F002" ;
+  triage:title "SubjectsProducer and SubjectsSource have all-public fields and are not non_exhaustive; mode is a raw String over a closed set" ;
+  triage:description "SubjectsProducer and SubjectsSource have all-public fields and are not non_exhaustive; mode is a raw String over a closed set. Any field added after publish breaks downstream struct literals." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "api-design" ;
+  triage:severity "important" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T17:34:55Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R6 ;
+  triage:foundAt "2026-11-08T17:33:18Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/PE-QA2-RBP-F002/IPA-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/PE-QA2-RBP-F002/IPA-2> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/PE-QA2-RBP-F002/IPA-3> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/PE-QA2-RBP-F002/IPA-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/schema/subjects.rs" ;
+  triage:line 22 ;
+  triage:snippet "pub struct SubjectsSource {" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "f0171cbd38c3ca5e2b9b984bd591e3ff19838e0f" ;
+  triage:occursIn <urn:atm:triage:worktree/IPA/f0171cb> .
+
+<urn:atm:triage:occurrence/PE-QA2-RBP-F002/IPA-2>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/schema/subjects.rs" ;
+  triage:line 34 ;
+  triage:snippet "pub struct SubjectsProducer {" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "f0171cbd38c3ca5e2b9b984bd591e3ff19838e0f" ;
+  triage:occursIn <urn:atm:triage:worktree/IPA/f0171cb> .
+
+<urn:atm:triage:occurrence/PE-QA2-RBP-F002/IPA-3>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/schema/subjects.rs" ;
+  triage:line 48 ;
+  triage:snippet "pub mode: String," ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "f0171cbd38c3ca5e2b9b984bd591e3ff19838e0f" ;
+  triage:occursIn <urn:atm:triage:worktree/IPA/f0171cb> .
+
+<urn:atm:triage:worktree/IPA/f0171cb>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "f0171cbd38c3ca5e2b9b984bd591e3ff19838e0f" ;
+  triage:orderIndex 0 .
