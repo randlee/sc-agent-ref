@@ -198,6 +198,29 @@ is r-6). The Jev request/response structs
 (`jev::v1`) are r-5's. No wire byte, digest, stdout golden or session
 document byte changes.
 
+## API clarifications (PR 32 QA, binding for r-7)
+
+- `SessionLogRow::try_from_fields` refuses a `schema_version` other than
+  `SESSION_LOG_SCHEMA_VERSION` (INPUT_INVALID; hint names the supported
+  version and "written by a newer sc-agent"); covered by
+  `test_unknown_or_missing_key_rejected`.
+- `JudgeBackend` stays open (ADR-SAG-0009). Its semver promise is the
+  additive rule: new methods get default bodies. It stays dyn-compatible
+  (`&self` receivers, no generic methods, no `Self` in signatures); the
+  rustdoc and the crate README say both.
+- `RowContext.repo` stays absolute path text (owner decision). A non-UTF-8
+  byte is replaced; two such repos can share one `answers_by_repo_project`
+  key, documented on the field.
+- `ModelDescriptor::model()` uses `expect` (M-PANIC-ON-BUG); the invariant
+  is proven by `test_known_models_roundtrip`.
+- `AnswerId::from_str` and `ModelId::from_str` errors carry fix hints (use
+  the logged `answer_id`; use a non-empty model string or an alias), and
+  the acceptance rows assert the hint.
+- `test_latest_alias_lookup` also asserts every `released` value is a valid
+  `YYYY-MM-DD` date.
+- D9 also flips the ADR-SAG-0030 "Per-API modules and crate naming" bullet
+  to `(Active, r-7)`.
+
 ## Layering (decided; ADR-SAG-0030)
 
 Module layout: one module per decision API. `jev::v1` lands in r-5 and is
