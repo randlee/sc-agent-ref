@@ -22,6 +22,7 @@
 //! carries the question and choice map of the payload it encodes.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -71,7 +72,7 @@ const MIN_OPTIONS: usize = 2;
 /// One question the judge answers.
 ///
 /// Fields are private so a later field is additive; build with
-/// [`Self::new`] (a choice question), [`Self::try_new`] (any kind) or
+/// [`Self::try_new`] (any kind) or
 /// deserialize. Deserialization runs [`Self::try_new`], so the kind rules
 /// hold for every question read from bytes.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -98,8 +99,25 @@ struct RawQuestion {
     descriptions: Option<Vec<String>>,
 }
 
+/// A question broke its kind's rules. The text names the question id, the
+/// kind and the counts, never the prompt.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct RuleViolation(String);
+
+impl fmt::Display for RuleViolation {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.0)
+    }
+}
+
+impl From<RuleViolation> for JevError {
+    fn from(violation: RuleViolation) -> Self {
+        Self::input_invalid(violation.0)
+    }
+}
+
 impl TryFrom<RawQuestion> for Question {
-    type Error = String;
+    type Error = RuleViolation;
 
     fn try_from(raw: RawQuestion) -> Result<Self, Self::Error> {
         Self::build(raw.id, raw.prompt, raw.choices, raw.kind, raw.descriptions)
@@ -107,13 +125,17 @@ impl TryFrom<RawQuestion> for Question {
 }
 
 impl Question {
-    /// A choice question with `id`, instructions `prompt`, and `choices` in
-    /// display order.
+    /// A choice question that skips every kind rule (feature `test-util`).
     ///
-    /// This constructor does not check the choice count; the count is
-    /// checked by [`Self::try_new`] and when a payload is deserialized.
+    /// Tests use it to build a payload the backends must refuse; production
+    /// code uses [`Self::try_new`].
+    #[cfg(any(test, feature = "test-util"))]
     #[must_use]
-    pub fn new(id: QuestionId, prompt: impl Into<String>, choices: Vec<ChoiceId>) -> Self {
+    pub fn new_unchecked(
+        id: QuestionId,
+        prompt: impl Into<String>,
+        choices: Vec<ChoiceId>,
+    ) -> Self {
         Self {
             id,
             prompt: prompt.into(),
@@ -154,7 +176,7 @@ impl Question {
         kind: QuestionKind,
         descriptions: Option<Vec<String>>,
     ) -> Result<Self, JevError> {
-        Self::build(id, prompt.into(), choices, kind, descriptions).map_err(JevError::input_invalid)
+        Ok(Self::build(id, prompt.into(), choices, kind, descriptions)?)
     }
 
     fn build(
@@ -163,7 +185,7 @@ impl Question {
         choices: Vec<ChoiceId>,
         kind: QuestionKind,
         descriptions: Option<Vec<String>>,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, RuleViolation> {
         check_kind_rules(&id, &choices, kind, descriptions.as_deref())?;
         let descriptions = descriptions.filter(|list| {
             !list
@@ -178,6 +200,31 @@ impl Question {
             kind,
             descriptions,
         })
+    }
+
+    /// Parses one question from a JSON value and checks its kind's rules.
+    ///
+    /// # Errors
+    ///
+    /// `INPUT_INVALID`. A question that breaks a kind rule is an
+    /// [`JevError::InputInvalid`] whose detail names the id, the kind and the
+    /// counts; any other malformed value is an `EncodeFailed` error that
+    /// names only the failure category and position.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sc_decision_schema::Question;
+    ///
+    /// let good = serde_json::json!({"id": "q", "prompt": "?", "choices": ["a", "b"]});
+    /// assert!(Question::from_json(good).is_ok());
+    /// let bad = serde_json::json!({"id": "q", "prompt": "?", "choices": ["a"]});
+    /// assert!(Question::from_json(bad).is_err());
+    /// ```
+    pub fn from_json(value: Value) -> Result<Self, JevError> {
+        let raw: RawQuestion = serde_json::from_value(value)
+            .map_err(|error| JevError::encode_failed("question", &error))?;
+        Ok(Self::try_from(raw)?)
     }
 
     /// The question id.
@@ -221,10 +268,7 @@ impl Question {
     /// `noul` question (its answer is the probability of yes).
     fn answer_labels(&self) -> BTreeSet<ChoiceId> {
         match self.kind {
-            QuestionKind::Noul => ["no", "yes"]
-                .into_iter()
-                .filter_map(|label| ChoiceId::try_from(label).ok())
-                .collect(),
+            QuestionKind::Noul => BTreeSet::from([ChoiceId::no(), ChoiceId::yes()]),
             QuestionKind::Choice | QuestionKind::Score => self.choices.iter().cloned().collect(),
         }
     }
@@ -235,7 +279,7 @@ fn check_kind_rules(
     choices: &[ChoiceId],
     kind: QuestionKind,
     descriptions: Option<&[String]>,
-) -> Result<(), String> {
+) -> Result<(), RuleViolation> {
     let range = match kind {
         QuestionKind::Choice => Some((MIN_OPTIONS, MAX_CHOICE_OPTIONS)),
         QuestionKind::Score => Some((MIN_OPTIONS, MAX_SCORE_LEVELS)),
@@ -244,35 +288,35 @@ fn check_kind_rules(
     match range {
         Some((least, most)) => {
             if !(least..=most).contains(&choices.len()) {
-                return Err(format!(
+                return Err(RuleViolation(format!(
                     "question {id} is a {} question and needs {least} to {most} choices, got {}; fix the choices",
                     kind_name(kind),
                     choices.len()
-                ));
+                )));
             }
             let distinct: BTreeSet<&ChoiceId> = choices.iter().collect();
             if distinct.len() != choices.len() {
-                return Err(format!(
+                return Err(RuleViolation(format!(
                     "question {id} repeats a choice; give every choice a distinct label"
-                ));
+                )));
             }
         }
         None => {
             if !choices.is_empty() || descriptions.is_some() {
-                return Err(format!(
+                return Err(RuleViolation(format!(
                     "question {id} is a noul question and takes no choices and no descriptions"
-                ));
+                )));
             }
         }
     }
     if let Some(list) = descriptions
         && list.len() != choices.len()
     {
-        return Err(format!(
+        return Err(RuleViolation(format!(
             "question {id} has {} descriptions for {} choices; give one description per choice",
             list.len(),
             choices.len()
-        ));
+        )));
     }
     Ok(())
 }
@@ -301,10 +345,33 @@ pub struct ChoiceAnswer {
 
 /// Questions plus state, before canonical encoding.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(try_from = "RawPayload")]
 pub struct CanonicalJudgePayload {
     questions: Vec<Question>,
     state: Vec<ChoiceAnswer>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawPayload {
+    questions: Vec<RawQuestion>,
+    state: Vec<ChoiceAnswer>,
+}
+
+impl TryFrom<RawPayload> for CanonicalJudgePayload {
+    type Error = RuleViolation;
+
+    fn try_from(raw: RawPayload) -> Result<Self, Self::Error> {
+        let questions = raw
+            .questions
+            .into_iter()
+            .map(Question::try_from)
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Self {
+            questions,
+            state: raw.state,
+        })
+    }
 }
 
 impl CanonicalJudgePayload {
@@ -322,9 +389,10 @@ impl CanonicalJudgePayload {
     ///
     /// # Errors
     ///
-    /// `INPUT_INVALID` when the bytes are not JSON, have an unknown field, or
-    /// a question breaks its kind's rules. The error names the failure, never
-    /// a payload byte outside a question id.
+    /// `INPUT_INVALID` when the bytes are not JSON, have an unknown or
+    /// missing field, or a question breaks its kind's rules. A rule error
+    /// names the question id, the kind and the counts; every other error
+    /// names only the failure category and position, never payload bytes.
     ///
     /// # Examples
     ///
@@ -337,13 +405,9 @@ impl CanonicalJudgePayload {
     /// # Ok::<(), sc_agent_types::JevError>(())
     /// ```
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, JevError> {
-        serde_json::from_slice(bytes).map_err(|error| {
-            if error.classify() == serde_json::error::Category::Data {
-                JevError::input_invalid(format!("canonical payload is invalid: {error}"))
-            } else {
-                JevError::encode_failed("canonical payload", &error)
-            }
-        })
+        let raw: RawPayload = serde_json::from_slice(bytes)
+            .map_err(|error| JevError::encode_failed("canonical payload", &error))?;
+        Ok(Self::try_from(raw)?)
     }
 
     /// Questions the backends must judge.

@@ -9,6 +9,8 @@ acceptance root, when it differs, is shown as "root a-N"; the closure table in
 | REQ-SAG-0110 | **`sc-jev` owns 100% of TypeSafe Jev HTTP**; Phase A check/judge slice | a-4+ |
 | REQ-SAG-0400 | Injectable transport at construction; the judge body is built once and every retry resends it unchanged | a-4 |
 | REQ-SAG-0401 | Jev busy retry policy | a-4 |
+| REQ-SAG-0403 | Both backends validate `CanonicalJudgePayload` by deserializing; the Jev body is the documented flat `{model, state, questions}` object, no byte-splice | r-5 |
+| REQ-SAG-0143 | `sc-jev` builds the body with `jev::v1::CheckRequest` and parses replies with `CheckResponse` (every question type, no byte-splice) | r-5 |
 
 Public HTTP library; no argv parsing, no `check.toml`, no extractors.
 

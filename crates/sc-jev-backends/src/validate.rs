@@ -120,7 +120,8 @@ mod refusals {
             .iter()
             .map(|label| ChoiceId::try_from(*label).expect("choice"))
             .collect();
-        let question = Question::new(QuestionId::try_from("q").expect("id"), "p", choices);
+        let question =
+            Question::new_unchecked(QuestionId::try_from("q").expect("id"), "p", choices);
         PayloadBundle::encode(&CanonicalJudgePayload::new(vec![question], Vec::new()))
             .expect("bundle")
     }

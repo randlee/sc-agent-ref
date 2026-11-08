@@ -71,7 +71,7 @@ fn all_types_payload() -> CanonicalJudgePayload {
              "descriptions": ["Cosmetic", "Likely to bite", "Breaks users"]},
             {"id": "urgent", "prompt": "Is it urgent?", "choices": [], "kind": "noul"}
         ],
-        "state": [{"question_id": "quality", "choice": "yes"}]
+        "state": [{"question_id": "quality", "choice": "pass"}]
     }))
 }
 
@@ -323,7 +323,7 @@ fn test_duplicate_key_rejected() {
 
     // A payload that repeats a choice or an id cannot be mapped.
     let repeated_choice = CanonicalJudgePayload::new(
-        vec![sc_decision_schema::Question::new(
+        vec![sc_decision_schema::Question::new_unchecked(
             qid("q"),
             "?",
             vec![choice("a"), choice("a")],
@@ -337,7 +337,7 @@ fn test_duplicate_key_rejected() {
         "INPUT_INVALID"
     );
     let two = |label: &str| {
-        sc_decision_schema::Question::new(qid("q"), label, vec![choice("a"), choice("b")])
+        sc_decision_schema::Question::new_unchecked(qid("q"), label, vec![choice("a"), choice("b")])
     };
     let repeated_question = CanonicalJudgePayload::new(vec![two("x"), two("y")], Vec::new());
     assert_eq!(

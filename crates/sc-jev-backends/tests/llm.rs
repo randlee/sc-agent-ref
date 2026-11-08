@@ -403,9 +403,9 @@ fn test_llm_input_is_refused_like_jev_and_nothing_is_sent() {
     assert_eq!(too_big.code(), "INPUT_TOO_LARGE");
     assert!(posts(&recorded).is_empty());
 
-    // `Question::new` does not check the choice count, so a caller can build
+    // `Question::new_unchecked` does not check the choice count, so a caller can build
     // this bundle; the backend deserializes the bytes and refuses it.
-    let one = Question::new(
+    let one = Question::new_unchecked(
         "q".try_into().expect("id"),
         "judge this",
         vec!["only".try_into().expect("choice")],
@@ -580,16 +580,17 @@ fn test_llm_non_2xx_detail_is_redacted() {
     let (backend, recorded) = haiku(vec![text_response(
         401,
         Vec::new(),
-        &format!("invalid x-api-key {KEY}"),
+        &format!("invalid x-api-key {KEY} SENTINEL-RESPONSE-BODY"),
     )]);
     let error = backend
         .judge(&standard_request(PROMPT), &SendTrace::new())
         .expect_err("401");
     assert_eq!(error.code(), "NETWORK_ERROR");
-    assert_eq!(
-        error.to_string(),
-        "network error: haiku HTTP 401: invalid x-api-key [redacted]"
-    );
+    // Status only: the response body is never echoed.
+    assert_eq!(error.to_string(), "network error: haiku HTTP 401");
+    let rendered = format!("{error} {}", error.fix_hint());
+    assert!(!rendered.contains("SENTINEL-RESPONSE-BODY"), "{rendered}");
+    assert!(!rendered.contains(KEY), "{rendered}");
     assert_eq!(posts(&recorded).len(), 1);
 }
 

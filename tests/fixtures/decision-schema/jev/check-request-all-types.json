@@ -1,6 +1,6 @@
 {
   "model": "jev-1.13.0",
-  "state": [{"choice": "yes", "question_id": "quality"}],
+  "state": [{"choice": "pass", "question_id": "quality"}],
   "questions": {
     "quality": {
       "type": "choice",

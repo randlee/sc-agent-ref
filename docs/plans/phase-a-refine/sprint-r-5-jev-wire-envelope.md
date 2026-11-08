@@ -25,6 +25,18 @@ requirements:
   - REQ-SAG-0501
   - REQ-SAG-0102
   - REQ-SAG-0606
+  - REQ-SAG-0110   # regression: sc-jev stays the only Jev client
+  - REQ-SAG-0502   # regression: Haiku/Luna byte cap on the assembled body
+  - REQ-SAG-0503   # regression: LLM system prompt injection unchanged
+  - REQ-SAG-0504   # regression: Haiku/Luna token ceiling
+  - REQ-SAG-0505   # regression: shared busy retry
+  - REQ-SAG-0144   # regression: Haiku/Luna output stays DecisionAnswers
+  - REQ-SAG-0145   # regression: schema_for dispatch unchanged
+  - REQ-SAG-0146   # regression: session-log DDL untouched
+  - NFR-SAG-0001   # regression: error JSON shape unchanged (errors test)
+  - NFR-SAG-0002   # regression: no secret or body bytes in errors
+  - NFR-SAG-0003   # not applicable: session JSONL retention, untouched here
+  - NFR-SAG-0004   # regression: caret ranges, check-exact-pins.sh via just lint
   - REQ-SAG-0140   # regression: jev::v1 stays inside sc-decision-schema's data-only dependency set
   - REQ-SAG-0141   # regression: jev::v1 types live only in sc-decision-schema
 adrs:
@@ -60,6 +72,12 @@ owned_paths:
   - "docs/architecture.md#ADR-SAG-0002, ADR-SAG-0005, ADR-SAG-0012 r-5 amendments and their index markers"
   - "docs/architecture.md#ADR-SAG-0030 Jev API structs bullet marker; index row ADR-SAG-0030 (Status cell: r-5 part)"
   - "docs/requirements.md#REQ-SAG-0403 and REQ-SAG-0143 rows"
+  - "crates/sc-jev-check/src/payload/caller.rs, crates/sc-jev-check/src/payload/questions.rs (QA fix): kind-aware question-set check, rule text in request_json_error, Question::try_new; crates/sc-jev-check/src/session/tests.rs (QA fix): Question::new_unchecked"
+  - "crates/sc-decision-schema/src/ids.rs (QA fix): ChoiceId::yes/no"
+  - "crates/sc-decision-schema/README.md, docs/sc-jev-backends/architecture.md, docs/sc-jev-check/requirements.md, docs/sc-decision-schema/requirements.md (QA fix)"
+  - "crates/sc-jev-backends/src/backend.rs#http_failure (QA fix): status only in the NETWORK_ERROR detail"
+  - "docs/requirements.md#REQ-SAG-0400 row (QA fix)"
+  - "docs/plans/phase-a-refine/plan.md#D9 line (QA fix)"
 ---
 
 # Sprint r-5 — Jev wire body as the documented API; one canonical schema (D9)
@@ -289,7 +307,7 @@ Each named test prints `1 passed`; the scrum-master rejects `0 passed`.
 | req:REQ-SAG-0143 | `cargo test -p sc-decision-schema --test jev -- test_check_request_body_matches_golden --exact` and `-- test_all_question_types_body_matches_golden --exact` (byte-equal to the compact form of `check-request.json` / `check-request-all-types.json`); `cargo test -p sc-decision-schema --test jev -- test_check_response_parses_golden --exact` and `-- test_all_answer_types_parse_golden --exact`; `cargo test -p sc-decision-schema --test jev -- test_response_rules_rejected --exact` (model differing from the request model, id mismatch, duplicate id, choice outside criteria, probability keys differing from the criteria keys, value outside [0, 1], sum off by more than 1e-6, a `noul` answer with a key other than `yes` or a `yes` outside [0, 1], answer type differing from question type: each `RESPONSE_INVALID`); `cargo test -p sc-decision-schema --test jev -- test_state_forms_roundtrip --exact` (string, object with unsorted top-level keys, array); `cargo test -p sc-decision-schema --test jev -- test_duplicate_key_rejected --exact` (duplicate question id or criteria key on a request and on recovery: `INPUT_INVALID`); `cargo test -p sc-jev --features test-util --test wire -- test_body_over_limit_is_input_too_large --exact`; `cargo test -p sc-jev --features test-util --test wire -- test_jev_body_is_check_request_body --exact` (the body a recording transport captures equals `CheckRequest::to_body`, so the splice path is gone); `cargo test -p sc-jev --test jev_api` green over the `sc-agent-http` transport |
 | req:REQ-SAG-0142 | `cargo test -p sc-decision-schema --test version -- test_known_versions_accepted_unknown_rejected --exact` still passes with `KNOWN = [canonical.v1]`; `cargo test -p workspace-tests --test jev_cross_impl` and `cargo test -p sc-jev-check --test cross_impl_branches` digests unchanged |
 | req:REQ-SAG-0103 | `cargo test -p sc-decision-schema --test judge -- test_question_kind_rules --exact` (choice 2..=255, score 2..=10, noul without choices, descriptions one per choice; each violation `INPUT_INVALID`); `cargo test -p sc-decision-schema --test judge` green |
-| boundary:jev | `cargo test -p sc-jev --features test-util --test wire -- test_digest_detects_faulty_wire_builder --exact` and `-- test_real_wire_builder_reports_prompt_digest --exact` green (recovery via `to_canonical`); regression: `just test`, `cargo test -p sc-agent-http --test retry` (REQ-SAG-0401), `cargo test -p sc-jev --test catalog` (r-7's lines kept), `cargo test -p sc-agent-types --test errors -- test_error_response_stderr_golden --exact` (ADR-SAG-0001/0027); REQ-SAG-0140 `cargo tree -p sc-decision-schema -e normal --depth 1` lists only `sc-agent-types`, `serde`, `serde_json`; REQ-SAG-0140/0141 `just lint` |
+| boundary:jev | `cargo test -p sc-jev --features test-util --test wire -- test_digest_detects_faulty_wire_builder --exact` and `-- test_real_wire_builder_reports_prompt_digest --exact` green (recovery via `to_canonical`); regression: `just test`, `cargo test -p sc-agent-http --test retry` (REQ-SAG-0401), `cargo test -p sc-jev --test catalog` (r-7's lines kept), `cargo test -p sc-agent-types --test errors -- test_error_response_stderr_golden --exact` (ADR-SAG-0001/0027); REQ-SAG-0140 `cargo tree -p sc-decision-schema -e normal --depth 1` lists only `sc-agent-types`, `serde`, `serde_json`; REQ-SAG-0140/0141 `just lint`; REQ-SAG-0110 `cargo test -p sc-jev --features test-util --test wire` (the only Jev client sends the documented body); REQ-SAG-0502 `cargo test -p sc-jev-backends --features test-util --test wire` and `cargo test -p sc-jev-backends --test llm -- test_validate_for_send_refuses_oversize_before_http --exact`; REQ-SAG-0503 `cargo test -p sc-jev-backends --test llm -- test_llm_system_prompt_is_injected_not_hardcoded --exact`; REQ-SAG-0504 `cargo test -p sc-jev-backends --test llm -- test_provider_token_count_over_limit_does_not_send_judge --exact`; REQ-SAG-0505 `cargo test -p sc-agent-http --features test-util --test retry`; REQ-SAG-0144 `cargo test -p sc-decision-schema --test llm`; REQ-SAG-0145 `cargo test -p sc-decision-schema --test variants`; REQ-SAG-0146 `cargo test -p sc-decision-schema --test session_log`; NFR-SAG-0001 `cargo test -p sc-agent-types --test errors -- test_error_response_stderr_golden --exact`; NFR-SAG-0002 `cargo test -p sc-jev --features test-util --test wire -- test_digest_recovery_error_carries_no_body_bytes --exact` and `cargo test -p sc-jev-backends --test llm -- test_llm_non_2xx_detail_is_redacted --exact`; NFR-SAG-0004 `just lint`; NFR-SAG-0003 not applicable |
 | adr (r-5) | No `(Proposed, r-5)` marker remains in `docs/architecture.md` |
 
 ## Required validation
@@ -319,9 +337,15 @@ Choices where the sprint doc is silent (all conservative):
   by `from_canonical` always equals `prompt_sha256`.
 - `CanonicalJudgePayload::from_bytes` is the one validator
   (`serde_json::from_slice` with the error mapping to `INPUT_INVALID`); `sc-jev`
-  and `sc-jev-backends` both call it. `Question::new` stays infallible and does
-  not check the choice count, so a bundle can still hold a one-choice question;
-  both backend families refuse it when they deserialize the bytes.
+  and `sc-jev-backends` both call it. It parses a private raw payload and
+  applies the question rules through a typed rule error, so rule text (question
+  id, kind, counts) reaches the caller and every other parse error names only
+  category and position. `Question::new` is replaced by
+  `Question::new_unchecked`, available only under `cfg(test)` or feature
+  `test-util`, for tests that build a payload the backends must refuse;
+  production code uses `Question::try_new` (`CanonicalJudgePayload::new` stays
+  public: it takes already-validated questions). `Question::from_json` is the
+  one-question entry `sc-jev-check` uses to keep the rule text.
 - A `noul` question's bundle choice set (`PayloadBundle::question_choices`) is
   `{no, yes}`, so `JudgeOutcome::new` accepts the derived `yes`/`no` answer
   without a special case in `judge.rs`.
@@ -353,8 +377,9 @@ Choices where the sprint doc is silent (all conservative):
   (validate row), and the REQ-SAG-0400 rows in `docs/requirements.md` and
   `docs/sc-jev/requirements.md` ("byte-exact" now means retries resend the
   same body).
-- Known UX gap, not fixed here: `sc-ai jev --request-json` reports a
-  question-kind rule violation with the generic "request JSON must contain a
-  questions array" hint, because `sc-jev-check` maps every deserialization data
-  error to that text. A follow-up in `sc-jev-check` can surface the rule text.
+- QA-1 fixes: `request_json_error` in `sc-jev-check` now shows the rule text
+  for a kind-rule violation (generic hint otherwise); Haiku/Luna `http_failure`
+  reports the status only; `jev::v1` parsing uses raw parse types and typed
+  errors instead of message prefixes. Question-set files (`check.toml`) stay
+  `choice`-only (docs/sc-jev-check/requirements.md).
 - No release-consumer input changed (no new crate, no dependency edge).

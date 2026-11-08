@@ -372,9 +372,9 @@ mod jev_api {
 
     #[test]
     fn invalid_question_sends_nothing() {
-        // `Question::new` does not check the count; the payload is refused
+        // `Question::new_unchecked` does not check the count; the payload is refused
         // when the backend deserializes it.
-        let question = sc_decision_schema::Question::new(
+        let question = sc_decision_schema::Question::new_unchecked(
             "q".try_into().expect("id"),
             "x",
             vec!["yes".try_into().expect("choice")],

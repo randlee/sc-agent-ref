@@ -75,8 +75,8 @@ pub(crate) fn recovered_digest(body: &str) -> Result<Sha256Digest, JevError> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum WireFault {
-    /// Drops one byte of the embedded payload text. The body stays valid
-    /// JSON, so recovery succeeds and reports a digest that differs from the
+    /// Drops one letter of the first question's `instructions` value. The
+    /// body stays a valid check request, so recovery succeeds and reports a digest that differs from the
     /// request's `prompt_sha256`.
     DropEmbeddedByte,
     /// Cuts the serialized body in half, so digest recovery fails and the
@@ -239,7 +239,7 @@ mod refusals {
     }
 
     /// A bundle whose questions skip the kind rules (built with
-    /// `Question::new`), as a caller using the infallible constructor could.
+    /// `Question::new_unchecked`), as a caller using the infallible constructor could.
     fn unchecked_bundle(questions: &Value) -> PayloadBundle {
         let list = questions
             .as_array()
@@ -255,7 +255,7 @@ mod refusals {
                             .expect("choice")
                     })
                     .collect();
-                sc_decision_schema::Question::new(
+                sc_decision_schema::Question::new_unchecked(
                     sc_decision_schema::QuestionId::try_from(question["id"].as_str().expect("id"))
                         .expect("id"),
                     "p",

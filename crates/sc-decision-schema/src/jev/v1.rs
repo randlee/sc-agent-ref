@@ -57,27 +57,11 @@ const MAX_SCORE_CRITERIA: usize = 10;
 /// How far a probability sum may sit from 1. Jev rounds its probabilities, so
 /// the sum is never exact; a wider gap is a malformed reply.
 const PROBABILITY_SUM_TOLERANCE: f64 = 1e-6;
-/// Marks a serde error message this module wrote, so the error mapping may
-/// show it (it names a key or a limit, never body text beyond a key).
-const OWN_MESSAGE: &str = "jev::v1: ";
 /// The model the reply must name is reported with this text.
 const MODEL_OR_SHAPE: &str = "unexpected Jev response model or shape";
 
-fn own_error<E: de::Error>(message: impl fmt::Display) -> E {
-    E::custom(format!("{OWN_MESSAGE}{message}"))
-}
-
-/// Maps a serde failure to the error text, naming only what this module
-/// wrote (a duplicate key, a limit) and otherwise category and position.
-fn describe(what: &str, error: &serde_json::Error) -> (bool, String) {
-    let rendered = error.to_string();
-    match rendered.strip_prefix(OWN_MESSAGE) {
-        Some(own) => (true, format!("{what}: {own}")),
-        None => (
-            false,
-            format!("{what}: {}", JevError::encode_failed(what, error)),
-        ),
-    }
+fn duplicate_message(key: &dyn fmt::Display) -> String {
+    format!("duplicate key `{key}`; give every key once")
 }
 
 /// A map serialized as a JSON object whose key order is the `Vec` order, and
@@ -108,9 +92,7 @@ impl<K: Ord + fmt::Display, V> OrderedMap<K, V> {
     /// `INPUT_INVALID` when two pairs share a key; the fix hint names it.
     pub fn try_from_pairs(pairs: Vec<(K, V)>) -> Result<Self, JevError> {
         match duplicate_key(&pairs) {
-            Some(key) => Err(JevError::input_invalid(format!(
-                "duplicate key `{key}`; give every key once"
-            ))),
+            Some(key) => Err(JevError::input_invalid(duplicate_message(key))),
             None => Ok(Self(pairs)),
         }
     }
@@ -168,14 +150,15 @@ impl<K: Serialize, V: Serialize> Serialize for OrderedMap<K, V> {
     }
 }
 
-/// Reads the pairs of a JSON object in document order, refusing a duplicate
-/// key. It yields the pairs, not an [`OrderedMap`], so the two types do not
-/// refer to each other.
+/// A JSON object read in document order, with duplicates kept. Raw parse
+/// types hold it so their owners can refuse duplicates with a typed error.
+struct Pairs<K, V>(Vec<(K, V)>);
+
 struct PairsVisitor<K, V>(PhantomData<(K, V)>);
 
 impl<'de, K, V> Visitor<'de> for PairsVisitor<K, V>
 where
-    K: Deserialize<'de> + Ord + fmt::Display,
+    K: Deserialize<'de>,
     V: Deserialize<'de>,
 {
     type Value = Vec<(K, V)>;
@@ -189,10 +172,15 @@ where
         while let Some(pair) = access.next_entry::<K, V>()? {
             pairs.push(pair);
         }
-        if let Some(key) = duplicate_key(&pairs) {
-            return Err(own_error(format!("duplicate key `{key}`")));
-        }
         Ok(pairs)
+    }
+}
+
+impl<'de, K: Deserialize<'de>, V: Deserialize<'de>> Deserialize<'de> for Pairs<K, V> {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer
+            .deserialize_map(PairsVisitor(PhantomData))
+            .map(Self)
     }
 }
 
@@ -202,9 +190,11 @@ where
     V: Deserialize<'de>,
 {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        deserializer
-            .deserialize_map(PairsVisitor(PhantomData))
-            .map(Self)
+        let Pairs(pairs) = Pairs::deserialize(deserializer)?;
+        match duplicate_key(&pairs) {
+            Some(key) => Err(de::Error::custom(duplicate_message(key))),
+            None => Ok(Self(pairs)),
+        }
     }
 }
 
@@ -243,11 +233,11 @@ pub enum JevQuestion {
 enum RawJevQuestion {
     Choice {
         instructions: String,
-        criteria: OrderedMap<ChoiceId, String>,
+        criteria: Pairs<ChoiceId, String>,
     },
     Score {
         instructions: String,
-        criteria: OrderedMap<ChoiceId, String>,
+        criteria: Pairs<ChoiceId, String>,
     },
     Noul {
         instructions: String,
@@ -255,21 +245,20 @@ enum RawJevQuestion {
 }
 
 impl TryFrom<RawJevQuestion> for JevQuestion {
-    type Error = String;
+    type Error = JevError;
 
     fn try_from(raw: RawJevQuestion) -> Result<Self, Self::Error> {
-        let built = match raw {
+        match raw {
             RawJevQuestion::Choice {
                 instructions,
                 criteria,
-            } => Self::choice(instructions, criteria),
+            } => Self::choice(instructions, OrderedMap::try_from_pairs(criteria.0)?),
             RawJevQuestion::Score {
                 instructions,
                 criteria,
-            } => Self::score(instructions, criteria),
+            } => Self::score(instructions, OrderedMap::try_from_pairs(criteria.0)?),
             RawJevQuestion::Noul { instructions } => Ok(Self::noul(instructions)),
-        };
-        built.map_err(|error| format!("{OWN_MESSAGE}{}", detail(&error)))
+        }
     }
 }
 
@@ -407,25 +396,44 @@ pub enum JevState {
     Array(Vec<Value>),
 }
 
+/// A state as read, with object duplicates kept.
+enum RawState {
+    Text(String),
+    Object(Pairs<String, Value>),
+    Array(Vec<Value>),
+}
+
+impl TryFrom<RawState> for JevState {
+    type Error = JevError;
+
+    fn try_from(raw: RawState) -> Result<Self, Self::Error> {
+        Ok(match raw {
+            RawState::Text(text) => Self::Text(text),
+            RawState::Object(pairs) => Self::Object(OrderedMap::try_from_pairs(pairs.0)?),
+            RawState::Array(items) => Self::Array(items),
+        })
+    }
+}
+
 struct StateVisitor;
 
 impl<'de> Visitor<'de> for StateVisitor {
-    type Value = JevState;
+    type Value = RawState;
 
     fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str("a string, an object or an array")
     }
 
     fn visit_str<E: de::Error>(self, text: &str) -> Result<Self::Value, E> {
-        Ok(JevState::Text(text.to_owned()))
+        Ok(RawState::Text(text.to_owned()))
     }
 
     fn visit_string<E: de::Error>(self, text: String) -> Result<Self::Value, E> {
-        Ok(JevState::Text(text))
+        Ok(RawState::Text(text))
     }
 
     fn visit_map<A: MapAccess<'de>>(self, access: A) -> Result<Self::Value, A::Error> {
-        OrderedMap::deserialize(MapAccessDeserializer::new(access)).map(JevState::Object)
+        Pairs::deserialize(MapAccessDeserializer::new(access)).map(RawState::Object)
     }
 
     fn visit_seq<A: SeqAccess<'de>>(self, mut access: A) -> Result<Self::Value, A::Error> {
@@ -433,13 +441,21 @@ impl<'de> Visitor<'de> for StateVisitor {
         while let Some(item) = access.next_element::<Value>()? {
             items.push(item);
         }
-        Ok(JevState::Array(items))
+        Ok(RawState::Array(items))
+    }
+}
+
+impl<'de> Deserialize<'de> for RawState {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer.deserialize_any(StateVisitor)
     }
 }
 
 impl<'de> Deserialize<'de> for JevState {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        deserializer.deserialize_any(StateVisitor)
+        RawState::deserialize(deserializer)?
+            .try_into()
+            .map_err(de::Error::custom)
     }
 }
 
@@ -456,11 +472,40 @@ impl<'de> Deserialize<'de> for JevState {
 /// # Ok::<(), sc_agent_types::JevError>(())
 /// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(try_from = "RawCheckRequest")]
 pub struct CheckRequest {
     model: ModelId,
     state: JevState,
     questions: OrderedMap<QuestionId, JevQuestion>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawCheckRequest {
+    model: ModelId,
+    state: RawState,
+    questions: Pairs<QuestionId, RawJevQuestion>,
+}
+
+impl TryFrom<RawCheckRequest> for CheckRequest {
+    type Error = JevError;
+
+    fn try_from(raw: RawCheckRequest) -> Result<Self, Self::Error> {
+        let pairs = raw
+            .questions
+            .0
+            .into_iter()
+            .map(|(id, question)| match JevQuestion::try_from(question) {
+                Ok(question) => Ok((id, question)),
+                Err(error) => Err(in_question(&id, &error)),
+            })
+            .collect::<Result<Vec<_>, JevError>>()?;
+        Ok(Self {
+            model: raw.model,
+            state: raw.state.try_into()?,
+            questions: OrderedMap::try_from_pairs(pairs)?,
+        })
+    }
 }
 
 impl CheckRequest {
@@ -511,18 +556,13 @@ impl CheckRequest {
     /// # Errors
     ///
     /// `INPUT_INVALID` when `body` is not a check request or repeats a
-    /// question id or criteria key. The error names a repeated key or a
-    /// criteria limit, and otherwise only the failure category and position,
-    /// never body bytes (ADR-SAG-0020).
+    /// question id, criteria key or state key (the detail names the key), or
+    /// a question breaks its criteria count. Any other failure names only
+    /// the category and position, never body bytes (ADR-SAG-0020).
     pub fn parse(body: &str) -> Result<Self, JevError> {
-        serde_json::from_str(body).map_err(|error| {
-            let (own, text) = describe("Jev wire body", &error);
-            if own {
-                JevError::input_invalid(text)
-            } else {
-                JevError::encode_failed("Jev wire body", &error)
-            }
-        })
+        let raw: RawCheckRequest = serde_json::from_str(body)
+            .map_err(|error| JevError::encode_failed("Jev wire body", &error))?;
+        Self::try_from(raw)
     }
 
     /// The compact JSON body: `model`, `state`, `questions`, in that order.
@@ -635,13 +675,37 @@ pub struct NoulProbabilities {
 
 /// The check reply: `{model, answers, usage}`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(try_from = "RawCheckResponse")]
 pub struct CheckResponse {
     model: ModelId,
     answers: OrderedMap<QuestionId, JevAnswer>,
+    usage: Map<String, Value>,
+    extra: Map<String, Value>,
+}
+
+#[derive(Deserialize)]
+struct RawCheckResponse {
+    model: ModelId,
+    answers: Pairs<QuestionId, JevAnswer>,
     #[serde(default)]
     usage: Map<String, Value>,
     #[serde(flatten)]
     extra: Map<String, Value>,
+}
+
+impl TryFrom<RawCheckResponse> for CheckResponse {
+    type Error = JevError;
+
+    fn try_from(raw: RawCheckResponse) -> Result<Self, Self::Error> {
+        let answers = OrderedMap::try_from_pairs(raw.answers.0)
+            .map_err(|error| JevError::response_invalid(detail(&error)))?;
+        Ok(Self {
+            model: raw.model,
+            answers,
+            usage: raw.usage,
+            extra: raw.extra,
+        })
+    }
 }
 
 impl CheckResponse {
@@ -653,17 +717,12 @@ impl CheckResponse {
     /// `noul` answer has a key other than `yes`, or an answer id repeats (the
     /// detail names the id).
     pub fn parse(raw: &[u8]) -> Result<Self, JevError> {
-        serde_json::from_slice(raw).map_err(|error| match error.classify() {
-            serde_json::error::Category::Data => {
-                let (own, text) = describe("Jev response", &error);
-                if own {
-                    JevError::response_invalid(text)
-                } else {
-                    JevError::response_invalid(MODEL_OR_SHAPE)
-                }
-            }
-            _ => JevError::response_invalid("response is not JSON"),
-        })
+        let parsed: RawCheckResponse =
+            serde_json::from_slice(raw).map_err(|error| match error.classify() {
+                serde_json::error::Category::Data => JevError::response_invalid(MODEL_OR_SHAPE),
+                _ => JevError::response_invalid("response is not JSON"),
+            })?;
+        Self::try_from(parsed)
     }
 
     /// The model that answered.
@@ -701,18 +760,15 @@ impl CheckResponse {
         if self.model != request.model {
             return Err(JevError::response_invalid(MODEL_OR_SHAPE));
         }
-        let asked: BTreeSet<&QuestionId> = request.questions.keys().collect();
-        let answered: BTreeSet<&QuestionId> = self.answers.keys().collect();
-        if asked != answered {
-            return Err(JevError::response_invalid(
-                "answer ids differ from the question ids",
-            ));
+        let ids_differ = || JevError::response_invalid("answer ids differ from the question ids");
+        // Answer ids are unique, so equal counts and one answer per question
+        // make the two id sets equal.
+        if self.answers.len() != request.questions.len() {
+            return Err(ids_differ());
         }
         let mut typed = BTreeMap::new();
-        for (id, answer) in self.answers.iter() {
-            let question = request.questions.get(id).ok_or_else(|| {
-                JevError::response_invalid("answer ids differ from the question ids")
-            })?;
+        for (id, question) in request.questions.iter() {
+            let answer = self.answers.get(id).ok_or_else(ids_differ)?;
             typed.insert(id.clone(), map_answer(id, question, answer)?);
         }
         Ok(typed)
@@ -752,12 +808,14 @@ fn map_answer(
                     "answer {id} probability is not a number in [0, 1]"
                 )));
             }
-            let label = if yes >= 0.5 { "yes" } else { "no" };
-            let probabilities = BTreeMap::from([
-                (ChoiceId::try_from("yes")?, yes),
-                (ChoiceId::try_from("no")?, 1.0 - yes),
-            ]);
-            QuestionAnswer::new(ChoiceId::try_from(label)?, None, Some(probabilities))
+            let probabilities =
+                BTreeMap::from([(ChoiceId::yes(), yes), (ChoiceId::no(), 1.0 - yes)]);
+            let label = if yes >= 0.5 {
+                ChoiceId::yes()
+            } else {
+                ChoiceId::no()
+            };
+            QuestionAnswer::new(label, None, Some(probabilities))
         }
         _ => Err(JevError::response_invalid(format!(
             "answer {id} type differs from its question type"
