@@ -1,0 +1,22 @@
+# cargo-deny configuration. CI runs only the advisories check
+# (`cargo deny check advisories`, job `advisories` in
+# .github/workflows/sc-agent-ci.yml); licences, bans and sources are not
+# policed here.
+
+[advisories]
+version = 2
+yanked = "deny"
+# Report unmaintained crates anywhere in the dependency graph, not only the
+# workspace's direct dependencies (the cargo-deny default).
+unmaintained = "all"
+# Only these three unmaintained entries are ignored. All three come from one
+# chain in Cargo.lock: keyring -> secret-service -> zbus -> zvariant,
+# zbus_names, zvariant_derive (parent crate of `cargo tree -i zvariant` is
+# keyring, through its optional secret-service dependency). There is no
+# patched release; revisit when keyring drops or replaces zbus 4.x. Any
+# other advisory fails CI.
+ignore = [
+    { id = "RUSTSEC-2026-0370", reason = "zvariant 4.2.0 unmaintained; reached only via keyring -> secret-service -> zbus 4.4.0, no fix available" },
+    { id = "RUSTSEC-2026-0371", reason = "zbus_names 3.0.0 unmaintained; reached only via keyring -> secret-service -> zbus 4.4.0, no fix available" },
+    { id = "RUSTSEC-2026-0372", reason = "zvariant_derive 4.2.0 unmaintained; reached only via keyring -> secret-service -> zbus 4.4.0 -> zvariant, no fix available" },
+]

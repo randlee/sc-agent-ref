@@ -15,6 +15,7 @@
 #             .github/scripts/cargo-tree-gates.sh (REQ-SAG-0134, REQ-SAG-0135);
 #             .github/scripts/check-exact-pins.sh and its --self-test
 #             (NFR-SAG-0004, ADR-SAG-0023)
+#   advisories cargo deny --locked check advisories (deny.toml; RustSec)
 #   wheel     default `maturin build` of sc-jev-py: the release wheel has no
 #             `_testing` submodule (ADR-SAG-0029 (b))
 #   workspace-tests  cargo test -p workspace-tests (cross-crate proofs,
@@ -50,6 +51,7 @@ env:
   PYTHON_VERSION: "3.11.9"
   JUST_VERSION: "1.58.0"
   CARGO_HACK_VERSION: "0.6.46"
+  CARGO_DENY_VERSION: "0.20.2"
   CARGO_LLVM_COV_VERSION: "0.9.1"
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: "0"
@@ -367,6 +369,31 @@ jobs:
       - name: check-exact-pins --self-test
         timeout-minutes: 5
         run: bash .github/scripts/check-exact-pins.sh --self-test
+
+  advisories:
+    name: RustSec advisories
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        timeout-minutes: 5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        timeout-minutes: 10
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
+        timeout-minutes: 5
+        with:
+          tool: cargo-deny@${{ env.CARGO_DENY_VERSION }}
+
+      # deny.toml ignores only the three unmaintained zvariant-chain entries.
+      - name: cargo deny check advisories
+        timeout-minutes: 5
+        run: cargo deny --locked check advisories
 
   wheel:
     name: release wheel has no _testing
