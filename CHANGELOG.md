@@ -60,8 +60,9 @@ First release. Channels once published: crates.io (ten crates), PyPI
   implements `Default` (use `AnswerId::new()`), like `SessionId`.
 - `sc_decision_schema::jev::v1::CheckResponse::parse` range-checks
   probabilities and confidence on typed values rather than by matching error
-  text. Error text and codes are unchanged, except that a reply with several
-  out-of-range answers still names the least answer id.
+  text. Error text and codes are unchanged; a shape error anywhere in a reply
+  now wins over an out-of-range value, and a reply that fails both ways
+  reports the shape error.
 - `sc_jev_check::config`: `InputSpec` and its struct variants are
   `#[non_exhaustive]` and gain the constructors `file`, `table_column`,
   `subjects` and `command`. A command input is `InputSpec::Command(CommandSpec)`;
