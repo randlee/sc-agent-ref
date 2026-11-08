@@ -87,7 +87,7 @@ pub fn producer_from_extractions(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sc_agent_types::schema::subjects::SubjectsDocument;
+    use sc_agent_types::schema::subjects::{GrammarRef, SubjectsDocument};
     use sc_agent_types::{BackendId, Sha256Digest};
     use sc_decision_schema::{Attestation, CanonicalJudgePayload};
 
@@ -183,8 +183,16 @@ mod tests {
             producer_from_extractions(&extractions).expect("one producer"),
             Some(producer.clone())
         );
-        let mut other = producer;
-        other.name = "another-producer".to_owned();
+        let other = SubjectsProducer::new(
+            "another-producer",
+            producer.version(),
+            GrammarRef {
+                language: producer.language().to_owned(),
+                grammar: producer.grammar().to_owned(),
+                grammar_version: producer.grammar_version().to_owned(),
+            },
+            producer.query_sha256().clone(),
+        );
         extractions.insert(
             "zeta".to_owned(),
             Extracted {
@@ -197,17 +205,16 @@ mod tests {
     }
 
     fn sample_producer() -> SubjectsProducer {
-        SubjectsProducer {
-            name: "sc-treesitter".to_owned(),
-            version: "0.1.0".to_owned(),
-            language: "python".to_owned(),
-            grammar: "tree-sitter-python".to_owned(),
-            grammar_version: "0.23.6".to_owned(),
-            query_sha256: Sha256Digest::parse(
-                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            )
-            .expect("digest"),
-            mode: "matches".to_owned(),
-        }
+        SubjectsProducer::new(
+            "sc-treesitter",
+            "0.1.0",
+            GrammarRef {
+                language: "python".to_owned(),
+                grammar: "tree-sitter-python".to_owned(),
+                grammar_version: "0.23.6".to_owned(),
+            },
+            Sha256Digest::parse("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+                .expect("digest"),
+        )
     }
 }

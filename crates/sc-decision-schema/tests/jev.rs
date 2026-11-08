@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 use sc_agent_types::{JevError, ModelId};
 use sc_decision_schema::jev::v1::{CheckRequest, CheckResponse, JevState, OrderedMap};
-use sc_decision_schema::{CanonicalJudgePayload, ChoiceId, QuestionId};
+use sc_decision_schema::{CanonicalJudgePayload, ChoiceId, Probability, QuestionId};
 use serde_json::{Value, json};
 
 fn fixture(name: &str) -> String {
@@ -116,9 +116,9 @@ fn test_check_response_parses_golden() {
     let answers = response.into_answers(&request).expect("answers");
     let relevant = &answers[&qid("relevant")];
     assert_eq!(relevant.choice().as_str(), "yes");
-    assert_eq!(relevant.confidence(), Some(0.94));
+    assert_eq!(relevant.confidence().map(Probability::get), Some(0.94));
     assert_eq!(
-        relevant.probabilities().expect("probabilities")[&choice("no")],
+        relevant.probabilities().expect("probabilities")[&choice("no")].get(),
         0.04
     );
     assert_eq!(answers[&qid("risk")].choice().as_str(), "low");
@@ -132,14 +132,14 @@ fn test_all_answer_types_parse_golden() {
     let answers = response.into_answers(&request).expect("answers");
     let severity = &answers[&qid("severity")];
     assert_eq!(severity.choice().as_str(), "medium");
-    assert_eq!(severity.confidence(), Some(0.65));
+    assert_eq!(severity.confidence().map(Probability::get), Some(0.65));
     // A noul answer is yes when p >= 0.5, else no; no confidence.
     let urgent = &answers[&qid("urgent")];
     assert_eq!(urgent.choice().as_str(), "no");
     assert_eq!(urgent.confidence(), None);
     let probabilities = urgent.probabilities().expect("probabilities");
-    assert_eq!(probabilities[&choice("yes")], 0.25);
-    assert_eq!(probabilities[&choice("no")], 0.75);
+    assert_eq!(probabilities[&choice("yes")].get(), 0.25);
+    assert_eq!(probabilities[&choice("no")].get(), 0.75);
 
     let at_half = fixture("check-response-all-types.json").replace("0.25", "0.5");
     let answers = CheckResponse::parse(at_half.as_bytes())
@@ -375,5 +375,99 @@ fn test_malformed_body_hint_is_fix_the_body() {
         assert!(!hint.contains("encoded"), "{hint}");
         assert!(!hint.contains("bug"), "{hint}");
         assert!(!hint.contains(secret), "{hint}");
+    }
+}
+
+#[test]
+fn test_probability_validates_and_serializes_plain() {
+    for good in [0.0, 0.5, 1.0] {
+        let p = Probability::new(good).expect("in range");
+        assert_eq!(p.get(), good);
+        assert_eq!(
+            serde_json::to_string(&p).expect("json"),
+            serde_json::to_string(&good).expect("json")
+        );
+        let read: Probability = serde_json::from_str(&good.to_string()).expect("read");
+        assert_eq!(read, p);
+    }
+    for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -0.1, 1.000_001] {
+        assert_eq!(
+            Probability::new(bad).expect_err("range").code(),
+            "RESPONSE_INVALID"
+        );
+    }
+    assert!(serde_json::from_str::<Probability>("2").is_err());
+}
+
+#[test]
+fn test_out_of_range_reply_names_the_range() {
+    // Each out-of-range value is refused when the reply is parsed, through
+    // the typed RESPONSE_INVALID path, naming the range and not echoing the
+    // value.
+    for (path, value) in [
+        ("quality confidence", json!(1.2)),
+        ("quality probabilities", json!({"pass": 1.5, "fail": -0.5})),
+        ("urgent probabilities", json!({"yes": 1.5})),
+    ] {
+        let mut reply = golden_reply();
+        if path.starts_with("quality confidence") {
+            reply["answers"]["quality"]["confidence"] = value;
+        } else if path.starts_with("quality") {
+            reply["answers"]["quality"]["probabilities"] = value;
+        } else {
+            reply["answers"]["urgent"]["probabilities"] = value;
+        }
+        let bytes = serde_json::to_vec(&reply).expect("json");
+        let error = CheckResponse::parse(&bytes).expect_err(path);
+        assert_eq!(error.code(), "RESPONSE_INVALID", "{path}");
+        let text = error.to_string();
+        assert!(text.contains("number in [0, 1]"), "{path}: {text}");
+        assert!(!text.contains("1.5") && !text.contains("1.2"), "{text}");
+        // The detail names the question id and field, never the value.
+        let (id, field) = match path {
+            "quality confidence" => ("quality", "confidence"),
+            "quality probabilities" => ("quality", "probabilities"),
+            _ => ("urgent", "probabilities"),
+        };
+        assert!(
+            text.contains(&format!("answer {id} {field}")),
+            "{path}: {text}"
+        );
+    }
+}
+
+#[test]
+fn test_out_of_range_reply_names_the_first_offending_answer() {
+    let mut reply = golden_reply();
+    reply["answers"]["urgent"]["probabilities"] = json!({"yes": 7.25});
+    reply["answers"]["quality"]["confidence"] = json!(9.5);
+    let bytes = serde_json::to_vec(&reply).expect("json");
+    let text = CheckResponse::parse(&bytes).expect_err("range").to_string();
+    assert!(text.contains("answer "), "{text}");
+    assert!(!text.contains("7.25") && !text.contains("9.5"), "{text}");
+}
+
+#[test]
+fn test_unknown_key_containing_the_range_text_is_a_shape_error() {
+    // A reply is classified by what is wrong with it, not by searching the
+    // parser's message for range text a hostile key can reproduce.
+    let mut reply = golden_reply();
+    reply["answers"]["urgent"]["probabilities"] =
+        json!({"yes": 0.5, "not a finite number in [0, 1]": 0.5});
+    let bytes = serde_json::to_vec(&reply).expect("json");
+    let error = CheckResponse::parse(&bytes).expect_err("unknown key");
+    assert_eq!(error.code(), "RESPONSE_INVALID");
+    let text = error.to_string();
+    assert!(!text.contains("number in [0, 1]"), "{text}");
+    assert!(!text.contains("answer urgent"), "{text}");
+}
+
+#[test]
+fn test_probability_error_does_not_echo_its_value() {
+    for bad in [1.234_5, -7.5, f64::NAN] {
+        let text = Probability::new(bad).expect_err("range").to_string();
+        assert!(text.contains("number in [0, 1]"), "{text}");
+        assert!(!text.contains("1.2345") && !text.contains("7.5"), "{text}");
+        assert!(!text.contains("NaN"), "{text}");
     }
 }

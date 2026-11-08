@@ -1,7 +1,7 @@
 ---
 id: r-4
 phase: r
-status: complete # merged PR 21 (97db748), QA-2 PASS; req:REQ-SAG-0133 upstream issue URL deferred to owner (draft in .cursor/phase-a-orchestration/wave7-dev)
+status: complete # merged PR 21 (97db748), QA-2 PASS; req:REQ-SAG-0133 upstream URL recorded post-merge: https://github.com/randlee/sc-publish/pull/176 (owner chose a PR instead of an issue; merged)
 closure_type: contract
 target_boundary: release
 track: release
@@ -155,9 +155,11 @@ ARCH-001 (phase-end), RBP-F001 (a-9), ARCH-002 (phase-end), ARCH-006
    | Scoop | shim | in archive, no shim |
    | WinGet | alias | in package, no alias |
 
-   The Scoop/WinGet single-shim limit is an sc-publish kit limitation: file
-   bead `agt-scoop-multi-shim` and an upstream sc-publish issue, record its URL
-   in the amendment. `docs/development/sc-publish.md` documents the Windows
+   The Scoop single-shim limit is an sc-publish kit limitation: file
+   bead `agt-scoop-multi-shim` and an upstream sc-publish change, record its URL
+   in the amendment. (Outcome: the owner chose a PR instead of an issue, and
+   it merged as https://github.com/randlee/sc-publish/pull/176. WinGet aliases are not an upstream item; the first
+   hand-submitted manifest lists them, bead `agt-sft`.) `docs/development/sc-publish.md` documents the Windows
    invocation path. If a kit-supported field for extra binaries exists, set it
    in the consumer input and re-run `install.py` (r-4 owns the rendered files
    this wave).
@@ -180,7 +182,7 @@ ARCH-001 (phase-end), RBP-F001 (a-9), ARCH-002 (phase-end), ARCH-006
 | --- | --- |
 | req:NFR-SAG-0004 | `bash .github/scripts/check-exact-pins.sh` passes and fails on an injected unlisted `=` (script self-test `--self-test`) |
 | req:REQ-SAG-0134 | CI job present; `--no-default-features` lib builds green; no `mimalloc` in either library tree |
-| req:REQ-SAG-0133 | ADR-SAG-0017 table matches the consumer input and the rendered Homebrew formula; bead + upstream issue URL recorded |
+| req:REQ-SAG-0133 | ADR-SAG-0017 table matches the consumer input and the rendered Homebrew formula; bead + upstream URL recorded (https://github.com/randlee/sc-publish/pull/176) |
 | adr:ADR-SAG-0023 | Status Active; the lockstep list between the markers is the one `check-exact-pins.sh` reads (no list in the script); `sc-observability-types` absent; the r-3b subsection stays Proposed |
 | adr:ADR-SAG-0017 | r-4 subsection Active |
 | adr:ADR-SAG-0016 | r-4 subsection Active |
@@ -262,23 +264,26 @@ for the Scoop multi-shim limit.
   `present` row per binary crate asserting `mimalloc` is in the default
   tree, so the absence rows cannot pass because the pattern stopped
   matching.
-- **Upstream sc-publish issue** (REQ-QA-R4-002). Filing it is an owner
-  action (the sprint agent is permission-blocked on `gh issue create`); the
-  ADR-SAG-0017 r-4 amendment and `docs/development/sc-publish.md` keep the
-  "not yet filed" placeholder. This sprint is `status: complete`; the
-  `req:REQ-SAG-0133` row (the upstream sc-publish issue URL) is deferred to
-  the owner, tracked by bead `agt-scoop-multi-shim`, and the owner records
-  the URL in a later one-line docs commit.
+- **Upstream sc-publish change** (REQ-QA-R4-002). Filing it was an owner
+  action (the sprint agent was permission-blocked on `gh issue create`). It
+  was deferred at merge and has since been resolved: the owner directed the
+  upstream change as a PR instead of an issue, and it merged as
+  https://github.com/randlee/sc-publish/pull/176 (optional `[channels.scoop].binaries`). The
+  URL is recorded in the ADR-SAG-0017 r-4 amendment,
+  `docs/development/sc-publish.md` and REQ-SAG-0133 (phase-end PE-QA1,
+  REQ-QA-001).
 
-### Deferral — upstream sc-publish issue URL (REQ-SAG-0133, QA-2 REQ-QA-R4-002)
+### Deferral — upstream sc-publish URL (REQ-SAG-0133, QA-2 REQ-QA-R4-002) — resolved
 
-Filing the issue in `randlee/sc-publish` is an external write the orchestration
-agents are not permitted to perform (denied twice by the permission classifier,
-developer and parent). Recorded as an explicit orchestrator deferral so the sprint
-can merge: the owner files the issue from
-`.cursor/phase-a-orchestration/wave7-dev/sc-publish-multi-shim-issue-draft.md`
-and records its URL in the ADR-SAG-0017 r-4 amendment and
-`docs/development/sc-publish.md` in a later one-line docs commit. This sprint is
-`status: complete`; the `req:REQ-SAG-0133` row (the upstream sc-publish issue
-URL) is deferred to the owner. Tracking bead: `agt-scoop-multi-shim`. Everything else in the
-sprint is delivered and QA-2 PASS (arch-qa, rust-qa, flaky-test-qa).
+At merge, filing in `randlee/sc-publish` was an external write the orchestration
+agents were not permitted to perform, so the URL was deferred to the owner
+(tracking bead `agt-scoop-multi-shim`). Resolution (phase-end PE-QA1,
+REQ-QA-001): the owner directed the upstream change as a PR instead of an
+issue, and it merged as https://github.com/randlee/sc-publish/pull/176 (optional
+`[channels.scoop].binaries`). The URL is recorded in REQ-SAG-0133, the
+ADR-SAG-0017 r-4 amendment and `docs/development/sc-publish.md`. Current
+state: sc-agent's consumer input still has a single Scoop binary until it
+re-pins the kit and sets `binaries` (separate work). WinGet command aliases
+are not an upstream issue; the first hand-submitted manifest must list them
+(bead `agt-sft`). Everything else in the sprint was delivered and QA-2 PASS
+(arch-qa, rust-qa, flaky-test-qa).

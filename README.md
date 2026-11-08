@@ -4,6 +4,8 @@
 
 ## Install
 
+From source (works today):
+
 ```bash
 just install-sc-ai
 ```
@@ -14,9 +16,28 @@ The same install without `just`:
 cargo install --path crates/sc-ai --locked
 ```
 
+Available after the first release (nothing has been published yet; see
+[`CHANGELOG.md`](CHANGELOG.md)):
+
+```bash
+# crates.io
+cargo install sc-ai --locked
+
+# Homebrew (installs sc-ai and sc-treesitter)
+brew install randlee/tap/sc-ai
+```
+
+## Stability
+
+All crates are 0.x. What is and is not promised for the Jev wire types, the
+session-log record, the subjects schema and the Python `sc_jev_py` API is in
+[`docs/stability.md`](docs/stability.md).
+
 ## Session logs
 
-The default log root is `<repo-root>/.sc-ai`. `--log-dir <path>` overrides it.
+The default log root is `<repo-root>/.sc-ai`. Add `.sc-ai` to your project's
+`.gitignore`: session logs and session files live there and are not meant to be
+committed. `--log-dir <path>` overrides the log root.
 When that flag is absent, a non-empty `SC_LOG_ROOT` environment variable is
 the log root.
 
@@ -46,8 +67,11 @@ Success writes one JSON object to stdout:
 
 `data` includes the Jev answer fields and `session_id`. `data.readback`
 echoes the repo root, `check.toml`, and `--llm-system-prompt-file` path that
-the command consumed. Failure exits 2 and writes `{"error","message"}` to
-stderr. `error` is a `JevError` code.
+the command consumed. Failure exits 2 and writes one `{"schema_version","error","message"}` line to
+stderr. `error` is a `JevError` code; `schema_version` versions that error
+shape and is `1`. When some, not all, backends fail, stdout carries the
+envelope with the successful answers, stderr carries the first failure, and the
+exit code is 2.
 
 ## Development
 

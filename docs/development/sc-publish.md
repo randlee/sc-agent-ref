@@ -30,10 +30,11 @@ pin and re-run install. `install.py` overwrites kit paths without warning.
 
 ## What the consumer input declares
 
-- **crates.io**, in publish order: `sc-agent-types` (1), `sc-agent-secrets` (2),
-  `sc-agent-http` (3), `sc-jev` (4), `sc-jev-backends` (5), `sc-jev-check` (6),
-  `sc-jev-host` (7, internal support, `=`-pinned by `sc-ai`), `sc-treesitter`
-  (8), `sc-ai` (9). Crates 1 to 7 have dependents, so each waits 30 s and sets
+- **crates.io**, in publish order: `sc-agent-types` (1), `sc-decision-schema`
+  (2), `sc-agent-secrets` (3), `sc-agent-http` (4), `sc-jev` (5),
+  `sc-jev-backends` (6), `sc-jev-check` (7), `sc-jev-host` (8, internal
+  support, `=`-pinned by `sc-ai`), `sc-treesitter` (9), `sc-ai` (10). Crates 1
+  to 8 have dependents, so each waits 30 s and sets
   `verify_registry_visibility` before the next upload. crates.io is enabled by
   this `crates` list (entries with `publish: true`), not by a `channels` key.
 - **PyPI**: `sc-jev-py`, a maturin wheel plus sdist on Linux, macOS and Windows.
@@ -48,25 +49,32 @@ pin and re-run install. `install.py` overwrites kit paths without warning.
   `randlee/homebrew-tap`. It installs both binaries and tests `sc-ai --version`.
 - **Scoop**: `bucket/sc-ai.json` in `randlee/scoop-bucket`, shimming
   `bin/sc-ai.exe`. The kit's Scoop template takes a single `bin` entry, so
-  `sc-treesitter.exe` ships in the archive without a shim (upstream issue 1
+  `sc-treesitter.exe` ships in the archive without a shim (upstream item 1
   below).
-- **WinGet**: identifier `randlee.sc-ai`. It names only `sc-ai`.
+- **WinGet**: identifier `randlee.sc-ai`. It names only `sc-ai` until the
+  first manifest is submitted by hand with an alias for each binary (bead
+  `agt-sft`, [First-release checklist](#first-release-checklist-req-sag-0803)); this is not
+  an upstream kit issue.
 
-### Upstream kit issues to file
+### Upstream kit items
 
 These are sc-publish kit limitations. Fix them in the kit and bump the pin;
-do not hand-edit kit or rendered files (ADR-SAG-0018). Neither is filed yet;
-record the URL here and in ADR-SAG-0017's r-4 amendment when issue 1 is.
+do not hand-edit kit or rendered files (ADR-SAG-0018). Item 1 was raised as a
+PR instead of an issue (owner decision) and has merged:
+https://github.com/randlee/sc-publish/pull/176. Item 2 is not filed.
 sc-lint kit issues (Windows bootstrap) are listed separately in
 [`ci.md`](ci.md#upstream-issues-to-file-sc-lint).
 
-1. **Scoop template is single-binary.** The Scoop manifest takes one `bin`
-   entry, so only `sc-ai.exe` gets a shim; `sc-treesitter.exe` is in the
-   archive but not on `PATH`. Homebrew installs both binaries; WinGet names
-   only `randlee.sc-ai`. Ask: accept a list of release binaries per channel.
-   Bead `agt-scoop-multi-shim`; ADR-SAG-0017 r-4 amendment (phase-end
-   ARCH-002, decision D8). The kit has no consumer-input field for a second
-   shim at the current pin (`[channels.scoop].binary` must be one string).
+1. **Scoop template is single-binary.** (Merged upstream:
+   https://github.com/randlee/sc-publish/pull/176, optional
+   `[channels.scoop].binaries`.) The Scoop manifest takes one `bin` entry, so
+   only `sc-ai.exe` gets a shim; `sc-treesitter.exe` is in the archive but not
+   on `PATH`. Homebrew installs both binaries. sc-agent's input still has a
+   single Scoop binary (`[channels.scoop].binary`, one string) until it
+   re-pins the kit and sets `binaries`; the re-pin is separate work. Bead
+   `agt-scoop-multi-shim`; ADR-SAG-0017 r-4 amendment (phase-end ARCH-002,
+   decision D8). WinGet is not part of this item: the first hand-submitted
+   manifest lists a command alias per binary (bead `agt-sft`).
 2. **`list-publish-plan` ignores `publish: false`.** `release_artifacts.py
    list-publish-plan` prints every entry in the consumer `crates` list without
    checking its `publish` flag, and `cargo publish` and the dry-run consume
@@ -182,8 +190,9 @@ dependency versions match the tested release. Both binaries need the default
 | GitHub Release zip (`x86_64-pc-windows-msvc`) | `bin\sc-ai.exe` | `bin\sc-treesitter.exe` |
 | crates.io | `cargo install sc-ai --locked` | `cargo install sc-treesitter --locked` |
 
-Scoop and WinGet put only `sc-ai` on `PATH` (sc-publish kit limitation,
-bead `agt-scoop-multi-shim`). To get `sc-treesitter` on `PATH`, add the
+Scoop and WinGet put only `sc-ai` on `PATH` today (Scoop: single `binary` in
+sc-agent's input until the kit re-pin, bead `agt-scoop-multi-shim`; WinGet:
+until the first manifest is hand-submitted with both aliases, bead `agt-sft`). To get `sc-treesitter` on `PATH`, add the
 package's `bin` directory to `PATH` or install it with `cargo install`.
 
 ## Pin bump

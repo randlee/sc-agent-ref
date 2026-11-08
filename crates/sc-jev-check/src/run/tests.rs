@@ -321,11 +321,14 @@ fn command_input_copies_producer() {
             .registry(registry_of(&[&judge(BackendId::Jev, "yes")])),
     )
     .expect("prepare");
-    assert_eq!(prepared.producer().expect("producer").name, "sc-treesitter");
+    assert_eq!(
+        prepared.producer().expect("producer").name(),
+        "sc-treesitter"
+    );
     let response = run(prepared).expect("run");
     let producer = response.equal_input().producer().expect("producer");
-    assert_eq!(producer.name, "sc-treesitter");
-    assert_eq!(producer.language, "python");
+    assert_eq!(producer.name(), "sc-treesitter");
+    assert_eq!(producer.language(), "python");
 }
 
 #[test]

@@ -19,6 +19,7 @@ use sc_agent_types::{
 
 use crate::ids::{ChoiceId, QuestionId};
 use crate::payload::{ChoiceAnswer, PayloadBundle};
+use crate::probability::Probability;
 
 /// Caller-supplied evaluator instructions for LLM backends.
 ///
@@ -97,74 +98,45 @@ impl JudgeRequest {
 
 /// A backend's answer to one question.
 ///
-/// `confidence` and every probability are finite and in `[0, 1]`;
-/// [`Self::new`] and `Deserialize` enforce it, so an invalid backend
-/// response never becomes a `QuestionAnswer`. Serialized keys are `choice`,
-/// `confidence`, `probabilities`, each optional key omitted when `None`.
+/// `confidence` and every probability are [`Probability`] values, finite and
+/// in `[0, 1]`, so an invalid backend response never becomes a
+/// `QuestionAnswer`: `Deserialize` refuses it and [`Self::new`] cannot be
+/// given one. Serialized keys are `choice`, `confidence`, `probabilities`,
+/// each optional key omitted when `None`; the wire is the plain numbers.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(try_from = "RawQuestionAnswer")]
 pub struct QuestionAnswer {
     choice: ChoiceId,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    confidence: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    probabilities: Option<BTreeMap<ChoiceId, f64>>,
-}
-
-#[derive(Deserialize)]
-struct RawQuestionAnswer {
-    choice: ChoiceId,
-    #[serde(default)]
-    confidence: Option<f64>,
-    #[serde(default)]
-    probabilities: Option<BTreeMap<ChoiceId, f64>>,
-}
-
-impl TryFrom<RawQuestionAnswer> for QuestionAnswer {
-    type Error = JevError;
-
-    fn try_from(raw: RawQuestionAnswer) -> Result<Self, Self::Error> {
-        Self::new(raw.choice, raw.confidence, raw.probabilities)
-    }
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    confidence: Option<Probability>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    probabilities: Option<BTreeMap<ChoiceId, Probability>>,
 }
 
 impl QuestionAnswer {
     /// Builds an answer.
     ///
-    /// # Errors
-    ///
-    /// `RESPONSE_INVALID` when `confidence` or a probability is NaN,
-    /// infinite, negative, or greater than 1.
-    ///
     /// # Examples
     ///
     /// ```
-    /// use sc_decision_schema::{ChoiceId, QuestionAnswer};
+    /// use sc_decision_schema::{ChoiceId, Probability, QuestionAnswer};
     ///
     /// let yes = ChoiceId::try_from("yes")?;
-    /// let answer = QuestionAnswer::new(yes.clone(), Some(0.9), None)?;
+    /// let answer = QuestionAnswer::new(yes.clone(), Some(Probability::new(0.9)?), None);
     /// assert_eq!(answer.choice(), &yes);
-    /// assert!(QuestionAnswer::new(yes, Some(f64::NAN), None).is_err());
+    /// assert_eq!(answer.confidence().map(Probability::get), Some(0.9));
     /// # Ok::<(), sc_agent_types::JevError>(())
     /// ```
+    #[must_use]
     pub fn new(
         choice: ChoiceId,
-        confidence: Option<f64>,
-        probabilities: Option<BTreeMap<ChoiceId, f64>>,
-    ) -> Result<Self, JevError> {
-        if let Some(value) = confidence {
-            check_unit("confidence", &choice, value)?;
-        }
-        if let Some(map) = &probabilities {
-            for value in map.values() {
-                check_unit("probability", &choice, *value)?;
-            }
-        }
-        Ok(Self {
+        confidence: Option<Probability>,
+        probabilities: Option<BTreeMap<ChoiceId, Probability>>,
+    ) -> Self {
+        Self {
             choice,
             confidence,
             probabilities,
-        })
+        }
     }
 
     /// The selected choice.
@@ -175,13 +147,13 @@ impl QuestionAnswer {
 
     /// Backend confidence in [`Self::choice`]; `None` for LLM backends.
     #[must_use]
-    pub fn confidence(&self) -> Option<f64> {
+    pub fn confidence(&self) -> Option<Probability> {
         self.confidence
     }
 
     /// Per-choice probabilities, when the backend reports them.
     #[must_use]
-    pub fn probabilities(&self) -> Option<&BTreeMap<ChoiceId, f64>> {
+    pub fn probabilities(&self) -> Option<&BTreeMap<ChoiceId, Probability>> {
         self.probabilities.as_ref()
     }
 
@@ -192,16 +164,6 @@ impl QuestionAnswer {
             question_id: question_id.clone(),
             choice: self.choice.clone(),
         }
-    }
-}
-
-fn check_unit(what: &str, choice: &ChoiceId, value: f64) -> Result<(), JevError> {
-    if value.is_finite() && (0.0..=1.0).contains(&value) {
-        Ok(())
-    } else {
-        Err(JevError::response_invalid(format!(
-            "{what} {value} for choice {choice} is not a finite number in [0, 1]"
-        )))
     }
 }
 

@@ -48,9 +48,10 @@ Normative JSON (Phase A example):
 | **text** | Half-open UTF-8 slice **`[start_byte, end_byte)`** from source bytes |
 | **order** | Sort emitted subjects by `(start_byte, capture)` |
 | **helpers** | Helper captures never appear in `subjects`. A helper capture is a capture name beginning with `_` (stored without `@`), for example `_fn` for `@_fn` in the query |
+| **query_sha256** | Lowercase hex SHA-256 of the query text with CRLF and bare CR normalized to LF (equal to the SHA-256 of the bytes for a query without CR) |
 | **empty** | Zero subjects → `EXTRACTION_EMPTY` |
 | **parse errors** | ERROR node inside a subject span → `EXTRACTION_PARSE_ERROR` (path + line) |
-| **query mode** | Tree-sitter producers run **`matches`** only; record `"mode": "matches"` in `producer` |
+| **query mode** | Tree-sitter producers run **`matches`** only; record `"mode": "matches"` in `producer`. `matches` is the only value of `sc/subjects/1` (Rust: `QueryMode::Matches`, `#[non_exhaustive]`); a reader refuses any other `mode` like any other unknown value, and a new mode is a new variant |
 
 ### Same-line example
 

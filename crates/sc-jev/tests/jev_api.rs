@@ -15,7 +15,7 @@ use sc_agent_types::{
 };
 use sc_decision_schema::test_util::judge_outcome_field_names;
 use sc_decision_schema::{
-    CanonicalJudgePayload, JudgeBackend, JudgeRequest, LlmWireContext, PayloadBundle,
+    CanonicalJudgePayload, JudgeBackend, JudgeRequest, LlmWireContext, PayloadBundle, Probability,
 };
 use sc_jev::{JevClient, JevClientConfig};
 use serde_json::json;
@@ -134,8 +134,11 @@ fn one_check_is_one_request_byte_exact() {
     assert_eq!(outcome.backend(), BackendId::Jev);
     let answer = &outcome.answers()["q"];
     assert_eq!(answer.choice().as_str(), "no");
-    assert_eq!(answer.confidence(), Some(0.9));
-    assert_eq!(answer.probabilities().expect("probabilities")["no"], 0.9);
+    assert_eq!(answer.confidence().map(Probability::get), Some(0.9));
+    assert_eq!(
+        answer.probabilities().expect("probabilities")["no"].get(),
+        0.9
+    );
     assert_eq!(
         outcome.provider_meta().expect("meta")["usage"]["input_tokens"],
         318

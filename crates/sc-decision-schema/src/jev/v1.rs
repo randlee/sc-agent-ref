@@ -48,6 +48,7 @@ use crate::payload::{
     CanonicalJudgePayload, ChoiceAnswer, DecisionAnswers, PayloadBundle, Question, QuestionKind,
     decode_failed,
 };
+use crate::probability::Probability;
 
 /// Fewest options a `choice` or `score` question has.
 const MIN_CRITERIA: usize = 2;
@@ -642,24 +643,27 @@ impl CheckRequest {
 #[non_exhaustive]
 pub enum JevAnswer {
     /// The answer to a `choice` question.
+    #[non_exhaustive]
     Choice {
         /// The selected option.
         choice: ChoiceId,
         /// A probability per option.
-        probabilities: BTreeMap<ChoiceId, f64>,
-        /// How far to trust the call.
-        confidence: f64,
+        probabilities: BTreeMap<ChoiceId, Probability>,
+        /// How far to trust the call, in `[0, 1]`.
+        confidence: Probability,
     },
     /// The answer to a `score` question.
+    #[non_exhaustive]
     Score {
         /// The selected level.
         choice: ChoiceId,
         /// A probability per level.
-        probabilities: BTreeMap<ChoiceId, f64>,
-        /// How far to trust the call.
-        confidence: f64,
+        probabilities: BTreeMap<ChoiceId, Probability>,
+        /// How far to trust the call, in `[0, 1]`.
+        confidence: Probability,
     },
     /// The answer to a `noul` question: the probability of yes.
+    #[non_exhaustive]
     Noul {
         /// The single `yes` probability.
         probabilities: NoulProbabilities,
@@ -667,11 +671,37 @@ pub enum JevAnswer {
 }
 
 /// The probabilities of a `noul` answer: exactly the key `yes`.
+///
+/// # Examples
+///
+/// ```
+/// use sc_decision_schema::Probability;
+/// use sc_decision_schema::jev::v1::NoulProbabilities;
+///
+/// let noul: NoulProbabilities = serde_json::from_str(r#"{"yes":0.25}"#)?;
+/// assert_eq!(noul.yes().get(), 0.25);
+/// assert_eq!(NoulProbabilities::new(Probability::new(0.25)?), noul);
+/// assert!(serde_json::from_str::<NoulProbabilities>(r#"{"yes":1.5}"#).is_err());
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct NoulProbabilities {
-    /// Probability of yes, in `[0, 1]`.
-    pub yes: f64,
+    yes: Probability,
+}
+
+impl NoulProbabilities {
+    /// The probabilities of a `noul` answer whose probability of yes is `yes`.
+    #[must_use]
+    pub fn new(yes: Probability) -> Self {
+        Self { yes }
+    }
+
+    /// The probability of yes.
+    #[must_use]
+    pub fn yes(&self) -> Probability {
+        self.yes
+    }
 }
 
 /// The check reply: `{model, answers, usage}`.
@@ -687,18 +717,119 @@ pub struct CheckResponse {
 #[derive(Deserialize)]
 struct RawCheckResponse {
     model: ModelId,
-    answers: Pairs<QuestionId, JevAnswer>,
+    answers: Pairs<QuestionId, RawAnswer>,
     #[serde(default)]
     usage: Map<String, Value>,
     #[serde(flatten)]
     extra: Map<String, Value>,
 }
 
+/// An answer as it arrives: probabilities and confidence are plain numbers,
+/// checked against `[0, 1]` once the answer id is in scope.
+#[derive(Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum RawAnswer {
+    Choice {
+        choice: ChoiceId,
+        probabilities: BTreeMap<ChoiceId, f64>,
+        confidence: f64,
+    },
+    Score {
+        choice: ChoiceId,
+        probabilities: BTreeMap<ChoiceId, f64>,
+        confidence: f64,
+    },
+    Noul {
+        probabilities: RawNoulProbabilities,
+    },
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawNoulProbabilities {
+    yes: f64,
+}
+
+impl RawAnswer {
+    /// Builds the typed answer for `id`.
+    ///
+    /// The error names the answer id and the field (`confidence` or
+    /// `probabilities`), never the value (ADR-SAG-0020).
+    fn into_answer(self, id: &QuestionId) -> Result<JevAnswer, JevError> {
+        let out_of_range = |field: &str| {
+            JevError::response_invalid(format!(
+                "answer {id} {field} has a value that is not a number in [0, 1]"
+            ))
+        };
+        let probabilities = |map: BTreeMap<ChoiceId, f64>| {
+            map.into_iter()
+                .map(|(key, value)| Probability::new(value).map(|value| (key, value)))
+                .collect::<Result<BTreeMap<_, _>, _>>()
+                .map_err(|_| out_of_range("probabilities"))
+        };
+        match self {
+            Self::Choice {
+                choice,
+                probabilities: map,
+                confidence,
+            } => {
+                let confidence =
+                    Probability::new(confidence).map_err(|_| out_of_range("confidence"))?;
+                Ok(JevAnswer::Choice {
+                    choice,
+                    probabilities: probabilities(map)?,
+                    confidence,
+                })
+            }
+            Self::Score {
+                choice,
+                probabilities: map,
+                confidence,
+            } => {
+                let confidence =
+                    Probability::new(confidence).map_err(|_| out_of_range("confidence"))?;
+                Ok(JevAnswer::Score {
+                    choice,
+                    probabilities: probabilities(map)?,
+                    confidence,
+                })
+            }
+            Self::Noul { probabilities } => {
+                let yes = Probability::new(probabilities.yes)
+                    .map_err(|_| out_of_range("probabilities"))?;
+                Ok(JevAnswer::Noul {
+                    probabilities: NoulProbabilities::new(yes),
+                })
+            }
+        }
+    }
+}
+
 impl TryFrom<RawCheckResponse> for CheckResponse {
     type Error = JevError;
 
     fn try_from(raw: RawCheckResponse) -> Result<Self, Self::Error> {
-        let answers = OrderedMap::try_from_pairs(raw.answers.0)
+        // Report the out-of-range answer with the least id, whatever order
+        // the reply lists them in.
+        let mut typed = Vec::with_capacity(raw.answers.0.len());
+        let mut first_error: Option<(QuestionId, JevError)> = None;
+        for (id, answer) in raw.answers.0 {
+            match answer.into_answer(&id) {
+                Ok(answer) => typed.push((id, answer)),
+                Err(error) => {
+                    if first_error
+                        .as_ref()
+                        .is_none_or(|(least, _)| id.as_str() < least.as_str())
+                    {
+                        first_error = Some((id, error));
+                    }
+                }
+            }
+        }
+        if let Some((_, error)) = first_error {
+            return Err(error);
+        }
+        let answers = OrderedMap::try_from_pairs(typed)
             .map_err(|error| JevError::response_invalid(detail(&error)))?;
         Ok(Self {
             model: raw.model,
@@ -715,8 +846,8 @@ impl CheckResponse {
     /// # Errors
     ///
     /// `RESPONSE_INVALID` when `raw` is not JSON, is not a check reply, a
-    /// `noul` answer has a key other than `yes`, or an answer id repeats (the
-    /// detail names the id).
+    /// `noul` answer has a key other than `yes`, a probability or confidence
+    /// is outside `[0, 1]`, or an answer id repeats (the detail names the id).
     pub fn parse(raw: &[u8]) -> Result<Self, JevError> {
         let parsed: RawCheckResponse =
             serde_json::from_slice(raw).map_err(|error| match error.classify() {
@@ -796,27 +927,22 @@ fn map_answer(
             },
         ) if same_kind(question, answer) => {
             check_ranked(id, criteria, choice, probabilities)?;
-            QuestionAnswer::new(
+            Ok(QuestionAnswer::new(
                 choice.clone(),
                 Some(*confidence),
                 Some(probabilities.clone()),
-            )
+            ))
         }
         (JevQuestion::Noul { .. }, JevAnswer::Noul { probabilities }) => {
-            let yes = probabilities.yes;
-            if !(0.0..=1.0).contains(&yes) {
-                return Err(JevError::response_invalid(format!(
-                    "answer {id} probability is not a number in [0, 1]"
-                )));
-            }
+            let yes = probabilities.yes();
             let probabilities =
-                BTreeMap::from([(ChoiceId::yes(), yes), (ChoiceId::no(), 1.0 - yes)]);
-            let label = if yes >= 0.5 {
+                BTreeMap::from([(ChoiceId::yes(), yes), (ChoiceId::no(), yes.complement())]);
+            let label = if yes.get() >= 0.5 {
                 ChoiceId::yes()
             } else {
                 ChoiceId::no()
             };
-            QuestionAnswer::new(label, None, Some(probabilities))
+            Ok(QuestionAnswer::new(label, None, Some(probabilities)))
         }
         _ => Err(JevError::response_invalid(format!(
             "answer {id} type differs from its question type"
@@ -836,7 +962,7 @@ fn check_ranked(
     id: &QuestionId,
     criteria: &OrderedMap<ChoiceId, String>,
     choice: &ChoiceId,
-    probabilities: &BTreeMap<ChoiceId, f64>,
+    probabilities: &BTreeMap<ChoiceId, Probability>,
 ) -> Result<(), JevError> {
     if !criteria.keys().any(|option| option == choice) {
         return Err(JevError::response_invalid(format!(
@@ -850,15 +976,7 @@ fn check_ranked(
             "answer {id} probabilities are not exactly the question criteria"
         )));
     }
-    if probabilities
-        .values()
-        .any(|value| !(0.0..=1.0).contains(value))
-    {
-        return Err(JevError::response_invalid(format!(
-            "answer {id} probability is not a number in [0, 1]"
-        )));
-    }
-    let sum: f64 = probabilities.values().sum();
+    let sum: f64 = probabilities.values().map(|value| value.get()).sum();
     if (sum - 1.0).abs() > PROBABILITY_SUM_TOLERANCE {
         return Err(JevError::response_invalid(format!(
             "answer {id} probabilities sum to {sum}, not 1"

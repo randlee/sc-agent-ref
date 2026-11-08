@@ -28,7 +28,8 @@ default **30**. **stdout** must be valid `sc/subjects/1`.
 `{path}`. It is validated by the `file` rules below before the command runs
 (at `WORKTREE`: canonicalized, a regular file, inside the canonical repo root;
 at any other rev: a blob at that rev). `{path}` in the argv with no `path`
-field is `CONFIG_INVALID`.
+field is `CONFIG_INVALID`, as is `timeout_seconds = 0`; both are refused when
+`check.toml` is parsed (or a `CommandSpec` is built), before any input runs.
 
 The child gets `env_clear()` plus the a-10 allowlist (`PATH`, `HOME`,
 `USERPROFILE`, `SYSTEMROOT`, `TEMP`, `TMP`, `TMPDIR`, `LANG`, `LC_*`, `TERM`); no

@@ -4,7 +4,6 @@
 //! path, ADR-SAG-0005) and compared with a payload encoded independently
 //! from the fixture's subjects.
 
-use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -12,7 +11,7 @@ use sc_agent_types::observability::v2::NoopSessionLog;
 use sc_agent_types::schema::subjects::SubjectsDocument;
 use sc_agent_types::{BackendId, BackendSet, RepoRelativePath, RepoRoot};
 use sc_decision_schema::{CanonicalJudgePayload, PayloadBundle};
-use sc_jev_check::config::{CheckSpec, InputSpec};
+use sc_jev_check::config::{CheckSpec, InputName, InputSpec};
 use sc_jev_check::run::{CheckSource, RunConfig, prepare, run};
 
 const QUESTIONS: &str = r#"{
@@ -56,13 +55,11 @@ fn cross_impl_branches() {
     let dir = temp.path();
     std::fs::write(dir.join("subjects.json"), &bytes).expect("copy subjects");
     std::fs::write(dir.join("questions.json"), QUESTIONS).expect("questions file");
-    let mut spec = CheckSpec::new(RepoRelativePath::try_from("questions.json").expect("path"));
-    spec.inputs = BTreeMap::from([(
-        "branches".into(),
-        InputSpec::Subjects {
-            path: RepoRelativePath::try_from("subjects.json").expect("path"),
-        },
-    )]);
+    let spec = CheckSpec::new(RepoRelativePath::try_from("questions.json").expect("path"))
+        .with_input(
+            InputName::try_from("branches").expect("name"),
+            InputSpec::subjects(RepoRelativePath::try_from("subjects.json").expect("path")),
+        );
     let config = RunConfig::new(RepoRoot::new(dir), Arc::new(NoopSessionLog))
         .backends(BackendSet::try_from(vec![BackendId::Jev]).expect("set"))
         .dry_run(true);
@@ -75,10 +72,10 @@ fn cross_impl_branches() {
     assert_eq!(prepared.request().payload().bytes(), expected.bytes());
 
     let producer = prepared.producer().expect("producer");
-    assert_eq!(producer.name, "sc-treesitter");
-    assert_eq!(producer.language, document.producer().language);
-    assert_eq!(producer.query_sha256, document.producer().query_sha256);
-    assert_eq!(producer.mode, "matches");
+    assert_eq!(producer.name(), "sc-treesitter");
+    assert_eq!(producer.language(), document.producer().language());
+    assert_eq!(producer.query_sha256(), document.producer().query_sha256());
+    assert_eq!(producer.mode().as_str(), "matches");
 
     let dry = run(prepared).expect("dry-run");
     assert_eq!(dry.prompt_sha256(), expected.sha256());

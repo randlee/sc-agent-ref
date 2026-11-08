@@ -1,7 +1,7 @@
 //! Matches-mode extraction into `sc/subjects/1`.
 
 use sc_agent_types::schema::subjects::{
-    Span, SubjectsBuilder, SubjectsDocument, SubjectsProducer, SubjectsSource,
+    GrammarRef, Span, SubjectsBuilder, SubjectsDocument, SubjectsProducer, SubjectsSource,
 };
 use sc_agent_types::{BlobSha, JevError, RepoRelativePath, Rev, Sha256Digest};
 use tree_sitter::{Node, Parser, Point, Query, QueryCursor, StreamingIterator};
@@ -12,56 +12,62 @@ use crate::{PRODUCER_MODE, PRODUCER_NAME};
 /// Source and query for one extraction.
 ///
 /// The caller supplies the bytes. The library does not read git or the
-/// filesystem. Build one with [`ExtractInput::new`] and the `with_*` setters;
-/// [`extract`] rejects an empty `path`, `rev`, or `blob_sha`.
+/// filesystem. [`ExtractInput::new`] takes already-validated
+/// [`RepoRelativePath`], [`Rev`] and [`BlobSha`] values, so a malformed path,
+/// revision or blob id fails where the caller builds it and an input can never
+/// lack one. [`ExtractInput::with_captures`] sets the optional allow-list.
 ///
 /// # Examples
 ///
 /// ```
-/// let input = sc_treesitter::ExtractInput::new("python", "(identifier) @name\n", b"x = 1\n")
-///     .with_path("sample.py")
-///     .with_rev("HEAD")
-///     .with_blob_sha("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
-/// assert_eq!(input.path, "sample.py");
-/// assert!(input.captures.is_none());
+/// use sc_agent_types::{BlobSha, RepoRelativePath, Rev};
+///
+/// let input = sc_treesitter::ExtractInput::new(
+///     "python",
+///     "(identifier) @name\n",
+///     b"x = 1\n",
+///     RepoRelativePath::try_from("sample.py")?,
+///     Rev::parse("HEAD")?,
+///     BlobSha::try_from("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")?,
+/// );
+/// assert_eq!(input.path().as_str(), "sample.py");
+/// assert!(input.captures().is_none());
+/// # Ok::<(), sc_agent_types::JevError>(())
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct ExtractInput<'a> {
-    /// Grammar id, such as `python` or `rust`.
-    pub language: &'a str,
-    /// Query text. `producer.query_sha256` is the SHA-256 of these bytes.
-    pub query: &'a str,
-    /// Capture allow-list.
-    ///
-    /// `None` emits every capture whose name does not start with `_`.
-    /// `Some` emits only listed names. Helper captures (`@_…`, stored without
-    /// the `@`) are never subjects.
-    pub captures: Option<&'a [&'a str]>,
-    /// UTF-8 source the query runs on.
-    pub source: &'a [u8],
-    /// Repo-relative path used in `source.path` and subject ids.
-    pub path: &'a str,
-    /// Revision name stored in `source.rev`, such as `HEAD`.
-    pub rev: &'a str,
-    /// Git blob id of `source`.
-    pub blob_sha: &'a str,
+    language: &'a str,
+    query: &'a str,
+    captures: Option<&'a [&'a str]>,
+    source: &'a [u8],
+    path: RepoRelativePath,
+    rev: Rev,
+    blob_sha: BlobSha,
 }
 
 impl<'a> ExtractInput<'a> {
     /// Starts an input for `language`, `query`, and `source`.
     ///
-    /// `captures` starts as `None`. `path`, `rev`, and `blob_sha` start empty
-    /// and must be set before [`extract`].
+    /// `path`, `rev`, and `blob_sha` are recorded in `source` of the document.
+    /// `captures` starts as `None`.
     #[must_use]
-    pub fn new(language: &'a str, query: &'a str, source: &'a [u8]) -> Self {
+    pub fn new(
+        language: &'a str,
+        query: &'a str,
+        source: &'a [u8],
+        path: RepoRelativePath,
+        rev: Rev,
+        blob_sha: BlobSha,
+    ) -> Self {
         Self {
             language,
             query,
             captures: None,
             source,
-            path: "",
-            rev: "",
-            blob_sha: "",
+            path,
+            rev,
+            blob_sha,
         }
     }
 
@@ -72,25 +78,54 @@ impl<'a> ExtractInput<'a> {
         self
     }
 
-    /// Sets the repo-relative path recorded in `source.path`.
+    /// Grammar id, such as `python` or `rust`.
     #[must_use]
-    pub fn with_path(mut self, path: &'a str) -> Self {
-        self.path = path;
-        self
+    pub fn language(&self) -> &str {
+        self.language
     }
 
-    /// Sets the revision recorded in `source.rev`.
+    /// Query text.
+    ///
+    /// `producer.query_sha256` is the SHA-256 of this text after CRLF and bare
+    /// CR are normalized to LF (`Sha256Digest::of_text`), so it equals the
+    /// SHA-256 of the bytes only for a query without CR.
     #[must_use]
-    pub fn with_rev(mut self, rev: &'a str) -> Self {
-        self.rev = rev;
-        self
+    pub fn query(&self) -> &str {
+        self.query
     }
 
-    /// Sets the git blob id recorded in `source.blob_sha`.
+    /// Capture allow-list.
+    ///
+    /// `None` emits every capture whose name does not start with `_`.
+    /// `Some` emits only listed names. Helper captures (`@_…`, stored without
+    /// the `@`) are never subjects.
     #[must_use]
-    pub fn with_blob_sha(mut self, blob_sha: &'a str) -> Self {
-        self.blob_sha = blob_sha;
-        self
+    pub fn captures(&self) -> Option<&[&str]> {
+        self.captures
+    }
+
+    /// UTF-8 source the query runs on.
+    #[must_use]
+    pub fn source(&self) -> &[u8] {
+        self.source
+    }
+
+    /// Repo-relative path used in `source.path` and subject ids.
+    #[must_use]
+    pub fn path(&self) -> &RepoRelativePath {
+        &self.path
+    }
+
+    /// Revision stored in `source.rev`, such as `HEAD`.
+    #[must_use]
+    pub fn rev(&self) -> &Rev {
+        &self.rev
+    }
+
+    /// Git blob id of [`Self::source`].
+    #[must_use]
+    pub fn blob_sha(&self) -> &BlobSha {
+        &self.blob_sha
     }
 }
 
@@ -114,34 +149,34 @@ struct RawCapture<'a> {
 /// [`JevError::QueryInvalid`] when the query does not compile,
 /// [`JevError::ExtractionParseError`] when an `ERROR` or `MISSING` node sits
 /// inside a subject span, [`JevError::ExtractionEmpty`] when no subject
-/// remains, and [`JevError::InputInvalid`] when the source is not UTF-8, a
-/// required field is empty, the revision is malformed (see
-/// [`Rev::parse`]), or a span does not fit `u32`.
+/// remains, and [`JevError::InputInvalid`] when the source is not UTF-8 or a
+/// span does not fit `u32`.
 ///
 /// # Examples
 ///
 /// ```
 /// # #[cfg(feature = "python")] {
-/// let input = sc_treesitter::ExtractInput::new("python", "(identifier) @name\n", b"value = 1\n")
-///     .with_captures(Some(&["name"]))
-///     .with_path("sample.py")
-///     .with_rev("HEAD")
-///     .with_blob_sha("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
-/// let document = sc_treesitter::extract(&input).expect("identifier");
+/// use sc_agent_types::{BlobSha, RepoRelativePath, Rev};
+///
+/// let input = sc_treesitter::ExtractInput::new(
+///     "python",
+///     "(identifier) @name\n",
+///     b"value = 1\n",
+///     RepoRelativePath::try_from("sample.py")?,
+///     Rev::parse("HEAD")?,
+///     BlobSha::try_from("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")?,
+/// )
+/// .with_captures(Some(&["name"]));
+/// let document = sc_treesitter::extract(&input)?;
 /// assert_eq!(document.subjects()[0].capture(), "name");
 /// assert_eq!(document.subjects()[0].text(), "value");
 /// # }
+/// # Ok::<(), sc_agent_types::JevError>(())
 /// ```
 pub fn extract(input: &ExtractInput<'_>) -> Result<SubjectsDocument, JevError> {
-    if input.path.is_empty() {
-        return Err(JevError::input_invalid("source path is empty"));
-    }
-    let path = RepoRelativePath::try_from(input.path)?;
-    let rev = Rev::parse(input.rev)?;
-    if input.blob_sha.is_empty() {
-        return Err(JevError::input_invalid("blob sha is empty"));
-    }
-    let blob_sha = BlobSha::try_from(input.blob_sha)?;
+    let path = &input.path;
+    let rev = input.rev.clone();
+    let blob_sha = &input.blob_sha;
     if input.query.is_empty() {
         return Err(JevError::query_invalid(
             PRODUCER_NAME,
@@ -210,27 +245,25 @@ pub fn extract(input: &ExtractInput<'_>) -> Result<SubjectsDocument, JevError> {
             .min();
         if let Some(line) = parse_error_line {
             return Err(JevError::extraction_parse_error(
-                input.path.to_owned(),
+                path.as_str().to_owned(),
                 line,
             ));
         }
     }
 
     let mut builder = SubjectsBuilder::new(
-        SubjectsSource {
-            path: path.clone(),
-            rev,
-            blob_sha,
-        },
-        SubjectsProducer {
-            name: PRODUCER_NAME.to_owned(),
-            version: env!("CARGO_PKG_VERSION").to_owned(),
-            language: info.id.to_owned(),
-            grammar: info.grammar.to_owned(),
-            grammar_version: info.grammar_version.to_owned(),
-            query_sha256: Sha256Digest::of_text(input.query),
-            mode: PRODUCER_MODE.to_owned(),
-        },
+        SubjectsSource::new(path.clone(), rev, blob_sha.clone()),
+        SubjectsProducer::new(
+            PRODUCER_NAME,
+            env!("CARGO_PKG_VERSION"),
+            GrammarRef {
+                language: info.id.to_owned(),
+                grammar: info.grammar.to_owned(),
+                grammar_version: info.grammar_version.to_owned(),
+            },
+            Sha256Digest::of_text(input.query),
+        )
+        .with_mode(PRODUCER_MODE),
     );
     for capture in found {
         debug_assert!(
@@ -252,7 +285,7 @@ pub fn extract(input: &ExtractInput<'_>) -> Result<SubjectsDocument, JevError> {
             u32_from_usize("start byte", capture.start_byte)?,
             u32_from_usize("end byte", capture.end_byte)?,
         );
-        builder.push_subject(path.clone(), span, text, capture.name);
+        builder = builder.push_subject(span, text, capture.name);
     }
     builder.build()
 }
@@ -347,12 +380,45 @@ mod tests {
         captures: Option<&'a [&'a str]>,
     ) -> Result<SubjectsDocument, JevError> {
         extract(
-            &ExtractInput::new(language, query, source)
-                .with_captures(captures)
-                .with_path(path)
-                .with_rev("HEAD")
-                .with_blob_sha(BLOB),
+            &ExtractInput::new(
+                language,
+                query,
+                source,
+                RepoRelativePath::try_from(path)?,
+                Rev::parse("HEAD")?,
+                BlobSha::try_from(BLOB)?,
+            )
+            .with_captures(captures),
         )
+    }
+
+    /// `query_sha256` hashes the LF-normalized query text, so a CRLF query and
+    /// its LF form carry one digest (other implementations must do the same).
+    #[cfg(feature = "python")]
+    #[test]
+    fn query_sha256_is_the_digest_of_the_lf_normalized_query() {
+        let lf = "(identifier) @name\n(identifier) @name\n";
+        let crlf = lf.replace('\n', "\r\n");
+        let cr = lf.replace('\n', "\r");
+        let digest = |query: &str| {
+            run("python", query, b"x = 1\n", "a.py", None)
+                .expect("extract")
+                .producer()
+                .query_sha256()
+                .clone()
+        };
+        assert_eq!(digest(&crlf), Sha256Digest::of_text(lf));
+        assert_eq!(digest(&cr), Sha256Digest::of_text(lf));
+        assert_eq!(digest(lf), Sha256Digest::of_text(lf));
+        // SHA-256 of the LF bytes; the raw CRLF bytes hash to a different value.
+        assert_eq!(
+            digest(&crlf).as_str(),
+            "6882063e0fbeac9c629dcacb8f8d965aa5c3a0e4d811f3a57c5d1c2f4e6ba7dc"
+        );
+        assert_ne!(
+            digest(&crlf).as_str(),
+            "61fddca9b6019c10daa92f1d38b39d97c02f4bc7e811a2b06352328f03e5f382"
+        );
     }
 
     #[cfg(feature = "python")]
@@ -379,10 +445,10 @@ mod tests {
             document.schema(),
             sc_agent_types::schema::subjects::SUBJECTS_SCHEMA_V1
         );
-        assert_eq!(document.producer().mode, PRODUCER_MODE);
-        assert_eq!(document.producer().name, PRODUCER_NAME);
-        assert_eq!(document.producer().grammar, "tree-sitter-python");
-        assert_eq!(document.producer().grammar_version, "0.25.0");
+        assert_eq!(document.producer().mode(), PRODUCER_MODE);
+        assert_eq!(document.producer().name(), PRODUCER_NAME);
+        assert_eq!(document.producer().grammar(), "tree-sitter-python");
+        assert_eq!(document.producer().grammar_version(), "0.25.0");
         let arms: Vec<&str> = document
             .subjects()
             .iter()
@@ -422,7 +488,7 @@ mod tests {
                 .iter()
                 .all(|subject| subject.capture() == "arm")
         );
-        assert_eq!(only_arms.producer().mode, PRODUCER_MODE);
+        assert_eq!(only_arms.producer().mode(), PRODUCER_MODE);
     }
 
     #[cfg(feature = "rust")]
@@ -451,9 +517,9 @@ fn classify(value: Transition) -> &'static str {
                 .iter()
                 .all(|subject| subject.capture() == "arm")
         );
-        assert_eq!(document.producer().mode, PRODUCER_MODE);
-        assert_eq!(document.producer().grammar, "tree-sitter-rust");
-        assert_eq!(document.producer().grammar_version, "0.24.2");
+        assert_eq!(document.producer().mode(), PRODUCER_MODE);
+        assert_eq!(document.producer().grammar(), "tree-sitter-rust");
+        assert_eq!(document.producer().grammar_version(), "0.24.2");
     }
 
     #[cfg(feature = "python")]
@@ -534,7 +600,7 @@ fn classify(value: Transition) -> &'static str {
         let query = "(binary_operator left: (identifier) @name right: (identifier) @name)\n";
         let document =
             run("python", query, b"value = left + right\n", "dup.py", None).expect("dup");
-        assert_eq!(document.producer().mode, "matches");
+        assert_eq!(document.producer().mode().as_str(), "matches");
         let names: Vec<&str> = document
             .subjects()
             .iter()
@@ -637,26 +703,22 @@ fn classify(value: Transition) -> &'static str {
 
     #[cfg(feature = "python")]
     #[test]
-    fn malformed_rev_is_input_invalid() {
-        let error = extract(
-            &ExtractInput::new("python", "(identifier) @name\n", b"a\n")
-                .with_path("a.py")
-                .with_rev("--output=x")
-                .with_blob_sha(BLOB),
-        )
-        .expect_err("leading dash");
-        assert_eq!(error.code(), "INPUT_INVALID");
-    }
-
-    #[test]
-    fn missing_required_fields_are_input_invalid() {
-        let base = ExtractInput::new("python", "(identifier) @name\n", b"a\n");
-        let no_path = extract(&base.with_rev("HEAD").with_blob_sha(BLOB)).expect_err("path");
-        assert_eq!(no_path.code(), "INPUT_INVALID");
-        let no_sha = extract(&base.with_path("a.py").with_rev("HEAD")).expect_err("sha");
-        assert_eq!(no_sha.code(), "INPUT_INVALID");
-        let no_rev = extract(&base.with_path("a.py").with_blob_sha(BLOB)).expect_err("rev");
-        assert_eq!(no_rev.code(), "INPUT_INVALID");
+    fn malformed_rev_path_and_blob_fail_at_the_caller() {
+        // Validation happens when the typed value is built, not in `extract`.
+        assert_eq!(
+            Rev::parse("--output=x").expect_err("leading dash").code(),
+            "INPUT_INVALID"
+        );
+        assert_eq!(
+            RepoRelativePath::try_from("../a.py")
+                .expect_err("escape")
+                .code(),
+            "INPUT_INVALID"
+        );
+        assert_eq!(
+            BlobSha::try_from("xyz").expect_err("not hex").code(),
+            "INPUT_INVALID"
+        );
     }
 
     #[test]

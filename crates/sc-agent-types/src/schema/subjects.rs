@@ -17,35 +17,188 @@ use crate::ids::{BlobSha, RepoRelativePath, Rev, Sha256Digest};
 pub const SUBJECTS_SCHEMA_V1: &str = "sc/subjects/1";
 
 /// Git identity of the source the subjects were extracted from.
+///
+/// Fields are private; build one with [`Self::new`] and read it through the
+/// accessors, so a field added in a later release is not a breaking change.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SubjectsSource {
-    /// Repo-relative source path.
-    pub path: RepoRelativePath,
-    /// Git revision, or `HEAD` when the producer recorded that name.
-    pub rev: Rev,
-    /// Git blob id of the source bytes.
-    pub blob_sha: BlobSha,
+    path: RepoRelativePath,
+    rev: Rev,
+    blob_sha: BlobSha,
 }
 
-/// Tool that emitted the subjects document.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SubjectsProducer {
-    /// Producer name, such as `sc-treesitter`.
-    pub name: String,
-    /// Producer version.
-    pub version: String,
-    /// Grammar language id.
+impl SubjectsSource {
+    /// A source at `path`, read at `rev`, whose bytes have the blob id `blob_sha`.
+    #[must_use]
+    pub fn new(path: RepoRelativePath, rev: Rev, blob_sha: BlobSha) -> Self {
+        Self {
+            path,
+            rev,
+            blob_sha,
+        }
+    }
+
+    /// Repo-relative source path.
+    #[must_use]
+    pub fn path(&self) -> &RepoRelativePath {
+        &self.path
+    }
+
+    /// Git revision, or `HEAD` when the producer recorded that name.
+    #[must_use]
+    pub fn rev(&self) -> &Rev {
+        &self.rev
+    }
+
+    /// Git blob id of the source bytes.
+    #[must_use]
+    pub fn blob_sha(&self) -> &BlobSha {
+        &self.blob_sha
+    }
+}
+
+/// Tree-sitter query mode a producer ran.
+///
+/// The closed set of `sc/subjects/1`: Phase A producers run `matches` only
+/// (`docs/sc-agent-types/subjects-schema.md`). Serialized as the lowercase
+/// name. A reader refuses any other value, like every other field of the
+/// document (`deny_unknown_fields`, exact schema id); a new mode is a new
+/// variant, which is additive because this enum is `#[non_exhaustive]`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum QueryMode {
+    /// Tree-sitter `matches` mode; every capture of a match is emitted.
+    Matches,
+}
+
+impl QueryMode {
+    /// The name written to the document.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Matches => "matches",
+        }
+    }
+}
+
+/// The grammar a producer ran: language id, grammar crate and pinned version.
+///
+/// Named fields keep the three strings from being swapped at a call site of
+/// [`SubjectsProducer::new`].
+///
+/// The fields are public and the three-field shape is frozen for
+/// `sc/subjects/1`: a struct literal builds one, so the type is deliberately
+/// not `#[non_exhaustive]`. A new grammar attribute needs a new schema version.
+///
+/// # Examples
+///
+/// ```
+/// use sc_agent_types::schema::subjects::GrammarRef;
+///
+/// let grammar = GrammarRef {
+///     language: "python".to_owned(),
+///     grammar: "tree-sitter-python".to_owned(),
+///     grammar_version: "0.23.6".to_owned(),
+/// };
+/// assert_eq!(grammar.language, "python");
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GrammarRef {
+    /// Grammar language id, such as `python`.
     pub language: String,
-    /// Grammar crate or package name.
+    /// Grammar crate or package name, such as `tree-sitter-python`.
     pub grammar: String,
     /// Pinned grammar version.
     pub grammar_version: String,
+}
+
+/// Tool that emitted the subjects document.
+///
+/// Fields are private; build one with [`Self::new`] (mode [`QueryMode::Matches`])
+/// and read it through the accessors.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SubjectsProducer {
+    name: String,
+    version: String,
+    language: String,
+    grammar: String,
+    grammar_version: String,
+    query_sha256: Sha256Digest,
+    mode: QueryMode,
+}
+
+impl SubjectsProducer {
+    /// A producer `name` at `version` that ran the query with digest
+    /// `query_sha256` in `matches` mode against `grammar`.
+    #[must_use]
+    pub fn new(
+        name: impl Into<String>,
+        version: impl Into<String>,
+        grammar: GrammarRef,
+        query_sha256: Sha256Digest,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            version: version.into(),
+            language: grammar.language,
+            grammar: grammar.grammar,
+            grammar_version: grammar.grammar_version,
+            query_sha256,
+            mode: QueryMode::Matches,
+        }
+    }
+
+    /// The same producer recording `mode` as its query mode.
+    #[must_use]
+    pub fn with_mode(mut self, mode: QueryMode) -> Self {
+        self.mode = mode;
+        self
+    }
+
+    /// Producer name, such as `sc-treesitter`.
+    #[must_use]
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Producer version.
+    #[must_use]
+    pub fn version(&self) -> &str {
+        &self.version
+    }
+
+    /// Grammar language id.
+    #[must_use]
+    pub fn language(&self) -> &str {
+        &self.language
+    }
+
+    /// Grammar crate or package name.
+    #[must_use]
+    pub fn grammar(&self) -> &str {
+        &self.grammar
+    }
+
+    /// Pinned grammar version.
+    #[must_use]
+    pub fn grammar_version(&self) -> &str {
+        &self.grammar_version
+    }
+
     /// SHA-256 of the query text that produced these subjects.
-    pub query_sha256: Sha256Digest,
+    #[must_use]
+    pub fn query_sha256(&self) -> &Sha256Digest {
+        &self.query_sha256
+    }
+
     /// Tree-sitter query mode. Phase A producers record `matches`.
-    pub mode: String,
+    #[must_use]
+    pub fn mode(&self) -> QueryMode {
+        self.mode
+    }
 }
 
 /// Half-open byte span and inclusive 1-based line span of a subject.
@@ -146,8 +299,8 @@ impl Subject {
 
     /// Location of the text in the source.
     #[must_use]
-    pub fn span(&self) -> &Span {
-        &self.span
+    pub fn span(&self) -> Span {
+        self.span
     }
 }
 
@@ -238,11 +391,6 @@ impl SubjectsDocument {
         if self.subjects.is_empty() {
             return Err(JevError::ExtractionEmpty);
         }
-        if self.producer.mode.is_empty() {
-            return Err(JevError::extraction_invalid(
-                "subjects source path and producer mode must be non-empty",
-            ));
-        }
         let path = self.source.path.as_str();
         let mut previous: Option<(u32, &str)> = None;
         let mut per_line: BTreeMap<u32, u32> = BTreeMap::new();
@@ -309,27 +457,26 @@ fn subject_id(path: &str, line: u32, index_on_line: u32) -> String {
 /// # Examples
 ///
 /// ```
-/// use sc_agent_types::schema::subjects::{Span, SubjectsBuilder, SubjectsProducer, SubjectsSource};
+/// use sc_agent_types::schema::subjects::{
+///     GrammarRef, Span, SubjectsBuilder, SubjectsProducer, SubjectsSource,
+/// };
 /// use sc_agent_types::{Rev, Sha256Digest};
 ///
-/// let source = SubjectsSource {
-///     path: "a.py".parse()?,
-///     rev: Rev::new("HEAD"),
-///     blob_sha: "b".repeat(40).parse()?,
-/// };
-/// let producer = SubjectsProducer {
-///     name: "sc-treesitter".into(),
-///     version: "0.1.0".into(),
-///     language: "python".into(),
-///     grammar: "tree-sitter-python".into(),
-///     grammar_version: "0.23.6".into(),
-///     query_sha256: Sha256Digest::of_text("q"),
-///     mode: "matches".into(),
-/// };
-/// let mut builder = SubjectsBuilder::new(source, producer);
-/// builder.push_subject("a.py".parse()?, Span::new(1, 1, 4, 5), "b", "name");
-/// builder.push_subject("a.py".parse()?, Span::new(1, 1, 0, 1), "a", "name");
-/// let document = builder.build()?;
+/// let source = SubjectsSource::new("a.py".parse()?, Rev::parse("HEAD")?, "b".repeat(40).parse()?);
+/// let producer = SubjectsProducer::new(
+///     "sc-treesitter",
+///     "0.1.0",
+///     GrammarRef {
+///         language: "python".to_owned(),
+///         grammar: "tree-sitter-python".to_owned(),
+///         grammar_version: "0.23.6".to_owned(),
+///     },
+///     Sha256Digest::of_text("q"),
+/// );
+/// let document = SubjectsBuilder::new(source, producer)
+///     .push_subject(Span::new(1, 1, 4, 5), "b", "name")
+///     .push_subject(Span::new(1, 1, 0, 1), "a", "name")
+///     .build()?;
 /// assert_eq!(document.subjects()[0].id(), "a.py:1");
 /// assert_eq!(document.subjects()[1].id(), "a.py:1:1");
 /// # Ok::<(), sc_agent_types::JevError>(())
@@ -343,7 +490,6 @@ pub struct SubjectsBuilder {
 
 #[derive(Debug, Clone)]
 struct Pending {
-    path: RepoRelativePath,
     span: Span,
     text: String,
     capture: String,
@@ -360,16 +506,16 @@ impl SubjectsBuilder {
         }
     }
 
-    /// Adds one subject; `kind` is the capture name without `@`.
+    /// Adds one subject in the source file; `kind` is the capture name without
+    /// `@`. Its id is built from `source.path`.
+    #[must_use]
     pub fn push_subject(
-        &mut self,
-        path: RepoRelativePath,
+        mut self,
         span: Span,
         text: impl Into<String>,
         kind: impl Into<String>,
-    ) -> &mut Self {
+    ) -> Self {
         self.pending.push(Pending {
-            path,
             span,
             text: text.into(),
             capture: kind.into(),
@@ -383,7 +529,7 @@ impl SubjectsBuilder {
     ///
     /// `EXTRACTION_EMPTY` when no subject was pushed, and
     /// `EXTRACTION_INVALID` when a subject breaks a schema rule (for example
-    /// a path other than `source.path`, or text that does not match its span).
+    /// text that does not match its span).
     pub fn build(self) -> Result<SubjectsDocument, JevError> {
         let mut pending = self.pending;
         pending.sort_by(|left, right| {
@@ -393,13 +539,11 @@ impl SubjectsBuilder {
                 .then_with(|| left.capture.cmp(&right.capture))
                 .then_with(|| left.span.end_byte.cmp(&right.span.end_byte))
         });
-        let mut per_line: BTreeMap<(RepoRelativePath, u32), u32> = BTreeMap::new();
+        let mut per_line: BTreeMap<u32, u32> = BTreeMap::new();
         let mut subjects = Vec::with_capacity(pending.len());
         for item in pending {
-            let index = per_line
-                .entry((item.path.clone(), item.span.start_line))
-                .or_insert(0);
-            let id = subject_id(item.path.as_str(), item.span.start_line, *index);
+            let index = per_line.entry(item.span.start_line).or_insert(0);
+            let id = subject_id(self.source.path().as_str(), item.span.start_line, *index);
             *index = index.saturating_add(1);
             subjects.push(Subject {
                 id,

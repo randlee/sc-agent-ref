@@ -413,20 +413,30 @@ Local equivalents of every CI job: [`docs/development/ci.md`](../../development/
 
 ## Phase close notes / open items
 
-Phase A is not closed. Open at phase end:
+Phase A is in phase-end review and is not closed. Phase A.1 (`r`, ten sprints
+r-1 to r-7) has landed on `integrate/phase-a`; see
+[`../phase-a-refine/plan.md`](../phase-a-refine/plan.md).
 
-- Architectural refinement (D1–D13): planned in [`../phase-a-refine/plan.md`](../phase-a-refine/plan.md) (PR #19).
+The phase-end review decisions D1-D13 (`PHASE-A-REVIEW.md` section 4) landed
+in r-1 to r-7: the sprint-to-decision mapping is the "Sprints and waves" table
+of the A.1 plan. Genuinely open at phase end:
+
 - Bead **`agt-luna-live-count`** — Luna live token count is unverified
   (resolved decision **4**); requested feature **8** stays open until a key
   exists and the a-5 probe runs once with its output attached.
-- Phase-end review decisions D1–D13 (`PHASE-A-REVIEW.md` section 4) are
-  awaiting Rand; nothing architectural has started.
-- Closed in a-10: the `sc-agent-ci` `doc` job is a hard gate (no
-  `continue-on-error`), and the sc-treesitter feature matrix runs
-  `cargo hack --each-feature test`. The run ids in the table above are
-  historical evidence from before those changes.
-- Bead `agt-obs-v2-shim-removal` (sprint a-1) stays open until upstream v2 is
-  released.
+- Bead **`agt-obs-v2-shim-removal`** (sprint a-1) stays open until upstream v2
+  is released.
+- Bead **`agt-scoop-multi-shim`** — Scoop and WinGet expose only `sc-ai`;
+  `sc-treesitter` needs a shim or alias once the sc-publish kit supports a
+  binary list.
+- Bead **`agt-sft`** — WinGet first submission is by hand (Komac pin; one
+  portable alias per binary); deferred by the owner until the first publish
+  attempt.
+
+Closed in a-10: the `sc-agent-ci` `doc` job is a hard gate (no
+`continue-on-error`), and the sc-treesitter feature matrix runs
+`cargo hack --each-feature test`. The run ids in the table above are
+historical evidence from before those changes.
 
 ## Approval gate
 

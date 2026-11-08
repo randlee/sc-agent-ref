@@ -13,19 +13,22 @@
 //!
 //! ```
 //! # #[cfg(feature = "python")] {
+//! use sc_agent_types::{BlobSha, RepoRelativePath, Rev};
+//!
 //! let input = sc_treesitter::ExtractInput::new(
 //!     "python",
 //!     "(binary_operator left: (identifier) @name right: (identifier) @name)\n",
 //!     b"value = left + right\n",
-//! )
-//! .with_path("sample.py")
-//! .with_rev("HEAD")
-//! .with_blob_sha("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
-//! let document = sc_treesitter::extract(&input).expect("extract");
+//!     RepoRelativePath::try_from("sample.py")?,
+//!     Rev::parse("HEAD")?,
+//!     BlobSha::try_from("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")?,
+//! );
+//! let document = sc_treesitter::extract(&input)?;
 //! assert_eq!(document.schema(), sc_agent_types::schema::subjects::SUBJECTS_SCHEMA_V1);
-//! assert_eq!(document.producer().mode, "matches");
+//! assert_eq!(document.producer().mode().as_str(), "matches");
 //! assert_eq!(document.subjects().len(), 2);
 //! # }
+//! # Ok::<(), sc_agent_types::JevError>(())
 //! ```
 
 #![warn(missing_docs)]
@@ -61,4 +64,5 @@ pub const PRODUCER_NAME: &str = "sc-treesitter";
 ///
 /// Phase A always runs tree-sitter matches. `--captures` filters names after
 /// the match and does not change this value.
-pub const PRODUCER_MODE: &str = "matches";
+pub const PRODUCER_MODE: sc_agent_types::schema::subjects::QueryMode =
+    sc_agent_types::schema::subjects::QueryMode::Matches;

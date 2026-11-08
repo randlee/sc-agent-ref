@@ -35,6 +35,7 @@ pub mod jev;
 mod judge;
 pub mod llm;
 mod payload;
+mod probability;
 pub mod session_log;
 pub mod variants;
 mod version;
@@ -54,5 +55,7 @@ pub use payload::{
     CanonicalJudgePayload, ChoiceAnswer, DecisionAnswers, PayloadBundle, Question, QuestionKind,
     canonical_json_bytes,
 };
+#[doc(inline)]
+pub use probability::Probability;
 #[doc(inline)]
 pub use version::{CANONICAL_V1, DecisionSchemaId, SchemaFamily};

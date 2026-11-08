@@ -1,7 +1,7 @@
 ---
 id: r-7
 phase: r
-status: complete
+status: complete # merged PR 33 (77fffdb), QA PASS qa-r7-6 57c66e2
 closure_type: contract
 target_boundary: decision-schema
 track: schema

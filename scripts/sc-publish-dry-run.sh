@@ -21,7 +21,8 @@
 #   SC_PUBLISH_NET_TIMEOUT    seconds for each git / bootstrap network step (300)
 #   SC_PUBLISH_BUILD_TIMEOUT  seconds for cargo publish and maturin (1800)
 # The publish phase builds in target/sc-publish-dry-run/<content key> (see
-# phase_publish). One directory accumulates per distinct source state and
+# phase_publish; its build dir is the sibling <content key>-build). One
+# directory pair accumulates per distinct source state and
 # this script does not prune them. CI keeps them out of its target/ cache
 # (sc-publish-dry-run.yml); locally `cargo clean` or removing
 # target/sc-publish-dry-run/ reclaims the space.
@@ -176,8 +177,14 @@ for name in sorted(git("ls-files", "-z", "--others", "--exclude-standard").split
 print(digest.hexdigest()[:16])
 ')"
   publish_args+=(--target-dir "target/sc-publish-dry-run/$content_key")
+  # A global `build.build-dir` in ~/.cargo/config.toml (cargo 1.91+) puts
+  # intermediate artifacts in one shared directory that --target-dir does not
+  # redirect, so a dry-run reuses stale artifacts of an earlier source state
+  # and reports a false E0308. Key the build dir on the same content key,
+  # overriding any config value for this command only.
   printf 'cargo publish --dry-run --locked %s\n' "${publish_args[*]}"
-  bounded "$build_timeout" "cargo publish --dry-run" \
+  CARGO_BUILD_BUILD_DIR="target/sc-publish-dry-run/$content_key-build" \
+    bounded "$build_timeout" "cargo publish --dry-run" \
     cargo publish --dry-run --locked "${publish_args[@]}"
 }
 

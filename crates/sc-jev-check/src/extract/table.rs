@@ -216,7 +216,7 @@ mod tests {
         )
         .expect("column")
         .subjects;
-        let span = &subjects[0].span();
+        let span = subjects[0].span();
         let start = usize::try_from(span.start_byte()).expect("start");
         let end = usize::try_from(span.end_byte()).expect("end");
         assert_eq!(&text[start..end], "ship it");

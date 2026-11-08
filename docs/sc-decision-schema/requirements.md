@@ -1,7 +1,7 @@
 # sc-decision-schema — requirements
 
 Data-only decision schema crate (ADR-SAG-0030, ADR-SAG-0031 storage schema).
-Root rows live in [`../requirements.md`](../requirements.md#phase-a1--refinement-proposed).
+Root rows live in [`../requirements.md`](../requirements.md#phase-a1--refinement-landed).
 
 | ID | Requirement | Sprint |
 | --- | --- | --- |

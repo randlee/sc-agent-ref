@@ -44,6 +44,7 @@ pub type DecisionAnswers = BTreeMap<QuestionId, QuestionAnswer>;
 /// canonical bytes, so a payload without kinds keeps its Phase A bytes.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum QuestionKind {
     /// Pick one of two to 255 options.
     #[default]

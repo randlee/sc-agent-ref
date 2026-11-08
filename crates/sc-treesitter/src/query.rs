@@ -18,7 +18,9 @@ pub struct QueryInfo {
     pub name: &'static str,
     /// Asset bytes, including the trailing newline.
     ///
-    /// Producers hash these exact bytes into `producer.query_sha256`.
+    /// Producers hash this text, with CRLF and bare CR normalized to LF, into
+    /// `producer.query_sha256`. The packaged assets contain no CR, so the
+    /// digest equals SHA-256 of these bytes.
     pub source: &'static str,
 }
 
@@ -55,7 +57,9 @@ pub fn queries(language: Option<&str>) -> Result<Vec<&'static QueryInfo>, JevErr
 /// Returns the query text for `language` and `name`.
 ///
 /// The returned bytes are the asset file, including its trailing newline.
-/// Producers hash these exact bytes into `producer.query_sha256`.
+/// Producers hash this text, with CRLF and bare CR normalized to LF, into
+/// `producer.query_sha256`. The packaged assets contain no CR, so the digest
+/// equals SHA-256 of these bytes.
 ///
 /// # Errors
 ///

@@ -7,7 +7,7 @@ use sc_agent_types::{BackendId, JevError, SendTrace, Sha256Digest};
 use sc_decision_schema::{
     Attestation, BackendAttestation, BackendCapabilities, CanonicalJudgePayload, ChoiceId,
     EqualInputRecord, JudgeBackend, JudgeOutcome, JudgeRequest, LlmWireContext, MultiBackendMode,
-    PayloadBundle, QuestionAnswer, QuestionId,
+    PayloadBundle, Probability, QuestionAnswer, QuestionId,
 };
 use serde_json::json;
 
@@ -31,6 +31,10 @@ fn choice(text: &str) -> ChoiceId {
     ChoiceId::try_from(text).expect("choice")
 }
 
+fn prob(value: f64) -> Probability {
+    Probability::new(value).expect("probability")
+}
+
 fn qid(text: &str) -> QuestionId {
     QuestionId::try_from(text).expect("id")
 }
@@ -39,12 +43,9 @@ fn answers(relevant: &str, risk: &str) -> BTreeMap<QuestionId, QuestionAnswer> {
     BTreeMap::from([
         (
             qid("relevant"),
-            QuestionAnswer::new(choice(relevant), None, None).expect("a"),
+            QuestionAnswer::new(choice(relevant), None, None),
         ),
-        (
-            qid("risk"),
-            QuestionAnswer::new(choice(risk), None, None).expect("b"),
-        ),
+        (qid("risk"), QuestionAnswer::new(choice(risk), None, None)),
     ])
 }
 
@@ -54,9 +55,9 @@ fn answers(relevant: &str, risk: &str) -> BTreeMap<QuestionId, QuestionAnswer> {
 fn test_answers_serde_golden() {
     let jev = r#"{"choice":"no","confidence":0.9,"probabilities":{"no":0.9,"yes":0.1}}"#;
     let parsed: QuestionAnswer = serde_json::from_str(jev).expect("jev answer");
-    assert_eq!(parsed.confidence(), Some(0.9));
+    assert_eq!(parsed.confidence().map(Probability::get), Some(0.9));
     assert_eq!(
-        parsed.probabilities().expect("probabilities")[&choice("yes")],
+        parsed.probabilities().expect("probabilities")[&choice("yes")].get(),
         0.1
     );
     assert_eq!(serde_json::to_string(&parsed).expect("write"), jev);
@@ -83,29 +84,27 @@ fn test_answers_serde_golden() {
 }
 
 #[test]
-fn test_question_answer_rejects_non_finite() {
-    for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -0.1, 1.5] {
-        let error = QuestionAnswer::new(choice("yes"), Some(bad), None).expect_err("confidence");
-        assert_eq!(error.code(), "RESPONSE_INVALID", "{bad}");
-        let error = QuestionAnswer::new(
-            choice("yes"),
-            None,
-            Some(BTreeMap::from([(choice("yes"), bad)])),
-        )
-        .expect_err("probability");
-        assert_eq!(error.code(), "RESPONSE_INVALID", "{bad}");
-    }
+fn test_question_answer_rejects_out_of_range_on_read() {
+    // The range is held by `Probability`, so a typed answer cannot carry a bad
+    // number and the wire reader refuses one.
     for text in [
         r#"{"choice":"yes","confidence":1.5}"#,
+        r#"{"choice":"yes","confidence":-0.1}"#,
         r#"{"choice":"yes","probabilities":{"yes":-1}}"#,
+        r#"{"choice":"yes","probabilities":{"yes":2}}"#,
+    ] {
+        let error = serde_json::from_str::<QuestionAnswer>(text).expect_err(text);
+        assert!(error.to_string().contains("number in [0, 1]"), "{error}");
+    }
+    for text in [
+        r#"{"choice":"yes","confidence":0}"#,
+        r#"{"choice":"yes","confidence":1}"#,
     ] {
         assert!(
-            serde_json::from_str::<QuestionAnswer>(text).is_err(),
+            serde_json::from_str::<QuestionAnswer>(text).is_ok(),
             "{text}"
         );
     }
-    assert!(QuestionAnswer::new(choice("yes"), Some(0.0), None).is_ok());
-    assert!(QuestionAnswer::new(choice("yes"), Some(1.0), None).is_ok());
 }
 
 #[test]
@@ -116,10 +115,7 @@ fn test_outcome_rejects_mismatched_answer_keys() {
     let error = JudgeOutcome::new(BackendId::Jev, &request, missing).expect_err("missing");
     assert_eq!(error.code(), "RESPONSE_INVALID");
     let mut extra = answers("yes", "low");
-    extra.insert(
-        qid("other"),
-        QuestionAnswer::new(choice("yes"), None, None).expect("x"),
-    );
+    extra.insert(qid("other"), QuestionAnswer::new(choice("yes"), None, None));
     let error = JudgeOutcome::new(BackendId::Jev, &request, extra).expect_err("extra");
     assert_eq!(error.code(), "RESPONSE_INVALID");
     let ok = JudgeOutcome::new(BackendId::Jev, &request, answers("yes", "low")).expect("ok");
@@ -138,13 +134,12 @@ fn test_outcome_rejects_choice_not_offered() {
         qid("relevant"),
         QuestionAnswer::new(
             choice("yes"),
-            Some(0.8),
+            Some(prob(0.8)),
             Some(BTreeMap::from([
-                (choice("yes"), 0.8),
-                (choice("perhaps"), 0.2),
+                (choice("yes"), prob(0.8)),
+                (choice("perhaps"), prob(0.2)),
             ])),
-        )
-        .expect("answer"),
+        ),
     );
     let error = JudgeOutcome::new(BackendId::Jev, &request, with_probabilities)
         .expect_err("probability key");

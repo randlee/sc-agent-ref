@@ -28,12 +28,13 @@ pub struct Extracted {
     pub document: Option<SubjectsDocument>,
 }
 
-pub(crate) use read::{read_repo_bytes, read_repo_text, repo_path};
+pub(crate) use read::{read_repo_bytes, read_repo_text};
 
 /// Runs the extraction selected by the input kind.
 ///
 /// A `command` input's `{path}` placeholder takes the input's own `path`
-/// field (REQ-SAG-0312); `{path}` without one is `CONFIG_INVALID`.
+/// field (REQ-SAG-0312); `{path}` without one is `CONFIG_INVALID` when the
+/// [`CommandSpec`](crate::config::CommandSpec) is built, not here.
 ///
 /// # Errors
 ///
@@ -46,19 +47,7 @@ pub fn extract_input(repo: &RepoRoot, rev: &Rev, input: &InputSpec) -> Result<Ex
         InputSpec::File { path } => file::extract_file(repo, rev, path),
         InputSpec::TableColumn { path, column } => table::extract_table(repo, rev, path, column),
         InputSpec::Subjects { path } => subjects::extract_subjects(repo, rev, path),
-        InputSpec::Command {
-            command,
-            timeout_seconds,
-            path,
-            producer,
-        } => command::extract_command(
-            repo,
-            rev,
-            command,
-            *timeout_seconds,
-            path.as_ref(),
-            producer.as_deref(),
-        ),
+        InputSpec::Command(spec) => command::extract_command(repo, rev, spec),
     }
 }
 
@@ -74,6 +63,11 @@ pub(crate) mod test_support {
     /// A repo-relative path for tests.
     pub fn rel(text: &str) -> sc_agent_types::RepoRelativePath {
         sc_agent_types::RepoRelativePath::try_from(text).expect("repo-relative path")
+    }
+
+    /// A parsed revision for tests.
+    pub fn rev(text: &str) -> sc_agent_types::Rev {
+        sc_agent_types::Rev::parse(text).expect("revision")
     }
 
     pub fn temp_dir(label: &str) -> TempDir {

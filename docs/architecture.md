@@ -20,26 +20,39 @@ sc-agent combines **agent orchestration assets** (prompts, skills, policy) with 
 
 ## Phase A crate graph
 
-```
-sc-ai (binary) ── sc-observability v2 Logger → SessionLog adapter
-  └── sc-jev-check (facade: check.toml, extractors, run_check, sessions)
-        ├── sc-jev (TypeSafe Jev HTTP + JudgeBackend impl)
-        ├── sc-jev-backends (Haiku/Luna JudgeBackend impls)
-        ├── sc-agent-secrets
-        └── sc-agent-types (observability::v2 port; no sc-observability* dep since r-1)
+Direct workspace dependencies, taken from each `crates/*/Cargo.toml`
+(`[dependencies]` only; dev-dependencies omitted). The A.1 graph below adds
+features and labels.
 
-sc-jev-py (PyO3) ── sc-observability v2 Logger → SessionLog adapter
-  └── sc-jev-check
+```
+sc-ai (binary) ─────┐
+sc-jev-py (PyO3) ───┴── sc-jev-host (sc-observability =1.5.0 adapter, path policy, run/ask)
+                          └── sc-jev-check (facade: check.toml, extractors, run_check, sessions)
+                                ├── sc-jev ────────────┐
+                                ├── sc-jev-backends ───┴── sc-agent-http (ureq transport)
+                                ├── sc-agent-secrets
+                                ├── sc-decision-schema
+                                └── sc-agent-types (observability::v2 port; no sc-observability* dep)
 
 sc-treesitter (library + binary) → sc-agent-types
 ```
 
-Every workspace crate depends on `sc-agent-types`; the graph shows the edge
-once. Since r-1 no crate depends on `sc-observability-types` (ADR-SAG-0016
-r-1 amendment). Only the composition roots `sc-ai` and `sc-jev-py` depend on
-full `sc-observability`.
+`sc-ai` and `sc-jev-py` also depend directly on `sc-jev-check`,
+`sc-decision-schema` and `sc-agent-types`; `sc-jev`, `sc-jev-backends` and
+`sc-jev-host` depend directly on `sc-decision-schema` and `sc-agent-types`;
+`sc-agent-http` and `sc-agent-secrets` depend on `sc-agent-types`. The graph
+shows each of those edges once, at the lowest node that carries it.
 
-`sc-jev` and `sc-jev-backends` do not depend on each other.
+Every workspace crate depends on `sc-agent-types`; `sc-decision-schema`
+sits directly above it (r-7). Since r-1 no crate depends on
+`sc-observability-types` (ADR-SAG-0016 r-1 amendment). **`sc-jev-host` is the
+only crate that links full `sc-observability`** (`crates/sc-jev-host/Cargo.toml`;
+ADR-SAG-0013 and ADR-SAG-0010 r-3b amendments). `sc-ai` and `sc-jev-py` are
+thin composition roots over `sc-jev-host` and have no direct `sc-observability`
+dependency.
+
+`sc-jev` and `sc-jev-backends` do not depend on each other. Both reach HTTP
+only through `sc-agent-http`.
 
 **`sc-treesitter`** is the `sc/subjects/1` producer (ADR-SAG-0015). It depends
 on `sc-agent-types` and links no judge, secrets or HTTP crate. No workspace
@@ -102,9 +115,10 @@ ADR sections below keep their original order. This table lists them in id
 order. One rule fills the last column (plan.md conventions): a new ADR lists
 every older ADR whose Phase A.1 amendment subsection it drives; an older ADR
 lists every A.1 subsection it receives, as the driving ADR or as "A.1
-subsection" when only a D decision drives it. Each A.1 entry carries a
-`(Proposed, r-N)` marker. A landing sprint flips only its own row's Status
-cell and its own marker text to `(Active, r-N)`; it adds or removes no entry.
+subsection" when only a D decision drives it. Each A.1 entry carries an
+`(Active, r-N)` marker, where `r-N` records the sprint that landed it (before
+landing the marker read `(Proposed, r-N)`; a landing sprint flipped only its
+own row's Status cell and its own marker text, and added or removed no entry).
 
 | ADR | Title | Status | Amends / amended by |
 | --- | --- | --- | --- |
@@ -132,7 +146,7 @@ cell and its own marker text to `(Active, r-N)`; it adds or removes no entry.
 | ADR-SAG-0022 | Scripted backends are a test-util feature | Active | Amends ADR-SAG-0009; amended by ADR-SAG-0029; A.1 subsection (Active, r-1); ADR-SAG-0024 (Active, r-2); ADR-SAG-0025 (Active, r-2b); ADR-SAG-0030 (Active, r-7) |
 | ADR-SAG-0023 | Dependency pins, allocator, released binaries | Active (r-4; host pin r-3b) | Amends ADR-SAG-0016, ADR-SAG-0017 |
 | ADR-SAG-0024 | Engine entry point and response contract | Active (r-2) | Amends ADR-SAG-0003, ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0014, ADR-SAG-0019, ADR-SAG-0022; supersedes the ADR-SAG-0014 A.1 r-1 interim subsection |
-| ADR-SAG-0025 | Multi-backend semantics and equal-input attestation | Active | Amends ADR-SAG-0004, ADR-SAG-0008, ADR-SAG-0019, ADR-SAG-0022 |
+| ADR-SAG-0025 | Multi-backend semantics and equal-input attestation | Active (r-2b) | Amends ADR-SAG-0004, ADR-SAG-0008, ADR-SAG-0019, ADR-SAG-0022 |
 | ADR-SAG-0026 | Shared HTTP crate and host crate | Active (HTTP half, r-3; host half, r-3b) | Amends ADR-SAG-0006, ADR-SAG-0007, ADR-SAG-0020, ADR-SAG-0017 (HTTP half); ADR-SAG-0010, ADR-SAG-0011, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0017 (host half); amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6) |
 | ADR-SAG-0027 | Error taxonomy and extensibility | Active (r-1) | Amends ADR-SAG-0001, ADR-SAG-0009, ADR-SAG-0016; amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6) |
 | ADR-SAG-0028 | workspace-tests crate | Active (r-3b) | Amended by ADR-SAG-0030 (Active, r-7) |
@@ -790,11 +804,17 @@ preflight CI, and publish dry-run).
   | Scoop | shim | in archive, no shim |
   | WinGet | alias | in package, no alias |
 
-  The Scoop/WinGet single-binary limit is an sc-publish kit limitation
-  (`[channels.scoop].binary` is one string; WinGet has no per-binary alias
-  field), so no consumer-input field can add the second shim. Bead
-  `agt-scoop-multi-shim`; upstream sc-publish issue: not yet filed — its URL
-  is recorded here when it is. The Windows invocation path for
+  Scoop: `[channels.scoop].binary` is one string at the pinned kit, so
+  sc-agent's consumer input still has a single Scoop binary. The upstream
+  change landed in sc-publish as https://github.com/randlee/sc-publish/pull/176 (optional
+  `[channels.scoop].binaries`). The owner directed a PR instead of an issue.
+  sc-agent gets the second shim only after it re-pins the kit and sets
+  `binaries` (not part of this amendment). Bead `agt-scoop-multi-shim`.
+
+  WinGet: command aliases are not an upstream issue. The first manifest is
+  submitted by hand and must list a `PortableCommandAlias` for each of
+  `sc-ai` and `sc-treesitter` (bead `agt-sft`; the related upstream PR
+  randlee/sc-publish#182 is open). The Windows invocation path for
   `sc-treesitter` is in `docs/development/sc-publish.md`. REQ-SAG-0133.
 
 ### Amendment (Phase A.1, r-3)
@@ -1463,13 +1483,17 @@ HTTP half amends ADR-SAG-0006, 0007,
 - (Active, r-1) **Consumer rule.** Agents and CLI/MCP clients may read
   `schema_version` from every stderr line. A value other than `1` means
   "unknown error shape": fall back to the exit code and the raw line. A bump
-  is a breaking change announced in the changelog.
+  is a breaking change to be announced in `CHANGELOG.md` (nothing has been
+  released yet, so that file has only an unreleased 0.1.0 entry).
 - (Active, r-1) `Error::source()` is `None` for every redacted-cause
   variant (`CredentialStoreInvalid`, `NetworkError`, `EncodeFailed`,
   `IoFailed`, `SessionStoreIo`); no A.1 variant carries a non-redacted source.
 - (Active, r-1) Serde spelling of backend ids matches `Display`
   (`openai_luna`, `openai`), with a one-release read alias for
-  `open_ai_luna` / `open_ai` in config and caller-request input.
+  `open_ai_luna` / `open_ai` in config and caller-request input. Whether and
+  when the alias is removed is the owner's decision, tracked by bead
+  `agt-ho2`; nothing has been released, so no release
+  has shipped the alias, and a removal would be announced in `CHANGELOG.md`.
 - (Active, r-1) Module seams are cargo features of `sc-agent-types`:
   `judge`, `secret`, `obs` (default-on), `git` and `test-util`
   (non-default); `error`, `envelope`, `ids`, `schema`, `cancel` are always

@@ -2,7 +2,7 @@
 
 use sc_agent_types::ModelFamily;
 use sc_decision_schema::llm::v1;
-use sc_decision_schema::{CanonicalJudgePayload, PayloadBundle, QuestionId};
+use sc_decision_schema::{CanonicalJudgePayload, PayloadBundle, Probability, QuestionId};
 
 fn bundle() -> PayloadBundle {
     let payload: CanonicalJudgePayload = serde_json::from_value(serde_json::json!({
@@ -38,7 +38,7 @@ fn test_llm_output_is_decision_answers() {
     let a = QuestionId::try_from("a").expect("id");
     assert_eq!(answers.len(), 2);
     assert_eq!(answers[&a].choice().as_str(), "yes");
-    assert_eq!(answers[&a].confidence(), Some(0.9));
+    assert_eq!(answers[&a].confidence().map(Probability::get), Some(0.9));
     // Every ModelFamily reads the same schema today.
     for family in [
         ModelFamily::TypeSafeJev,

@@ -1,7 +1,7 @@
 ---
 id: r-5
 phase: r
-status: complete
+status: complete # merged PR 34 (92b8c89), QA PASS qa-r5-4 bc27792
 closure_type: boundary
 target_boundary: jev
 track: jev

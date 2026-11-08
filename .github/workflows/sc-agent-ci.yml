@@ -544,6 +544,12 @@ jobs:
         timeout-minutes: 30
         run: cargo llvm-cov --locked --workspace --no-report
 
+      # The sc-ai `cli` tests need the `cli,test-util` features, which the
+      # workspace run does not enable; this adds them to the same profile data.
+      - name: cargo llvm-cov (sc-ai cli tests, no report)
+        timeout-minutes: 15
+        run: cargo llvm-cov --locked --no-report -p sc-ai --features cli,test-util
+
       - name: Coverage summary
         timeout-minutes: 5
         run: |

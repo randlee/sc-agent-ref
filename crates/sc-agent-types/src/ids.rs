@@ -62,6 +62,34 @@ impl TryFrom<String> for Rev {
     }
 }
 
+impl TryFrom<&str> for Rev {
+    type Error = JevError;
+
+    /// # Errors
+    ///
+    /// `INPUT_INVALID` as for [`Rev::parse`].
+    fn try_from(text: &str) -> Result<Self, Self::Error> {
+        Self::parse(text)
+    }
+}
+
+impl FromStr for Rev {
+    type Err = JevError;
+
+    /// # Errors
+    ///
+    /// `INPUT_INVALID` as for [`Rev::parse`].
+    fn from_str(text: &str) -> Result<Self, Self::Err> {
+        Self::parse(text)
+    }
+}
+
+impl AsRef<str> for Rev {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
 impl From<Rev> for String {
     fn from(rev: Rev) -> Self {
         rev.0
@@ -72,18 +100,11 @@ impl Rev {
     /// Revision string meaning the working tree rather than a commit.
     pub const WORKTREE: &'static str = "WORKTREE";
 
-    /// Wraps a git revision or [`Self::WORKTREE`] without validation.
+    /// Parses revision text, the one way to build a revision.
     ///
-    /// Use this for revisions the program builds itself, such as
-    /// [`Self::worktree`] or a SHA read back from git. Text that comes from a
-    /// caller (CLI flags, Python arguments, `check.toml`) goes through
-    /// [`Self::parse`], which is the edge entry point.
-    #[must_use]
-    pub fn new(rev: impl Into<String>) -> Self {
-        Self(rev.into())
-    }
-
-    /// Parses caller-supplied revision text.
+    /// A revision is passed to git as an argument, so there is no unchecked
+    /// constructor: CLI flags, Python arguments, `check.toml`, and a SHA read
+    /// back from git all go through this check.
     ///
     /// Accepts [`Self::WORKTREE`] or any text git may resolve. Rejects text
     /// that git would read as an option or that cannot be one argv element:
@@ -117,10 +138,17 @@ impl Rev {
         }
     }
 
+    /// A revision that skips [`Self::parse`], to prove the guards that sit
+    /// behind it. Compiled only for this crate's unit tests of the `git` feature.
+    #[cfg(all(test, feature = "git"))]
+    pub(crate) fn unchecked(rev: impl Into<String>) -> Self {
+        Self(rev.into())
+    }
+
     /// Returns the working-tree sentinel.
     #[must_use]
     pub fn worktree() -> Self {
-        Self::new(Self::WORKTREE)
+        Self(Self::WORKTREE.to_owned())
     }
 
     /// Whether this is the [`Self::WORKTREE`] sentinel rather than a git
@@ -236,7 +264,7 @@ impl<'de> Deserialize<'de> for SessionId {
 /// The documented spelling is the [`Display`](fmt::Display) form
 /// (`typesafe`, `anthropic`, `openai`). Serde writes that form and reads it
 /// through [`FromStr`], which also accepts the one-release alias `open_ai`
-/// (bead `agt-backend-serde-alias-removal`).
+/// (bead `agt-ho2`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[non_exhaustive]
 pub enum BackendKeyId {
@@ -247,13 +275,6 @@ pub enum BackendKeyId {
     /// OpenAI API credential.
     OpenAi,
 }
-
-/// Read aliases for each credential id, beside its documented name.
-const KEY_ALIASES: &[(BackendKeyId, &[&str])] = &[
-    (BackendKeyId::TypeSafe, &[]),
-    (BackendKeyId::Anthropic, &[]),
-    (BackendKeyId::OpenAi, &["open_ai"]),
-];
 
 impl BackendKeyId {
     /// Every credential id, in declaration order.
@@ -266,6 +287,16 @@ impl BackendKeyId {
             Self::TypeSafe => "typesafe",
             Self::Anthropic => "anthropic",
             Self::OpenAi => "openai",
+        }
+    }
+
+    /// Read aliases accepted beside the documented spelling.
+    ///
+    /// The match is exhaustive, so a new id must decide its aliases.
+    const fn aliases(self) -> &'static [&'static str] {
+        match self {
+            Self::TypeSafe | Self::Anthropic => &[],
+            Self::OpenAi => &["open_ai"],
         }
     }
 }
@@ -283,10 +314,10 @@ impl FromStr for BackendKeyId {
     ///
     /// Kebab-case and other spellings are rejected.
     fn from_str(text: &str) -> Result<Self, Self::Err> {
-        KEY_ALIASES
+        Self::ALL
             .iter()
-            .find(|(id, aliases)| id.as_str() == text || aliases.contains(&text))
-            .map(|(id, _)| *id)
+            .find(|id| id.as_str() == text || id.aliases().contains(&text))
+            .copied()
             .ok_or_else(|| {
                 JevError::input_invalid(format!(
                     "backend key {text} is not typesafe, anthropic, or openai"
@@ -457,6 +488,19 @@ impl BackendSet {
     }
 }
 
+impl From<BackendId> for BackendSet {
+    /// A set of exactly `id`: one backend, so no validation can fail.
+    ///
+    /// ```
+    /// use sc_agent_types::{BackendId, BackendSet};
+    ///
+    /// assert_eq!(BackendSet::from(BackendId::AnthropicHaiku).as_slice(), [BackendId::AnthropicHaiku]);
+    /// ```
+    fn from(id: BackendId) -> Self {
+        Self(vec![id])
+    }
+}
+
 impl Default for BackendSet {
     /// The default selection, `[jev]`: one built-in backend, so no
     /// validation can fail.
@@ -621,7 +665,7 @@ impl TryFrom<String> for Sha256Digest {
 /// assert!("a".repeat(40).parse::<BlobSha>().is_ok());
 /// assert!("A".repeat(40).parse::<BlobSha>().is_err());
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct BlobSha(String);
 
@@ -663,6 +707,12 @@ impl FromStr for BlobSha {
 
     fn from_str(text: &str) -> Result<Self, Self::Err> {
         Self::try_from(text)
+    }
+}
+
+impl AsRef<str> for BlobSha {
+    fn as_ref(&self) -> &str {
+        self.as_str()
     }
 }
 
@@ -888,15 +938,16 @@ pub struct AnswerId(Ulid);
 
 impl AnswerId {
     /// A fresh id.
+    ///
+    /// `AnswerId` does not implement [`Default`], like [`SessionId`]: a
+    /// default that is a fresh random id would surprise callers.
     #[must_use]
+    #[expect(
+        clippy::new_without_default,
+        reason = "a random id is not a sensible Default value"
+    )]
     pub fn new() -> Self {
         Self(Ulid::new())
-    }
-}
-
-impl Default for AnswerId {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -1020,6 +1071,36 @@ fn encode_hex(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_backend_key_id_round_trips_through_its_spellings() {
+        assert!(!BackendKeyId::ALL.is_empty());
+        for id in BackendKeyId::ALL {
+            assert_eq!(id.as_str().parse::<BackendKeyId>().unwrap(), *id);
+            assert_eq!(id.to_string().parse::<BackendKeyId>().unwrap(), *id);
+            for alias in id.aliases() {
+                assert_eq!(alias.parse::<BackendKeyId>().unwrap(), *id, "{alias}");
+            }
+        }
+        assert_eq!(
+            "open_ai".parse::<BackendKeyId>().unwrap(),
+            BackendKeyId::OpenAi
+        );
+        assert!("open-ai".parse::<BackendKeyId>().is_err());
+    }
+
+    #[test]
+    fn rev_and_blob_sha_convert_and_compare() {
+        let rev: Rev = "HEAD".parse().unwrap();
+        assert_eq!(Rev::try_from("HEAD").unwrap(), rev);
+        assert_eq!(<Rev as AsRef<str>>::as_ref(&rev), "HEAD");
+        assert_eq!("-x".parse::<Rev>().unwrap_err().code(), "INPUT_INVALID");
+        assert_eq!(Rev::try_from("").unwrap_err().code(), "INPUT_INVALID");
+        let low = BlobSha::try_from("a".repeat(40).as_str()).unwrap();
+        let high = BlobSha::try_from("b".repeat(40).as_str()).unwrap();
+        assert!(low < high);
+        assert_eq!(<BlobSha as AsRef<str>>::as_ref(&low), "a".repeat(40));
+    }
 
     #[test]
     fn digest_rejects_uppercase_and_short_text() {

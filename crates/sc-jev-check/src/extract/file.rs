@@ -35,7 +35,7 @@ mod tests {
     use super::*;
     use crate::config::InputSpec;
     use crate::extract::extract_input;
-    use crate::extract::test_support::{git_fixture, rel, temp_dir};
+    use crate::extract::test_support::{git_fixture, rel, rev, temp_dir};
 
     #[test]
     fn extractors_file_reads_git_rev_not_the_worktree() {
@@ -43,7 +43,7 @@ mod tests {
         std::fs::write(dir.path().join("notes/readme.txt"), "worktree edit\n").expect("edit");
         let repo = RepoRoot::new(dir.path());
         let path = rel("notes/readme.txt");
-        let head = extract_file(&repo, &Rev::new(&sha), &path).expect("head");
+        let head = extract_file(&repo, &rev(&sha), &path).expect("head");
         let worktree = extract_file(&repo, &Rev::worktree(), &path).expect("worktree");
         assert_eq!(head.subjects[0].text(), "alpha note\n");
         assert_eq!(worktree.subjects[0].text(), "worktree edit\n");
@@ -59,14 +59,8 @@ mod tests {
         assert_eq!(error.code(), "INPUT_MISSING");
         let found = extract_file(&repo, &Rev::worktree(), &rel("note.txt")).expect("note");
         assert_eq!(found.subjects[0].text(), "from-root\n");
-        let dispatched = extract_input(
-            &repo,
-            &Rev::worktree(),
-            &InputSpec::File {
-                path: rel("note.txt"),
-            },
-        )
-        .expect("extract_input dispatches file");
+        let dispatched = extract_input(&repo, &Rev::worktree(), &InputSpec::file(rel("note.txt")))
+            .expect("extract_input dispatches file");
         assert_eq!(dispatched, found);
     }
 }

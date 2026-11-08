@@ -45,8 +45,12 @@ pub(crate) const GIT_DEADLINE: Duration = Duration::from_secs(60);
 /// How often a running git child is polled.
 const POLL_INTERVAL: Duration = Duration::from_millis(10);
 
-/// Bound on killing a child and collecting its pipes once the deadline fired.
-const CLEANUP_BUDGET: Duration = Duration::from_secs(2);
+/// Bound on killing a child and reaping it, on the failure path only.
+///
+/// It applies after the deadline fired or `try_wait` failed, never to a child
+/// that exited by itself. Killing normally reaps at once; the bound only keeps
+/// a child stuck in the kernel from blocking the caller forever.
+const REAP_BUDGET: Duration = Duration::from_secs(10);
 
 /// Bytes of git's stderr kept for an error detail.
 const STDERR_DETAIL_BYTES: u64 = 4096;
@@ -119,11 +123,20 @@ fn run_with_deadline(mut command: Command, limit: Duration) -> Result<Output, Je
     let stdout = child.stdout.take().map(drain);
     let stderr = child.stderr.take().map(drain);
     let status = wait_bounded(&mut child, started, limit)?;
-    let cleanup = Instant::now() + CLEANUP_BUDGET;
+    // The pipes are waited for against the one deadline of the call. The
+    // child exited, so its own pipe ends are closed and EOF is immediate; the
+    // bound fires only when something else still holds a pipe (a process the
+    // child left behind, such as a git helper or daemon). The deadline can
+    // already be past here, because it is observed once per `POLL_INTERVAL`
+    // and the child may have exited within that tick. The floor of one tick
+    // gives the reader threads that same granularity to hand over output that
+    // is already in the pipe, so a finished child is not reported as failed
+    // for being noticed late.
+    let pipes = (started + limit).max(Instant::now() + POLL_INTERVAL);
     Ok(Output {
         status,
-        stdout: collect(stdout, cleanup)?,
-        stderr: collect(stderr, cleanup)?,
+        stdout: collect(stdout, pipes)?,
+        stderr: collect(stderr, pipes)?,
     })
 }
 
@@ -179,10 +192,10 @@ fn wait_bounded(
     }
 }
 
-/// Kills `child` and waits for it for at most [`CLEANUP_BUDGET`].
+/// Kills `child` and waits for it for at most [`REAP_BUDGET`] (failure path).
 fn kill_and_reap(child: &mut Child) {
     let _ = child.kill();
-    let deadline = Instant::now() + CLEANUP_BUDGET;
+    let deadline = Instant::now() + REAP_BUDGET;
     while Instant::now() < deadline {
         match child.try_wait() {
             Ok(None) => thread::sleep(POLL_INTERVAL),
@@ -486,6 +499,28 @@ fn classify_missing(
     })
 }
 
+/// The guard inside `read_at_rev` behind `Rev::parse`. A `Rev` that git would
+/// read as an option cannot be built through the public API, so this test
+/// builds one with the crate-private `Rev::unchecked`.
+#[cfg(all(test, feature = "git"))]
+mod guard_tests {
+    use super::*;
+
+    #[test]
+    fn test_read_at_rev_refuses_an_option_shaped_revision_without_running_git() {
+        let dir = tempfile::tempdir().expect("temp");
+        let target = dir.path().join("FILE");
+        let rev = Rev::unchecked(format!("--output={}", target.display()));
+        let root = RepoRoot::new(dir.path());
+        let path = RepoRelativePath::try_from("src/a.py").expect("path");
+        let error = read_at_rev(&root, &rev, &path, 1024).expect_err("option");
+        assert_eq!(error.code(), "INPUT_INVALID");
+        assert!(!target.exists(), "no file is created");
+        let empty = read_at_rev(&root, &Rev::unchecked(""), &path, 1024).expect_err("empty");
+        assert_eq!(empty.code(), "INPUT_INVALID");
+    }
+}
+
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
@@ -518,5 +553,41 @@ mod tests {
     fn test_fast_child_completes_within_the_deadline() {
         let output = run_with_deadline(child("true", &[]), GIT_DEADLINE).expect("runs");
         assert!(output.status.success());
+    }
+
+    /// A pipe that never reaches EOF (its writer stays open) ends the wait
+    /// with the typed `pipe did not close` error. The test holds the writer
+    /// itself, so no process is involved and nothing races the deadline.
+    #[test]
+    fn test_pipe_held_open_is_a_typed_error() {
+        let (reader, writer) = std::os::unix::net::UnixStream::pair().expect("socket pair");
+        let rx = drain(reader);
+        let error =
+            collect(Some(rx), Instant::now() + Duration::from_millis(50)).expect_err("held pipe");
+        // `pipe did not close` is an `io::ErrorKind::TimedOut` on `git output`;
+        // `JevError` keeps the kind and drops the OS message.
+        assert!(
+            matches!(
+                &error,
+                JevError::IoFailed { what, kind }
+                    if what == "git output" && *kind == io::ErrorKind::TimedOut
+            ),
+            "{error:?}"
+        );
+        // The writer is open for the whole assert.
+        drop(writer);
+    }
+
+    /// A pipe whose writer wrote and closed hands over its bytes even when the
+    /// deadline is short, as long as it has not passed.
+    #[test]
+    fn test_closed_pipe_yields_its_bytes_before_the_deadline() {
+        use std::io::Write;
+        let (reader, mut writer) = std::os::unix::net::UnixStream::pair().expect("socket pair");
+        let rx = drain(reader);
+        writer.write_all(b"hello").expect("write");
+        drop(writer);
+        let bytes = collect(Some(rx), Instant::now() + Duration::from_secs(30)).expect("bytes");
+        assert_eq!(bytes, b"hello");
     }
 }

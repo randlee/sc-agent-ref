@@ -180,6 +180,11 @@ r-3c) is satisfied as is: `ExtractInput::new(language, query, source)`
 fields, and `extract` rejects an empty `path`, `rev` or `blob_sha`
 (REQ-QA-R3C-005). No code change.
 
+> Later change: `ExtractInput::new` now takes six arguments, including the
+> typed path, rev and blob SHA (`RepoRelativePath`, `Rev`, `BlobSha`); see the
+> `CHANGELOG.md` entry for `sc_treesitter::ExtractInput`. The three-argument
+> signature above is what r-3c shipped.
+
 ## This sprint does not close
 
 REQ-SAG-0712 and REQ-SAG-0135 as `req:` roots (r-3b closes both after the

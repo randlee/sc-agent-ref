@@ -35,12 +35,14 @@ adrs:
 
 # Phase A.1 — architectural refinement
 
-Status: **proposed** — plan review round 3 (final) findings applied in the
-round-4 revision. Dispositions:
+Status: **complete** — all ten sprints (r-1, r-4, r-2, r-3, r-3c, r-2b, r-3b,
+r-7, r-5, r-6) have landed on `integrate/phase-a`. Plan review rounds 1 to 6
+(round 5 included) are recorded in these dispositions:
 round 1 [`plan-review-1-dispositions.md`](plan-review-1-dispositions.md),
 round 2 [`plan-review-2-dispositions.md`](plan-review-2-dispositions.md),
 round 3 [`plan-review-3-dispositions.md`](plan-review-3-dispositions.md),
 round 4 (wave-2 ADR pre-screen) [`plan-review-4-dispositions.md`](plan-review-4-dispositions.md),
+round 5 (waves 3-5 ADR pre-screen) [`plan-review-5-dispositions.md`](plan-review-5-dispositions.md),
 round 6 (r-6 pre-screen; r-7 split) [`plan-review-6-dispositions.md`](plan-review-6-dispositions.md).
 
 Phase id: `r`. Plan branch: `plan/phase-a-refine`. Integration branch:
@@ -902,8 +904,8 @@ defaulted; per-question answers use a new `QuestionAnswer` type rather than
 
 ## Phase acceptance
 
-Run on `integrate/phase-a` HEAD after r-1, r-4, r-2, r-3, r-3c, r-2b, r-3b
-merge:
+Run on `integrate/phase-a` HEAD after r-1, r-4, r-2, r-3, r-3c, r-2b, r-3b,
+r-7, r-5 and r-6 (all ten sprints) merge:
 
 ```bash
 just lint
@@ -939,8 +941,8 @@ cargo publish --dry-run --locked -p sc-agent-types -p sc-agent-secrets -p sc-age
 The allow-attribute check is `source_scans` (`test_no_allow_attributes`);
 the phase run has no separate `rg` gate.
 
-After r-7 and r-6 merge, the phase run adds their "Required validation"
-blocks, and every `cargo publish --dry-run` line lists `-p sc-decision-schema`
+After all ten sprints merge (r-1, r-4, r-2, r-3, r-3c, r-2b, r-3b, r-7, r-5,
+r-6), the phase run adds the "Required validation" blocks of r-7, r-5 and r-6, and every `cargo publish --dry-run` line lists `-p sc-decision-schema`
 second.
 
 Expected: all exit 0, and `.github/workflows/sc-agent-ci.yml` is green on
