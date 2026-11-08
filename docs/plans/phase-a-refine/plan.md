@@ -804,6 +804,10 @@ REQ-SAG-0130 amendment. (REQ-QA-002, CPR-019.)
 "Owner confirmation (2026-11-06, retry policy)").** (CPR-M7, OBS-F,
 REQ-SAG-0505.) Encoded by r-3 in `BusyPolicy::default()`; ADR-SAG-0007 r-3
 amendment and the REQ-SAG-0505 amendment record it.
+> Later change: owner decision of 2026-11-08 set busy retry to 5 sends with
+> waits of 1, 2, 4, 8 s. See the ADR-SAG-0007 r-3 amendment and REQ-SAG-0505
+> amendment. The 4-send text here describes what r-3 shipped.
+
 - Statuses 429/502/529 only; at most 4 sends.
 - A valid Retry-After is honoured, clamped 0–30 s. Valid means at most 32
   bytes of ASCII digits with an optional `.` and ASCII-digit fraction
