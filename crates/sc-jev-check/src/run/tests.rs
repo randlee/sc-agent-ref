@@ -33,7 +33,7 @@ impl SessionLog for JsonlSink {
         let line = serde_json::json!({
             "session_id": event.session_id().to_string(),
             "backend": event.fields()["backend"],
-            "prompt_sha256": event.fields()["prompt_sha256"],
+            "payload_sha256": event.fields()["payload_sha256"],
             "operation": event.operation().as_str(),
         });
         let mut file = std::fs::OpenOptions::new()
@@ -103,13 +103,13 @@ fn dry_run_sends_nothing_and_needs_no_registry_or_store() {
             .registry(registry_of(&[&jev])),
     )
     .expect("prepare");
-    let digest = prepared.prompt_sha256().clone();
+    let digest = prepared.payload_sha256().clone();
     let response = run(prepared).expect("dry-run");
     assert!(response.dry_run());
     assert!(response.session_id().is_none());
     assert!(!response.session_saved());
     assert!(response.results().is_empty());
-    assert_eq!(response.prompt_sha256(), &digest);
+    assert_eq!(response.payload_sha256(), &digest);
     assert!(
         response
             .equal_input()
@@ -164,7 +164,7 @@ fn packaged_prompt_is_injected_and_override_does_not_change_digest() {
         system_prompt(&second_judge.requests()[0]),
         "OVERRIDE-PROMPT-TOKEN"
     );
-    assert_eq!(first.prompt_sha256(), second.prompt_sha256());
+    assert_eq!(first.payload_sha256(), second.payload_sha256());
 }
 
 #[test]
@@ -370,7 +370,7 @@ fn caller_request_uses_file_override_not_inline_prompt() {
     )
     .expect("override");
     assert_eq!(system_prompt(llm.request()), "OVERRIDE-PROMPT-TOKEN-a7\n");
-    assert_eq!(packaged.prompt_sha256(), llm.prompt_sha256());
+    assert_eq!(packaged.payload_sha256(), llm.payload_sha256());
     let text = llm.request().payload().as_str();
     assert!(!text.contains("OVERRIDE-PROMPT-TOKEN-a7"));
     assert!(text.contains("Judge this"));
@@ -431,7 +431,7 @@ fn every_judge_send_logs_once_under_the_saved_session_id() {
     for (line, backend) in lines.iter().zip(["jev", "openai_luna"]) {
         assert_eq!(line["session_id"], session_id);
         assert_eq!(line["backend"], backend);
-        assert_eq!(line["prompt_sha256"], response.prompt_sha256().as_str());
+        assert_eq!(line["payload_sha256"], response.payload_sha256().as_str());
         assert_eq!(line["operation"], "judge");
     }
 }
@@ -556,7 +556,7 @@ fn ask_sends_through_the_engine_and_refuses_unaskable_sessions() {
     )
     .expect("ask");
     assert_eq!(asked.session_id(), id);
-    assert_eq!(asked.prompt_sha256(), response.prompt_sha256());
+    assert_eq!(asked.payload_sha256(), response.payload_sha256());
     assert_eq!(asked.outcome().answers()["relevant"].choice(), "no");
     assert_eq!(follow.validations(), 1, "ask validates before its send");
     let requests = follow.requests();
@@ -610,7 +610,7 @@ fn ask_envelope_carries_digest_warnings_and_readback_in_order() {
         "\"answers\"",
         "\"model\"",
         "\"session_id\"",
-        "\"prompt_sha256\"",
+        "\"payload_sha256\"",
         "\"warnings\"",
         "\"readback\"",
     ];
@@ -627,7 +627,7 @@ fn ask_envelope_carries_digest_warnings_and_readback_in_order() {
     assert!(positions.windows(2).all(|pair| pair[0] < pair[1]), "{text}");
     let value: serde_json::Value = serde_json::from_str(&text).expect("value");
     assert_eq!(value["operation"], "jev.ask");
-    assert_eq!(value["data"]["prompt_sha256"], payload.sha256().as_str());
+    assert_eq!(value["data"]["payload_sha256"], payload.sha256().as_str());
     assert_eq!(
         value["data"]["warnings"],
         serde_json::json!(["session log was not flushed: disk full"])

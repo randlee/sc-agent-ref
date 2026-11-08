@@ -9,7 +9,7 @@ Rust tests on every CI run, so they stay correct.
 The canonical judge payload (ADR-SAG-0002) is JSON with sorted object keys,
 compact separators (`,` and `:`), UTF-8, and non-ASCII characters left as
 UTF-8 (not `\uXXXX`). Control characters are escaped; `/` is not.
-`prompt_sha256` is the SHA-256 (lowercase hex) of those bytes.
+`payload_sha256` is the SHA-256 (lowercase hex) of those bytes. (It was named `prompt_sha256` before the phase-end rename; the digest values are unchanged.)
 
 | File | Role |
 | --- | --- |
@@ -61,7 +61,7 @@ compare digests. For a question `branches` with instructions
    `d3b5e61a488d62ae83aa662bf96faa776dc708e7d9365ea94e23def14d7090c3`
    (204 bytes).
 
-The reference implementation produces the same digest as `prompt_sha256` of
+The reference implementation produces the same digest as `payload_sha256` of
 `sc-ai jev dry-run` over a `check.toml` with `[inputs.branches]`
 `kind = "subjects"`, `path = "subjects.json"`. The Rust side is
 `cargo test -p sc-jev-check --test cross_impl_branches`.
@@ -80,7 +80,7 @@ numbers, byte spans, ids and ordering are in
 against different state can be compared. It is the SHA-256 (lowercase hex,
 computed with `sc-sha`) of the question set alone. It
 appears in `sc-ai jev run` and `dry-run` output (`data.questions_sha256`, right
-after `prompt_sha256`), on the run result (`RunResponse::questions_sha256`) and
+after `payload_sha256`), on the run result (`RunResponse::questions_sha256`) and
 in Python (`CheckResult.questions_sha256`, `build_request(...)["questions_sha256"]`).
 sc-agent builds no cache. The public functions are
 `sc_decision_schema::jev::v1::questions_sha256` and
@@ -100,7 +100,7 @@ ensure_ascii=False)` encoded as UTF-8), over this object:
   no whitespace; non-ASCII characters are written as UTF-8, not `\uXXXX`;
   control characters are escaped (`\n`, `\u001f`).
 
-The digest does not cover `state` or the model, so it is not `prompt_sha256`.
+The digest does not cover `state` or the model, so it is not `payload_sha256`.
 Descriptions are covered: tuning a description changes the digest. The
 question order in the payload does not matter. Example (checked by
 `cargo test -p sc-decision-schema --test jev -- test_questions_sha256_is_pinned_to_the_documented_bytes`):
@@ -139,7 +139,7 @@ first HTTP request that backend is sent, for the model it runs with:
 It is computed before sending, with no API key, and equals the
 `request_sha256` the session-log row records for the same send (tests:
 `cargo test -p sc-jev-check --test request_digest`). It changes when a
-question, the state, the model or the LLM system prompt changes. `prompt_sha256`
+question, the state, the model or the LLM system prompt changes. `payload_sha256`
 covers none of the model or the system prompt, so it cannot key a cache.
 
 A backend is left out of the object when its bytes cannot be known before a

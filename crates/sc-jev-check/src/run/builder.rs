@@ -93,7 +93,7 @@ impl RunResponseBuilder {
         self
     }
 
-    /// Finishes the response. `prompt_sha256` is `equal_input`'s.
+    /// Finishes the response. `payload_sha256` is `equal_input`'s.
     #[must_use]
     pub fn build(self, equal_input: EqualInputRecord) -> RunResponse {
         let response = RunResponse::from_parts(ResponseParts {

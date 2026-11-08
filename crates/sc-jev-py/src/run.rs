@@ -65,8 +65,8 @@ impl FinishedRun {
         self.response.session_id()
     }
 
-    fn prompt_sha256(&self) -> &Sha256Digest {
-        self.response.prompt_sha256()
+    fn payload_sha256(&self) -> &Sha256Digest {
+        self.response.payload_sha256()
     }
 
     fn questions_sha256(&self) -> &Sha256Digest {
@@ -76,7 +76,7 @@ impl FinishedRun {
 
 struct PreparedRequest {
     payload: String,
-    prompt_sha256: Sha256Digest,
+    payload_sha256: Sha256Digest,
     questions_sha256: Sha256Digest,
     request_sha256: Vec<(BackendId, Sha256Digest)>,
     producer: Option<SubjectsProducer>,
@@ -210,7 +210,7 @@ fn build(
     let prepared = host.prepared();
     Ok(PreparedRequest {
         payload: prepared.request().payload().as_str().to_owned(),
-        prompt_sha256: prepared.prompt_sha256().clone(),
+        payload_sha256: prepared.payload_sha256().clone(),
         questions_sha256: prepared.request().payload().questions_sha256()?,
         request_sha256: prepared.request_sha256(),
         producer: prepared.producer().cloned(),
@@ -349,10 +349,10 @@ impl CheckResult {
         self.inner.session_id().map(|id| id.to_string())
     }
 
-    /// SHA-256 of the canonical payload. This is `prompt_sha256`.
+    /// SHA-256 of the canonical payload. This is `payload_sha256`.
     #[getter]
-    fn prompt_sha256(&self) -> &str {
-        self.inner.prompt_sha256().as_str()
+    fn payload_sha256(&self) -> &str {
+        self.inner.payload_sha256().as_str()
     }
 
     /// SHA-256 of the question set alone (ids, kinds, instructions and
@@ -402,7 +402,7 @@ impl CheckResult {
         self.data.clone_ref(py)
     }
 
-    /// LLM system prompt injected for this run. Not part of `prompt_sha256`.
+    /// LLM system prompt injected for this run. Not part of `payload_sha256`.
     #[getter]
     fn system_prompt(&self) -> Option<&str> {
         self.inner.system_prompt.as_deref()
@@ -449,9 +449,9 @@ impl CheckResult {
 
     fn __repr__(&self) -> String {
         format!(
-            "CheckResult(session_id={:?}, prompt_sha256={})",
+            "CheckResult(session_id={:?}, payload_sha256={})",
             self.session_id(),
-            self.inner.prompt_sha256()
+            self.inner.payload_sha256()
         )
     }
 }
@@ -501,7 +501,7 @@ impl Session {
 /// current directory (the directory itself outside git).
 /// `rev` defaults to `WORKTREE`. The GIL is released while the request is
 /// assembled (git reads and command extractors may take seconds). The result
-/// mapping contains `payload`, `prompt_sha256`, `questions_sha256`, `request_sha256` (a backend-id to digest mapping), and `producer`.
+/// mapping contains `payload`, `payload_sha256`, `questions_sha256`, `request_sha256` (a backend-id to digest mapping), and `producer`.
 ///
 /// # Errors
 ///
@@ -527,7 +527,7 @@ pub(crate) fn build_request(
     let built = map_err(py, built)?;
     let body = serde_json::json!({
         "payload": built.payload,
-        "prompt_sha256": built.prompt_sha256,
+        "payload_sha256": built.payload_sha256,
         "questions_sha256": built.questions_sha256,
         "request_sha256": request_digest_map(&built.request_sha256),
         "producer": built.producer,
@@ -914,7 +914,7 @@ mod tests {
         assert_eq!(producer.language(), "python");
         assert_eq!(producer.mode().as_str(), "matches");
         let again = build(Path::new("check.toml"), Some(repo), "WORKTREE").expect("rebuild");
-        assert_eq!(built.prompt_sha256, again.prompt_sha256);
+        assert_eq!(built.payload_sha256, again.payload_sha256);
     }
 
     #[test]
@@ -961,7 +961,7 @@ mod tests {
         let lines = jsonl_lines(&logs);
         assert_eq!(lines.len(), 1, "{lines:?}");
         assert!(lines[0].contains("judge"));
-        assert!(lines[0].contains(finished.prompt_sha256().as_str()));
+        assert!(lines[0].contains(finished.payload_sha256().as_str()));
         assert!(lines[0].contains("anthropic_haiku"));
         assert!(!lines[0].contains(sentinel));
         assert!(!lines[0].to_ascii_lowercase().contains("api_key"));
@@ -1118,7 +1118,7 @@ mod tests {
             .expect("build_request");
             let digest: String = built
                 .bind(py)
-                .get_item("prompt_sha256")
+                .get_item("payload_sha256")
                 .expect("digest")
                 .extract()
                 .expect("str");
@@ -1138,7 +1138,7 @@ mod tests {
                 None,
             )
             .expect("dry run");
-            assert_eq!(result.prompt_sha256(), digest);
+            assert_eq!(result.payload_sha256(), digest);
             assert!(result.session().is_none());
             let equal: bool = result
                 .equal_input(py)

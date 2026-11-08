@@ -98,7 +98,7 @@ pub(crate) fn recovered_digest(kind: ProviderKind, body: &str) -> Result<Sha256D
 pub enum WireFault {
     /// Drops one byte of the embedded payload text. The body stays valid
     /// JSON, so recovery succeeds and reports a digest that differs from the
-    /// request's `prompt_sha256`.
+    /// request's `payload_sha256`.
     DropEmbeddedByte,
     /// Cuts the serialized body in half, so digest recovery fails and the
     /// backend sends nothing.

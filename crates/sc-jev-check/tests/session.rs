@@ -388,7 +388,7 @@ fn test_session_written_once_only_with_llm() {
         [BackendId::Jev, BackendId::AnthropicHaiku],
         "the one write happens after the last backend"
     );
-    assert_eq!(loaded.payload.sha256(), both.prompt_sha256());
+    assert_eq!(loaded.payload.sha256(), both.payload_sha256());
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -430,7 +430,7 @@ fn test_ask_takes_registry() {
     )
     .expect("ask");
     assert_eq!(asked.outcome().answers()["relevant"].choice(), "no");
-    assert_eq!(asked.prompt_sha256(), response.prompt_sha256());
+    assert_eq!(asked.payload_sha256(), response.payload_sha256());
     assert_eq!(
         run_judge.requests().len(),
         1,

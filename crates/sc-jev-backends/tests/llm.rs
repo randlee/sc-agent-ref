@@ -363,7 +363,7 @@ fn test_llm_system_prompt_is_injected_not_hardcoded() {
 }
 
 #[test]
-fn test_prompt_change_does_not_alter_prompt_sha256() {
+fn test_prompt_change_does_not_alter_payload_sha256() {
     let first = standard_request("prompt-alpha");
     let second = standard_request("prompt-beta");
     assert_eq!(first.payload().sha256(), second.payload().sha256());

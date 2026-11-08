@@ -24,7 +24,7 @@ use crate::probability::Probability;
 /// Caller-supplied evaluator instructions for LLM backends.
 ///
 /// Jev-only runs leave [`JudgeRequest::llm`] empty. The text is not part of
-/// `prompt_sha256`.
+/// `payload_sha256`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LlmWireContext {
     /// System prompt resolved by the facade.
@@ -432,7 +432,7 @@ pub enum MultiBackendMode {
 #[serde(tag = "status", rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum Attestation {
-    /// The backend reported the run's `prompt_sha256`.
+    /// The backend reported the run's `payload_sha256`.
     Matched,
     /// The backend reported a different digest.
     Mismatched {
@@ -487,7 +487,7 @@ impl BackendAttestation {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(try_from = "EqualInputWire")]
 pub struct EqualInputRecord {
-    prompt_sha256: Sha256Digest,
+    payload_sha256: Sha256Digest,
     mode: MultiBackendMode,
     backends: Vec<BackendAttestation>,
     leak: bool,
@@ -497,7 +497,7 @@ pub struct EqualInputRecord {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct EqualInputWire {
-    prompt_sha256: Sha256Digest,
+    payload_sha256: Sha256Digest,
     mode: MultiBackendMode,
     backends: Vec<BackendAttestation>,
     leak: bool,
@@ -510,7 +510,7 @@ impl Serialize for EqualInputRecord {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         use serde::ser::SerializeStruct;
         let mut state = serializer.serialize_struct("EqualInputRecord", 6)?;
-        state.serialize_field("prompt_sha256", &self.prompt_sha256)?;
+        state.serialize_field("payload_sha256", &self.payload_sha256)?;
         state.serialize_field("mode", &self.mode)?;
         state.serialize_field("backends", &self.backends)?;
         state.serialize_field("leak", &self.leak)?;
@@ -525,7 +525,7 @@ impl TryFrom<EqualInputWire> for EqualInputRecord {
 
     fn try_from(wire: EqualInputWire) -> Result<Self, Self::Error> {
         let record = Self::new(
-            wire.prompt_sha256,
+            wire.payload_sha256,
             wire.mode,
             wire.backends,
             wire.leak,
@@ -552,7 +552,7 @@ impl EqualInputRecord {
     ///
     /// `INPUT_INVALID` when `backends` is empty or names a backend twice.
     pub fn new(
-        prompt_sha256: Sha256Digest,
+        payload_sha256: Sha256Digest,
         mode: MultiBackendMode,
         backends: Vec<BackendAttestation>,
         leak: bool,
@@ -571,7 +571,7 @@ impl EqualInputRecord {
             )));
         }
         Ok(Self {
-            prompt_sha256,
+            payload_sha256,
             mode,
             backends,
             leak,
@@ -581,8 +581,8 @@ impl EqualInputRecord {
 
     /// SHA-256 of the canonical payload bytes.
     #[must_use]
-    pub fn prompt_sha256(&self) -> &Sha256Digest {
-        &self.prompt_sha256
+    pub fn payload_sha256(&self) -> &Sha256Digest {
+        &self.payload_sha256
     }
 
     /// The multi-backend mode of the run.

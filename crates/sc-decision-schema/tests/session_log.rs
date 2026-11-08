@@ -157,7 +157,7 @@ fn test_fields_roundtrip() {
         .session_created_at(ts)
         .repo("/work/repo")
         .project(Some(ProjectLabel::new("p").expect("label")))
-        .prompt_sha256(Sha256Digest::of_text("payload"))
+        .payload_sha256(Sha256Digest::of_text("payload"))
         .decision_schema(CANONICAL_V1)
         .question_ids(vec![q.clone()])
         .request_sha256(None)
@@ -216,7 +216,7 @@ fn test_unknown_or_missing_key_rejected() {
         ("repo", json!(null)),
         ("project", json!("a".repeat(257))),
         ("project", json!(5)),
-        ("prompt_sha256", json!("abc")),
+        ("payload_sha256", json!("abc")),
         ("decision_schema", json!("canonical.v9")),
         ("question_ids", json!("relevant")),
         ("question_ids", json!([""])),

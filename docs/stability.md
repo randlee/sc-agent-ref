@@ -53,7 +53,7 @@ builds no cache.
 | Digest | Identifies | Use |
 | --- | --- | --- |
 | `questions_sha256` | The question set (ids, kinds, instructions, criteria descriptions). Same questions, any state. | Compare runs of the same questions against different state. |
-| `prompt_sha256` | The canonical payload: questions and state. Backend-neutral; excludes the LLM system prompt and the model. | The equal-input proof that every backend judged the same input. |
+| `payload_sha256` | The canonical payload: questions and state. Backend-neutral; excludes the LLM system prompt and the model. | The equal-input proof that every backend judged the same input. |
 | `request_sha256` (per backend) | The exact first request body for that backend and model, computed before sending. | Substitute a cached response for an identical request. |
 
 `request_sha256` is computed with no key and no send, and equals the

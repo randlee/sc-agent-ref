@@ -564,7 +564,7 @@ impl AsRef<[BackendId]> for BackendSet {
 
 /// Lowercase hex SHA-256 (64 characters).
 ///
-/// Used for canonical payload digests and equal-input `prompt_sha256`.
+/// Used for canonical payload digests and equal-input `payload_sha256`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct Sha256Digest(String);

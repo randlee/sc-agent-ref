@@ -14,7 +14,7 @@
 //! - Arrays keep their element order. Numbers, booleans, and null use
 //!   `serde_json`'s compact forms. No extra whitespace is emitted.
 //!
-//! `prompt_sha256` is SHA-256 of those bytes. LLM system-prompt text is not
+//! `payload_sha256` is SHA-256 of those bytes. LLM system-prompt text is not
 //! included.
 //!
 //! Every [`PayloadBundle`] is built by [`PayloadBundle::encode`] (or
@@ -350,7 +350,7 @@ fn kind_name(kind: QuestionKind) -> &'static str {
 
 /// A recorded choice for one question: prior state inside the payload.
 ///
-/// This is an *input* (part of the `prompt_sha256` bytes). A backend's output
+/// This is an *input* (part of the `payload_sha256` bytes). A backend's output
 /// for one question is `QuestionAnswer`; `QuestionAnswer::to_choice_answer`
 /// is the one conversion.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

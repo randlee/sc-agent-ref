@@ -1,11 +1,11 @@
 //! Equal-input record for one check run (REQ-SAG-0602).
 //!
 //! Every backend in the run is attested against the same canonical payload
-//! bytes. `prompt_sha256` is the digest of those bytes. LLM system-prompt text
+//! bytes. `payload_sha256` is the digest of those bytes. LLM system-prompt text
 //! is not part of the digest (ADR-SAG-0019). `equal` is derived from the
 //! per-backend [`Attestation`]s. Each backend reports the digest of the
 //! canonical blob it recovered from its own final wire body; the engine
-//! compares it to `prompt_sha256` and trusts it (REQ-SAG-0606,
+//! compares it to `payload_sha256` and trusts it (REQ-SAG-0606,
 //! ADR-SAG-0025), so `equal` can be `false` on a live run.
 
 #![warn(missing_docs)]
@@ -112,7 +112,7 @@ mod tests {
         )
         .expect("record");
         assert_eq!(
-            built.prompt_sha256(),
+            built.payload_sha256(),
             &Sha256Digest::of_text(bundle.as_str())
         );
         assert!(built.leak());
@@ -134,8 +134,8 @@ mod tests {
                 "equal",
                 "leak",
                 "mode",
-                "producer",
-                "prompt_sha256"
+                "payload_sha256",
+                "producer"
             ]
         );
         let parsed: EqualInputRecord = serde_json::from_value(value).expect("parse");

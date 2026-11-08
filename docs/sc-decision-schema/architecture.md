@@ -36,7 +36,7 @@ reader accepts every id in `KNOWN` and refuses any other (`INPUT_INVALID` for
 input documents, `RESPONSE_INVALID` for backend output) with a hint naming the
 supported versions. Additive optional fields keep the version; a removed,
 renamed or retyped field, or a changed meaning, bumps it. The version never
-enters `PayloadBundle::bytes()`, so `prompt_sha256` is unchanged.
+enters `PayloadBundle::bytes()`, so `payload_sha256` is unchanged.
 
 ## Variant mechanism
 
@@ -54,7 +54,7 @@ choices, `score` 2 to 10 in level order, `noul` none; `descriptions`, when
 present, has one entry per choice, and entries equal to the labels are
 dropped. A choice question writes no `kind` and a question without
 descriptions writes none, so a Phase A payload keeps its bytes and
-`prompt_sha256`; the version stays `canonical.v1`. `Question::new_unchecked` (tests only: `cfg(test)` or feature `test-util`) skips the rules. `CanonicalJudgePayload::from_bytes` is the one
+`payload_sha256`; the version stays `canonical.v1`. `Question::new_unchecked` (tests only: `cfg(test)` or feature `test-util`) skips the rules. `CanonicalJudgePayload::from_bytes` is the one
 validator both backend families call. A `noul` question's bundle choice set is
 `{no, yes}`, so its derived answer (`yes` when `p >= 0.5`) passes
 `JudgeOutcome::new`.

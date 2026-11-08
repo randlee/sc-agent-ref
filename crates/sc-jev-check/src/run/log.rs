@@ -114,7 +114,7 @@ impl<'a> SendLog<'a> {
             .session_created_at(TimestampMs::from_system_time(self.session_created_at))
             .repo(self.repo.clone())
             .project(self.project.clone())
-            .prompt_sha256(request.payload().sha256().clone())
+            .payload_sha256(request.payload().sha256().clone())
             .decision_schema(DecisionSchemaId::CURRENT)
             .question_ids(request.payload().question_ids().cloned().collect())
             .request_sha256(trace.request_sha256())

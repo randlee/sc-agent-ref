@@ -212,7 +212,7 @@ impl FileSessionStore {
             backend: session.backend,
             created_at: unix_ms(session.created_at)?,
             payload_utf8: session.payload.as_str().to_owned(),
-            prompt_sha256: session.payload.sha256().clone(),
+            payload_sha256: session.payload.sha256().clone(),
             decision_schema: DecisionSchemaId::CURRENT,
             system_prompt: session.system_prompt.clone(),
             outcomes: session.outcomes.clone(),
@@ -298,7 +298,8 @@ impl FileSessionStore {
         if document.session_id != *id {
             return Err(session_parse(&path, "does not match this session id"));
         }
-        if sc_agent_types::Sha256Digest::of_text(&document.payload_utf8) != document.prompt_sha256 {
+        if sc_agent_types::Sha256Digest::of_text(&document.payload_utf8) != document.payload_sha256
+        {
             return Err(session_parse(&path, "payload digest does not match"));
         }
         Ok(document)
@@ -633,7 +634,7 @@ struct SessionDocument {
     backend: BackendId,
     created_at: u64,
     payload_utf8: String,
-    prompt_sha256: sc_agent_types::Sha256Digest,
+    payload_sha256: sc_agent_types::Sha256Digest,
     decision_schema: DecisionSchemaId,
     system_prompt: Option<String>,
     outcomes: Vec<JudgeOutcome>,

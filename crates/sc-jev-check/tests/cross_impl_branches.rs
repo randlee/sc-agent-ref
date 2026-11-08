@@ -71,7 +71,7 @@ fn cross_impl_branches() {
     assert!(payload.contains("Transition.GIVE_BACK"));
     assert!(payload.contains("Transition.KEEP"));
     assert!(payload.contains("Transition.STOP"));
-    assert_eq!(prepared.prompt_sha256(), expected.sha256());
+    assert_eq!(prepared.payload_sha256(), expected.sha256());
     assert_eq!(prepared.request().payload().bytes(), expected.bytes());
 
     let producer = prepared.producer().expect("producer");
@@ -81,7 +81,7 @@ fn cross_impl_branches() {
     assert_eq!(producer.mode().as_str(), "matches");
 
     let dry = run(prepared).expect("dry-run");
-    assert_eq!(dry.prompt_sha256(), expected.sha256());
+    assert_eq!(dry.payload_sha256(), expected.sha256());
     assert!(dry.session_id().is_none());
     assert!(dry.results().is_empty());
     assert_eq!(dry.equal_input().producer(), Some(producer_of(&document)));

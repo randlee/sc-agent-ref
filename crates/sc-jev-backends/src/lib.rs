@@ -3,7 +3,7 @@
 //! Callers pass the evaluator system prompt on [`sc_decision_schema::JudgeRequest::llm`].
 //! This crate embeds that text and the canonical payload bytes in the provider
 //! body. It does not read `check.toml`, resolve secrets, or embed evaluator prose.
-//! `prompt_sha256` stays the digest of the canonical payload alone (ADR-SAG-0019).
+//! `payload_sha256` stays the digest of the canonical payload alone (ADR-SAG-0019).
 //!
 //! The `sc_agent_http::Transport` and the resolved API key are construction
 //! state (ADR-SAG-0006). HTTP, busy retry, the response cap and redaction

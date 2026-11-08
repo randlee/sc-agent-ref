@@ -315,7 +315,7 @@ fn test_run_response_contract() {
             "primary_backend",
             "session_id",
             "session_saved",
-            "prompt_sha256",
+            "payload_sha256",
             "questions_sha256",
             "request_sha256",
             "payload_bytes",
@@ -420,14 +420,14 @@ fn test_run_response_contract() {
                 "equal",
                 "leak",
                 "mode",
-                "producer",
-                "prompt_sha256"
+                "payload_sha256",
+                "producer"
             ]
         );
         assert_eq!(sample["equal_input"]["mode"], "chain_context");
         assert_eq!(
-            sample["equal_input"]["prompt_sha256"],
-            sample["prompt_sha256"]
+            sample["equal_input"]["payload_sha256"],
+            sample["payload_sha256"]
         );
     }
 
@@ -572,14 +572,14 @@ fn test_prepared_run_owns_config() {
             .registry(Arc::clone(&registry)),
     )
     .expect("prepare");
-    let digest = prepared.prompt_sha256().clone();
+    let digest = prepared.payload_sha256().clone();
     let system_prompt = prepared
         .request()
         .llm()
         .map(|llm| llm.system_prompt.clone())
         .expect("prompt resolved at prepare time");
     let response = run(prepared).expect("live run");
-    assert_eq!(response.prompt_sha256(), &digest);
+    assert_eq!(response.payload_sha256(), &digest);
     let requests = haiku.requests();
     assert_eq!(requests.len(), 1, "the injected registry was used");
     assert_eq!(requests[0].payload().sha256(), &digest);

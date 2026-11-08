@@ -155,7 +155,7 @@ fn test_ok_row_request_sha256_is_sent_body_digest() {
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].send_outcome(), SendOutcome::Ok);
     assert_eq!(rows[0].context().request_sha256, Some(digest_of(body)));
-    assert_eq!(&rows[0].context().prompt_sha256, response.prompt_sha256());
+    assert_eq!(&rows[0].context().payload_sha256, response.payload_sha256());
     assert_eq!(rows[0].context().decision_schema, DecisionSchemaId::CURRENT);
 }
 
@@ -371,7 +371,7 @@ fn test_ask_writes_one_row_in_the_sessions_context() {
             .log_context(LogContext::new(RepoRoot::new(repo.path()), Some(project))),
     )
     .expect("ask");
-    assert_eq!(asked.prompt_sha256(), response.prompt_sha256());
+    assert_eq!(asked.payload_sha256(), response.payload_sha256());
     let rows = sink.rows();
     assert_eq!(rows.len(), 2);
     let (judged, followed) = (rows[0].context(), rows[1].context());
@@ -438,7 +438,7 @@ fn test_every_row_carries_context() {
         assert_eq!(fields["repo"], "/logged/main-repo");
         assert_eq!(fields["project"], "billing");
         assert!(fields["model_id"].is_string());
-        assert_eq!(fields["prompt_sha256"], response.prompt_sha256().as_str());
+        assert_eq!(fields["payload_sha256"], response.payload_sha256().as_str());
         assert_eq!(event.session_id(), &id);
         assert_eq!(event.operation(), row.context().operation);
     }

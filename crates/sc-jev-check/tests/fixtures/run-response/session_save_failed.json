@@ -8,7 +8,7 @@
   "primary_backend": "anthropic_haiku",
   "session_id": null,
   "session_saved": false,
-  "prompt_sha256": "4761e8e5cb3c8da165b4869c6a252459ca5adc4cb23cfb45ce6800583d982587",
+  "payload_sha256": "4761e8e5cb3c8da165b4869c6a252459ca5adc4cb23cfb45ce6800583d982587",
   "questions_sha256": "ba9025500ccf77e3e1532991f043791326182235ceb7a7b6fce9a5e2c1c12b14",
   "request_sha256": {},
   "payload_bytes": 89,
@@ -36,7 +36,7 @@
     }
   ],
   "equal_input": {
-    "prompt_sha256": "4761e8e5cb3c8da165b4869c6a252459ca5adc4cb23cfb45ce6800583d982587",
+    "payload_sha256": "4761e8e5cb3c8da165b4869c6a252459ca5adc4cb23cfb45ce6800583d982587",
     "mode": "chain_context",
     "backends": [
       {

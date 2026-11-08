@@ -1,7 +1,7 @@
 //! LLM system-prompt resolution (ADR-SAG-0019, REQ-SAG-0503).
 //!
 //! Precedence is the run override, then `check.toml`, then the packaged asset
-//! compiled in with `include_str`. The text is not part of `prompt_sha256`.
+//! compiled in with `include_str`. The text is not part of `payload_sha256`.
 
 use std::io::Read;
 use std::path::Path;

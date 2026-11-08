@@ -84,7 +84,7 @@ the **`sc-ai`** CLI. Behavioural contract for errors and parity rows:
 
 | ID | Requirement |
 | --- | --- |
-| REQ-SAG-0500 | Haiku API-direct; injectable system prompt; canonical payload embedded; `prompt_sha256` on canonical bytes only |
+| REQ-SAG-0500 | Haiku API-direct; injectable system prompt; canonical payload embedded; `payload_sha256` on canonical bytes only |
 | REQ-SAG-0501 | Luna API-direct + input token count path (feature 8); fake-transport proof in CI; live probe optional when `OPENAI_API_KEY` present |
 | REQ-SAG-0502 | LLM context-length refusal matches Jev semantics |
 | REQ-SAG-0503 | LLM evaluator system prompt from config/file at runtime; no production prompt prose hardcoded in Rust |
@@ -99,7 +99,7 @@ the **`sc-ai`** CLI. Behavioural contract for errors and parity rows:
 | REQ-SAG-0133 | A repo-owned check (`scripts/check-scoop-manifest.py`, run by `scripts/sc-publish-dry-run.sh checks`) renders the Scoop manifest at the pin and fails unless both binaries are shimmed — (Active, phase-end) |
 | REQ-SAG-0600 | Session store: UUID, mode 0600, expiry from `created_at` |
 | REQ-SAG-0601 | `run_check` / dry-run library API |
-| REQ-SAG-0602 | Equal-input record on every backend run |
+| REQ-SAG-0602 | Equal-input record on every backend run. Its `payload_sha256` is the backend-neutral digest of the canonical payload (questions and state): the proof that every backend judged the same input. It excludes the LLM system prompt and the model, so it cannot key a response cache (`request_sha256` does, REQ-SAG-0621) |
 | REQ-SAG-0603 | Multiple backends in one run (feature 3) |
 | REQ-SAG-0610 | Every Jev/LLM prompt send emits `LogEvent` via `SharedSessionLog` (v2 path) |
 | REQ-SAG-0611 | Log records include session correlation id, backend, payload digest, no secrets |
@@ -172,14 +172,14 @@ verbatim. Plan: [`plans/phase-a-refine/plan.md`](plans/phase-a-refine/plan.md).
 | REQ-SAG-0403 | Both backends validate `CanonicalJudgePayload` by deserializing; the Jev body is the documented flat `{model, state, questions}` object (no byte-splice) — (Active, r-5) |
 | REQ-SAG-0604 | Per-backend results; a failure keeps other answers; `leak` = any failed; consumers print the envelope on stdout and the first failure on stderr and exit 2 / raise with `.response` — (Active, r-3b) |
 | REQ-SAG-0605 | Multi-backend runs independent by default; `chain_context` explicit (CLI flag, Python kwarg) and recorded — (Active, r-3b) |
-| REQ-SAG-0606 | `equal` computed from backend-reported digests of the canonical blob recovered from each final wire body — (Active, r-2b) |
+| REQ-SAG-0606 | `equal` computed from backend-reported digests of the canonical blob recovered from each final wire body, compared with the run's `payload_sha256` (same questions and state, any backend, system prompt and model excluded) — (Active, r-2b) |
 | REQ-SAG-0607 | Stateless `FileSessionStore` with a written no-lock concurrency model; session written once per run, only when an `ask`-capable backend returned `Ok` — (Active, r-2) |
 | REQ-SAG-0620 | One engine API (`prepare` → `run`) and one `RunResponse` with one serialization printed by every consumer — (Active, r-2) |
-| REQ-SAG-0621 | Every run result carries two digests beyond `prompt_sha256`. `questions_sha256` identifies a question set (ids, kinds, instructions, criteria descriptions; plan-anchor's sorted compact form), so runs of the same questions against different state can be compared. `request_sha256` is per backend: the sc-sha SHA-256 of the exact first request body that backend is sent for its model, computed before sending without a key, equal to the session-log `request_sha256` of the same send; it identifies an identical request, so a consumer can substitute a cached response. It is absent for a backend whose bytes depend on an earlier answer (an LLM backend after another in `chain_context`) or that refuses the questions. sc-agent builds no cache; a key made with `jev` (sent as `jev-latest`) can go stale, so cache on pinned versions. Printed by `sc-ai` and Python additively; bytes in `tests/fixtures/README.md` — (Active) |
+| REQ-SAG-0621 | Every run result carries two digests beyond `payload_sha256`. `questions_sha256` identifies a question set (ids, kinds, instructions, criteria descriptions; plan-anchor's sorted compact form), so runs of the same questions against different state can be compared. `request_sha256` is per backend: the sc-sha SHA-256 of the exact first request body that backend is sent for its model, computed before sending without a key, equal to the session-log `request_sha256` of the same send; it identifies an identical request, so a consumer can substitute a cached response. It is absent for a backend whose bytes depend on an earlier answer (an LLM backend after another in `chain_context`) or that refuses the questions. sc-agent builds no cache; a key made with `jev` (sent as `jev-latest`) can go stale, so cache on pinned versions. Printed by `sc-ai` and Python additively; bytes in `tests/fixtures/README.md` — (Active) |
 | REQ-SAG-0712 | `sc-ai` and `sc-treesitter` parse argv with clap derive behind the `cli` feature; error contract unchanged — (Active, r-3b) |
 | REQ-SAG-0140 | `sc-decision-schema` is a published, data-only crate above `sc-agent-types`: dependencies `sc-agent-types` (core only), `serde`, `serde_json`; no HTTP, git, process, file or logging dependency and no I/O — (Active, r-7) |
 | REQ-SAG-0141 | Each decision type has one home: the question/answer payload, judge contract and attestation types move (not copy) from `sc-agent-types` to `sc-decision-schema`, with no re-export — (Active, r-7) |
-| REQ-SAG-0142 | The decision schema is versioned (`DecisionSchemaId`, e.g. `canonical.v1`); readers accept known versions and refuse others; the version lives outside the hashed canonical bytes, so `prompt_sha256` and the cross-impl fixture are unchanged — (Active, r-7) |
+| REQ-SAG-0142 | The decision schema is versioned (`DecisionSchemaId`, e.g. `canonical.v1`); readers accept known versions and refuse others; the version lives outside the hashed canonical bytes, so `payload_sha256` and the cross-impl fixture are unchanged — (Active, r-7) |
 | REQ-SAG-0143 | One serde request and response struct per Jev API call known today (`jev::v1` check) in `sc-decision-schema`; `sc-jev` builds the body with `CheckRequest` and parses replies with `CheckResponse`, with no byte-splice; it encodes the documented Jev API: flat `{model, state, questions}`, question types `choice`, `score` and `noul`, string/object/array `state`, and the `{model, answers, usage}` reply; a reply naming a different model than the request is accepted and the answered model is kept (`JudgeOutcome::answered_model`) — (Active, r-5) |
 | REQ-SAG-0144 | Haiku/Luna input and output use the same schema: canonical bytes in, `DecisionAnswers` out (the Jev answers type) — (Active, r-7) |
 | REQ-SAG-0145 | Model-family schema variants: `schema_for(ModelFamily)` with static dispatch keyed by `SchemaFamily` (no trait until a second variant); the canonical variant is the identity on the payload — (Active, r-7) |
@@ -214,4 +214,4 @@ verbatim. Plan: [`plans/phase-a-refine/plan.md`](plans/phase-a-refine/plan.md).
 | REQ-SAG-0107 | `sc-agent-types` loses the `judge` and `test-util` features with the moved modules; features are `secret`, `obs` (default) and `git` (non-default); every combination builds — (Active, r-7) |
 | REQ-SAG-0130 | Consumer input publishes `sc-decision-schema` (publish order 2, directly after `sc-agent-types`) — (Active, r-7) |
 | REQ-SAG-0600 | Session store: session id is a **ULID** (was UUID) in file names and documents; mode 0600, expiry from `created_at` — (Active, r-6) |
-| REQ-SAG-0611 | Every log line's `fields{}` object is one ADR-SAG-0031 session-log row (session ULID, `repo`, `project`, `model_id`, `prompt_sha256`, nullable `request_sha256`, `send_outcome`, typed answers or `error_code`), on every line; never secrets, payload text or raw response bodies — (Active, r-6) |
+| REQ-SAG-0611 | Every log line's `fields{}` object is one ADR-SAG-0031 session-log row (session ULID, `repo`, `project`, `model_id`, `payload_sha256`, nullable `request_sha256`, `send_outcome`, typed answers or `error_code`), on every line; never secrets, payload text or raw response bodies — (Active, r-6) |

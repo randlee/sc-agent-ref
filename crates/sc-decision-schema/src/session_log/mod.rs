@@ -44,7 +44,7 @@ pub const COLUMNS: &[&str] = &[
     "session_created_at",
     "repo",
     "project",
-    "prompt_sha256",
+    "payload_sha256",
     "decision_schema",
     "question_ids",
     "request_sha256",
@@ -96,7 +96,7 @@ impl SendOutcome {
 ///     .session_id(SessionId::new())
 ///     .session_created_at(ts)
 ///     .repo("/work/repo")
-///     .prompt_sha256(Sha256Digest::of_text("payload"))
+///     .payload_sha256(Sha256Digest::of_text("payload"))
 ///     .decision_schema(CANONICAL_V1)
 ///     .question_ids(vec![QuestionId::try_from("q")?])
 ///     .ts(ts)
@@ -127,7 +127,7 @@ pub struct RowContext {
     /// is written as `null`.
     pub project: Option<ProjectLabel>,
     /// SHA-256 of the canonical payload bytes.
-    pub prompt_sha256: Sha256Digest,
+    pub payload_sha256: Sha256Digest,
     /// The decision schema of this send.
     pub decision_schema: DecisionSchemaId,
     /// Question ids in payload order.
@@ -153,7 +153,7 @@ pub struct RowContextBuilder {
     session_created_at: Option<TimestampMs>,
     repo: Option<String>,
     project: Option<ProjectLabel>,
-    prompt_sha256: Option<Sha256Digest>,
+    payload_sha256: Option<Sha256Digest>,
     decision_schema: Option<DecisionSchemaId>,
     question_ids: Option<Vec<QuestionId>>,
     request_sha256: Option<Sha256Digest>,
@@ -207,8 +207,8 @@ impl RowContextBuilder {
 
     /// SHA-256 of the canonical payload bytes.
     #[must_use]
-    pub fn prompt_sha256(mut self, value: Sha256Digest) -> Self {
-        self.prompt_sha256 = Some(value);
+    pub fn payload_sha256(mut self, value: Sha256Digest) -> Self {
+        self.payload_sha256 = Some(value);
         self
     }
 
@@ -278,7 +278,7 @@ impl RowContextBuilder {
             session_created_at: need(self.session_created_at, "session_created_at")?,
             repo: need(self.repo, "repo")?,
             project: self.project,
-            prompt_sha256: need(self.prompt_sha256, "prompt_sha256")?,
+            payload_sha256: need(self.payload_sha256, "payload_sha256")?,
             decision_schema: need(self.decision_schema, "decision_schema")?,
             question_ids: need(self.question_ids, "question_ids")?,
             request_sha256: self.request_sha256,
@@ -395,7 +395,7 @@ impl SessionLogRow {
                 .as_ref()
                 .map_or(Value::Null, |project| text(project)),
         );
-        fields.insert("prompt_sha256".into(), text(&context.prompt_sha256));
+        fields.insert("payload_sha256".into(), text(&context.payload_sha256));
         fields.insert("decision_schema".into(), text(&context.decision_schema));
         fields.insert(
             "question_ids".into(),
@@ -469,8 +469,8 @@ impl SessionLogRow {
                         .map_err(|e| wrap("project", &e))
                 })
                 .transpose()?,
-            prompt_sha256: Sha256Digest::parse(required_str(fields, "prompt_sha256")?)
-                .map_err(|e| wrap("prompt_sha256", &e))?,
+            payload_sha256: Sha256Digest::parse(required_str(fields, "payload_sha256")?)
+                .map_err(|e| wrap("payload_sha256", &e))?,
             decision_schema: parse(fields, "decision_schema")?,
             question_ids: question_ids(fields)?,
             request_sha256: optional_str(fields, "request_sha256")?

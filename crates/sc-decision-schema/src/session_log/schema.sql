@@ -6,7 +6,7 @@ CREATE TABLE sessions (
   session_created_at  TEXT NOT NULL            -- RFC 3339 UTC, ms; fixed per session
 );
 CREATE TABLE questions (
-  prompt_sha256    TEXT PRIMARY KEY,           -- SHA-256 of the canonical payload bytes
+  payload_sha256    TEXT PRIMARY KEY,           -- SHA-256 of the canonical payload bytes
   question_ids     TEXT NOT NULL,              -- JSON array, payload order (fixed by the digest)
   first_seen_at    TEXT NOT NULL               -- loader: ts of the first row for this digest
 );
@@ -14,7 +14,7 @@ CREATE TABLE answers (
   answer_id        TEXT PRIMARY KEY,           -- ULID, one per send
   schema_version   INTEGER NOT NULL,           -- SESSION_LOG_SCHEMA_VERSION of the row
   session_id       TEXT NOT NULL REFERENCES sessions(session_id),
-  prompt_sha256    TEXT NOT NULL REFERENCES questions(prompt_sha256),
+  payload_sha256    TEXT NOT NULL REFERENCES questions(payload_sha256),
   decision_schema  TEXT NOT NULL,              -- DecisionSchemaId of this send, e.g. canonical.v1
   repo             TEXT NOT NULL,              -- main repo root, else calling folder (absolute)
   project          TEXT,                       -- caller text for this send; NULL when absent; not scrubbed
@@ -29,6 +29,6 @@ CREATE TABLE answers (
   CHECK ((send_outcome = 'ok') = (error_code IS NULL)),
   CHECK ((send_outcome = 'ok') = (answers_json IS NOT NULL))
 );
-CREATE INDEX answers_by_question_model ON answers (prompt_sha256, model_id);
+CREATE INDEX answers_by_question_model ON answers (payload_sha256, model_id);
 CREATE INDEX answers_by_request        ON answers (request_sha256);
 CREATE INDEX answers_by_repo_project   ON answers (repo, project);

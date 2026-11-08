@@ -1,7 +1,7 @@
 {
   "session_id": null,
   "session_saved": false,
-  "prompt_sha256": "79b58710e937c53180dc2f263c9e09fce6afc2168b4a3f019b4f600aac30e0a3",
+  "payload_sha256": "79b58710e937c53180dc2f263c9e09fce6afc2168b4a3f019b4f600aac30e0a3",
   "questions_sha256": "91283076f0ad90346bdfe76e42124b393af25c6659fc2129152174c794b87454",
   "request_sha256": {
     "jev": "a4e63a24110405c2d6e85502d228b84ed4bc1a3fb8324d4a2362875e1c9e6c92"
@@ -9,7 +9,7 @@
   "payload_bytes": 93,
   "results": [],
   "equal_input": {
-    "prompt_sha256": "79b58710e937c53180dc2f263c9e09fce6afc2168b4a3f019b4f600aac30e0a3",
+    "payload_sha256": "79b58710e937c53180dc2f263c9e09fce6afc2168b4a3f019b4f600aac30e0a3",
     "mode": "chain_context",
     "backends": [
       {

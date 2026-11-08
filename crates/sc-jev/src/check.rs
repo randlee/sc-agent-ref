@@ -2,7 +2,7 @@
 //!
 //! The body is the documented Jev object `{model, state, questions}`, built
 //! by serde from the canonical payload ([`CheckRequest`]); replies parse
-//! through [`CheckResponse`] (REQ-SAG-0143). `prompt_sha256` stays on the
+//! through [`CheckResponse`] (REQ-SAG-0143). `payload_sha256` stays on the
 //! canonical bytes (ADR-SAG-0002); `input_sha256` is recovered by inverting
 //! the final body back to canonical bytes (ADR-SAG-0025).
 
@@ -72,7 +72,7 @@ pub(crate) fn request_sha256(
 /// question back to a canonical question, canonical-encodes and hashes. The
 /// recovery is attestation-only: it never feeds the wire body, and the digest
 /// is computed before the body is handed to `send_with_busy_retry`. For a
-/// body built by [`CheckRequest::from_canonical`] it equals `prompt_sha256`.
+/// body built by [`CheckRequest::from_canonical`] it equals `payload_sha256`.
 ///
 /// # Errors
 ///
@@ -96,7 +96,7 @@ pub(crate) fn recovered_digest(body: &str) -> Result<Sha256Digest, JevError> {
 pub enum WireFault {
     /// Drops one letter of the first question's `instructions` value. The
     /// body stays a valid check request, so recovery succeeds and reports a digest that differs from the
-    /// request's `prompt_sha256`.
+    /// request's `payload_sha256`.
     DropEmbeddedByte,
     /// Cuts the serialized body in half, so digest recovery fails and the
     /// backend sends nothing.

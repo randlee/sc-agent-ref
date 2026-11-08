@@ -42,5 +42,5 @@ are in [`../requirements.md`](../requirements.md#phase-a1--refinement-landed).
 | NFR-SAG-0001 | `ScAgentErrorResponse` field rule: `schema_version` always `1`, `retryable` only when `true`, `details` only for producer errors (ADR-SAG-0027) — (Active, r-1) |
 | REQ-SAG-0612 | `SessionId` and `AnswerId` wrap `ulid::Ulid` (strict 26-character uppercase Crockford form); a UUID is `INPUT_INVALID` — (Active, r-6) |
 | REQ-SAG-0618 | `Sha256Digest::of_text` goes through `sc-sha` (CRLF and bare CR normalized to LF); direct dependencies are `sc-sha`, `serde`, `serde_json`, `thiserror`, `ulid`; no `sha2` or `uuid` — (Active, r-6) |
-| REQ-SAG-0611 | `observability::v2::LogEvent` is `LogEvent::new(session_id, operation, fields)` with `session_id()`, `operation()`, `fields()`; the `backend()` and `prompt_sha256()` accessors are gone (the values are in `fields`) — (Active, r-6) |
+| REQ-SAG-0611 | `observability::v2::LogEvent` is `LogEvent::new(session_id, operation, fields)` with `session_id()`, `operation()`, `fields()`; the `backend()` and `payload_sha256()` accessors are gone (the values are in `fields`) — (Active, r-6) |
 | REQ-SAG-0614 | `git::discover_common_dir(start)` (feature `git`) runs `git rev-parse --path-format=absolute --git-common-dir` through the existing spawn site — (Active, r-6) |

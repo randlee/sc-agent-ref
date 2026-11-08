@@ -87,7 +87,7 @@
 //!     .sessions_dir(".sc-ai/sessions");
 //! let source = CheckSource::check_file(&repo, std::path::Path::new("check.toml"))?;
 //! let prepared = prepare(source, config)?;
-//! println!("payload digest {}", prepared.prompt_sha256());
+//! println!("payload digest {}", prepared.payload_sha256());
 //! let response = run(prepared)?;
 //! assert!(!response.is_partial());
 //! # Ok::<(), sc_agent_types::JevError>(())
@@ -419,7 +419,7 @@ pub struct PreparedRun {
 impl PreparedRun {
     /// SHA-256 of the canonical payload.
     #[must_use]
-    pub fn prompt_sha256(&self) -> &Sha256Digest {
+    pub fn payload_sha256(&self) -> &Sha256Digest {
         self.request.payload().sha256()
     }
 
@@ -488,7 +488,7 @@ impl std::fmt::Debug for PreparedRun {
         formatter
             .debug_struct("PreparedRun")
             .field("config", &self.config)
-            .field("prompt_sha256", self.prompt_sha256())
+            .field("payload_sha256", self.payload_sha256())
             .field("backends", &self.backends)
             .finish_non_exhaustive()
     }
@@ -775,7 +775,7 @@ fn judge_one(
 }
 
 /// The attestation of an `Ok` outcome: its reported digest against the
-/// run's `prompt_sha256` (REQ-SAG-0606). The engine trusts the reported
+/// run's `payload_sha256` (REQ-SAG-0606). The engine trusts the reported
 /// digest; a backend that reports none is `Unattested`.
 fn attest(expected: &Sha256Digest, outcome: &JudgeOutcome) -> Attestation {
     match outcome.input_sha256() {

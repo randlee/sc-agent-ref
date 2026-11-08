@@ -163,7 +163,7 @@ fn test_session_round_trip() {
     let config =
         RunConfig::new(RepoRoot::new(dir.path()), log).registry(Arc::new(registry(&[&haiku])));
     let asked = ask(&reopened, id, "why?", config).expect("ask");
-    assert_eq!(asked.prompt_sha256(), payload.sha256());
+    assert_eq!(asked.payload_sha256(), payload.sha256());
     let outcome = asked.outcome();
     assert_eq!(outcome.backend(), BackendId::AnthropicHaiku);
     assert_eq!(outcome.answers()["relevant"].choice(), "yes");
@@ -339,7 +339,7 @@ fn test_equal_input_record() {
             .registry(Arc::new(registry(&[&jev, &haiku]))),
     );
     let equal = result.equal_input();
-    assert_eq!(equal.prompt_sha256(), prepared.prompt_sha256());
+    assert_eq!(equal.payload_sha256(), prepared.payload_sha256());
     assert!(!equal.leak());
     // r-2b: each scripted backend reports the digest of the bundle it
     // received, so every entry is `Matched` and `equal` is true.
@@ -406,7 +406,7 @@ fn test_multi_backend_one_payload() {
     assert_eq!(equal.mode(), MultiBackendMode::ChainContext);
     assert!(!equal.leak());
     assert!(equal.producer().is_none());
-    assert_eq!(equal.prompt_sha256(), payload.sha256());
+    assert_eq!(equal.payload_sha256(), payload.sha256());
     assert_eq!(result.results().len(), 2);
     let session_id = result.session_id().expect("session");
     let store = FileSessionStore::new(sessions.path()).expect("store");
@@ -459,8 +459,8 @@ fn test_log_event_has_no_secrets() {
         assert_eq!(value["fields"]["session_id"], session_id);
         assert_eq!(value["fields"]["backend"], backend);
         assert_eq!(
-            value["fields"]["prompt_sha256"],
-            result.prompt_sha256().as_str()
+            value["fields"]["payload_sha256"],
+            result.payload_sha256().as_str()
         );
         assert_eq!(value["operation"], "judge");
         assert_eq!(value["fields"]["operation"], "judge");
@@ -492,5 +492,5 @@ fn test_packaged_default_prompt_available() {
     let prompt = &requests[0].llm().expect("llm").system_prompt;
     assert_eq!(prompt, PACKAGED_SYSTEM_PROMPT);
     assert!(!String::from_utf8_lossy(payload.bytes()).contains(PACKAGED_SYSTEM_PROMPT.trim()));
-    assert_eq!(result.equal_input().prompt_sha256(), payload.sha256());
+    assert_eq!(result.equal_input().payload_sha256(), payload.sha256());
 }

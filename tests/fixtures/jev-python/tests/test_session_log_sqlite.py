@@ -26,13 +26,13 @@ def load(connection, fields):
         (fields["session_id"], fields["session_created_at"]),
     )
     connection.execute(
-        "INSERT OR IGNORE INTO questions (prompt_sha256, question_ids, first_seen_at)"
+        "INSERT OR IGNORE INTO questions (payload_sha256, question_ids, first_seen_at)"
         " VALUES (?, ?, ?)",
-        (fields["prompt_sha256"], json.dumps(fields["question_ids"]), fields["ts"]),
+        (fields["payload_sha256"], json.dumps(fields["question_ids"]), fields["ts"]),
     )
     answers_json = fields["answers_json"]
     connection.execute(
-        "INSERT INTO answers (answer_id, schema_version, session_id, prompt_sha256,"
+        "INSERT INTO answers (answer_id, schema_version, session_id, payload_sha256,"
         " decision_schema, repo, project, request_sha256, ts, operation, backend,"
         " model_id, send_outcome, error_code, answers_json)"
         " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -40,7 +40,7 @@ def load(connection, fields):
             fields["answer_id"],
             fields["schema_version"],
             fields["session_id"],
-            fields["prompt_sha256"],
+            fields["payload_sha256"],
             fields["decision_schema"],
             fields["repo"],
             fields["project"],

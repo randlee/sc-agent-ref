@@ -144,8 +144,8 @@ fn test_request_digest_changes_with_question_state_model_and_system_prompt() {
     let other = dry(repo("Does it apply?", "yes", "judge harshly").path(), None);
     assert_eq!(digest(&other, BackendId::Jev), jev);
     assert_ne!(digest(&other, BackendId::AnthropicHaiku), haiku);
-    // `prompt_sha256` (the payload digest) does not see the system prompt.
-    assert_eq!(other.prompt_sha256(), base.prompt_sha256());
+    // `payload_sha256` (the payload digest) does not see the system prompt.
+    assert_eq!(other.payload_sha256(), base.payload_sha256());
 
     // The model: each backend changes with its own model only.
     let aliases = ModelAliases::builtin()
@@ -154,7 +154,7 @@ fn test_request_digest_changes_with_question_state_model_and_system_prompt() {
     let other = dry(base_dir.path(), Some(aliases));
     assert_ne!(digest(&other, BackendId::Jev), jev);
     assert_eq!(digest(&other, BackendId::AnthropicHaiku), haiku);
-    assert_eq!(other.prompt_sha256(), base.prompt_sha256());
+    assert_eq!(other.payload_sha256(), base.payload_sha256());
 
     // The question set alone does not see the state.
     let state_only = dry(repo("Does it apply?", "no", "judge carefully").path(), None);

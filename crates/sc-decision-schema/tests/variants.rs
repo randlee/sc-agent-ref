@@ -16,7 +16,7 @@ fn test_canonical_variant_is_identity() {
     let bundle = PayloadBundle::encode(&payload).expect("bundle");
     let input = canonical::input(&payload);
     assert!(std::ptr::eq(input, &payload));
-    // Its serialization equals the bundle bytes, so prompt_sha256 is the
+    // Its serialization equals the bundle bytes, so payload_sha256 is the
     // digest of what is embedded.
     let value = serde_json::to_value(input).expect("value");
     assert_eq!(canonical_json_bytes(&value).expect("bytes"), bundle.bytes());
