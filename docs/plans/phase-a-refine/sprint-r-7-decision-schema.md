@@ -123,7 +123,7 @@ owned_paths:
   - "crates/sc-jev/src/config.rs#model as ModelId"
   - "crates/sc-jev/src/jev.toml#model key removed (the catalog is the one source)"
   - "crates/sc-jev-check/assets/jev.toml#header comment: model ids live in the sc-agent-types catalog"
-  - "crates/sc-jev/src/check.rs#impl JudgeBackend for JevClient: fn model_id"
+  - "crates/sc-jev/src/client/mod.rs#impl JudgeBackend for JevClient: fn model_id"
   - "crates/sc-jev/src/client/mod.rs#judge(req, trace) passes trace.clone() to send_and_parse; body built as String"
   - "crates/sc-jev/tests/**#import changes"
   - "crates/sc-jev/tests/catalog.rs (new)"
@@ -404,7 +404,7 @@ Every deliverable below lands production-ready for the scope this sprint claims;
    these crates except in these anchors (each matches an `owned_paths`
    `#` qualifier):
    - D4: `sc-jev-backends/src/wire.rs` (LLM output parse);
-   - D7: `sc-jev/src/config.rs` (`model` as `ModelId`), `sc-jev/src/check.rs`
+   - D7: `sc-jev/src/config.rs` (`model` as `ModelId`), `sc-jev/src/client/mod.rs`
      (`fn model_id`), `sc-jev-backends/src/backend.rs` (configured model,
      `fn model_id`), `sc-jev-check/src/config/**` (`[models]`),
      `sc-jev-check/src/registry/**` (factory takes `&ModelAliases`;
@@ -624,7 +624,7 @@ dependency or writer lands in A.1.
 5. **`JudgeBackend::model_id()`**, a provided method (ADR-SAG-0009: new
    methods have default bodies) returning `self.id().descriptor()
    .default_model()`; no fallback. The default serves catalog backends
-   only; a backend outside the catalog must implement `model_id` (rustdoc). `JevClient` (`check.rs`) returns its `JevConfig` model; the
+   only; a backend outside the catalog must implement `model_id` (rustdoc). `JevClient` (`client/mod.rs`) returns its `JevConfig` model; the
    Haiku and Luna backends (`backend.rs`) return the model they send;
    `MockJudgeBackend::with_model_id` and the scripted backends report one.
    r-6 writes it into every row.
