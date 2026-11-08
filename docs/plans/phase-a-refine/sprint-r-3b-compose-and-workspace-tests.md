@@ -791,6 +791,9 @@ Deviations and conservative choices, each mapped to its requirement or ADR.
   file-lock case in the panic. `source_scans` now also scans
   `tests/support/*.rs` under the test-file rule. `ask_from` /
   environment-exception wording fixed in ADR-SAG-0026 and D2/D7.
+- **CI (REQ-QA-002).** PR 31 CI at f3ceaae was fully green, including test
+  (windows-2022): sc-agent CI run 42432703158 and sc-publish dry-run run
+  42432703189.
 - **Deferrals closed.** r-2b: `--chain-context`, `--scripted-answers`,
   partial exit 2, Python `chain_context` and `JevError.response`, `.pyi`, and
   the ADR-SAG-0025 consumer-output bullet are done. r-2: the `.pyi`
