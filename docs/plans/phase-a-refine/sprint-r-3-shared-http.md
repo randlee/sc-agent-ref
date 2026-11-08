@@ -194,8 +194,8 @@ local `rg` check.)
      `--test ureq` use `Endpoint::loopback_http` and run against a std
      `TcpListener` on 127.0.0.1.
 > Later change: owner decision of 2026-11-08 set busy retry to 5 sends with
-> waits of 1, 2, 4, 8 s. See the ADR-SAG-0007 r-3 amendment and REQ-SAG-0505
-> amendment. The 4-send text here describes what r-3 shipped.
+> waits of 1, 2, 4, 8 s. See the ADR-SAG-0007 phase-end amendment and
+> REQ-SAG-0505 amendment. The 4-send text here describes what r-3 shipped.
 
 2. **Retry rules** (owner decision (b), DECIDED 2026-11-06; REQ-SAG-0505
    amendment; ADR-SAG-0007 r-3 amendment). `BusyPolicy::default()`:
