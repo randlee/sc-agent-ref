@@ -155,7 +155,10 @@ struct AskArgs {
 #[derive(Debug)]
 pub(crate) enum Parsed {
     /// Run this command.
-    Run(Command),
+    ///
+    /// Boxed so the enum stays small on Windows, where `Command` is much
+    /// larger than `Print`'s `String` (`clippy::large_enum_variant`).
+    Run(Box<Command>),
     /// Print this text to stdout and exit 0 (`--help`, `--version`).
     Print(String),
 }
@@ -174,7 +177,7 @@ where
     T: Into<std::ffi::OsString> + Clone,
 {
     match Cli::try_parse_from(args) {
-        Ok(cli) => into_command(cli).map(Parsed::Run),
+        Ok(cli) => into_command(cli).map(|command| Parsed::Run(Box::new(command))),
         Err(error)
             if matches!(
                 error.kind(),

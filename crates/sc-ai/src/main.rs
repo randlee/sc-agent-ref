@@ -20,7 +20,7 @@ static GLOBAL: MiMalloc = MiMalloc;
 fn main() -> ExitCode {
     let command = match cli::parse(std::env::args_os()) {
         Ok(Parsed::Print(text)) => return print_stdout(text.as_bytes()),
-        Ok(Parsed::Run(command)) => command,
+        Ok(Parsed::Run(command)) => *command,
         Err(error) => return fail(&error),
     };
     match execute(command, &mut io::stdin().lock()) {
