@@ -516,7 +516,7 @@ keeps r-3c's `allow-invalid = true` with r-3's single-read-site text;
 | FTQ-001 | — | stall test request timeout 1 s | `39454b4` |
 | FTQ-002 | plan "Test seams" | CI test job runs `cargo test -p sc-agent-http --features test-util` on all three OSes | `9b333dd` |
 | RBP minors | REQ-SAG-0402 | endpoints built once per `Provider`; request-build failure is `INPUT_INVALID` (deterministic, not retryable); oversize response is `RESPONSE_INVALID` on both paths (ureq `BodyExceedsLimit` mapped there; the `BodyTooLarge` mapping dropped; `NetworkErrorKind::BodyTooLarge` itself is sc-agent-types', unchanged); `test_util` documents its `Arc<Mutex<_>>` | `cc9c4cb`, `0b208fd` |
-| RSH observations | REQ-SAG-0505, ADR-SAG-0007 | `JevClientConfig` attempts 1..=4, timeout ≤ 120 s, with a bounds test; retry docs give the double-charge rationale | `0b208fd` |
+| RSH observations | REQ-SAG-0505, ADR-SAG-0007 | `JevClientConfig` attempts 1..=4 at r-3 (1..=5 since the phase-end amendment), timeout ≤ 120 s, with a bounds test; retry docs give the double-charge rationale | `0b208fd` |
 | QA-001 | NFR coverage baseline | tests for sc-jev `check.rs`, client cancel/labels, backends `validate.rs`, cancel/labels, sc-agent-http adapters and doubles. Line coverage (`cargo llvm-cov --workspace --exclude sc-jev-py --all-features`): workspace 90.08 → 92.44 %; sc-agent-http 92.30 → 97.52; sc-jev 78.94 → 97.83; sc-jev-backends 87.76 → 95.56 | `93e53d5` |
 | QA-002 | REQ-SAG-0505 | kind stays `Busy`; `BusyExhaustion::of(&JevError)` returns `Sends` / `Budget` from the fixed detail endings (`SENDS_SUFFIX`, `BUDGET_SUFFIX`), unaffected by a backend label; asserted in `test_exhaustion_reason_distinguishable` | `3c1c6a8` |
 

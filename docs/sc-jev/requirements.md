@@ -28,4 +28,5 @@ REQ-SAG-0403 and REQ-SAG-0143: the body is the documented Jev object
 `sc_decision_schema::jev::v1::CheckRequest` (all question types, no
 byte-splice); replies parse through `CheckResponse`. `prompt_sha256` stays on
 the canonical bytes. `input_sha256` is recovered by inverting the body. REQ-SAG-0401 is now the shared
-`BusyPolicy` with the packaged `attempts = 4`.
+`BusyPolicy` with the packaged `attempts = 5` (4 at r-5, 5 since the
+ADR-SAG-0007 phase-end amendment).
