@@ -431,9 +431,9 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: sc-agent-ci-wheel-${{ runner.os }}-rust-${{ env.RUST_TOOLCHAIN }}-${{ hashFiles('**/Cargo.lock') }}
+          key: sc-agent-ci-wheel-${{ runner.os }}-${{ runner.arch }}-rust-${{ env.RUST_TOOLCHAIN }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            sc-agent-ci-wheel-${{ runner.os }}-rust-${{ env.RUST_TOOLCHAIN }}-
+            sc-agent-ci-wheel-${{ runner.os }}-${{ runner.arch }}-rust-${{ env.RUST_TOOLCHAIN }}-
 
       # The default `maturin build` is the publish shape: no `test-util`, so
       # no `_testing` submodule (ADR-SAG-0029 (b)). maturin installs from the
@@ -445,19 +445,45 @@ jobs:
           set -euo pipefail
           # Relative paths keep the glob and venv path identical under Git
           # Bash on Windows. Windows venvs use Scripts\ with .exe names.
-          venv=target/wheel-venv
-          wheels=target/wheels
+          # The venv and wheel directory sit outside `target/`, which the
+          # cache step restores: a cached venv from another architecture kept
+          # an x64 sc_jev_py in place and pip skipped the arm64 wheel.
+          venv=wheel-ci/venv
+          wheels=wheel-ci/wheels
           if [ "$RUNNER_OS" = "Windows" ]; then
             bindir="$venv/Scripts"
           else
             bindir="$venv/bin"
           fi
+          rm -rf wheel-ci
           python -m venv "$venv"
           "$bindir/python" -m pip install --require-hashes -r tests/fixtures/jev-python/constraints.txt
-          rm -rf "$wheels"
-          "$bindir/maturin" build -m crates/sc-jev-py/Cargo.toml -o "$wheels"
-          "$bindir/python" -m pip install "$wheels"/sc_jev_py-*.whl
+          "$bindir/maturin" build --release -m crates/sc-jev-py/Cargo.toml -o "$wheels"
+          "$bindir/python" -m pip install --force-reinstall --no-deps "$wheels"/sc_jev_py-*.whl
           "$bindir/python" -c 'import sc_jev_py, sys; sys.exit(1 if hasattr(sc_jev_py, "_testing") else 0)'
+
+      # Failure diagnostics: the PE machine of every native module in the
+      # wheel and the installed package, to separate a wrong-architecture
+      # binary from an import-library or CRT fault.
+      - name: Print PE machine of wheel binaries
+        if: failure()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import glob, struct, sys, zipfile
+          names = {0x8664: "x64", 0xAA64: "arm64", 0x14C: "x86"}
+          def machine(data):
+              offset = struct.unpack_from("<I", data, 0x3C)[0]
+              return names.get(struct.unpack_from("<H", data, offset + 4)[0], "other")
+          print("python:", sys.version, struct.calcsize("P") * 8, "bit")
+          for wheel in glob.glob("wheel-ci/wheels/*.whl"):
+              with zipfile.ZipFile(wheel) as archive:
+                  for name in archive.namelist():
+                      if name.endswith((".pyd", ".dll")):
+                          print("wheel", name, machine(archive.read(name)))
+          for path in glob.glob("wheel-ci/venv/Lib/site-packages/sc_jev_py/*.pyd"):
+              print("installed", path, machine(open(path, "rb").read()))
+          PY
 
   workspace-tests:
     name: workspace-tests (cross-crate proofs)
