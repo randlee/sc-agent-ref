@@ -19,13 +19,14 @@ line (ADR-SAG-0027, NFR-SAG-0001).
 ## Argv (REQ-SAG-0712)
 
 `--help` and `--version` print to stdout and exit 0; every other parse error is
-one `INPUT_INVALID` stderr line naming the argument in `field` (never
-`CONFIG_INVALID`: usage errors are the caller's input) and exit 2 (a value parser's own `JevError`,
+one `INPUT_INVALID` stderr line naming the argument in `field` (usage
+errors are `INPUT_INVALID`, never `CONFIG_INVALID`: they are the caller's
+input) and exit 2 (a value parser's own `JevError`,
 such as a malformed `--rev` or `--session-id`, is returned unwrapped). Value
 flags accept values starting with `-`. `--rev` and `--check` conflict with
 `--request-json`. `--chain-context` sets `MultiBackendMode::ChainContext`;
 independent is the default (ADR-SAG-0008). `--session-id` is a ULID: any other
-value, a UUID included, is one `INPUT_INVALID` line (`field` `session_id`) whose suggested action says session
+value, a UUID included, is one `INPUT_INVALID` line (`field` `--session-id`) whose suggested action says session
 ids are ULIDs since Phase A.1 and to start a new session with `sc-ai jev run`.
 `--project <TEXT>` on `jev run` and `jev ask` is validated as a `ProjectLabel`
 (at most 256 bytes, no control characters) and reaches that call's log row
@@ -35,8 +36,11 @@ through `ComposeInputs::project`; it is per call and not scrubbed (REQ-SAG-0615)
 
 When `RunResponse::is_partial()`, stdout carries the envelope with the
 successful answers, stderr carries the first failure
-(`RunResponse::first_failure()`), and the exit code is 2. When every backend
-fails, `run` returns an error: stderr only, exit 2.
+(`RunResponse::first_failure()`), and the exit code is 2, or 3 when that failure
+is retryable. When every backend fails, `run` still returns the response: the
+envelope has no answers and one typed error per backend (each with
+`details.backend`), stderr carries the first failure, and the exit code follows
+it the same way (agt-2a3; ADR-SAG-0025 amendment).
 
 ## Stderr `schema_version` (ADR-SAG-0027, EXT-030)
 

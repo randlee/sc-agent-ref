@@ -63,7 +63,9 @@ reached through the CLI.
 prints, without `readback`). When some, not all, backends fail, `run_check`
 raises `JevError` carrying the first failure's fields and a
 `.response` attribute holding that body as a dict (the successful answers
-included). When every backend fails, `JevError.response` is `None`.
+included). When every backend fails, `JevError` carries the first failure and `.response`
+is the same body with no answers and one typed error per backend
+(`details.backend`); a run that selected no backend has no `.response`.
 
 ## Stderr-shaped `schema_version` (ADR-SAG-0027, EXT-030)
 

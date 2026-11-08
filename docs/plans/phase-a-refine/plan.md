@@ -1032,7 +1032,7 @@ round-1 ids are dispositioned in `plan-review-1-dispositions.md`.
   store, a crate split of `sc-agent-types` (module paths are the stable surface
   for a later re-export split, ADR-SAG-0027).
 - `agt-luna-live-count` (Luna live `equal`), still open from Phase A.
-- New stable error codes in `errors.json`.
+- New stable error codes in `errors.json`. *(Superseded in part: bead `agt-2a3`, outside the r-sprints, owns the error-contract amendments before the first release: the ids `AUTH_FAILED`, `API_REQUEST_INVALID`, `QUOTA_EXHAUSTED`, `PROVIDER_BUSY`, `API_ERROR` and `IO_FAILED`, the amended REQ-SAG-0101, 0106, 0505 and 0701, NFR-SAG-0001 and NFR-SAG-0002, and the new REQ-SAG-0160..0166, per the ADR-SAG-0026, 0027 and 0020 `agt-2a3` amendments in `docs/architecture.md`. No sprint doc.)*
 - `agt-obs-v2-shim-removal`: removal keeps `LogRejected`/`SessionLog` as the
   port; only the compose adapter changes.
 

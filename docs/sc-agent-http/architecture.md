@@ -2,11 +2,13 @@
 
 **Boundary:** `agent-http` (`boundaries/sc-agent-http/agent-http.toml`)
 **Depends on:** `sc-agent-types` (`default-features = false`,
-`features = ["secret"]`), `ureq`
+`features = ["secret"]`), `serde_json` (only in `failure`, ADR-SAG-0026
+agt-2a3 amendment), `ureq`
 **Dependents:** `sc-jev`, `sc-jev-backends`
 **Governing ADRs:** ADR-SAG-0026 (HTTP half), ADR-SAG-0006 / 0007 / 0017 /
 0020 r-3 amendments, ADR-SAG-0012 (unchanged: `sc-jev` owns every Jev API
-operation; this crate only carries bytes).
+operation; this crate carries bytes and, in `failure`, reads only a failing
+reply's error fields: ADR-SAG-0026 agt-2a3 amendment).
 
 ## Modules
 
@@ -94,13 +96,17 @@ credit or spend-limit exhaustion (the documented Anthropic and OpenAI
 shapes in `failure`, e.g. `insufficient_quota`, `credit_balance_exhausted`,
 `enforced_spend_limit_reached`) is not resent: the retry loop returns it on
 the first send, and the caller maps it with `api_failure` to
-`QUOTA_EXHAUSTED`. An unknown 429 body stays busy. The hook is one
-function (`is_busy`) and does not touch retry timing.
+`QUOTA_EXHAUSTED`. An unknown 429 body stays busy. The hook is
+`is_quota_reply` (called from `is_busy` in `retry`) and does not touch retry
+timing.
 
-**Failing statuses.** `api_failure(provider, &response)` is the one mapping
+**Failing statuses.** `api_failure(provider, shape, &response)` is the one mapping
 for a non-200 reply: 401 and 403 are `AUTH_FAILED`; 402 or a quota body is
-`QUOTA_EXHAUSTED`; a 400, 413 or 422 whose body says the input is too long
-is `INPUT_TOO_LARGE`; other 400 and 422 are `API_REQUEST_INVALID`; every
+`QUOTA_EXHAUSTED`; a 413, or a 400/422 with a structured marker
+(`context_length_exceeded`, `request_too_large`), or for Jev only
+(`ReplyShape::Jev`) a message naming `max_tokens` or tokens exceeded, is
+`INPUT_TOO_LARGE`; a Haiku or Luna message about `max_tokens` (the output cap)
+is an ordinary invalid request; other 400 and 422 are `API_REQUEST_INVALID`; every
 other status is `API_ERROR` (retryable from 500 up). Provider text is
 single-line and bounded to 1024 bytes per field, and leaves through `redact`
 (ADR-SAG-0020 amendment).

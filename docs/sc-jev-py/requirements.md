@@ -10,7 +10,8 @@ acceptance root, when it differs, is shown as "root a-N"; the closure table in
 | REQ-SAG-0801 | Cross-impl pytest harness | a-8 |
 | REQ-SAG-0802 | maturin + `pyproject.toml`; installable wheel | a-8 |
 | REQ-SAG-0803 | First release: all five sc-publish channels — kit install + preflight/dry-run in CI (a-9) | a-9 |
-| REQ-SAG-0604 | Partial failure raises `JevError` with `.response` (the response body as a dict); all-failed has no `.response` | r-3b |
+| REQ-SAG-0604 | Partial failure raises `JevError` with `.response` (the response body as a dict); all-failed also sets `.response` (no answers, every backend's typed error; agt-2a3) | r-3b, agt-2a3 |
 | REQ-SAG-0605 | `run_check(chain_context=...)`; independent is the default | r-3b |
 | REQ-SAG-0711 | Session log through `sc_jev_host::obs` | r-3b |
 | REQ-SAG-0615 | `run_check(project=...)` and `Session.ask(follow_up, project=...)` label that call's log row (≤ 256 bytes, no control characters, else `INPUT_INVALID`); session ids are ULIDs | r-6 |
+| REQ-SAG-0165 | The Python `JevError` carries the same fields as the CLI error body (`code` for `error`, `kind`, `message`, `suggested_action`, `retryable`, `retry_after_seconds`, `field`, `details`, `schema_version`) from the same serialization; never less than the CLI | agt-2a3 |

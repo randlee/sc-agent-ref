@@ -77,7 +77,7 @@ the byte cap.
 
 | Id | `details` keys |
 | --- | --- |
-| `PROVIDER_BUSY` | `http_status`, `attempts` (sends made), `cause` (`sends` or `budget`) |
+| `PROVIDER_BUSY` | `http_status`, `attempts` (sends made), `cause` (`sends` or `budget`), plus `provider`, `provider_type`, `provider_code`, `provider_request_id` from the last busy reply when it had them (the message then ends with the provider's own text) |
 | `AUTH_FAILED`, `API_REQUEST_INVALID`, `QUOTA_EXHAUSTED`, `API_ERROR` | `provider`, `http_status`, `provider_type`, `provider_code`, `provider_request_id` (each when the provider sent it) |
 | `INPUT_TOO_LARGE` | `unit` (`bytes` or `tokens`), `limit` and `actual` (absent when only the provider refused and gave no numbers), plus the provider keys above when the provider refused |
 | `IO_FAILED` | `what`, `io_kind` (snake_case `std::io::ErrorKind`, such as `not_found`, `permission_denied`) |
@@ -86,6 +86,52 @@ the byte cap.
 | `INPUT_MISSING`, `PROMPT_FILE_MISSING` | `path` |
 | a producer's error | the producer's own `details`, plus `producer` |
 | any, when the session log could not be flushed as the error left | `log_flush_failure` |
+
+`details.io_kind` is one of a closed set, from an explicit table (never the
+`Debug` text of the standard library): `not_found`, `permission_denied`,
+`connection_refused`, `connection_reset`, `host_unreachable`,
+`network_unreachable`, `connection_aborted`, `not_connected`, `addr_in_use`,
+`addr_not_available`, `network_down`, `broken_pipe`, `already_exists`,
+`would_block`, `not_a_directory`, `is_a_directory`, `directory_not_empty`,
+`read_only_filesystem`, `stale_network_file_handle`, `invalid_input`,
+`invalid_data`, `timed_out`, `write_zero`, `storage_full`, `not_seekable`,
+`quota_exceeded`, `file_too_large`, `resource_busy`, `executable_file_busy`,
+`deadlock`, `crosses_devices`, `too_many_links`, `invalid_filename`,
+`argument_list_too_long`, `interrupted`, `unsupported`, `unexpected_eof`,
+`out_of_memory`, `other`. Anything unlisted, `Uncategorized` and any kind a
+future Rust adds is `other`. A test pins every id (`sc_agent_types::IO_KIND_IDS`).
+
+**Exit codes** (the same for `sc-ai` and `sc-treesitter`): `0` success; `2`
+a failure whose `retryable` is `false`; `3` a failure whose `retryable` is
+`true`. A partial or all-failed `sc-ai jev run` prints the envelope on stdout
+and exits by its first failure's `retryable`. Usage errors and every other
+caller mistake are `2`. A caller that only sees the exit status can tell
+"retry later" (3) from "fix something" (2); the id and `kind` say more.
+
+**Field names.** `field` is the argument as the caller wrote it: the `--flag`
+spelling (`--backend`, `--session-id`, `--rev`, `--project`) for a command-line
+argument, the parameter name (`follow_up`, `backends`) for a library or
+Python argument, and the provider's own parameter name for
+`API_REQUEST_INVALID`.
+
+**Retryable edge cases.** `IO_FAILED` is retryable only for `interrupted` and
+`timed_out`. Both timeout ids follow one rule, "would the same attempt,
+unchanged, plausibly succeed?": `EXTRACTION_TIMEOUT` from a stalled `git` (a
+lock file, a slow disk) is retryable; `EXTRACTION_TIMEOUT` from a `command`
+extractor over its configured `timeout_seconds` is not (it will exceed the
+limit again; raise it or shrink the input). A 503 (any 5xx) is retryable but
+not resent automatically. `Retry-After` takes precedence over the default
+backoff for the busy wait, as REQ-SAG-0505 allows. `NETWORK_ERROR` kind
+`other` (an unclassified transport error) is not retryable.
+
+**Known limits.** Jev's quota signal is undocumented: only 402 and the
+documented Anthropic and OpenAI markers are `QUOTA_EXHAUSTED`, so a Jev 429
+with no marker reads as `PROVIDER_BUSY` until checked against a live reply
+(bead `agt-285`). Anthropic's "prompt is too long" wording
+as an `INPUT_TOO_LARGE` rule is unverified against a live reply. Provider
+messages that echo a masked key suffix (for example `...abcd`) are kept as the
+provider sent them; only the exact key is redacted. A producer's error line
+is read tolerantly: unknown keys are ignored.
 
 A consumer branches on `error` for the exact failure, on `kind` for a policy,
 and on `retryable`; it never parses `message`. Retryability: `NETWORK_ERROR`
@@ -117,11 +163,12 @@ redaction apply (ADR-SAG-0020 amendment).
 **Versioning.** `schema_version` is `1`. The first release has not shipped,
 so the added keys, ids and the `message` / `suggested_action` split land in
 version 1 instead of bumping it: no consumer has read an earlier shape. From
-the first published release on, any added key at the top level or in
-`details`, and any change to what a key means, is a breaking change and bumps
-`schema_version`; a consumer that sees another value treats the line as an
-unknown error shape and falls back to the exit code (ADR-SAG-0027). Adding an
-id to the closed set is also breaking from that point.
+the first published release on, a reader ignores keys it does not know (at
+the top level and in `details`), so adding a key is additive and does not bump
+`schema_version`. Removing or renaming a key, changing what a key means, or
+adding an id to the closed set is a breaking change and bumps it; a consumer
+that sees another value treats the line as an unknown error shape and falls
+back to the exit code (ADR-SAG-0027).
 
 ## Python: `sc_jev_py`
 

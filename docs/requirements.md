@@ -222,11 +222,28 @@ Made before the first release; nothing is kept for compatibility.
 | ID | Amendment |
 | --- | --- |
 | REQ-SAG-0101 | `errors.json` gains `AUTH_FAILED`, `API_REQUEST_INVALID`, `QUOTA_EXHAUSTED`, `PROVIDER_BUSY`, `API_ERROR` and `IO_FAILED`; every variant still maps to exactly one id. `fix_hint()` is replaced by `message()` (what failed) and `suggested_action()` (what to do) — (Active, agt-2a3) |
-| REQ-SAG-0106 | `retryable()` is true for `NETWORK_ERROR` kinds `timeout` and `connect`, `PROVIDER_BUSY`, `API_ERROR` from status 500, and a producer's error as the producer says; `Operational`, `OperationalArea` and `SessionStoreIo` are removed; `ProducerError` carries the producer's `retryable`, `retry_after_seconds`, `field`, `details` and `suggested_action` — (Active, agt-2a3) |
-| NFR-SAG-0001 | `ScAgentErrorResponse` is `{error, kind, message, suggested_action, retryable, retry_after_seconds?, field?, details?, schema_version}` in that key order; `retryable` is always present; `message` never holds the fix; `schema_version` stays `1` because nothing was published (it bumps on any later added key); readers deny unknown keys and require only `error` and `message` — (Active, agt-2a3; supersedes the r-1 field rule) |
+| REQ-SAG-0106 | `retryable()` is true for `NETWORK_ERROR` kinds `timeout` and `connect`, `PROVIDER_BUSY`, `API_ERROR` from status 500 and above, and a producer's error as the producer says; `Operational`, `OperationalArea` and `SessionStoreIo` are removed; `ProducerError` carries the producer's `retryable`, `retry_after_seconds`, `field`, `details` and `suggested_action` — (Active, agt-2a3) |
+| NFR-SAG-0001 | `ScAgentErrorResponse` is `{error, kind, message, suggested_action, retryable, retry_after_seconds?, field?, details?, schema_version}` in that key order; `retryable` is always present; `message` never holds the fix; `schema_version` stays `1` because nothing was published (from the first release, removing or renaming a key bumps it; an added key does not, because readers ignore unknown keys); readers require only `error` and `message` — (Active, agt-2a3; supersedes the r-1 field rule) |
 | REQ-SAG-0701 | stderr is one `ScAgentErrorResponse` line per NFR-SAG-0001 (agt-2a3 shape), exit 2; a command-line usage error is `INPUT_INVALID` naming the argument in `field`, never `CONFIG_INVALID` — (Active, agt-2a3) |
 | REQ-SAG-0505 | Busy exhaustion is `PROVIDER_BUSY` with `cause` (`sends`, `budget`), `attempts` and `retry_after_seconds`; a busy status whose body marks quota is returned unretried and becomes `QUOTA_EXHAUSTED`; retry timing is unchanged — (Active, agt-2a3) |
+| REQ-SAG-0604 | An all-failed run returns the response like a partial one (no answers, one typed error per backend, each with `details.backend`); `sc-ai` prints the envelope and the first failure and exits 2 or 3; `sc-jev-py` raises with `.response` — (Active, agt-2a3; ADR-SAG-0025 amendment) |
+| REQ-SAG-0701 | Exit codes: 0 success, 2 a failure that is not retryable, 3 a retryable failure (`retryable` in the stderr line), for `sc-ai` and `sc-treesitter` (`docs/stability.md`) — (Active, agt-2a3) |
 | NFR-SAG-0002 | Provider error text (status, type, code, message, parameter, request id, or the raw body when it is not error JSON) may appear in an error, bounded to 1024 bytes per field and single-line, and always passes through `redact`; prompt text and model output are never added — (Active, agt-2a3; ADR-SAG-0020 amendment) |
+
+Known limit (ERR-QA-6): Jev's own quota signal is not documented. Only 402
+and the documented Anthropic and OpenAI markers count as quota, so a Jev 429
+without a marker cannot yet be told apart from busy and is treated as busy.
+Bead `agt-285` tracks checking this against a live Jev reply.
+
+**Owner decision (bead agt-2a3):** errors return as much or more detail than
+Jev returns, with a discriminated id and a message on every path; out of
+tokens (`QUOTA_EXHAUSTED`), busy (`PROVIDER_BUSY`) and API error
+(`API_ERROR`) are distinct ids handled differently inside sc-agent; the
+Python exception is never less capable than the CLI body (REQ-SAG-0165;
+proof: `crates/sc-jev-py/src/error.rs` `exception_fields_equal_the_cli_body`
+compares every attribute with the serialized CLI body for 16 error shapes,
+and `tests/fixtures/jev-python/tests/test_error_fields.py`). Nothing was
+released, so nothing is kept for compatibility.
 
 New requirements:
 

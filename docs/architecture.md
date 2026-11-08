@@ -706,7 +706,10 @@ Both use test doubles for unit tests.
   (control characters become spaces) and bounded to **1024 bytes per field**,
   cut at a character boundary and ending in `...`
   (`sc_agent_types::bound_provider_text`, `PROVIDER_TEXT_MAX_BYTES`), when the
-  error is built. The error then leaves through `redact`, once, in
+  error is built; the request's key is removed from the provider text
+  *before* the cut (`ResolvedApiKey::redact_text`), so a key straddling the
+  1024-byte boundary leaves no fragment (ERR-QA-3). The error then leaves
+  through `redact`, once, in
   `send_and_parse` (r-3 amendment), so every occurrence of the request's key,
   in any provider field or in the raw fallback, becomes `[redacted]`.
   `ResolvedApiKey::redact_error` covers the provider fields and `details`
@@ -1423,7 +1426,8 @@ consumer-output bullet in r-3b.
   successful answers on stdout, the first failure's
   `ScAgentErrorResponse` on stderr, and exits 2; `sc-jev-py` raises
   `JevError` with a `.response` attribute holding the envelope `data`.
-  All-failed stays a plain error.
+  All-failed stays a plain error. *(Superseded by the agt-2a3 amendment
+  below: an all-failed run returns the same response.)*
 - (Active, r-2b) `equal` is derived from per-backend `Attestation`
   (`Matched`, `Mismatched`, `Unattested`, `Failed`, `NotSent`). Each backend
   reports `input_sha256`: the digest of the canonical blob recovered from its
@@ -1434,6 +1438,25 @@ consumer-output bullet in r-3b.
   r-1 interim clause 'null until r-2b backend hashing' no longer holds
   (`input_sha256` is null only for a backend that was not sent, failed,
   or reported no digest — `Unattested`).
+
+### Amendment (agt-2a3, all-failed runs keep every error)
+
+**Status:** Active (bead `agt-2a3`, before the first release).
+
+- (Active, agt-2a3) A run in which every selected backend failed is no
+  longer a plain error that keeps only the first backend's failure. `run`
+  returns the `RunResponse` with no primary answers, `session_saved: false`
+  and one typed failure per backend in `results`, exactly like a partial run
+  (`is_partial()` is true). `sc-ai` prints that envelope on stdout (no
+  `answers` or `primary_backend` keys), the first failure on stderr, and
+  exits 2, or 3 when that failure is retryable (ADR-SAG-0027 agt-2a3
+  amendment). `sc-jev-py` raises `JevError` for the first failure with
+  `.response` set to the same body. A run that selected no backend stays an
+  `INPUT_INVALID` error. This supersedes "All-failed stays a plain error" in
+  the (Active, r-2b) bullet above. REQ-SAG-0604 is amended to match.
+- (Active, agt-2a3) Each stored backend failure names its backend in
+  `details.backend` (the descriptor name), so a failure read on its own,
+  for instance the stderr line, says which backend it came from.
 
 ## ADR-SAG-0026 — Shared HTTP crate and host crate
 
@@ -1517,6 +1540,28 @@ HTTP half amends ADR-SAG-0006, 0007,
   `repo` (`sc_jev_check::discover_main_repo_root`) reach the engine as log
   context. `PathPolicy` and ADR-SAG-0021 are unchanged.
 
+### Amendment (agt-2a3, provider failure classification)
+
+**Status:** Active (bead `agt-2a3`, before the first release). Amends the
+HTTP half of ADR-SAG-0026.
+
+- (Active, agt-2a3) `sc-agent-http` adds `serde_json` to its allowed
+  dependencies (`boundaries/sc-agent-http/agent-http.toml`; no other new
+  edge). `sc_agent_http::failure` is the one place that reads a provider's
+  error JSON: it maps a failing HTTP status and body to an error id
+  (`api_failure`) and answers the busy retry's quota question
+  (`is_quota_reply`). It reads only the error fields of a non-success reply
+  (type, code, message, parameter, request id, `Retry-After`), never a
+  success body, a request, or a Jev answer.
+- (Active, agt-2a3) This squares with "the crate only carries bytes" and
+  ADR-SAG-0012: Jev API semantics (the check wire body, the reply parser,
+  every Jev operation) stay in `sc-jev`; this crate still owns no wire
+  document and no answer type. The failure classifier is generic transport
+  error handling shared by all three backends, so it lives next to the retry
+  loop that needs the same quota test, instead of being copied into `sc-jev`
+  and `sc-jev-backends`. Bounds and redaction are ADR-SAG-0020's
+  agt-2a3 amendment; ids and retryability are ADR-SAG-0027's.
+
 ## ADR-SAG-0027 — Error taxonomy and extensibility
 
 **Status:** Active (Phase A.1, landed in r-1). Amends ADR-SAG-0001.
@@ -1540,7 +1585,8 @@ HTTP half amends ADR-SAG-0006, 0007,
   have several variants (REQ-SAG-0101 amended). The variant → id table is in
   sprint r-1 and pinned by a golden test. A new stable code requires
   changing the README `errors.json` contract shared with Python. Revisit
-  when Phase B needs an `INTERNAL` class.
+  when Phase B needs an `INTERNAL` class. *"Its ids are unchanged" is
+  superseded: the agt-2a3 amendment adds six ids.*
 - (Active, r-1) `retryable()` is true only for `NetworkError` kinds Busy,
   Timeout, Connect. *Superseded by the agt-2a3 amendment (Retryability).*
 - (Active, r-1) `ScAgentErrorResponse::from_jev_error` (name unchanged)
@@ -1566,6 +1612,8 @@ HTTP half amends ADR-SAG-0006, 0007,
 - (Active, r-1) `Error::source()` is `None` for every redacted-cause
   variant (`CredentialStoreInvalid`, `NetworkError`, `EncodeFailed`,
   `IoFailed`, `SessionStoreIo`); no A.1 variant carries a non-redacted source.
+  *`SessionStoreIo` no longer exists and the list is `CredentialStoreInvalid`,
+  `NetworkError`, `EncodeFailed`, `IoFailed` (agt-2a3 amendment).*
 - (Active, r-1) Serde spelling of backend ids matches `Display`
   (`openai_luna`, `openai`), with a one-release read alias for
   `open_ai_luna` / `open_ai` in config and caller-request input. Whether and
@@ -1584,7 +1632,9 @@ HTTP half amends ADR-SAG-0006, 0007,
   `test_util`; `error`, `ids`, `judge`, `payload`, `secret`, `cancel`, and
   the `catalog` / `code` modules are private. The catalog
   (`BackendDescriptor`, `BACKENDS`, `BackendFamily`) and the error-code
-  enums (`ErrorCode`, `NetworkErrorKind`, `OperationalArea`) sit in their
+  enums (`ErrorCode`, `NetworkErrorKind`, `OperationalArea`; *`OperationalArea`
+  is removed and `ErrorCategory`, `BusyCause`, `ResponseInvalidCause` and
+  `LimitUnit` are added by the agt-2a3 amendment*) sit in their
   own private modules because sc-boundary 0.8 reports a type cycle inside
   one module (SCB-CYCLE-001); callers reach them only through the crate
   root.
@@ -1733,12 +1783,14 @@ the (Active, r-1) bullets on `retryable()` and on the field rule, and the
   `JevError::suggested_action()`. `fix_hint()` is removed. `kind` is
   `validation`, `not_found`, `invalid_state`, `dependency`, `permission`,
   `timeout` or `capacity`. `details` is a closed object whose keys are
-  listed in `docs/stability.md`. Reading still denies unknown keys and
-  accepts `schema_version` absent or `1`; only `error` and `message` are
+  listed in `docs/stability.md`. Reading ignores unknown keys, at the top
+  level and in `details`, so a producer's new key does not make its line
+  unparseable (ERR-QA-16), and accepts `schema_version` absent or `1`; only `error` and `message` are
   required on read. This replaces the r-1 field rule.
 - (Active, agt-2a3) **`schema_version` stays `1`.** Nothing has been
-  published, so no consumer has read an earlier shape; the rule "any added
-  key bumps the version" applies from the first published release on
+  published, so no consumer has read an earlier shape; from the first published release on,
+  removing or renaming a key or changing its meaning bumps the version, while
+  an added key does not because readers ignore unknown keys
   (`docs/stability.md` "Versioning").
 - (Active, agt-2a3) **Python.** The `sc_jev_py.JevError` exception carries
   the CLI body's fields as attributes (`code` is the body's `error`), built

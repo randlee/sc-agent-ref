@@ -55,7 +55,7 @@ has a snake-case constructor. `message()` (the `Display` text, what failed)
 and `suggested_action()` (what to do) are the two renderers of text, and
 `details()` is the machine fields; `fix_hint()` is gone. `retryable()` is
 true for `NetworkError` of kind `Timeout` or `Connect`, `ProviderBusy`,
-`ApiError` from status 500, and a producer's error as the producer says;
+`ApiError` from status 500 and above, and a producer's error as the producer says;
 `Error::source()` is `None` for every variant. The id rule (`INPUT_INVALID`
 vs `CONFIG_INVALID` vs `INPUT_MISSING` vs `IO_FAILED`) is in the `error`
 module documentation and `docs/stability.md`.
@@ -73,7 +73,7 @@ process, a lock file or a slow filesystem), not the extractor's "raise
 `suggested_action`, `retryable` (always), `retry_after_seconds`, `field`,
 `details` (the closed `ErrorDetails` object, keys in `docs/stability.md`),
 `schema_version` (always `1`; unchanged because nothing was published).
-Readers deny unknown keys, accept `schema_version` absent or `1`, and require
+Readers ignore unknown keys, accept `schema_version` absent or `1`, and require
 only `error` and `message`. A golden test (`error-codes.json`) pins the whole
 body of every variant shape; `SC_UPDATE_GOLDEN=1` rewrites it.
 
