@@ -124,24 +124,46 @@ impl Transport for UreqTransport {
                 "connection refused: endpoint is not https",
             ));
         }
-        let mut builder = ureq::http::Request::builder()
-            .method(request.method().as_str())
-            .uri(request.endpoint().as_str());
-        for (name, value) in request.headers() {
-            builder = builder.header(name.as_str(), value.as_str());
-        }
-        if let Some(secret) = request.secret() {
-            let value = format!("{}{}", secret.prefix(), expose(secret.key()));
-            builder = builder.header(secret.name().as_str(), value);
-        }
-        // A request that cannot be built (bad header value) is deterministic,
-        // so it is INPUT_INVALID, not a retryable network kind.
-        let outbound = builder
-            .body(request.body().as_bytes())
-            .map_err(|error| JevError::input_invalid(format!("request is invalid: {error}")))?;
+        let outbound = build_outbound(request)?;
         let response = self.agent.run(outbound).map_err(ureq_error)?;
         read_response(response)
     }
+}
+
+/// The outbound ureq request for `request`, credential header included.
+fn build_outbound(request: &HttpRequest) -> Result<ureq::http::Request<&[u8]>, JevError> {
+    let mut builder = ureq::http::Request::builder()
+        .method(request.method().as_str())
+        .uri(request.endpoint().as_str());
+    for (name, value) in request.headers() {
+        builder = builder.header(name.as_str(), value.as_str());
+    }
+    if let Some(secret) = request.secret() {
+        let value = secret_header_value(secret)?;
+        builder = builder.header(secret.name().as_str(), value);
+    }
+    // A request that cannot be built (bad header value) is deterministic,
+    // so it is INPUT_INVALID, not a retryable network kind.
+    builder
+        .body(request.body().as_bytes())
+        .map_err(|error| JevError::input_invalid(format!("request is invalid: {error}")))
+}
+
+/// The credential header value, marked sensitive so `Debug` of the built
+/// request and HTTP/2 header compression never expose it (RSH-001).
+///
+/// A value that is not a valid header value gives the same `INPUT_INVALID`
+/// error as any other bad request, without the key in its text. (`ResolvedApiKey`
+/// already refuses control characters, so this is defence in depth and has
+/// no reachable failing input to test.)
+fn secret_header_value(
+    secret: &crate::request::SecretHeader,
+) -> Result<ureq::http::HeaderValue, JevError> {
+    let text = format!("{}{}", secret.prefix(), expose(secret.key()));
+    let mut value = ureq::http::HeaderValue::from_str(&text)
+        .map_err(|_| JevError::input_invalid("request is invalid: failed to parse header value"))?;
+    value.set_sensitive(true);
+    Ok(value)
 }
 
 #[cfg(feature = "test-util")]
@@ -267,6 +289,34 @@ fn io_error_kind(error: &std::io::Error) -> NetworkErrorKind {
 mod tests {
     use super::*;
     use crate::Endpoint;
+
+    fn secret_request(key: &str) -> Option<HttpRequest> {
+        use sc_agent_types::BackendKeyId;
+
+        use crate::{HeaderName, Method, SecretHeader};
+
+        let key = ResolvedApiKey::try_new(BackendKeyId::Anthropic, key.to_owned()).ok()?;
+        Some(
+            HttpRequest::new(
+                Method::Post,
+                Endpoint::parse("https://x.invalid/").expect("https"),
+                "{}".into(),
+            )
+            .with_secret(SecretHeader::new(HeaderName::new("x-api-key"), key)),
+        )
+    }
+
+    #[test]
+    fn credential_header_is_sensitive_and_debug_hides_the_key() {
+        let key = "sk-test-credential-123456";
+        let request = secret_request(key).expect("valid key");
+        let outbound = build_outbound(&request).expect("built");
+        let header = outbound.headers().get("x-api-key").expect("header");
+        assert!(header.is_sensitive());
+        assert_eq!(header.as_bytes(), key.as_bytes());
+        let rendered = format!("{outbound:?}");
+        assert!(!rendered.contains(key), "{rendered}");
+    }
 
     #[test]
     fn test_endpoint_parse_refuses_http() {
