@@ -9,7 +9,7 @@ mod support;
 use std::sync::Arc;
 use std::time::Duration;
 
-use sc_agent_http::test_util::{FakeClock, RecordingSleeper, RecordingTransport};
+use sc_agent_http::test_util::{FakeClock, RecordingSleeper, ScriptedTransport};
 use sc_agent_http::{
     BusyPolicy, Endpoint, HeaderName, HttpRequest, Method, SecretHeader, Timeouts, Transport,
     UreqTransport, send_with_busy_retry,
@@ -17,7 +17,7 @@ use sc_agent_http::{
 use sc_agent_types::{
     BackendKeyId, CancelToken, JevError, NetworkErrorKind, ResolvedApiKey, SendTrace,
 };
-use support::{LoopbackServer, Reply, refused_port};
+use support::{LoopbackServer, Reply};
 
 const KEY: &str = "sk-loopback-secret";
 
@@ -204,8 +204,9 @@ fn test_agent_is_reused_across_sends() {
 #[test]
 fn test_timeout_is_network_error_without_the_key() {
     // The server holds the connection until `finish`, so the only clock in
-    // play is the client request timeout. 1 s leaves ample time to connect
-    // and write the request first, so the stall is the only possible cause.
+    // play is the client request timeout. The server signals once it has read
+    // the whole request; the test waits on that signal (bounded) instead of
+    // trusting a time margin, so a stall after delivery is the only cause.
     let server = LoopbackServer::start(vec![Reply::Stall]);
     let transport = UreqTransport::loopback_for_tests(Timeouts::new(
         Duration::from_secs(2),
@@ -231,18 +232,22 @@ fn test_timeout_is_network_error_without_the_key() {
     );
     assert!(error.retryable());
     assert_no_key(&error);
-    assert_eq!(server.finish().len(), 1, "a timeout is not retried");
+    let received = server.requests_received(Duration::from_secs(10));
+    assert_eq!(received, 1, "a timeout is not retried");
+    assert_eq!(server.finish().len(), received);
 }
 
-/// A connect-phase failure returns at once, retryable, sent once. Unix
-/// reports the closed loopback port as refused (`Connect`); Windows retries
-/// the SYN until the 2 s connect timeout (`Timeout`).
+/// A connect-phase failure returns at once, retryable, sent once. The
+/// failure is injected through the scripted transport double, so no freed
+/// port is probed and the result does not depend on the platform's TCP stack
+/// (Unix refuses a closed loopback port; Windows retries the SYN).
 #[test]
 fn test_connect_phase_failure_is_retryable_and_not_retried() {
-    let endpoint = Endpoint::loopback_http(refused_port(), "/closed");
-    let recording = RecordingTransport::new(loopback());
+    let injected = JevError::network(NetworkErrorKind::Connect, "connection refused");
+    let scripted = ScriptedTransport::new(vec![Err(injected.clone()), Err(injected)]);
+    let endpoint = Endpoint::parse("https://api.example.test/closed").expect("https");
     let error = send_with_busy_retry(
-        &recording,
+        &scripted,
         &post(endpoint, Some(api_key_header())),
         &BusyPolicy::default(),
         &CancelToken::new(),
@@ -253,7 +258,7 @@ fn test_connect_phase_failure_is_retryable_and_not_retried() {
         matches!(
             error,
             JevError::NetworkError {
-                kind: NetworkErrorKind::Connect | NetworkErrorKind::Timeout,
+                kind: NetworkErrorKind::Connect,
                 ..
             }
         ),
@@ -261,7 +266,7 @@ fn test_connect_phase_failure_is_retryable_and_not_retried() {
     );
     assert!(error.retryable());
     assert_no_key(&error);
-    assert_eq!(recording.requests().len(), 1, "no connectivity retry");
+    assert_eq!(scripted.sends(), 1, "no connectivity retry");
 }
 
 #[test]

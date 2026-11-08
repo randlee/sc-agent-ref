@@ -107,6 +107,7 @@ pub struct LoopbackServer {
     expected: usize,
     shutdown: Arc<AtomicBool>,
     release: Option<Sender<()>>,
+    received: Receiver<()>,
     done: Receiver<Vec<Seen>>,
 }
 
@@ -132,9 +133,10 @@ impl LoopbackServer {
         let shutdown = Arc::new(AtomicBool::new(false));
         let (release, released) = mpsc::channel::<()>();
         let (finished, done) = mpsc::channel();
+        let (head_seen, received) = mpsc::channel::<()>();
         let stop = Arc::clone(&shutdown);
         thread::spawn(move || {
-            let seen = serve(&listener, replies, mode, &stop, &released);
+            let seen = serve(&listener, replies, mode, &stop, &released, &head_seen);
             let _ = finished.send(seen);
         });
         Self {
@@ -142,6 +144,7 @@ impl LoopbackServer {
             expected,
             shutdown,
             release: Some(release),
+            received,
             done,
         }
     }
@@ -149,6 +152,21 @@ impl LoopbackServer {
     /// `http://127.0.0.1:{port}{path}`.
     pub fn endpoint(&self, path: &str) -> Endpoint {
         Endpoint::loopback_http(self.addr.port(), path)
+    }
+
+    /// Waits (at most `wait`) until the server has read one more request head
+    /// and body, then returns how many requests it has read so far. This is
+    /// the handshake a timing test uses instead of a time margin: the server
+    /// signals each request as soon as it is fully read.
+    ///
+    /// # Panics
+    ///
+    /// When no request arrives within `wait`.
+    pub fn requests_received(&self, wait: Duration) -> usize {
+        self.received
+            .recv_timeout(wait)
+            .unwrap_or_else(|_| panic!("server saw no request within {wait:?}"));
+        1 + self.received.try_iter().count()
     }
 
     /// Releases any stalled reply, stops accepting, and returns the requests
@@ -179,14 +197,6 @@ impl LoopbackServer {
     }
 }
 
-/// A loopback port with nothing listening: a connect is refused at once.
-pub fn refused_port() -> u16 {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("bind loopback");
-    let port = listener.local_addr().expect("addr").port();
-    drop(listener);
-    port
-}
-
 fn accept(listener: &TcpListener, shutdown: &AtomicBool, started: Instant) -> Option<TcpStream> {
     loop {
         match listener.accept() {
@@ -214,6 +224,7 @@ fn serve(
     mode: Mode,
     shutdown: &AtomicBool,
     released: &Receiver<()>,
+    head_seen: &Sender<()>,
 ) -> Vec<Seen> {
     let started = Instant::now();
     let mut seen = Vec::new();
@@ -239,6 +250,7 @@ fn serve(
             head,
             body,
         });
+        let _ = head_seen.send(());
         match reply {
             Reply::Raw(bytes) => {
                 let stream = reader.get_mut();
