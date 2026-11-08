@@ -377,3 +377,53 @@ fn test_malformed_body_hint_is_fix_the_body() {
         assert!(!hint.contains(secret), "{hint}");
     }
 }
+
+#[test]
+fn test_probability_validates_and_serializes_plain() {
+    use sc_decision_schema::jev::v1::Probability;
+
+    for good in [0.0, 0.5, 1.0] {
+        let p = Probability::new(good).expect("in range");
+        assert_eq!(p.get(), good);
+        assert_eq!(
+            serde_json::to_string(&p).expect("json"),
+            serde_json::to_string(&good).expect("json")
+        );
+        let read: Probability = serde_json::from_str(&good.to_string()).expect("read");
+        assert_eq!(read, p);
+    }
+    for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -0.1, 1.000_001] {
+        assert_eq!(
+            Probability::new(bad).expect_err("range").code(),
+            "RESPONSE_INVALID"
+        );
+    }
+    assert!(serde_json::from_str::<Probability>("2").is_err());
+}
+
+#[test]
+fn test_out_of_range_reply_names_the_range() {
+    // Each out-of-range value is refused when the reply is parsed, through
+    // the typed RESPONSE_INVALID path, naming the range and not echoing the
+    // value.
+    for (path, value) in [
+        ("quality confidence", json!(1.2)),
+        ("quality probabilities", json!({"pass": 1.5, "fail": -0.5})),
+        ("urgent probabilities", json!({"yes": 1.5})),
+    ] {
+        let mut reply = golden_reply();
+        if path.starts_with("quality confidence") {
+            reply["answers"]["quality"]["confidence"] = value;
+        } else if path.starts_with("quality") {
+            reply["answers"]["quality"]["probabilities"] = value;
+        } else {
+            reply["answers"]["urgent"]["probabilities"] = value;
+        }
+        let bytes = serde_json::to_vec(&reply).expect("json");
+        let error = CheckResponse::parse(&bytes).expect_err(path);
+        assert_eq!(error.code(), "RESPONSE_INVALID", "{path}");
+        let text = error.to_string();
+        assert!(text.contains("number in [0, 1]"), "{path}: {text}");
+        assert!(!text.contains("1.5") && !text.contains("1.2"), "{text}");
+    }
+}
