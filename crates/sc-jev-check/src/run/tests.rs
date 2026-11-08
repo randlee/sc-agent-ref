@@ -629,3 +629,51 @@ fn ask_envelope_carries_digest_warnings_and_readback_in_order() {
         serde_json::json!(["session log was not flushed: disk full"])
     );
 }
+
+#[derive(Default)]
+struct CountingLog(std::sync::Mutex<usize>);
+
+impl SessionLog for CountingLog {
+    fn emit(&self, _event: LogEvent) -> Result<(), LogRejected> {
+        *self.0.lock().expect("count") += 1;
+        Ok(())
+    }
+}
+
+/// A call cancelled before it begins sent nothing and logs nothing; the same
+/// failure on a live token (a send that happened) still logs once.
+#[test]
+fn cancelled_before_send_emits_no_log_event() {
+    let failing = || {
+        MockJudgeBackend::new(BackendId::Jev, std::collections::BTreeMap::new()).with_failure(
+            JevError::network(
+                NetworkErrorKind::Cancelled,
+                "request cancelled before a send",
+            ),
+        )
+    };
+    let bundle = {
+        let payload: sc_decision_schema::CanonicalJudgePayload =
+            serde_json::from_value(serde_json::json!({
+                "questions": [{"id": "q", "prompt": "p", "choices": ["no", "yes"]}],
+                "state": []
+            }))
+            .expect("payload");
+        Arc::new(PayloadBundle::encode(&payload).expect("bundle"))
+    };
+    let session = SessionId::new();
+
+    let log = Arc::new(CountingLog::default());
+    let shared: SharedSessionLog = log.clone();
+    let token = CancelToken::new();
+    token.cancel();
+    let request = JudgeRequest::new(Arc::clone(&bundle), None).with_cancel(token);
+    let error =
+        send(&failing(), &request, &shared, session, Operation::Judge).expect_err("cancelled");
+    assert_eq!(error.code(), "NETWORK_ERROR");
+    assert_eq!(*log.0.lock().expect("count"), 0, "nothing was sent");
+
+    let live = JudgeRequest::new(bundle, None);
+    send(&failing(), &live, &shared, session, Operation::Judge).expect_err("failed");
+    assert_eq!(*log.0.lock().expect("count"), 1, "a live send logs once");
+}

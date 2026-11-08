@@ -38,7 +38,8 @@
 //! recovered from its own wire body; the engine records `Matched`,
 //! `Mismatched`, `Unattested`, `Failed` or `NotSent` per backend and `equal`
 //! is true only when every entry is `Matched` (REQ-SAG-0606). Each judge
-//! send emits one [`LogEvent`]; a backend refused before its send emits none.
+//! send emits one [`LogEvent`]; a backend refused before its send, or whose
+//! call was cancelled before it began, emits none.
 //!
 //! The session is written once, at the end, only when a backend whose
 //! descriptor has `supports_session_ask` returned `Ok`; that needs
@@ -87,8 +88,8 @@ use std::sync::Arc;
 use sc_agent_types::observability::v2::{LogEvent, SharedSessionLog};
 use sc_agent_types::schema::subjects::SubjectsProducer;
 use sc_agent_types::{
-    BackendId, BackendSet, CancelToken, JevError, ModelAliases, Operation, RepoRelativePath,
-    RepoRoot, Rev, SendTrace, SessionId, Sha256Digest,
+    BackendId, BackendSet, CancelToken, JevError, ModelAliases, NetworkErrorKind, Operation,
+    RepoRelativePath, RepoRoot, Rev, SendTrace, SessionId, Sha256Digest,
 };
 use sc_decision_schema::{
     Attestation, BackendAttestation, EqualInputRecord, JudgeBackend, JudgeOutcome, JudgeRequest,
@@ -790,7 +791,21 @@ fn send(
     // One trace per send. Nothing records into it in r-7; r-6 reads the
     // request digest from this handle after the call returns.
     let trace = SendTrace::new();
+    let cancelled_at_entry = request.cancel().is_cancelled();
     let judged = judge.judge(request, &trace);
+    // A call cancelled before it could reach the transport sent nothing, so it
+    // logs nothing (the module doc: a send that never happened emits none).
+    if cancelled_at_entry
+        && matches!(
+            &judged,
+            Err(JevError::NetworkError {
+                kind: NetworkErrorKind::Cancelled,
+                ..
+            })
+        )
+    {
+        return judged;
+    }
     emit_log(
         log,
         LogEvent::new(
