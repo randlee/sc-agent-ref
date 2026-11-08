@@ -706,18 +706,21 @@ configured on the injected `UreqTransport`, not on a backend builder.
 owner (2026-11-06).
 
 - (Active, r-3) One busy-retry policy for every backend, in
-  `sc_agent_http::BusyPolicy`: statuses 429/502/529 only; at most 4 sends;
+  `sc_agent_http::BusyPolicy`: statuses 429/502/529 only; at most 5 sends in total (amended 2026-11-08, was 4);
   a valid Retry-After (integer or decimal seconds) is honoured, clamped to
   0–30 s. A valid Retry-After is 1–32 bytes of ASCII digits with an
   optional `.` and ASCII-digit fraction; anything else (HTTP-date, sign,
   exponent, `inf`, `NaN`, empty) is malformed. When Retry-After is absent
   **or malformed** (treated the same), the wait backs off exponentially from
-  1 s (1, 2, 4, 8 … capped at 30 s); with the default 4 sends at most three
-  waits occur (1, 2, 4 s), so 8 s and the cap apply only to a non-default
-  policy. Every wait adds up to 250 ms jitter. A 90 s budget from the first send governs
+  1 s (1, 2, 4, 8 … capped at 30 s); with the default 5 sends four waits
+  occur (1, 2, 4, 8 s: 15 s before jitter), so the 30 s cap applies only to
+  an honoured Retry-After. No policy may exceed 5 sends. Every wait adds up to 250 ms jitter. A 90 s budget from the first send governs
   starting new attempts: no attempt starts after it, and every wait is capped
   to the remaining budget; an in-flight attempt keeps its 120 s request
-  timeout (covering the body read). A `CancelToken` is checked before each
+  timeout (covering the body read); the 90 s budget stays as a ceiling for
+  slow or Retry-After-heavy sequences. The shared layer bounds the
+  transport deadlines (request 1 ms–120 s, connect 1 ms–10 s) for every
+  backend. A `CancelToken` is checked before each
   attempt and during sliced waits (≤ 100 ms); a cancel during an in-flight
   request is observed when it returns, so worst-case cancel latency is the
   120 s request timeout. A transport error or timeout after the body was

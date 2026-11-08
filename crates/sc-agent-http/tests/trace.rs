@@ -62,10 +62,10 @@ fn test_request_sha256_is_digest_of_sent_body() {
     assert_eq!(trace.request_sha256(), Some(Sha256Digest::of_text(BODY)));
 }
 
-/// Three busy replies and a success: four sends, one recorded value.
+/// Four busy replies and a success: five sends, one recorded value.
 #[test]
 fn test_request_sha256_recorded_once_across_retries() {
-    let transport = ScriptedTransport::responses(vec![busy(), busy(), busy(), ok()]);
+    let transport = ScriptedTransport::responses(vec![busy(), busy(), busy(), busy(), ok()]);
     let trace = SendTrace::new();
     send_with_busy_retry(
         &transport,
@@ -74,8 +74,8 @@ fn test_request_sha256_recorded_once_across_retries() {
         &CancelToken::new(),
         trace.clone(),
     )
-    .expect("fourth send succeeds");
-    assert_eq!(transport.sends(), 4);
+    .expect("fifth send succeeds");
+    assert_eq!(transport.sends(), 5);
     assert_eq!(trace.request_sha256(), Some(Sha256Digest::of_text(BODY)));
 }
 

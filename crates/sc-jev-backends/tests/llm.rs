@@ -546,18 +546,18 @@ fn test_llm_busy_exhausted_wording_and_decimal_retry_after() {
             json!({"error": "slow down"}),
         )
     };
-    let (backend, recorded) = luna(vec![busy(), busy(), busy(), busy()]);
+    let (backend, recorded) = luna(vec![busy(), busy(), busy(), busy(), busy()]);
     let error = backend
         .judge(&standard_request(PROMPT), &SendTrace::new())
         .expect_err("exhausted");
     assert_eq!(error.code(), "NETWORK_ERROR");
     assert_eq!(
         error.to_string(),
-        "network error: luna HTTP 429 busy; 4 sends exhausted"
+        "network error: luna HTTP 429 busy; 5 sends exhausted"
     );
     assert!(error.retryable());
-    assert_eq!(posts(&recorded).len(), 4);
-    assert_eq!(recorded.delays(), [Duration::from_millis(1_500); 3]);
+    assert_eq!(posts(&recorded).len(), 5);
+    assert_eq!(recorded.delays(), [Duration::from_millis(1_500); 4]);
 }
 
 /// Timeouts are transport construction state (ADR-SAG-0007): the default
