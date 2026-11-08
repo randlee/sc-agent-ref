@@ -1,0 +1,49 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R5-QA1-ARCH-001>
+  a triage:Finding ;
+  triage:findingId "R5-QA1-ARCH-001" ;
+  triage:title "The ADR-SAG-0030 index row Status reads 'Active (r-7); jev::v1 (r-5)'" ;
+  triage:description "The ADR-SAG-0030 index row Status reads 'Active (r-7); jev::v1 (r-5)'. It does not use the '(Active, r-5)' marker form that the other flipped rows use. The ADR body (line 1630) and the Status paragraph (line 1596) are correctly flipped." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "RULE-ADR-CODE" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T05:56:56Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R5 ;
+  triage:foundAt "2026-11-08T05:55:41Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R5-QA1-ARCH-001/R5/14f85f1-L140> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R5-QA1-ARCH-001/R5/14f85f1-L140>
+  a triage:Occurrence ;
+  triage:file "docs/architecture.md" ;
+  triage:line 140 ;
+  triage:snippet "| ADR-SAG-0030 | Decision schema crate and model catalog | Active (r-7); jev::v1 (r-5) |" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-5-jev-wire-envelope" ;
+  triage:headSha "14f85f129fda46e39bda90ae2a5333e69213312b" ;
+  triage:occursIn <urn:atm:triage:worktree/R5/14f85f1> .
+
+<urn:atm:triage:worktree/INT/77fffdb>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "77fffdbd89c5e927f9c6b51fc650fada72cfb400" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/R5/14f85f1>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-5-jev-wire-envelope" ;
+  triage:branch "sprint/r-5-jev-wire-envelope" ;
+  triage:headSha "14f85f129fda46e39bda90ae2a5333e69213312b" ;
+  triage:orderIndex 1 .

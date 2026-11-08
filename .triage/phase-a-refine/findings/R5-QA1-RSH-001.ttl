@@ -1,0 +1,85 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R5-QA1-RSH-001>
+  a triage:Finding ;
+  triage:findingId "R5-QA1-RSH-001" ;
+  triage:title "A single judge() call on Haiku and Luna runs two sequential provider exchanges (count, then message)" ;
+  triage:description "A single judge() call on Haiku and Luna runs two sequential provider exchanges (count, then message). Each exchange can take a 90 s busy-retry budget plus a 120 s in-flight request, so one judge() can block for about 420 s. No end-to-end deadline spans both exchanges. The CancelToken only takes effect between attempts and during busy waits (see with_cancel doc at backend.rs:328-331), so a cancel or shutdown cannot preempt an in-flight request. The same applies to the Jev path (sc-jev/src/client/mod.rs:159-162), which is bounded at 60 s per exchange." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "graceful_shutdown" ;
+  triage:severity "important" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T05:57:00Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R5 ;
+  triage:foundAt "2026-11-08T05:55:41Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R5-QA1-RSH-001/R5-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R5-QA1-RSH-001/R5-2> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R5-QA1-RSH-001/R5-3> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R5-QA1-RSH-001/R5-4> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R5-QA1-RSH-001/R5-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-backends/src/backend.rs" ;
+  triage:line 328 ;
+  triage:snippet "/// Sets the token that cancels a `judge` call between attempts" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "77fffdbd89c5e927f9c6b51fc650fada72cfb400" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/77fffdb> .
+
+<urn:atm:triage:occurrence/R5-QA1-RSH-001/R5-2>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-backends/src/backend.rs" ;
+  triage:line 376 ;
+  triage:snippet "/// Worst case, each of the two exchanges takes a 90 s busy-retry" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "77fffdbd89c5e927f9c6b51fc650fada72cfb400" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/77fffdb> .
+
+<urn:atm:triage:occurrence/R5-QA1-RSH-001/R5-3>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-backends/src/backend.rs" ;
+  triage:line 328 ;
+  triage:snippet "/// Sets the token that cancels a `judge` call between attempts" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-5-jev-wire-envelope" ;
+  triage:headSha "14f85f129fda46e39bda90ae2a5333e69213312b" ;
+  triage:occursIn <urn:atm:triage:worktree/r-5-jev-wire-envelope/14f85f1> .
+
+<urn:atm:triage:occurrence/R5-QA1-RSH-001/R5-4>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-backends/src/backend.rs" ;
+  triage:line 376 ;
+  triage:snippet "/// Worst case, each of the two exchanges takes a 90 s busy-retry" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-5-jev-wire-envelope" ;
+  triage:headSha "14f85f129fda46e39bda90ae2a5333e69213312b" ;
+  triage:occursIn <urn:atm:triage:worktree/r-5-jev-wire-envelope/14f85f1> .
+
+<urn:atm:triage:worktree/integrate-phase-a/77fffdb>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "77fffdbd89c5e927f9c6b51fc650fada72cfb400" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/r-5-jev-wire-envelope/14f85f1>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-5-jev-wire-envelope" ;
+  triage:branch "sprint/r-5-jev-wire-envelope" ;
+  triage:headSha "14f85f129fda46e39bda90ae2a5333e69213312b" ;
+  triage:orderIndex 1 .

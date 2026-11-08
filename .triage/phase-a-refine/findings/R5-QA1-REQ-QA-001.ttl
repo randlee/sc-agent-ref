@@ -1,0 +1,61 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R5-QA1-REQ-QA-001>
+  a triage:Finding ;
+  triage:findingId "R5-QA1-REQ-QA-001" ;
+  triage:title "The sprint owns paths in sc-jev, sc-jev-backends and sc-decision-schema, but its requirements list omits ids that apply to them" ;
+  triage:description "The sprint owns paths in sc-jev, sc-jev-backends and sc-decision-schema, but its requirements list omits ids that apply to them. REQ-SAG-0110 (sc-jev); REQ-SAG-0502, 0503, 0504 and 0505 (sc-jev-backends); REQ-SAG-0144, 0145 and 0146 (sc-decision-schema); repo-level NFR-SAG-0001, NFR-SAG-0002, NFR-SAG-0003 and NFR-SAG-0004 are also missing. Each one is binding." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "requirement-not-listed" ;
+  triage:severity "blocking" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T05:56:57Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R5 ;
+  triage:foundAt "2026-11-08T05:55:41Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R5-QA1-REQ-QA-001/R5-QA1-REQ-QA-001/integrate-phase-a/77fffdb> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R5-QA1-REQ-QA-001/R5-QA1-REQ-QA-001/sprint-r-5/14f85f1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R5-QA1-REQ-QA-001/R5-QA1-REQ-QA-001/integrate-phase-a/77fffdb>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md" ;
+  triage:line 17 ;
+  triage:snippet "requirements: list omits REQ-SAG-0110, REQ-SAG-0502..0505, REQ-SAG-0144..0146, NFR-SAG-0001..0004" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "77fffdbd89c5e927f9c6b51fc650fada72cfb400" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/77fffdb> .
+
+<urn:atm:triage:occurrence/R5-QA1-REQ-QA-001/R5-QA1-REQ-QA-001/sprint-r-5/14f85f1>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md" ;
+  triage:line 17 ;
+  triage:snippet "requirements: list omits REQ-SAG-0110, REQ-SAG-0502..0505, REQ-SAG-0144..0146, NFR-SAG-0001..0004" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-5-jev-wire-envelope" ;
+  triage:headSha "14f85f129fda46e39bda90ae2a5333e69213312b" ;
+  triage:occursIn <urn:atm:triage:worktree/sprint-r-5/14f85f1> .
+
+<urn:atm:triage:worktree/integrate-phase-a/77fffdb>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "77fffdbd89c5e927f9c6b51fc650fada72cfb400" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/sprint-r-5/14f85f1>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-5-jev-wire-envelope" ;
+  triage:branch "sprint/r-5-jev-wire-envelope" ;
+  triage:headSha "14f85f129fda46e39bda90ae2a5333e69213312b" ;
+  triage:orderIndex 1 .
