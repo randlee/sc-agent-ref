@@ -444,6 +444,12 @@ jobs:
           restore-keys: |
             sc-agent-ci-workspace-tests-${{ runner.os }}-rust-${{ env.RUST_TOOLCHAIN }}-
 
+      # test_util_off runs `cargo tree --locked --offline` over the whole
+      # workspace, which needs every crate in Cargo.lock downloaded.
+      - name: cargo fetch --locked (all targets)
+        timeout-minutes: 10
+        run: cargo fetch --locked
+
       # Builds sc-ai and sc-treesitter in release shape under
       # target/workspace-tests-bin (support/bin_path.rs).
       - name: cargo test -p workspace-tests
