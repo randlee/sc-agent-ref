@@ -236,7 +236,7 @@ impl<'de> Deserialize<'de> for SessionId {
 /// The documented spelling is the [`Display`](fmt::Display) form
 /// (`typesafe`, `anthropic`, `openai`). Serde writes that form and reads it
 /// through [`FromStr`], which also accepts the one-release alias `open_ai`
-/// (bead `agt-backend-serde-alias-removal`).
+/// (bead `agt-ho2`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[non_exhaustive]
 pub enum BackendKeyId {
