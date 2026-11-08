@@ -136,10 +136,10 @@ mod tests {
         let repeated_state = br#"{"questions":[{"id":"q","prompt":"p","choices":["a","b"]}],"state":[{"question_id":"q","choice":"a"},{"question_id":"q","choice":"b"}]}"#;
         let error = parse_caller_request(repeated_state).expect_err("repeat");
         assert!(error.fix_hint().contains("repeats question q"));
-        let duplicate_id = br#"{"questions":[{"id":"q","prompt":"p","choices":["a"]},{"id":"q","prompt":"p","choices":["a"]}]}"#;
+        let duplicate_id = br#"{"questions":[{"id":"q","prompt":"p","choices":["a","b"]},{"id":"q","prompt":"p","choices":["a","b"]}]}"#;
         let error = parse_caller_request(duplicate_id).expect_err("duplicate");
         assert!(error.fix_hint().contains("repeated"));
-        let empty_prompt = br#"{"questions":[{"id":"q","prompt":"  ","choices":["a"]}]}"#;
+        let empty_prompt = br#"{"questions":[{"id":"q","prompt":"  ","choices":["a","b"]}]}"#;
         let error = parse_caller_request(empty_prompt).expect_err("empty");
         assert!(error.fix_hint().contains("instructions are empty"));
         let empty_id = br#"{"questions":[{"id":"","prompt":"p","choices":["a"]}]}"#;

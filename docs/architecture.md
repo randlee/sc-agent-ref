@@ -109,17 +109,17 @@ cell and its own marker text to `(Active, r-N)`; it adds or removes no entry.
 | ADR | Title | Status | Amends / amended by |
 | --- | --- | --- | --- |
 | ADR-SAG-0001 | Error enum is CLI authority | Active | Amended by ADR-SAG-0027 (Active, r-1) |
-| ADR-SAG-0002 | Canonical judge payload bytes | Active | A.1 subsection (Proposed, r-5) |
+| ADR-SAG-0002 | Canonical judge payload bytes | Active | A.1 subsection (Active, r-5) |
 | ADR-SAG-0003 | Secret resolution | Active | Amended by ADR-SAG-0020; ADR-SAG-0024 (Active, r-2) |
 | ADR-SAG-0004 | One check, one request | Active | Amended by ADR-SAG-0025 (Active, r-2b) |
-| ADR-SAG-0005 | Facade owns payload assembly | Active | Amended by ADR-SAG-0024 (Active, r-2); A.1 subsections (Active, r-4), (Proposed, r-5); ADR-SAG-0030 (Active, r-7) |
+| ADR-SAG-0005 | Facade owns payload assembly | Active | Amended by ADR-SAG-0024 (Active, r-2); A.1 subsections (Active, r-4), (Active, r-5); ADR-SAG-0030 (Active, r-7) |
 | ADR-SAG-0006 | Transport injection | Active | Amended by ADR-SAG-0026 (Active, r-3) |
 | ADR-SAG-0007 | API-direct LLM backends | Active | Amended by ADR-SAG-0026 (Active, r-3) |
 | ADR-SAG-0008 | Sessions carry prior answers to later backends | Active | A.1 subsection (Active, r-1); amended by ADR-SAG-0025 (Active, r-2b); ADR-SAG-0031 (Proposed, r-6) |
 | ADR-SAG-0009 | Local backend registers without caller changes | Active | Amended by ADR-SAG-0022; ADR-SAG-0027 (Active, r-1); ADR-SAG-0024 (Active, r-2); ADR-SAG-0030 (Active, r-7) |
 | ADR-SAG-0010 | CLI thin adapter | Active | Amended by ADR-SAG-0026 (Active, r-3b) |
 | ADR-SAG-0011 | Python via sc-jev-py wheel | Active | Amended by ADR-SAG-0026 (Active, r-3b) |
-| ADR-SAG-0012 | sc-jev owns Jev API | Active | Amended by ADR-SAG-0030 (Proposed, r-5) |
+| ADR-SAG-0012 | sc-jev owns Jev API | Active | Amended by ADR-SAG-0030 (Active, r-5) |
 | ADR-SAG-0013 | Session JSONL via sc-observability v2 | Active | Amended by ADR-SAG-0021; ADR-SAG-0026 (Active, r-3b); ADR-SAG-0031 (Proposed, r-6) |
 | ADR-SAG-0014 | CLI success body | Active | A.1 subsection (Active, r-1); amended by ADR-SAG-0024 (Active, r-2) |
 | ADR-SAG-0015 | Subjects artifact outside the judge | Active | — |
@@ -137,7 +137,7 @@ cell and its own marker text to `(Active, r-N)`; it adds or removes no entry.
 | ADR-SAG-0027 | Error taxonomy and extensibility | Active (r-1) | Amends ADR-SAG-0001, ADR-SAG-0009, ADR-SAG-0016; amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Proposed, r-6) |
 | ADR-SAG-0028 | workspace-tests crate | Active (r-3b) | Amended by ADR-SAG-0030 (Active, r-7) |
 | ADR-SAG-0029 | Phase A hardening amendments | Active (a-10) | Amends ADR-SAG-0020 and ADR-SAG-0022; A.1 supersedes named sentences of (a) (Active, r-1), (Active, r-3) and of (b) (Active, r-1), (Active, r-2) |
-| ADR-SAG-0030 | Decision schema crate and model catalog | Active (r-7); jev::v1 Proposed (r-5) | Amends ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0012, ADR-SAG-0016, ADR-SAG-0017, ADR-SAG-0019, ADR-SAG-0022, ADR-SAG-0026, ADR-SAG-0027, ADR-SAG-0028 |
+| ADR-SAG-0030 | Decision schema crate and model catalog | Active (r-7); jev::v1 (r-5) | Amends ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0012, ADR-SAG-0016, ADR-SAG-0017, ADR-SAG-0019, ADR-SAG-0022, ADR-SAG-0026, ADR-SAG-0027, ADR-SAG-0028 |
 | ADR-SAG-0031 | Session log storage schema | Active (storage schema, r-7); wiring Proposed (r-6) | Amends ADR-SAG-0008, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0026, ADR-SAG-0027 (wiring) |
 
 ## ADR-SAG-0001 — Error enum is CLI authority
@@ -157,9 +157,9 @@ questions + state the backends must judge. SHA-256 of **those** bytes is
 
 ### Amendment (Phase A.1, r-5)
 
-**Status:** Proposed (Phase A.1) — lands in r-5.
+**Status:** Active (Phase A.1) — landed in r-5.
 
-- (Proposed, r-5) A question has two new fields, omitted from the bytes
+- (Active, r-5) A question has two new fields, omitted from the bytes
   when they hold their default: `kind` (`QuestionKind::{Choice, Score,
   Noul}`, default `Choice`, not written for a choice question) and
   `descriptions` (one per choice; absent means each description is the
@@ -199,12 +199,15 @@ errors happens before any backend call (ADR-SAG-0004).
 
 ### Amendment (Phase A.1, r-5)
 
-**Status:** Proposed (Phase A.1) — lands in r-5.
+**Status:** Active (Phase A.1) — landed in r-5.
 
-- (Proposed, r-5) `CanonicalJudgePayload` is the only payload schema. Both backend families
+- (Active, r-5) `CanonicalJudgePayload` is the only payload schema. Both backend families
   validate by deserializing it. The Jev HTTP body is the documented flat
   object `{model, state, questions}` built by serde from the canonical
   payload (no byte-splice); `prompt_sha256` stays on canonical bytes.
+  ADR-SAG-0019 is unchanged: the documented Jev body is the "API shape the
+  evaluator expects" for Jev, and Haiku/Luna still embed the same canonical
+  bytes.
 
 ### Amendment (Phase A.1, r-7)
 
@@ -1027,9 +1030,9 @@ endpoints extend `sc-jev` in place.
 
 ### Amendment (Phase A.1, r-5)
 
-**Status:** Proposed (Phase A.1) — lands in r-5.
+**Status:** Active (Phase A.1) — landed in r-5.
 
-- (Proposed, r-5) The Jev request and response shapes are versioned data
+- (Active, r-5) The Jev request and response shapes are versioned data
   types in `sc_decision_schema::jev` (one serde struct per API call,
   ADR-SAG-0030). `sc-jev` still implements every Jev HTTP operation:
   endpoints, building and sending the body, and mapping responses. No other
@@ -1591,7 +1594,7 @@ HTTP half amends ADR-SAG-0006, 0007,
 ## ADR-SAG-0030 — Decision schema crate and model catalog
 
 **Status:** Active (Phase A.1, r-7); the "Jev API structs" bullet and the
-ADR-SAG-0012 subsection stay Proposed until r-5 lands them. Amends
+ADR-SAG-0012 subsection landed in r-5. Amends
 ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0016, ADR-SAG-0017, ADR-SAG-0019,
 ADR-SAG-0022, ADR-SAG-0026, ADR-SAG-0027 and ADR-SAG-0028 (an r-7
 subsection in each) and ADR-SAG-0012 (an r-5 subsection).
@@ -1624,7 +1627,7 @@ Owner decisions 2026-11-07.
   sc-agent-owned wrappers (the session-log row, ADR-SAG-0031, and the session
   document, ADR-SAG-0008 r-6) and is not sent to a vendor whose schema does
   not define it.
-- (Proposed, r-5) **Jev API structs.** `sc_decision_schema::jev::v1` has one
+- (Active, r-5) **Jev API structs.** `sc_decision_schema::jev::v1` has one
   serde request and one response type per Jev API call known today (check:
   `CheckRequest`, `CheckResponse`). `sc-jev` builds the body with
   `CheckRequest` and parses replies with `CheckResponse`; the byte-splice is

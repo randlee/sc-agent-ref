@@ -1,0 +1,809 @@
+//! `jev::v1`: the documented TypeSafe Jev check API (`POST /v1/systemone`).
+//!
+//! The request is the flat object `{model, state, questions}`; `questions`
+//! is keyed by question id and each question has a `type` (`choice`,
+//! `score` or `noul`) and `instructions`. The reply is `{model, answers,
+//! usage}` with `answers` keyed by question id. [`CheckRequest`] builds the
+//! request from a [`CanonicalJudgePayload`] and can recover that payload from
+//! a body (for the `input_sha256` attestation); [`CheckResponse`] checks a
+//! reply against the request it answers and maps it to [`DecisionAnswers`].
+//!
+//! Key order is part of the wire form: [`OrderedMap`] keeps document order
+//! in both directions and refuses a duplicate key.
+//!
+//! # Examples
+//!
+//! ```
+//! use sc_decision_schema::jev::v1::{CheckRequest, CheckResponse};
+//! use sc_decision_schema::CanonicalJudgePayload;
+//!
+//! let payload = CanonicalJudgePayload::from_bytes(
+//!     br#"{"questions":[{"id":"q","prompt":"Is it?","choices":["no","yes"]}],"state":[]}"#,
+//! )?;
+//! let request = CheckRequest::from_canonical("jev-1.13.0".parse()?, &payload)?;
+//! assert_eq!(
+//!     request.to_body()?,
+//!     r#"{"model":"jev-1.13.0","state":[],"questions":{"q":{"type":"choice","instructions":"Is it?","criteria":{"no":"no","yes":"yes"}}}}"#
+//! );
+//! let reply = br#"{"model":"jev-1.13.0","answers":{"q":{"type":"choice","choice":"yes","probabilities":{"no":0.1,"yes":0.9},"confidence":0.8}},"usage":{}}"#;
+//! let answers = CheckResponse::parse(reply)?.into_answers(&request)?;
+//! assert_eq!(answers.len(), 1);
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+
+use std::collections::{BTreeMap, BTreeSet};
+use std::fmt;
+use std::marker::PhantomData;
+
+use sc_agent_types::{JevError, ModelId};
+use serde::de::value::MapAccessDeserializer;
+use serde::de::{self, MapAccess, SeqAccess, Visitor};
+use serde::ser::SerializeMap;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_json::{Map, Value};
+
+use crate::ids::{ChoiceId, QuestionId};
+use crate::judge::QuestionAnswer;
+use crate::payload::{
+    CanonicalJudgePayload, ChoiceAnswer, DecisionAnswers, PayloadBundle, Question, QuestionKind,
+};
+
+/// Fewest options a `choice` or `score` question has.
+const MIN_CRITERIA: usize = 2;
+/// Most options a `choice` question has (the documented Jev limit).
+const MAX_CHOICE_CRITERIA: usize = 255;
+/// Most levels a `score` question has (the documented Jev limit).
+const MAX_SCORE_CRITERIA: usize = 10;
+/// How far a probability sum may sit from 1. Jev rounds its probabilities, so
+/// the sum is never exact; a wider gap is a malformed reply.
+const PROBABILITY_SUM_TOLERANCE: f64 = 1e-6;
+/// Marks a serde error message this module wrote, so the error mapping may
+/// show it (it names a key or a limit, never body text beyond a key).
+const OWN_MESSAGE: &str = "jev::v1: ";
+/// The model the reply must name is reported with this text.
+const MODEL_OR_SHAPE: &str = "unexpected Jev response model or shape";
+
+fn own_error<E: de::Error>(message: impl fmt::Display) -> E {
+    E::custom(format!("{OWN_MESSAGE}{message}"))
+}
+
+/// Maps a serde failure to the error text, naming only what this module
+/// wrote (a duplicate key, a limit) and otherwise category and position.
+fn describe(what: &str, error: &serde_json::Error) -> (bool, String) {
+    let rendered = error.to_string();
+    match rendered.strip_prefix(OWN_MESSAGE) {
+        Some(own) => (true, format!("{what}: {own}")),
+        None => (
+            false,
+            format!("{what}: {}", JevError::encode_failed(what, error)),
+        ),
+    }
+}
+
+/// A map serialized as a JSON object whose key order is the `Vec` order, and
+/// deserialized in document order.
+///
+/// A duplicate key is an error that names the key. Use it wherever the wire
+/// form's key order matters (question ids, criteria options, top-level state
+/// keys).
+///
+/// # Examples
+///
+/// ```
+/// use sc_decision_schema::jev::v1::OrderedMap;
+///
+/// let map: OrderedMap<String, u8> = serde_json::from_str(r#"{"zeta":1,"alpha":2}"#)?;
+/// assert_eq!(serde_json::to_string(&map)?, r#"{"zeta":1,"alpha":2}"#);
+/// assert!(serde_json::from_str::<OrderedMap<String, u8>>(r#"{"a":1,"a":2}"#).is_err());
+/// # Ok::<(), serde_json::Error>(())
+/// ```
+#[derive(Debug, Clone, PartialEq)]
+pub struct OrderedMap<K, V>(Vec<(K, V)>);
+
+impl<K: Ord + fmt::Display, V> OrderedMap<K, V> {
+    /// A map of `pairs`, in that order.
+    ///
+    /// # Errors
+    ///
+    /// `INPUT_INVALID` when two pairs share a key; the fix hint names it.
+    pub fn try_from_pairs(pairs: Vec<(K, V)>) -> Result<Self, JevError> {
+        match duplicate_key(&pairs) {
+            Some(key) => Err(JevError::input_invalid(format!(
+                "duplicate key `{key}`; give every key once"
+            ))),
+            None => Ok(Self(pairs)),
+        }
+    }
+}
+
+impl<K, V> OrderedMap<K, V> {
+    /// The pairs, in order.
+    pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> + '_ {
+        self.0.iter().map(|(key, value)| (key, value))
+    }
+
+    /// The keys, in order.
+    pub fn keys(&self) -> impl Iterator<Item = &K> + '_ {
+        self.0.iter().map(|(key, _)| key)
+    }
+
+    /// The number of pairs.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Whether there are no pairs.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+impl<K: PartialEq, V> OrderedMap<K, V> {
+    /// The value of `key`, if present.
+    #[must_use]
+    pub fn get(&self, key: &K) -> Option<&V> {
+        self.0
+            .iter()
+            .find_map(|(candidate, value)| (candidate == key).then_some(value))
+    }
+}
+
+fn duplicate_key<K: Ord + fmt::Display, V>(pairs: &[(K, V)]) -> Option<&K> {
+    let mut seen = BTreeSet::new();
+    pairs
+        .iter()
+        .map(|(key, _)| key)
+        .find(|key| !seen.insert(*key))
+}
+
+impl<K: Serialize, V: Serialize> Serialize for OrderedMap<K, V> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut map = serializer.serialize_map(Some(self.0.len()))?;
+        for (key, value) in &self.0 {
+            map.serialize_entry(key, value)?;
+        }
+        map.end()
+    }
+}
+
+/// Reads the pairs of a JSON object in document order, refusing a duplicate
+/// key. It yields the pairs, not an [`OrderedMap`], so the two types do not
+/// refer to each other.
+struct PairsVisitor<K, V>(PhantomData<(K, V)>);
+
+impl<'de, K, V> Visitor<'de> for PairsVisitor<K, V>
+where
+    K: Deserialize<'de> + Ord + fmt::Display,
+    V: Deserialize<'de>,
+{
+    type Value = Vec<(K, V)>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a JSON object")
+    }
+
+    fn visit_map<A: MapAccess<'de>>(self, mut access: A) -> Result<Self::Value, A::Error> {
+        let mut pairs = Vec::with_capacity(access.size_hint().unwrap_or(0).min(1024));
+        while let Some(pair) = access.next_entry::<K, V>()? {
+            pairs.push(pair);
+        }
+        if let Some(key) = duplicate_key(&pairs) {
+            return Err(own_error(format!("duplicate key `{key}`")));
+        }
+        Ok(pairs)
+    }
+}
+
+impl<'de, K, V> Deserialize<'de> for OrderedMap<K, V>
+where
+    K: Deserialize<'de> + Ord + fmt::Display,
+    V: Deserialize<'de>,
+{
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer
+            .deserialize_map(PairsVisitor(PhantomData))
+            .map(Self)
+    }
+}
+
+/// One question of a check request.
+///
+/// Built only through [`Self::choice`], [`Self::score`], [`Self::noul`] or
+/// deserialization, which all apply the criteria counts: `choice` has 2 to
+/// 255 options, `score` has 2 to 10 ordered levels.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", try_from = "RawJevQuestion")]
+#[non_exhaustive]
+pub enum JevQuestion {
+    /// Pick one option; `criteria` maps option to description.
+    Choice {
+        /// What the question asks.
+        instructions: String,
+        /// Option to description, in order.
+        criteria: OrderedMap<ChoiceId, String>,
+    },
+    /// Pick one level; `criteria` maps ordered levels to descriptions.
+    Score {
+        /// What the question asks.
+        instructions: String,
+        /// Level to description, lowest level first.
+        criteria: OrderedMap<ChoiceId, String>,
+    },
+    /// Probability of yes; no criteria.
+    Noul {
+        /// What the question asks.
+        instructions: String,
+    },
+}
+
+#[derive(Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+enum RawJevQuestion {
+    Choice {
+        instructions: String,
+        criteria: OrderedMap<ChoiceId, String>,
+    },
+    Score {
+        instructions: String,
+        criteria: OrderedMap<ChoiceId, String>,
+    },
+    Noul {
+        instructions: String,
+    },
+}
+
+impl TryFrom<RawJevQuestion> for JevQuestion {
+    type Error = String;
+
+    fn try_from(raw: RawJevQuestion) -> Result<Self, Self::Error> {
+        let built = match raw {
+            RawJevQuestion::Choice {
+                instructions,
+                criteria,
+            } => Self::choice(instructions, criteria),
+            RawJevQuestion::Score {
+                instructions,
+                criteria,
+            } => Self::score(instructions, criteria),
+            RawJevQuestion::Noul { instructions } => Ok(Self::noul(instructions)),
+        };
+        built.map_err(|error| format!("{OWN_MESSAGE}{}", detail(&error)))
+    }
+}
+
+fn detail(error: &JevError) -> String {
+    match error {
+        JevError::InputInvalid { detail, .. } => detail.clone(),
+        other => other.to_string(),
+    }
+}
+
+fn check_count(kind: &str, criteria: usize, least: usize, most: usize) -> Result<(), JevError> {
+    if (least..=most).contains(&criteria) {
+        Ok(())
+    } else {
+        Err(JevError::input_invalid(format!(
+            "a {kind} question needs {least} to {most} criteria, got {criteria}; fix the criteria"
+        )))
+    }
+}
+
+impl JevQuestion {
+    /// A `choice` question.
+    ///
+    /// # Errors
+    ///
+    /// `INPUT_INVALID` unless `criteria` has 2 to 255 options.
+    pub fn choice(
+        instructions: String,
+        criteria: OrderedMap<ChoiceId, String>,
+    ) -> Result<Self, JevError> {
+        check_count("choice", criteria.len(), MIN_CRITERIA, MAX_CHOICE_CRITERIA)?;
+        Ok(Self::Choice {
+            instructions,
+            criteria,
+        })
+    }
+
+    /// A `score` question.
+    ///
+    /// # Errors
+    ///
+    /// `INPUT_INVALID` unless `criteria` has 2 to 10 levels.
+    pub fn score(
+        instructions: String,
+        criteria: OrderedMap<ChoiceId, String>,
+    ) -> Result<Self, JevError> {
+        check_count("score", criteria.len(), MIN_CRITERIA, MAX_SCORE_CRITERIA)?;
+        Ok(Self::Score {
+            instructions,
+            criteria,
+        })
+    }
+
+    /// A `noul` question.
+    #[must_use]
+    pub fn noul(instructions: String) -> Self {
+        Self::Noul { instructions }
+    }
+
+    fn from_question(question: &Question) -> Result<Self, JevError> {
+        let instructions = question.prompt().to_owned();
+        let criteria = || -> Result<OrderedMap<ChoiceId, String>, JevError> {
+            let descriptions = question.descriptions();
+            let pairs = question
+                .choices()
+                .iter()
+                .enumerate()
+                .map(|(index, choice)| {
+                    let description = descriptions
+                        .and_then(|list| list.get(index))
+                        .map_or_else(|| choice.as_str().to_owned(), Clone::clone);
+                    (choice.clone(), description)
+                })
+                .collect();
+            OrderedMap::try_from_pairs(pairs).map_err(|error| in_question(question.id(), &error))
+        };
+        match question.kind() {
+            QuestionKind::Choice => Self::choice(instructions, criteria()?),
+            QuestionKind::Score => Self::score(instructions, criteria()?),
+            QuestionKind::Noul => Ok(Self::noul(instructions)),
+        }
+        .map_err(|error| in_question(question.id(), &error))
+    }
+
+    fn to_question(&self, id: &QuestionId) -> Result<Question, JevError> {
+        let (kind, instructions, criteria) = match self {
+            Self::Choice {
+                instructions,
+                criteria,
+            } => (QuestionKind::Choice, instructions, Some(criteria)),
+            Self::Score {
+                instructions,
+                criteria,
+            } => (QuestionKind::Score, instructions, Some(criteria)),
+            Self::Noul { instructions } => (QuestionKind::Noul, instructions, None),
+        };
+        let (choices, descriptions) = match criteria {
+            Some(map) => (
+                map.keys().cloned().collect(),
+                Some(
+                    map.iter()
+                        .map(|(_, description)| description.clone())
+                        .collect(),
+                ),
+            ),
+            None => (Vec::new(), None),
+        };
+        Question::try_new(
+            id.clone(),
+            instructions.clone(),
+            choices,
+            kind,
+            descriptions,
+        )
+    }
+}
+
+fn in_question(id: &QuestionId, error: &JevError) -> JevError {
+    JevError::input_invalid(format!("question {id}: {}", detail(error)))
+}
+
+/// The `state` of a check: a string, an object or an array.
+///
+/// The top-level keys of an object keep their order. Nested values are
+/// `serde_json` values, whose object keys are sorted, so only the top level
+/// round-trips verbatim.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum JevState {
+    /// Free text.
+    Text(String),
+    /// A JSON object.
+    Object(OrderedMap<String, Value>),
+    /// A JSON array.
+    Array(Vec<Value>),
+}
+
+struct StateVisitor;
+
+impl<'de> Visitor<'de> for StateVisitor {
+    type Value = JevState;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a string, an object or an array")
+    }
+
+    fn visit_str<E: de::Error>(self, text: &str) -> Result<Self::Value, E> {
+        Ok(JevState::Text(text.to_owned()))
+    }
+
+    fn visit_string<E: de::Error>(self, text: String) -> Result<Self::Value, E> {
+        Ok(JevState::Text(text))
+    }
+
+    fn visit_map<A: MapAccess<'de>>(self, access: A) -> Result<Self::Value, A::Error> {
+        OrderedMap::deserialize(MapAccessDeserializer::new(access)).map(JevState::Object)
+    }
+
+    fn visit_seq<A: SeqAccess<'de>>(self, mut access: A) -> Result<Self::Value, A::Error> {
+        let mut items = Vec::new();
+        while let Some(item) = access.next_element::<Value>()? {
+            items.push(item);
+        }
+        Ok(JevState::Array(items))
+    }
+}
+
+impl<'de> Deserialize<'de> for JevState {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer.deserialize_any(StateVisitor)
+    }
+}
+
+/// The check request body: `{model, state, questions}`, in that order.
+///
+/// # Examples
+///
+/// ```
+/// use sc_decision_schema::jev::v1::CheckRequest;
+///
+/// let body = r#"{"model":"jev-1.13.0","state":"text","questions":{"b":{"type":"noul","instructions":"Yes?"}}}"#;
+/// let request = CheckRequest::parse(body)?;
+/// assert_eq!(request.to_body()?, body);
+/// # Ok::<(), sc_agent_types::JevError>(())
+/// ```
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CheckRequest {
+    model: ModelId,
+    state: JevState,
+    questions: OrderedMap<QuestionId, JevQuestion>,
+}
+
+impl CheckRequest {
+    /// Maps `payload` to the Jev body for `model`.
+    ///
+    /// Each canonical question becomes a Jev question keyed by its id, in
+    /// payload order: `instructions` is the prompt and `criteria` maps each
+    /// choice to its description (the label when none is given). The
+    /// canonical `state` (prior answers) is sent as the `state` array.
+    ///
+    /// # Errors
+    ///
+    /// `INPUT_INVALID` when the payload has no question, a question id or a
+    /// choice repeats, or a question breaks its kind's criteria count. The
+    /// fix hint names the question.
+    pub fn from_canonical(
+        model: ModelId,
+        payload: &CanonicalJudgePayload,
+    ) -> Result<Self, JevError> {
+        if payload.questions().is_empty() {
+            return Err(JevError::input_invalid(
+                "a check needs at least one question",
+            ));
+        }
+        let pairs = payload
+            .questions()
+            .iter()
+            .map(|question| Ok((question.id().clone(), JevQuestion::from_question(question)?)))
+            .collect::<Result<Vec<_>, JevError>>()?;
+        let questions = OrderedMap::try_from_pairs(pairs)?;
+        let state = payload
+            .state()
+            .iter()
+            .map(|answer| {
+                serde_json::to_value(answer)
+                    .map_err(|error| JevError::encode_failed("prior answer", &error))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Self {
+            model,
+            state: JevState::Array(state),
+            questions,
+        })
+    }
+
+    /// Parses a request body, keeping key order.
+    ///
+    /// # Errors
+    ///
+    /// `INPUT_INVALID` when `body` is not a check request or repeats a
+    /// question id or criteria key. The error names a repeated key or a
+    /// criteria limit, and otherwise only the failure category and position,
+    /// never body bytes (ADR-SAG-0020).
+    pub fn parse(body: &str) -> Result<Self, JevError> {
+        serde_json::from_str(body).map_err(|error| {
+            let (own, text) = describe("Jev wire body", &error);
+            if own {
+                JevError::input_invalid(text)
+            } else {
+                JevError::encode_failed("Jev wire body", &error)
+            }
+        })
+    }
+
+    /// The compact JSON body: `model`, `state`, `questions`, in that order.
+    ///
+    /// # Errors
+    ///
+    /// `INPUT_INVALID` when `serde_json` cannot encode the request.
+    pub fn to_body(&self) -> Result<String, JevError> {
+        serde_json::to_string(self).map_err(|error| JevError::encode_failed("Jev body", &error))
+    }
+
+    /// Recovers the canonical payload this body was built from (the inverse
+    /// of [`Self::from_canonical`]), for the `input_sha256` attestation.
+    ///
+    /// Choices are the criteria keys in body order, `kind` comes from
+    /// `type`, and descriptions are dropped when each equals its label.
+    ///
+    /// # Errors
+    ///
+    /// `INPUT_INVALID` when `state` is not an array of recorded answers or a
+    /// question breaks its kind's rules.
+    pub fn to_canonical(&self) -> Result<CanonicalJudgePayload, JevError> {
+        let questions = self
+            .questions
+            .iter()
+            .map(|(id, question)| question.to_question(id))
+            .collect::<Result<Vec<_>, _>>()?;
+        let JevState::Array(items) = &self.state else {
+            return Err(JevError::input_invalid(
+                "Jev state is not the prior-answers array; only a canonical payload can be recovered",
+            ));
+        };
+        let state = items
+            .iter()
+            .map(|item| {
+                serde_json::from_value::<ChoiceAnswer>(item.clone()).map_err(|_| {
+                    JevError::input_invalid("Jev state entry is not a recorded answer")
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(CanonicalJudgePayload::new(questions, state))
+    }
+
+    /// The canonical bundle recovered from this request: its
+    /// [`PayloadBundle::sha256`] is the `input_sha256` attestation.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::to_canonical`], plus a canonical-encoding failure.
+    pub fn recovered_bundle(&self) -> Result<PayloadBundle, JevError> {
+        PayloadBundle::encode(&self.to_canonical()?)
+    }
+
+    /// The model the request names.
+    #[must_use]
+    pub fn model(&self) -> &ModelId {
+        &self.model
+    }
+
+    /// The state the request carries.
+    #[must_use]
+    pub fn state(&self) -> &JevState {
+        &self.state
+    }
+
+    /// The questions, in order.
+    #[must_use]
+    pub fn questions(&self) -> &OrderedMap<QuestionId, JevQuestion> {
+        &self.questions
+    }
+}
+
+/// One answer of a check reply.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum JevAnswer {
+    /// The answer to a `choice` question.
+    Choice {
+        /// The selected option.
+        choice: ChoiceId,
+        /// A probability per option.
+        probabilities: BTreeMap<ChoiceId, f64>,
+        /// How far to trust the call.
+        confidence: f64,
+    },
+    /// The answer to a `score` question.
+    Score {
+        /// The selected level.
+        choice: ChoiceId,
+        /// A probability per level.
+        probabilities: BTreeMap<ChoiceId, f64>,
+        /// How far to trust the call.
+        confidence: f64,
+    },
+    /// The answer to a `noul` question: the probability of yes.
+    Noul {
+        /// The single `yes` probability.
+        probabilities: NoulProbabilities,
+    },
+}
+
+/// The probabilities of a `noul` answer: exactly the key `yes`.
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct NoulProbabilities {
+    /// Probability of yes, in `[0, 1]`.
+    pub yes: f64,
+}
+
+/// The check reply: `{model, answers, usage}`.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct CheckResponse {
+    model: ModelId,
+    answers: OrderedMap<QuestionId, JevAnswer>,
+    #[serde(default)]
+    usage: Map<String, Value>,
+    #[serde(flatten)]
+    extra: Map<String, Value>,
+}
+
+impl CheckResponse {
+    /// Parses a reply.
+    ///
+    /// # Errors
+    ///
+    /// `RESPONSE_INVALID` when `raw` is not JSON, is not a check reply, a
+    /// `noul` answer has a key other than `yes`, or an answer id repeats (the
+    /// detail names the id).
+    pub fn parse(raw: &[u8]) -> Result<Self, JevError> {
+        serde_json::from_slice(raw).map_err(|error| match error.classify() {
+            serde_json::error::Category::Data => {
+                let (own, text) = describe("Jev response", &error);
+                if own {
+                    JevError::response_invalid(text)
+                } else {
+                    JevError::response_invalid(MODEL_OR_SHAPE)
+                }
+            }
+            _ => JevError::response_invalid("response is not JSON"),
+        })
+    }
+
+    /// The model that answered.
+    #[must_use]
+    pub fn model(&self) -> &ModelId {
+        &self.model
+    }
+
+    /// The `usage` object.
+    #[must_use]
+    pub fn usage(&self) -> &Map<String, Value> {
+        &self.usage
+    }
+
+    /// Every other top-level field (such as `stop_reason`); keys sorted.
+    #[must_use]
+    pub fn extra(&self) -> &Map<String, Value> {
+        &self.extra
+    }
+
+    /// Checks this reply against `request` and maps it to answers.
+    ///
+    /// The reply `model` equals the request model; answer ids equal the
+    /// question ids; each answer type matches its question type; a `choice`
+    /// or `score` answer names a criteria option, its probability keys equal
+    /// the criteria keys and sum to 1 within 1e-6, and its confidence and
+    /// every probability lie in `[0, 1]`. A `noul` answer becomes `yes` when
+    /// `p >= 0.5` else `no`, with probabilities `{yes: p, no: 1 - p}` and no
+    /// confidence.
+    ///
+    /// # Errors
+    ///
+    /// `RESPONSE_INVALID` on any rule above.
+    pub fn into_answers(self, request: &CheckRequest) -> Result<DecisionAnswers, JevError> {
+        if self.model != request.model {
+            return Err(JevError::response_invalid(MODEL_OR_SHAPE));
+        }
+        let asked: BTreeSet<&QuestionId> = request.questions.keys().collect();
+        let answered: BTreeSet<&QuestionId> = self.answers.keys().collect();
+        if asked != answered {
+            return Err(JevError::response_invalid(
+                "answer ids differ from the question ids",
+            ));
+        }
+        let mut typed = BTreeMap::new();
+        for (id, answer) in self.answers.iter() {
+            let question = request.questions.get(id).ok_or_else(|| {
+                JevError::response_invalid("answer ids differ from the question ids")
+            })?;
+            typed.insert(id.clone(), map_answer(id, question, answer)?);
+        }
+        Ok(typed)
+    }
+}
+
+fn map_answer(
+    id: &QuestionId,
+    question: &JevQuestion,
+    answer: &JevAnswer,
+) -> Result<QuestionAnswer, JevError> {
+    match (question, answer) {
+        (
+            JevQuestion::Choice { criteria, .. } | JevQuestion::Score { criteria, .. },
+            JevAnswer::Choice {
+                choice,
+                probabilities,
+                confidence,
+            }
+            | JevAnswer::Score {
+                choice,
+                probabilities,
+                confidence,
+            },
+        ) if same_kind(question, answer) => {
+            check_ranked(id, criteria, choice, probabilities)?;
+            QuestionAnswer::new(
+                choice.clone(),
+                Some(*confidence),
+                Some(probabilities.clone()),
+            )
+        }
+        (JevQuestion::Noul { .. }, JevAnswer::Noul { probabilities }) => {
+            let yes = probabilities.yes;
+            if !(0.0..=1.0).contains(&yes) {
+                return Err(JevError::response_invalid(format!(
+                    "answer {id} probability is not a number in [0, 1]"
+                )));
+            }
+            let label = if yes >= 0.5 { "yes" } else { "no" };
+            let probabilities = BTreeMap::from([
+                (ChoiceId::try_from("yes")?, yes),
+                (ChoiceId::try_from("no")?, 1.0 - yes),
+            ]);
+            QuestionAnswer::new(ChoiceId::try_from(label)?, None, Some(probabilities))
+        }
+        _ => Err(JevError::response_invalid(format!(
+            "answer {id} type differs from its question type"
+        ))),
+    }
+}
+
+fn same_kind(question: &JevQuestion, answer: &JevAnswer) -> bool {
+    matches!(
+        (question, answer),
+        (JevQuestion::Choice { .. }, JevAnswer::Choice { .. })
+            | (JevQuestion::Score { .. }, JevAnswer::Score { .. })
+    )
+}
+
+fn check_ranked(
+    id: &QuestionId,
+    criteria: &OrderedMap<ChoiceId, String>,
+    choice: &ChoiceId,
+    probabilities: &BTreeMap<ChoiceId, f64>,
+) -> Result<(), JevError> {
+    if !criteria.keys().any(|option| option == choice) {
+        return Err(JevError::response_invalid(format!(
+            "answer {id} is not one of its criteria"
+        )));
+    }
+    let wanted: BTreeSet<&ChoiceId> = criteria.keys().collect();
+    let got: BTreeSet<&ChoiceId> = probabilities.keys().collect();
+    if wanted != got {
+        return Err(JevError::response_invalid(format!(
+            "answer {id} probabilities are not exactly the question criteria"
+        )));
+    }
+    if probabilities
+        .values()
+        .any(|value| !(0.0..=1.0).contains(value))
+    {
+        return Err(JevError::response_invalid(format!(
+            "answer {id} probability is not a number in [0, 1]"
+        )));
+    }
+    let sum: f64 = probabilities.values().sum();
+    if (sum - 1.0).abs() > PROBABILITY_SUM_TOLERANCE {
+        return Err(JevError::response_invalid(format!(
+            "answer {id} probabilities sum to {sum}, not 1"
+        )));
+    }
+    Ok(())
+}

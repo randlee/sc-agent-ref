@@ -20,7 +20,9 @@ use sc_decision_schema::{
 use sc_jev::{JevClient, JevClientConfig};
 use serde_json::json;
 
-const EXPECTED_BODY: &[u8] = b"{\"model\":\"jev-test\",\"questions\":[{\"choices\":[\"no\",\"yes\"],\"id\":\"q\",\"prompt\":\"x = 1\"}],\"state\":[]}";
+/// The documented Jev body for the `payload("x = 1")` request, written out
+/// by hand: `{model, state, questions}` with the question keyed by its id.
+const EXPECTED_BODY: &[u8] = b"{\"model\":\"jev-test\",\"state\":[],\"questions\":{\"q\":{\"type\":\"choice\",\"instructions\":\"x = 1\",\"criteria\":{\"no\":\"no\",\"yes\":\"yes\"}}}}";
 
 const KEY: &str = "super-secret";
 
@@ -105,6 +107,7 @@ fn ok(model: &str) -> HttpResponse {
         "model": model,
         "answers": {
             "q": {
+                "type": "choice",
                 "choice": "no",
                 "confidence": 0.9,
                 "probabilities": {"yes": 0.1, "no": 0.9}
@@ -128,12 +131,6 @@ fn one_check_is_one_request_byte_exact() {
         .judge(&request(payload("x = 1"), None), &SendTrace::new())
         .expect("judge");
     assert_eq!(harness.sent(), vec![EXPECTED_BODY.to_vec()]);
-    let sent = &harness.sent()[0];
-    let payload_bytes = payload("x = 1");
-    assert_eq!(
-        sent,
-        &[b"{\"model\":\"jev-test\",", &payload_bytes.bytes()[1..]].concat()
-    );
     assert_eq!(outcome.backend(), BackendId::Jev);
     let answer = &outcome.answers()["q"];
     assert_eq!(answer.choice().as_str(), "no");
@@ -301,6 +298,7 @@ mod jev_api {
             "model": "jev-test",
             "answers": {
                 "q": {
+                    "type": "choice",
                     "choice": "no",
                     "confidence": 0.9,
                     "probabilities": {"yes": 0.1, "no": 0.9, "maybe": 0.0}
@@ -318,6 +316,7 @@ mod jev_api {
             "model": "jev-test",
             "answers": {
                 "q": {
+                    "type": "choice",
                     "choice": "no",
                     "confidence": 0.9,
                     "probabilities": {"no": 0.9}
@@ -373,10 +372,16 @@ mod jev_api {
 
     #[test]
     fn invalid_question_sends_nothing() {
-        let one_choice = bundle(json!({
-            "questions": [{"id": "q", "prompt": "x", "choices": ["yes"]}],
-            "state": []
-        }));
+        // `Question::new` does not check the count; the payload is refused
+        // when the backend deserializes it.
+        let question = sc_decision_schema::Question::new(
+            "q".try_into().expect("id"),
+            "x",
+            vec!["yes".try_into().expect("choice")],
+        );
+        let one_choice =
+            PayloadBundle::encode(&CanonicalJudgePayload::new(vec![question], Vec::new()))
+                .expect("bundle");
         let harness = scripted(vec![ok("jev-test")]);
         let error = harness
             .client
@@ -400,6 +405,7 @@ mod jev_api {
             "model": "jev-test",
             "answers": {
                 "relevant": {
+                    "type": "choice",
                     "choice": "yes",
                     "confidence": 0.5,
                     "probabilities": {"no": 0.5, "yes": 0.5}
@@ -415,7 +421,7 @@ mod jev_api {
         assert_eq!(outcome.answers()["relevant"].choice().as_str(), "yes");
         let sent = harness.sent();
         assert_eq!(sent.len(), 1);
-        assert!(sent[0].starts_with(br#"{"model":"jev-test","#));
+        assert!(sent[0].starts_with(br#"{"model":"jev-test","state":[],"questions":{"relevant":"#));
     }
 
     #[test]

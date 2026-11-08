@@ -2,7 +2,8 @@
 //!
 //! The user message is the canonical payload decoded as UTF-8. The injected
 //! system prompt is `system` for Haiku and `instructions` for Luna. Neither
-//! body is the Jev wire document (ADR-SAG-0019).
+//! body is the Jev wire document (ADR-SAG-0019): the Jev document is built
+//! by `sc-jev` from the same payload (`sc_decision_schema::jev::v1`).
 
 use sc_agent_http::{HeaderName, SecretHeader};
 use sc_agent_types::{JevError, ResolvedApiKey, Sha256Digest};

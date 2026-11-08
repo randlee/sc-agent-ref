@@ -1,7 +1,7 @@
 ---
 id: r-5
 phase: r
-status: planned
+status: in-review
 closure_type: boundary
 target_boundary: jev
 track: jev
@@ -308,3 +308,53 @@ cargo test -p sc-jev-backends
 - `noul` questions on Haiku/Luna (refused before send).
 - Canonical payloads with string or object `state` (the canonical `state`
   stays the prior-answers array; `jev::v1` encodes all three forms).
+
+## Implementation notes
+
+Choices where the sprint doc is silent (all conservative):
+
+- `Question::try_new` also refuses a repeated choice label (`choice`, `score`),
+  and drops `descriptions` equal to the choice labels (absent means the label),
+  so a payload has one canonical form and the recovered digest of a body built
+  by `from_canonical` always equals `prompt_sha256`.
+- `CanonicalJudgePayload::from_bytes` is the one validator
+  (`serde_json::from_slice` with the error mapping to `INPUT_INVALID`); `sc-jev`
+  and `sc-jev-backends` both call it. `Question::new` stays infallible and does
+  not check the choice count, so a bundle can still hold a one-choice question;
+  both backend families refuse it when they deserialize the bytes.
+- A `noul` question's bundle choice set (`PayloadBundle::question_choices`) is
+  `{no, yes}`, so `JudgeOutcome::new` accepts the derived `yes`/`no` answer
+  without a special case in `judge.rs`.
+- `CheckResponse.usage` defaults to an empty map when absent (today's parser did
+  not require it); every other top-level field lands in `extra`. `provider_meta`
+  is the raw reply object, as before.
+- `jev::v1` types `JevQuestion` and `JevAnswer` are `#[non_exhaustive]`;
+  `CheckRequest::parse` and `CheckResponse::parse` are the public entry points
+  that map serde failures to `INPUT_INVALID` / `RESPONSE_INVALID` (a repeated
+  key or a criteria limit is named; other failures carry category and position
+  only, never body bytes, ADR-SAG-0020). `CheckRequest::recovered_bundle` is
+  the `to_canonical` + `PayloadBundle::encode` step `sc-jev` hashes.
+- `OrderedMap` has a private visitor that yields the pairs, not the map, to
+  keep `sc-boundary` (SCB-CYCLE-001) green.
+- The `WireFault::DropEmbeddedByte` seed in `sc-jev` now drops a letter of the
+  first question's `instructions` value (a dropped key letter would make
+  recovery fail instead of reporting a different digest). The
+  `sc-jev-backends` fault and `wire.rs::recovered_digest` are unchanged: they
+  re-encode the embedded canonical text, which the Haiku/Luna message still
+  carries verbatim; `wire.rs` changed only its module doc.
+- The `jev_api.rs` tests that asserted the spliced body now assert the
+  documented body; `criteria_from_object` and its tests no longer exist in the
+  tree (r-7 had already removed the raw object path), so nothing was deleted
+  for that item.
+- Files outside `owned_paths`, touched only to keep tests and docs in sync:
+  `crates/sc-jev-check/src/payload/caller.rs` (a unit test used one-choice
+  questions that now fail deserialization; it uses two choices),
+  `crates/sc-decision-schema/README.md`, `docs/sc-jev-backends/architecture.md`
+  (validate row), and the REQ-SAG-0400 rows in `docs/requirements.md` and
+  `docs/sc-jev/requirements.md` ("byte-exact" now means retries resend the
+  same body).
+- Known UX gap, not fixed here: `sc-ai jev --request-json` reports a
+  question-kind rule violation with the generic "request JSON must contain a
+  questions array" hint, because `sc-jev-check` maps every deserialization data
+  error to that text. A follow-up in `sc-jev-check` can surface the rule text.
+- No release-consumer input changed (no new crate, no dependency edge).

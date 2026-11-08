@@ -35,27 +35,149 @@ use sc_agent_types::Sha256Digest;
 /// carries for every backend (the same bytes as before the type existed).
 pub type DecisionAnswers = BTreeMap<QuestionId, QuestionAnswer>;
 
+/// The type of a [`Question`] (ADR-SAG-0002, r-5 amendment).
+///
+/// A `choice` question has two to 255 choices, a `score` question has two to
+/// ten ordered levels, and a `noul` question has none: the answer is the
+/// probability of yes. The default is `Choice`, which is never written to the
+/// canonical bytes, so a payload without kinds keeps its Phase A bytes.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum QuestionKind {
+    /// Pick one of two to 255 options.
+    #[default]
+    Choice,
+    /// Pick one of two to ten ordered levels.
+    Score,
+    /// Probability of yes, with no choices and no confidence.
+    Noul,
+}
+
+impl QuestionKind {
+    /// Whether this is [`Self::Choice`], the kind that is not serialized.
+    #[must_use]
+    pub fn is_choice(&self) -> bool {
+        matches!(self, Self::Choice)
+    }
+}
+
+/// Most choices a `choice` question may have (the documented Jev limit).
+const MAX_CHOICE_OPTIONS: usize = 255;
+/// Most levels a `score` question may have (the documented Jev limit).
+const MAX_SCORE_LEVELS: usize = 10;
+/// Fewest choices or levels a `choice` or `score` question may have.
+const MIN_OPTIONS: usize = 2;
+
 /// One question the judge answers.
 ///
 /// Fields are private so a later field is additive; build with
-/// [`Self::new`] or deserialize.
+/// [`Self::new`] (a choice question), [`Self::try_new`] (any kind) or
+/// deserialize. Deserialization runs [`Self::try_new`], so the kind rules
+/// hold for every question read from bytes.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(try_from = "RawQuestion")]
 pub struct Question {
     id: QuestionId,
     prompt: String,
     choices: Vec<ChoiceId>,
+    #[serde(skip_serializing_if = "QuestionKind::is_choice")]
+    kind: QuestionKind,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    descriptions: Option<Vec<String>>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawQuestion {
+    id: QuestionId,
+    prompt: String,
+    choices: Vec<ChoiceId>,
+    #[serde(default)]
+    kind: QuestionKind,
+    #[serde(default)]
+    descriptions: Option<Vec<String>>,
+}
+
+impl TryFrom<RawQuestion> for Question {
+    type Error = String;
+
+    fn try_from(raw: RawQuestion) -> Result<Self, Self::Error> {
+        Self::build(raw.id, raw.prompt, raw.choices, raw.kind, raw.descriptions)
+    }
 }
 
 impl Question {
-    /// A question with `id`, instructions `prompt`, and `choices` in display order.
+    /// A choice question with `id`, instructions `prompt`, and `choices` in
+    /// display order.
+    ///
+    /// This constructor does not check the choice count; the count is
+    /// checked by [`Self::try_new`] and when a payload is deserialized.
     #[must_use]
     pub fn new(id: QuestionId, prompt: impl Into<String>, choices: Vec<ChoiceId>) -> Self {
         Self {
             id,
             prompt: prompt.into(),
             choices,
+            kind: QuestionKind::Choice,
+            descriptions: None,
         }
+    }
+
+    /// A question of any `kind`, checked against that kind's rules.
+    ///
+    /// `choice` has two to 255 distinct choices; `score` has two to ten
+    /// distinct choices, in level order; `noul` has no choices and no
+    /// descriptions. `descriptions`, when present, has exactly one entry per
+    /// choice. Descriptions equal to the choice labels are the same as none,
+    /// so they are dropped and a payload has one canonical form.
+    ///
+    /// # Errors
+    ///
+    /// `INPUT_INVALID` when `choices` or `descriptions` break a rule above.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sc_decision_schema::{ChoiceId, Question, QuestionId, QuestionKind};
+    ///
+    /// let id = QuestionId::try_from("risk")?;
+    /// let levels = vec![ChoiceId::try_from("low")?, ChoiceId::try_from("high")?];
+    /// let question = Question::try_new(id.clone(), "How risky?", levels, QuestionKind::Score, None)?;
+    /// assert_eq!(question.kind(), QuestionKind::Score);
+    /// assert!(Question::try_new(id, "How risky?", Vec::new(), QuestionKind::Score, None).is_err());
+    /// # Ok::<(), sc_agent_types::JevError>(())
+    /// ```
+    pub fn try_new(
+        id: QuestionId,
+        prompt: impl Into<String>,
+        choices: Vec<ChoiceId>,
+        kind: QuestionKind,
+        descriptions: Option<Vec<String>>,
+    ) -> Result<Self, JevError> {
+        Self::build(id, prompt.into(), choices, kind, descriptions).map_err(JevError::input_invalid)
+    }
+
+    fn build(
+        id: QuestionId,
+        prompt: String,
+        choices: Vec<ChoiceId>,
+        kind: QuestionKind,
+        descriptions: Option<Vec<String>>,
+    ) -> Result<Self, String> {
+        check_kind_rules(&id, &choices, kind, descriptions.as_deref())?;
+        let descriptions = descriptions.filter(|list| {
+            !list
+                .iter()
+                .zip(&choices)
+                .all(|(description, choice)| description == choice.as_str())
+        });
+        Ok(Self {
+            id,
+            prompt,
+            choices,
+            kind,
+            descriptions,
+        })
     }
 
     /// The question id.
@@ -77,10 +199,89 @@ impl Question {
         self
     }
 
-    /// Choice labels, in display order.
+    /// Choice labels, in display order. Empty for a `noul` question.
     #[must_use]
     pub fn choices(&self) -> &[ChoiceId] {
         &self.choices
+    }
+
+    /// The question type.
+    #[must_use]
+    pub fn kind(&self) -> QuestionKind {
+        self.kind
+    }
+
+    /// One description per choice, when they differ from the choice labels.
+    #[must_use]
+    pub fn descriptions(&self) -> Option<&[String]> {
+        self.descriptions.as_deref()
+    }
+
+    /// The labels an answer may name: the choices, or `yes` and `no` for a
+    /// `noul` question (its answer is the probability of yes).
+    fn answer_labels(&self) -> BTreeSet<ChoiceId> {
+        match self.kind {
+            QuestionKind::Noul => ["no", "yes"]
+                .into_iter()
+                .filter_map(|label| ChoiceId::try_from(label).ok())
+                .collect(),
+            QuestionKind::Choice | QuestionKind::Score => self.choices.iter().cloned().collect(),
+        }
+    }
+}
+
+fn check_kind_rules(
+    id: &QuestionId,
+    choices: &[ChoiceId],
+    kind: QuestionKind,
+    descriptions: Option<&[String]>,
+) -> Result<(), String> {
+    let range = match kind {
+        QuestionKind::Choice => Some((MIN_OPTIONS, MAX_CHOICE_OPTIONS)),
+        QuestionKind::Score => Some((MIN_OPTIONS, MAX_SCORE_LEVELS)),
+        QuestionKind::Noul => None,
+    };
+    match range {
+        Some((least, most)) => {
+            if !(least..=most).contains(&choices.len()) {
+                return Err(format!(
+                    "question {id} is a {} question and needs {least} to {most} choices, got {}; fix the choices",
+                    kind_name(kind),
+                    choices.len()
+                ));
+            }
+            let distinct: BTreeSet<&ChoiceId> = choices.iter().collect();
+            if distinct.len() != choices.len() {
+                return Err(format!(
+                    "question {id} repeats a choice; give every choice a distinct label"
+                ));
+            }
+        }
+        None => {
+            if !choices.is_empty() || descriptions.is_some() {
+                return Err(format!(
+                    "question {id} is a noul question and takes no choices and no descriptions"
+                ));
+            }
+        }
+    }
+    if let Some(list) = descriptions
+        && list.len() != choices.len()
+    {
+        return Err(format!(
+            "question {id} has {} descriptions for {} choices; give one description per choice",
+            list.len(),
+            choices.len()
+        ));
+    }
+    Ok(())
+}
+
+fn kind_name(kind: QuestionKind) -> &'static str {
+    match kind {
+        QuestionKind::Choice => "choice",
+        QuestionKind::Score => "score",
+        QuestionKind::Noul => "noul",
     }
 }
 
@@ -111,6 +312,38 @@ impl CanonicalJudgePayload {
     #[must_use]
     pub fn new(questions: Vec<Question>, state: Vec<ChoiceAnswer>) -> Self {
         Self { questions, state }
+    }
+
+    /// Parses and validates canonical payload bytes.
+    ///
+    /// The one validator both backend families call (ADR-SAG-0002, r-5
+    /// amendment): it deserializes with `deny_unknown_fields`, and the
+    /// question-kind rules run inside the deserialization.
+    ///
+    /// # Errors
+    ///
+    /// `INPUT_INVALID` when the bytes are not JSON, have an unknown field, or
+    /// a question breaks its kind's rules. The error names the failure, never
+    /// a payload byte outside a question id.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sc_decision_schema::CanonicalJudgePayload;
+    ///
+    /// let bytes = br#"{"questions":[{"id":"q","prompt":"?","choices":["no","yes"]}],"state":[]}"#;
+    /// assert_eq!(CanonicalJudgePayload::from_bytes(bytes)?.questions().len(), 1);
+    /// assert!(CanonicalJudgePayload::from_bytes(b"{}").is_err());
+    /// # Ok::<(), sc_agent_types::JevError>(())
+    /// ```
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, JevError> {
+        serde_json::from_slice(bytes).map_err(|error| {
+            if error.classify() == serde_json::error::Category::Data {
+                JevError::input_invalid(format!("canonical payload is invalid: {error}"))
+            } else {
+                JevError::encode_failed("canonical payload", &error)
+            }
+        })
     }
 
     /// Questions the backends must judge.
@@ -168,7 +401,7 @@ impl PayloadBundle {
     pub fn encode(payload: &CanonicalJudgePayload) -> Result<Self, JevError> {
         let mut question_choices = BTreeMap::new();
         for question in payload.questions() {
-            let choices: BTreeSet<ChoiceId> = question.choices().iter().cloned().collect();
+            let choices = question.answer_labels();
             if question_choices
                 .insert(question.id().clone(), choices)
                 .is_some()
