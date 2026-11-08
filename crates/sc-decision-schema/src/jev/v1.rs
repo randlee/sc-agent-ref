@@ -48,6 +48,7 @@ use crate::payload::{
     CanonicalJudgePayload, ChoiceAnswer, DecisionAnswers, PayloadBundle, Question, QuestionKind,
     decode_failed,
 };
+use crate::probability::{PROBABILITY_RANGE, Probability};
 
 /// Fewest options a `choice` or `score` question has.
 const MIN_CRITERIA: usize = 2;
@@ -671,7 +672,8 @@ pub enum JevAnswer {
 /// # Examples
 ///
 /// ```
-/// use sc_decision_schema::jev::v1::{NoulProbabilities, Probability};
+/// use sc_decision_schema::Probability;
+/// use sc_decision_schema::jev::v1::NoulProbabilities;
 ///
 /// let noul: NoulProbabilities = serde_json::from_str(r#"{"yes":0.25}"#)?;
 /// assert_eq!(noul.yes().get(), 0.25);
@@ -696,72 +698,6 @@ impl NoulProbabilities {
     #[must_use]
     pub fn yes(&self) -> Probability {
         self.yes
-    }
-}
-
-/// Text of the error a [`Probability`] out of range raises; `parse` matches
-/// it to report the range rather than the generic shape error.
-const PROBABILITY_RANGE: &str = "not a finite number in [0, 1]";
-
-/// A finite number in `[0, 1]`: a Jev probability or confidence.
-///
-/// The documented Jev API defines every `probabilities` value as a
-/// probability and every `confidence` as a number in `[0, 1]` (the Jev API
-/// reference `jev-api.md` and `verdict-gating.md`: "a `choice` and a
-/// `confidence` in [0, 1]"). [`Self::new`] and `Deserialize` enforce it, so an
-/// out-of-range reply is refused at parse time. It serializes as the plain
-/// number.
-///
-/// # Examples
-///
-/// ```
-/// use sc_decision_schema::jev::v1::Probability;
-///
-/// let p = Probability::new(0.94)?;
-/// assert_eq!(p.get(), 0.94);
-/// assert_eq!(serde_json::to_string(&p)?, "0.94");
-/// assert!(Probability::new(1.2).is_err());
-/// assert!(Probability::new(f64::NAN).is_err());
-/// assert!(serde_json::from_str::<Probability>("-0.1").is_err());
-/// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize)]
-#[serde(transparent)]
-pub struct Probability(f64);
-
-impl Probability {
-    /// A probability of `value`.
-    ///
-    /// # Errors
-    ///
-    /// `RESPONSE_INVALID` when `value` is NaN, infinite, below 0 or above 1.
-    pub fn new(value: f64) -> Result<Self, JevError> {
-        if value.is_finite() && (0.0..=1.0).contains(&value) {
-            Ok(Self(value))
-        } else {
-            Err(JevError::response_invalid(format!(
-                "{value} is {PROBABILITY_RANGE}"
-            )))
-        }
-    }
-
-    /// The number, in `[0, 1]`.
-    #[must_use]
-    pub fn get(self) -> f64 {
-        self.0
-    }
-}
-
-impl From<Probability> for f64 {
-    fn from(value: Probability) -> Self {
-        value.0
-    }
-}
-
-impl<'de> Deserialize<'de> for Probability {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        // The message never echoes the value (ADR-SAG-0020).
-        Self::new(f64::deserialize(deserializer)?).map_err(|_| de::Error::custom(PROBABILITY_RANGE))
     }
 }
 
@@ -813,7 +749,7 @@ impl CheckResponse {
             .classify()
         {
             serde_json::error::Category::Data if error.to_string().contains(PROBABILITY_RANGE) => {
-                JevError::response_invalid("a probability or confidence is not a number in [0, 1]")
+                JevError::response_invalid(out_of_range_detail(raw))
             }
             serde_json::error::Category::Data => JevError::response_invalid(MODEL_OR_SHAPE),
             _ => JevError::response_invalid("response is not JSON"),
@@ -871,6 +807,37 @@ impl CheckResponse {
     }
 }
 
+/// The range error for `raw`, naming the first answer id and field out of
+/// range. The id is named only when it is a valid [`QuestionId`] and the value
+/// is never echoed (ADR-SAG-0020).
+fn out_of_range_detail(raw: &[u8]) -> String {
+    const GENERIC: &str = "a probability or confidence is not a number in [0, 1]";
+    let in_range = |value: &Value| value.as_f64().is_none_or(|n| (0.0..=1.0).contains(&n));
+    let Ok(Value::Object(root)) = serde_json::from_slice::<Value>(raw) else {
+        return GENERIC.to_owned();
+    };
+    let Some(Value::Object(answers)) = root.get("answers") else {
+        return GENERIC.to_owned();
+    };
+    for (id, answer) in answers {
+        let field = if !answer.get("confidence").is_none_or(in_range) {
+            "confidence"
+        } else if answer
+            .get("probabilities")
+            .and_then(Value::as_object)
+            .is_some_and(|map| !map.values().all(in_range))
+        {
+            "probabilities"
+        } else {
+            continue;
+        };
+        if QuestionId::try_from(id.as_str()).is_ok() {
+            return format!("answer {id} {field} has a value that is not a number in [0, 1]");
+        }
+    }
+    GENERIC.to_owned()
+}
+
 fn map_answer(
     id: &QuestionId,
     question: &JevQuestion,
@@ -891,22 +858,22 @@ fn map_answer(
             },
         ) if same_kind(question, answer) => {
             check_ranked(id, criteria, choice, probabilities)?;
-            let probabilities = probabilities
-                .iter()
-                .map(|(key, value)| (key.clone(), value.get()))
-                .collect();
-            QuestionAnswer::new(choice.clone(), Some(confidence.get()), Some(probabilities))
+            Ok(QuestionAnswer::new(
+                choice.clone(),
+                Some(*confidence),
+                Some(probabilities.clone()),
+            ))
         }
         (JevQuestion::Noul { .. }, JevAnswer::Noul { probabilities }) => {
-            let yes = probabilities.yes().get();
+            let yes = probabilities.yes();
             let probabilities =
-                BTreeMap::from([(ChoiceId::yes(), yes), (ChoiceId::no(), 1.0 - yes)]);
-            let label = if yes >= 0.5 {
+                BTreeMap::from([(ChoiceId::yes(), yes), (ChoiceId::no(), yes.complement())]);
+            let label = if yes.get() >= 0.5 {
                 ChoiceId::yes()
             } else {
                 ChoiceId::no()
             };
-            QuestionAnswer::new(label, None, Some(probabilities))
+            Ok(QuestionAnswer::new(label, None, Some(probabilities)))
         }
         _ => Err(JevError::response_invalid(format!(
             "answer {id} type differs from its question type"

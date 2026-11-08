@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 use sc_agent_types::{JevError, ModelId};
 use sc_decision_schema::jev::v1::{CheckRequest, CheckResponse, JevState, OrderedMap};
-use sc_decision_schema::{CanonicalJudgePayload, ChoiceId, QuestionId};
+use sc_decision_schema::{CanonicalJudgePayload, ChoiceId, Probability, QuestionId};
 use serde_json::{Value, json};
 
 fn fixture(name: &str) -> String {
@@ -116,9 +116,9 @@ fn test_check_response_parses_golden() {
     let answers = response.into_answers(&request).expect("answers");
     let relevant = &answers[&qid("relevant")];
     assert_eq!(relevant.choice().as_str(), "yes");
-    assert_eq!(relevant.confidence(), Some(0.94));
+    assert_eq!(relevant.confidence().map(Probability::get), Some(0.94));
     assert_eq!(
-        relevant.probabilities().expect("probabilities")[&choice("no")],
+        relevant.probabilities().expect("probabilities")[&choice("no")].get(),
         0.04
     );
     assert_eq!(answers[&qid("risk")].choice().as_str(), "low");
@@ -132,14 +132,14 @@ fn test_all_answer_types_parse_golden() {
     let answers = response.into_answers(&request).expect("answers");
     let severity = &answers[&qid("severity")];
     assert_eq!(severity.choice().as_str(), "medium");
-    assert_eq!(severity.confidence(), Some(0.65));
+    assert_eq!(severity.confidence().map(Probability::get), Some(0.65));
     // A noul answer is yes when p >= 0.5, else no; no confidence.
     let urgent = &answers[&qid("urgent")];
     assert_eq!(urgent.choice().as_str(), "no");
     assert_eq!(urgent.confidence(), None);
     let probabilities = urgent.probabilities().expect("probabilities");
-    assert_eq!(probabilities[&choice("yes")], 0.25);
-    assert_eq!(probabilities[&choice("no")], 0.75);
+    assert_eq!(probabilities[&choice("yes")].get(), 0.25);
+    assert_eq!(probabilities[&choice("no")].get(), 0.75);
 
     let at_half = fixture("check-response-all-types.json").replace("0.25", "0.5");
     let answers = CheckResponse::parse(at_half.as_bytes())
@@ -380,8 +380,6 @@ fn test_malformed_body_hint_is_fix_the_body() {
 
 #[test]
 fn test_probability_validates_and_serializes_plain() {
-    use sc_decision_schema::jev::v1::Probability;
-
     for good in [0.0, 0.5, 1.0] {
         let p = Probability::new(good).expect("in range");
         assert_eq!(p.get(), good);
@@ -425,5 +423,36 @@ fn test_out_of_range_reply_names_the_range() {
         let text = error.to_string();
         assert!(text.contains("number in [0, 1]"), "{path}: {text}");
         assert!(!text.contains("1.5") && !text.contains("1.2"), "{text}");
+        // The detail names the question id and field, never the value.
+        let (id, field) = match path {
+            "quality confidence" => ("quality", "confidence"),
+            "quality probabilities" => ("quality", "probabilities"),
+            _ => ("urgent", "probabilities"),
+        };
+        assert!(
+            text.contains(&format!("answer {id} {field}")),
+            "{path}: {text}"
+        );
+    }
+}
+
+#[test]
+fn test_out_of_range_reply_names_the_first_offending_answer() {
+    let mut reply = golden_reply();
+    reply["answers"]["urgent"]["probabilities"] = json!({"yes": 7.25});
+    reply["answers"]["quality"]["confidence"] = json!(9.5);
+    let bytes = serde_json::to_vec(&reply).expect("json");
+    let text = CheckResponse::parse(&bytes).expect_err("range").to_string();
+    assert!(text.contains("answer "), "{text}");
+    assert!(!text.contains("7.25") && !text.contains("9.5"), "{text}");
+}
+
+#[test]
+fn test_probability_error_does_not_echo_its_value() {
+    for bad in [1.234_5, -7.5, f64::NAN] {
+        let text = Probability::new(bad).expect_err("range").to_string();
+        assert!(text.contains("number in [0, 1]"), "{text}");
+        assert!(!text.contains("1.2345") && !text.contains("7.5"), "{text}");
+        assert!(!text.contains("NaN"), "{text}");
     }
 }

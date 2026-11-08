@@ -69,7 +69,7 @@ The documented TypeSafe Jev check API (`POST /v1/systemone`) as data:
 | `JevQuestion` | `choice` (2 to 255 criteria), `score` (2 to 10 ordered levels) or `noul` (no criteria); the counts are checked by one constructor that deserialization also runs |
 | `JevState` | the `state`: string, object or array; top-level object keys keep their order, nested values are `serde_json` values (sorted keys) |
 | `OrderedMap` | a JSON object that keeps key order both ways and refuses a duplicate key |
-| `Probability` | a finite number in `[0, 1]` (private field, `new`/`get`); checked in `new` and `Deserialize`, serialized as the plain number. Every `probabilities` value and every `confidence` of a `JevAnswer` is one (the reference states `confidence` in `[0, 1]`), so an out-of-range reply is `RESPONSE_INVALID` when parsed |
+| `Probability` | (crate root, `sc_decision_schema::Probability`, shared with `QuestionAnswer`) a finite number in `[0, 1]` (private field, `new`/`get`/`complement`); checked in `new` and `Deserialize`, serialized as the plain number. Every `probabilities` value and every `confidence` of a `JevAnswer` is one (the reference states `confidence` in `[0, 1]`), so an out-of-range reply is `RESPONSE_INVALID` when parsed |
 | `NoulProbabilities` | the `noul` answer's `{yes}`; private field, `new`/`yes()` |
 | `CheckResponse`, `JevAnswer` | `{model, answers, usage}`; `into_answers` checks the reply against the request: same model, answer ids equal question ids, answer type equals question type, `choice` in criteria, probability keys equal criteria keys and sum to 1 within 1e-6, every value in `[0, 1]`; a `noul` answer has exactly `yes` and becomes `yes` or `no` with `{yes: p, no: 1 - p}` and no confidence |
 

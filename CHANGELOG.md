@@ -31,6 +31,18 @@ First release. Channels once published: crates.io (ten crates), PyPI
 - A Rust/Python cross-implementation fixture for the canonical judge payload
   bytes (`tests/fixtures/README.md`).
 
+### Changed (public API shape before the first release)
+
+- `Probability` moved from `sc_decision_schema::jev::v1` to the crate root
+  (`sc_decision_schema::Probability`) and gained `complement()`.
+  `QuestionAnswer::new` now takes `Option<Probability>` and
+  `Option<BTreeMap<ChoiceId, Probability>>` and cannot fail (it returns `Self`);
+  `QuestionAnswer::confidence()` and `probabilities()` return `Probability`
+  values. JSON, session rows and Python floats are unchanged.
+- `CheckResponse::parse` names the answer id and field (`confidence` or
+  `probabilities`) of the first out-of-range value, never the value;
+  `Probability::new` no longer echoes its value in its error text.
+
 ### Known limits
 
 - Scoop and WinGet expose only `sc-ai`; `sc-treesitter` is in the archive but
