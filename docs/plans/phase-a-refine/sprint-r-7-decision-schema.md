@@ -1005,4 +1005,5 @@ Choices where the sprint doc is silent (all conservative):
   PR 33: QA-1 issuecomment-6716224250, QA-2 issuecomment-6716378641, QA-3
   issuecomment-6717394905, QA-4 issuecomment-6717456213, QA-5
   issuecomment-6717488489; each finding's triage record is under
-  `.triage/phase-a-refine/findings/R7-QA*` on `integrate/phase-a`.
+  `.triage/phase-a-refine/findings/R7-QA*` on `integrate/phase-a`
+  (all 28 present at commit 9ef3948).
