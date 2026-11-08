@@ -1483,13 +1483,17 @@ HTTP half amends ADR-SAG-0006, 0007,
 - (Active, r-1) **Consumer rule.** Agents and CLI/MCP clients may read
   `schema_version` from every stderr line. A value other than `1` means
   "unknown error shape": fall back to the exit code and the raw line. A bump
-  is a breaking change announced in the changelog.
+  is a breaking change to be announced in `CHANGELOG.md` (nothing has been
+  released yet, so that file has only an unreleased 0.1.0 entry).
 - (Active, r-1) `Error::source()` is `None` for every redacted-cause
   variant (`CredentialStoreInvalid`, `NetworkError`, `EncodeFailed`,
   `IoFailed`, `SessionStoreIo`); no A.1 variant carries a non-redacted source.
 - (Active, r-1) Serde spelling of backend ids matches `Display`
   (`openai_luna`, `openai`), with a one-release read alias for
-  `open_ai_luna` / `open_ai` in config and caller-request input.
+  `open_ai_luna` / `open_ai` in config and caller-request input. Whether and
+  when the alias is removed is the owner's decision, tracked by bead
+  `agt-backend-serde-alias-removal`; nothing has been released, so no release
+  has shipped the alias, and a removal would be announced in `CHANGELOG.md`.
 - (Active, r-1) Module seams are cargo features of `sc-agent-types`:
   `judge`, `secret`, `obs` (default-on), `git` and `test-util`
   (non-default); `error`, `envelope`, `ids`, `schema`, `cancel` are always

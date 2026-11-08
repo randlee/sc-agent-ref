@@ -15,6 +15,8 @@ Its signatures name types owned by `sc-jev-check` (`CheckSource`,
 depends on `sc-jev-check` and `sc-agent-types` directly, at the versions this
 release pins.
 
+Stability: all crates are 0.x; see the [stability statement](https://github.com/randlee/sc-agent/blob/develop/docs/stability.md).
+
 Part of the [sc-agent](https://github.com/randlee/sc-agent) workspace. See the
 repository `docs/sc-jev-host/` for architecture and requirements.
 Licensed under MIT.

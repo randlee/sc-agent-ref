@@ -16,5 +16,7 @@ I/O. Non-default feature `test-util` enables `test_util::MockJudgeBackend`.
 dyn-compatible (`&self` receivers, no generic methods, no `Self` in
 signatures).
 
+Stability: all crates are 0.x; see the [stability statement](https://github.com/randlee/sc-agent/blob/develop/docs/stability.md).
+
 Part of the [sc-agent](https://github.com/randlee/sc-agent) workspace. See the
 repository `docs/` for architecture and requirements. Licensed under MIT.
