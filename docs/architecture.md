@@ -51,12 +51,15 @@ alongside `sc-ai`. Direct dependencies of every crate are listed in its
 ## Crate naming convention
 
 - `sc-jev-*` is anything that speaks the TypeSafe Jev API, including Haiku and
-  Luna through Jev-schema I/O. Today: `sc-jev`, `sc-jev-backends`,
-  `sc-jev-check` and `sc-jev-host`.
+  Luna through Jev-schema I/O, and the consumers built only on it. Today:
+  `sc-jev`, `sc-jev-backends`, `sc-jev-check`, `sc-jev-host` and `sc-jev-py`
+  (the PyO3 consumer of `sc-jev-host`).
 - Each other decision API gets its own API-specific crates: `sc-decider*`,
   `sc-laya*`, `sc-kev*`.
 - `sc-decision-*` (for example `sc-decision-schema`) is the API-agnostic layer
-  across all decision APIs.
+  across all decision APIs. Its shared types are API-agnostic; it also hosts
+  one versioned module per API (`jev::v1` today; `decider::`, `laya::`,
+  `kev::` reserved), so each API's wire types live in one place.
 
 ## Phase A.1 crate graph
 

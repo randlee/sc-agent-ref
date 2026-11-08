@@ -662,9 +662,10 @@ Source: `.cursor/phase-a-orchestration.json` key `owner_decisions_2026_11_07`.
     transitively (the `--depth 1` checks allow it).
 12. **Crate naming and post-MVP roadmap** (owner, 2026-11-07, recorded, not
     built): `sc-jev-*` is anything speaking the TypeSafe Jev API (including
-    Haiku/Luna via Jev-schema I/O); other decision APIs get their own
-    `sc-decider*`, `sc-laya*`, `sc-kev*` crates; `sc-decision-*` is the
-    API-agnostic layer. Post-MVP order: decider crates first, then laya; kev
+    Haiku/Luna via Jev-schema I/O) and consumers built only on it, such as
+    `sc-jev-py`; other decision APIs get their own `sc-decider*`, `sc-laya*`,
+    `sc-kev*` crates; `sc-decision-*` is the API-agnostic layer, which also
+    hosts one versioned module per API (`jev::v1` today). Post-MVP order: decider crates first, then laya; kev
     unscheduled. See `docs/architecture.md` "Crate naming convention".
 
 No owner questions remain open.
