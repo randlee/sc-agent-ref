@@ -48,6 +48,21 @@ through a `command` input. The crate ships a **second released binary**, `sc-tre
 alongside `sc-ai`. Direct dependencies of every crate are listed in its
 `boundaries/<crate>/*.toml` manifest ([`boundaries/README.md`](../boundaries/README.md)).
 
+## Crate naming convention
+
+- `sc-jev-*` is the Jev decision family: crates that send TypeSafe Jev API
+  requests or answer Jev-schema questions, plus the consumers built only on
+  them. Haiku and Luna count as Jev because they answer Jev-schema questions,
+  even though their wire is provider HTTP (ADR-SAG-0007, ADR-SAG-0019). Today:
+  `sc-jev`, `sc-jev-backends`, `sc-jev-check`, `sc-jev-host` and `sc-jev-py`
+  (the PyO3 consumer of `sc-jev-host`).
+- Each other decision API gets its own API-specific crates: `sc-decider*`,
+  `sc-laya*`, `sc-kev*`.
+- `sc-decision-*` (for example `sc-decision-schema`) is the API-agnostic layer
+  across all decision APIs. Its shared types are API-agnostic; it also hosts
+  one versioned module per API (`jev::v1` from r-5; `decider::`, `laya::`,
+  `kev::` reserved), so each API's wire types live in one place.
+
 ## Phase A.1 crate graph
 
 **Status:** Active (Phase A.1) — landed in r-3b.
@@ -1598,6 +1613,15 @@ Owner decisions 2026-11-07.
   `llm::v1::parse_output` holds the one `match`. A future local decision
   model with a slightly different schema adds a `SchemaFamily` variant, a
   module and one arm in this crate; callers do not change.
+- (Recorded; binding as a reservation, owner 2026-11-07; flips with this ADR
+  in r-7) **Per-API modules and crate naming.** `sc-decision-schema` keeps one
+  versioned module per decision API: `jev::v1` lands in r-5 (see "Jev API
+  structs"); `decider::` and `laya::` are reserved for the first post-MVP
+  crates (decider first, then laya) and `kev::` later. Its shared types stay
+  API-agnostic, so those crates plug in without changing the jev crates. Crate
+  families follow "Crate naming convention": `sc-jev-*`, `sc-decider*`,
+  `sc-laya*`, `sc-kev*` (per API) and `sc-decision-*` (API-agnostic). No crate
+  is renamed and no module is built before its sprint.
 - (Proposed, r-7) **Model catalog** (`sc-agent-types`). `ModelId` is an open
   enum: known variants that track recent releases plus `Other(UnknownModel)`, so a
   model released after the build still parses, is sent verbatim and is

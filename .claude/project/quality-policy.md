@@ -135,3 +135,15 @@ Phase plans live only under `docs/plans/phase-<phase>/`.
   phase-`r` plan location; no other phase may use a descriptive directory
   name without its own entry here. Recorded by the Phase A.1 plan PR
   (REQ-QA-012, REQ-QA-R2-008).
+
+- **Phase A.1 landing-sprint ADRs (`docs/plans/phase-a-refine/`).** A
+  phase-`r` sprint doc may list, in its `adrs` list, an ADR or A.1
+  subsection whose Status or marker reads `(Proposed, r-N)` when sprint
+  `r-N` is that sprint itself, or a sprint that lands before it in the
+  plan's dependency order. This is the convention in `docs/architecture.md`
+  (ADR index preamble): the landing sprint flips its own row and markers to
+  `(Active, r-N)`. `arch-qa` applies RULE-ADR-PLAN to such ids as follows.
+  At plan review, the id resolves and the sprint text matches the
+  Proposed design. At sprint QA for `r-N`, the flip is present on the
+  sprint branch. Any other dependency on a Proposed ADR stays a finding.
+  Recorded by PR 32 (ARCH-006).
