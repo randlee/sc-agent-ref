@@ -78,9 +78,40 @@ impl SendOutcome {
 
 /// Values every row carries.
 ///
-/// Public fields on purpose: adding one is a column change and bumps
-/// [`SESSION_LOG_SCHEMA_VERSION`] anyway.
+/// The fields are public to read, but the struct is `#[non_exhaustive]`:
+/// other crates build one with [`RowContextBuilder`], so a column added
+/// later (a [`SESSION_LOG_SCHEMA_VERSION`] bump) is not a breaking change to
+/// callers that only read or build rows.
+///
+/// # Examples
+///
+/// ```
+/// use sc_agent_types::{AnswerId, BackendId, ModelId, Operation, SessionId, Sha256Digest};
+/// use sc_decision_schema::session_log::{RowContextBuilder, TimestampMs};
+/// use sc_decision_schema::{CANONICAL_V1, QuestionId};
+///
+/// let ts = TimestampMs::from_system_time(std::time::UNIX_EPOCH);
+/// let context = RowContextBuilder::new()
+///     .answer_id(AnswerId::new())
+///     .session_id(SessionId::new())
+///     .session_created_at(ts)
+///     .repo("/work/repo")
+///     .prompt_sha256(Sha256Digest::of_text("payload"))
+///     .decision_schema(CANONICAL_V1)
+///     .question_ids(vec![QuestionId::try_from("q")?])
+///     .ts(ts)
+///     .operation(Operation::Judge)
+///     .backend(BackendId::OpenAiLuna)
+///     .model_id(ModelId::Gpt6Luna)
+///     .build()?;
+/// assert_eq!(context.repo, "/work/repo");
+/// assert!(context.project.is_none());
+/// // A missing required value is a typed error, not a half-built context.
+/// assert!(RowContextBuilder::new().build().is_err());
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub struct RowContext {
     /// One id per send.
     pub answer_id: AnswerId,
@@ -111,6 +142,152 @@ pub struct RowContext {
     pub backend: BackendId,
     /// Which model.
     pub model_id: ModelId,
+}
+
+/// Builds a [`RowContext`]; every value but `project` and `request_sha256`
+/// is required.
+#[derive(Debug, Clone, Default)]
+pub struct RowContextBuilder {
+    answer_id: Option<AnswerId>,
+    session_id: Option<SessionId>,
+    session_created_at: Option<TimestampMs>,
+    repo: Option<String>,
+    project: Option<ProjectLabel>,
+    prompt_sha256: Option<Sha256Digest>,
+    decision_schema: Option<DecisionSchemaId>,
+    question_ids: Option<Vec<QuestionId>>,
+    request_sha256: Option<Sha256Digest>,
+    ts: Option<TimestampMs>,
+    operation: Option<Operation>,
+    backend: Option<BackendId>,
+    model_id: Option<ModelId>,
+}
+
+impl RowContextBuilder {
+    /// A builder with no value set.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// One id per send.
+    #[must_use]
+    pub fn answer_id(mut self, value: AnswerId) -> Self {
+        self.answer_id = Some(value);
+        self
+    }
+
+    /// The session the send belongs to.
+    #[must_use]
+    pub fn session_id(mut self, value: SessionId) -> Self {
+        self.session_id = Some(value);
+        self
+    }
+
+    /// When the session was created.
+    #[must_use]
+    pub fn session_created_at(mut self, value: TimestampMs) -> Self {
+        self.session_created_at = Some(value);
+        self
+    }
+
+    /// Absolute path text of the main repo root (see [`RowContext::repo_text`]).
+    #[must_use]
+    pub fn repo(mut self, value: impl Into<String>) -> Self {
+        self.repo = Some(value.into());
+        self
+    }
+
+    /// Caller text for this send; left out, it is written as `null`.
+    #[must_use]
+    pub fn project(mut self, value: Option<ProjectLabel>) -> Self {
+        self.project = value;
+        self
+    }
+
+    /// SHA-256 of the canonical payload bytes.
+    #[must_use]
+    pub fn prompt_sha256(mut self, value: Sha256Digest) -> Self {
+        self.prompt_sha256 = Some(value);
+        self
+    }
+
+    /// The decision schema of this send.
+    #[must_use]
+    pub fn decision_schema(mut self, value: DecisionSchemaId) -> Self {
+        self.decision_schema = Some(value);
+        self
+    }
+
+    /// Question ids in payload order.
+    #[must_use]
+    pub fn question_ids(mut self, value: Vec<QuestionId>) -> Self {
+        self.question_ids = Some(value);
+        self
+    }
+
+    /// SHA-256 of the exact body sent; left out when no body was built.
+    #[must_use]
+    pub fn request_sha256(mut self, value: Option<Sha256Digest>) -> Self {
+        self.request_sha256 = value;
+        self
+    }
+
+    /// When the send finished.
+    #[must_use]
+    pub fn ts(mut self, value: TimestampMs) -> Self {
+        self.ts = Some(value);
+        self
+    }
+
+    /// Judge send or session ask.
+    #[must_use]
+    pub fn operation(mut self, value: Operation) -> Self {
+        self.operation = Some(value);
+        self
+    }
+
+    /// How we called.
+    #[must_use]
+    pub fn backend(mut self, value: BackendId) -> Self {
+        self.backend = Some(value);
+        self
+    }
+
+    /// Which model.
+    #[must_use]
+    pub fn model_id(mut self, value: ModelId) -> Self {
+        self.model_id = Some(value);
+        self
+    }
+
+    /// The context.
+    ///
+    /// # Errors
+    ///
+    /// `INPUT_INVALID` when a required value was not set; the message names it.
+    pub fn build(self) -> Result<RowContext, JevError> {
+        fn need<T>(value: Option<T>, name: &str) -> Result<T, JevError> {
+            value.ok_or_else(|| {
+                JevError::input_invalid(format!("session log row context needs `{name}`"))
+            })
+        }
+        Ok(RowContext {
+            answer_id: need(self.answer_id, "answer_id")?,
+            session_id: need(self.session_id, "session_id")?,
+            session_created_at: need(self.session_created_at, "session_created_at")?,
+            repo: need(self.repo, "repo")?,
+            project: self.project,
+            prompt_sha256: need(self.prompt_sha256, "prompt_sha256")?,
+            decision_schema: need(self.decision_schema, "decision_schema")?,
+            question_ids: need(self.question_ids, "question_ids")?,
+            request_sha256: self.request_sha256,
+            ts: need(self.ts, "ts")?,
+            operation: need(self.operation, "operation")?,
+            backend: need(self.backend, "backend")?,
+            model_id: need(self.model_id, "model_id")?,
+        })
+    }
 }
 
 impl RowContext {

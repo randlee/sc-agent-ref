@@ -9,7 +9,7 @@ use std::time::SystemTime;
 
 use sc_agent_types::observability::v2::{LogEvent, SharedSessionLog};
 use sc_agent_types::{AnswerId, JevError, Operation, ProjectLabel, RepoRoot, SendTrace, SessionId};
-use sc_decision_schema::session_log::{RowContext, SessionLogRow, TimestampMs};
+use sc_decision_schema::session_log::{RowContext, RowContextBuilder, SessionLogRow, TimestampMs};
 use sc_decision_schema::{DecisionSchemaId, JudgeBackend, JudgeOutcome, JudgeRequest};
 
 use super::{RunConfig, discover_main_repo_root};
@@ -108,20 +108,25 @@ impl<'a> SendLog<'a> {
         trace: &SendTrace,
         judged: &Result<JudgeOutcome, JevError>,
     ) {
-        let context = RowContext {
-            answer_id: AnswerId::new(),
-            session_id: self.session_id,
-            session_created_at: TimestampMs::from_system_time(self.session_created_at),
-            repo: self.repo.clone(),
-            project: self.project.clone(),
-            prompt_sha256: request.payload().sha256().clone(),
-            decision_schema: DecisionSchemaId::CURRENT,
-            question_ids: request.payload().question_ids().cloned().collect(),
-            request_sha256: trace.request_sha256(),
-            ts: TimestampMs::from_system_time(SystemTime::now()),
-            operation: self.operation,
-            backend: judge.id(),
-            model_id: judge.model_id(),
+        let built = RowContextBuilder::new()
+            .answer_id(AnswerId::new())
+            .session_id(self.session_id)
+            .session_created_at(TimestampMs::from_system_time(self.session_created_at))
+            .repo(self.repo.clone())
+            .project(self.project.clone())
+            .prompt_sha256(request.payload().sha256().clone())
+            .decision_schema(DecisionSchemaId::CURRENT)
+            .question_ids(request.payload().question_ids().cloned().collect())
+            .request_sha256(trace.request_sha256())
+            .ts(TimestampMs::from_system_time(SystemTime::now()))
+            .operation(self.operation)
+            .backend(judge.id())
+            .model_id(judge.model_id())
+            .build();
+        // Every required value is set above, so `build` cannot fail; a row
+        // that could not be built is skipped like any rejected row.
+        let Ok(context) = built else {
+            return;
         };
         let row = match judged {
             Ok(outcome) => SessionLogRow::ok(context, outcome.answers().clone()),

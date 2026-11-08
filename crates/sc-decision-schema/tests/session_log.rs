@@ -8,8 +8,8 @@ use sc_agent_types::{
     AnswerId, BackendId, ErrorCode, ModelId, Operation, ProjectLabel, SessionId, Sha256Digest,
 };
 use sc_decision_schema::session_log::{
-    COLUMNS, RowContext, SESSION_LOG_DDL, SESSION_LOG_SCHEMA_VERSION, SendOutcome, SessionLogRow,
-    TimestampMs,
+    COLUMNS, RowContextBuilder, SESSION_LOG_DDL, SESSION_LOG_SCHEMA_VERSION, SendOutcome,
+    SessionLogRow, TimestampMs,
 };
 use sc_decision_schema::{CANONICAL_V1, DecisionAnswers, QuestionId};
 use serde_json::{Map, Value, json};
@@ -151,21 +151,22 @@ fn test_fields_roundtrip() {
         UNIX_EPOCH + Duration::new(1_731_000_000, 123_000_000)
     );
     let q = QuestionId::try_from("q").expect("id");
-    let context = RowContext {
-        answer_id: AnswerId::new(),
-        session_id: SessionId::new(),
-        session_created_at: ts,
-        repo: "/work/repo".to_owned(),
-        project: Some(ProjectLabel::new("p").expect("label")),
-        prompt_sha256: Sha256Digest::of_text("payload"),
-        decision_schema: CANONICAL_V1,
-        question_ids: vec![q.clone()],
-        request_sha256: None,
-        ts,
-        operation: Operation::Judge,
-        backend: BackendId::OpenAiLuna,
-        model_id: ModelId::Gpt6Luna,
-    };
+    let context = RowContextBuilder::new()
+        .answer_id(AnswerId::new())
+        .session_id(SessionId::new())
+        .session_created_at(ts)
+        .repo("/work/repo")
+        .project(Some(ProjectLabel::new("p").expect("label")))
+        .prompt_sha256(Sha256Digest::of_text("payload"))
+        .decision_schema(CANONICAL_V1)
+        .question_ids(vec![q.clone()])
+        .request_sha256(None)
+        .ts(ts)
+        .operation(Operation::Judge)
+        .backend(BackendId::OpenAiLuna)
+        .model_id(ModelId::Gpt6Luna)
+        .build()
+        .expect("context");
     let row = SessionLogRow::failed(context.clone(), ErrorCode::NetworkError);
     let fields = row.to_fields();
     assert_eq!(fields["ts"], json!("2024-11-07T17:20:00.123Z"));
@@ -248,4 +249,14 @@ fn test_unknown_or_missing_key_rejected() {
     let mut bad_code = fixture_lines().remove(1);
     bad_code.insert("error_code".to_owned(), json!("NOT_A_CODE"));
     assert!(refuse(&bad_code).contains("error_code"));
+}
+
+#[test]
+fn test_row_context_builder_names_the_missing_value() {
+    let error = RowContextBuilder::new()
+        .answer_id(AnswerId::new())
+        .build()
+        .expect_err("incomplete");
+    assert_eq!(error.code(), "INPUT_INVALID");
+    assert!(error.to_string().contains("session_id"), "{error}");
 }

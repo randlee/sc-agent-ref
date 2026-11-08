@@ -31,3 +31,7 @@ probably written by a newer sc-agent).
 such repos can share one `answers_by_repo_project` key. `project` is caller text
 validated by `ProjectLabel` and not scrubbed. No secret, payload text, prompt
 text or raw response body appears in any column.
+
+`RowContext` is `#[non_exhaustive]`: its fields are public to read, and other
+crates build one with `RowContextBuilder`. A new column still bumps the
+schema version.
