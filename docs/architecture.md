@@ -743,7 +743,7 @@ Amends the r-3 busy-retry numbers above; the rest of r-3 stands.
 
 - `BusyPolicy` makes at most 5 sends in total, and no policy may exceed 5.
   With the default 5 sends, four waits occur when Retry-After is absent or
-  malformed: 1, 2, 4, 8 s, 15 s before jitter. The 30 s cap applies only to an
+  malformed, of 1, 2, 4 and 8 s (15 s total before jitter). The 30 s cap applies only to an
   honoured Retry-After. The 90 s budget stays as a ceiling for slow or
   Retry-After-heavy sequences.
 - The shared layer bounds the transport deadlines for every backend: request

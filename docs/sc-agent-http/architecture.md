@@ -74,7 +74,7 @@ every text field, so a header echo or body excerpt containing the key becomes
 ## Busy retry and cancel latency
 
 `BusyPolicy::default()` encodes owner decision (b) (REQ-SAG-0505 amended,
-ADR-SAG-0007 r-3): 429/502/529 only; 5 sends; a valid Retry-After clamped to
+ADR-SAG-0007 r-3 and its phase-end amendment): 429/502/529 only; 5 sends; a valid Retry-After clamped to
 0–30 s; absent or malformed → 1, 2, 4, 8 s; up to 250 ms
 jitter (std `RandomState` hashed with the current time); a 90 s budget from
 the first send, every wait `min(wait + jitter, remaining)`, no attempt
