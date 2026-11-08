@@ -1,16 +1,14 @@
 //! Pre-send checks for a canonical payload and its injected prompt.
 //!
-//! A payload with no question, or a question with fewer than two choices,
-//! refuses before any HTTP call. Question ids and choices are the typed map
-//! the `PayloadBundle` already carries; nothing is re-parsed from bytes. An
-//! unknown question type or a missing prompt cannot be built into a bundle.
+//! The payload bytes are deserialized as a `CanonicalJudgePayload` (the same
+//! validator `sc-jev` uses; the question-kind rules run inside it). A payload
+//! with no question, a question that breaks its kind's rules, or a `noul`
+//! question refuses before any HTTP call.
 //! The byte cap is the assembled judge body (system prompt plus canonical
 //! payload), not the payload alone (ADR-SAG-0004, REQ-SAG-0502).
 
-use std::collections::{BTreeMap, BTreeSet};
-
 use sc_agent_types::JevError;
-use sc_decision_schema::{ChoiceId, PayloadBundle, QuestionId};
+use sc_decision_schema::{CanonicalJudgePayload, PayloadBundle, QuestionKind};
 
 /// Pre-send input token ceiling for one judge call (ADR-SAG-0004).
 ///
@@ -68,37 +66,43 @@ pub(crate) fn enforce_count_and_message_limits(
     Ok(())
 }
 
-/// The bundle's typed question map, after the choice-question checks the
-/// bundle does not cover.
+/// Validates the payload a Haiku or Luna call embeds.
+///
+/// The bytes are deserialized as a [`CanonicalJudgePayload`], the one
+/// validator Jev uses too: unknown fields and question-kind rule violations
+/// are refused there. A `noul` question is refused here, before any send.
 ///
 /// # Errors
 ///
-/// `INPUT_INVALID` when the payload has no question or a question has fewer
-/// than two distinct choices.
-pub(crate) fn validate_questions(
-    bundle: &PayloadBundle,
-) -> Result<&BTreeMap<QuestionId, BTreeSet<ChoiceId>>, JevError> {
-    let questions = bundle.question_choices();
-    if questions.is_empty() {
+/// `INPUT_INVALID` when the payload does not deserialize (a `choice` question
+/// needs 2 to 255 choices, a `score` question 2 to 10), has no question, or
+/// has a `noul` question.
+pub(crate) fn validate_questions(bundle: &PayloadBundle) -> Result<(), JevError> {
+    let payload = CanonicalJudgePayload::from_bytes(bundle.bytes())?;
+    if payload.questions().is_empty() {
         return Err(JevError::input_invalid(
             "a check needs at least one question",
         ));
     }
-    if let Some(id) = questions
+    if let Some(question) = payload
+        .questions()
         .iter()
-        .find_map(|(id, choices)| (choices.len() < 2).then_some(id))
+        .find(|question| question.kind() == QuestionKind::Noul)
     {
         return Err(JevError::input_invalid(format!(
-            "question {id} is not a choice question with two or more criteria"
+            "question {} is a noul question; Haiku and Luna answer choice and score questions; send noul questions to jev",
+            question.id()
         )));
     }
-    Ok(questions)
+    Ok(())
 }
 
 /// Refusal paths of `validate_questions` on bundles built from payloads.
 #[cfg(test)]
 mod refusals {
-    use sc_decision_schema::{CanonicalJudgePayload, PayloadBundle};
+    use sc_decision_schema::{
+        CanonicalJudgePayload, ChoiceId, PayloadBundle, Question, QuestionId,
+    };
     use serde_json::json;
 
     use super::validate_questions;
@@ -109,26 +113,40 @@ mod refusals {
         PayloadBundle::encode(&payload).expect("bundle")
     }
 
+    /// A bundle built with the infallible constructor, which skips the kind
+    /// rules; `validate_questions` deserializes the bytes and applies them.
+    fn unchecked(choices: &[&str]) -> PayloadBundle {
+        let choices = choices
+            .iter()
+            .map(|label| ChoiceId::try_from(*label).expect("choice"))
+            .collect();
+        let question =
+            Question::new_unchecked(QuestionId::try_from("q").expect("id"), "p", choices);
+        PayloadBundle::encode(&CanonicalJudgePayload::new(vec![question], Vec::new()))
+            .expect("bundle")
+    }
+
     #[test]
     fn validate_questions_refuses_every_malformed_payload() {
         let cases = [
-            (json!([]), "at least one question"),
+            (bundle(json!([])), "at least one question"),
+            (unchecked(&["a"]), "needs 2 to 255 choices"),
+            (unchecked(&["a", "a"]), "repeats a choice"),
             (
-                json!([{"id": "q", "prompt": "p", "choices": ["a"]}]),
-                "question q is not a choice question",
-            ),
-            (
-                json!([{"id": "q", "prompt": "p", "choices": ["a", "a"]}]),
-                "question q is not a choice question",
+                bundle(json!([{"id": "q", "prompt": "p", "choices": [], "kind": "noul"}])),
+                "send noul questions to jev",
             ),
         ];
-        for (questions, needle) in cases {
-            let bundle = bundle(questions);
+        for (bundle, needle) in cases {
             let error = validate_questions(&bundle).expect_err(needle);
             assert_eq!(error.code(), "INPUT_INVALID", "{needle}");
             assert!(error.to_string().contains(needle), "{needle}: {error}");
         }
         let ok = bundle(json!([{"id": "q", "prompt": "p", "choices": ["a", "b"]}]));
-        assert_eq!(validate_questions(&ok).expect("valid").len(), 1);
+        validate_questions(&ok).expect("valid");
+        let score = bundle(
+            json!([{"id": "q", "prompt": "p", "choices": ["1", "2", "3"], "kind": "score"}]),
+        );
+        validate_questions(&score).expect("score is valid");
     }
 }

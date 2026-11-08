@@ -1,7 +1,7 @@
 # sc-jev — architecture
 
 **Boundary:** `jev`  
-**Depends on:** `sc-agent-types`, `sc-agent-http` (r-3), `serde`, `serde_json`, `toml` (API key resolved by **`sc-jev-check`** and passed at `JevClient` construction)
+**Depends on:** `sc-agent-types`, `sc-decision-schema`, `sc-agent-http` (r-3), `serde`, `serde_json`, `toml` (API key resolved by **`sc-jev-check`** and passed at `JevClient` construction)
 
 ## North star
 
@@ -16,7 +16,7 @@ as modules without new top-level client crates.
 | Module | Purpose |
 | --- | --- |
 | `client` | `JevClient<T: Transport = UreqTransport>`: builds the `HttpRequest` (endpoint, `Content-Type`, `Authorization: Bearer` as a `SecretHeader`) and maps the reply |
-| `check` | Check/judge wire body (byte-exact payload, pinned model) and response parser |
+| `check` | Check/judge wire body (`sc_decision_schema::jev::v1::CheckRequest` for the pinned model), `input_sha256` recovery by inverting the body, and the reply parser (`CheckResponse`) |
 | `config` | `JevClientConfig`, packaged `jev.toml` (host, path, attempts, timeout); the model is a `ModelId` from the `sc-agent-types` catalog, set by the backend factory, not read from `jev.toml` |
 
 From r-3, HTTP transport, busy retry, the 8 MiB response cap and redaction
@@ -37,7 +37,16 @@ doubles through the dev-dependency.
 ## Check flow (Phase A)
 
 1. Caller (facade) builds `JudgeRequest` with canonical `PayloadBundle`.
-2. `JevClient` as `JudgeBackend` POSTs `req.payload.bytes` byte-exact.
-3. Response parsed to `JudgeOutcome`.
+2. `JevClient` as `JudgeBackend` deserializes the payload bytes (the one
+   validator), builds the documented Jev body `{model, state, questions}`
+   with `CheckRequest::from_canonical` and POSTs `to_body()`. The body is
+   built once; busy retries resend it unchanged. A body over the descriptor's
+   `request_limit_bytes` is `INPUT_TOO_LARGE` and is not sent.
+3. `input_sha256` is recovered by parsing the final body with `CheckRequest`
+   and inverting it to canonical bytes (ADR-SAG-0025); for an unmodified body
+   it equals `prompt_sha256`.
+4. The reply parses through `CheckResponse` and `into_answers` (model, ids,
+   types, criteria, probabilities) to a `JudgeOutcome`; `noul` answers map to
+   `yes`/`no` with no confidence. There is no byte-splice.
 
 Comparison backends are registered and invoked only from **`sc-jev-check`**.

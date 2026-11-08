@@ -10,6 +10,7 @@ use sc_agent_types::{BackendId, BackendKeyId, ModelId, ResolvedApiKey, SendTrace
 use sc_decision_schema::test_util::judge_outcome_field_names;
 use sc_decision_schema::{
     CanonicalJudgePayload, JudgeBackend, JudgeOutcome, JudgeRequest, LlmWireContext, PayloadBundle,
+    Question,
 };
 use sc_jev_backends::{AnthropicHaikuBackend, OpenAiLunaBackend};
 use serde_json::{Value, json};
@@ -402,12 +403,25 @@ fn test_llm_input_is_refused_like_jev_and_nothing_is_sent() {
     assert_eq!(too_big.code(), "INPUT_TOO_LARGE");
     assert!(posts(&recorded).is_empty());
 
-    let short = request_with(json!([question(&["only"])]), Some(PROMPT));
+    // `Question::new_unchecked` does not check the choice count, so a caller can build
+    // this bundle; the backend deserializes the bytes and refuses it.
+    let one = Question::new_unchecked(
+        "q".try_into().expect("id"),
+        "judge this",
+        vec!["only".try_into().expect("choice")],
+    );
+    let short = JudgeRequest::new(
+        Arc::new(
+            PayloadBundle::encode(&CanonicalJudgePayload::new(vec![one], Vec::new()))
+                .expect("bundle"),
+        ),
+        Some(LlmWireContext::new(PROMPT)),
+    );
     let invalid = backend
         .judge(&short, &SendTrace::new())
         .expect_err("one choice");
     assert_eq!(invalid.code(), "INPUT_INVALID");
-    assert!(invalid.to_string().contains("two or more criteria"));
+    assert!(invalid.to_string().contains("needs 2 to 255 choices"));
     assert!(posts(&recorded).is_empty());
 
     let missing_prompt = request_with(json!([question(&["yes", "no"])]), None);
@@ -566,16 +580,17 @@ fn test_llm_non_2xx_detail_is_redacted() {
     let (backend, recorded) = haiku(vec![text_response(
         401,
         Vec::new(),
-        &format!("invalid x-api-key {KEY}"),
+        &format!("invalid x-api-key {KEY} SENTINEL-RESPONSE-BODY"),
     )]);
     let error = backend
         .judge(&standard_request(PROMPT), &SendTrace::new())
         .expect_err("401");
     assert_eq!(error.code(), "NETWORK_ERROR");
-    assert_eq!(
-        error.to_string(),
-        "network error: haiku HTTP 401: invalid x-api-key [redacted]"
-    );
+    // Status only: the response body is never echoed.
+    assert_eq!(error.to_string(), "network error: haiku HTTP 401");
+    let rendered = format!("{error} {}", error.fix_hint());
+    assert!(!rendered.contains("SENTINEL-RESPONSE-BODY"), "{rendered}");
+    assert!(!rendered.contains(KEY), "{rendered}");
     assert_eq!(posts(&recorded).len(), 1);
 }
 
@@ -765,4 +780,58 @@ fn test_llm_model_id_is_configured_model() {
         default.model_id(),
         BackendId::AnthropicHaiku.descriptor().default_model()
     );
+}
+
+/// A `noul` question is refused in `validate_for_send` and `judge` before any
+/// send, by both LLM backends.
+#[test]
+fn test_noul_question_refused_before_send() {
+    let noul = json!([{"id": "q", "prompt": "judge this", "choices": [], "kind": "noul"}]);
+    let request = request_with(noul, Some(PROMPT));
+    let (haiku_backend, haiku_recorded) = haiku(vec![count_reply(1)]);
+    let (luna_backend, luna_recorded) = luna(vec![count_reply(1)]);
+    for result in [
+        haiku_backend.validate_for_send(&request),
+        haiku_backend.judge(&request, &SendTrace::new()).map(|_| ()),
+        luna_backend.validate_for_send(&request),
+        luna_backend.judge(&request, &SendTrace::new()).map(|_| ()),
+    ] {
+        let error = result.expect_err("noul");
+        assert_eq!(error.code(), "INPUT_INVALID");
+        assert!(
+            error.to_string().contains(
+                "Haiku and Luna answer choice and score questions; send noul questions to jev"
+            ),
+            "{error}"
+        );
+    }
+    assert!(posts(&haiku_recorded).is_empty());
+    assert!(posts(&luna_recorded).is_empty());
+}
+
+/// A `score` question takes the `choice` path: the levels are the choices and
+/// the embedded canonical bytes carry `kind` and `descriptions`.
+#[test]
+fn test_score_question_embeds_levels_and_descriptions() {
+    let score = json!([{
+        "id": "q", "prompt": "judge this", "choices": ["low", "mid", "high"],
+        "kind": "score", "descriptions": ["bad", "ok", "good"]
+    }]);
+    let request = request_with(score, Some(PROMPT));
+    let payload_text = std::str::from_utf8(request.payload().bytes()).expect("utf-8");
+    assert!(payload_text.contains(r#""kind":"score""#));
+    assert!(payload_text.contains(r#""descriptions":["bad","ok","good"]"#));
+    let reply = r#"{"answers":{"q":{"choice":"mid","confidence":0.8,"probabilities":{"low":0.1,"mid":0.8,"high":0.1}}}}"#;
+    let (backend, recorded) = haiku(vec![
+        haiku_message(reply, "end_turn", 100),
+        count_reply(100),
+    ]);
+    let outcome = backend.judge(&request, &SendTrace::new()).expect("judge");
+    assert_eq!(outcome.answers()["q"].choice().as_str(), "mid");
+    let seen = posts(&recorded);
+    assert_eq!(
+        body_json(&seen[1])["messages"],
+        json!([{ "role": "user", "content": payload_text }])
+    );
+    assert_eq!(outcome.input_sha256(), Some(request.payload().sha256()));
 }

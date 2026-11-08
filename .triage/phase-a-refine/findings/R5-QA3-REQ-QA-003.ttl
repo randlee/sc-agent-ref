@@ -1,0 +1,49 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R5-QA3-REQ-QA-003>
+  a triage:Finding ;
+  triage:findingId "R5-QA3-REQ-QA-003" ;
+  triage:title "The new regression test test_malformed_body_hint_is_fix_the_body guards ARCH-002 and NFR-SAG-0002 (no body bytes in errors), but the authori" ;
+  triage:description "The new regression test test_malformed_body_hint_is_fix_the_body guards ARCH-002 and NFR-SAG-0002 (no body bytes in errors), but the authoritative acceptance table does not name it. The regression is therefore not enforced by the sprint's own gate." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "qa" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T06:41:10Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R5 ;
+  triage:foundAt "2026-11-08T06:39:59Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R5-QA3-REQ-QA-003/SPRINT-1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R5-QA3-REQ-QA-003/SPRINT-1>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md" ;
+  triage:line 300 ;
+  triage:snippet "## Acceptance criteria (authoritative; every command here is also run)" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-5-jev-wire-envelope" ;
+  triage:headSha "69725308455bd8827b0a46e31e3f598327d66f55" ;
+  triage:occursIn <urn:atm:triage:worktree/r-5-jev-wire-envelope/69725308455bd8827b0a46e31e3f598327d66f55> .
+
+<urn:atm:triage:worktree/integrate-phase-a/48c4d1cf5a0972351bc146721db41888fbc5cfa3>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "48c4d1cf5a0972351bc146721db41888fbc5cfa3" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/r-5-jev-wire-envelope/69725308455bd8827b0a46e31e3f598327d66f55>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-5-jev-wire-envelope" ;
+  triage:branch "sprint/r-5-jev-wire-envelope" ;
+  triage:headSha "69725308455bd8827b0a46e31e3f598327d66f55" ;
+  triage:orderIndex 1 .

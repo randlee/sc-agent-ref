@@ -1,0 +1,61 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R6-QA1-RSH-001>
+  a triage:Finding ;
+  triage:findingId "R6-QA1-RSH-001" ;
+  triage:title "Expired session documents are never deleted" ;
+  triage:description "Expired session documents are never deleted. Each live run that selects an ask-capable backend writes one <id>.json (up to about 96 KB) into the sessions directory. Expiry (is_expired, lines 244-248; read_session, lines 238-240) only refuses to load the file. The only cleanup, sweep_stale_tmp (lines 508-528, called from FileSessionStore::new at line 137), removes *.tmp.* files, so the directory grows without bound. Session versions 1 and 2 are also refused on read but are never removed." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "bounded_resources_retention" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T06:08:59Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R6 ;
+  triage:foundAt "2026-11-08T06:07:39Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R6-QA1-RSH-001/R6-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R6-QA1-RSH-001/R6-2> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R6-QA1-RSH-001/R6-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-check/src/session/mod.rs" ;
+  triage:line 234 ;
+  triage:snippet "if self.is_expired(document.created_at)? {" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "714d2845c48cd0b4fa40bcd2017c248049f3662a" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/714d284> .
+
+<urn:atm:triage:occurrence/R6-QA1-RSH-001/R6-2>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-check/src/session/mod.rs" ;
+  triage:line 238 ;
+  triage:snippet "if self.is_expired(document.created_at)? {" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-6-session-log-record" ;
+  triage:headSha "f6ddc71c5fc8e0ea9a9e4d100529457784039873" ;
+  triage:occursIn <urn:atm:triage:worktree/r-6-session-log-record/f6ddc71> .
+
+<urn:atm:triage:worktree/integrate-phase-a/714d284>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "714d2845c48cd0b4fa40bcd2017c248049f3662a" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/r-6-session-log-record/f6ddc71>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-6-session-log-record" ;
+  triage:branch "sprint/r-6-session-log-record" ;
+  triage:headSha "f6ddc71c5fc8e0ea9a9e4d100529457784039873" ;
+  triage:orderIndex 1 .

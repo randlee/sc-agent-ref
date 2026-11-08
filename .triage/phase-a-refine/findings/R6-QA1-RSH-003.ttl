@@ -1,0 +1,85 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R6-QA1-RSH-003>
+  a triage:Finding ;
+  triage:findingId "R6-QA1-RSH-003" ;
+  triage:title "The sc-observability envelope leaves request_id and correlation_id as None, while the row carries session_id and answer_id as ULIDs in fields{} only" ;
+  triage:description "The sc-observability envelope leaves request_id and correlation_id as None, while the row carries session_id and answer_id as ULIDs in fields{} only. Generic log tooling that correlates on envelope fields cannot join rows to a session or to a send." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "request_id_correlation" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T06:08:54Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R6 ;
+  triage:foundAt "2026-11-08T06:07:39Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R6-QA1-RSH-003/R6-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R6-QA1-RSH-003/R6-2> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R6-QA1-RSH-003/INT-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R6-QA1-RSH-003/INT-2> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R6-QA1-RSH-003/R6-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-host/src/obs.rs" ;
+  triage:line 196 ;
+  triage:snippet "request_id: None," ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-6-session-log-record" ;
+  triage:headSha "f6ddc71c5fc8e0ea9a9e4d100529457784039873" ;
+  triage:occursIn <urn:atm:triage:worktree/R6/f6ddc71> .
+
+<urn:atm:triage:occurrence/R6-QA1-RSH-003/R6-2>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-host/src/obs.rs" ;
+  triage:line 197 ;
+  triage:snippet "correlation_id: None," ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-6-session-log-record" ;
+  triage:headSha "f6ddc71c5fc8e0ea9a9e4d100529457784039873" ;
+  triage:occursIn <urn:atm:triage:worktree/R6/f6ddc71> .
+
+<urn:atm:triage:occurrence/R6-QA1-RSH-003/INT-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-host/src/obs.rs" ;
+  triage:line 210 ;
+  triage:snippet "request_id: None," ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "714d2845c48cd0b4fa40bcd2017c248049f3662a" ;
+  triage:occursIn <urn:atm:triage:worktree/PHASE-A/714d284> .
+
+<urn:atm:triage:occurrence/R6-QA1-RSH-003/INT-2>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-host/src/obs.rs" ;
+  triage:line 211 ;
+  triage:snippet "correlation_id: None," ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "714d2845c48cd0b4fa40bcd2017c248049f3662a" ;
+  triage:occursIn <urn:atm:triage:worktree/PHASE-A/714d284> .
+
+<urn:atm:triage:worktree/PHASE-A/714d284>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "714d2845c48cd0b4fa40bcd2017c248049f3662a" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/R6/f6ddc71>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-6-session-log-record" ;
+  triage:branch "sprint/r-6-session-log-record" ;
+  triage:headSha "f6ddc71c5fc8e0ea9a9e4d100529457784039873" ;
+  triage:orderIndex 1 .

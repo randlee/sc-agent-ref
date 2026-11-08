@@ -1,0 +1,61 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R6-QA1-FTQ-004>
+  a triage:Finding ;
+  triage:findingId "R6-QA1-FTQ-004" ;
+  triage:title "run_from and ask_from flush the file logger through a barrier with a 5 s default timeout (sc-observability 1.5.0, DEFAULT_WRITER_SHUTDOWN_TI" ;
+  triage:description "run_from and ask_from flush the file logger through a barrier with a 5 s default timeout (sc-observability 1.5.0, DEFAULT_WRITER_SHUTDOWN_TIMEOUT and flush_with_timeout in runtime.rs). If the writer stalls past 5 s, flush returns Err. compose.rs turns that into a response warning ('session log was not flushed'). The test discards response.warnings() from both calls and then reads the JSONL file, so a flush timeout appears only as an opaque row-count assertion (rows.len() == 1 or == 2). That is intermittent under load and does not name its cause." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "timing_assertion" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T06:08:56Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R6 ;
+  triage:foundAt "2026-11-08T06:07:39Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R6-QA1-FTQ-004/R6-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R6-QA1-FTQ-004/R6-2> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R6-QA1-FTQ-004/R6-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-host/tests/log_context.rs" ;
+  triage:line 154 ;
+  triage:snippet "assert_eq!(rows.len(), 1);" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-6-session-log-record" ;
+  triage:headSha "f6ddc71c5fc8e0ea9a9e4d100529457784039873" ;
+  triage:occursIn <urn:atm:triage:worktree/sprint-r-6-session-log-record/f6ddc71> .
+
+<urn:atm:triage:occurrence/R6-QA1-FTQ-004/R6-2>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-host/tests/log_context.rs" ;
+  triage:line 162 ;
+  triage:snippet "assert_eq!(rows.len(), 2);" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-6-session-log-record" ;
+  triage:headSha "f6ddc71c5fc8e0ea9a9e4d100529457784039873" ;
+  triage:occursIn <urn:atm:triage:worktree/sprint-r-6-session-log-record/f6ddc71> .
+
+<urn:atm:triage:worktree/integrate-phase-a/714d284>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "714d2845c48cd0b4fa40bcd2017c248049f3662a" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/sprint-r-6-session-log-record/f6ddc71>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-6-session-log-record" ;
+  triage:branch "sprint/r-6-session-log-record" ;
+  triage:headSha "f6ddc71c5fc8e0ea9a9e4d100529457784039873" ;
+  triage:orderIndex 1 .

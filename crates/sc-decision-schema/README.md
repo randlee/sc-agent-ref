@@ -3,7 +3,8 @@
 The data-only decision schema for the sc-agent workspace: the question and
 answer payload (`PayloadBundle`, `QuestionAnswer`, `DecisionAnswers`), the
 `JudgeBackend` contract whose signatures name them, the Haiku/Luna input and
-output mapping (`llm::v1`), per-model-family variants (`variants`), the schema
+output mapping (`llm::v1`), the TypeSafe Jev check request and reply types
+(`jev::v1`), per-model-family variants (`variants`), the schema
 version id (`DecisionSchemaId`, e.g. `canonical.v1`) and the session-log SQLite
 schema with its `fields{}` projection (`session_log`).
 

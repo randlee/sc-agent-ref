@@ -16,8 +16,8 @@ Non-Jev **comparison** backends only. TypeSafe Jev HTTP lives in **`sc-jev`**.
 | --- | --- |
 | `backend` | `AnthropicHaikuBackend` (Haiku) and `OpenAiLunaBackend` (Luna), API-direct; each implements `JudgeBackend` from `sc-agent-types` |
 | `wire` | Provider request and reply shapes (Haiku `system`, Luna `instructions`; not the Jev wire document) |
-| `validate` | Pre-send checks on the canonical payload and injected prompt: choice lists (two or more per question), byte cap on the assembled body |
-| `backend` (HTTP part) | Builds each `sc_agent_http::HttpRequest` (endpoint, headers, `SecretHeader`) and sends it with `send_with_busy_retry`; maps non-200 to `NETWORK_ERROR` kind `Status` with a redacted 300-byte snippet |
+| `validate` | Pre-send checks on the canonical payload and injected prompt: the payload deserialized as `CanonicalJudgePayload` (question-kind rules run there: `choice` 2 to 255 choices, `score` 2 to 10; a `noul` question is refused before any send), byte cap on the assembled body |
+| `backend` (HTTP part) | Builds each `sc_agent_http::HttpRequest` (endpoint, headers, `SecretHeader`) and sends it with `send_with_busy_retry`; maps non-200 to `NETWORK_ERROR` kind `Status` with the status only (the response body is not echoed) |
 
 All modules are private; the crate root re-exports the public items.
 

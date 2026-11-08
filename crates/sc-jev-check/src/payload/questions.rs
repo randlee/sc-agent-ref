@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use sc_agent_types::JevError;
-use sc_decision_schema::{ChoiceAnswer, ChoiceId, Question, QuestionId};
+use sc_decision_schema::{ChoiceAnswer, ChoiceId, Question, QuestionId, QuestionKind};
 use serde::Deserialize;
 
 /// Schema id required on question-set files.
@@ -63,11 +63,13 @@ pub fn parse_question_set(text: &str) -> Result<Vec<Question>, JevError> {
             .into_keys()
             .map(ChoiceId::try_from)
             .collect::<Result<Vec<_>, _>>()?;
-        questions.push(Question::new(
+        questions.push(Question::try_new(
             QuestionId::try_from(id)?,
             question.instructions,
             choices,
-        ));
+            QuestionKind::Choice,
+            None,
+        )?);
     }
     validate_question_set(&questions)?;
     Ok(questions)
@@ -76,8 +78,8 @@ pub fn parse_question_set(text: &str) -> Result<Vec<Question>, JevError> {
 /// Checks the judge-question rules shared by `check.toml` and caller JSON.
 ///
 /// The set is non-empty, every id is non-empty and unique, every prompt
-/// (`instructions`) has text, and every question has at least one non-empty
-/// choice.
+/// (`instructions`) has text, and every `choice` or `score` question has at
+/// least one non-empty choice (`noul` questions have none).
 ///
 /// # Errors
 ///
@@ -99,7 +101,10 @@ pub(crate) fn validate_question_set(questions: &[Question]) -> Result<(), JevErr
                 "question {id} instructions are empty"
             )));
         }
-        if question.choices().is_empty() {
+        // Choices are required for `choice` and `score` questions only: the
+        // payload deserializer enforces the counts, and a `noul` question
+        // has none.
+        if question.kind() != QuestionKind::Noul && question.choices().is_empty() {
             return Err(JevError::input_invalid(format!(
                 "question {id} choices are empty"
             )));
@@ -209,7 +214,7 @@ mod tests {
     use super::*;
 
     fn question(id: &str, prompt: &str, choices: &[&str]) -> Question {
-        Question::new(
+        Question::new_unchecked(
             QuestionId::try_from(id).expect("id"),
             prompt,
             choices

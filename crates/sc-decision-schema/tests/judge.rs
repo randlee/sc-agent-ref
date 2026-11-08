@@ -238,8 +238,8 @@ fn test_payload_bundle_encode_and_question_choices() {
     );
     let duplicate: CanonicalJudgePayload = serde_json::from_value(json!({
         "questions": [
-            {"id": "q", "prompt": "a", "choices": ["x"]},
-            {"id": "q", "prompt": "b", "choices": ["y"]}
+            {"id": "q", "prompt": "a", "choices": ["x", "z"]},
+            {"id": "q", "prompt": "b", "choices": ["y", "z"]}
         ],
         "state": []
     }))
@@ -285,4 +285,90 @@ fn test_capabilities_come_from_the_descriptor() {
     let request = request.with_cancel(cancel.clone());
     cancel.cancel();
     assert!(request.cancel().is_cancelled());
+}
+
+/// Question-kind rules (ADR-SAG-0002 r-5 amendment): one validating
+/// constructor, also run by deserialization.
+#[test]
+fn test_question_kind_rules() {
+    use sc_decision_schema::{Question, QuestionKind};
+
+    let labels = |count: usize| -> Vec<ChoiceId> {
+        (0..count)
+            .map(|index| choice(&format!("c{index}")))
+            .collect()
+    };
+    let make = |kind, count: usize, descriptions: Option<Vec<String>>| {
+        Question::try_new(qid("q"), "p", labels(count), kind, descriptions)
+    };
+    let text = |count: usize| {
+        (0..count)
+            .map(|index| format!("d{index}"))
+            .collect::<Vec<_>>()
+    };
+
+    // Accepted shapes at the limits.
+    assert!(make(QuestionKind::Choice, 2, None).is_ok());
+    assert!(make(QuestionKind::Choice, 255, None).is_ok());
+    assert!(make(QuestionKind::Score, 2, None).is_ok());
+    assert!(make(QuestionKind::Score, 10, Some(text(10))).is_ok());
+    assert!(make(QuestionKind::Noul, 0, None).is_ok());
+
+    // Each violation is INPUT_INVALID, for the constructor and for bytes.
+    let violations = [
+        make(QuestionKind::Choice, 1, None),
+        make(QuestionKind::Choice, 256, None),
+        make(QuestionKind::Score, 1, None),
+        make(QuestionKind::Score, 11, None),
+        make(QuestionKind::Noul, 2, None),
+        make(QuestionKind::Noul, 0, Some(text(1))),
+        make(QuestionKind::Choice, 3, Some(text(2))),
+        Question::try_new(
+            qid("q"),
+            "p",
+            vec![choice("a"), choice("a")],
+            QuestionKind::Choice,
+            None,
+        ),
+    ];
+    for result in violations {
+        assert_eq!(result.expect_err("violation").code(), "INPUT_INVALID");
+    }
+    for bytes in [
+        r#"{"id":"q","prompt":"p","choices":["a"]}"#,
+        r#"{"id":"q","prompt":"p","choices":["a","b"],"kind":"noul"}"#,
+        r#"{"id":"q","prompt":"p","choices":["a","b"],"descriptions":["x"]}"#,
+        r#"{"id":"q","prompt":"p","choices":["a","b"],"kind":"other"}"#,
+        r#"{"id":"q","prompt":"p","choices":["a","b"],"extra":1}"#,
+    ] {
+        assert!(serde_json::from_str::<Question>(bytes).is_err(), "{bytes}");
+    }
+
+    // A choice question writes no `kind`, and descriptions equal to the
+    // labels are dropped: the Phase A bytes are unchanged.
+    let plain = make(
+        QuestionKind::Choice,
+        2,
+        Some(vec!["c0".to_owned(), "c1".to_owned()]),
+    )
+    .expect("plain");
+    assert_eq!(plain.descriptions(), None);
+    assert_eq!(
+        serde_json::to_string(&plain).expect("json"),
+        r#"{"id":"q","prompt":"p","choices":["c0","c1"]}"#
+    );
+    let score = make(QuestionKind::Score, 2, Some(text(2))).expect("score");
+    assert_eq!(
+        serde_json::to_string(&score).expect("json"),
+        r#"{"id":"q","prompt":"p","choices":["c0","c1"],"kind":"score","descriptions":["d0","d1"]}"#
+    );
+    let noul = make(QuestionKind::Noul, 0, None).expect("noul");
+    let back: Question =
+        serde_json::from_str(&serde_json::to_string(&noul).expect("json")).expect("round trip");
+    assert_eq!(back, noul);
+
+    // A noul question's answer names yes or no.
+    let payload = CanonicalJudgePayload::new(vec![noul], Vec::new());
+    let bundle = PayloadBundle::encode(&payload).expect("bundle");
+    assert_eq!(bundle.question_choices()[&qid("q")].len(), 2);
 }

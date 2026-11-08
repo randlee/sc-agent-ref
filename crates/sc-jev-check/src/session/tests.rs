@@ -199,7 +199,7 @@ fn clock_and_payload_faults_name_their_own_recovery() {
 fn tampered_stored_outcome_is_session_document_invalid() {
     let (store, _dir) = store(Duration::from_secs(60));
     let payload = PayloadBundle::encode(&sc_decision_schema::CanonicalJudgePayload::new(
-        vec![sc_decision_schema::Question::new(
+        vec![sc_decision_schema::Question::new_unchecked(
             "relevant".parse().expect("id"),
             "Does it apply?",
             vec!["no".parse().expect("no"), "yes".parse().expect("yes")],

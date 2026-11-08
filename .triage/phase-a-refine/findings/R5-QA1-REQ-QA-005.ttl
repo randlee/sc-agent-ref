@@ -1,0 +1,61 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R5-QA1-REQ-QA-005>
+  a triage:Finding ;
+  triage:findingId "R5-QA1-REQ-QA-005" ;
+  triage:title "plan.md:1020 still says 'the model byte-splice remains until r-5 lands'" ;
+  triage:description "plan.md:1020 still says 'the model byte-splice remains until r-5 lands'. In sc-jev/src/check.rs the WireFault::DropEmbeddedByte doc says it 'Drops one byte of the embedded payload text', but the seed now drops a letter of the first `instructions` value." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "cross-doc-conflict" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T05:57:30Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R5 ;
+  triage:foundAt "2026-11-08T05:55:41Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R5-QA1-REQ-QA-005/INT-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R5-QA1-REQ-QA-005/R5-1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R5-QA1-REQ-QA-005/INT-1>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/plan.md" ;
+  triage:line 1020 ;
+  triage:snippet "D9 (r-5): resolved; the model byte-splice remains until r-5 lands." ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "77fffdbd89c5e927f9c6b51fc650fada72cfb400" ;
+  triage:occursIn <urn:atm:triage:worktree/INT/77fffdb> .
+
+<urn:atm:triage:occurrence/R5-QA1-REQ-QA-005/R5-1>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/plan.md" ;
+  triage:line 1020 ;
+  triage:snippet "D9 (r-5): resolved; the model byte-splice remains until r-5 lands." ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-5-jev-wire-envelope" ;
+  triage:headSha "14f85f129fda46e39bda90ae2a5333e69213312b" ;
+  triage:occursIn <urn:atm:triage:worktree/R5/14f85f1> .
+
+<urn:atm:triage:worktree/INT/77fffdb>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "77fffdbd89c5e927f9c6b51fc650fada72cfb400" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/R5/14f85f1>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-5-jev-wire-envelope" ;
+  triage:branch "sprint/r-5-jev-wire-envelope" ;
+  triage:headSha "14f85f129fda46e39bda90ae2a5333e69213312b" ;
+  triage:orderIndex 1 .

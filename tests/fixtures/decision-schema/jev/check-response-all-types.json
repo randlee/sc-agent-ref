@@ -1,0 +1,22 @@
+{
+  "model": "jev-1.13.0",
+  "answers": {
+    "quality": {
+      "type": "choice",
+      "choice": "pass",
+      "probabilities": {"pass": 0.7, "fail": 0.3},
+      "confidence": 0.6
+    },
+    "severity": {
+      "type": "score",
+      "choice": "medium",
+      "probabilities": {"low": 0.1, "medium": 0.7, "high": 0.2},
+      "confidence": 0.65
+    },
+    "urgent": {
+      "type": "noul",
+      "probabilities": {"yes": 0.25}
+    }
+  },
+  "usage": {"input_tokens": 512, "output_tokens": 14}
+}

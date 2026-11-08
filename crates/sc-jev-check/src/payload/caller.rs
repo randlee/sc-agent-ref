@@ -40,9 +40,14 @@ pub(crate) fn parse_caller_request(bytes: &[u8]) -> Result<ParsedCallerRequest, 
     let value: Value = serde_json::from_slice(bytes).map_err(request_json_error)?;
     reject_inline_prompt(&value)?;
     let document: RequestDocument = serde_json::from_value(value).map_err(request_json_error)?;
-    validate_question_set(&document.questions)?;
-    validate_state(&document.state, &document.questions)?;
-    let bundle = encode_payload(&document.questions, &document.state)?;
+    let questions = document
+        .questions
+        .into_iter()
+        .map(parse_question)
+        .collect::<Result<Vec<_>, _>>()?;
+    validate_question_set(&questions)?;
+    validate_state(&document.state, &questions)?;
+    let bundle = encode_payload(&questions, &document.state)?;
     let mut backends = Vec::with_capacity(document.backends.len());
     for name in &document.backends {
         backends.push(name.parse::<BackendId>()?);
@@ -53,11 +58,21 @@ pub(crate) fn parse_caller_request(bytes: &[u8]) -> Result<ParsedCallerRequest, 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RequestDocument {
-    questions: Vec<Question>,
+    questions: Vec<Value>,
     #[serde(default)]
     state: Vec<ChoiceAnswer>,
     #[serde(default)]
     backends: Vec<String>,
+}
+
+/// One question of the document. Its error detail is safe to show: a kind
+/// rule violation names the question id, kind and counts, and a malformed
+/// question names only the failure category and position.
+fn parse_question(value: Value) -> Result<Question, JevError> {
+    Question::from_json(value).map_err(|error| match error {
+        shown @ JevError::InputInvalid { .. } => shown,
+        _ => request_json_error_data(),
+    })
 }
 
 fn reject_inline_prompt(value: &Value) -> Result<(), JevError> {
@@ -79,12 +94,15 @@ fn request_json_error(error: serde_json::Error) -> JevError {
         }
         serde_json::error::Category::Eof => "request JSON was empty or truncated.".to_owned(),
         serde_json::error::Category::Io => "request JSON could not be read.".to_owned(),
-        serde_json::error::Category::Data => {
-            "request JSON must contain a questions array and may contain state and backends."
-                .to_owned()
-        }
+        serde_json::error::Category::Data => return request_json_error_data(),
     };
     JevError::input_invalid(detail)
+}
+
+fn request_json_error_data() -> JevError {
+    JevError::input_invalid(
+        "request JSON must contain a questions array and may contain state and backends.",
+    )
 }
 
 #[cfg(test)]
@@ -132,14 +150,51 @@ mod tests {
     }
 
     #[test]
+    fn kind_rule_violations_show_the_rule_not_the_generic_hint() {
+        let eleven: Vec<String> = (0..11).map(|n| format!("\"l{n}\"")).collect();
+        let score = format!(
+            r#"{{"questions":[{{"id":"sev","prompt":"SECRET-PROMPT","choices":[{}],"kind":"score"}}]}}"#,
+            eleven.join(",")
+        );
+        let hint = parse_caller_request(score.as_bytes())
+            .expect_err("score")
+            .fix_hint();
+        assert!(
+            hint.contains("question sev is a score question and needs 2 to 10 choices, got 11"),
+            "{hint}"
+        );
+        assert!(!hint.contains("SECRET-PROMPT"), "{hint}");
+
+        let empty = br#"{"questions":[{"id":"q","prompt":"p","choices":[]}]}"#;
+        let hint = parse_caller_request(empty).expect_err("empty").fix_hint();
+        assert!(
+            hint.contains("question q is a choice question and needs 2 to 255 choices, got 0"),
+            "{hint}"
+        );
+
+        let shape = br#"{"questions":[{"id":"q","prompt":"p"}]}"#;
+        let hint = parse_caller_request(shape).expect_err("shape").fix_hint();
+        assert!(hint.contains("question is not valid: data error"), "{hint}");
+        assert!(!hint.contains("\"prompt\""), "{hint}");
+    }
+
+    #[test]
+    fn noul_question_reaches_the_bundle() {
+        let bytes = br#"{"questions":[{"id":"q","prompt":"Urgent?","choices":[],"kind":"noul"}]}"#;
+        let parsed = parse_caller_request(bytes).expect("noul");
+        let text = std::str::from_utf8(parsed.bundle.bytes()).expect("utf8");
+        assert!(text.contains(r#""kind":"noul""#), "{text}");
+    }
+
+    #[test]
     fn caller_json_uses_the_check_toml_rules() {
         let repeated_state = br#"{"questions":[{"id":"q","prompt":"p","choices":["a","b"]}],"state":[{"question_id":"q","choice":"a"},{"question_id":"q","choice":"b"}]}"#;
         let error = parse_caller_request(repeated_state).expect_err("repeat");
         assert!(error.fix_hint().contains("repeats question q"));
-        let duplicate_id = br#"{"questions":[{"id":"q","prompt":"p","choices":["a"]},{"id":"q","prompt":"p","choices":["a"]}]}"#;
+        let duplicate_id = br#"{"questions":[{"id":"q","prompt":"p","choices":["a","b"]},{"id":"q","prompt":"p","choices":["a","b"]}]}"#;
         let error = parse_caller_request(duplicate_id).expect_err("duplicate");
         assert!(error.fix_hint().contains("repeated"));
-        let empty_prompt = br#"{"questions":[{"id":"q","prompt":"  ","choices":["a"]}]}"#;
+        let empty_prompt = br#"{"questions":[{"id":"q","prompt":"  ","choices":["a","b"]}]}"#;
         let error = parse_caller_request(empty_prompt).expect_err("empty");
         assert!(error.fix_hint().contains("instructions are empty"));
         let empty_id = br#"{"questions":[{"id":"","prompt":"p","choices":["a"]}]}"#;

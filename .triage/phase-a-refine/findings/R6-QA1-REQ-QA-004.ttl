@@ -1,0 +1,49 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R6-QA1-REQ-QA-004>
+  a triage:Finding ;
+  triage:findingId "R6-QA1-REQ-QA-004" ;
+  triage:title "D5 says compose resolves `repo` with `discover_main_repo_root(cwd)`" ;
+  triage:description "D5 says compose resolves repo with discover_main_repo_root(cwd). The implementation starts from the explicit repo root when one is set, else the working directory, and a dry run skips git. This is a sound choice because it keeps --repo-root and the logged repo in agreement. The implementation note admits the plan names only the working directory." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "implementation-drift" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T06:08:58Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R6 ;
+  triage:foundAt "2026-11-08T06:07:39Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R6-QA1-REQ-QA-004/R6-1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R6-QA1-REQ-QA-004/R6-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-host/src/compose.rs" ;
+  triage:line 268 ;
+  triage:snippet "let repo = discover_main_repo_root(start).unwrap_or_else(|_| resolved.repo_root.clone());" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-6-session-log-record" ;
+  triage:headSha "f6ddc71c5fc8e0ea9a9e4d100529457784039873" ;
+  triage:occursIn <urn:atm:triage:worktree/r-6/f6ddc71> .
+
+<urn:atm:triage:worktree/integrate-phase-a/714d284>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "714d2845c48cd0b4fa40bcd2017c248049f3662a" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/r-6/f6ddc71>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-6-session-log-record" ;
+  triage:branch "sprint/r-6-session-log-record" ;
+  triage:headSha "f6ddc71c5fc8e0ea9a9e4d100529457784039873" ;
+  triage:orderIndex 1 .

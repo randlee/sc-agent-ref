@@ -2,7 +2,8 @@
 //!
 //! One home for every decision type: the question and answer payload, the
 //! [`JudgeBackend`] contract whose signatures name them, the Haiku/Luna
-//! input/output mapping ([`llm`]), the per-model-family variant mechanism
+//! input/output mapping ([`llm`]), the TypeSafe Jev API request and response
+//! types ([`jev`]), the per-model-family variant mechanism
 //! ([`variants`]), the schema version id ([`DecisionSchemaId`]) and the
 //! session-log SQLite schema with its `fields{}` projection
 //! ([`session_log`], ADR-SAG-0031).
@@ -30,6 +31,7 @@
 #![warn(missing_docs)]
 
 mod ids;
+pub mod jev;
 mod judge;
 pub mod llm;
 mod payload;
@@ -49,7 +51,7 @@ pub use judge::{
 };
 #[doc(inline)]
 pub use payload::{
-    CanonicalJudgePayload, ChoiceAnswer, DecisionAnswers, PayloadBundle, Question,
+    CanonicalJudgePayload, ChoiceAnswer, DecisionAnswers, PayloadBundle, Question, QuestionKind,
     canonical_json_bytes,
 };
 #[doc(inline)]
