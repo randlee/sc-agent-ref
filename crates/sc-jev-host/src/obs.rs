@@ -68,7 +68,8 @@ fn registry() -> &'static Registry {
 /// use sc_jev_host::obs::ObservabilityAdapter;
 /// use sc_jev_host::paths::PathPolicy;
 ///
-/// let adapter = ObservabilityAdapter::open(&PathPolicy::cli(), std::path::Path::new("/tmp/example-log"))?;
+/// let root = std::env::temp_dir().join("example-log");
+/// let adapter = ObservabilityAdapter::open(&PathPolicy::cli(), &root)?;
 /// let _port = adapter.shared();
 /// adapter.flush()?;
 /// # Ok::<(), sc_agent_types::JevError>(())

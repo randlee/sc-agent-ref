@@ -45,7 +45,17 @@ pub const PIPE_GRACE: Duration = Duration::from_secs(5);
 ///
 /// When the child cannot be spawned or the deadline passes.
 pub fn spawn_with_deadline(command: &mut Command, stdin: Option<&[u8]>) -> Output {
-    run_with_limits(command, stdin, SUBPROCESS_DEADLINE, PIPE_GRACE)
+    spawn_with_limit(command, stdin, SUBPROCESS_DEADLINE)
+}
+
+/// [`spawn_with_deadline`] with a caller-chosen `deadline`, for a child that
+/// legitimately outlasts [`SUBPROCESS_DEADLINE`] (a cold `cargo build`).
+///
+/// # Panics
+///
+/// When the child cannot be spawned or `deadline` passes.
+pub fn spawn_with_limit(command: &mut Command, stdin: Option<&[u8]>, deadline: Duration) -> Output {
+    run_with_limits(command, stdin, deadline, PIPE_GRACE)
 }
 
 fn run_with_limits(

@@ -38,6 +38,10 @@ requirements:
   - REQ-SAG-0800
   - REQ-SAG-0801
   - REQ-SAG-0802
+  - REQ-SAG-0703
+  - REQ-SAG-0803
+  - REQ-SAG-0134
+  - REQ-SAG-0620
   - NFR-SAG-0001
   - NFR-SAG-0002
   - NFR-SAG-0003
@@ -118,6 +122,12 @@ owned_paths:
   - "docs/architecture.md#ADR index row ADR-SAG-0025 (Status cell: consumer-output bullet)"
   - "docs/architecture.md#ADR index row ADR-SAG-0026 (Status cell: host half)"
   - "docs/architecture.md#ADR index row ADR-SAG-0028"
+  - "tests/support/deadline.rs#expect lines and spawn_with_limit"
+  - "tests/support/git_env.rs#expect line only"
+  - "docs/development/sc-publish.md#crate order lines"
+  - "boundaries/sc-agent-http/agent-http.toml#comment mention of the renamed crate"
+  - "Cargo.lock"
+  - "docs/**#coordinator-authorized sc-jev-host rename and host-half wording (2026-11-07)"
   - "docs/requirements.md#REQ-SAG-0109, 0135, 0604, 0605, 0712 rows; REQ-SAG-0130 (r-3b bullet), REQ-SAG-0711 amendments"
 ---
 
@@ -196,9 +206,9 @@ graph); contributes ARCHE-002 (consumer flag).
      directly, at the versions this compose release pins.
    - `compose::run_from(source: CheckSource, inputs: ComposeInputs) -> Result<RunResponse, JevError>`
      (calls `discover_repo_root`, builds `RunConfig`, `prepare`, `run`) and
-     `compose::ask_from(session_id, follow_up, inputs) -> Result<JudgeOutcome, JevError>`
+     `compose::ask_from(session_id, follow_up, inputs) -> Result<AskResponse, JevError>`
      (builds `FileSessionStore` + `BackendRegistry::from_env` unless a registry
-     is injected).
+     is injected; `AskResponse::outcome()` is the `JudgeOutcome`).
    - **Warnings.** When the logger reports a flush failure (the Phase A
      CR-014 log-flush warning), `run_from` appends it with
      `RunResponse::with_warning` before returning, so both consumers emit it
@@ -397,8 +407,10 @@ graph); contributes ARCHE-002 (consumer flag).
        `crates/sc-agent-secrets/src/**`,
        `crates/sc-jev-check/src/extract/sanitize.rs` and
        `crates/sc-jev-check/src/extract/command.rs` (the child-environment
-       allowlist) and `crates/sc-jev-host/src/paths.rs`; tests are
-       exempt. It is a text scan; an aliased import evades it, and review
+       allowlist), `crates/sc-jev-host/src/paths.rs` and
+       `crates/sc-jev-check/src/run/mod.rs` (git's `GIT_CEILING_DIRECTORIES`
+       in repo-root discovery, not a log, session or API-key variable);
+       tests are exempt. It is a text scan; an aliased import evades it, and review
        covers that.
    - `tests/test_util_off.rs`:
      - `test_test_util_absent_from_normal_graph` runs
@@ -763,6 +775,22 @@ Deviations and conservative choices, each mapped to its requirement or ADR.
   lacked `sc-agent-http`).
 - **Owner-level note (D9).** No crate is published until r-5 lands; the
   dry-run packages `sc-jev-host` only locally.
+- **QA-1 fix round (REQ-QA-001 .. 006, CI-R3B-001, FTQ-001, QA-001).**
+  Requirement evidence added to the list: REQ-SAG-0703 (install docs and
+  `cargo install --path crates/sc-ai --locked` unchanged; `sc-ai` still the
+  only binary the install recipe builds), REQ-SAG-0803 (all five channels
+  still driven by `release/sc-publish-consumer-input.json`, re-rendered at
+  90004d7; the dry-run kit phase exits 0), REQ-SAG-0134 (the `mimalloc` rows of
+  `cargo-tree-gates.sh` and `cargo build -p sc-ai --lib --no-default-features`
+  pass), REQ-SAG-0620 (`RunResponse` stays the one result type; both
+  consumers print `Envelope::run`, `test_cli_and_python_data_match_golden`).
+  `bin_path.rs` no longer canonicalizes (a verbatim `\\?\D:\...`
+  `--target-dir` broke mimalloc's `cl.exe` build on Windows) and runs the
+  build with `--locked` through the bounded runner
+  (`spawn_with_limit`, `BIN_BUILD_DEADLINE` = 20 min), with stderr and the
+  file-lock case in the panic. `source_scans` now also scans
+  `tests/support/*.rs` under the test-file rule. `ask_from` /
+  environment-exception wording fixed in ADR-SAG-0026 and D2/D7.
 - **Deferrals closed.** r-2b: `--chain-context`, `--scripted-answers`,
   partial exit 2, Python `chain_context` and `JevError.response`, `.pyi`, and
   the ADR-SAG-0025 consumer-output bullet are done. r-2: the `.pyi`

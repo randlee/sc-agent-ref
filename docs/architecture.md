@@ -1343,15 +1343,19 @@ HTTP half amends ADR-SAG-0006, 0007,
   are ADR-SAG-0017's r-3b amendment. `ComposeInputs` has private fields,
   `new(cwd, policy)` and one setter per optional field. `run_from` and
   `ask_from` signatures name types owned by `sc-jev-check` and
-  `sc-agent-types` (`CheckSource`, `RunResponse`, `JudgeOutcome`,
-  `JevError`); compose does not re-export them, so a consumer (a future MCP
+  `sc-agent-types` (`CheckSource`, `RunResponse`, `AskResponse`, `JevError`;
+  `ask_from` returns `AskResponse`, whose `outcome()` is the `JudgeOutcome`); compose does not re-export them, so a consumer (a future MCP
   server included) depends on those crates directly at the versions the
   compose release pins, and the `cargo tree -d` gate keeps one version of
   each in the `sc-ai` and `sc-jev-py` graphs.
 - (Active, r-3b) Environment ownership: API-key environment and `.env`
   reading belongs to `sc-jev-check` (`BackendRegistry::from_env` via
   `sc-agent-secrets`); log and session path environment variables belong to
-  `PathPolicy` in `sc-jev-host`. No other crate reads either set.
+  `PathPolicy` in `sc-jev-host`. No other crate reads either set. The one
+  other environment read in a library `src/` is `GIT_CEILING_DIRECTORIES` in
+  `crates/sc-jev-check/src/run/mod.rs` (`enclosing_git_entry`, repo-root
+  discovery): a git setting, neither a log, session nor API-key variable, and
+  allowed by name in `test_env_reads_only_in_owners`.
 
 ### Amendment (Phase A.1, r-7)
 

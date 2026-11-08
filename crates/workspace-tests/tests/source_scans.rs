@@ -20,7 +20,7 @@ fn root() -> PathBuf {
         .expect("workspace root")
 }
 
-/// Every `.rs` file under `crates/`, as a workspace-relative `/` path and its
+/// Every `.rs` file under `crates/` and `tests/support/`, as a workspace-relative `/` path and its
 /// text, skipping build output.
 fn rust_files() -> Vec<(String, String)> {
     fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
@@ -38,6 +38,9 @@ fn rust_files() -> Vec<(String, String)> {
     let root = root();
     let mut paths = Vec::new();
     walk(&root.join("crates"), &mut paths);
+    // The shared test helpers included by `#[path]` into many crates' tests
+    // (the bounded runner, git isolation) are scanned under the test-file rule.
+    walk(&root.join("tests/support"), &mut paths);
     paths.sort();
     assert!(!paths.is_empty(), "no Rust files found under crates/");
     paths
@@ -310,7 +313,9 @@ const EXPECT_SITES: &[&str] = &[
 
 fn is_test_file(path: &str) -> bool {
     let parts: Vec<&str> = path.split('/').collect();
-    parts.get(2) == Some(&"tests") || path.ends_with("/tests.rs")
+    parts.get(2) == Some(&"tests")
+        || path.ends_with("/tests.rs")
+        || path.starts_with("tests/support/")
 }
 
 /// ADR-SAG-0020 r-3 / ADR-SAG-0028: an expect naming the disallowed-method

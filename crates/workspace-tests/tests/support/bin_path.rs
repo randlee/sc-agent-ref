@@ -12,28 +12,44 @@
 //! parity golden and `test_util_off` depend on test order (RBQA-F103 (b)). The
 //! helper therefore runs release-shaped binaries only. The directory is fixed
 //! rather than a tempdir per test so binaries are not rebuilt from scratch by
-//! every test.
+//! every test. The build runs through the bounded runner of the including
+//! target (`mod deadline;`, `tests/support/deadline.rs`) with its own cold-build
+//! deadline.
 
-use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::path::PathBuf;
+use std::process::Command;
 use std::sync::Mutex;
+use std::time::Duration;
+
+/// Longest a cold release build of a binary (mimalloc's C build, tree-sitter
+/// grammars) may take. Well above the 60 s runner default, bounded so a stuck
+/// build cannot hang CI (FTQ-001).
+const BIN_BUILD_DEADLINE: Duration = Duration::from_secs(20 * 60);
 
 /// Serializes builds: two targets in one process may ask for the same package.
 static BUILD_LOCK: Mutex<()> = Mutex::new(());
 
 /// The workspace root: `crates/workspace-tests` is two levels down, and
 /// `cargo test` runs each target with the package directory as cwd.
+///
+/// Built from `CARGO_MANIFEST_DIR` by dropping two components, never
+/// canonicalized: on Windows `canonicalize` yields a verbatim `\\?\D:\...`
+/// path, which mimalloc's `cl.exe` build cannot use as a `--target-dir`.
 fn workspace_root() -> PathBuf {
-    Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
-        .canonicalize()
-        .expect("workspace root")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .expect("crates/workspace-tests is two levels below the workspace root")
+        .to_path_buf()
 }
 
+/// Absolute and never verbatim (see [`workspace_root`]).
 fn isolated_target_dir() -> PathBuf {
-    match std::env::var_os("CARGO_TARGET_DIR") {
-        Some(dir) => PathBuf::from(dir).join("workspace-tests-bin"),
-        None => workspace_root().join("target").join("workspace-tests-bin"),
-    }
+    let base = match std::env::var_os("CARGO_TARGET_DIR") {
+        Some(dir) => workspace_root().join(dir),
+        None => workspace_root().join("target"),
+    };
+    base.join("workspace-tests-bin")
 }
 
 #[expect(
@@ -54,17 +70,27 @@ pub fn bin_path(package: &str, bin: &str) -> PathBuf {
     let _guard = BUILD_LOCK
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
-    let output = cargo()
+    let mut build = cargo();
+    build
         .current_dir(workspace_root())
-        .args(["build", "--release", "-p", package, "--features", "cli"])
+        .args([
+            "build",
+            "--locked",
+            "--release",
+            "-p",
+            package,
+            "--features",
+            "cli",
+        ])
         .arg("--target-dir")
         .arg(isolated_target_dir())
-        .arg("--message-format=json")
-        .stdin(Stdio::null())
-        .stderr(Stdio::inherit())
-        .output()
-        .expect("spawn cargo build");
-    assert!(output.status.success(), "cargo build -p {package} failed");
+        .arg("--message-format=json");
+    let output = crate::deadline::spawn_with_limit(&mut build, None, BIN_BUILD_DEADLINE);
+    assert!(
+        output.status.success(),
+        "cargo build -p {package} failed (a held Cargo file lock shows as \"Blocking waiting for file lock\"):\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     String::from_utf8(output.stdout)
         .expect("utf8 cargo output")
         .lines()
