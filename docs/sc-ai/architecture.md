@@ -43,6 +43,6 @@ code and the raw line instead of reading fields it does not know.
 The `test-util` feature (= `sc-jev-check/test-util`) adds the hidden
 `--scripted-answers <file>` flag to the binary only; the file is the r-2b D5
 scripted-answers JSON, injected through `ComposeInputs::registry`. The
-published binary has no such flag (`workspace-tests --test test_util_off`).
+published binary has no such flag (`workspace-tests --test test_util_off_binary`).
 Every `sc-ai` test drives the built binary; the a-10 library seam
 `execute_with_overrides` is gone.

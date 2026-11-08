@@ -26,7 +26,7 @@ cli = ["dep:mimalloc", "dep:clap"]
 # Test seam (ADR-SAG-0022, plan "Test seams"): only under this feature does
 # the binary accept the hidden `--scripted-answers <file>` flag, which
 # injects `sc-jev-check`'s scripted backends through `ComposeInputs::registry`.
-# The published binary has no such flag (`test_util_off`). No self
+# The published binary has no such flag (`test_util_off_binary`). No self
 # dev-dependency (boundaries/README.md, D0 outcome 4): the `cli` test target
 # declares `required-features` and its validation lines pass
 # `--features test-util`.

@@ -258,7 +258,7 @@ graph); contributes ARCHE-002 (consumer flag).
    unchanged to `register_scripted_backends` and injected through
    `ComposeInputs::registry`; the partial-failure test uses the per-backend
    form with one `failure` entry. The published binary has no such flag
-   (`test_util_off`, `test_release_binary_rejects_scripted_answers`).
+   (`test_util_off`; `test_util_off_binary` holds `test_release_binary_rejects_scripted_answers`).
    **One library seam, one binary seam:** `sc_ai::execute_with_overrides`
    and `ExecuteOverrides` (a-10) are deleted. Every `sc-ai` test drives the
    built binary (with `--scripted-answers` where it needs backends); the
@@ -314,7 +314,7 @@ graph); contributes ARCHE-002 (consumer flag).
    `CARGO_BIN_EXE_sc-ai` into: that test binary is built with `test-util`
    on (`--features test-util`, or Cargo feature unification in a workspace
    test run), so sharing an uplift path would make the
-   parity golden and `test_util_off` depend on test order (RBQA-F103 (b)).
+   parity golden and `test_util_off_binary` depend on test order (RBQA-F103 (b)).
    The helper therefore runs release-shaped binaries only. A fixed isolated
    directory is used instead of a tempdir per test so `sc-ai` and
    `sc-treesitter` are not rebuilt from scratch by every test; the isolation
@@ -417,7 +417,9 @@ graph); contributes ARCHE-002 (consumer flag).
        `cargo tree --workspace -e normal,features` (a graph query, no test
        build, no dev edges) and fails if any workspace crate's `test-util`
        feature appears.
-     - `test_release_binary_rejects_scripted_answers` (RBQA-F103 (a)):
+     - `tests/test_util_off_binary.rs` (a separate target since r-7, so its
+       `cargo build` never runs beside `test_util_off`'s `cargo tree` calls):
+       `test_release_binary_rejects_scripted_answers` (RBQA-F103 (a)):
        builds `sc-ai` through `bin_path` (release, isolated target dir) and
        runs `sc-ai jev run --scripted-answers x`; asserts exit 2 and one
        stderr `ScAgentErrorResponse` line for the unknown argument (clap
@@ -591,7 +593,7 @@ below.
 | adr:ADR-SAG-0029 | (b) holds: pytest reaches scripted backends only through `sc_jev_py._testing.run_check_scripted`; the release wheel has no `_testing` submodule (check below) |
 | boundary:jev-host | Manifest enforced (`just lint` output attached); `cargo tree` gates for compose pass |
 | boundary:sc-ai-cli | Regression: REQ-SAG-0700–0711 tests green (REQ-SAG-0702 readback: `cargo test -p sc-ai --features test-util --test cli`); `test_cli_and_python_data_match_golden`; `test_cli_log_flush_warning_in_data` |
-| boundary:workspace | `source_scans` and `test_util_off` targets green (incl. `test_release_binary_rejects_scripted_answers`); isolated library builds green; release wheel has no `_testing`; duplicate-version rows pass for `sc-ai` and `sc-jev-py` |
+| boundary:workspace | `source_scans`, `test_util_off` and `test_util_off_binary` targets green (the last holds `test_release_binary_rejects_scripted_answers`); isolated library builds green; release wheel has no `_testing`; duplicate-version rows pass for `sc-ai` and `sc-jev-py` |
 | boundary:regressions | REQ-SAG-0310 `cargo test -p sc-treesitter --test cli` and `e2e_treesitter_producer`; REQ-SAG-0313 `test_e2e_producer_error_reraised`; REQ-SAG-0600/0601 `cargo test -p sc-jev-check --features test-util --test sessions_exact` and `--test run_response`; REQ-SAG-0603 `test_cli_partial_failure_both_streams_exit_2` (two backends in one run); REQ-SAG-0610/0611 `cargo test -p sc-jev-host --test obs`; NFR-SAG-0001 `cargo test -p sc-agent-types --test errors -- test_error_response_stderr_golden --exact`; NFR-SAG-0002 `cargo test -p sc-jev-backends --test llm` and `cargo test -p sc-ai --features test-util --test cli`; NFR-SAG-0003 `cargo test -p sc-jev-host --test paths` (default and configured session/log roots); NFR-SAG-0004 `bash .github/scripts/check-exact-pins.sh`; REQ-SAG-0800/0801/0802 maturin build + pytest below; REQ-SAG-0131/0132 `bash .github/scripts/run-consumer-preflight.sh` and the publish dry-run with `sc-jev-host` in order |
 
 ## Required validation
@@ -610,7 +612,7 @@ cargo test -p workspace-tests --test source_scans -- test_lint_mechanism_present
 cargo test -p workspace-tests --test source_scans -- test_every_crate_inherits_workspace_lints --exact
 cargo test -p workspace-tests --test source_scans -- test_env_reads_only_in_owners --exact
 cargo test -p workspace-tests --test test_util_off -- test_test_util_absent_from_normal_graph --exact
-cargo test -p workspace-tests --test test_util_off -- test_release_binary_rejects_scripted_answers --exact
+cargo test -p workspace-tests --test test_util_off_binary -- test_release_binary_rejects_scripted_answers --exact
 cargo clippy --workspace --all-targets -- -D warnings
 ! rg -n 'PayloadBuilder' crates/sc-jev-host/src crates/sc-ai/src crates/sc-jev-py/src
 cargo test -p sc-ai --features test-util --test cli -- test_cli_system_prompt_file_overrides_check_toml --exact

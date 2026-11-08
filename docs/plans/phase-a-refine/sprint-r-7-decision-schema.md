@@ -191,6 +191,12 @@ owned_paths:
   - ".github/workflows/sc-agent-ci.yml#--locked on every cargo invocation (QA fix)"
   - "docs/sc-jev-check/extraction.md#EXTRACTION_TIMEOUT also covers git reads (QA fix)"
   - "docs/plans/phase-a-refine/plan.md#ADR-SAG-0009 index row (QA fix)"
+  - "docs/plans/phase-a-refine/plan.md#test_util_off / test_util_off_binary references (QA fix)"
+  - "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md#test_util_off_binary references (QA fix)"
+  - "docs/sc-ai/architecture.md#test_util_off_binary reference (QA fix)"
+  - "boundaries/workspace-tests/workspace-tests.toml#notes dev-dependency list (QA fix)"
+  - "crates/workspace-tests/README.md#dev-dependency list (QA fix)"
+  - "crates/sc-ai/Cargo.toml#comment names test_util_off_binary (QA fix)"
 ---
 
 # Sprint r-7 — `sc-decision-schema` crate and model catalog

@@ -15,7 +15,7 @@ name = "workspace-tests"
 
 [public]
 facade = "workspace_tests"
-notes = "publish = false (ADR-SAG-0028). Cross-crate proofs only: no normal dependencies and an empty src/lib.rs; dev-dependencies on sc-agent-types (features = [git]), sc-jev-check, sc-jev-host, serde_json, tempfile. The bin-path helper is tests/support/bin_path.rs. sc-treesitter and sc-ai are driven as built binaries (cargo build --features cli --message-format=json), never linked, so pyo3 and tree-sitter stay out of this graph. Source scans read files and link nothing."
+notes = "publish = false (ADR-SAG-0028). Cross-crate proofs only: no normal dependencies and an empty src/lib.rs; dev-dependencies on sc-agent-types (features = [git]), sc-decision-schema (features = [test-util]), sc-jev-check, sc-jev-host, serde_json, tempfile. The bin-path helper is tests/support/bin_path.rs. sc-treesitter and sc-ai are driven as built binaries (cargo build --features cli --message-format=json), never linked, so pyo3 and tree-sitter stay out of this graph. Source scans read files and link nothing."
 
 [implementation]
 type = "marker"
