@@ -33,6 +33,7 @@ use super::Extracted;
 use super::read::validate_input_path;
 use super::sanitize::{STDERR_TAIL_BYTES, apply_env_allowlist, redact_error, stderr_tail};
 use super::subjects::parse_subjects_bytes;
+use crate::config::CommandSpec;
 use crate::payload::expand_placeholders;
 
 /// Largest stdout capture for one command.
@@ -56,42 +57,46 @@ const CLEANUP_BUDGET: Duration = Duration::from_secs(2);
 
 /// Runs one `command` input and parses its stdout as `sc/subjects/1`.
 ///
-/// `path` is the input's `path` field. It is validated with the `file`
-/// input rules (repo-relative, a regular file whose canonical path stays
+/// The spec's `path` is validated with the `file` input rules
+/// (repo-relative, a regular file whose canonical path stays
 /// under the canonical repo root at `WORKTREE`, a blob at any other `rev`)
-/// and substituted for `{path}`.
+/// and substituted for `{path}`. A zero timeout and `{path}` without a `path`
+/// are refused when the [`CommandSpec`] is built, so they cannot reach here.
 ///
 /// # Errors
 ///
-/// Returns [`JevError::ConfigInvalid`] for an empty argv, a zero timeout, or
-/// `{path}` without a `path` field; the `file` input errors for an invalid
-/// `path`; [`JevError::ProducerError`] when the child exits non-zero and its
-/// last stderr line is an error response with a known id;
-/// [`JevError::ExtractionFailed`] on any other non-zero exit;
+/// Returns [`JevError::ConfigInvalid`] for an empty argv; the `file` input
+/// errors for an invalid `path`; [`JevError::ProducerError`] when the child
+/// exits non-zero and its last stderr line is an error response with a known
+/// id; [`JevError::ExtractionFailed`] on any other non-zero exit;
 /// [`JevError::ExtractionTimeout`] when `timeout_seconds` elapses;
 /// [`JevError::ExtractionInvalid`] when stdout is not `sc/subjects/1`; and
 /// [`JevError::ExtractionEmpty`] when the document has no subjects.
 pub(crate) fn extract_command(
     repo: &RepoRoot,
     rev: &Rev,
-    command: &[String],
-    timeout_seconds: u64,
-    path: Option<&RepoRelativePath>,
-    producer: Option<&str>,
+    spec: &CommandSpec,
 ) -> Result<Extracted, JevError> {
-    if timeout_seconds == 0 {
-        return Err(JevError::config_invalid(
-            "command timeout_seconds must be greater than zero",
-        ));
-    }
-    let argv = substitute_placeholders(command, repo, rev, path.map(RepoRelativePath::as_str))?;
+    let path = spec.path();
+    let argv = substitute_placeholders(
+        spec.command(),
+        repo,
+        rev,
+        path.map(RepoRelativePath::as_str),
+    )?;
     if let Some(path) = path {
         validate_input_path(repo, rev, path)?;
     }
-    let producer = producer
+    let producer = spec
+        .producer()
         .filter(|name| !name.trim().is_empty())
         .map_or_else(|| producer_name(&argv[0]), str::to_owned);
-    let stdout = run_argv(repo, &argv, Duration::from_secs(timeout_seconds), &producer)?;
+    let stdout = run_argv(
+        repo,
+        &argv,
+        Duration::from_secs(spec.timeout_seconds().get()),
+        &producer,
+    )?;
     parse_subjects_bytes(&stdout)
 }
 
@@ -117,11 +122,6 @@ pub(crate) fn substitute_placeholders(
     }
     let mut out = Vec::with_capacity(argv.len());
     for arg in argv {
-        if arg.contains("{path}") && source_path.is_none() {
-            return Err(JevError::config_invalid(
-                "command argv contains {path}, but the input has no path field; set path = \"<repo-relative file>\" on the command input",
-            ));
-        }
         // One left-to-right pass: a path containing `{rev}`, or a rev
         // containing `{repo_root}`, is emitted verbatim (RBP observation).
         out.push(expand_placeholders(arg, &replacements));
@@ -396,7 +396,10 @@ sys.stdout.write(json.dumps(doc))
 
     /// Runs `argv` at `WORKTREE` with no `path` field.
     fn run(repo: &RepoRoot, argv: &[String], timeout_seconds: u64) -> Result<Extracted, JevError> {
-        extract_command(repo, &Rev::worktree(), argv, timeout_seconds, None, None)
+        let spec = CommandSpec::new(argv.to_vec(), None)
+            .and_then(|spec| spec.with_timeout_seconds(timeout_seconds))
+            .expect("valid command");
+        extract_command(repo, &Rev::worktree(), &spec)
     }
 
     #[test]
@@ -414,33 +417,13 @@ sys.stdout.write(json.dumps(doc))
             "{rev}".into(),
             "{repo_root}".into(),
         ];
-        let extracted = extract_command(
-            &repo,
-            &Rev::worktree(),
-            &argv,
-            30,
-            Some(&rel("src/hook.py")),
-            None,
-        )
-        .expect("command");
+        let spec = CommandSpec::new(argv, Some(rel("src/hook.py"))).expect("command spec");
+        let extracted = extract_command(&repo, &Rev::worktree(), &spec).expect("command");
         let document = extracted.document.expect("document");
         assert_eq!(document.source().path(), "src/hook.py");
         assert_eq!(document.source().rev().as_str(), Rev::WORKTREE);
         assert_eq!(extracted.subjects[0].text(), "arm");
         assert_eq!(extracted.subjects[0].id(), "src/hook.py:1");
-    }
-
-    #[test]
-    fn command_extractor_path_placeholder_requires_source() {
-        let dir = temp_dir("nopath");
-        let repo = RepoRoot::new(dir.path());
-        let error = run(&repo, &["python3".into(), "{path}".into()], 30).expect_err("path");
-        assert_eq!(error.code(), "CONFIG_INVALID");
-        assert!(
-            error.fix_hint().contains("path field"),
-            "{}",
-            error.fix_hint()
-        );
     }
 
     #[test]

@@ -50,17 +50,23 @@ First release. Channels once published: crates.io (ten crates), PyPI
   cannot lack one; there are no `with_path`, `with_rev` or `with_blob_sha`
   setters and the accessors return the values directly. Only `with_captures`
   remains. CLI error codes and messages are unchanged.
-- `sc_jev_check::config`: `InputSpec` and each of its struct variants are
+- `sc_jev_check::config`: `InputSpec` and its struct variants are
   `#[non_exhaustive]` and gain the constructors `file`, `table_column`,
-  `subjects` and `command` plus the `with_timeout_seconds`, `with_path` and
-  `with_producer` setters (command inputs). `CheckSpec` has private fields
+  `subjects` and `command`. A command input is `InputSpec::Command(CommandSpec)`;
+  `CommandSpec::new(argv, path)` and `with_timeout_seconds` return
+  `CONFIG_INVALID` for `{path}` in the argv with no path and for a zero
+  timeout, with the same text the extractor used. `with_producer` and the
+  accessors are on `CommandSpec`, not `InputSpec`. Those two errors now
+  surface when `check.toml` is loaded rather than when the input runs, so
+  they win over a missing questions or state file and over an earlier
+  input's failure. `CheckSpec` has private fields
   with accessors (`questions_path()`, `state_path()`, `system_prompt_file()`,
   `inputs()`, `backends()`, `models()`) and by-value setters
   (`with_state_path`, `with_system_prompt_file`, `with_input`,
   `with_backends`, `with_models`). New `InputName` newtype (`[A-Za-z0-9_-]+`)
   keys `CheckSpec::inputs()`; `check.toml` parsing and hand-built specs share
-  its validation, so a bad name fails at construction. `check.toml` behaviour
-  and error text are unchanged.
+  its validation, so a bad name fails at construction. Other `check.toml`
+  behaviour and error text are unchanged.
 - `sc_decision_schema::jev::v1::JevAnswer` struct variants and
   `sc_decision_schema::QuestionKind` are `#[non_exhaustive]`: match struct
   variants with `..` and add a wildcard arm for `QuestionKind`.

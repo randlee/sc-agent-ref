@@ -12,12 +12,16 @@
 
 #![warn(missing_docs)]
 
+mod command;
+
 use std::collections::BTreeMap;
 use std::fmt;
 use std::str::FromStr;
 
 use sc_agent_types::{BackendId, BackendSet, JevError, ModelAliases, ModelId, RepoRelativePath};
 use serde::{Deserialize, Serialize};
+
+pub use command::CommandSpec;
 
 /// Check input stored under `[inputs.<name>]` in `check.toml`.
 ///
@@ -28,25 +32,29 @@ use serde::{Deserialize, Serialize};
 /// (default 30). Only these four
 /// kinds exist; a new kind is a new variant plus an ADR.
 ///
-/// The enum and every variant are `#[non_exhaustive]`, so outside this crate
-/// a spec is built with [`InputSpec::file`], [`InputSpec::table_column`],
-/// [`InputSpec::subjects`] or [`InputSpec::command`] and the `with_*`
-/// setters, and a new field or kind is not a breaking change.
+/// The enum and the struct variants are `#[non_exhaustive]`, so outside this
+/// crate a spec is built with [`InputSpec::file`], [`InputSpec::table_column`],
+/// [`InputSpec::subjects`] or [`InputSpec::command`], and a new field or kind
+/// is not a breaking change. A `command` input is a [`CommandSpec`], which
+/// owns the setters that apply only to commands.
 ///
 /// # Examples
 ///
 /// ```
 /// use sc_agent_types::RepoRelativePath;
-/// use sc_jev_check::config::InputSpec;
+/// use sc_jev_check::config::{CommandSpec, InputSpec};
 ///
-/// let spec = InputSpec::command(vec!["tool".to_owned(), "{path}".to_owned()])
-///     .with_path(RepoRelativePath::try_from("src/lib.rs")?)
-///     .with_timeout_seconds(5);
-/// assert!(matches!(spec, InputSpec::Command { timeout_seconds: 5, .. }));
+/// let command = CommandSpec::new(
+///     vec!["tool".to_owned(), "{path}".to_owned()],
+///     Some(RepoRelativePath::try_from("src/lib.rs")?),
+/// )?
+/// .with_timeout_seconds(5)?;
+/// let spec = InputSpec::command(command);
+/// assert!(matches!(&spec, InputSpec::Command(c) if c.timeout_seconds().get() == 5));
 /// # Ok::<(), sc_agent_types::JevError>(())
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
+#[serde(tag = "kind", rename_all = "kebab-case", try_from = "RawInputSpec")]
 #[non_exhaustive]
 pub enum InputSpec {
     /// Read a file at the caller-supplied revision.
@@ -70,29 +78,59 @@ pub enum InputSpec {
         path: RepoRelativePath,
     },
     /// Run an argv array. No shell.
-    #[non_exhaustive]
+    Command(CommandSpec),
+}
+
+/// The `check.toml` shape of an input, before `command` is validated.
+#[derive(Debug, Deserialize)]
+#[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
+enum RawInputSpec {
+    File {
+        path: RepoRelativePath,
+    },
+    TableColumn {
+        path: RepoRelativePath,
+        column: String,
+    },
+    Subjects {
+        path: RepoRelativePath,
+    },
     Command {
-        /// Argument vector. The check.toml key is `command`.
         command: Vec<String>,
-        /// Process time limit in seconds. Omitted toml uses 30.
         #[serde(default = "default_command_timeout_seconds")]
         timeout_seconds: u64,
-        /// Repo-relative file substituted for `{path}` (REQ-SAG-0312).
-        ///
-        /// Validated like a `file` input path before the command runs.
-        /// `{path}` in `command` without this field is `CONFIG_INVALID`.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
         path: Option<RepoRelativePath>,
-        /// Producer name used when the command exits with an error response
-        /// on stderr (REQ-SAG-0313). Defaults to the file stem of
-        /// `command[0]`; set it when `command[0]` is an interpreter.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
         producer: Option<String>,
     },
 }
 
 fn default_command_timeout_seconds() -> u64 {
-    30
+    command::DEFAULT_TIMEOUT_SECONDS
+}
+
+impl TryFrom<RawInputSpec> for InputSpec {
+    type Error = JevError;
+
+    fn try_from(raw: RawInputSpec) -> Result<Self, Self::Error> {
+        Ok(match raw {
+            RawInputSpec::File { path } => Self::File { path },
+            RawInputSpec::TableColumn { path, column } => Self::TableColumn { path, column },
+            RawInputSpec::Subjects { path } => Self::Subjects { path },
+            RawInputSpec::Command {
+                command,
+                timeout_seconds,
+                path,
+                producer,
+            } => Self::Command(CommandSpec::from_parts(
+                command,
+                timeout_seconds,
+                path,
+                producer,
+            )?),
+        })
+    }
 }
 
 impl InputSpec {
@@ -117,49 +155,10 @@ impl InputSpec {
         Self::Subjects { path }
     }
 
-    /// A `command` input running the argv array `command` with the default
-    /// 30 second limit, no `{path}` file, and no producer name.
+    /// A `command` input running `command`.
     #[must_use]
-    pub fn command(command: Vec<String>) -> Self {
-        Self::Command {
-            command,
-            timeout_seconds: default_command_timeout_seconds(),
-            path: None,
-            producer: None,
-        }
-    }
-
-    /// Sets the process time limit of a `command` input; other kinds are
-    /// returned unchanged.
-    #[must_use]
-    pub fn with_timeout_seconds(mut self, seconds: u64) -> Self {
-        if let Self::Command {
-            timeout_seconds, ..
-        } = &mut self
-        {
-            *timeout_seconds = seconds;
-        }
-        self
-    }
-
-    /// Sets the file substituted for `{path}` in a `command` input; other
-    /// kinds are returned unchanged.
-    #[must_use]
-    pub fn with_path(mut self, file: RepoRelativePath) -> Self {
-        if let Self::Command { path, .. } = &mut self {
-            *path = Some(file);
-        }
-        self
-    }
-
-    /// Sets the producer name of a `command` input; other kinds are returned
-    /// unchanged.
-    #[must_use]
-    pub fn with_producer(mut self, name: impl Into<String>) -> Self {
-        if let Self::Command { producer, .. } = &mut self {
-            *producer = Some(name.into());
-        }
-        self
+    pub fn command(command: CommandSpec) -> Self {
+        Self::Command(command)
     }
 }
 
@@ -421,7 +420,7 @@ pub(crate) fn load_check_str(text: &str) -> Result<CheckSpec, JevError> {
         .map_err(|error| JevError::config_invalid(format!("check.toml: {error}")))?;
     let mut inputs = BTreeMap::new();
     for (name, input) in raw.inputs {
-        inputs.insert(InputName::try_from(name)?, input);
+        inputs.insert(InputName::try_from(name)?, InputSpec::try_from(input)?);
     }
     let backends = match raw.backends {
         Some(ids) => Some(BackendSet::try_from(ids)?),
@@ -489,7 +488,7 @@ struct RawCheck {
     #[serde(default)]
     llm_judge: Option<RawLlmJudge>,
     #[serde(default)]
-    inputs: BTreeMap<String, InputSpec>,
+    inputs: BTreeMap<String, RawInputSpec>,
     #[serde(default)]
     backends: Option<Vec<BackendId>>,
     #[serde(default)]
@@ -609,25 +608,89 @@ mod tests {
         )
         .expect("check");
         match &spec.inputs()["live"] {
-            InputSpec::Command {
-                timeout_seconds,
-                path,
-                ..
-            } => {
-                assert_eq!(*timeout_seconds, 30);
-                assert!(path.is_none());
+            InputSpec::Command(command) => {
+                assert_eq!(command.timeout_seconds().get(), 30);
+                assert!(command.path().is_none());
             }
             other => panic!("expected command, got {other:?}"),
         }
         match &spec.inputs()["with_path"] {
-            InputSpec::Command { path, .. } => {
+            InputSpec::Command(command) => {
                 assert_eq!(
-                    path.as_ref().map(RepoRelativePath::as_str),
+                    command.path().map(RepoRelativePath::as_str),
                     Some("src/hook.py")
                 );
             }
             other => panic!("expected command, got {other:?}"),
         }
+    }
+
+    const ZERO_TIMEOUT_TEXT: &str = "command timeout_seconds must be greater than zero";
+    const NO_PATH_TEXT: &str = "command argv contains {path}, but the input has no path field; set path = \"<repo-relative file>\" on the command input";
+
+    fn command_toml(fields: &str) -> String {
+        format!("[questions]\npath = \"q.json\"\n[inputs.run]\nkind = \"command\"\n{fields}\n")
+    }
+
+    #[test]
+    fn command_zero_timeout_is_refused_once_when_built_and_when_parsed() {
+        let argv = || vec!["tool".to_owned()];
+        let built = CommandSpec::new(argv(), None)
+            .expect("spec")
+            .with_timeout_seconds(0)
+            .expect_err("zero");
+        assert_eq!(built.code(), "CONFIG_INVALID");
+        assert_eq!(
+            built.to_string(),
+            format!("config is invalid: {ZERO_TIMEOUT_TEXT}")
+        );
+
+        let parsed = load_check_str(&command_toml("command = [\"tool\"]\ntimeout_seconds = 0"))
+            .expect_err("zero");
+        assert_eq!(parsed.code(), "CONFIG_INVALID");
+        assert_eq!(parsed.to_string(), built.to_string());
+        let nonzero = load_check_str(&command_toml("command = [\"tool\"]\ntimeout_seconds = 1"))
+            .expect("one second");
+        assert!(matches!(
+            &nonzero.inputs()["run"],
+            InputSpec::Command(command) if command.timeout_seconds().get() == 1
+        ));
+    }
+
+    #[test]
+    fn command_path_placeholder_without_a_path_is_refused_when_built_and_when_parsed() {
+        let argv = || vec!["tool".to_owned(), "--file={path}".to_owned()];
+        let built = CommandSpec::new(argv(), None).expect_err("no path");
+        assert_eq!(built.code(), "CONFIG_INVALID");
+        assert_eq!(
+            built.to_string(),
+            format!("config is invalid: {NO_PATH_TEXT}")
+        );
+        assert!(
+            built.fix_hint().contains("path field"),
+            "{}",
+            built.fix_hint()
+        );
+
+        let parsed = load_check_str(&command_toml("command = [\"tool\", \"--file={path}\"]"))
+            .expect_err("no path");
+        assert_eq!(parsed.code(), "CONFIG_INVALID");
+        assert_eq!(parsed.to_string(), built.to_string());
+
+        CommandSpec::new(argv(), Some(rel("a.py"))).expect("path given");
+        load_check_str(&command_toml(
+            "command = [\"tool\", \"{path}\"]\npath = \"a.py\"",
+        ))
+        .expect("path given in toml");
+        // A zero timeout still wins over the missing path, as it did at run time.
+        let both = load_check_str(&command_toml(
+            "command = [\"tool\", \"{path}\"]\ntimeout_seconds = 0",
+        ))
+        .expect_err("both");
+        assert_eq!(
+            both.to_string(),
+            format!("config is invalid: {ZERO_TIMEOUT_TEXT}")
+        );
     }
 
     #[test]
@@ -690,25 +753,28 @@ mod tests {
         );
 
         let command: InputSpec = serde_json::from_str(
-            r#"{"kind":"command","command":["sc-treesitter","extract","--language","python","--query","branches","{path}"]}"#,
+            r#"{"kind":"command","command":["sc-treesitter","extract","--language","python","--query","branches","{path}"],"path":"a.py"}"#,
         )
         .expect("command");
+        let expected = CommandSpec::new(
+            [
+                "sc-treesitter",
+                "extract",
+                "--language",
+                "python",
+                "--query",
+                "branches",
+                "{path}",
+            ]
+            .map(String::from)
+            .to_vec(),
+            Some(rel("a.py")),
+        )
+        .expect("spec");
+        assert_eq!(command, InputSpec::command(expected));
         assert_eq!(
-            command,
-            InputSpec::Command {
-                command: vec![
-                    "sc-treesitter".into(),
-                    "extract".into(),
-                    "--language".into(),
-                    "python".into(),
-                    "--query".into(),
-                    "branches".into(),
-                    "{path}".into(),
-                ],
-                timeout_seconds: 30,
-                path: None,
-                producer: None,
-            }
+            serde_json::to_string(&command).expect("json"),
+            r#"{"kind":"command","command":["sc-treesitter","extract","--language","python","--query","branches","{path}"],"timeout_seconds":30,"path":"a.py"}"#
         );
 
         let with_name =
