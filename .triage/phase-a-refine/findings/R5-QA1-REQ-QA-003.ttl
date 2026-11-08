@@ -1,0 +1,49 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R5-QA1-REQ-QA-003>
+  a triage:Finding ;
+  triage:findingId "R5-QA1-REQ-QA-003" ;
+  triage:title "Judgement on the developer's follow-up: it should be fixed in this sprint, not deferred" ;
+  triage:description "Judgement on the developer's follow-up: it should be fixed in this sprint, not deferred. It is a regression this sprint introduces. Question-kind rules now run inside deserialization, so any rule violation (11 score levels, one choice, descriptions count, an unknown kind) is a serde Data error. `request_json_error` maps every Data error to 'request JSON must contain a questions array', which is false and misleading for a document that does have a questions array. It also masks hints that used to be specific: `{\"choices\":[]}` on a choice question used to reach 'question q choices are empty' (questions.rs:104), and that message is now unreachable from caller JSON. The generic text was chosen so raw values are not echoed (the test at caller.rs:116 asserts that). The rule messages from payload.rs:233-278 contain only the question id, kind and counts, so they are safe to show." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "implementation-drift" ;
+  triage:severity "important" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T05:57:14Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R5 ;
+  triage:foundAt "2026-11-08T05:55:41Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R5-QA1-REQ-QA-003/R5-1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R5-QA1-REQ-QA-003/R5-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-check/src/payload/caller.rs" ;
+  triage:line 83 ;
+  triage:snippet "request JSON must contain a questions array and may contain state and backends." ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-5-jev-wire-envelope" ;
+  triage:headSha "14f85f129fda46e39bda90ae2a5333e69213312b" ;
+  triage:occursIn <urn:atm:triage:worktree/r-5/14f85f1> .
+
+<urn:atm:triage:worktree/phase-a/77fffdb>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "77fffdbd89c5e927f9c6b51fc650fada72cfb400" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/r-5/14f85f1>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-5-jev-wire-envelope" ;
+  triage:branch "sprint/r-5-jev-wire-envelope" ;
+  triage:headSha "14f85f129fda46e39bda90ae2a5333e69213312b" ;
+  triage:orderIndex 1 .

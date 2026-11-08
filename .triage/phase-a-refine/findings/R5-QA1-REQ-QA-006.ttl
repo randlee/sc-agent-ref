@@ -1,0 +1,49 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R5-QA1-REQ-QA-006>
+  a triage:Finding ;
+  triage:findingId "R5-QA1-REQ-QA-006" ;
+  triage:title "(a) The all-types fixture and test payload carry the prior answer {question_id: quality, choice: yes}, but quality's choices are pass and fa" ;
+  triage:description "(a) The all-types fixture and test payload carry the prior answer {question_id: quality, choice: yes}, but quality's choices are pass and fail. sc-jev-check's `validate_state` would refuse that state as 'not in the question'. (b) The `CanonicalJudgePayload::from_bytes` doc says the error never names a payload byte outside a question id, but it formats the raw serde error (`canonical payload is invalid: {error}`). For type mismatches serde_json echoes the offending value (for example `invalid type: string \"...\"`)." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "implementation-drift" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T05:57:08Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R5 ;
+  triage:foundAt "2026-11-08T05:55:41Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R5-QA1-REQ-QA-006/1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R5-QA1-REQ-QA-006/1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-decision-schema/src/payload.rs" ;
+  triage:line 342 ;
+  triage:snippet "canonical payload is invalid: {error}" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-5-jev-wire-envelope" ;
+  triage:headSha "14f85f1" ;
+  triage:occursIn <urn:atm:triage:worktree/sprint-r-5-jev-wire-envelope/14f85f1> .
+
+<urn:atm:triage:worktree/integrate-phase-a/77fffdb>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "77fffdb" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/sprint-r-5-jev-wire-envelope/14f85f1>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-5-jev-wire-envelope" ;
+  triage:branch "sprint/r-5-jev-wire-envelope" ;
+  triage:headSha "14f85f1" ;
+  triage:orderIndex 1 .
