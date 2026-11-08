@@ -802,6 +802,89 @@ fn cli_invalid_request_json_is_input_invalid() {
     );
 }
 
+/// `--request-json <file>` with a relative path resolves against
+/// `--repo-root`; the readback shows the absolute path.
+#[test]
+fn cli_request_json_relative_file_succeeds_with_absolute_readback() {
+    let repo = temp_dir("request-file");
+    let sessions = temp_dir("request-file-sessions");
+    std::fs::write(
+        repo.path().join("req.json"),
+        r#"{"questions":[{"id":"q","prompt":"p","choices":["a","b"]}]}"#,
+    )
+    .expect("request file");
+    let answers = scripted(repo.path(), &json!({"q": "a"}));
+    let ran = stdout_json(&run_cli(&[
+        "jev",
+        "run",
+        "--repo-root",
+        text(repo.path()),
+        "--sessions-dir",
+        text(sessions.path()),
+        "--request-json",
+        "req.json",
+        "--scripted-answers",
+        text(&answers),
+    ]));
+    assert_eq!(ran["operation"], OP_RUN);
+    assert_eq!(
+        ran["data"]["readback"]["request_json"],
+        canon(&repo.path().join("req.json"))
+    );
+    assert!(
+        Path::new(
+            ran["data"]["readback"]["request_json"]
+                .as_str()
+                .expect("path")
+        )
+        .is_absolute()
+    );
+}
+
+/// A missing `--request-json` file is `INPUT_MISSING`.
+#[test]
+fn cli_request_json_missing_file_is_input_missing() {
+    let repo = temp_dir("request-missing");
+    let output = run_cli(&[
+        "jev",
+        "run",
+        "--repo-root",
+        text(repo.path()),
+        "--request-json",
+        "absent.json",
+    ]);
+    let error = stderr_json(&output);
+    assert_eq!(error["error"], "INPUT_MISSING");
+    assert!(
+        error["message"]
+            .as_str()
+            .expect("message")
+            .contains("absent.json")
+    );
+}
+
+/// An unreadable `--request-json` path (a directory) is the `IoFailed`
+/// variant. The closed wire vocabulary has no `IO_FAILED` id:
+/// `JevError::code` maps `IoFailed` to `INPUT_INVALID`, so the variant is told
+/// apart from `INPUT_MISSING` by its "I/O failed" message.
+#[test]
+fn cli_request_json_directory_is_io_failed() {
+    let repo = temp_dir("request-dir");
+    std::fs::create_dir(repo.path().join("req.json")).expect("directory");
+    let output = run_cli(&[
+        "jev",
+        "run",
+        "--repo-root",
+        text(repo.path()),
+        "--request-json",
+        "req.json",
+    ]);
+    let error = stderr_json(&output);
+    assert_eq!(error["error"], "INPUT_INVALID");
+    let message = error["message"].as_str().expect("message");
+    assert!(message.contains("I/O failed"), "{message}");
+}
+
 #[test]
 fn cli_request_json_rejects_inline_system_prompt() {
     let output = spawn_with_deadline(
