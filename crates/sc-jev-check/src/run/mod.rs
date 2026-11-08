@@ -47,6 +47,18 @@
 //! after paid answers, `run` still returns `Ok` with `session_saved = false`
 //! and one `session not saved: <code>` warning.
 //!
+//! # Worst-case wall time
+//!
+//! Backends are judged one after another. One LLM backend (Haiku, Luna) makes
+//! two exchanges per judge call (token count, then the message); each exchange
+//! is bounded by the 90 s busy-retry budget plus one 120 s in-flight request,
+//! about 210 s, so one LLM backend can take about 420 s. Jev makes one
+//! exchange (its in-flight limit is the packaged `timeout_seconds`, at most
+//! 120 s). A run is the sum over the selected backends, so a run of both LLM
+//! backends and Jev can take about 17 minutes in the worst case. The
+//! [`RunConfig::cancel`] token ends a busy-retry wait within 100 ms but not an
+//! in-flight request; there is no run-level deadline.
+//!
 //! # Dry runs
 //!
 //! [`RunConfig::dry_run`] sends nothing and constructs no backend. The
