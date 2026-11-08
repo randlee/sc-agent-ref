@@ -88,6 +88,10 @@ impl QueryMode {
 /// Named fields keep the three strings from being swapped at a call site of
 /// [`SubjectsProducer::new`].
 ///
+/// The fields are public and the three-field shape is frozen for
+/// `sc/subjects/1`: a struct literal builds one, so the type is deliberately
+/// not `#[non_exhaustive]`. A new grammar attribute needs a new schema version.
+///
 /// # Examples
 ///
 /// ```
@@ -295,8 +299,8 @@ impl Subject {
 
     /// Location of the text in the source.
     #[must_use]
-    pub fn span(&self) -> &Span {
-        &self.span
+    pub fn span(&self) -> Span {
+        self.span
     }
 }
 
@@ -469,10 +473,10 @@ fn subject_id(path: &str, line: u32, index_on_line: u32) -> String {
 ///     },
 ///     Sha256Digest::of_text("q"),
 /// );
-/// let mut builder = SubjectsBuilder::new(source, producer);
-/// builder.push_subject("a.py".parse()?, Span::new(1, 1, 4, 5), "b", "name");
-/// builder.push_subject("a.py".parse()?, Span::new(1, 1, 0, 1), "a", "name");
-/// let document = builder.build()?;
+/// let document = SubjectsBuilder::new(source, producer)
+///     .push_subject(Span::new(1, 1, 4, 5), "b", "name")
+///     .push_subject(Span::new(1, 1, 0, 1), "a", "name")
+///     .build()?;
 /// assert_eq!(document.subjects()[0].id(), "a.py:1");
 /// assert_eq!(document.subjects()[1].id(), "a.py:1:1");
 /// # Ok::<(), sc_agent_types::JevError>(())
@@ -486,7 +490,6 @@ pub struct SubjectsBuilder {
 
 #[derive(Debug, Clone)]
 struct Pending {
-    path: RepoRelativePath,
     span: Span,
     text: String,
     capture: String,
@@ -503,16 +506,16 @@ impl SubjectsBuilder {
         }
     }
 
-    /// Adds one subject; `kind` is the capture name without `@`.
+    /// Adds one subject in the source file; `kind` is the capture name without
+    /// `@`. Its id is built from `source.path`.
+    #[must_use]
     pub fn push_subject(
-        &mut self,
-        path: RepoRelativePath,
+        mut self,
         span: Span,
         text: impl Into<String>,
         kind: impl Into<String>,
-    ) -> &mut Self {
+    ) -> Self {
         self.pending.push(Pending {
-            path,
             span,
             text: text.into(),
             capture: kind.into(),
@@ -526,7 +529,7 @@ impl SubjectsBuilder {
     ///
     /// `EXTRACTION_EMPTY` when no subject was pushed, and
     /// `EXTRACTION_INVALID` when a subject breaks a schema rule (for example
-    /// a path other than `source.path`, or text that does not match its span).
+    /// text that does not match its span).
     pub fn build(self) -> Result<SubjectsDocument, JevError> {
         let mut pending = self.pending;
         pending.sort_by(|left, right| {
@@ -536,13 +539,11 @@ impl SubjectsBuilder {
                 .then_with(|| left.capture.cmp(&right.capture))
                 .then_with(|| left.span.end_byte.cmp(&right.span.end_byte))
         });
-        let mut per_line: BTreeMap<(RepoRelativePath, u32), u32> = BTreeMap::new();
+        let mut per_line: BTreeMap<u32, u32> = BTreeMap::new();
         let mut subjects = Vec::with_capacity(pending.len());
         for item in pending {
-            let index = per_line
-                .entry((item.path.clone(), item.span.start_line))
-                .or_insert(0);
-            let id = subject_id(item.path.as_str(), item.span.start_line, *index);
+            let index = per_line.entry(item.span.start_line).or_insert(0);
+            let id = subject_id(self.source.path().as_str(), item.span.start_line, *index);
             *index = index.saturating_add(1);
             subjects.push(Subject {
                 id,

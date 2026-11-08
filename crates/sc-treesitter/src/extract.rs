@@ -285,7 +285,7 @@ pub fn extract(input: &ExtractInput<'_>) -> Result<SubjectsDocument, JevError> {
             u32_from_usize("start byte", capture.start_byte)?,
             u32_from_usize("end byte", capture.end_byte)?,
         );
-        builder.push_subject(path.clone(), span, text, capture.name);
+        builder = builder.push_subject(span, text, capture.name);
     }
     builder.build()
 }

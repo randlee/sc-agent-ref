@@ -22,12 +22,7 @@ fn test_subjects_builder_ids_match_golden() {
     let mut builder = SubjectsBuilder::new(golden.source().clone(), golden.producer().clone());
     // Push in reverse order: the builder sorts before it assigns ids.
     for subject in golden.subjects().iter().rev() {
-        builder.push_subject(
-            golden.source().path().clone(),
-            *subject.span(),
-            subject.text(),
-            subject.capture(),
-        );
+        builder = builder.push_subject(subject.span(), subject.text(), subject.capture());
     }
     let built = builder.build().expect("build");
     assert_eq!(built, golden);
@@ -86,13 +81,8 @@ fn test_unvalidated_subjects_rejected_on_deserialize() {
 #[test]
 fn test_builder_rejects_text_that_does_not_match_its_span() {
     let golden = SubjectsDocument::from_json_slice(minimal().as_bytes()).expect("golden");
-    let mut builder = SubjectsBuilder::new(golden.source().clone(), golden.producer().clone());
-    builder.push_subject(
-        golden.source().path().clone(),
-        Span::new(1, 1, 0, 3),
-        "ab",
-        "name",
-    );
+    let builder = SubjectsBuilder::new(golden.source().clone(), golden.producer().clone())
+        .push_subject(Span::new(1, 1, 0, 3), "ab", "name");
     assert_eq!(
         builder.build().expect_err("span").code(),
         "EXTRACTION_INVALID"
