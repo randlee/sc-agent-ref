@@ -13,6 +13,10 @@ use std::path::PathBuf;
 use std::process::Command;
 
 #[path = "../../../tests/support/deadline.rs"]
+#[expect(
+    dead_code,
+    reason = "the shared runner is included whole; this target uses only spawn_with_limit"
+)]
 mod deadline;
 
 /// Longest one `cargo tree` may take: a cold registry index or a held Cargo
