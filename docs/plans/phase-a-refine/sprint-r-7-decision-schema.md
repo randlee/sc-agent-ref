@@ -1001,9 +1001,6 @@ Choices where the sprint doc is silent (all conservative):
   dependent crate cannot resolve `sc-agent-types` from crates.io before the
   CPR-014 publish gate lifts, so only the kit dry-run script covers it.
 - Status stayed `in-review` through QA (task XML); the coordinator flipped it
-  to `complete` once the last QA round left no open finding. QA reports on
-  PR 33: QA-1 issuecomment-6716224250, QA-2 issuecomment-6716378641, QA-3
-  issuecomment-6717394905, QA-4 issuecomment-6717456213, QA-5
-  issuecomment-6717488489; each finding's triage record is under
-  `.triage/phase-a-refine/findings/R7-QA*` on `integrate/phase-a`
-  (all 28 present at commit 9ef3948).
+  to `complete` once follow-up QA left no open finding. Finding closure is
+  recorded by the quality-mgr report on PR 33, not by the triage records
+  (triaging-findings, Closure Rules).
