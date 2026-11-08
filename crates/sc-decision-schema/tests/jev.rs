@@ -209,9 +209,9 @@ fn test_response_rules_rejected() {
             edit(&|r| r["answers"]["quality"]["confidence"] = json!(1.2)),
         ),
         (
-            "sum off by more than 1e-6",
+            "sum off by more than 0.01 per option",
             edit(&|r| {
-                r["answers"]["quality"]["probabilities"] = json!({"pass": 0.7, "fail": 0.300_01})
+                r["answers"]["quality"]["probabilities"] = json!({"pass": 0.7, "fail": 0.35})
             }),
         ),
         (
@@ -247,15 +247,34 @@ fn test_response_rules_rejected() {
     let parsed = CheckResponse::parse(&serde_json::to_vec(&other).expect("json")).expect("parse");
     assert_eq!(parsed.model().as_str(), "jev-9.9.9");
     parsed.into_answers(&request).expect("other model accepted");
-    // The tolerance is inclusive of rounding: a sum within 1e-6 is accepted.
+    // The sum tolerance is 0.01 per option (two options: 0.02), because Jev
+    // rounds; it validates and the values pass through unchanged.
     let request = CheckRequest::parse(&fixture("check-request-all-types.json")).expect("request");
     let mut near = golden_reply();
-    near["answers"]["quality"]["probabilities"] = json!({"pass": 0.7, "fail": 0.300_000_5});
+    near["answers"]["quality"]["probabilities"] = json!({"pass": 0.7, "fail": 0.315_000_5});
     let bytes = serde_json::to_vec(&near).expect("json");
-    CheckResponse::parse(&bytes)
+    let answers = CheckResponse::parse(&bytes)
         .expect("parse")
         .into_answers(&request)
         .expect("within tolerance");
+    let quality = answers
+        .get(&QuestionId::try_from("quality").expect("id"))
+        .expect("quality");
+    let fail = quality
+        .probabilities()
+        .expect("probabilities")
+        .get(&ChoiceId::try_from("fail").expect("id"))
+        .expect("fail");
+    assert_eq!(fail.get().to_bits(), 0.315_000_5_f64.to_bits(), "unrounded");
+    // Past 0.02 for two options the reply is refused; the range check stays.
+    for bad in [
+        json!({"pass": 0.7, "fail": 0.33}),
+        json!({"pass": 1.2, "fail": -0.2}),
+    ] {
+        let mut far = golden_reply();
+        far["answers"]["quality"]["probabilities"] = bad;
+        assert_eq!(rejected(&far).code(), "RESPONSE_INVALID");
+    }
     // Not JSON.
     assert_eq!(
         CheckResponse::parse(b"not json").expect_err("json").code(),

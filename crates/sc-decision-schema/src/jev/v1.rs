@@ -56,9 +56,11 @@ const MIN_CRITERIA: usize = 2;
 const MAX_CHOICE_CRITERIA: usize = 255;
 /// Most levels a `score` question has (the documented Jev limit).
 const MAX_SCORE_CRITERIA: usize = 10;
-/// How far a probability sum may sit from 1. Jev rounds its probabilities, so
-/// the sum is never exact; a wider gap is a malformed reply.
-const PROBABILITY_SUM_TOLERANCE: f64 = 1e-6;
+/// How far a probability sum may sit from 1, per option. Jev rounds each
+/// probability it sends, so the sum is never exact; plan-anchor allows 0.01
+/// per option (`PROBABILITY_ROUNDING`) and so does this check. A wider gap is
+/// a malformed reply. It validates only: values pass through unchanged.
+const PROBABILITY_SUM_TOLERANCE_PER_OPTION: f64 = 0.01;
 /// The wire value `jev-api.md` (plan-anchor) documents for the latest Jev
 /// model. UNVERIFIED against the live API: plan-anchor sends `jev-latest`
 /// (`jev_judge.py` `DEFAULT_MODEL`), and nothing confirms the API accepts the
@@ -911,7 +913,7 @@ impl CheckResponse {
     /// error and is read with [`Self::model`]. Answer ids equal the
     /// question ids; each answer type matches its question type; a `choice`
     /// or `score` answer names a criteria option, its probability keys equal
-    /// the criteria keys and sum to 1 within 1e-6, and its confidence and
+    /// the criteria keys and sum to 1 within 0.01 per option (Jev rounds, so values pass through unchanged), and its confidence and
     /// every probability lie in `[0, 1]`. A `noul` answer becomes `yes` when
     /// `p >= 0.5` else `no`, with probabilities `{yes: p, no: 1 - p}` and no
     /// confidence.
@@ -1005,7 +1007,12 @@ fn check_ranked(
         )));
     }
     let sum: f64 = probabilities.values().map(|value| value.get()).sum();
-    if (sum - 1.0).abs() > PROBABILITY_SUM_TOLERANCE {
+    // `criteria` has at least two options, and `probabilities` has the same keys.
+    let tolerance: f64 = probabilities
+        .values()
+        .map(|_| PROBABILITY_SUM_TOLERANCE_PER_OPTION)
+        .sum();
+    if (sum - 1.0).abs() > tolerance {
         return Err(JevError::response_invalid(format!(
             "answer {id} probabilities sum to {sum}, not 1"
         )));
