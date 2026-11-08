@@ -1,0 +1,66 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/PE-QA1-REQ-QA-004>
+  a triage:Finding ;
+  triage:findingId "PE-QA1-REQ-QA-004" ;
+  triage:title "r-5, r-6 and r-7 say bare 'status: complete'. The other seven sprints cite their merge PR and QA-2 result. The completion evidence for these" ;
+  triage:description "r-5, r-6 and r-7 say bare 'status: complete'. The other seven sprints cite their merge PR and QA-2 result. The completion evidence for these three cannot be traced from the repository alone. Add the merged PR and commit, and the QA result, to the status comment of each of the three docs, consistent with the other sprints. partially-compliant" ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "deliverable-missing" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T17:16:47Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R6 ;
+  triage:foundAt "2026-11-08T17:15:25Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/PE-QA1-REQ-QA-004/PE-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/PE-QA1-REQ-QA-004/PE-2> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/PE-QA1-REQ-QA-004/PE-3> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/PE-QA1-REQ-QA-004/PE-1>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md" ;
+  triage:line 4 ;
+  triage:snippet "status: complete" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "91d36b3" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/91d36b3> .
+
+<urn:atm:triage:occurrence/PE-QA1-REQ-QA-004/PE-2>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md" ;
+  triage:line 4 ;
+  triage:snippet "status: complete" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "91d36b3" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/91d36b3> .
+
+<urn:atm:triage:occurrence/PE-QA1-REQ-QA-004/PE-3>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 4 ;
+  triage:snippet "status: complete" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "91d36b3" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/91d36b3> .
+
+<urn:atm:triage:worktree/integrate-phase-a/91d36b3>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "91d36b3" ;
+  triage:orderIndex 0 .
