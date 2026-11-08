@@ -145,10 +145,10 @@ the **`sc-ai`** CLI. Behavioural contract for errors and parity rows:
 Sprint docs under `docs/plans/phase-a/` list REQ ids in YAML frontmatter.
 Phase plan: [`docs/plans/phase-a/plan.md`](plans/phase-a/plan.md).
 
-## Phase A.1 — refinement (proposed)
+## Phase A.1 — refinement (landed)
 
-Each row and amendment carries a marker `(Proposed, r-N)` that its owning
-sprint flips to `(Active, r-N)`. When two sprints of one wave edit adjacent
+Each row and amendment carries an `(Active, r-N)` marker; `r-N` records the
+sprint that landed it (before landing, the marker read `(Proposed, r-N)`). When two sprints of one wave edit adjacent
 rows, the second to merge resolves the textual conflict, keeping both rows
 verbatim. Plan: [`plans/phase-a-refine/plan.md`](plans/phase-a-refine/plan.md).
 
@@ -159,7 +159,7 @@ verbatim. Plan: [`plans/phase-a-refine/plan.md`](plans/phase-a-refine/plan.md).
 | REQ-SAG-0107 | `sc-agent-types` has no `sc-observability*` dependency; session log port uses local `LogRejected`; module seams are cargo features (`judge`, `secret`, `obs` default; `git`, `test-util` non-default; `cancel` core), every combination builds — (Active, r-1) |
 | REQ-SAG-0108 | `SubjectsDocument` is the one validated subjects type (private fields; validated on deserialize and by `SubjectsBuilder::build`); it and the id-assigning `SubjectsBuilder` live in `sc-agent-types`; producer and consumer share them — (Active, r-1) |
 | REQ-SAG-0109 | `crates/workspace-tests` (`publish = false`, no pyo3/tree-sitter in its graph) hosts cross-crate proofs incl. `jev_cross_impl`, a real `sc-treesitter` → `check.toml` e2e test, CLI/Python parity and git-read parity — (Active, r-3b) |
-| REQ-SAG-0133 | Both released binaries (`sc-ai`, `sc-treesitter`) documented with per-channel coverage — (Active, r-4; upstream sc-publish issue URL pending — owner deferral recorded in sprint-r-4 Implementation notes, bead `agt-scoop-multi-shim`) |
+| REQ-SAG-0133 | Both released binaries (`sc-ai`, `sc-treesitter`) documented with per-channel coverage — (Active, r-4; Scoop multi-binary support landed upstream as https://github.com/randlee/sc-publish/pull/176 (owner decision: a PR instead of an issue; optional `[channels.scoop].binaries`); sc-agent's input keeps a single Scoop binary until it re-pins the kit and sets `binaries`, bead `agt-scoop-multi-shim`; WinGet command aliases are not an upstream issue, the first hand-submitted manifest lists them, bead `agt-sft`) |
 | REQ-SAG-0134 | CI proves `mimalloc` is absent from `--no-default-features` library builds of `sc-ai` and `sc-treesitter` — (Active, r-4) |
 | REQ-SAG-0135 | CI proves `clap` is absent from `--no-default-features` library builds of `sc-ai` and `sc-treesitter` (`cargo tree` gates) — (Active, r-3b) |
 | NFR-SAG-0004 | Library deps use caret ranges; `=` pins only for lockstep listed in ADR-SAG-0023, checked by `check-exact-pins.sh` — (Active, r-4) |

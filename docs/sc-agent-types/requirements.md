@@ -25,12 +25,15 @@ Trait: `JudgeBackend` (see `architecture.md`).
 ## Phase A.1 amendments
 
 Sprint r-1 flipped each row to `(Active, r-1)`; root rows
-are in [`../requirements.md`](../requirements.md#phase-a1--refinement-proposed).
+are in [`../requirements.md`](../requirements.md#phase-a1--refinement-landed).
 
 | ID | Amendment |
 | --- | --- |
 | REQ-SAG-0101 | "One variant per id" becomes "every variant maps to exactly one id in `errors.json`; an id may have several variants" — (Active, r-1) |
 | REQ-SAG-0103 | The a-1 frozen contract is unfrozen once by r-1 (types break) and re-frozen at r-1 merge; later changes are additive — (Active, r-1). Its home moves to `sc-decision-schema` (ADR-SAG-0030): `judge` takes the per-send `&SendTrace`, `model_id()` is added — (Active, r-7) |
+| REQ-SAG-0105 | Open backend set: `#[non_exhaustive]` ids and static facts on `BackendDescriptor` rows in one `BACKENDS` catalog; `JudgeBackend::capabilities()` derives from the descriptor. Sprint r-1 (root table: [`../requirements.md`](../requirements.md)). Tests: `crates/sc-agent-types/tests/ids.rs` (`test_backend_catalog_roundtrip`); the production factory table is checked in `sc-jev-check` (`registry::tests::test_every_backend_has_factory`, `--lib`) — (Active, r-1) |
+| REQ-SAG-0106 | Explicit `JevError` variants with unchanged `code()` ids, producer-neutral variants, `ProducerError`, `retryable()`, no detail-prefix parsing. Sprint r-1. Tests: `crates/sc-agent-types/tests/errors.rs` (`test_every_variant_code_golden`, `test_error_codes_match_errors_json`, `test_retryable_only_network_transient`, `test_from_error_response_round_trip`) and `error::tests::test_error_code_all_is_complete` (`src/error.rs`) — (Active, r-1) |
+| REQ-SAG-0108 | `SubjectsDocument` is the one validated subjects type, built by the id-assigning `SubjectsBuilder`; producer and consumer share it. Sprint r-1. Tests: `crates/sc-agent-types/tests/subjects.rs` (`test_subjects_builder_ids_match_golden`, `test_unvalidated_subjects_rejected_on_deserialize`) — (Active, r-1) |
 | REQ-SAG-0107 | `sc-agent-types` loses the `judge` and `test-util` features with the moved modules; features are `secret`, `obs` (default) and `git` (non-default); every combination builds — (Active, r-7) |
 | REQ-SAG-0147 | Model catalog: open `ModelId` (known variants plus `Other(UnknownModel)`, which only parsing can build) — (Active, r-7) |
 | REQ-SAG-0148 | `ModelAliases::latest(alias)` for `jev`, `haiku`, `luna`; `with_override`; `BackendDescriptor::default_model_alias` / `default_model` — (Active, r-7) |

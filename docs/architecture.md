@@ -20,26 +20,39 @@ sc-agent combines **agent orchestration assets** (prompts, skills, policy) with 
 
 ## Phase A crate graph
 
-```
-sc-ai (binary) ── sc-observability v2 Logger → SessionLog adapter
-  └── sc-jev-check (facade: check.toml, extractors, run_check, sessions)
-        ├── sc-jev (TypeSafe Jev HTTP + JudgeBackend impl)
-        ├── sc-jev-backends (Haiku/Luna JudgeBackend impls)
-        ├── sc-agent-secrets
-        └── sc-agent-types (observability::v2 port; no sc-observability* dep since r-1)
+Direct workspace dependencies, taken from each `crates/*/Cargo.toml`
+(`[dependencies]` only; dev-dependencies omitted). The A.1 graph below adds
+features and labels.
 
-sc-jev-py (PyO3) ── sc-observability v2 Logger → SessionLog adapter
-  └── sc-jev-check
+```
+sc-ai (binary) ─────┐
+sc-jev-py (PyO3) ───┴── sc-jev-host (sc-observability =1.5.0 adapter, path policy, run/ask)
+                          └── sc-jev-check (facade: check.toml, extractors, run_check, sessions)
+                                ├── sc-jev ────────────┐
+                                ├── sc-jev-backends ───┴── sc-agent-http (ureq transport)
+                                ├── sc-agent-secrets
+                                ├── sc-decision-schema
+                                └── sc-agent-types (observability::v2 port; no sc-observability* dep)
 
 sc-treesitter (library + binary) → sc-agent-types
 ```
 
-Every workspace crate depends on `sc-agent-types`; the graph shows the edge
-once. Since r-1 no crate depends on `sc-observability-types` (ADR-SAG-0016
-r-1 amendment). Only the composition roots `sc-ai` and `sc-jev-py` depend on
-full `sc-observability`.
+`sc-ai` and `sc-jev-py` also depend directly on `sc-jev-check`,
+`sc-decision-schema` and `sc-agent-types`; `sc-jev`, `sc-jev-backends` and
+`sc-jev-host` depend directly on `sc-decision-schema` and `sc-agent-types`;
+`sc-agent-http` and `sc-agent-secrets` depend on `sc-agent-types`. The graph
+shows each of those edges once, at the lowest node that carries it.
 
-`sc-jev` and `sc-jev-backends` do not depend on each other.
+Every workspace crate depends on `sc-agent-types`; `sc-decision-schema`
+sits directly above it (r-7). Since r-1 no crate depends on
+`sc-observability-types` (ADR-SAG-0016 r-1 amendment). **`sc-jev-host` is the
+only crate that links full `sc-observability`** (`crates/sc-jev-host/Cargo.toml`;
+ADR-SAG-0013 and ADR-SAG-0010 r-3b amendments). `sc-ai` and `sc-jev-py` are
+thin composition roots over `sc-jev-host` and have no direct `sc-observability`
+dependency.
+
+`sc-jev` and `sc-jev-backends` do not depend on each other. Both reach HTTP
+only through `sc-agent-http`.
 
 **`sc-treesitter`** is the `sc/subjects/1` producer (ADR-SAG-0015). It depends
 on `sc-agent-types` and links no judge, secrets or HTTP crate. No workspace
@@ -102,9 +115,10 @@ ADR sections below keep their original order. This table lists them in id
 order. One rule fills the last column (plan.md conventions): a new ADR lists
 every older ADR whose Phase A.1 amendment subsection it drives; an older ADR
 lists every A.1 subsection it receives, as the driving ADR or as "A.1
-subsection" when only a D decision drives it. Each A.1 entry carries a
-`(Proposed, r-N)` marker. A landing sprint flips only its own row's Status
-cell and its own marker text to `(Active, r-N)`; it adds or removes no entry.
+subsection" when only a D decision drives it. Each A.1 entry carries an
+`(Active, r-N)` marker, where `r-N` records the sprint that landed it (before
+landing the marker read `(Proposed, r-N)`; a landing sprint flipped only its
+own row's Status cell and its own marker text, and added or removed no entry).
 
 | ADR | Title | Status | Amends / amended by |
 | --- | --- | --- | --- |
@@ -790,11 +804,17 @@ preflight CI, and publish dry-run).
   | Scoop | shim | in archive, no shim |
   | WinGet | alias | in package, no alias |
 
-  The Scoop/WinGet single-binary limit is an sc-publish kit limitation
-  (`[channels.scoop].binary` is one string; WinGet has no per-binary alias
-  field), so no consumer-input field can add the second shim. Bead
-  `agt-scoop-multi-shim`; upstream sc-publish issue: not yet filed — its URL
-  is recorded here when it is. The Windows invocation path for
+  Scoop: `[channels.scoop].binary` is one string at the pinned kit, so
+  sc-agent's consumer input still has a single Scoop binary. The upstream
+  change landed in sc-publish as https://github.com/randlee/sc-publish/pull/176 (optional
+  `[channels.scoop].binaries`). The owner directed a PR instead of an issue.
+  sc-agent gets the second shim only after it re-pins the kit and sets
+  `binaries` (not part of this amendment). Bead `agt-scoop-multi-shim`.
+
+  WinGet: command aliases are not an upstream issue. The first manifest is
+  submitted by hand and must list a `PortableCommandAlias` for each of
+  `sc-ai` and `sc-treesitter` (bead `agt-sft`; the related upstream PR
+  randlee/sc-publish#182 is open). The Windows invocation path for
   `sc-treesitter` is in `docs/development/sc-publish.md`. REQ-SAG-0133.
 
 ### Amendment (Phase A.1, r-3)

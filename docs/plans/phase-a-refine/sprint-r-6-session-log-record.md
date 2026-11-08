@@ -1,7 +1,7 @@
 ---
 id: r-6
 phase: r
-status: complete
+status: complete # merged PR 35 (3a3add9), QA PASS qa-r6-4 b35a9c4
 closure_type: contract
 target_boundary: session-log
 track: observability
