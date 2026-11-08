@@ -62,6 +62,34 @@ impl TryFrom<String> for Rev {
     }
 }
 
+impl TryFrom<&str> for Rev {
+    type Error = JevError;
+
+    /// # Errors
+    ///
+    /// `INPUT_INVALID` as for [`Rev::parse`].
+    fn try_from(text: &str) -> Result<Self, Self::Error> {
+        Self::parse(text)
+    }
+}
+
+impl FromStr for Rev {
+    type Err = JevError;
+
+    /// # Errors
+    ///
+    /// `INPUT_INVALID` as for [`Rev::parse`].
+    fn from_str(text: &str) -> Result<Self, Self::Err> {
+        Self::parse(text)
+    }
+}
+
+impl AsRef<str> for Rev {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
 impl From<Rev> for String {
     fn from(rev: Rev) -> Self {
         rev.0
@@ -248,13 +276,6 @@ pub enum BackendKeyId {
     OpenAi,
 }
 
-/// Read aliases for each credential id, beside its documented name.
-const KEY_ALIASES: &[(BackendKeyId, &[&str])] = &[
-    (BackendKeyId::TypeSafe, &[]),
-    (BackendKeyId::Anthropic, &[]),
-    (BackendKeyId::OpenAi, &["open_ai"]),
-];
-
 impl BackendKeyId {
     /// Every credential id, in declaration order.
     pub const ALL: &'static [Self] = &[Self::TypeSafe, Self::Anthropic, Self::OpenAi];
@@ -266,6 +287,16 @@ impl BackendKeyId {
             Self::TypeSafe => "typesafe",
             Self::Anthropic => "anthropic",
             Self::OpenAi => "openai",
+        }
+    }
+
+    /// Read aliases accepted beside the documented spelling.
+    ///
+    /// The match is exhaustive, so a new id must decide its aliases.
+    const fn aliases(self) -> &'static [&'static str] {
+        match self {
+            Self::TypeSafe | Self::Anthropic => &[],
+            Self::OpenAi => &["open_ai"],
         }
     }
 }
@@ -283,10 +314,10 @@ impl FromStr for BackendKeyId {
     ///
     /// Kebab-case and other spellings are rejected.
     fn from_str(text: &str) -> Result<Self, Self::Err> {
-        KEY_ALIASES
+        Self::ALL
             .iter()
-            .find(|(id, aliases)| id.as_str() == text || aliases.contains(&text))
-            .map(|(id, _)| *id)
+            .find(|id| id.as_str() == text || id.aliases().contains(&text))
+            .copied()
             .ok_or_else(|| {
                 JevError::input_invalid(format!(
                     "backend key {text} is not typesafe, anthropic, or openai"
@@ -634,7 +665,7 @@ impl TryFrom<String> for Sha256Digest {
 /// assert!("a".repeat(40).parse::<BlobSha>().is_ok());
 /// assert!("A".repeat(40).parse::<BlobSha>().is_err());
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct BlobSha(String);
 
@@ -676,6 +707,12 @@ impl FromStr for BlobSha {
 
     fn from_str(text: &str) -> Result<Self, Self::Err> {
         Self::try_from(text)
+    }
+}
+
+impl AsRef<str> for BlobSha {
+    fn as_ref(&self) -> &str {
+        self.as_str()
     }
 }
 
@@ -901,15 +938,16 @@ pub struct AnswerId(Ulid);
 
 impl AnswerId {
     /// A fresh id.
+    ///
+    /// `AnswerId` does not implement [`Default`], like [`SessionId`]: a
+    /// default that is a fresh random id would surprise callers.
     #[must_use]
+    #[expect(
+        clippy::new_without_default,
+        reason = "a random id is not a sensible Default value"
+    )]
     pub fn new() -> Self {
         Self(Ulid::new())
-    }
-}
-
-impl Default for AnswerId {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -1033,6 +1071,36 @@ fn encode_hex(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_backend_key_id_round_trips_through_its_spellings() {
+        assert!(!BackendKeyId::ALL.is_empty());
+        for id in BackendKeyId::ALL {
+            assert_eq!(id.as_str().parse::<BackendKeyId>().unwrap(), *id);
+            assert_eq!(id.to_string().parse::<BackendKeyId>().unwrap(), *id);
+            for alias in id.aliases() {
+                assert_eq!(alias.parse::<BackendKeyId>().unwrap(), *id, "{alias}");
+            }
+        }
+        assert_eq!(
+            "open_ai".parse::<BackendKeyId>().unwrap(),
+            BackendKeyId::OpenAi
+        );
+        assert!("open-ai".parse::<BackendKeyId>().is_err());
+    }
+
+    #[test]
+    fn rev_and_blob_sha_convert_and_compare() {
+        let rev: Rev = "HEAD".parse().unwrap();
+        assert_eq!(Rev::try_from("HEAD").unwrap(), rev);
+        assert_eq!(<Rev as AsRef<str>>::as_ref(&rev), "HEAD");
+        assert_eq!("-x".parse::<Rev>().unwrap_err().code(), "INPUT_INVALID");
+        assert_eq!(Rev::try_from("").unwrap_err().code(), "INPUT_INVALID");
+        let low = BlobSha::try_from("a".repeat(40).as_str()).unwrap();
+        let high = BlobSha::try_from("b".repeat(40).as_str()).unwrap();
+        assert!(low < high);
+        assert_eq!(<BlobSha as AsRef<str>>::as_ref(&low), "a".repeat(40));
+    }
 
     #[test]
     fn digest_rejects_uppercase_and_short_text() {
