@@ -16,9 +16,14 @@
       "status": "failed",
       "error": {
         "error": "NETWORK_ERROR",
-        "message": "Check connectivity and retry. Transport detail: connect to the Jev API failed. Backends retry busy responses before returning this error.",
-        "schema_version": 1,
-        "retryable": true
+        "kind": "dependency",
+        "message": "network error (connect): connect to the Jev API failed",
+        "suggested_action": "Check connectivity and DNS to the provider, then retry.",
+        "retryable": true,
+        "details": {
+          "network_kind": "connect"
+        },
+        "schema_version": 1
       }
     },
     {

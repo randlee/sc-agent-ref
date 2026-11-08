@@ -297,18 +297,18 @@ impl ComposeInputs {
 ///
 /// # Errors
 ///
-/// `INPUT_MISSING` when `path` is not a directory; `CONFIG_INVALID` when it
+/// `INPUT_MISSING` when `path` is not a directory; `IO_FAILED` when it
 /// cannot be made absolute.
 pub fn explicit_repo_root(path: &Path) -> Result<RepoRoot, JevError> {
     if !path.is_dir() {
         return Err(JevError::input_missing(path.display().to_string()));
     }
     let absolute = std::path::absolute(path).map_err(|error| {
-        JevError::operational_config(format!(
-            "repo root {} could not be made absolute (cause: {}). Pass an absolute repo root.",
-            path.display(),
-            error.kind()
-        ))
+        JevError::io_failed_with(
+            format!("repo root {} (make absolute)", path.display()),
+            error.kind(),
+            Some("Pass an absolute repo root.".to_owned()),
+        )
     })?;
     Ok(RepoRoot::new(absolute))
 }
@@ -437,21 +437,15 @@ pub fn ask_from(
     }
 }
 
-/// Appends a failed flush to `error`'s detail, once, so it stays observable
-/// when an error (not a response) leaves the call. The error code is
-/// unchanged. `None` means the flush succeeded.
+/// Records a failed flush on `error` as its own field
+/// (`details.log_flush_failure`), once, so it stays observable when an error
+/// (not a response) leaves the call. Every variant carries it, and the error
+/// id, message and action are unchanged. `None` means the flush succeeded.
 fn note_flush(error: JevError, warning: Option<String>) -> JevError {
-    let Some(warning) = warning else {
-        return error;
-    };
-    let noted = std::cell::Cell::new(false);
-    error.map_detail(|text| {
-        if noted.replace(true) {
-            text.to_owned()
-        } else {
-            format!("{text} ({warning})")
-        }
-    })
+    match warning {
+        Some(warning) => error.with_log_flush_failure(warning),
+        None => error,
+    }
 }
 
 /// Flushes the session log. The log is best effort: a failure becomes a
@@ -463,7 +457,7 @@ fn finish_log(adapter: &ObservabilityAdapter) -> Option<String> {
 fn flush_warning(flushed: Result<(), JevError>) -> Option<String> {
     flushed
         .err()
-        .map(|error| format!("session log was not flushed: {}", error.fix_hint()))
+        .map(|error| format!("session log was not flushed: {}", error.message()))
 }
 
 #[cfg(test)]
@@ -472,8 +466,10 @@ mod tests {
 
     #[test]
     fn flush_failure_is_a_warning_not_an_error() {
-        let warning = flush_warning(Err(JevError::operational_config(
-            "session log flush failed (disk full). Check that the log root is writable.",
+        let warning = flush_warning(Err(JevError::io_failed_with(
+            "session log flush (disk full)",
+            std::io::ErrorKind::Other,
+            None,
         )))
         .expect("warning");
         assert!(warning.contains("disk full"), "{warning}");
@@ -489,10 +485,21 @@ mod tests {
             Some("session log was not flushed: disk full".into()),
         );
         assert_eq!(noted.code(), code);
-        let hint = noted.fix_hint();
-        assert!(hint.contains("bad input"), "{hint}");
-        assert_eq!(hint.matches("disk full").count(), 1, "{hint}");
+        assert_eq!(noted.message(), error.message());
+        assert_eq!(noted.suggested_action(), error.suggested_action());
+        assert_eq!(
+            noted.log_flush_failure(),
+            Some("session log was not flushed: disk full")
+        );
+        let details = noted.details().expect("details");
+        assert_eq!(
+            details.log_flush_failure.as_deref(),
+            Some("session log was not flushed: disk full")
+        );
         assert_eq!(note_flush(error.clone(), None), error);
+        // Variants with no text field carry it too.
+        let empty = note_flush(JevError::InputEmpty, Some("disk full".into()));
+        assert_eq!(empty.log_flush_failure(), Some("disk full"));
     }
 
     #[test]

@@ -1,118 +1,481 @@
 {
+  "ApiError.404": {
+    "details": {
+      "http_status": 404,
+      "provider": "Jev",
+      "provider_request_id": "req_1",
+      "provider_type": "some_error"
+    },
+    "error": "API_ERROR",
+    "kind": "dependency",
+    "message": "provider API error: Jev HTTP 404 (some_error): the provider said no",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Jev answered with an unexpected status. Check the endpoint and the request; retrying unchanged is unlikely to help."
+  },
+  "ApiError.500": {
+    "details": {
+      "http_status": 500,
+      "provider": "Jev",
+      "provider_request_id": "req_1",
+      "provider_type": "some_error"
+    },
+    "error": "API_ERROR",
+    "kind": "dependency",
+    "message": "provider API error: Jev HTTP 500 (some_error): the provider said no",
+    "retryable": true,
+    "schema_version": 1,
+    "suggested_action": "Jev failed on its side. Wait and retry; if it keeps failing, check the provider's status page."
+  },
+  "ApiError.503": {
+    "details": {
+      "http_status": 503,
+      "provider": "Jev",
+      "provider_request_id": "req_1",
+      "provider_type": "some_error"
+    },
+    "error": "API_ERROR",
+    "kind": "dependency",
+    "message": "provider API error: Jev HTTP 503 (some_error): the provider said no",
+    "retry_after_seconds": 12,
+    "retryable": true,
+    "schema_version": 1,
+    "suggested_action": "Jev failed on its side. Wait and retry; if it keeps failing, check the provider's status page."
+  },
+  "ApiRequestInvalid": {
+    "details": {
+      "http_status": 422,
+      "provider": "Jev",
+      "provider_request_id": "req_1",
+      "provider_type": "some_error"
+    },
+    "error": "API_REQUEST_INVALID",
+    "field": "questions",
+    "kind": "validation",
+    "message": "provider rejected the request: Jev HTTP 422 (some_error): the provider said no",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Correct questions as the provider's message says. Retrying the same request fails again."
+  },
+  "AuthFailed": {
+    "details": {
+      "http_status": 401,
+      "provider": "Jev",
+      "provider_request_id": "req_1",
+      "provider_type": "some_error"
+    },
+    "error": "AUTH_FAILED",
+    "kind": "permission",
+    "message": "provider rejected the credential: Jev HTTP 401 (some_error): the provider said no",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Check that the Jev credential is valid, not revoked, and allowed to use this model; replace it in the process environment, the repo-root .env file or the keyring. Retrying with the same credential fails again."
+  },
   "ConfigInvalid": {
-    "code": "CONFIG_INVALID",
-    "fix_hint": "Fix the check.toml field or packaged jev.toml entry (missing model), then retry."
+    "error": "CONFIG_INVALID",
+    "kind": "validation",
+    "message": "config is invalid: missing model",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Fix the check.toml field or packaged jev.toml entry named in the message, then retry."
+  },
+  "ConfigInvalid.Recovery": {
+    "error": "CONFIG_INVALID",
+    "kind": "validation",
+    "message": "config is invalid: no git toplevel was found",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Pass --repo-root with the repository root."
   },
   "CredentialStoreInvalid": {
-    "code": "CONFIG_INVALID",
-    "fix_hint": "the repo-root .env file (cause: permission denied). Make the file readable and retry."
+    "error": "CONFIG_INVALID",
+    "kind": "validation",
+    "message": "credential store is invalid: the Jev API key (cause: key contains whitespace)",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Store the key again without spaces."
   },
   "EncodeFailed": {
-    "code": "INPUT_INVALID",
-    "fix_hint": "response JSON could not be encoded as JSON (unexpected end of input error at line 1 column 1). Retry; if it persists, report it as a bug."
+    "error": "INPUT_INVALID",
+    "kind": "validation",
+    "message": "response JSON could not be encoded as JSON (unexpected end of input error at line 1 column 1)",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Retry; if it persists, report it as a bug."
   },
   "ExtractionEmpty": {
-    "code": "EXTRACTION_EMPTY",
-    "fix_hint": "Change the query or input so extraction emits at least one subject."
+    "error": "EXTRACTION_EMPTY",
+    "kind": "invalid_state",
+    "message": "extraction produced no subjects",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Change the query or input so extraction emits at least one subject."
   },
   "ExtractionFailed": {
-    "code": "EXTRACTION_FAILED",
-    "fix_hint": "Fix the producer failure (exit 1) and run extraction again."
+    "error": "EXTRACTION_FAILED",
+    "kind": "dependency",
+    "message": "extraction failed: exit 1",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Fix the producer failure named in the message and run extraction again."
   },
   "ExtractionInvalid": {
-    "code": "EXTRACTION_INVALID",
-    "fix_hint": "Emit a valid sc/subjects/1 document on stdout (schema) and retry."
+    "error": "EXTRACTION_INVALID",
+    "kind": "dependency",
+    "message": "extraction output is invalid: schema",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Emit a valid sc/subjects/1 document on stdout and retry."
   },
   "ExtractionParseError": {
-    "code": "EXTRACTION_PARSE_ERROR",
-    "fix_hint": "Fix the syntax error at a.py:3 and run extraction again."
+    "error": "EXTRACTION_PARSE_ERROR",
+    "kind": "validation",
+    "message": "parse error in a.py:3",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Fix the syntax error at a.py:3 and run extraction again."
   },
   "ExtractionTimeout": {
-    "code": "EXTRACTION_TIMEOUT",
-    "fix_hint": "Raise timeout_seconds above 30 or reduce the input so extraction finishes in time."
+    "error": "EXTRACTION_TIMEOUT",
+    "kind": "timeout",
+    "message": "extraction timed out after 30s",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Raise timeout_seconds above 30 or reduce the input so extraction finishes in time."
   },
   "GitTimeout": {
-    "code": "EXTRACTION_TIMEOUT",
-    "fix_hint": "git did not finish within 60s. Check for a stalled git process, a lock file (such as .git/index.lock) or a slow filesystem, then retry."
+    "error": "EXTRACTION_TIMEOUT",
+    "kind": "timeout",
+    "message": "git did not finish within 60s",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "git did not finish within 60s. Check for a stalled git process, a lock file (such as .git/index.lock) or a slow filesystem, then retry."
   },
   "InputEmpty": {
-    "code": "INPUT_EMPTY",
-    "fix_hint": "Provide a non-empty input and retry."
+    "error": "INPUT_EMPTY",
+    "kind": "validation",
+    "message": "input is empty",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Provide a non-empty input and retry."
   },
   "InputInvalid": {
-    "code": "INPUT_INVALID",
-    "fix_hint": "Correct the input so it matches the expected schema (bad json), then retry."
+    "error": "INPUT_INVALID",
+    "kind": "validation",
+    "message": "input is invalid: bad json",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Correct the input so it matches the expected schema, then retry."
+  },
+  "InputInvalid.Field": {
+    "error": "INPUT_INVALID",
+    "field": "--backend",
+    "kind": "validation",
+    "message": "input is invalid: unknown backend nope",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Correct --backend so it matches what sc-ai expects (see --help), then retry."
   },
   "InputMissing": {
-    "code": "INPUT_MISSING",
-    "fix_hint": "Create gone.toml or correct the path in check.toml, then retry."
+    "details": {
+      "path": "gone.toml"
+    },
+    "error": "INPUT_MISSING",
+    "kind": "not_found",
+    "message": "input path gone.toml is missing",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Create gone.toml or correct the path in check.toml, then retry."
   },
-  "InputTooLarge": {
-    "code": "INPUT_TOO_LARGE",
-    "fix_hint": "Shrink the check input from 11 bytes to at most 10 bytes. One check is one request and is never split."
+  "InputTooLarge.Bytes": {
+    "details": {
+      "actual": 11,
+      "limit": 10,
+      "unit": "bytes"
+    },
+    "error": "INPUT_TOO_LARGE",
+    "kind": "validation",
+    "message": "input is 11 bytes; limit is 10 bytes",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Shrink the check input from 11 bytes to at most 10 bytes. One check is one request and is never split."
+  },
+  "InputTooLarge.Provider": {
+    "details": {
+      "http_status": 400,
+      "provider": "Jev",
+      "provider_request_id": "req_1",
+      "provider_type": "some_error",
+      "unit": "tokens"
+    },
+    "error": "INPUT_TOO_LARGE",
+    "kind": "validation",
+    "message": "input exceeds the provider's tokens limit (Jev HTTP 400 (some_error): the provider said no)",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Shorten the check input; the provider refused it as over its tokens limit. One check is one request and is never split."
+  },
+  "InputTooLarge.Tokens": {
+    "details": {
+      "actual": 40000,
+      "limit": 32000,
+      "unit": "tokens"
+    },
+    "error": "INPUT_TOO_LARGE",
+    "kind": "validation",
+    "message": "input is 40000 tokens; limit is 32000 tokens",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Shrink the check input from 40000 tokens to at most 32000 tokens. One check is one request and is never split."
   },
   "IoFailed": {
-    "code": "INPUT_INVALID",
-    "fix_hint": "stdout I/O failed (cause: broken pipe). Check that it is readable or writable and retry."
+    "details": {
+      "io_kind": "broken_pipe",
+      "what": "stdout"
+    },
+    "error": "IO_FAILED",
+    "kind": "dependency",
+    "message": "stdout: I/O failed (broken pipe)",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Check that stdout exists and is readable or writable, then retry."
+  },
+  "IoFailed.Recovery": {
+    "details": {
+      "io_kind": "not_found",
+      "what": "git"
+    },
+    "error": "IO_FAILED",
+    "kind": "dependency",
+    "message": "git: I/O failed (entity not found)",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Check that git is installed."
   },
   "KeyMissing": {
-    "code": "KEY_MISSING",
-    "fix_hint": "Provide a credential for typesafe via the process environment, the repo-root .env file, or the keyring, then retry."
+    "error": "KEY_MISSING",
+    "kind": "permission",
+    "message": "API key for typesafe is missing",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Provide a credential for typesafe via the process environment, the repo-root .env file, or the keyring, then retry."
   },
   "LanguageUnavailable": {
-    "code": "LANGUAGE_UNAVAILABLE",
-    "fix_hint": "Use a language built into sc-treesitter instead of cobol."
+    "error": "LANGUAGE_UNAVAILABLE",
+    "kind": "validation",
+    "message": "language cobol is unavailable in sc-treesitter",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Use a language built into sc-treesitter instead of cobol."
   },
-  "NetworkError": {
-    "code": "NETWORK_ERROR",
-    "fix_hint": "Check connectivity and retry. Transport detail: Jev HTTP 500. Backends retry busy responses before returning this error."
+  "LogFlushFailed": {
+    "details": {
+      "log_flush_failure": "disk full"
+    },
+    "error": "INPUT_EMPTY",
+    "kind": "validation",
+    "message": "input is empty",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Provide a non-empty input and retry."
   },
-  "Operational.Config": {
-    "code": "CONFIG_INVALID",
-    "fix_hint": "Pass --repo-root with the repository root."
+  "NetworkError.Cancelled": {
+    "details": {
+      "network_kind": "cancelled"
+    },
+    "error": "NETWORK_ERROR",
+    "kind": "dependency",
+    "message": "network error (cancelled): request cancelled",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "The request was cancelled. Run it again if you still need the result."
   },
-  "Operational.Io": {
-    "code": "INPUT_INVALID",
-    "fix_hint": "stdout write failed. Check that stdout is writable."
+  "NetworkError.Connect": {
+    "details": {
+      "network_kind": "connect"
+    },
+    "error": "NETWORK_ERROR",
+    "kind": "dependency",
+    "message": "network error (connect): Jev connection failed",
+    "retryable": true,
+    "schema_version": 1,
+    "suggested_action": "Check connectivity and DNS to the provider, then retry."
+  },
+  "NetworkError.Timeout": {
+    "details": {
+      "network_kind": "timeout"
+    },
+    "error": "NETWORK_ERROR",
+    "kind": "timeout",
+    "message": "network error (timeout): Jev connection failed",
+    "retryable": true,
+    "schema_version": 1,
+    "suggested_action": "The request timed out. Retry later; a busy or slow provider may need a minute."
+  },
+  "NetworkError.Tls": {
+    "details": {
+      "network_kind": "tls"
+    },
+    "error": "NETWORK_ERROR",
+    "kind": "dependency",
+    "message": "network error (tls): Jev handshake failed",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Fix the TLS setup (system clock, certificates, proxy) before retrying; retrying alone will fail again."
   },
   "ProducerError": {
-    "code": "QUERY_NOT_FOUND",
-    "fix_hint": "sc-treesitter: Use branches."
+    "details": {
+      "producer": "sc-treesitter"
+    },
+    "error": "QUERY_NOT_FOUND",
+    "kind": "not_found",
+    "message": "sc-treesitter failed with QUERY_NOT_FOUND: Use branches.",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "See the sc-treesitter message above."
   },
   "PromptFileMissing": {
-    "code": "PROMPT_FILE_MISSING",
-    "fix_hint": "Provide the LLM system prompt at prompt.md, or select it with check.toml or the CLI override."
+    "details": {
+      "path": "prompt.md"
+    },
+    "error": "PROMPT_FILE_MISSING",
+    "kind": "not_found",
+    "message": "prompt file prompt.md is missing",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Provide the LLM system prompt at prompt.md, or select it with check.toml or the CLI override."
+  },
+  "ProviderBusy.Budget": {
+    "details": {
+      "attempts": 3,
+      "cause": "budget",
+      "http_status": 529
+    },
+    "error": "PROVIDER_BUSY",
+    "kind": "capacity",
+    "message": "provider is busy: Jev HTTP 529 busy after 3 sends; retry budget exhausted",
+    "retryable": true,
+    "schema_version": 1,
+    "suggested_action": "Wait a minute, then retry; the retry budget ran out while the provider stayed busy. Another backend may have room."
+  },
+  "ProviderBusy.Sends": {
+    "details": {
+      "attempts": 4,
+      "cause": "sends",
+      "http_status": 429
+    },
+    "error": "PROVIDER_BUSY",
+    "kind": "capacity",
+    "message": "provider is busy: Jev HTTP 429 busy; 4 sends exhausted",
+    "retry_after_seconds": 7,
+    "retryable": true,
+    "schema_version": 1,
+    "suggested_action": "Wait at least 7 seconds, then retry; every allowed send was refused as busy. Another backend may have room."
   },
   "QueryInvalid": {
-    "code": "QUERY_INVALID",
-    "fix_hint": "Fix the tree-sitter query syntax (syntax) and retry."
+    "error": "QUERY_INVALID",
+    "kind": "validation",
+    "message": "query is invalid: syntax",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Fix the tree-sitter query syntax named in the message and retry."
   },
   "QueryNotFound": {
-    "code": "QUERY_NOT_FOUND",
-    "fix_hint": "Choose a query asset that exists for this language instead of missing."
+    "error": "QUERY_NOT_FOUND",
+    "kind": "not_found",
+    "message": "query missing was not found",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Choose a query asset that exists for this language instead of missing."
+  },
+  "QuotaExhausted": {
+    "details": {
+      "http_status": 429,
+      "provider": "Jev",
+      "provider_request_id": "req_1",
+      "provider_type": "some_error"
+    },
+    "error": "QUOTA_EXHAUSTED",
+    "kind": "capacity",
+    "message": "provider quota is exhausted: Jev HTTP 429 (some_error): the provider said no",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Jev reports no tokens, credit or spend allowance left. Add credit, raise the limit, or wait for it to renew; retrying now fails again. Use another backend meanwhile."
   },
   "RegistryInvalid": {
-    "code": "CONFIG_INVALID",
-    "fix_hint": "Backend jev is not registered. Register it before the run."
+    "error": "CONFIG_INVALID",
+    "kind": "validation",
+    "message": "backend registry is invalid: Backend jev is not registered",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Register it before the run."
   },
-  "ResponseInvalid": {
-    "code": "RESPONSE_INVALID",
-    "fix_hint": "Retry the request. The judge response was invalid (truncated). If it persists, treat a truncated or off-schema response as a backend failure."
+  "ResponseInvalid.NotJson": {
+    "details": {
+      "cause": "not_json"
+    },
+    "error": "RESPONSE_INVALID",
+    "kind": "dependency",
+    "message": "response is invalid (not_json): not JSON",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "The reply was not valid JSON. Check the endpoint and any proxy that rewrites responses; if the provider's own reply is fine, report the model's answer as a backend failure. Retrying the same request is unlikely to help."
+  },
+  "ResponseInvalid.Schema": {
+    "details": {
+      "cause": "schema"
+    },
+    "error": "RESPONSE_INVALID",
+    "kind": "dependency",
+    "message": "response is invalid (schema): missing answer",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "The provider's answers do not fit the questions. Retrying is unlikely to help; report it as a backend failure with the detail above."
+  },
+  "ResponseInvalid.TooLarge": {
+    "details": {
+      "cause": "too_large"
+    },
+    "error": "RESPONSE_INVALID",
+    "kind": "dependency",
+    "message": "response is invalid (too_large): over the cap",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "The reply was larger than the read cap. Retrying gives the same reply; report it, and check whether a proxy rewrites responses."
+  },
+  "ResponseInvalid.Truncated": {
+    "details": {
+      "cause": "truncated"
+    },
+    "error": "RESPONSE_INVALID",
+    "kind": "dependency",
+    "message": "response is invalid (truncated): cut short",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "The provider stopped at its output limit. Ask fewer questions per check or shorten the state, then run it again; retrying the same check gives the same cut-off."
   },
   "SessionDocumentInvalid": {
-    "code": "INPUT_INVALID",
-    "fix_hint": "Session file s is not a session document. Delete it and start a new session."
+    "error": "INPUT_INVALID",
+    "kind": "validation",
+    "message": "session document is invalid: Session file s is not a session document",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Delete it and start a new session."
   },
   "SessionExpired": {
-    "code": "SESSION_EXPIRED",
-    "fix_hint": "Start a new session. Session 00000000000000000000000000 expired; expiry is measured from the session created_at timestamp."
+    "error": "SESSION_EXPIRED",
+    "kind": "invalid_state",
+    "message": "session 00000000000000000000000000 has expired",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Start a new session. Session 00000000000000000000000000 expired; expiry is measured from the session created_at timestamp."
   },
   "SessionNotFound": {
-    "code": "SESSION_NOT_FOUND",
-    "fix_hint": "Create a session or pass the id of a session that still exists. Missing session: 00000000000000000000000000."
-  },
-  "SessionStoreIo": {
-    "code": "CONFIG_INVALID",
-    "fix_hint": "Create session directory sessions failed (cause: permission denied). Choose a writable directory, then retry."
+    "error": "SESSION_NOT_FOUND",
+    "kind": "not_found",
+    "message": "session 00000000000000000000000000 was not found",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Create a session or pass the id of a session that still exists. Missing session: 00000000000000000000000000."
   }
 }

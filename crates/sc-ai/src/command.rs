@@ -127,10 +127,11 @@ fn base_inputs(
         // An explicit repo root never needs the working directory.
         Err(_) if explicit.is_some() => PathBuf::from("."),
         Err(error) => {
-            return Err(JevError::operational_config(format!(
-                "current directory is unavailable ({}). Pass --repo-root.",
-                error.kind()
-            )));
+            return Err(JevError::io_failed_with(
+                "current directory",
+                error.kind(),
+                Some("Pass --repo-root.".to_owned()),
+            ));
         }
     };
     let mut inputs = ComposeInputs::new(cwd, PathPolicy::cli());
@@ -283,11 +284,11 @@ fn request_bytes(repo: &RepoRoot, spec: &str, stdin: &mut dyn Read) -> Result<Ve
     }
     let path = joined_path(repo.as_path(), Path::new(spec));
     std::fs::read(&path).map_err(|error| {
-        if error.kind() == std::io::ErrorKind::NotFound {
-            JevError::input_missing(path.display().to_string())
-        } else {
-            JevError::io_failed(format!("request JSON {}", path.display()), &error)
-        }
+        JevError::read_failed(
+            path.display().to_string(),
+            format!("request JSON {}", path.display()),
+            &error,
+        )
     })
 }
 

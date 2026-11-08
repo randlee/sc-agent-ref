@@ -652,9 +652,9 @@ mod tests {
             format!("config is invalid: {NO_PATH_TEXT}")
         );
         assert!(
-            built.fix_hint().contains("path field"),
+            built.message().contains("path field"),
             "{}",
-            built.fix_hint()
+            built.message()
         );
 
         let parsed = load_check_str(&command_toml("command = [\"tool\", \"--file={path}\"]"))

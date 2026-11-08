@@ -9,7 +9,7 @@
 
 use std::collections::BTreeSet;
 
-use sc_agent_types::{JevError, ModelFamily};
+use sc_agent_types::{JevError, ModelFamily, ResponseInvalidCause};
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
@@ -32,8 +32,12 @@ impl LlmOutput {
     /// JSON") or has no `answers` object ("LLM answer ids differ from the
     /// question ids").
     pub fn parse(text: &str) -> Result<Self, JevError> {
-        let value: Value = serde_json::from_str(text)
-            .map_err(|_| JevError::response_invalid("LLM reply is not JSON"))?;
+        let value: Value = serde_json::from_str(text).map_err(|_| {
+            JevError::response_invalid_because(
+                ResponseInvalidCause::NotJson,
+                "LLM reply is not JSON",
+            )
+        })?;
         match value {
             Value::Object(mut object) => match object.remove("answers") {
                 Some(Value::Object(answers)) => Ok(Self { answers }),

@@ -19,12 +19,13 @@ line (ADR-SAG-0027, NFR-SAG-0001).
 ## Argv (REQ-SAG-0712)
 
 `--help` and `--version` print to stdout and exit 0; every other parse error is
-one `INPUT_INVALID` stderr line and exit 2 (a value parser's own `JevError`,
+one `INPUT_INVALID` stderr line naming the argument in `field` (never
+`CONFIG_INVALID`: usage errors are the caller's input) and exit 2 (a value parser's own `JevError`,
 such as a malformed `--rev` or `--session-id`, is returned unwrapped). Value
 flags accept values starting with `-`. `--rev` and `--check` conflict with
 `--request-json`. `--chain-context` sets `MultiBackendMode::ChainContext`;
 independent is the default (ADR-SAG-0008). `--session-id` is a ULID: any other
-value, a UUID included, is one `INPUT_INVALID` line whose fix hint says session
+value, a UUID included, is one `INPUT_INVALID` line (`field` `session_id`) whose suggested action says session
 ids are ULIDs since Phase A.1 and to start a new session with `sc-ai jev run`.
 `--project <TEXT>` on `jev run` and `jev ask` is validated as a `ProjectLabel`
 (at most 256 bytes, no control characters) and reaches that call's log row
@@ -41,7 +42,10 @@ fails, `run` returns an error: stderr only, exit 2.
 
 Every stderr line carries `schema_version`. A consumer that reads it treats a
 value other than `1` as an **unknown error shape**: it falls back to the exit
-code and the raw line instead of reading fields it does not know.
+code and the raw line instead of reading fields it does not know. The keys,
+the ids and their `details` are listed in `docs/stability.md`; a failed read
+of a named path is `INPUT_MISSING` when the file does not exist and
+`IO_FAILED` otherwise, for the request file and every other path.
 
 ## Test seam (plan "Test seams")
 

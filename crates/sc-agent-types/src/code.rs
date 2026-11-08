@@ -56,6 +56,18 @@ pub enum ErrorCode {
     SessionNotFound,
     /// `SESSION_EXPIRED`.
     SessionExpired,
+    /// `AUTH_FAILED`: the provider rejected the credential (HTTP 401, 403).
+    AuthFailed,
+    /// `API_REQUEST_INVALID`: the provider rejected the request (HTTP 400, 422).
+    ApiRequestInvalid,
+    /// `QUOTA_EXHAUSTED`: out of tokens, credit or spend allowance.
+    QuotaExhausted,
+    /// `PROVIDER_BUSY`: rate limit or overload that outlasted the busy retry.
+    ProviderBusy,
+    /// `API_ERROR`: any other non-success provider status, 5xx included.
+    ApiError,
+    /// `IO_FAILED`: a file, process, stream or platform dependency failed.
+    IoFailed,
 }
 
 impl ErrorCode {
@@ -80,6 +92,12 @@ impl ErrorCode {
         Self::PromptFileMissing,
         Self::SessionNotFound,
         Self::SessionExpired,
+        Self::AuthFailed,
+        Self::ApiRequestInvalid,
+        Self::QuotaExhausted,
+        Self::ProviderBusy,
+        Self::ApiError,
+        Self::IoFailed,
     ];
 
     /// The stable id text, such as `INPUT_INVALID`.
@@ -105,7 +123,93 @@ impl ErrorCode {
             Self::PromptFileMissing => "PROMPT_FILE_MISSING",
             Self::SessionNotFound => "SESSION_NOT_FOUND",
             Self::SessionExpired => "SESSION_EXPIRED",
+            Self::AuthFailed => "AUTH_FAILED",
+            Self::ApiRequestInvalid => "API_REQUEST_INVALID",
+            Self::QuotaExhausted => "QUOTA_EXHAUSTED",
+            Self::ProviderBusy => "PROVIDER_BUSY",
+            Self::ApiError => "API_ERROR",
+            Self::IoFailed => "IO_FAILED",
         }
+    }
+
+    /// The default [`ErrorCategory`] of this id.
+    ///
+    /// `NETWORK_ERROR` is `dependency` here; [`JevError::category`] narrows
+    /// a timeout to `timeout`.
+    #[must_use]
+    pub const fn category(self) -> ErrorCategory {
+        match self {
+            Self::ConfigInvalid
+            | Self::InputTooLarge
+            | Self::InputEmpty
+            | Self::InputInvalid
+            | Self::ExtractionParseError
+            | Self::LanguageUnavailable
+            | Self::QueryInvalid
+            | Self::ApiRequestInvalid => ErrorCategory::Validation,
+            Self::QueryNotFound
+            | Self::InputMissing
+            | Self::PromptFileMissing
+            | Self::SessionNotFound => ErrorCategory::NotFound,
+            Self::ExtractionEmpty | Self::SessionExpired => ErrorCategory::InvalidState,
+            Self::KeyMissing | Self::AuthFailed => ErrorCategory::Permission,
+            Self::ExtractionTimeout => ErrorCategory::Timeout,
+            Self::QuotaExhausted | Self::ProviderBusy => ErrorCategory::Capacity,
+            Self::ExtractionInvalid
+            | Self::ExtractionFailed
+            | Self::ResponseInvalid
+            | Self::NetworkError
+            | Self::ApiError
+            | Self::IoFailed => ErrorCategory::Dependency,
+        }
+    }
+}
+
+/// The broad class of an error, next to its stable id.
+///
+/// The `kind` key of the stderr body and the Python `kind` attribute. The
+/// spelling is snake_case. Callers branch on the id for the exact failure and
+/// on the category for a policy (fix the input, wait, give up).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum ErrorCategory {
+    /// The caller's input, flags or configuration break a rule.
+    Validation,
+    /// A named file, query or session does not exist.
+    NotFound,
+    /// The request is valid but the current state refuses it.
+    InvalidState,
+    /// A dependency (provider, process, file system, producer) failed.
+    Dependency,
+    /// A credential is missing or rejected.
+    Permission,
+    /// A deadline expired.
+    Timeout,
+    /// The provider has no capacity for this caller right now (busy or out
+    /// of quota).
+    Capacity,
+}
+
+impl ErrorCategory {
+    /// The snake_case spelling.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Validation => "validation",
+            Self::NotFound => "not_found",
+            Self::InvalidState => "invalid_state",
+            Self::Dependency => "dependency",
+            Self::Permission => "permission",
+            Self::Timeout => "timeout",
+            Self::Capacity => "capacity",
+        }
+    }
+}
+
+impl fmt::Display for ErrorCategory {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
     }
 }
 
@@ -163,57 +267,44 @@ impl AsRef<str> for ErrorCode {
 
 /// Transport failure class of a [`JevError::NetworkError`].
 ///
-/// The one spelling is snake_case for serde, `Display`, and `FromStr`.
+/// A transport failure is one where no usable HTTP reply arrived. A reply
+/// with a failing status is never a `NetworkErrorKind`: it is `AUTH_FAILED`,
+/// `API_REQUEST_INVALID`, `QUOTA_EXHAUSTED`, `PROVIDER_BUSY`, `API_ERROR` or
+/// `INPUT_TOO_LARGE`. The one spelling is snake_case for serde, `Display`,
+/// and `FromStr`; it is the `network_kind` key of the stderr `details`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum NetworkErrorKind {
-    /// The provider said it is busy (rate limit or overload) after retries.
-    Busy,
     /// The request timed out.
     Timeout,
     /// The connection could not be opened.
     Connect,
     /// The TLS handshake failed.
     Tls,
-    /// The provider returned a non-success status.
-    Status,
-    /// The response body exceeded the read cap.
-    BodyTooLarge,
     /// The caller cancelled the request.
     Cancelled,
 }
 
 impl NetworkErrorKind {
     /// Every kind, in declaration order.
-    pub const ALL: &'static [Self] = &[
-        Self::Busy,
-        Self::Timeout,
-        Self::Connect,
-        Self::Tls,
-        Self::Status,
-        Self::BodyTooLarge,
-        Self::Cancelled,
-    ];
+    pub const ALL: &'static [Self] = &[Self::Timeout, Self::Connect, Self::Tls, Self::Cancelled];
 
     /// The snake_case spelling.
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::Busy => "busy",
             Self::Timeout => "timeout",
             Self::Connect => "connect",
             Self::Tls => "tls",
-            Self::Status => "status",
-            Self::BodyTooLarge => "body_too_large",
             Self::Cancelled => "cancelled",
         }
     }
 
-    /// Whether a later retry may succeed (`Busy`, `Timeout`, `Connect`).
+    /// Whether a later retry may succeed (`Timeout`, `Connect`).
     #[must_use]
     pub const fn retryable(self) -> bool {
-        matches!(self, Self::Busy | Self::Timeout | Self::Connect)
+        matches!(self, Self::Timeout | Self::Connect)
     }
 }
 
@@ -234,29 +325,87 @@ impl FromStr for NetworkErrorKind {
             .find(|kind| kind.as_str() == text)
             .ok_or_else(|| {
                 JevError::input_invalid(format!(
-                    "network error kind {text:?} is not busy, timeout, connect, tls, status, body_too_large, or cancelled"
+                    "network error kind {text:?} is not timeout, connect, tls, or cancelled"
                 ))
             })
     }
 }
 
-/// What an operational failure was about; decides its error id.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// Why a busy provider gave up after the busy retry (`PROVIDER_BUSY`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[non_exhaustive]
-pub enum OperationalArea {
-    /// A process, git, or log setup failure (`CONFIG_INVALID`).
-    Config,
-    /// A stdin or stdout failure (`INPUT_INVALID`).
-    Io,
+pub enum BusyCause {
+    /// The last allowed send was busy.
+    Sends,
+    /// The retry budget left no time for another attempt.
+    Budget,
 }
 
-impl OperationalArea {
-    /// The error id an operational failure in this area carries.
+impl BusyCause {
+    /// The snake_case spelling (`sends`, `budget`).
     #[must_use]
-    pub const fn code(self) -> ErrorCode {
+    pub const fn as_str(self) -> &'static str {
         match self {
-            Self::Config => ErrorCode::ConfigInvalid,
-            Self::Io => ErrorCode::InputInvalid,
+            Self::Sends => "sends",
+            Self::Budget => "budget",
+        }
+    }
+}
+
+/// What was wrong with a reply that arrived with status 200
+/// (`RESPONSE_INVALID`).
+///
+/// No cause is retryable: an invalid reply is deterministic for the same
+/// request, and resending a request the provider already billed could
+/// double-charge.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum ResponseInvalidCause {
+    /// The provider stopped at its output limit; the reply is cut short.
+    Truncated,
+    /// The reply body exceeded the read cap.
+    TooLarge,
+    /// The reply body, or the model's answer inside it, is not JSON, or not
+    /// the provider's JSON shape.
+    NotJson,
+    /// The reply parsed but breaks the answer schema (a wrong id, an
+    /// out-of-range value, a missing answer).
+    Schema,
+}
+
+impl ResponseInvalidCause {
+    /// The snake_case spelling.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Truncated => "truncated",
+            Self::TooLarge => "too_large",
+            Self::NotJson => "not_json",
+            Self::Schema => "schema",
+        }
+    }
+}
+
+/// The unit of an [`INPUT_TOO_LARGE`](ErrorCode::InputTooLarge) limit.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum LimitUnit {
+    /// Request body bytes.
+    Bytes,
+    /// Model input tokens.
+    Tokens,
+}
+
+impl LimitUnit {
+    /// The snake_case spelling (`bytes`, `tokens`).
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Bytes => "bytes",
+            Self::Tokens => "tokens",
         }
     }
 }

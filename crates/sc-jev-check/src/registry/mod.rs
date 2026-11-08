@@ -316,7 +316,7 @@ mod tests {
             )))
             .expect_err("duplicate");
         assert_eq!(error.code(), "CONFIG_INVALID");
-        let duplicate_hint = error.fix_hint();
+        let duplicate_hint = error.message();
         assert!(duplicate_hint.contains("jev"), "{duplicate_hint}");
         assert!(!duplicate_hint.contains("check.toml"), "{duplicate_hint}");
         assert!(registry.get(BackendId::Jev).is_ok());
@@ -325,7 +325,7 @@ mod tests {
             Err(error) => error,
         };
         assert_eq!(missing.code(), "CONFIG_INVALID");
-        let missing_hint = missing.fix_hint();
+        let missing_hint = missing.message();
         assert!(missing_hint.contains("openai_luna"), "{missing_hint}");
         assert!(!missing_hint.contains("check.toml"), "{missing_hint}");
     }

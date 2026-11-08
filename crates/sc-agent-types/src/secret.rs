@@ -144,7 +144,7 @@ mod tests {
             ] {
                 let error = ResolvedApiKey::try_new(id, bad.clone()).unwrap_err();
                 assert_eq!(error.code(), "CONFIG_INVALID", "{id} {bad:?}");
-                let hint = error.fix_hint();
+                let hint = error.message();
                 assert!(hint.contains(&id.to_string()), "{hint}");
                 assert!(hint.contains("whitespace or a control character"), "{hint}");
                 assert!(!hint.contains("check.toml"), "{hint}");
@@ -166,7 +166,7 @@ mod tests {
             JevError::extraction_parse_error("dir/[redacted].py", 1)
         );
         let network = key.redact_error(JevError::network(
-            crate::NetworkErrorKind::Status,
+            crate::NetworkErrorKind::Connect,
             format!("Bearer {SECRET} rejected"),
         ));
         assert!(!network.to_string().contains(SECRET));

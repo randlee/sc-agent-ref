@@ -142,9 +142,9 @@ fn test_env_dotenv_keychain_order() {
     )
     .unwrap_err();
     assert_eq!(missing.code(), "KEY_MISSING");
-    assert!(!missing.fix_hint().is_empty());
+    assert!(!missing.message().is_empty());
     for secret in ["from-env", "from-dotenv", "from-keyring"] {
-        let rendered = format!("{missing} {missing:?} {}", missing.fix_hint());
+        let rendered = format!("{missing} {missing:?} {}", missing.message());
         assert!(!rendered.contains(secret), "{rendered}");
     }
 }

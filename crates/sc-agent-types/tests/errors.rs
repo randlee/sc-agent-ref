@@ -1,9 +1,12 @@
 //! Error taxonomy contract (REQ-SAG-0101 amended, REQ-SAG-0106, REQ-SAG-0701,
-//! NFR-SAG-0001, ADR-SAG-0027).
+//! NFR-SAG-0001, ADR-SAG-0027 as amended).
 //!
 //! An integration target cannot build `#[non_exhaustive]` variants with
 //! literals, so every error here comes from its public constructor; the
 //! golden test therefore also proves each constructor exists.
+//!
+//! Set `SC_UPDATE_GOLDEN=1` to rewrite the golden files from the current
+//! behavior, then review the diff.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::io;
@@ -11,7 +14,9 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use sc_agent_types::{
-    BackendKeyId, ErrorCode, JevError, NetworkErrorKind, ScAgentErrorResponse, SessionId,
+    BackendKeyId, BusyCause, ErrorCategory, ErrorCode, JevError, LimitUnit, NetworkErrorKind,
+    PROVIDER_TEXT_MAX_BYTES, ProviderFailure, ResponseInvalidCause, ScAgentErrorResponse,
+    SessionId, bound_provider_text,
 };
 
 fn repo_fixture(relative: &str) -> PathBuf {
@@ -26,18 +31,38 @@ fn crate_fixture(name: &str) -> PathBuf {
         .join(name)
 }
 
-/// One value per variant (and per `Operational` area), keyed by a stable name.
+fn update_golden() -> bool {
+    std::env::var_os("SC_UPDATE_GOLDEN").is_some()
+}
+
+fn failure(status: u16) -> ProviderFailure {
+    ProviderFailure::new("Jev", status, "the provider said no")
+        .with_type("some_error")
+        .with_request_id("req_1")
+}
+
+fn session_nil() -> SessionId {
+    "00000000000000000000000000".parse().expect("nil ULID")
+}
+
+/// One value per variant (and per interesting shape), keyed by a stable name.
 fn every_variant() -> Vec<(&'static str, JevError)> {
-    let session = session_nil();
     let json_error = serde_json::from_str::<serde_json::Value>("{").expect_err("eof");
     vec![
         ("ConfigInvalid", JevError::config_invalid("missing model")),
         (
+            "ConfigInvalid.Recovery",
+            JevError::config_invalid_with(
+                "no git toplevel was found",
+                "Pass --repo-root with the repository root.",
+            ),
+        ),
+        (
             "CredentialStoreInvalid",
             JevError::credential_store_invalid(
-                "the repo-root .env file",
-                "permission denied",
-                "Make the file readable and retry.",
+                "the Jev API key",
+                "key contains whitespace",
+                "Store the key again without spaces.",
             ),
         ),
         (
@@ -46,22 +71,6 @@ fn every_variant() -> Vec<(&'static str, JevError)> {
                 "Backend jev is not registered",
                 "Register it before the run.",
             ),
-        ),
-        (
-            "SessionStoreIo",
-            JevError::session_store_io(
-                "Create session directory sessions",
-                io::ErrorKind::PermissionDenied,
-                "Choose a writable directory, then retry.",
-            ),
-        ),
-        (
-            "Operational.Config",
-            JevError::operational_config("Pass --repo-root with the repository root."),
-        ),
-        (
-            "Operational.Io",
-            JevError::operational_io("stdout write failed. Check that stdout is writable."),
         ),
         (
             "SessionDocumentInvalid",
@@ -78,10 +87,30 @@ fn every_variant() -> Vec<(&'static str, JevError)> {
             "IoFailed",
             JevError::io_failed("stdout", &io::Error::from(io::ErrorKind::BrokenPipe)),
         ),
+        (
+            "IoFailed.Recovery",
+            JevError::io_failed_with(
+                "git",
+                io::ErrorKind::NotFound,
+                Some("Check that git is installed.".to_owned()),
+            ),
+        ),
         ("KeyMissing", JevError::key_missing(BackendKeyId::TypeSafe)),
-        ("InputTooLarge", JevError::input_too_large(10, 11)),
+        ("InputTooLarge.Bytes", JevError::input_too_large(10, 11)),
+        (
+            "InputTooLarge.Tokens",
+            JevError::input_too_large_tokens(32_000, 40_000),
+        ),
+        (
+            "InputTooLarge.Provider",
+            JevError::input_too_large_by_provider(LimitUnit::Tokens, failure(400)),
+        ),
         ("InputEmpty", JevError::InputEmpty),
         ("InputInvalid", JevError::input_invalid("bad json")),
+        (
+            "InputInvalid.Field",
+            JevError::input_invalid_field("--backend", "unknown backend nope"),
+        ),
         ("ExtractionEmpty", JevError::ExtractionEmpty),
         (
             "ExtractionParseError",
@@ -108,45 +137,112 @@ fn every_variant() -> Vec<(&'static str, JevError)> {
             JevError::producer_error("sc-treesitter", ErrorCode::QueryNotFound, "Use branches."),
         ),
         ("InputMissing", JevError::input_missing("gone.toml")),
-        ("ResponseInvalid", JevError::response_invalid("truncated")),
         (
-            "NetworkError",
-            JevError::network(NetworkErrorKind::Status, "Jev HTTP 500"),
+            "ResponseInvalid.Schema",
+            JevError::response_invalid("missing answer"),
+        ),
+        (
+            "ResponseInvalid.Truncated",
+            JevError::response_invalid_because(ResponseInvalidCause::Truncated, "cut short"),
+        ),
+        (
+            "ResponseInvalid.TooLarge",
+            JevError::response_invalid_because(ResponseInvalidCause::TooLarge, "over the cap"),
+        ),
+        (
+            "ResponseInvalid.NotJson",
+            JevError::response_invalid_because(ResponseInvalidCause::NotJson, "not JSON"),
+        ),
+        (
+            "NetworkError.Timeout",
+            JevError::network(NetworkErrorKind::Timeout, "Jev connection failed"),
+        ),
+        (
+            "NetworkError.Connect",
+            JevError::network(NetworkErrorKind::Connect, "Jev connection failed"),
+        ),
+        (
+            "NetworkError.Tls",
+            JevError::network(NetworkErrorKind::Tls, "Jev handshake failed"),
+        ),
+        (
+            "NetworkError.Cancelled",
+            JevError::network(NetworkErrorKind::Cancelled, "request cancelled"),
+        ),
+        ("AuthFailed", JevError::auth_failed(failure(401))),
+        (
+            "ApiRequestInvalid",
+            JevError::api_request_invalid(failure(422).with_param("questions")),
+        ),
+        ("QuotaExhausted", JevError::quota_exhausted(failure(429))),
+        ("ApiError.500", JevError::api_error(failure(500))),
+        (
+            "ApiError.503",
+            JevError::api_error(failure(503).with_retry_after(Some(12))),
+        ),
+        ("ApiError.404", JevError::api_error(failure(404))),
+        (
+            "ProviderBusy.Sends",
+            JevError::provider_busy(
+                "Jev HTTP 429 busy; 4 sends exhausted",
+                429,
+                4,
+                BusyCause::Sends,
+                Some(7),
+            ),
+        ),
+        (
+            "ProviderBusy.Budget",
+            JevError::provider_busy(
+                "Jev HTTP 529 busy after 3 sends; retry budget exhausted",
+                529,
+                3,
+                BusyCause::Budget,
+                None,
+            ),
         ),
         (
             "PromptFileMissing",
             JevError::prompt_file_missing("prompt.md"),
         ),
-        ("SessionNotFound", JevError::session_not_found(session)),
-        ("SessionExpired", JevError::session_expired(session)),
+        (
+            "SessionNotFound",
+            JevError::session_not_found(session_nil()),
+        ),
+        ("SessionExpired", JevError::session_expired(session_nil())),
+        (
+            "LogFlushFailed",
+            JevError::InputEmpty.with_log_flush_failure("disk full"),
+        ),
     ]
 }
 
-fn session_nil() -> SessionId {
-    "00000000000000000000000000".parse().expect("nil ULID")
+/// Compares `actual` with the JSON golden file, or rewrites it.
+fn check_golden(name: &str, actual: &BTreeMap<String, serde_json::Value>) {
+    let path = crate_fixture(name);
+    let rendered = format!("{}\n", serde_json::to_string_pretty(actual).expect("json"));
+    if update_golden() {
+        std::fs::write(&path, rendered).expect("write golden");
+        return;
+    }
+    let text = std::fs::read_to_string(&path).expect("golden");
+    let golden: BTreeMap<String, serde_json::Value> =
+        serde_json::from_str(&text).expect("golden json");
+    assert_eq!(
+        &golden, actual,
+        "{name} differs; rerun with SC_UPDATE_GOLDEN=1 and review"
+    );
 }
 
 #[test]
-fn test_every_variant_code_golden() {
-    let text = std::fs::read_to_string(crate_fixture("error-codes.json")).expect("golden");
-    let golden: BTreeMap<String, BTreeMap<String, String>> =
-        serde_json::from_str(&text).expect("golden json");
+fn test_every_variant_golden() {
     let mut actual = BTreeMap::new();
     for (name, error) in every_variant() {
-        let hint = error.fix_hint();
-        let first_line = hint.lines().next().unwrap_or_default().to_owned();
-        actual.insert(
-            name.to_owned(),
-            BTreeMap::from([
-                ("code".to_owned(), error.code().as_str().to_owned()),
-                ("fix_hint".to_owned(), first_line),
-            ]),
-        );
+        let body =
+            serde_json::to_value(ScAgentErrorResponse::from_jev_error(&error)).expect("body json");
+        actual.insert(name.to_owned(), body);
     }
-    assert_eq!(actual, golden);
-    // Several variants share one id (REQ-SAG-0101 as amended by r-1).
-    assert_eq!(golden["Operational.Config"]["code"], "CONFIG_INVALID");
-    assert_eq!(golden["RegistryInvalid"]["code"], "CONFIG_INVALID");
+    check_golden("error-codes.json", &actual);
 }
 
 #[test]
@@ -177,6 +273,11 @@ fn test_error_codes_match_errors_json() {
         .map(|(_, error)| error.code().as_str())
         .collect();
     assert!(produced.iter().all(|code| expected.contains(*code)));
+    // Every id is produced by at least one sample, except the ones only a
+    // producer can re-raise (the producer sample covers QUERY_NOT_FOUND).
+    for id in &expected {
+        assert!(produced.contains(id.as_str()), "no sample produces {id}");
+    }
 }
 
 #[test]
@@ -184,12 +285,19 @@ fn test_error_response_stderr_golden() {
     let golden = std::fs::read_to_string(crate_fixture("error-stderr.jsonl")).expect("golden");
     let errors = [
         JevError::InputEmpty,
-        JevError::network(NetworkErrorKind::Busy, "Jev busy: HTTP 429 after 4 sends"),
+        JevError::provider_busy(
+            "Jev HTTP 429 busy; 4 sends exhausted",
+            429,
+            4,
+            BusyCause::Sends,
+            Some(7),
+        ),
         JevError::producer_error(
             "sc-treesitter",
             ErrorCode::LanguageUnavailable,
-            "Use a language built into sc-treesitter instead of cobol.",
+            "language cobol is unavailable in sc-treesitter",
         ),
+        JevError::api_request_invalid(failure(422).with_param("questions")),
     ];
     let mut actual = String::new();
     for error in &errors {
@@ -201,34 +309,237 @@ fn test_error_response_stderr_golden() {
         assert_eq!(back, ScAgentErrorResponse::from_jev_error(error));
         assert_eq!(back.schema_version(), 1);
     }
-    assert_eq!(actual, golden);
+    if update_golden() {
+        std::fs::write(crate_fixture("error-stderr.jsonl"), &actual).expect("write golden");
+        return;
+    }
+    assert_eq!(actual, golden, "rerun with SC_UPDATE_GOLDEN=1 and review");
+}
+
+/// The retryable decision of every id, with the reason in the doc of
+/// `JevError::retryable`.
+#[test]
+fn test_retryable_decisions() {
+    let expected_true = [
+        "NetworkError.Timeout",
+        "NetworkError.Connect",
+        "ApiError.500",
+        "ApiError.503",
+        "ProviderBusy.Sends",
+        "ProviderBusy.Budget",
+    ];
+    for (name, error) in every_variant() {
+        let expected = expected_true.contains(&name);
+        assert_eq!(error.retryable(), expected, "{name}");
+        let value =
+            serde_json::to_value(ScAgentErrorResponse::from_jev_error(&error)).expect("json");
+        assert_eq!(value["retryable"], expected, "{name}: always present");
+    }
+    for kind in NetworkErrorKind::ALL.iter().copied() {
+        assert_eq!(
+            JevError::network(kind, "x").retryable(),
+            matches!(kind, NetworkErrorKind::Timeout | NetworkErrorKind::Connect),
+            "{kind}"
+        );
+    }
+    // A 504 and a 500 are retryable, a 408 and a 404 are not.
+    for (status, retryable) in [
+        (500, true),
+        (502, true),
+        (503, true),
+        (504, true),
+        (404, false),
+        (408, false),
+    ] {
+        assert_eq!(
+            JevError::api_error(failure(status)).retryable(),
+            retryable,
+            "{status}"
+        );
+    }
 }
 
 #[test]
-fn test_retryable_only_network_transient() {
-    for kind in NetworkErrorKind::ALL.iter().copied() {
-        let error = JevError::network(kind, "detail");
-        let expected = matches!(
-            kind,
-            NetworkErrorKind::Busy | NetworkErrorKind::Timeout | NetworkErrorKind::Connect
-        );
-        assert_eq!(error.retryable(), expected, "{kind}");
-        let response = ScAgentErrorResponse::from_jev_error(&error);
-        assert_eq!(response.retryable(), expected);
-        let value = serde_json::to_value(&response).expect("json");
-        assert_eq!(value.get("retryable").is_some(), expected, "{kind}");
-    }
+fn test_busy_exhaustion_machine_fields() {
+    let sends = JevError::provider_busy("busy", 429, 4, BusyCause::Sends, Some(7));
+    let body = ScAgentErrorResponse::from_jev_error(&sends);
+    assert_eq!(body.retry_after_seconds(), Some(7));
+    let details = body.details().expect("details");
+    assert_eq!(details.cause.as_deref(), Some("sends"));
+    assert_eq!(details.attempts, Some(4));
+    assert_eq!(details.http_status, Some(429));
+    let budget = JevError::provider_busy("busy", 529, 2, BusyCause::Budget, None);
+    let body = ScAgentErrorResponse::from_jev_error(&budget);
+    assert_eq!(body.retry_after_seconds(), None);
+    assert_eq!(
+        body.details().and_then(|d| d.cause.as_deref()),
+        Some("budget")
+    );
+    let value = serde_json::to_value(&body).expect("json");
+    assert!(value.get("retry_after_seconds").is_none());
+}
+
+#[test]
+fn test_message_never_holds_the_fix() {
     for (name, error) in every_variant() {
-        if !matches!(error, JevError::NetworkError { .. }) {
-            assert!(!error.retryable(), "{name}");
+        let message = error.message();
+        let action = error.suggested_action();
+        assert!(!message.trim().is_empty(), "{name}");
+        assert!(!action.trim().is_empty(), "{name}");
+        assert_eq!(message, error.to_string(), "{name}");
+        assert_ne!(message, action, "{name}");
+        for fix_phrase in ["check.toml", "Retry", "Check that", "Wait"] {
+            assert!(
+                !message.contains(fix_phrase),
+                "{name}: the message holds a fix ({fix_phrase}): {message}"
+            );
         }
+    }
+}
+
+#[test]
+fn test_actions_agree_with_the_retry_flag() {
+    for (name, error) in every_variant() {
+        let action = error.suggested_action();
+        if !error.retryable() {
+            // A non-retryable error never tells the caller to just retry it.
+            for blunt in ["Retry the request", "Retry the same", "retry the request"] {
+                assert!(!action.contains(blunt), "{name}: {action}");
+            }
+        }
+    }
+    let invalid = [
+        ResponseInvalidCause::Truncated,
+        ResponseInvalidCause::TooLarge,
+        ResponseInvalidCause::NotJson,
+        ResponseInvalidCause::Schema,
+    ];
+    let actions: BTreeSet<String> = invalid
+        .iter()
+        .map(|cause| JevError::response_invalid_because(*cause, "x").suggested_action())
+        .collect();
+    assert_eq!(actions.len(), invalid.len(), "one action per cause");
+    for cause in invalid {
+        let error = JevError::response_invalid_because(cause, "x");
+        assert!(!error.retryable());
+        assert_eq!(
+            error.details().and_then(|d| d.cause),
+            Some(cause.as_str().to_owned())
+        );
+    }
+}
+
+#[test]
+fn test_categories() {
+    let expected = [
+        ("AuthFailed", ErrorCategory::Permission),
+        ("ApiRequestInvalid", ErrorCategory::Validation),
+        ("QuotaExhausted", ErrorCategory::Capacity),
+        ("ProviderBusy.Sends", ErrorCategory::Capacity),
+        ("ApiError.500", ErrorCategory::Dependency),
+        ("IoFailed", ErrorCategory::Dependency),
+        ("InputMissing", ErrorCategory::NotFound),
+        ("NetworkError.Timeout", ErrorCategory::Timeout),
+        ("NetworkError.Connect", ErrorCategory::Dependency),
+        ("InputTooLarge.Bytes", ErrorCategory::Validation),
+        ("SessionExpired", ErrorCategory::InvalidState),
+        ("KeyMissing", ErrorCategory::Permission),
+    ];
+    let all: BTreeMap<_, _> = every_variant().into_iter().collect();
+    for (name, category) in expected {
+        assert_eq!(all[name].category(), category, "{name}");
+    }
+    for code in ErrorCode::ALL {
+        // Every id has a category and it round-trips through serde.
+        let value = serde_json::to_value(code.category()).expect("json");
+        let back: ErrorCategory = serde_json::from_value(value).expect("serde");
+        assert_eq!(back, code.category());
+        assert_eq!(code.category().to_string(), code.category().as_str());
+    }
+}
+
+#[test]
+fn test_one_id_for_both_limits() {
+    let bytes = JevError::input_too_large(10, 11);
+    let tokens = JevError::input_too_large_tokens(32_000, 40_000);
+    assert_eq!(bytes.code(), "INPUT_TOO_LARGE");
+    assert_eq!(tokens.code(), "INPUT_TOO_LARGE");
+    let details = ScAgentErrorResponse::from_jev_error(&tokens);
+    let details = details.details().expect("details");
+    assert_eq!(details.limit, Some(32_000));
+    assert_eq!(details.actual, Some(40_000));
+    assert_eq!(details.unit.as_deref(), Some("tokens"));
+    let by_provider = JevError::input_too_large_by_provider(LimitUnit::Bytes, failure(413));
+    let body = ScAgentErrorResponse::from_jev_error(&by_provider);
+    let details = body.details().expect("details");
+    assert_eq!(details.limit, None);
+    assert_eq!(details.unit.as_deref(), Some("bytes"));
+    assert_eq!(details.http_status, Some(413));
+}
+
+#[test]
+fn test_io_failed_carries_what_and_kind() {
+    let error = JevError::io_failed("stdout", &io::Error::from(io::ErrorKind::PermissionDenied));
+    let body = ScAgentErrorResponse::from_jev_error(&error);
+    let details = body.details().expect("details");
+    assert_eq!(details.what.as_deref(), Some("stdout"));
+    assert_eq!(details.io_kind.as_deref(), Some("permission_denied"));
+    // One rule for a read of a named path.
+    let gone = io::Error::from(io::ErrorKind::NotFound);
+    assert_eq!(
+        JevError::read_failed("a.json", "request file", &gone).code(),
+        "INPUT_MISSING"
+    );
+    let denied = io::Error::from(io::ErrorKind::PermissionDenied);
+    assert_eq!(
+        JevError::read_failed("a.json", "request file", &denied).code(),
+        "IO_FAILED"
+    );
+}
+
+#[test]
+fn test_provider_text_is_bounded_and_single_line() {
+    let long = format!("start\n{}", "é".repeat(2000));
+    let bounded = bound_provider_text(&long);
+    assert!(
+        bounded.len() <= PROVIDER_TEXT_MAX_BYTES,
+        "{}",
+        bounded.len()
+    );
+    assert!(bounded.ends_with("..."));
+    assert!(!bounded.contains('\n'));
+    let error = JevError::api_error(ProviderFailure::new("Jev", 500, &long));
+    assert!(error.message().len() < PROVIDER_TEXT_MAX_BYTES + 100);
+}
+
+#[test]
+fn test_log_flush_failure_is_its_own_field() {
+    for (name, error) in every_variant() {
+        let flushed = error.clone().with_log_flush_failure("disk full");
+        assert_eq!(flushed.code(), error.code(), "{name}");
+        assert_eq!(flushed.message(), error.message(), "{name}");
+        assert_eq!(
+            flushed.suggested_action(),
+            error.suggested_action(),
+            "{name}"
+        );
+        assert_eq!(flushed.retryable(), error.retryable(), "{name}");
+        assert_eq!(flushed.log_flush_failure(), Some("disk full"), "{name}");
+        let body = ScAgentErrorResponse::from_jev_error(&flushed);
+        assert_eq!(
+            body.details().and_then(|d| d.log_flush_failure.as_deref()),
+            Some("disk full"),
+            "{name}"
+        );
     }
 }
 
 #[test]
 fn test_from_error_response_round_trip() {
     for code in ErrorCode::ALL.iter().copied() {
-        let line = format!(r#"{{"error":"{code}","message":"Do the thing.","schema_version":1}}"#);
+        let line = format!(
+            r#"{{"error":"{code}","message":"It broke.","suggested_action":"Do the thing.","retryable":true,"retry_after_seconds":9,"field":"q","details":{{"cause":"x","path":"p"}},"schema_version":1}}"#
+        );
         let response: ScAgentErrorResponse = serde_json::from_str(&line).expect("response");
         let error = JevError::from_error_response("sc-treesitter", &response);
         assert!(
@@ -236,27 +547,34 @@ fn test_from_error_response_round_trip() {
             "{code}: {error:?}"
         );
         assert_eq!(error.code(), code);
-        assert_eq!(error.fix_hint(), "sc-treesitter: Do the thing.");
+        assert_eq!(error.suggested_action(), "sc-treesitter: Do the thing.");
+        // Nothing the producer said is dropped on the way through.
+        assert!(error.retryable(), "{code}");
+        assert_eq!(error.retry_after_seconds(), Some(9));
+        assert_eq!(error.field(), Some("q"));
         let again = ScAgentErrorResponse::from_jev_error(&error);
         assert_eq!(again.error(), code.as_str());
         assert_eq!(again.producer(), Some("sc-treesitter"));
+        assert!(again.retryable());
+        assert_eq!(again.retry_after_seconds(), Some(9));
+        assert_eq!(again.field(), Some("q"));
+        let details = again.details().expect("details");
+        assert_eq!(details.cause.as_deref(), Some("x"));
+        assert_eq!(details.path.as_deref(), Some("p"));
     }
     let unknown: ScAgentErrorResponse =
-        serde_json::from_str(r#"{"error":"NOT_A_CODE","message":"m"}"#).expect("phase a shape");
+        serde_json::from_str(r#"{"error":"NOT_A_CODE","message":"m"}"#).expect("short shape");
     let error = JevError::from_error_response("tool", &unknown);
     assert_eq!(error.code(), "EXTRACTION_FAILED");
-    assert!(error.fix_hint().contains("NOT_A_CODE"));
+    assert!(error.message().contains("NOT_A_CODE"));
 }
 
 #[test]
 fn test_network_error_kind_spelling() {
     let expected = [
-        (NetworkErrorKind::Busy, "busy"),
         (NetworkErrorKind::Timeout, "timeout"),
         (NetworkErrorKind::Connect, "connect"),
         (NetworkErrorKind::Tls, "tls"),
-        (NetworkErrorKind::Status, "status"),
-        (NetworkErrorKind::BodyTooLarge, "body_too_large"),
         (NetworkErrorKind::Cancelled, "cancelled"),
     ];
     assert_eq!(expected.len(), NetworkErrorKind::ALL.len());
@@ -268,9 +586,17 @@ fn test_network_error_kind_spelling() {
             kind
         );
         assert_eq!(text.parse::<NetworkErrorKind>().expect("from_str"), kind);
+        // The kind is visible to callers in `details`.
+        let body = ScAgentErrorResponse::from_jev_error(&JevError::network(kind, "x"));
+        assert_eq!(
+            body.details().and_then(|d| d.network_kind.as_deref()),
+            Some(text)
+        );
     }
-    let error = "Busy".parse::<NetworkErrorKind>().expect_err("unknown");
-    assert_eq!(error.code(), "INPUT_INVALID");
+    for gone in ["Busy", "busy", "status", "body_too_large"] {
+        let error = gone.parse::<NetworkErrorKind>().expect_err("not a kind");
+        assert_eq!(error.code(), "INPUT_INVALID");
+    }
 }
 
 #[test]
@@ -284,14 +610,26 @@ fn test_error_source_is_none_for_redacted_variants() {
 #[test]
 fn test_explicit_recovery_variants_do_not_blame_check_toml() {
     for (name, error) in every_variant() {
-        let hint = error.fix_hint();
-        assert!(!hint.trim().is_empty(), "{name}");
-        if !matches!(
-            name,
-            "ConfigInvalid" | "InputInvalid" | "InputMissing" | "PromptFileMissing"
-        ) {
-            assert!(!hint.contains("check.toml"), "{name}: {hint}");
-            assert!(!hint.contains("expected schema"), "{name}: {hint}");
+        let action = error.suggested_action();
+        assert!(!action.trim().is_empty(), "{name}");
+        if !matches!(name, "ConfigInvalid" | "InputMissing" | "PromptFileMissing") {
+            assert!(!action.contains("check.toml"), "{name}: {action}");
         }
     }
+}
+
+#[test]
+fn test_map_detail_reaches_provider_text_and_details() {
+    let error = JevError::api_request_invalid(
+        failure(422)
+            .with_param("secret-param")
+            .with_code("secret-code"),
+    );
+    let mapped = error.map_detail(|text| text.replace("secret", "[redacted]"));
+    let rendered = format!(
+        "{} {:?}",
+        serde_json::to_string(&ScAgentErrorResponse::from_jev_error(&mapped)).expect("json"),
+        mapped
+    );
+    assert!(!rendered.contains("secret"), "{rendered}");
 }

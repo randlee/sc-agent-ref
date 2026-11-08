@@ -54,8 +54,10 @@ fn fail(error: &JevError) -> ExitCode {
 fn emit(body: &ScAgentErrorResponse) {
     let line = serde_json::to_string(body).unwrap_or_else(|_| {
         serde_json::to_string(&ScAgentErrorResponse::from_jev_error(
-            &JevError::operational_io(
-                "stderr encoding failed. Retry the command; the error text could not be written as JSON.",
+            &JevError::io_failed_with(
+                "stderr (the error text could not be encoded as JSON)",
+                io::ErrorKind::InvalidData,
+                Some("Retry the command.".to_owned()),
             ),
         ))
         .expect("ScAgentErrorResponse from JevError must serialize")

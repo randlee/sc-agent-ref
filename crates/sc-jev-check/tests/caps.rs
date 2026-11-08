@@ -11,7 +11,9 @@ use std::path::Path;
 use std::sync::Arc;
 
 use sc_agent_types::observability::v2::NoopSessionLog;
-use sc_agent_types::{BackendId, BackendSet, ErrorCode, JevError, RepoRoot, ResolvedApiKey};
+use sc_agent_types::{
+    BackendId, BackendSet, ErrorCode, JevError, LimitUnit, RepoRoot, ResolvedApiKey,
+};
 use sc_jev_check::registry::BackendRegistry;
 use sc_jev_check::run::{CheckSource, RunConfig, prepare, run};
 
@@ -79,12 +81,13 @@ fn test_payload_between_old_caps_refused_by_backend_before_send() {
         );
         match error {
             JevError::InputTooLarge {
-                limit_bytes,
-                actual_bytes,
+                limit: Some(found_limit),
+                actual: Some(actual),
+                unit: LimitUnit::Bytes,
                 ..
             } => {
-                assert_eq!(limit_bytes, limit, "{backend}");
-                assert!(actual_bytes > limit, "{backend}");
+                assert_eq!(found_limit, limit, "{backend}");
+                assert!(actual > limit, "{backend}");
             }
             other => panic!("{backend}: unexpected {other:?}"),
         }

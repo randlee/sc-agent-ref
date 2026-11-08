@@ -4,7 +4,11 @@
 //! [`BusyPolicy::default`] encodes the decided numbers:
 //!
 //! - Busy statuses are 429, 502 and 529, and only those. The same body is
-//!   resent. At most 5 sends.
+//!   resent. At most 5 sends. A reply whose body says the account is out of
+//!   quota (documented Anthropic and OpenAI shapes, see
+//!   [`api_failure`](crate::api_failure)) is not busy: no wait helps, so it
+//!   is returned at once for the caller to map to `QUOTA_EXHAUSTED`. An
+//!   unknown 429 body stays busy.
 //! - A valid `Retry-After` is honoured, clamped to 0–30 s. Valid is 1–32
 //!   bytes matching `^[0-9]+(\.[0-9]+)?$`. The digits are parsed as integers,
 //!   so sign, exponent, `inf`, `NaN` and overflow cannot occur; a long
@@ -33,8 +37,9 @@ use std::hash::{BuildHasher, RandomState};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use sc_agent_types::{CancelToken, JevError, NetworkErrorKind, SendTrace, Sha256Digest};
+use sc_agent_types::{BusyCause, CancelToken, JevError, NetworkErrorKind, SendTrace, Sha256Digest};
 
+use crate::failure::{is_quota_reply, retry_after_seconds};
 use crate::redact::redact;
 use crate::request::{HttpRequest, HttpResponse};
 use crate::transport::Transport;
@@ -250,10 +255,11 @@ impl Hooks {
 ///
 /// - `NETWORK_ERROR` kind `Cancelled` when `cancel` is set before an attempt
 ///   or during a wait.
-/// - `NETWORK_ERROR` kind `Busy` (`retryable() == true`) when the last
-///   allowed send was busy (detail "… N sends exhausted") or when the 90 s
-///   budget leaves no time for another attempt (detail "… retry budget
-///   exhausted").
+/// - `PROVIDER_BUSY` (`retryable() == true`) when the last allowed send was
+///   busy (cause `sends`) or when the 90 s budget leaves no time for another
+///   attempt (cause `budget`). It carries the last busy status, the number
+///   of sends and the provider's `Retry-After` in seconds when it sent a
+///   valid one.
 /// - Any error of [`Transport::send`], unchanged except for redaction, and
 ///   never retried. A connect or DNS failure is `NETWORK_ERROR` kind
 ///   `Connect` (`retryable() == true`) and returns at once.
@@ -433,28 +439,30 @@ fn retry_loop(
         sends += 1;
         let response = transport.send(request)?;
         let status = response.status();
-        if !BUSY_STATUSES.contains(&status) {
+        if !is_busy(&response) {
             return Ok(response);
         }
+        let reported_wait = retry_after_seconds(response.header("retry-after"));
         if sends >= policy.max_sends {
-            return Err(JevError::network(
-                NetworkErrorKind::Busy,
-                format!(
-                    "HTTP {status} busy; {sends} {}{}",
-                    plural(sends),
-                    BusyExhaustion::SENDS_SUFFIX
-                ),
+            return Err(JevError::provider_busy(
+                format!("HTTP {status} busy; {sends} {} exhausted", plural(sends)),
+                status,
+                sends,
+                BusyCause::Sends,
+                reported_wait,
             ));
         }
         let remaining = BUDGET.saturating_sub(hooks.elapsed(started));
         if remaining.is_zero() {
-            return Err(JevError::network(
-                NetworkErrorKind::Busy,
+            return Err(JevError::provider_busy(
                 format!(
-                    "HTTP {status} busy after {sends} {}{}",
-                    plural(sends),
-                    BusyExhaustion::BUDGET_SUFFIX
+                    "HTTP {status} busy after {sends} {}; retry budget exhausted",
+                    plural(sends)
                 ),
+                status,
+                sends,
+                BusyCause::Budget,
+                reported_wait,
             ));
         }
         let base =
@@ -464,59 +472,14 @@ fn retry_loop(
     }
 }
 
-/// Why busy retry gave up (QA-002): both causes are `NETWORK_ERROR` kind
-/// `Busy` with `retryable() == true`, and the owner decision only asks that
-/// they be distinguishable. The cause is the fixed ending of the detail text
-/// this crate writes; callers that add a prefix (`Jev …`, `luna …`) keep it.
+/// Whether `response` is a busy reply that is worth resending.
 ///
-/// # Examples
-///
-/// ```
-/// use sc_agent_http::BusyExhaustion;
-/// use sc_agent_types::{JevError, NetworkErrorKind};
-///
-/// let error = JevError::network(
-///     NetworkErrorKind::Busy,
-///     "luna HTTP 429 busy after 2 sends; retry budget exhausted",
-/// );
-/// assert_eq!(BusyExhaustion::of(&error), Some(BusyExhaustion::Budget));
-/// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum BusyExhaustion {
-    /// The last allowed send was busy ("… N sends exhausted").
-    Sends,
-    /// The 90 s budget left no time for another attempt ("… retry budget
-    /// exhausted").
-    Budget,
-}
-
-impl BusyExhaustion {
-    /// Detail ending for [`Self::Sends`].
-    pub const SENDS_SUFFIX: &'static str = " exhausted";
-    /// Detail ending for [`Self::Budget`].
-    pub const BUDGET_SUFFIX: &'static str = "; retry budget exhausted";
-
-    /// The cause of a busy-exhaustion error, or `None` for any other error.
-    #[must_use]
-    pub fn of(error: &JevError) -> Option<Self> {
-        let JevError::NetworkError {
-            kind: NetworkErrorKind::Busy,
-            detail,
-            ..
-        } = error
-        else {
-            return None;
-        };
-        if detail.ends_with(Self::BUDGET_SUFFIX) {
-            Some(Self::Budget)
-        } else if detail.ends_with(Self::SENDS_SUFFIX)
-            && (detail.ends_with(" sends exhausted") || detail.ends_with(" send exhausted"))
-        {
-            Some(Self::Sends)
-        } else {
-            None
-        }
-    }
+/// The classification hook: a busy status ([`BUSY_STATUSES`]) whose body
+/// says the account is out of quota is not busy, because waiting cannot
+/// help. Retry timing is unaffected.
+fn is_busy(response: &HttpResponse) -> bool {
+    BUSY_STATUSES.contains(&response.status())
+        && !is_quota_reply(response.status(), response.body())
 }
 
 fn plural(sends: u32) -> &'static str {

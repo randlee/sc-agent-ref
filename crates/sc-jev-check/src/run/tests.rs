@@ -268,10 +268,11 @@ fn ask_capable_live_run_without_sessions_dir_is_config_invalid_before_send() {
     .expect_err("no sessions dir");
     assert_eq!(error.code(), "CONFIG_INVALID");
     assert!(
-        error.fix_hint().contains("sessions_dir"),
+        error.suggested_action().contains("sessions_dir"),
         "{}",
-        error.fix_hint()
+        error.suggested_action()
     );
+    assert!(!error.suggested_action().contains("check.toml"));
     assert_eq!(haiku.validations(), 0);
     // A Jev-only live run saves no session, so it needs no directory.
     let jev = run(prepare(
@@ -297,8 +298,8 @@ fn unregistered_backend_is_a_registry_hint() {
     .expect("prepare"))
     .expect_err("not registered");
     assert_eq!(error.code(), "CONFIG_INVALID");
-    assert!(error.fix_hint().contains("jev"), "{}", error.fix_hint());
-    assert!(!error.fix_hint().contains("check.toml"));
+    assert!(error.message().contains("jev"), "{}", error.message());
+    assert!(!error.message().contains("check.toml"));
 }
 
 #[test]
@@ -338,8 +339,8 @@ fn caller_request_uses_file_override_not_inline_prompt() {
     std::fs::write(&override_path, "OVERRIDE-PROMPT-TOKEN-a7\n").expect("override");
     let inline = br#"{"questions":[{"id":"q","prompt":"p","choices":["no","yes"]}],"system_prompt":"INLINE-PROMPT-TOKEN"}"#;
     let rejected = CallerRequest::from_json(inline).expect_err("inline");
-    assert!(!rejected.fix_hint().contains("INLINE-PROMPT-TOKEN"));
-    assert!(rejected.fix_hint().contains("--llm-system-prompt-file"));
+    assert!(!rejected.message().contains("INLINE-PROMPT-TOKEN"));
+    assert!(rejected.message().contains("--llm-system-prompt-file"));
     let repeated = br#"{"questions":[{"id":"q","prompt":"p","choices":["no","yes"]}],"backends":["jev","jev"]}"#;
     assert_eq!(
         CallerRequest::from_json(repeated)
@@ -507,14 +508,14 @@ fn discovery_falls_back_only_outside_git_or_without_git() {
         None,
     )
     .expect_err("git failed to run");
-    assert_eq!(error.code(), "INPUT_INVALID");
+    assert_eq!(error.code(), "IO_FAILED");
     let error = classify_discovery(start, Ok(None), Some(PathBuf::from("/work/repo/.git")))
         .expect_err("a .git above start but no work tree");
     assert_eq!(error.code(), "INPUT_INVALID");
     assert!(
-        error.fix_hint().contains("/work/repo/.git"),
+        error.message().contains("/work/repo/.git"),
         "{}",
-        error.fix_hint()
+        error.message()
     );
 }
 

@@ -42,13 +42,13 @@ fn test_known_versions_accepted_unknown_rejected() {
             .expect_err("input refused");
         assert_eq!(input.code(), "INPUT_INVALID", "{unknown}");
         assert!(
-            input.fix_hint().contains("canonical.v1"),
+            input.message().contains("canonical.v1"),
             "{}",
-            input.fix_hint()
+            input.message()
         );
         let response = DecisionSchemaId::parse_response(unknown).expect_err("response refused");
         assert_eq!(response.code(), "RESPONSE_INVALID", "{unknown}");
-        assert!(response.fix_hint().contains("canonical.v1"));
+        assert!(response.message().contains("canonical.v1"));
         assert!(serde_json::from_value::<DecisionSchemaId>(serde_json::json!(unknown)).is_err());
     }
 }

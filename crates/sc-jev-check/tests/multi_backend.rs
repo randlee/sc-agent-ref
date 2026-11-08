@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 
 use sc_agent_types::observability::v2::{LogEvent, LogRejected, SessionLog, SharedSessionLog};
 use sc_agent_types::{
-    BackendId, BackendSet, JevError, NetworkErrorKind, RepoRoot, SendTrace, Sha256Digest,
+    BackendId, BackendSet, BusyCause, JevError, NetworkErrorKind, RepoRoot, SendTrace, Sha256Digest,
 };
 use sc_decision_schema::test_util::MockJudgeBackend;
 use sc_decision_schema::{Attestation, JudgeBackend, JudgeOutcome, JudgeRequest, MultiBackendMode};
@@ -57,7 +57,7 @@ fn mock(id: BackendId, choice: &str) -> MockJudgeBackend {
 }
 
 fn busy() -> JevError {
-    JevError::network(NetworkErrorKind::Busy, "scripted busy")
+    JevError::provider_busy("scripted busy", 429, 4, BusyCause::Sends, None)
 }
 
 fn set(ids: &[BackendId]) -> BackendSet {
@@ -189,7 +189,7 @@ fn test_partial_failure_keeps_answers() {
     assert!(response.is_partial());
     assert_eq!(response.results().len(), 2);
     match response.results()[0].status() {
-        BackendStatus::Failed(failure) => assert_eq!(failure.error().code(), "NETWORK_ERROR"),
+        BackendStatus::Failed(failure) => assert_eq!(failure.error().code(), "PROVIDER_BUSY"),
         _ => panic!("jev should have failed"),
     }
     assert!(matches!(
@@ -223,7 +223,7 @@ fn test_all_failed_returns_err() {
         vec![dyn_judge(&jev), dyn_judge(&haiku)],
     )
     .expect_err("every backend failed");
-    assert_eq!(error.code(), "NETWORK_ERROR", "the first error is returned");
+    assert_eq!(error.code(), "PROVIDER_BUSY", "the first error is returned");
     assert_eq!(haiku.requests().len(), 1, "a later backend is still judged");
 }
 

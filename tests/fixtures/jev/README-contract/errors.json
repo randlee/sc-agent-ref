@@ -1,5 +1,5 @@
 {
-  "source": "In-repo snapshot of jev-check README Errors table (Phase A contract).",
+  "source": "In-repo snapshot of jev-check README Errors table (Phase A contract), extended before the first release with the provider-reply, busy, quota and I/O ids (ADR-SAG-0027 amendment, bead agt-2a3).",
   "upstream_hint": "atm-core plan/phase-bo-replan docs/plans/phase-bo/design/packages/jev-check/README.md",
   "error_ids": [
     "CONFIG_INVALID",
@@ -20,6 +20,12 @@
     "NETWORK_ERROR",
     "PROMPT_FILE_MISSING",
     "SESSION_NOT_FOUND",
-    "SESSION_EXPIRED"
+    "SESSION_EXPIRED",
+    "AUTH_FAILED",
+    "API_REQUEST_INVALID",
+    "QUOTA_EXHAUSTED",
+    "PROVIDER_BUSY",
+    "API_ERROR",
+    "IO_FAILED"
   ]
 }

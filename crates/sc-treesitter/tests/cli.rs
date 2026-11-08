@@ -119,7 +119,11 @@ fn cli_unknown_language_is_jev_error_on_stderr() {
             .contains("cobol")
     );
     assert_eq!(value["schema_version"], 1);
-    assert_eq!(value.as_object().expect("object").len(), 3);
+    assert_eq!(value["kind"], "validation");
+    assert_eq!(value["retryable"], false);
+    assert!(value["suggested_action"].as_str().is_some());
+    // error, kind, message, suggested_action, retryable, schema_version.
+    assert_eq!(value.as_object().expect("object").len(), 6);
 }
 
 #[cfg(feature = "python")]

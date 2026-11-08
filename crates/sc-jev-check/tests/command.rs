@@ -114,9 +114,9 @@ fn test_command_placeholder_without_path_is_config_invalid() {
     let error = run(dir.path(), &check_toml(&argv, "")).expect_err("no path field");
     assert_eq!(error.code(), ErrorCode::ConfigInvalid);
     assert!(
-        error.fix_hint().contains("path field"),
+        error.message().contains("path field"),
         "{}",
-        error.fix_hint()
+        error.message()
     );
     assert!(!marker.exists(), "the producer must not run");
 
@@ -154,10 +154,7 @@ fn test_command_path_symlink_outside_root_refused() {
     for path in ["src/leak.py", "linked/secret.py"] {
         let error = run(dir.path(), &check_toml(&argv, &path_line(path))).expect_err(path);
         assert_eq!(error.code(), ErrorCode::InputInvalid, "{path}");
-        assert!(
-            error.fix_hint().contains("outside the repo root"),
-            "{error}"
-        );
+        assert!(error.message().contains("outside the repo root"), "{error}");
         assert!(!error.to_string().contains("OUTSIDE-SECRET"));
     }
     let error = run(dir.path(), &check_toml(&argv, &path_line("src"))).expect_err("directory");
@@ -168,7 +165,7 @@ fn test_command_path_symlink_outside_root_refused() {
 #[test]
 fn test_command_stderr_error_response_reraised() {
     let dir = repo();
-    let line = r#"{"error":"LANGUAGE_UNAVAILABLE","message":"Use python.","schema_version":1}"#;
+    let line = r#"{"error":"LANGUAGE_UNAVAILABLE","message":"language cobol is unavailable","suggested_action":"Use python.","retryable":true,"retry_after_seconds":5,"field":"language","details":{"cause":"x"},"schema_version":1}"#;
     let argv = vec![
         python().into(),
         producer("fail_with_stderr.py"),
@@ -183,7 +180,18 @@ fn test_command_stderr_error_response_reraised() {
         .file_stem()
         .and_then(|stem| stem.to_str())
         .expect("stem");
-    assert_eq!(error.fix_hint(), format!("{program}: Use python."));
+    assert_eq!(
+        error.message(),
+        format!("{program} failed with LANGUAGE_UNAVAILABLE: language cobol is unavailable")
+    );
+    assert_eq!(error.suggested_action(), format!("{program}: Use python."));
+    // The producer's own flag, wait, field and details survive the re-raise.
+    assert!(error.retryable());
+    assert_eq!(error.retry_after_seconds(), Some(5));
+    assert_eq!(error.field(), Some("language"));
+    let details = error.details().expect("details");
+    assert_eq!(details.cause.as_deref(), Some("x"));
+    assert_eq!(details.producer.as_deref(), Some(program));
     // `producer = "..."` names it explicitly (REQ-SAG-0313).
     let error = run(
         dir.path(),
@@ -191,7 +199,7 @@ fn test_command_stderr_error_response_reraised() {
     )
     .expect_err("producer failed");
     assert_eq!(error.code(), ErrorCode::LanguageUnavailable);
-    assert_eq!(error.fix_hint(), "fake-producer: Use python.");
+    assert_eq!(error.suggested_action(), "fake-producer: Use python.");
 
     let producer_line = r#"{"error":"QUERY_NOT_FOUND","message":"No query branches.","schema_version":1,"details":{"producer":"sc-treesitter"}}"#;
     let argv = vec![

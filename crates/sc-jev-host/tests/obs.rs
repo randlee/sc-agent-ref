@@ -113,7 +113,7 @@ fn test_log_line_fields_is_one_session_log_row() {
     }
     adapter
         .flush()
-        .unwrap_or_else(|error| panic!("log flush failed: {}", error.fix_hint()));
+        .unwrap_or_else(|error| panic!("log flush failed: {}", error.message()));
     let text = jsonl(root.path());
     let lines: Vec<serde_json::Value> = text
         .lines()
@@ -151,7 +151,7 @@ fn test_one_writer_per_log_root_while_any_handle_lives() {
     second.emit(event_for(3)).expect("second line");
     second
         .flush()
-        .unwrap_or_else(|error| panic!("log flush failed: {}", error.fix_hint()));
+        .unwrap_or_else(|error| panic!("log flush failed: {}", error.message()));
     let text = jsonl(root.path());
     assert_eq!(text.lines().filter(|line| !line.is_empty()).count(), 2);
 
@@ -187,8 +187,14 @@ fn test_unwritable_log_root_hint_names_the_flag() {
     std::fs::write(&file, b"x").expect("file");
     let error = ObservabilityAdapter::open(&policy(), &file.join("nested"))
         .expect_err("a parent path is a file");
-    assert_eq!(error.code(), "CONFIG_INVALID");
-    let hint = error.fix_hint();
+    assert_eq!(error.code(), "IO_FAILED");
+    let hint = error.suggested_action();
     assert!(!hint.contains("check.toml"), "{hint}");
     assert!(hint.contains("--log-dir"), "{hint}");
+    assert!(
+        error.message().contains("not-a-directory"),
+        "{}",
+        error.message()
+    );
+    assert!(error.details().expect("details").io_kind.is_some());
 }

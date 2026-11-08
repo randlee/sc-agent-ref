@@ -232,7 +232,7 @@ fn test_cli_partial_failure_both_streams_exit_2() {
         repo.path(),
         &json!({"backends": {
             "jev": {"relevant": "yes"},
-            "anthropic_haiku": {"failure": {"error": "NETWORK_ERROR", "kind": "busy"}}
+            "anthropic_haiku": {"failure": {"error": "PROVIDER_BUSY"}}
         }}),
     );
     let output = run_cli(&[
@@ -263,7 +263,7 @@ fn test_cli_partial_failure_both_streams_exit_2() {
     // stderr: exactly one ScAgentErrorResponse, the first failure.
     let error = stderr_json(&output);
     assert_eq!(error["schema_version"], 1);
-    assert_eq!(error["error"], "NETWORK_ERROR");
+    assert_eq!(error["error"], "PROVIDER_BUSY");
     assert_eq!(error["error"], data["results"][1]["error"]["error"]);
     assert_no_prompt_leak(&String::from_utf8_lossy(&output.stderr));
 
@@ -271,8 +271,8 @@ fn test_cli_partial_failure_both_streams_exit_2() {
     let all_failed = scripted(
         repo.path(),
         &json!({"backends": {
-            "jev": {"failure": {"error": "NETWORK_ERROR", "kind": "busy"}},
-            "anthropic_haiku": {"failure": {"error": "NETWORK_ERROR", "kind": "busy"}}
+            "jev": {"failure": {"error": "PROVIDER_BUSY"}},
+            "anthropic_haiku": {"failure": {"error": "PROVIDER_BUSY"}}
         }}),
     );
     let output = run_cli(&[
@@ -290,7 +290,7 @@ fn test_cli_partial_failure_both_streams_exit_2() {
         text(&all_failed),
     ]);
     assert!(output.stdout.is_empty(), "no envelope when all failed");
-    assert_eq!(stderr_json(&output)["error"], "NETWORK_ERROR");
+    assert_eq!(stderr_json(&output)["error"], "PROVIDER_BUSY");
 }
 
 /// REQ-SAG-0605, ADR-SAG-0008: independent is the default; the flag selects
@@ -871,10 +871,9 @@ fn cli_request_json_missing_file_is_input_missing() {
     );
 }
 
-/// An unreadable `--request-json` path (a directory) is the `IoFailed`
-/// variant. The closed wire vocabulary has no `IO_FAILED` id:
-/// `JevError::code` maps `IoFailed` to `INPUT_INVALID`, so the variant is told
-/// apart from `INPUT_MISSING` by its "I/O failed" message.
+/// An unreadable `--request-json` path (a directory) is `IO_FAILED`, with
+/// the operation and the `io::ErrorKind` as machine fields, and is told apart
+/// from `INPUT_MISSING` by its id, not by its message.
 #[test]
 fn cli_request_json_directory_is_io_failed() {
     let repo = temp_dir("request-dir");
@@ -888,9 +887,40 @@ fn cli_request_json_directory_is_io_failed() {
         "req.json",
     ]);
     let error = stderr_json(&output);
+    assert_eq!(error["error"], "IO_FAILED");
+    assert_eq!(error["kind"], "dependency");
+    assert_eq!(error["retryable"], false);
+    assert!(
+        error["details"]["what"]
+            .as_str()
+            .expect("what")
+            .contains("request JSON"),
+        "{error}"
+    );
+    assert!(error["details"]["io_kind"].is_string(), "{error}");
+}
+
+/// One rule for the look-alike ids: a usage error is the caller's input
+/// (`INPUT_INVALID`, naming the argument), never `CONFIG_INVALID`; a named
+/// path that does not exist is `INPUT_MISSING` whichever path reads it.
+#[test]
+fn cli_usage_errors_are_input_invalid_and_name_the_argument() {
+    let output = run_cli(&["jev", "run", "--no-such-flag"]);
+    let error = stderr_json(&output);
     assert_eq!(error["error"], "INPUT_INVALID");
-    let message = error["message"].as_str().expect("message");
-    assert!(message.contains("I/O failed"), "{message}");
+    assert_eq!(error["kind"], "validation");
+    assert_eq!(error["field"], "--no-such-flag");
+    let output = run_cli(&[
+        "jev",
+        "ask",
+        "--session-id",
+        "not-a-ulid",
+        "--text",
+        "hello",
+    ]);
+    let error = stderr_json(&output);
+    assert_eq!(error["error"], "INPUT_INVALID");
+    assert_eq!(error["field"], "session_id");
 }
 
 #[test]
@@ -966,8 +996,10 @@ fn cli_log_and_git_errors_do_not_blame_check_toml() {
         text(&answers),
     ]);
     let error = stderr_json(&blocked);
-    assert_eq!(error["error"], "CONFIG_INVALID");
-    let hint = error["message"].as_str().expect("message");
+    assert_eq!(error["error"], "IO_FAILED");
+    let hint = error["suggested_action"]
+        .as_str()
+        .expect("suggested_action");
     assert!(!hint.contains("check.toml"), "{hint}");
     assert!(hint.contains("--log-dir"), "{hint}");
 
@@ -1008,10 +1040,27 @@ fn cli_process_stderr_is_one_typed_line() {
     }
     let err = stderr_json(&output);
     let object = err.as_object().expect("object");
-    assert_eq!(object.len(), 3);
+    // The always-present keys; the optional ones (`retry_after_seconds`,
+    // `field`, `details`) are absent for this error.
+    let mut keys: Vec<&str> = object.keys().map(String::as_str).collect();
+    keys.sort_unstable();
+    assert_eq!(
+        keys,
+        [
+            "error",
+            "kind",
+            "message",
+            "retryable",
+            "schema_version",
+            "suggested_action"
+        ]
+    );
     assert_eq!(err["error"], "INPUT_INVALID");
+    assert_eq!(err["kind"], "validation");
+    assert_eq!(err["retryable"], false);
     assert_eq!(err["schema_version"], 1);
     assert!(err["message"].is_string());
+    assert!(err["suggested_action"].is_string());
     let codes: Value = serde_json::from_str(
         &std::fs::read_to_string(
             PathBuf::from(env!("CARGO_MANIFEST_DIR"))

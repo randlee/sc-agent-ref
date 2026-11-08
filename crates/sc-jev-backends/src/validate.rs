@@ -33,12 +33,11 @@ pub(crate) fn local_input_tokens(body: &[u8]) -> u64 {
 ///
 /// # Errors
 ///
-/// Returns [`JevError::InputInvalid`] when `tokens` exceeds the ceiling.
+/// Returns [`JevError::InputTooLarge`] (unit `tokens`) when `tokens` exceeds
+/// the ceiling.
 pub(crate) fn enforce_input_token_limit(tokens: u64) -> Result<(), JevError> {
     if tokens > MAX_INPUT_TOKENS {
-        return Err(JevError::input_invalid(format!(
-            "input is {tokens} tokens; limit is {MAX_INPUT_TOKENS} tokens"
-        )));
+        return Err(JevError::input_too_large_tokens(MAX_INPUT_TOKENS, tokens));
     }
     Ok(())
 }
@@ -49,8 +48,8 @@ pub(crate) fn enforce_input_token_limit(tokens: u64) -> Result<(), JevError> {
 ///
 /// Returns [`JevError::InputTooLarge`] when either body exceeds
 /// `limit_bytes` (the backend descriptor's `request_limit_bytes`; a larger
-/// body is never split), and [`JevError::InputInvalid`] when the local token
-/// estimate exceeds [`MAX_INPUT_TOKENS`].
+/// body is never split), and [`JevError::InputTooLarge`] (unit `tokens`) when
+/// the local token estimate exceeds [`MAX_INPUT_TOKENS`].
 pub(crate) fn enforce_count_and_message_limits(
     limit_bytes: u64,
     count_body: &str,

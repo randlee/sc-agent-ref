@@ -25,7 +25,7 @@ use serde_json::Value;
 
 use sc_agent_types::observability::v2::NoopSessionLog;
 use sc_agent_types::{
-    BackendId, BackendSet, JevError, NetworkErrorKind, RepoRelativePath, RepoRoot,
+    BackendId, BackendSet, BusyCause, JevError, NetworkErrorKind, RepoRelativePath, RepoRoot,
     ScAgentErrorResponse, SessionId,
 };
 use sc_decision_schema::test_util::MockJudgeBackend;
@@ -232,7 +232,7 @@ fn session_save_failed() -> RunResponse {
     RunResponse::test_builder()
         .payload_bytes(payload_bytes())
         .ok(outcome(BackendId::AnthropicHaiku, "yes", haiku_meta()))
-        .warning("session not saved: CONFIG_INVALID")
+        .warning("session not saved: IO_FAILED")
         .build(equal_input(
             &[(BackendId::AnthropicHaiku, Attestation::Unattested)],
             false,
@@ -394,7 +394,7 @@ fn test_run_response_contract() {
     assert!(unsaved["session_id"].is_null());
     assert_eq!(
         unsaved["warnings"],
-        serde_json::json!(["session not saved: CONFIG_INVALID"])
+        serde_json::json!(["session not saved: IO_FAILED"])
     );
     let keys = top_level_keys(&serde_json::to_string(&session_save_failed()).expect("text"));
     assert_eq!(keys.last().map(String::as_str), Some("warnings"));
@@ -446,7 +446,7 @@ fn test_run_response_contract() {
 #[test]
 fn test_backend_failure_response_derived_from_error() {
     for error in [
-        JevError::network(NetworkErrorKind::Busy, "busy"),
+        JevError::provider_busy("busy", 429, 4, BusyCause::Sends, None),
         JevError::input_too_large(96_000, 150_000),
         JevError::from_error_response(
             "sc-treesitter",

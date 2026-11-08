@@ -6,7 +6,7 @@
 //! canonical bytes (ADR-SAG-0002); `input_sha256` is recovered by inverting
 //! the final body back to canonical bytes (ADR-SAG-0025).
 
-use sc_agent_types::{BackendId, JevError, Sha256Digest};
+use sc_agent_types::{BackendId, JevError, ResponseInvalidCause, Sha256Digest};
 use sc_decision_schema::jev::v1::{CheckRequest, CheckResponse};
 use sc_decision_schema::{CanonicalJudgePayload, JudgeOutcome, JudgeRequest, PayloadBundle};
 use serde_json::Value;
@@ -151,8 +151,9 @@ pub(crate) fn parse_outcome(
     request: &JudgeRequest,
 ) -> Result<JudgeOutcome, JevError> {
     let response = CheckResponse::parse(raw)?;
-    let meta: Value = serde_json::from_slice(raw)
-        .map_err(|_| JevError::response_invalid("response is not JSON"))?;
+    let meta: Value = serde_json::from_slice(raw).map_err(|_| {
+        JevError::response_invalid_because(ResponseInvalidCause::NotJson, "response is not JSON")
+    })?;
     let answers = response.into_answers(check)?;
     Ok(JudgeOutcome::new(BackendId::Jev, request, answers)?.with_provider_meta(meta))
 }

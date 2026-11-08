@@ -10,11 +10,11 @@ use std::time::Duration;
 
 use sc_agent_http::test_util::{FakeClock, RecordingSleeper, ScriptedTransport};
 use sc_agent_http::{
-    BusyExhaustion, BusyPolicy, Endpoint, HttpClient, HttpRequest, HttpResponse, Method,
-    SecretHeader, send_and_parse, send_with_busy_retry,
+    BusyPolicy, Endpoint, HttpClient, HttpRequest, HttpResponse, Method, SecretHeader,
+    send_and_parse, send_with_busy_retry,
 };
 use sc_agent_types::{
-    BackendKeyId, CancelToken, JevError, NetworkErrorKind, ResolvedApiKey, SendTrace,
+    BackendKeyId, BusyCause, CancelToken, JevError, NetworkErrorKind, ResolvedApiKey, SendTrace,
 };
 
 const KEY: &str = "sk-retry-secret";
@@ -81,8 +81,8 @@ fn network_kind(error: &JevError) -> NetworkErrorKind {
 
 fn detail(error: &JevError) -> &str {
     match error {
-        JevError::NetworkError { detail, .. } => detail,
-        other => panic!("expected NETWORK_ERROR, got {other:?}"),
+        JevError::NetworkError { detail, .. } | JevError::ProviderBusy { detail, .. } => detail,
+        other => panic!("expected NETWORK_ERROR or PROVIDER_BUSY, got {other:?}"),
     }
 }
 
@@ -102,7 +102,8 @@ fn test_busy_policy_numbers() {
             [secs(1.25), secs(2.25), secs(4.25), secs(8.25)],
             "status {status}"
         );
-        assert_eq!(network_kind(&error), NetworkErrorKind::Busy);
+        assert_eq!(error.code(), "PROVIDER_BUSY");
+        assert!(error.retryable());
         assert_eq!(
             detail(&error),
             format!("HTTP {status} busy; 5 sends exhausted")
@@ -186,7 +187,8 @@ fn test_retry_after_grammar() {
     assert_eq!(detail(&error), "HTTP 429 busy; 5 sends exhausted");
 }
 
-/// Both exhaustion reasons are `Busy` and retryable, told apart by detail.
+/// Both exhaustion reasons are `PROVIDER_BUSY` and retryable, told apart by
+/// the typed cause (QA-002), with the send count and the last `Retry-After`.
 #[test]
 fn test_exhaustion_reason_distinguishable() {
     let hooks = fake(Duration::ZERO);
@@ -204,29 +206,110 @@ fn test_exhaustion_reason_distinguishable() {
     assert_eq!(hooks.sleeper.waits(), [secs(30.0)]);
 
     for error in [&sends, &budget] {
-        assert_eq!(error.code(), "NETWORK_ERROR");
-        assert_eq!(network_kind(error), NetworkErrorKind::Busy);
+        assert_eq!(error.code(), "PROVIDER_BUSY");
         assert!(error.retryable());
     }
     assert!(detail(&sends).contains("5 sends exhausted"), "{sends}");
-    assert!(!detail(&sends).contains("budget"), "{sends}");
     assert!(
         detail(&budget).contains("retry budget exhausted"),
         "{budget}"
     );
-    assert!(!detail(&budget).contains("sends exhausted"), "{budget}");
     assert_eq!(
         detail(&budget),
         "HTTP 429 busy after 2 sends; retry budget exhausted"
     );
-    // Typed cause, no string matching at the call site (QA-002); a
-    // backend's name prefix does not change it.
-    assert_eq!(BusyExhaustion::of(&sends), Some(BusyExhaustion::Sends));
-    assert_eq!(BusyExhaustion::of(&budget), Some(BusyExhaustion::Budget));
-    let labelled = budget.clone().map_detail(|text| format!("luna {text}"));
-    assert_eq!(BusyExhaustion::of(&labelled), Some(BusyExhaustion::Budget));
-    let other = JevError::network(NetworkErrorKind::Connect, "4 sends exhausted");
-    assert_eq!(BusyExhaustion::of(&other), None);
+    let JevError::ProviderBusy {
+        cause,
+        sends: made,
+        status,
+        retry_after_seconds,
+        ..
+    } = &sends
+    else {
+        panic!("expected PROVIDER_BUSY, got {sends:?}");
+    };
+    assert_eq!(
+        (*cause, *made, *status, *retry_after_seconds),
+        (BusyCause::Sends, 5, 429, Some(1))
+    );
+    let JevError::ProviderBusy {
+        cause,
+        sends: made,
+        retry_after_seconds,
+        ..
+    } = &budget
+    else {
+        panic!("expected PROVIDER_BUSY, got {budget:?}");
+    };
+    assert_eq!(
+        (*cause, *made, *retry_after_seconds),
+        (BusyCause::Budget, 2, Some(30))
+    );
+    // A backend's name prefix does not change the typed cause.
+    let labelled = budget.clone().prefix_detail("luna");
+    assert!(detail(&labelled).starts_with("luna HTTP 429"), "{labelled}");
+    assert_eq!(
+        labelled.details().and_then(|d| d.cause).as_deref(),
+        Some("budget")
+    );
+}
+
+/// A missing or malformed `Retry-After` leaves the field out; a valid one
+/// beyond the 30 s wait clamp is reported as the provider sent it.
+#[test]
+fn test_retry_after_is_reported_not_clamped() {
+    let cases: [(Option<&str>, Option<u64>); 4] = [
+        (None, None),
+        (Some("Wed, 21 Oct 2026 07:28:00 GMT"), None),
+        (Some("120"), Some(120)),
+        (Some("2.5"), Some(3)),
+    ];
+    for (header, expected) in cases {
+        let hooks = fake(Duration::ZERO);
+        let transport = ScriptedTransport::responses(vec![busy(529, header); 6]);
+        let error = run(&transport, &hooks.policy).expect_err("exhausted");
+        assert_eq!(error.retry_after_seconds(), expected, "{header:?}");
+    }
+}
+
+/// The classification hook: a 429 whose body marks quota is returned at once
+/// (one send, no wait) for the caller to map; an unknown 429 body stays busy.
+#[test]
+fn test_quota_body_is_not_retried_but_unknown_429_is() {
+    let quota_bodies = [
+        r#"{"error":{"message":"You exceeded your current quota","type":"insufficient_quota","code":"insufficient_quota"}}"#,
+        r#"{"type":"error","error":{"type":"rate_limit_error","message":"cap","details":{"error_code":"enforced_spend_limit_reached"}}}"#,
+    ];
+    for body in quota_bodies {
+        let hooks = fake(Duration::ZERO);
+        let transport = ScriptedTransport::responses(vec![
+            HttpResponse::new(429, Vec::new(), body.as_bytes().to_vec()),
+            ok(),
+        ]);
+        let response = run(&transport, &hooks.policy).expect("returned for mapping");
+        assert_eq!(response.status(), 429);
+        assert_eq!(transport.sends(), 1, "{body}");
+        assert!(hooks.sleeper.waits().is_empty());
+        assert_eq!(
+            sc_agent_http::api_failure("p", &response).code(),
+            "QUOTA_EXHAUSTED"
+        );
+    }
+    for body in [
+        "",
+        "slow down",
+        r#"{"error":{"type":"requests","code":"rate_limit_exceeded","message":"Rate limit reached"}}"#,
+        r#"{"type":"error","error":{"type":"rate_limit_error","message":"x"}}"#,
+    ] {
+        let hooks = fake(Duration::ZERO);
+        let transport = ScriptedTransport::responses(vec![
+            HttpResponse::new(429, Vec::new(), body.as_bytes().to_vec()),
+            ok(),
+        ]);
+        let response = run(&transport, &hooks.policy).expect("retried to success");
+        assert_eq!(response.status(), 200);
+        assert_eq!(transport.sends(), 2, "{body}");
+    }
 }
 
 /// Every wait is `min(wait + jitter, budget remaining)`.
@@ -351,7 +434,7 @@ fn test_transport_error_with_secret_is_redacted() {
         let transport = ScriptedTransport::new(vec![Err(leak.clone())]);
         let error = run(&transport, &hooks.policy).expect_err("leak");
         assert_eq!(error.code(), leak.code());
-        let rendered = format!("{error} {error:?} {}", error.fix_hint());
+        let rendered = format!("{error} {error:?} {}", error.message());
         assert!(!rendered.contains(KEY), "{rendered}");
         assert!(rendered.contains("[redacted]"), "{rendered}");
     }
@@ -386,7 +469,10 @@ fn test_send_and_parse_redacts_parse_errors() {
         },
     )
     .expect_err("parse error");
-    assert_eq!(error.to_string(), "response is invalid: echo [redacted]");
+    assert_eq!(
+        error.to_string(),
+        "response is invalid (schema): echo [redacted]"
+    );
     assert_eq!(transport.sends(), 2);
     assert_eq!(hooks.sleeper.waits(), [secs(1.0)]);
 

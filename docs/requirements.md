@@ -34,7 +34,7 @@ the **`sc-ai`** CLI. Behavioural contract for errors and parity rows:
 | ID | Requirement |
 | --- | --- |
 | REQ-SAG-0100 | Root Cargo workspace, `justfile`, sc-lint, standard lint/test targets |
-| REQ-SAG-0101 | `JevError`: one variant per id in `tests/fixtures/jev/README-contract/errors.json`; each has `code()` and `fix_hint()` |
+| REQ-SAG-0101 | `JevError`: one variant per id in `tests/fixtures/jev/README-contract/errors.json`; each has `code()`, `message()` and `suggested_action()` (was `fix_hint()`, removed by the agt-2a3 amendment) |
 | REQ-SAG-0102 | Cross-implementation payload fixture: Rust digest matches committed Python reference bytes |
 | REQ-SAG-0103 | Frozen `JudgeBackend` / `JudgeRequest` contract + contract tests in `sc-agent-types` |
 | NFR-SAG-0001 | CLI error JSON shape (`ScAgentErrorResponse`) defined in `sc-agent-types` |
@@ -214,3 +214,28 @@ verbatim. Plan: [`plans/phase-a-refine/plan.md`](plans/phase-a-refine/plan.md).
 | REQ-SAG-0130 | Consumer input publishes `sc-decision-schema` (publish order 2, directly after `sc-agent-types`) — (Active, r-7) |
 | REQ-SAG-0600 | Session store: session id is a **ULID** (was UUID) in file names and documents; mode 0600, expiry from `created_at` — (Active, r-6) |
 | REQ-SAG-0611 | Every log line's `fields{}` object is one ADR-SAG-0031 session-log row (session ULID, `repo`, `project`, `model_id`, `prompt_sha256`, nullable `request_sha256`, `send_outcome`, typed answers or `error_code`), on every line; never secrets, payload text or raw response bodies — (Active, r-6) |
+
+## Amendments: error contract (bead agt-2a3, ADR-SAG-0027 and ADR-SAG-0020 amendments)
+
+Made before the first release; nothing is kept for compatibility.
+
+| ID | Amendment |
+| --- | --- |
+| REQ-SAG-0101 | `errors.json` gains `AUTH_FAILED`, `API_REQUEST_INVALID`, `QUOTA_EXHAUSTED`, `PROVIDER_BUSY`, `API_ERROR` and `IO_FAILED`; every variant still maps to exactly one id. `fix_hint()` is replaced by `message()` (what failed) and `suggested_action()` (what to do) — (Active, agt-2a3) |
+| REQ-SAG-0106 | `retryable()` is true for `NETWORK_ERROR` kinds `timeout` and `connect`, `PROVIDER_BUSY`, `API_ERROR` from status 500, and a producer's error as the producer says; `Operational`, `OperationalArea` and `SessionStoreIo` are removed; `ProducerError` carries the producer's `retryable`, `retry_after_seconds`, `field`, `details` and `suggested_action` — (Active, agt-2a3) |
+| NFR-SAG-0001 | `ScAgentErrorResponse` is `{error, kind, message, suggested_action, retryable, retry_after_seconds?, field?, details?, schema_version}` in that key order; `retryable` is always present; `message` never holds the fix; `schema_version` stays `1` because nothing was published (it bumps on any later added key); readers deny unknown keys and require only `error` and `message` — (Active, agt-2a3; supersedes the r-1 field rule) |
+| REQ-SAG-0701 | stderr is one `ScAgentErrorResponse` line per NFR-SAG-0001 (agt-2a3 shape), exit 2; a command-line usage error is `INPUT_INVALID` naming the argument in `field`, never `CONFIG_INVALID` — (Active, agt-2a3) |
+| REQ-SAG-0505 | Busy exhaustion is `PROVIDER_BUSY` with `cause` (`sends`, `budget`), `attempts` and `retry_after_seconds`; a busy status whose body marks quota is returned unretried and becomes `QUOTA_EXHAUSTED`; retry timing is unchanged — (Active, agt-2a3) |
+| NFR-SAG-0002 | Provider error text (status, type, code, message, parameter, request id, or the raw body when it is not error JSON) may appear in an error, bounded to 1024 bytes per field and single-line, and always passes through `redact`; prompt text and model output are never added — (Active, agt-2a3; ADR-SAG-0020 amendment) |
+
+New requirements:
+
+| ID | Requirement |
+| --- | --- |
+| REQ-SAG-0160 | A non-200 reply from Jev, Haiku or Luna is classified once, in `sc_agent_http::api_failure`: 401 and 403 `AUTH_FAILED`; 402 or a quota body `QUOTA_EXHAUSTED`; a too-long-input body `INPUT_TOO_LARGE`; 400 and 422 `API_REQUEST_INVALID`; everything else `API_ERROR`. Each keeps the provider's status, type, code, message, parameter and request id — (Active, agt-2a3) |
+| REQ-SAG-0161 | A 429 (or 502, 529) whose body marks quota, credit or spend-limit exhaustion (documented Anthropic and OpenAI shapes) is not busy and is not retried; an unknown 429 body stays busy — (Active, agt-2a3) |
+| REQ-SAG-0162 | `IO_FAILED` carries `what` and the snake_case `io::ErrorKind` as `details.what` and `details.io_kind`; `docs/stability.md` no longer tells consumers to parse `message` to tell a bad input from a failed read — (Active, agt-2a3) |
+| REQ-SAG-0163 | One id, `INPUT_TOO_LARGE`, covers the byte cap, the token cap and a provider's own refusal, with `limit`, `actual` and `unit` (`bytes`, `tokens`) in `details` — (Active, agt-2a3) |
+| REQ-SAG-0164 | `RESPONSE_INVALID` has a `cause` (`truncated`, `too_large`, `not_json`, `schema`), a distinct `suggested_action` per cause, and `retryable` false for all, with no action that says to retry unchanged — (Active, agt-2a3) |
+| REQ-SAG-0165 | The Python `JevError` carries the same fields as the CLI body (`code` for `error`, `kind`, `message`, `suggested_action`, `retryable`, `retry_after_seconds`, `field`, `details`, `schema_version`), produced from the same serialization — (Active, agt-2a3) |
+| REQ-SAG-0166 | A session-log flush failure that happens as an error leaves is `details.log_flush_failure` on every variant, not text in the message — (Active, agt-2a3) |

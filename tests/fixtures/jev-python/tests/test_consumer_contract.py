@@ -55,7 +55,7 @@ def test_partial_failure_raises_with_response(tmp_path: Path) -> None:
     answers = {
         "backends": {
             "jev": {"relevant": "yes"},
-            "anthropic_haiku": {"failure": {"error": "NETWORK_ERROR", "kind": "busy"}},
+            "anthropic_haiku": {"failure": {"error": "PROVIDER_BUSY"}},
         }
     }
     with pytest.raises(sc_jev_py.JevError) as caught:
@@ -68,7 +68,7 @@ def test_partial_failure_raises_with_response(tmp_path: Path) -> None:
             session_dir=tmp_path / "sessions",
         )
     error = caught.value
-    assert error.code == "NETWORK_ERROR"
+    assert error.code == "PROVIDER_BUSY"
     response = error.response
     assert isinstance(response, dict)
     assert response["primary_backend"] == "jev"
@@ -76,7 +76,7 @@ def test_partial_failure_raises_with_response(tmp_path: Path) -> None:
     assert [entry["status"] for entry in response["results"]] == ["ok", "failed"]
 
     # All backends failed: a plain error, no response.
-    failing = {"failure": {"error": "NETWORK_ERROR", "kind": "busy"}}
+    failing = {"failure": {"error": "PROVIDER_BUSY"}}
     with pytest.raises(sc_jev_py.JevError) as plain:
         run_check_scripted(
             "check.toml",
@@ -86,7 +86,7 @@ def test_partial_failure_raises_with_response(tmp_path: Path) -> None:
             log_dir=tmp_path / "log",
             session_dir=tmp_path / "sessions",
         )
-    assert plain.value.code == "NETWORK_ERROR"
+    assert plain.value.code == "PROVIDER_BUSY"
     assert plain.value.response is None
 
 

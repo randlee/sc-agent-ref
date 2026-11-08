@@ -64,7 +64,7 @@ fn test_mock_judge_backend_contract() {
 
     // Failure after validation: sent (recorded) and failed.
     let failing = MockJudgeBackend::new(BackendId::Jev, answers("no")).with_failure(
-        JevError::network(sc_agent_types::NetworkErrorKind::Busy, "busy"),
+        JevError::provider_busy("busy", 429, 4, sc_agent_types::BusyCause::Sends, None),
     );
     failing.validate_for_send(&bare).expect("validation passes");
     assert_eq!(
@@ -72,7 +72,7 @@ fn test_mock_judge_backend_contract() {
             .judge(&bare, &SendTrace::new())
             .expect_err("fails")
             .code(),
-        "NETWORK_ERROR"
+        "PROVIDER_BUSY"
     );
     assert_eq!(failing.requests().len(), 1);
 

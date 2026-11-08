@@ -66,27 +66,27 @@ fn read_worktree(repo: &RepoRoot, path: RepoRelativePath) -> Result<Blob, JevErr
         Err(error) if error.kind() == io::ErrorKind::NotFound => {
             return Err(JevError::input_missing(path.as_str()));
         }
-        Err(error) => return Err(JevError::io_failed(path.as_str(), &error)),
+        Err(error) => return Err(JevError::read_failed(path.as_str(), path.as_str(), &error)),
     };
     if !full.starts_with(repo.as_path()) {
         return Err(JevError::input_invalid(format!(
             "{path} resolves outside the repository"
         )));
     }
-    let metadata =
-        std::fs::metadata(&full).map_err(|error| JevError::io_failed(path.as_str(), &error))?;
+    let metadata = std::fs::metadata(&full)
+        .map_err(|error| JevError::read_failed(path.as_str(), path.as_str(), &error))?;
     if !metadata.is_file() {
         return Err(JevError::input_invalid(format!(
             "{path} is not a regular file"
         )));
     }
     too_large(metadata.len())?;
-    let file =
-        std::fs::File::open(&full).map_err(|error| JevError::io_failed(path.as_str(), &error))?;
+    let file = std::fs::File::open(&full)
+        .map_err(|error| JevError::read_failed(path.as_str(), path.as_str(), &error))?;
     let mut bytes = Vec::new();
     file.take(MAX_INPUT_BYTES.saturating_add(1))
         .read_to_end(&mut bytes)
-        .map_err(|error| JevError::io_failed(path.as_str(), &error))?;
+        .map_err(|error| JevError::read_failed(path.as_str(), path.as_str(), &error))?;
     too_large(u64::try_from(bytes.len()).unwrap_or(u64::MAX))?;
     let sha = git::hash_blob(repo, &bytes)?;
     Ok(Blob { path, bytes, sha })

@@ -125,9 +125,9 @@ fn test_read_at_rev_rejects_tree() {
     let error = read_at_rev(&root, &rev("HEAD"), &path("src"), 1024).expect_err("tree");
     assert_eq!(error.code(), "INPUT_INVALID");
     assert!(
-        error.fix_hint().contains("not a file"),
+        error.message().contains("not a file"),
         "{}",
-        error.fix_hint()
+        error.message()
     );
 }
 
@@ -243,8 +243,8 @@ fn test_hash_blob_failure_is_extraction_failed() {
     let error = hash_blob(&RepoRoot::new(&missing), b"x").expect_err("no dir");
     assert_eq!(error.code(), "EXTRACTION_FAILED");
     assert!(
-        error.fix_hint().contains("git hash-object failed"),
+        error.message().contains("git hash-object failed"),
         "{}",
-        error.fix_hint()
+        error.message()
     );
 }

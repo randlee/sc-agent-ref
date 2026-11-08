@@ -1,7 +1,7 @@
 //! Process environment and platform keyring adapters.
 //!
-//! Keyring failures become [`JevError::ConfigInvalid`] with a sanitized cause
-//! and a recovery hint. Upstream messages are dropped because `BadEncoding`
+//! Keyring failures become `IO_FAILED` ([`JevError::IoFailed`]) with a
+//! sanitized cause and a recovery hint. Upstream messages are dropped because `BadEncoding`
 //! carries the raw secret bytes and platform errors can echo caller text.
 
 use sc_agent_types::JevError;
@@ -47,7 +47,12 @@ impl KeyringSource for PlatformKeyring {
     fn password(&self, service: &str, account: &str) -> Result<Option<String>, JevError> {
         let entry = match keyring::Entry::new(service, account) {
             Ok(entry) => entry,
-            Err(error) => return Err(keyring_unavailable(sanitized_keyring_cause(&error))),
+            Err(error) => {
+                return Err(keyring_unavailable(
+                    sanitized_keyring_cause(&error),
+                    keyring_io_kind(&error),
+                ));
+            }
         };
         classify_keyring(entry.get_password())
     }
@@ -59,7 +64,10 @@ pub(crate) fn classify_keyring(
     match result {
         Ok(secret) => Ok(Some(secret)),
         Err(keyring::Error::NoEntry) => Ok(None),
-        Err(error) => Err(keyring_unavailable(sanitized_keyring_cause(&error))),
+        Err(error) => Err(keyring_unavailable(
+            sanitized_keyring_cause(&error),
+            keyring_io_kind(&error),
+        )),
     }
 }
 
@@ -80,8 +88,22 @@ fn sanitized_keyring_cause(error: &keyring::Error) -> &'static str {
     }
 }
 
-fn keyring_unavailable(cause: &str) -> JevError {
-    JevError::credential_store_invalid(KEYRING_UNREADABLE, cause, KEYRING_RECOVERY)
+fn keyring_unavailable(cause: &str, kind: std::io::ErrorKind) -> JevError {
+    JevError::io_failed_with(
+        format!("{KEYRING_UNREADABLE} ({cause})"),
+        kind,
+        Some(KEYRING_RECOVERY.to_owned()),
+    )
+}
+
+/// The I/O class a keyring failure is reported as; the platform message is
+/// never kept.
+fn keyring_io_kind(error: &keyring::Error) -> std::io::ErrorKind {
+    match error {
+        keyring::Error::NoStorageAccess(_) => std::io::ErrorKind::PermissionDenied,
+        keyring::Error::BadEncoding(_) => std::io::ErrorKind::InvalidData,
+        _ => std::io::ErrorKind::Other,
+    }
 }
 
 /// OS user name used as the keyring account.
@@ -121,12 +143,13 @@ mod tests {
         ];
         for (error, cause) in cases {
             let err = classify_keyring(Err(error)).expect_err("keyring failure");
-            assert_eq!(err.code(), "CONFIG_INVALID");
-            let hint = err.fix_hint();
-            assert!(hint.contains(KEYRING_UNREADABLE), "{hint}");
-            assert!(hint.contains(cause), "{hint}");
-            assert!(hint.contains(KEYRING_RECOVERY), "{hint}");
-            assert!(!hint.contains("check.toml"), "{hint}");
+            assert_eq!(err.code(), "IO_FAILED");
+            let message = err.message();
+            assert!(message.contains(KEYRING_UNREADABLE), "{message}");
+            assert!(message.contains(cause), "{message}");
+            let action = err.suggested_action();
+            assert!(action.contains(KEYRING_RECOVERY), "{action}");
+            assert!(!action.contains("check.toml"), "{action}");
             assert_secret_absent(&err, secret);
         }
         assert_eq!(
@@ -136,7 +159,7 @@ mod tests {
     }
 
     fn assert_secret_absent(error: &JevError, secret: &str) {
-        let rendered = format!("{error} {error:?} {}", error.fix_hint());
+        let rendered = format!("{error} {error:?} {}", error.message());
         assert!(!rendered.contains(secret), "{rendered}");
     }
 }

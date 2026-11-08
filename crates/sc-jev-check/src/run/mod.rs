@@ -759,8 +759,9 @@ fn open_session_store(
         return Ok(None);
     }
     let Some(dir) = &config.sessions_dir else {
-        return Err(JevError::operational_config(
-            "A live run with an ask-capable backend saves a session. Set RunConfig::sessions_dir (sc-ai --sessions-dir), or use dry_run.",
+        return Err(JevError::config_invalid_with(
+            "a live run with an ask-capable backend saves a session, and no sessions directory is set",
+            "Set RunConfig::sessions_dir (sc-ai --sessions-dir), or use dry_run.",
         ));
     };
     FileSessionStore::new(dir).map(Some)

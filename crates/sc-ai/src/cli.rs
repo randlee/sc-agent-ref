@@ -195,10 +195,7 @@ where
         {
             Ok(Parsed::Print(error.render().to_string()))
         }
-        Err(error) => {
-            Err(value_parser_error(&error)
-                .unwrap_or_else(|| JevError::input_invalid(message(&error))))
-        }
+        Err(error) => Err(value_parser_error(&error).unwrap_or_else(|| usage_error(&error))),
     }
 }
 
@@ -254,7 +251,11 @@ fn scripted_registry(
         return Ok(None);
     };
     let text = std::fs::read_to_string(file).map_err(|error| {
-        JevError::io_failed(format!("scripted answers {}", file.display()), &error)
+        JevError::read_failed(
+            file.display().to_string(),
+            format!("scripted answers {}", file.display()),
+            &error,
+        )
     })?;
     let answers: serde_json::Value = serde_json::from_str(&text).map_err(|error| {
         JevError::input_invalid(format!("scripted answers are not JSON: {error}"))
@@ -284,6 +285,22 @@ fn value_parser_error(error: &clap::Error) -> Option<JevError> {
     std::error::Error::source(error)?
         .downcast_ref::<JevError>()
         .cloned()
+}
+
+/// `INPUT_INVALID` for a command-line usage error, naming the argument clap
+/// blames when it names one.
+///
+/// Usage errors are `INPUT_INVALID`, never `CONFIG_INVALID`: the caller's
+/// command line is input, and no configuration source is wrong.
+fn usage_error(error: &clap::Error) -> JevError {
+    let detail = message(error);
+    match error
+        .get(clap::error::ContextKind::InvalidArg)
+        .map(ToString::to_string)
+    {
+        Some(argument) => JevError::input_invalid_field(argument, detail),
+        None => JevError::input_invalid(detail),
+    }
 }
 
 /// One-line, colour-free description of a clap error.
@@ -324,9 +341,12 @@ fn parse_backend(value: &str) -> Result<BackendId, JevError> {
 /// is one `INPUT_INVALID` line whose fix hint says how to start over.
 fn parse_session_id(value: &str) -> Result<SessionId, JevError> {
     value.parse().map_err(|_| {
-        JevError::operational_io(format!(
-            "session id {value:?} is not a ULID; session ids are ULIDs since Phase A.1; start a new session with `sc-ai jev run`."
-        ))
+        JevError::input_invalid_field(
+            "session_id",
+            format!(
+                "session id {value:?} is not a ULID; session ids are ULIDs since Phase A.1; start a new session with `sc-ai jev run`"
+            ),
+        )
     })
 }
 
@@ -350,9 +370,10 @@ mod tests {
         for bad in ["3f2b8a9e-6c1d-4e7a-9b25-0d4c1a7e5f10", "nope", ""] {
             let error = parse_session_id(bad).expect_err("not a ULID");
             assert_eq!(error.code(), "INPUT_INVALID");
-            let hint = error.fix_hint();
-            assert!(hint.contains("ULID"), "{hint}");
-            assert!(hint.contains("sc-ai jev run"), "{hint}");
+            let message = error.message();
+            assert!(message.contains("ULID"), "{message}");
+            assert!(message.contains("sc-ai jev run"), "{message}");
+            assert_eq!(error.field(), Some("session_id"));
         }
         assert!(parse_session_id("01JC4Z7A5B0000000000000001").is_ok());
     }

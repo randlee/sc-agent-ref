@@ -616,7 +616,7 @@ sys.stdout.write(json.dumps(doc))
             PROBE_VALUE.into(),
         ];
         let error = run(&repo, &echo, 30).expect_err("echo");
-        let rendered = format!("{error} {}", error.fix_hint());
+        let rendered = format!("{error} {}", error.message());
         assert!(!rendered.contains(PROBE_VALUE), "{rendered}");
         assert!(rendered.contains("[redacted]"), "{rendered}");
         println!("{PROBE_DONE}");

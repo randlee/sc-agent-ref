@@ -88,7 +88,7 @@ fn test_digest_recovery_error_carries_no_body_bytes() {
     assert_eq!(transport.sends(), 0, "nothing is sent");
     let rendered = format!(
         "{error} {} {}",
-        error.fix_hint(),
+        error.message(),
         serde_json::to_string(&ScAgentErrorResponse::from_jev_error(&error)).expect("json")
     );
     assert!(!rendered.contains(KEY), "{rendered}");

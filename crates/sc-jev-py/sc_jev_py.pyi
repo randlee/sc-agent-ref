@@ -7,10 +7,34 @@ from typing import Any, Sequence
 StrPath = str | os.PathLike[str]
 
 class JevError(Exception):
-    """Jev check failed. `code` is the stable id and `message` is the fix hint."""
+    """Jev check failed.
+
+    The attributes are the keys of the `sc-ai` stderr error body, from the same
+    serialization (`code` is the body's `error`). `str(exc)` is
+    `CODE: message. suggested_action`.
+    """
 
     code: str
+    """The stable error id, such as `PROVIDER_BUSY` or `IO_FAILED`."""
+    kind: str
+    """The broad class: `validation`, `not_found`, `invalid_state`,
+    `dependency`, `permission`, `timeout` or `capacity`."""
     message: str
+    """What failed and why. Never the fix."""
+    suggested_action: str
+    """What to do next."""
+    retryable: bool
+    """Whether retrying later may succeed. Always a bool."""
+    retry_after_seconds: int | None
+    """The provider's `Retry-After` in whole seconds, when known."""
+    field: str | None
+    """The failing flag, argument or provider-named request field."""
+    details: dict[str, Any] | None
+    """Machine fields by id (`http_status`, `cause`, `attempts`, `limit`,
+    `actual`, `unit`, `what`, `io_kind`, `network_kind`, `provider_type`,
+    `log_flush_failure`, ...); see docs/stability.md."""
+    schema_version: int
+    """The error shape version; always 1."""
     response: dict[str, Any] | None
     """Set when some, not all, backends failed: the run response body
     (`data`, with the answers that succeeded). `None` otherwise, including

@@ -10,7 +10,7 @@ use std::io::Read;
 use std::str::FromStr;
 use std::time::Duration;
 
-use sc_agent_types::{JevError, NetworkErrorKind, ResolvedApiKey};
+use sc_agent_types::{JevError, NetworkErrorKind, ResolvedApiKey, ResponseInvalidCause};
 use ureq::http::Uri;
 
 use crate::request::{HttpRequest, HttpResponse};
@@ -212,9 +212,10 @@ fn read_response(mut response: ureq::http::Response<ureq::Body>) -> Result<HttpR
         )
     })?;
     if body.len() as u64 > MAX_RESPONSE_BYTES {
-        return Err(JevError::response_invalid(format!(
-            "HTTP {status} response exceeds {MAX_RESPONSE_BYTES} bytes"
-        )));
+        return Err(JevError::response_invalid_because(
+            ResponseInvalidCause::TooLarge,
+            format!("HTTP {status} response exceeds {MAX_RESPONSE_BYTES} bytes"),
+        ));
     }
     Ok(HttpResponse::new(status, headers, body))
 }
@@ -250,7 +251,10 @@ pub(crate) fn is_valid_url(url: &str) -> bool {
 /// `NETWORK_ERROR` of [`ureq_error_kind`].
 fn ureq_error(error: ureq::Error) -> JevError {
     if let ureq::Error::BodyExceedsLimit(limit) = error {
-        return JevError::response_invalid(format!("response exceeds {limit} bytes"));
+        return JevError::response_invalid_because(
+            ResponseInvalidCause::TooLarge,
+            format!("response exceeds {limit} bytes"),
+        );
     }
     JevError::network(
         ureq_error_kind(&error),

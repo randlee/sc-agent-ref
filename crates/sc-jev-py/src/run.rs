@@ -376,8 +376,8 @@ impl CheckResult {
     ///
     /// Raises `JevError`. Dry-run uses `CONFIG_INVALID`. A run with no
     /// session (Jev only) uses `INPUT_INVALID`, as does a `project` over 256
-    /// bytes or with a control character. `code` is the stable id and
-    /// `message` is the fix hint.
+    /// bytes or with a control character. The exception carries the CLI error
+    /// body's fields (`code`, `kind`, `message`, `suggested_action`, ...).
     #[pyo3(signature = (follow_up, *, project=None))]
     fn ask(&self, py: Python<'_>, follow_up: &str, project: Option<String>) -> PyResult<Py<PyAny>> {
         let Some(live) = self.inner.live.as_ref() else {
@@ -389,8 +389,9 @@ impl CheckResult {
         let Some(id) = self.inner.session_id() else {
             return Err(error::to_py_err(
                 py,
-                &JevError::operational_io(
-                    "This run saved no session: only Haiku and Luna support ask, and Jev has no rationale field. Run with backends=[\"anthropic_haiku\"] or [\"openai_luna\"] to ask.",
+                &JevError::input_invalid_field(
+                    "backends",
+                    "this run saved no session: only Haiku and Luna support ask, and Jev has no rationale field; run with backends=[\"anthropic_haiku\"] or [\"openai_luna\"] to ask",
                 ),
             ));
         };
@@ -455,8 +456,9 @@ impl Session {
 ///
 /// # Errors
 ///
-/// Raises `JevError` when the check file or payload cannot be built. `code`
-/// is the stable id and `message` is the fix hint.
+/// Raises `JevError` when the check file or payload cannot be built. It
+/// carries the CLI error body's fields (`code`, `kind`, `message`,
+/// `suggested_action`, ...).
 ///
 /// # Examples
 ///
@@ -943,7 +945,7 @@ mod tests {
             panic!("missing check should fail");
         };
         assert_eq!(missing.code(), "INPUT_MISSING");
-        assert!(!missing.fix_hint().to_ascii_lowercase().contains("api_key"));
+        assert!(!missing.message().to_ascii_lowercase().contains("api_key"));
     }
 
     #[test]
@@ -1040,12 +1042,12 @@ mod tests {
             let nan = py.eval(c"float('nan')", None, None).expect("nan");
             let error = py_to_value(&nan).expect_err("nan is not JSON");
             assert_eq!(error.code(), "INPUT_INVALID");
-            assert!(error.fix_hint().contains("scripted_answers"));
+            assert!(error.message().contains("scripted_answers"));
 
             let opaque = py.eval(c"object()", None, None).expect("object");
             let error = py_to_value(&opaque).expect_err("object is not JSON");
             assert_eq!(error.code(), "INPUT_INVALID");
-            assert!(error.fix_hint().contains("scripted_answers"));
+            assert!(error.message().contains("scripted_answers"));
         });
     }
 
