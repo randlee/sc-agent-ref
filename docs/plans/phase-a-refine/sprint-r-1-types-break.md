@@ -800,7 +800,10 @@ ADR-SAG-0018's kit files are untouched.
 | `EqualInputRecord::new` returns `Result` (refuses an empty or duplicate backend list) | D10.5 | invariant of the derived `equal` |
 | `ExtractInput` (sc-treesitter) is no longer `#[non_exhaustive]` | non_exhaustive triage | it has public fields and a builder; the rule forbids both |
 
-> Later change: `ExtractInput`'s shape was changed by the phase-end API fixes (PR 38).
+> Later change: `ExtractInput`'s shape was changed by the phase-end API fixes
+> (see the `CHANGELOG.md` entry for `sc_treesitter::ExtractInput`). It is
+> `#[non_exhaustive]` again with private fields and accessors; the table row
+> above and the "keeps public fields" sentence below describe r-1 only.
 
 **`#[non_exhaustive]` triage additions:** `SubjectsSource`, `SubjectsProducer`
 and `ChoiceAnswer` keep public fields: they are frozen wire types whose
