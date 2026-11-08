@@ -68,7 +68,7 @@ mod tests {
         assert_eq!(extracted.subjects[1].text(), "beta");
         let document = extracted.document.expect("document");
         assert_eq!(document.schema(), SUBJECTS_SCHEMA_V1);
-        assert_eq!(document.producer().mode, "matches");
+        assert_eq!(document.producer().mode().as_str(), "matches");
         assert_eq!(extracted.subjects.len(), 2);
     }
 

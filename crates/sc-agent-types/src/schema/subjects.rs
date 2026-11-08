@@ -17,35 +17,160 @@ use crate::ids::{BlobSha, RepoRelativePath, Rev, Sha256Digest};
 pub const SUBJECTS_SCHEMA_V1: &str = "sc/subjects/1";
 
 /// Git identity of the source the subjects were extracted from.
+///
+/// Fields are private; build one with [`Self::new`] and read it through the
+/// accessors, so a field added in a later release is not a breaking change.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SubjectsSource {
+    path: RepoRelativePath,
+    rev: Rev,
+    blob_sha: BlobSha,
+}
+
+impl SubjectsSource {
+    /// A source at `path`, read at `rev`, whose bytes have the blob id `blob_sha`.
+    #[must_use]
+    pub fn new(path: RepoRelativePath, rev: Rev, blob_sha: BlobSha) -> Self {
+        Self {
+            path,
+            rev,
+            blob_sha,
+        }
+    }
+
     /// Repo-relative source path.
-    pub path: RepoRelativePath,
+    #[must_use]
+    pub fn path(&self) -> &RepoRelativePath {
+        &self.path
+    }
+
     /// Git revision, or `HEAD` when the producer recorded that name.
-    pub rev: Rev,
+    #[must_use]
+    pub fn rev(&self) -> &Rev {
+        &self.rev
+    }
+
     /// Git blob id of the source bytes.
-    pub blob_sha: BlobSha,
+    #[must_use]
+    pub fn blob_sha(&self) -> &BlobSha {
+        &self.blob_sha
+    }
+}
+
+/// Tree-sitter query mode a producer ran.
+///
+/// The closed set of `sc/subjects/1`: Phase A producers run `matches` only
+/// (`docs/sc-agent-types/subjects-schema.md`). Serialized as the lowercase
+/// name. A reader refuses any other value, like every other field of the
+/// document (`deny_unknown_fields`, exact schema id); a new mode is a new
+/// variant, which is additive because this enum is `#[non_exhaustive]`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum QueryMode {
+    /// Tree-sitter `matches` mode; every capture of a match is emitted.
+    Matches,
+}
+
+impl QueryMode {
+    /// The name written to the document.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Matches => "matches",
+        }
+    }
 }
 
 /// Tool that emitted the subjects document.
+///
+/// Fields are private; build one with [`Self::new`] (mode [`QueryMode::Matches`])
+/// and read it through the accessors.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SubjectsProducer {
+    name: String,
+    version: String,
+    language: String,
+    grammar: String,
+    grammar_version: String,
+    query_sha256: Sha256Digest,
+    mode: QueryMode,
+}
+
+impl SubjectsProducer {
+    /// A producer `name` at `version` that ran the query with digest
+    /// `query_sha256` in `matches` mode against the `grammar` crate (at
+    /// `grammar_version`) for `language`.
+    #[must_use]
+    pub fn new(
+        name: impl Into<String>,
+        version: impl Into<String>,
+        language: impl Into<String>,
+        grammar: impl Into<String>,
+        grammar_version: impl Into<String>,
+        query_sha256: Sha256Digest,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            version: version.into(),
+            language: language.into(),
+            grammar: grammar.into(),
+            grammar_version: grammar_version.into(),
+            query_sha256,
+            mode: QueryMode::Matches,
+        }
+    }
+
+    /// The same producer recording `mode` as its query mode.
+    #[must_use]
+    pub fn with_mode(mut self, mode: QueryMode) -> Self {
+        self.mode = mode;
+        self
+    }
+
     /// Producer name, such as `sc-treesitter`.
-    pub name: String,
+    #[must_use]
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
     /// Producer version.
-    pub version: String,
+    #[must_use]
+    pub fn version(&self) -> &str {
+        &self.version
+    }
+
     /// Grammar language id.
-    pub language: String,
+    #[must_use]
+    pub fn language(&self) -> &str {
+        &self.language
+    }
+
     /// Grammar crate or package name.
-    pub grammar: String,
+    #[must_use]
+    pub fn grammar(&self) -> &str {
+        &self.grammar
+    }
+
     /// Pinned grammar version.
-    pub grammar_version: String,
+    #[must_use]
+    pub fn grammar_version(&self) -> &str {
+        &self.grammar_version
+    }
+
     /// SHA-256 of the query text that produced these subjects.
-    pub query_sha256: Sha256Digest,
+    #[must_use]
+    pub fn query_sha256(&self) -> &Sha256Digest {
+        &self.query_sha256
+    }
+
     /// Tree-sitter query mode. Phase A producers record `matches`.
-    pub mode: String,
+    #[must_use]
+    pub fn mode(&self) -> QueryMode {
+        self.mode
+    }
 }
 
 /// Half-open byte span and inclusive 1-based line span of a subject.
@@ -238,11 +363,6 @@ impl SubjectsDocument {
         if self.subjects.is_empty() {
             return Err(JevError::ExtractionEmpty);
         }
-        if self.producer.mode.is_empty() {
-            return Err(JevError::extraction_invalid(
-                "subjects source path and producer mode must be non-empty",
-            ));
-        }
         let path = self.source.path.as_str();
         let mut previous: Option<(u32, &str)> = None;
         let mut per_line: BTreeMap<u32, u32> = BTreeMap::new();
@@ -312,20 +432,15 @@ fn subject_id(path: &str, line: u32, index_on_line: u32) -> String {
 /// use sc_agent_types::schema::subjects::{Span, SubjectsBuilder, SubjectsProducer, SubjectsSource};
 /// use sc_agent_types::{Rev, Sha256Digest};
 ///
-/// let source = SubjectsSource {
-///     path: "a.py".parse()?,
-///     rev: Rev::new("HEAD"),
-///     blob_sha: "b".repeat(40).parse()?,
-/// };
-/// let producer = SubjectsProducer {
-///     name: "sc-treesitter".into(),
-///     version: "0.1.0".into(),
-///     language: "python".into(),
-///     grammar: "tree-sitter-python".into(),
-///     grammar_version: "0.23.6".into(),
-///     query_sha256: Sha256Digest::of_text("q"),
-///     mode: "matches".into(),
-/// };
+/// let source = SubjectsSource::new("a.py".parse()?, Rev::parse("HEAD")?, "b".repeat(40).parse()?);
+/// let producer = SubjectsProducer::new(
+///     "sc-treesitter",
+///     "0.1.0",
+///     "python",
+///     "tree-sitter-python",
+///     "0.23.6",
+///     Sha256Digest::of_text("q"),
+/// );
 /// let mut builder = SubjectsBuilder::new(source, producer);
 /// builder.push_subject("a.py".parse()?, Span::new(1, 1, 4, 5), "b", "name");
 /// builder.push_subject("a.py".parse()?, Span::new(1, 1, 0, 1), "a", "name");

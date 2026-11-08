@@ -23,7 +23,7 @@
 //! .with_blob_sha("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
 //! let document = sc_treesitter::extract(&input).expect("extract");
 //! assert_eq!(document.schema(), sc_agent_types::schema::subjects::SUBJECTS_SCHEMA_V1);
-//! assert_eq!(document.producer().mode, "matches");
+//! assert_eq!(document.producer().mode().as_str(), "matches");
 //! assert_eq!(document.subjects().len(), 2);
 //! # }
 //! ```
@@ -61,4 +61,5 @@ pub const PRODUCER_NAME: &str = "sc-treesitter";
 ///
 /// Phase A always runs tree-sitter matches. `--captures` filters names after
 /// the match and does not change this value.
-pub const PRODUCER_MODE: &str = "matches";
+pub const PRODUCER_MODE: sc_agent_types::schema::subjects::QueryMode =
+    sc_agent_types::schema::subjects::QueryMode::Matches;

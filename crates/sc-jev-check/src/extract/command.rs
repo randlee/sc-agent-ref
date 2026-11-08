@@ -424,8 +424,8 @@ sys.stdout.write(json.dumps(doc))
         )
         .expect("command");
         let document = extracted.document.expect("document");
-        assert_eq!(document.source().path, "src/hook.py");
-        assert_eq!(document.source().rev.as_str(), Rev::WORKTREE);
+        assert_eq!(document.source().path(), "src/hook.py");
+        assert_eq!(document.source().rev().as_str(), Rev::WORKTREE);
         assert_eq!(extracted.subjects[0].text(), "arm");
         assert_eq!(extracted.subjects[0].id(), "src/hook.py:1");
     }

@@ -358,8 +358,8 @@ fn test_equal_input_record() {
             .all(|entry| entry.attestation() == &Attestation::Matched)
     );
     let producer = equal.producer().expect("producer");
-    assert_eq!(producer.name, "sc-treesitter");
-    assert_eq!(producer.mode, "matches");
+    assert_eq!(producer.name(), "sc-treesitter");
+    assert_eq!(producer.mode().as_str(), "matches");
     assert_eq!(
         jev.requests()[0].payload().bytes(),
         haiku.requests()[0].payload().bytes()

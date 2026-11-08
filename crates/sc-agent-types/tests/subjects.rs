@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use sc_agent_types::schema::subjects::{Span, SubjectsBuilder, SubjectsDocument};
+use sc_agent_types::schema::subjects::{QueryMode, Span, SubjectsBuilder, SubjectsDocument};
 
 /// A named edit that makes the minimal document invalid.
 type Mutation = (&'static str, fn(&mut serde_json::Value));
@@ -23,7 +23,7 @@ fn test_subjects_builder_ids_match_golden() {
     // Push in reverse order: the builder sorts before it assigns ids.
     for subject in golden.subjects().iter().rev() {
         builder.push_subject(
-            golden.source().path.clone(),
+            golden.source().path().clone(),
             *subject.span(),
             subject.text(),
             subject.capture(),
@@ -40,7 +40,7 @@ fn test_subjects_builder_ids_match_golden() {
 #[test]
 fn test_unvalidated_subjects_rejected_on_deserialize() {
     let base: serde_json::Value = serde_json::from_str(&minimal()).expect("json");
-    let mutations: [Mutation; 6] = [
+    let mutations: [Mutation; 8] = [
         ("schema", |v| {
             v["schema"] = serde_json::json!("sc/subjects/0")
         }),
@@ -56,6 +56,12 @@ fn test_unvalidated_subjects_rejected_on_deserialize() {
         }),
         ("path", |v| {
             v["source"]["path"] = serde_json::json!("../escape.py")
+        }),
+        ("unknown mode", |v| {
+            v["producer"]["mode"] = serde_json::json!("captures")
+        }),
+        ("empty mode", |v| {
+            v["producer"]["mode"] = serde_json::json!("")
         }),
     ];
     for (name, mutate) in mutations {
@@ -82,7 +88,7 @@ fn test_builder_rejects_text_that_does_not_match_its_span() {
     let golden = SubjectsDocument::from_json_slice(minimal().as_bytes()).expect("golden");
     let mut builder = SubjectsBuilder::new(golden.source().clone(), golden.producer().clone());
     builder.push_subject(
-        golden.source().path.clone(),
+        golden.source().path().clone(),
         Span::new(1, 1, 0, 3),
         "ab",
         "name",
@@ -93,4 +99,21 @@ fn test_builder_rejects_text_that_does_not_match_its_span() {
     );
     let empty = SubjectsBuilder::new(golden.source().clone(), golden.producer().clone());
     assert_eq!(empty.build().expect_err("empty").code(), "EXTRACTION_EMPTY");
+}
+
+/// `mode` is the closed enum `QueryMode`: it reads and writes today's exact
+/// string, and any other string is refused like every other schema violation.
+#[test]
+fn test_query_mode_serializes_as_matches() {
+    let golden = SubjectsDocument::from_json_slice(minimal().as_bytes()).expect("golden");
+    assert_eq!(golden.producer().mode(), QueryMode::Matches);
+    assert_eq!(golden.producer().mode().as_str(), "matches");
+    assert_eq!(
+        serde_json::to_value(golden.producer()).expect("json")["mode"],
+        "matches"
+    );
+    assert_eq!(
+        serde_json::to_string(&QueryMode::Matches).expect("json"),
+        "\"matches\""
+    );
 }

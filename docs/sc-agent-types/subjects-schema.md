@@ -50,7 +50,7 @@ Normative JSON (Phase A example):
 | **helpers** | Helper captures never appear in `subjects`. A helper capture is a capture name beginning with `_` (stored without `@`), for example `_fn` for `@_fn` in the query |
 | **empty** | Zero subjects → `EXTRACTION_EMPTY` |
 | **parse errors** | ERROR node inside a subject span → `EXTRACTION_PARSE_ERROR` (path + line) |
-| **query mode** | Tree-sitter producers run **`matches`** only; record `"mode": "matches"` in `producer` |
+| **query mode** | Tree-sitter producers run **`matches`** only; record `"mode": "matches"` in `producer`. `matches` is the only value of `sc/subjects/1` (Rust: `QueryMode::Matches`, `#[non_exhaustive]`); a reader refuses any other `mode` like any other unknown value, and a new mode is a new variant |
 
 ### Same-line example
 

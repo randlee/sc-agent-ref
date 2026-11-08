@@ -858,9 +858,9 @@ mod tests {
         let built = build(Path::new("check.toml"), Some(repo), "WORKTREE").expect("build");
         assert!(built.payload.contains("Transition.GIVE_BACK"));
         let producer = built.producer.expect("producer");
-        assert_eq!(producer.name, "sc-treesitter");
-        assert_eq!(producer.language, "python");
-        assert_eq!(producer.mode, "matches");
+        assert_eq!(producer.name(), "sc-treesitter");
+        assert_eq!(producer.language(), "python");
+        assert_eq!(producer.mode().as_str(), "matches");
         let again = build(Path::new("check.toml"), Some(repo), "WORKTREE").expect("rebuild");
         assert_eq!(built.prompt_sha256, again.prompt_sha256);
     }

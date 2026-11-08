@@ -127,10 +127,10 @@ fn test_e2e_producer_digest_matches_fixture() {
     assert!(response.dry_run());
     assert!(response.results().is_empty());
     let producer = response.equal_input().producer().expect("producer");
-    assert_eq!(producer.name, "sc-treesitter");
-    assert_eq!(producer.language, document.producer().language);
-    assert_eq!(producer.query_sha256, document.producer().query_sha256);
-    assert_eq!(producer.mode, "matches");
+    assert_eq!(producer.name(), "sc-treesitter");
+    assert_eq!(producer.language(), document.producer().language());
+    assert_eq!(producer.query_sha256(), document.producer().query_sha256());
+    assert_eq!(producer.mode().as_str(), "matches");
 }
 
 #[test]

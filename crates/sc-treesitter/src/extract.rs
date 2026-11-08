@@ -217,20 +217,16 @@ pub fn extract(input: &ExtractInput<'_>) -> Result<SubjectsDocument, JevError> {
     }
 
     let mut builder = SubjectsBuilder::new(
-        SubjectsSource {
-            path: path.clone(),
-            rev,
-            blob_sha,
-        },
-        SubjectsProducer {
-            name: PRODUCER_NAME.to_owned(),
-            version: env!("CARGO_PKG_VERSION").to_owned(),
-            language: info.id.to_owned(),
-            grammar: info.grammar.to_owned(),
-            grammar_version: info.grammar_version.to_owned(),
-            query_sha256: Sha256Digest::of_text(input.query),
-            mode: PRODUCER_MODE.to_owned(),
-        },
+        SubjectsSource::new(path.clone(), rev, blob_sha),
+        SubjectsProducer::new(
+            PRODUCER_NAME,
+            env!("CARGO_PKG_VERSION"),
+            info.id,
+            info.grammar,
+            info.grammar_version,
+            Sha256Digest::of_text(input.query),
+        )
+        .with_mode(PRODUCER_MODE),
     );
     for capture in found {
         debug_assert!(
@@ -379,10 +375,10 @@ mod tests {
             document.schema(),
             sc_agent_types::schema::subjects::SUBJECTS_SCHEMA_V1
         );
-        assert_eq!(document.producer().mode, PRODUCER_MODE);
-        assert_eq!(document.producer().name, PRODUCER_NAME);
-        assert_eq!(document.producer().grammar, "tree-sitter-python");
-        assert_eq!(document.producer().grammar_version, "0.25.0");
+        assert_eq!(document.producer().mode(), PRODUCER_MODE);
+        assert_eq!(document.producer().name(), PRODUCER_NAME);
+        assert_eq!(document.producer().grammar(), "tree-sitter-python");
+        assert_eq!(document.producer().grammar_version(), "0.25.0");
         let arms: Vec<&str> = document
             .subjects()
             .iter()
@@ -422,7 +418,7 @@ mod tests {
                 .iter()
                 .all(|subject| subject.capture() == "arm")
         );
-        assert_eq!(only_arms.producer().mode, PRODUCER_MODE);
+        assert_eq!(only_arms.producer().mode(), PRODUCER_MODE);
     }
 
     #[cfg(feature = "rust")]
@@ -451,9 +447,9 @@ fn classify(value: Transition) -> &'static str {
                 .iter()
                 .all(|subject| subject.capture() == "arm")
         );
-        assert_eq!(document.producer().mode, PRODUCER_MODE);
-        assert_eq!(document.producer().grammar, "tree-sitter-rust");
-        assert_eq!(document.producer().grammar_version, "0.24.2");
+        assert_eq!(document.producer().mode(), PRODUCER_MODE);
+        assert_eq!(document.producer().grammar(), "tree-sitter-rust");
+        assert_eq!(document.producer().grammar_version(), "0.24.2");
     }
 
     #[cfg(feature = "python")]
@@ -534,7 +530,7 @@ fn classify(value: Transition) -> &'static str {
         let query = "(binary_operator left: (identifier) @name right: (identifier) @name)\n";
         let document =
             run("python", query, b"value = left + right\n", "dup.py", None).expect("dup");
-        assert_eq!(document.producer().mode, "matches");
+        assert_eq!(document.producer().mode().as_str(), "matches");
         let names: Vec<&str> = document
             .subjects()
             .iter()

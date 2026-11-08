@@ -75,10 +75,10 @@ fn cross_impl_branches() {
     assert_eq!(prepared.request().payload().bytes(), expected.bytes());
 
     let producer = prepared.producer().expect("producer");
-    assert_eq!(producer.name, "sc-treesitter");
-    assert_eq!(producer.language, document.producer().language);
-    assert_eq!(producer.query_sha256, document.producer().query_sha256);
-    assert_eq!(producer.mode, "matches");
+    assert_eq!(producer.name(), "sc-treesitter");
+    assert_eq!(producer.language(), document.producer().language());
+    assert_eq!(producer.query_sha256(), document.producer().query_sha256());
+    assert_eq!(producer.mode().as_str(), "matches");
 
     let dry = run(prepared).expect("dry-run");
     assert_eq!(dry.prompt_sha256(), expected.sha256());

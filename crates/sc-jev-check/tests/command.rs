@@ -95,7 +95,10 @@ fn test_command_path_placeholder_from_check_toml() {
         text.contains("src/hook.py\\nif armed:\\n    fire()"),
         "the producer received {{path}} = src/hook.py: {text}"
     );
-    assert_eq!(prepared.producer().expect("producer").name, "fake-producer");
+    assert_eq!(
+        prepared.producer().expect("producer").name(),
+        "fake-producer"
+    );
 }
 
 #[test]
