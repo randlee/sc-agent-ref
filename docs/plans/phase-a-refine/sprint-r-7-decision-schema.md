@@ -1000,5 +1000,9 @@ Choices where the sprint doc is silent (all conservative):
   shifted by one. The parent runs `install.py`; `cargo publish --dry-run` of a
   dependent crate cannot resolve `sc-agent-types` from crates.io before the
   CPR-014 publish gate lifts, so only the kit dry-run script covers it.
-- Status stays `in-review` (task XML); the coordinator flips it to `complete`
-  after QA-2.
+- Status stayed `in-review` through QA (task XML); the coordinator flipped it
+  to `complete` once the last QA round left no open finding. QA reports on
+  PR 33: QA-1 issuecomment-6716224250, QA-2 issuecomment-6716378641, QA-3
+  issuecomment-6717394905, QA-4 issuecomment-6717456213, QA-5
+  issuecomment-6717488489; each finding's triage record is under
+  `.triage/phase-a-refine/findings/R7-QA*` on `integrate/phase-a`.
