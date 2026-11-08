@@ -6,6 +6,7 @@
 use super::*;
 use crate::config::PACKAGED_SYSTEM_PROMPT;
 use crate::extract::test_support::{self, copy_fixture};
+use sc_agent_types::NetworkErrorKind;
 use sc_agent_types::observability::v2::{LogRejected, NoopSessionLog, SessionLog};
 use sc_decision_schema::test_util::MockJudgeBackend;
 use std::path::PathBuf;
@@ -640,10 +641,10 @@ impl SessionLog for CountingLog {
     }
 }
 
-/// A call cancelled before it begins sent nothing and logs nothing; the same
-/// failure on a live token (a send that happened) still logs once.
+/// Every call that reaches `judge` emits exactly one log event, a call
+/// cancelled before it began included (REQ-SAG-0610, ADR-SAG-0013).
 #[test]
-fn cancelled_before_send_emits_no_log_event() {
+fn cancelled_call_still_emits_one_log_event() {
     let failing = || {
         MockJudgeBackend::new(BackendId::Jev, std::collections::BTreeMap::new()).with_failure(
             JevError::network(
@@ -671,9 +672,9 @@ fn cancelled_before_send_emits_no_log_event() {
     let error =
         send(&failing(), &request, &shared, session, Operation::Judge).expect_err("cancelled");
     assert_eq!(error.code(), "NETWORK_ERROR");
-    assert_eq!(*log.0.lock().expect("count"), 0, "nothing was sent");
+    assert_eq!(*log.0.lock().expect("count"), 1, "a failed call logs once");
 
     let live = JudgeRequest::new(bundle, None);
     send(&failing(), &live, &shared, session, Operation::Judge).expect_err("failed");
-    assert_eq!(*log.0.lock().expect("count"), 1, "a live send logs once");
+    assert_eq!(*log.0.lock().expect("count"), 2, "each call logs once");
 }
