@@ -13,3 +13,4 @@ acceptance root, when it differs, is shown as "root a-N"; the closure table in
 | REQ-SAG-0604 | Partial failure raises `JevError` with `.response` (the response body as a dict); all-failed has no `.response` | r-3b |
 | REQ-SAG-0605 | `run_check(chain_context=...)`; independent is the default | r-3b |
 | REQ-SAG-0711 | Session log through `sc_jev_host::obs` | r-3b |
+| REQ-SAG-0615 | `run_check(project=...)` and `Session.ask(follow_up, project=...)` label that call's log row (≤ 256 bytes, no control characters, else `INPUT_INVALID`); session ids are ULIDs | r-6 |

@@ -18,8 +18,11 @@ with `=` (ADR-SAG-0023) and `cargo tree -d` gates keep one version of
   `open(&PathPolicy, log_root)` starts, or reuses, the one logger per
   `(service, canonical log root)` (a process-wide registry of weak handles);
   the last handle to drop flushes and shuts it down. `flush()` is explicit.
-  Action name, target and field set are fixed (`log_event`), pinned by the
-  `tests/fixtures/observability/session-event.json` golden.
+  Action name and target are fixed (`log_event`); the event's `fields` (one
+  ADR-SAG-0031 session-log row) are copied into the v2 `fields{}` verbatim and
+  the envelope `outcome` stays `null` (ADR-SAG-0013, no bespoke writer). The
+  `tests/fixtures/observability/session-event.json` golden pins judge `ok`,
+  judge `failed` with and without a body, and `ask`.
 - **`paths::PathPolicy`** is one plain data type with public fields
   (`service`, `log_root_flag`, `log_root_env`, `log_root_default`,
   `session_dir_env`, `session_dir_default`) and the enums `DefaultRoot` /
@@ -30,7 +33,7 @@ with `=` (ADR-SAG-0023) and `cargo tree -d` gates keep one version of
 - **`compose::ComposeInputs`** has private fields: `new(cwd, policy)` plus one
   by-value setter per optional field (`repo_root`, `log_dir`, `sessions_dir`,
   `backends`, `rev`, `dry_run`, `system_prompt_override`, `mode`, `cancel`,
-  `registry`). A new field is a new setter with a default (EXT-021).
+  `registry`, `project`). A new field is a new setter with a default (EXT-021).
   `resolve()` returns the repo root and the log and session paths a run uses,
   so a root builds its `CheckSource` and readback from the same values.
 - **`compose::run_from` / `prepare_from` / `ask_from`** call
@@ -41,6 +44,23 @@ with `=` (ADR-SAG-0023) and `cargo tree -d` gates keep one version of
   `prepare_from` returns a `HostRun` for a root that needs the request
   (payload, resolved prompt) before the run; `run_from` is
   `prepare_from(..)?.run()`.
+
+## Log context (REQ-SAG-0614, REQ-SAG-0615)
+
+`run_from`, `prepare_from` and `ask_from` build the `LogContext` for
+`RunConfig::log_context`: `repo` is `discover_main_repo_root` of the explicit
+repo root when one is set (`--repo-root`), else of the working directory (a discovery failure falls back to
+the resolved root; a dry run skips git), and `project` is
+`ComposeInputs::project`, per call. Neither consumer builds log context. Paths
+stay on the worktree (ADR-SAG-0021): `--test log_context`.
+
+## Error path
+
+When `run` or `ask` fails, `HostRun::run` and `ask_from` still flush the log
+(the failed rows are durable). A flush failure there has no response to carry
+a warning, so it is appended once to the error detail; the error code is
+unchanged. The adapter sets the envelope `correlation_id` to the session id,
+`request_id` to the answer id, and the level to `Warn` for a failed send.
 
 ## Warnings
 

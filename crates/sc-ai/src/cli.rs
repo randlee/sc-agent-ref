@@ -14,7 +14,7 @@ use std::path::PathBuf;
 
 use clap::error::ErrorKind;
 use clap::{Args, Parser, Subcommand};
-use sc_agent_types::{BackendId, JevError, Rev, SessionId};
+use sc_agent_types::{BackendId, JevError, ProjectLabel, Rev, SessionId};
 use sc_ai::{AskCommand, Command, RunCommand};
 
 /// Usage notes appended to `--help`.
@@ -30,12 +30,15 @@ successful answers, stderr carries the first failure, and the exit code is 2.
 --llm-system-prompt-file overrides the LLM system prompt. It changes the
 provider wire, not prompt_sha256.
 --rev defaults to WORKTREE.
+--project labels this call's session-log rows (at most 256 bytes of UTF-8, no
+control characters). The text is stored as given and is not scrubbed, so put
+no secret in it. The default is none.
 --chain-context appends earlier backends' answers to later LLM backends'
 prompts; the default is independent.
 
 Default log root: <repo-root>/.sc-ai
 Override with --log-dir or SC_LOG_ROOT.
-Session JSONL: <log-root>/logs/sc-ai.log.jsonl
+Session JSONL: <log-root>/logs/sc-ai.log.jsonl (one row per send)
 Session files: <repo-root>/.sc-ai/sessions (override with --sessions-dir).
 
 data is the run response: the primary backend's answers at the top level (the
@@ -121,6 +124,9 @@ struct RunArgs {
     /// Let later backends see earlier answers (default: independent).
     #[arg(long)]
     chain_context: bool,
+    /// Project label for this call's log rows (not scrubbed; no secrets).
+    #[arg(long, value_name = "TEXT", allow_hyphen_values = true, value_parser = parse_project)]
+    project: Option<ProjectLabel>,
     /// Scripted backend answers (test builds only).
     #[cfg(feature = "test-util")]
     #[arg(long, value_name = "FILE", hide = true, value_parser = non_empty_path)]
@@ -130,9 +136,12 @@ struct RunArgs {
 /// Arguments of `jev ask`.
 #[derive(Debug, Args)]
 struct AskArgs {
-    /// Session id from a `jev run` envelope.
-    #[arg(long, value_name = "UUID", allow_hyphen_values = true, value_parser = parse_session_id)]
+    /// Session id (a ULID) from a `jev run` envelope.
+    #[arg(long, value_name = "ULID", allow_hyphen_values = true, value_parser = parse_session_id)]
     session_id: SessionId,
+    /// Project label for this call's log rows (not scrubbed; no secrets).
+    #[arg(long, value_name = "TEXT", allow_hyphen_values = true, value_parser = parse_project)]
+    project: Option<ProjectLabel>,
     /// Follow-up text.
     #[arg(long, value_name = "TEXT", allow_hyphen_values = true, value_parser = non_empty_text)]
     text: String,
@@ -202,6 +211,7 @@ fn into_command(cli: Cli) -> Result<Command, JevError> {
             repo_root: args.repo_root,
             session_id: args.session_id,
             text: args.text,
+            project: args.project,
             sessions_dir: args.sessions_dir,
             log_dir: args.log_dir,
             #[cfg(feature = "test-util")]
@@ -224,6 +234,7 @@ fn run_command(args: RunArgs, dry_run: bool) -> Result<RunCommand, JevError> {
         sessions_dir: args.sessions_dir,
         log_dir: args.log_dir,
         chain_context: args.chain_context,
+        project: args.project,
         #[cfg(feature = "test-util")]
         registry: scripted_registry(args.scripted_answers.as_deref())?,
         #[cfg(not(feature = "test-util"))]
@@ -309,8 +320,18 @@ fn parse_backend(value: &str) -> Result<BackendId, JevError> {
     value.parse()
 }
 
+/// A session id is a ULID since Phase A.1; anything else, a UUID included,
+/// is one `INPUT_INVALID` line whose fix hint says how to start over.
 fn parse_session_id(value: &str) -> Result<SessionId, JevError> {
-    value.parse()
+    value.parse().map_err(|_| {
+        JevError::operational_io(format!(
+            "session id {value:?} is not a ULID; session ids are ULIDs since Phase A.1; start a new session with `sc-ai jev run`."
+        ))
+    })
+}
+
+fn parse_project(value: &str) -> Result<ProjectLabel, JevError> {
+    ProjectLabel::new(value)
 }
 
 #[cfg(test)]
@@ -321,6 +342,19 @@ mod tests {
     fn cli_definition_is_consistent() {
         use clap::CommandFactory;
         Cli::command().debug_assert();
+    }
+
+    /// A UUID (or any non-ULID) session id names ULIDs in its fix hint.
+    #[test]
+    fn session_id_hint_names_ulids() {
+        for bad in ["3f2b8a9e-6c1d-4e7a-9b25-0d4c1a7e5f10", "nope", ""] {
+            let error = parse_session_id(bad).expect_err("not a ULID");
+            assert_eq!(error.code(), "INPUT_INVALID");
+            let hint = error.fix_hint();
+            assert!(hint.contains("ULID"), "{hint}");
+            assert!(hint.contains("sc-ai jev run"), "{hint}");
+        }
+        assert!(parse_session_id("01JC4Z7A5B0000000000000001").is_ok());
     }
 
     /// Usage text names `sc-ai`, never argv\[0\] such as `sc-ai.exe`.

@@ -4,7 +4,9 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use sc_agent_types::{BackendSet, JevError, RepoRoot, Rev, ScAgentErrorResponse, SessionId};
+use sc_agent_types::{
+    BackendSet, JevError, ProjectLabel, RepoRoot, Rev, ScAgentErrorResponse, SessionId,
+};
 use sc_decision_schema::MultiBackendMode;
 use sc_jev_check::registry::BackendRegistry;
 use sc_jev_check::run::{CallerRequest, CheckSource, Envelope};
@@ -46,6 +48,8 @@ pub struct RunCommand {
     pub log_dir: Option<PathBuf>,
     /// `--chain-context`: later backends see earlier answers.
     pub chain_context: bool,
+    /// `--project`: label for this call's log rows (not scrubbed).
+    pub project: Option<ProjectLabel>,
     /// Backends used instead of `BackendRegistry::from_env`. Set only by the
     /// binary's `test-util` seam (`--scripted-answers`).
     pub registry: Option<Arc<BackendRegistry>>,
@@ -60,6 +64,8 @@ pub struct AskCommand {
     pub session_id: SessionId,
     /// `--text`.
     pub text: String,
+    /// `--project`: label for this call's log row (not scrubbed).
+    pub project: Option<ProjectLabel>,
     /// `--sessions-dir`.
     pub sessions_dir: Option<PathBuf>,
     /// `--log-dir`.
@@ -164,6 +170,9 @@ fn dispatch_run(command: RunCommand, stdin: &mut dyn Read) -> Result<Output, Jev
     if let Some(registry) = &command.registry {
         inputs = inputs.registry(Arc::clone(registry));
     }
+    if let Some(project) = &command.project {
+        inputs = inputs.project(project.clone());
+    }
     let resolved = inputs.resolve()?;
     let repo = &resolved.repo_root;
     let source = if let Some(request_path) = &command.request_json {
@@ -198,6 +207,9 @@ fn dispatch_ask(command: AskCommand) -> Result<Output, JevError> {
     )?;
     if let Some(registry) = &command.registry {
         inputs = inputs.registry(Arc::clone(registry));
+    }
+    if let Some(project) = &command.project {
+        inputs = inputs.project(project.clone());
     }
     let resolved = inputs.resolve()?;
     let readback = AskReadback {

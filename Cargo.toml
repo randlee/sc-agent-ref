@@ -31,9 +31,10 @@ categories = ["development-tools"]
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-sha2 = "0.10"
 thiserror = "2"
-uuid = { version = "1", features = ["serde", "v4"] }
+# ULID ids (ADR-SAG-0008 r-6 amendment) and text SHA-256 identity (D0). Caret.
+ulid = "1"
+sc-sha = "1.7.0"
 toml = "1.1.8"
 ureq = "3.5.1"
 # The decision schema crate (ADR-SAG-0030). Caret; not on the lockstep list.

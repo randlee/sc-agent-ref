@@ -38,9 +38,11 @@
 //! recovered from its own wire body; the engine records `Matched`,
 //! `Mismatched`, `Unattested`, `Failed` or `NotSent` per backend and `equal`
 //! is true only when every entry is `Matched` (REQ-SAG-0606). Every
-//! call that reaches `judge` emits exactly one [`LogEvent`], whatever its
-//! result: `Ok`, `Failed`, and a call cancelled before it reached the
-//! transport (REQ-SAG-0610, ADR-SAG-0013). Only a backend refused by
+//! call that reaches `judge` emits exactly one `LogEvent` whose `fields` is one
+//! session-log row (ADR-SAG-0031), whatever its result: `Ok`, `Failed`, and a
+//! call cancelled before it reached the transport (REQ-SAG-0610,
+//! REQ-SAG-0617, ADR-SAG-0013). The row's `repo` and `project` come from
+//! [`RunConfig::log_context`]; a rejected row never fails the run. Only a backend refused by
 //! `validate_for_send` (`NotSent`) emits none.
 //!
 //! The session is written once, at the end, only when a backend whose
@@ -95,17 +97,19 @@
 
 #[cfg(any(test, feature = "test-util"))]
 mod builder;
+mod log;
 pub(crate) mod prompt;
 mod response;
 
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
+use std::time::SystemTime;
 
-use sc_agent_types::observability::v2::{LogEvent, SharedSessionLog};
+use sc_agent_types::observability::v2::SharedSessionLog;
 use sc_agent_types::schema::subjects::SubjectsProducer;
 use sc_agent_types::{
     BackendId, BackendSet, CancelToken, JevError, ModelAliases, Operation, RepoRelativePath,
-    RepoRoot, Rev, SendTrace, SessionId, Sha256Digest,
+    RepoRoot, Rev, SessionId, Sha256Digest,
 };
 use sc_decision_schema::{
     Attestation, BackendAttestation, EqualInputRecord, JudgeBackend, JudgeOutcome, JudgeRequest,
@@ -117,13 +121,14 @@ use crate::equal_input::{RunAttestation, producer_from_extractions, record};
 use crate::payload::build_payload;
 use crate::payload::caller::parse_caller_request;
 use crate::registry::BackendRegistry;
-use crate::session::{
-    FileSessionStore, StoredSession, check_follow_up, contextual_prompt, emit_log,
-};
+use crate::session::{FileSessionStore, StoredSession, check_follow_up, contextual_prompt};
+use log::{SendLog, send};
 
 #[cfg(any(test, feature = "test-util"))]
 #[doc(inline)]
 pub use builder::RunResponseBuilder;
+#[doc(inline)]
+pub use log::LogContext;
 use response::ResponseParts;
 #[doc(inline)]
 pub use response::{
@@ -270,6 +275,7 @@ pub struct RunConfig {
     cancel: CancelToken,
     mode: MultiBackendMode,
     models: Option<ModelAliases>,
+    log_context: Option<LogContext>,
 }
 
 impl RunConfig {
@@ -289,7 +295,20 @@ impl RunConfig {
             cancel: CancelToken::new(),
             mode: MultiBackendMode::Independent,
             models: None,
+            log_context: None,
         }
+    }
+
+    /// Sets the `repo` and `project` columns of every log row this config
+    /// writes (REQ-SAG-0614, REQ-SAG-0615).
+    ///
+    /// Unset, `repo` is [`discover_main_repo_root`] of the repo root given to
+    /// [`RunConfig::new`] and `project` is `null`. Composition roots set it
+    /// through `sc-jev-host`, so neither consumer builds log context.
+    #[must_use]
+    pub fn log_context(mut self, context: LogContext) -> Self {
+        self.log_context = Some(context);
+        self
     }
 
     /// How later backends see earlier answers (ADR-SAG-0008, ADR-SAG-0025).
@@ -381,6 +400,7 @@ impl std::fmt::Debug for RunConfig {
             .field("registry", &self.registry)
             .field("mode", &self.mode)
             .field("models", &self.models)
+            .field("log_context", &self.log_context)
             .finish_non_exhaustive()
     }
 }
@@ -601,6 +621,12 @@ fn live_run(prepared: PreparedRun) -> Result<RunResponse, JevError> {
     }
 
     let session_id = SessionId::new();
+    // One creation time per session: the rows' `session_created_at` and the
+    // saved document's `created_at` are the same instant.
+    let session_created_at = store
+        .as_ref()
+        .map_or_else(SystemTime::now, FileSessionStore::now);
+    let log = SendLog::new(&config, session_id, session_created_at, Operation::Judge);
     let mut results: Vec<BackendResult> = Vec::with_capacity(judges.len());
     let mut attestations: Vec<BackendAttestation> = Vec::with_capacity(judges.len());
     // Prior `Ok` outcomes, in `BackendSet` order; chained only in
@@ -611,14 +637,7 @@ fn live_run(prepared: PreparedRun) -> Result<RunResponse, JevError> {
             MultiBackendMode::ChainContext => &answered,
             _ => &[],
         };
-        let step = judge_one(
-            judge.as_ref(),
-            *id,
-            &request,
-            prior,
-            &config.session_log,
-            session_id,
-        );
+        let step = judge_one(judge.as_ref(), *id, &request, prior, &log);
         let (result, attestation) = match step {
             Step::Answered(outcome) => {
                 let attestation = attest(request.payload().sha256(), &outcome);
@@ -647,10 +666,12 @@ fn live_run(prepared: PreparedRun) -> Result<RunResponse, JevError> {
     // A failed save keeps the answers (ADR-SAG-0025): `session_saved = false`
     // and one warning that carries the error code only, never a path.
     let (saved, save_warning) = match &store {
-        Some(store) => match save_session(store, session_id, &request, &answered) {
-            Ok(saved) => (saved, None),
-            Err(error) => (false, Some(format!("session not saved: {}", error.code()))),
-        },
+        Some(store) => {
+            match save_session(store, session_id, session_created_at, &request, &answered) {
+                Ok(saved) => (saved, None),
+                Err(error) => (false, Some(format!("session not saved: {}", error.code()))),
+            }
+        }
         None => (false, None),
     };
     let equal_input = record(
@@ -693,8 +714,7 @@ fn judge_one(
     id: BackendId,
     base: &JudgeRequest,
     prior: &[JudgeOutcome],
-    log: &SharedSessionLog,
-    session_id: SessionId,
+    log: &SendLog<'_>,
 ) -> Step {
     let judge_request = match request_for(id, base, prior) {
         Ok(request) => request,
@@ -708,7 +728,7 @@ fn judge_one(
     {
         return Step::NotSent(error);
     }
-    match send(judge, &judge_request, log, session_id, Operation::Judge) {
+    match send(judge, &judge_request, log) {
         Ok(outcome) => Step::Answered(outcome),
         Err(error) => Step::Failed(error),
     }
@@ -750,6 +770,7 @@ fn open_session_store(
 fn save_session(
     store: &FileSessionStore,
     session_id: SessionId,
+    created_at: SystemTime,
     request: &JudgeRequest,
     outcomes: &[JudgeOutcome],
 ) -> Result<bool, JevError> {
@@ -763,7 +784,7 @@ fn save_session(
     store.write_session(&StoredSession {
         session_id,
         backend,
-        created_at: store.now(),
+        created_at,
         payload: request.payload().clone(),
         system_prompt: request.llm().map(|llm| llm.system_prompt.clone()),
         outcomes: outcomes.to_vec(),
@@ -795,31 +816,6 @@ fn request_for(
     .with_cancel(base.cancel().clone()))
 }
 
-/// The engine's one send step: `judge`, then one log event (sent or not),
-/// then the judge's result. Callers validate first.
-fn send(
-    judge: &dyn JudgeBackend,
-    request: &JudgeRequest,
-    log: &SharedSessionLog,
-    session_id: SessionId,
-    operation: Operation,
-) -> Result<JudgeOutcome, JevError> {
-    // One trace per send. Nothing records into it in r-7; r-6 reads the
-    // request digest from this handle after the call returns.
-    let trace = SendTrace::new();
-    let judged = judge.judge(request, &trace);
-    emit_log(
-        log,
-        LogEvent::new(
-            session_id,
-            judge.id(),
-            request.payload().sha256().clone(),
-            operation,
-        ),
-    );
-    judged
-}
-
 /// Sends `follow_up` to the saved session `session_id` in `store`.
 ///
 /// The session's Haiku or Luna backend comes from [`RunConfig::registry`]
@@ -827,10 +823,10 @@ fn send(
 /// for that one backend. The request is the stored payload with the stored
 /// system prompt, the prior answers as session context, the stored
 /// follow-ups and then `follow_up`; it is validated, then sent through the
-/// same send step as `run`, with one [`Operation::Ask`] log event on
+/// same send step as `run`, with one [`Operation::Ask`] log row on
 /// [`RunConfig`]'s session log. The session file is read and never
-/// rewritten. Only `repo_root`, `session_log`, `registry`, `cancel` and
-/// `models` of `config` are used.
+/// rewritten. Only `repo_root`, `session_log`, `log_context`, `registry`,
+/// `cancel` and `models` of `config` are used.
 ///
 /// # Errors
 ///
@@ -868,13 +864,8 @@ pub fn ask(
     )
     .with_cancel(config.cancel.clone());
     judge.validate_for_send(&request)?;
-    let outcome = send(
-        judge.as_ref(),
-        &request,
-        &config.session_log,
-        session_id,
-        Operation::Ask,
-    )?;
+    let log = SendLog::new(&config, session_id, stored.created_at, Operation::Ask);
+    let outcome = send(judge.as_ref(), &request, &log)?;
     Ok(AskResponse::new(
         outcome,
         session_id,
@@ -907,6 +898,41 @@ pub fn discover_repo_root(start: &Path) -> Result<RepoRoot, JevError> {
         _ => None,
     };
     classify_discovery(absolute, discovered, enclosing)
+}
+
+/// The main repository root for `start`, for the log row's `repo` column.
+///
+/// A linked worktree resolves to the repository it was added from, so every
+/// worktree of one repository logs the same `repo`. Uses
+/// `sc_agent_types::git::discover_common_dir`: when the common dir is a
+/// `.git` directory, its parent is the root. A separate git dir or a bare
+/// common dir has no such parent, so the current toplevel
+/// ([`discover_repo_root`]) is used; outside git the result is `start` made
+/// absolute. Session and log paths do not use this root (ADR-SAG-0021).
+///
+/// # Errors
+///
+/// The errors of [`discover_repo_root`], when the fallback runs.
+///
+/// # Examples
+///
+/// ```no_run
+/// use sc_jev_check::run::discover_main_repo_root;
+///
+/// let main = discover_main_repo_root(std::path::Path::new("."))?;
+/// println!("{}", main.as_path().display());
+/// # Ok::<(), sc_agent_types::JevError>(())
+/// ```
+pub fn discover_main_repo_root(start: &Path) -> Result<RepoRoot, JevError> {
+    let absolute =
+        std::path::absolute(start).map_err(|error| JevError::io_failed("repo root", &error))?;
+    if let Ok(Some(common)) = sc_agent_types::git::discover_common_dir(&absolute)
+        && common.file_name().is_some_and(|name| name == ".git")
+        && let Some(parent) = common.parent()
+    {
+        return Ok(RepoRoot::new(parent));
+    }
+    discover_repo_root(&absolute)
 }
 
 /// The decision of [`discover_repo_root`], separated so every branch is

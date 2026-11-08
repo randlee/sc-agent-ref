@@ -3,9 +3,12 @@
 //! [`ObservabilityAdapter`] is the one adapter both composition roots use
 //! (QA-004): it maps a
 //! [`LogEvent`](sc_agent_types::observability::v2::LogEvent) to one
-//! `sc-observability` event with a fixed action, target and field set
-//! (REQ-SAG-0610, REQ-SAG-0611) and maps `EventError` to
-//! [`LogRejected`].
+//! `sc-observability` event with a fixed action and target (REQ-SAG-0610)
+//! and maps `EventError` to [`LogRejected`]. The event's `fields` object is
+//! one ADR-SAG-0031 session-log row; the adapter copies it into the v2
+//! `fields{}` verbatim (REQ-SAG-0611, REQ-SAG-0617, ADR-SAG-0013: no bespoke
+//! writer). The envelope `outcome` stays `null`; the row's own
+//! `send_outcome` carries the result.
 //!
 //! # Writers
 //!
@@ -19,6 +22,8 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock, PoisonError, Weak};
 
+use serde_json::Value;
+
 use crate::paths::PathPolicy;
 use sc_agent_types::observability::v2::{
     LogEvent as SessionEvent, LogRejected, SessionLog, SharedSessionLog,
@@ -29,10 +34,23 @@ use sc_observability::{
     ActionName, Level, LogEvent, LoggerConfig, OBSERVATION_ENVELOPE_VERSION, ProcessIdentity,
     SchemaVersion, ServiceName, TargetCategory, Timestamp,
 };
-use serde_json::{Map, Value};
 
 /// Target category recorded on every session-log line.
 const TARGET: &str = "jev.session";
+
+/// An envelope id from ULID text. A ULID is always a valid id, so a `None`
+/// here is a bug: it fails loudly in debug builds and drops the id in release.
+/// A macro, not a generic function, because the id type is only nameable
+/// through the `LogEvent` field it is assigned to (`serde` is not a direct
+/// dependency, so there is no `DeserializeOwned` bound to write).
+macro_rules! envelope_id {
+    ($text:expr) => {{
+        let text: &str = $text;
+        let id = serde_json::from_value(Value::String(text.to_owned())).ok();
+        debug_assert!(id.is_some(), "{text:?} is not a valid envelope id");
+        id
+    }};
+}
 
 /// Owns one running logger. Dropping it flushes and shuts the writer down.
 ///
@@ -171,35 +189,19 @@ impl ObservabilityAdapter {
     /// The `sc-observability` event that `event` becomes.
     ///
     /// The conversion is public so the golden test can pin the exact action,
-    /// target and fields (REQ-SAG-0611).
+    /// target and fields (REQ-SAG-0611). `fields` is the event's row, cloned
+    /// unchanged.
     ///
     /// # Errors
     ///
     /// Returns [`LogRejected`] when the operation spelling is not a valid
     /// action name; the event is rejected, never a panic.
     pub fn log_event(&self, event: &SessionEvent) -> Result<LogEvent, LogRejected> {
-        let mut fields = Map::new();
-        fields.insert(
-            "session_id".to_owned(),
-            Value::String(event.session_id().to_string()),
-        );
-        fields.insert(
-            "backend".to_owned(),
-            Value::String(event.backend().to_string()),
-        );
-        fields.insert(
-            "prompt_sha256".to_owned(),
-            Value::String(event.prompt_sha256().as_str().to_owned()),
-        );
-        fields.insert(
-            "operation".to_owned(),
-            Value::String(event.operation().as_str().to_owned()),
-        );
         Ok(LogEvent {
             version: SchemaVersion::new(OBSERVATION_ENVELOPE_VERSION)
                 .map_err(|_| LogRejected::new("observation envelope version is not valid"))?,
             timestamp: Timestamp::now_utc(),
-            level: Level::Info,
+            level: level_of(event),
             service: self.service.clone(),
             target: TargetCategory::new(TARGET)
                 .map_err(|_| LogRejected::new("session log target is not valid"))?,
@@ -207,12 +209,20 @@ impl ObservabilityAdapter {
             message: None,
             identity: ProcessIdentity::default(),
             trace: None,
-            request_id: None,
-            correlation_id: None,
+            // The session correlates its sends; the answer id names one send.
+            // Both are ULIDs, valid ids (`sc-observability-types` is not a
+            // direct dependency, so the ids are built through serde);
+            // `fields` is unchanged.
+            request_id: event
+                .fields()
+                .get("answer_id")
+                .and_then(Value::as_str)
+                .and_then(|id| envelope_id!(id)),
+            correlation_id: envelope_id!(&event.session_id().to_string()),
             outcome: None,
             diagnostic: None,
             state_transition: None,
-            fields,
+            fields: event.fields().clone(),
         })
     }
 }
@@ -223,6 +233,14 @@ impl SessionLog for ObservabilityAdapter {
             .0
             .log(self.log_event(&event)?)
             .map_err(|error| LogRejected::new(error.to_string()))
+    }
+}
+
+/// `Warn` for a failed send, else `Info`, from the row's `send_outcome`.
+fn level_of(event: &SessionEvent) -> Level {
+    match event.fields().get("send_outcome").and_then(Value::as_str) {
+        Some("failed") => Level::Warn,
+        _ => Level::Info,
     }
 }
 

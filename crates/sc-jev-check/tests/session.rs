@@ -1,9 +1,10 @@
 //! Session store: document versioning (r-1 D7.6, REQ-SAG-0600) and the
 //! stateless store with its no-lock concurrency model (REQ-SAG-0607, D4).
 //!
-//! Version 2 is the only accepted session document. A Phase A (version 1)
-//! file and a file written by a newer sc-agent both load as
-//! `SessionDocumentInvalid` (`INPUT_INVALID`) with their own recovery text.
+//! Version 3 is the only accepted session document. A Phase A (version 1)
+//! file, a Phase A.1 version 2 file and a file written by a newer sc-agent
+//! all load as `SessionDocumentInvalid` (`INPUT_INVALID`) with their own
+//! recovery text.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -21,13 +22,20 @@ use sc_jev_check::run::{CheckSource, RunConfig, ask, prepare, run};
 use sc_jev_check::session::{FileSessionStore, StoredSession};
 use tempfile::TempDir;
 
-const V1_SESSION_ID: &str = "0b7c9d1e-2f3a-4b5c-8d6e-7f8091a2b3c4";
+/// The id the old-version fixtures are stored under (a ULID since r-6; the
+/// committed v1 file still names the UUID it was written with).
+const OLD_SESSION_ID: &str = "01JC4Z7A5B0000000000000001";
 
+/// The committed Phase A document, re-keyed to a ULID so the store can find
+/// it by id; only the `version` decides the outcome.
 fn fixture() -> String {
-    std::fs::read_to_string(
+    let text = std::fs::read_to_string(
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/session-v1.json"),
     )
-    .expect("session-v1.json")
+    .expect("session-v1.json");
+    let mut document: serde_json::Value = serde_json::from_str(&text).expect("json");
+    document["session_id"] = serde_json::json!(OLD_SESSION_ID);
+    document.to_string()
 }
 
 /// A store whose clock sits just after the fixture's `created_at`, so the
@@ -44,7 +52,7 @@ fn store(dir: &tempfile::TempDir) -> FileSessionStore {
 fn load(text: &str) -> JevError {
     let dir = tempfile::tempdir().expect("temp");
     let store = store(&dir);
-    let id: SessionId = serde_json::from_value(serde_json::json!(V1_SESSION_ID)).expect("id");
+    let id: SessionId = serde_json::from_value(serde_json::json!(OLD_SESSION_ID)).expect("id");
     std::fs::write(store.path(&id), text).expect("write session");
     store.load(&id).expect_err("refused")
 }
@@ -59,10 +67,10 @@ fn test_phase_a_session_is_invalid() {
     assert_eq!(error.code(), "INPUT_INVALID");
     let hint = error.fix_hint();
     assert!(
-        hint.contains("re-run the check; Phase A session files cannot be resumed"),
+        hint.contains("re-run the check; session files from before Phase A.1 cannot be resumed"),
         "{hint}"
     );
-    assert!(hint.contains(V1_SESSION_ID), "hint names the file: {hint}");
+    assert!(hint.contains(OLD_SESSION_ID), "hint names the file: {hint}");
 
     let mut unversioned: serde_json::Value = serde_json::from_str(&fixture()).expect("json");
     unversioned
@@ -73,15 +81,150 @@ fn test_phase_a_session_is_invalid() {
     assert!(
         error
             .fix_hint()
-            .contains("Phase A session files cannot be resumed"),
+            .contains("session files from before Phase A.1 cannot be resumed"),
         "{error:?}"
+    );
+}
+
+/// A version 2 document (UUID-era, no `decision_schema`) is refused with the
+/// "re-run the check" recovery (REQ-SAG-0612).
+#[test]
+fn test_v2_session_document_is_invalid() {
+    let mut v2: serde_json::Value = serde_json::from_str(&fixture()).expect("json");
+    v2["version"] = serde_json::json!(2);
+    let error = load(&v2.to_string());
+    assert!(
+        matches!(error, JevError::SessionDocumentInvalid { .. }),
+        "{error:?}"
+    );
+    assert_eq!(error.code(), "INPUT_INVALID");
+    let hint = error.fix_hint();
+    assert!(hint.contains("is version 2"), "{hint}");
+    assert!(hint.contains("re-run the check"), "{hint}");
+    assert!(hint.contains(OLD_SESSION_ID), "hint names the file: {hint}");
+}
+
+/// `FileSessionStore::new` removes expired session documents, version 1 and 2
+/// included, and leaves fresh ones and files that are not documents (RSH-001).
+#[test]
+fn test_new_store_sweeps_expired_session_documents() {
+    let dir = tempfile::tempdir().expect("temp");
+    let ids = [
+        "01JC4Z7A5B0000000000000011",
+        "01JC4Z7A5B0000000000000012",
+        "01JC4Z7A5B0000000000000013",
+    ];
+    // Phase A (v1), Phase A.1 (v2) and current (v3) documents, all created
+    // in 2023, long past the 24 h default TTL.
+    for (id, version) in ids.iter().zip([1, 2, 3]) {
+        let mut document: serde_json::Value = serde_json::from_str(&fixture()).expect("json");
+        document["session_id"] = serde_json::json!(id);
+        document["version"] = serde_json::json!(version);
+        fs::write(dir.path().join(format!("{id}.json")), document.to_string()).expect("write");
+    }
+    for id in ids {
+        assert!(dir.path().join(format!("{id}.json")).is_file());
+    }
+    // Opening the store sweeps them; a fresh document (created now) survives.
+    let fresh_store = FileSessionStore::new(dir.path()).expect("store");
+    let fresh_id = SessionId::new();
+    let payload = {
+        let document: serde_json::Value = serde_json::from_str(&fixture()).expect("json");
+        PayloadBundle::decode(
+            document["payload_utf8"]
+                .as_str()
+                .expect("payload")
+                .as_bytes(),
+        )
+        .expect("bundle")
+    };
+    fresh_store
+        .save(&StoredSession {
+            session_id: fresh_id,
+            backend: BackendId::AnthropicHaiku,
+            created_at: SystemTime::now(),
+            payload,
+            system_prompt: None,
+            outcomes: Vec::new(),
+            follow_ups: Vec::new(),
+        })
+        .expect("save fresh");
+    // Not documents: left alone.
+    fs::write(dir.path().join("notes.json"), "{\"unrelated\":true}").expect("notes");
+    fs::write(dir.path().join("broken.json"), "{").expect("broken");
+    fs::write(dir.path().join("keep.txt"), "x").expect("txt");
+
+    for id in ids {
+        assert!(
+            !dir.path().join(format!("{id}.json")).exists(),
+            "{id} swept"
+        );
+    }
+    let names = |dir: &Path| {
+        let mut names: Vec<String> = fs::read_dir(dir)
+            .expect("dir")
+            .map(|entry| {
+                entry
+                    .expect("entry")
+                    .file_name()
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .collect();
+        names.sort();
+        names
+    };
+    let mut expected = vec![
+        format!("{fresh_id}.json"),
+        "broken.json".to_owned(),
+        "keep.txt".to_owned(),
+        "notes.json".to_owned(),
+    ];
+    expected.sort();
+    let reopened = FileSessionStore::new(dir.path()).expect("reopen");
+    assert_eq!(names(dir.path()), expected);
+    reopened.load(&fresh_id).expect("fresh session still loads");
+}
+
+/// A document between TTL and TTL plus grace survives the open-time sweep and
+/// still reads as `SESSION_EXPIRED` (RSH-001).
+#[test]
+fn test_expired_document_inside_grace_survives_sweep_and_reads_expired() {
+    let dir = tempfile::tempdir().expect("temp");
+    let store = FileSessionStore::new(dir.path()).expect("store");
+    let id = SessionId::new();
+    let document: serde_json::Value = serde_json::from_str(&fixture()).expect("json");
+    let payload = PayloadBundle::decode(
+        document["payload_utf8"]
+            .as_str()
+            .expect("payload")
+            .as_bytes(),
+    )
+    .expect("bundle");
+    // 30 h old: past the 24 h TTL, inside TTL plus one TTL of grace.
+    store
+        .save(&StoredSession {
+            session_id: id,
+            backend: BackendId::AnthropicHaiku,
+            created_at: SystemTime::now() - Duration::from_secs(30 * 60 * 60),
+            payload,
+            system_prompt: None,
+            outcomes: Vec::new(),
+            follow_ups: Vec::new(),
+        })
+        .expect("save");
+    let reopened = FileSessionStore::new(dir.path()).expect("reopen sweeps");
+    assert!(store.path(&id).is_file(), "inside the grace window");
+    assert_eq!(
+        reopened.load(&id).expect_err("expired").code(),
+        "SESSION_EXPIRED"
     );
 }
 
 #[test]
 fn test_newer_session_version_is_invalid() {
     let mut newer: serde_json::Value = serde_json::from_str(&fixture()).expect("json");
-    newer["version"] = serde_json::json!(3);
+    newer["version"] = serde_json::json!(4);
     let error = load(&newer.to_string());
     assert!(
         matches!(error, JevError::SessionDocumentInvalid { .. }),
@@ -337,8 +480,14 @@ fn test_two_stores_same_dir_last_writer_wins() {
     );
 }
 
+/// Longest a writer thread may take: ten save/load rounds finish in well under
+/// a second, so this only fires on a real hang.
+#[cfg(unix)]
+const WRITER_TIMEOUT: Duration = Duration::from_secs(30);
+
 #[cfg(unix)]
 fn concurrent_writers(first: &FileSessionStore, second: &FileSessionStore, id: SessionId) {
+    let (done, rx) = std::sync::mpsc::channel::<usize>();
     let writers: Vec<_> = (0..8)
         .map(|index| {
             let store = if index % 2 == 0 {
@@ -347,14 +496,33 @@ fn concurrent_writers(first: &FileSessionStore, second: &FileSessionStore, id: S
                 second.clone()
             };
             let choice = if index % 2 == 0 { "yes" } else { "no" };
+            let done = done.clone();
             std::thread::spawn(move || {
                 for _ in 0..10 {
                     store.save(&stored(&store, id, choice)).expect("save");
                     store.load(&id).expect("a reader never sees a torn file");
                 }
+                // The receiver may have timed out and gone; nothing to do then.
+                let _ = done.send(index);
             })
         })
         .collect();
+    // Each writer reports completion; a stuck one fails the test by name
+    // instead of hanging the join.
+    let mut finished = std::collections::BTreeSet::new();
+    for _ in 0..writers.len() {
+        match rx.recv_timeout(WRITER_TIMEOUT) {
+            Ok(index) => {
+                finished.insert(index);
+            }
+            Err(_) => {
+                let stuck: Vec<usize> = (0..writers.len())
+                    .filter(|index| !finished.contains(index))
+                    .collect();
+                panic!("writer(s) {stuck:?} did not finish within {WRITER_TIMEOUT:?}");
+            }
+        }
+    }
     for writer in writers {
         writer.join().expect("writer");
     }

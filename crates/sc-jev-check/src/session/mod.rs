@@ -27,7 +27,7 @@
 //!   system, so a reader sees either the old document or the new one, never
 //!   a torn write.
 //! - Two writers of the same id: the last rename wins. Neither corrupts the
-//!   file. Session ids are random UUIDs and `run` saves each id once, so
+//!   file. Session ids are random ULIDs and `run` saves each id once, so
 //!   this only happens when a caller saves the same `StoredSession` twice.
 //!   On Windows, replacing a file that another writer is replacing at the
 //!   same instant can fail with a sharing error; that save returns
@@ -45,6 +45,18 @@
 //! - A crashed writer can leave a temporary file behind.
 //!   [`FileSessionStore::new`] removes `*.tmp.*` files older than one hour;
 //!   younger ones may belong to a live writer.
+//! - Retention: [`FileSessionStore::new`] also removes every expired
+//!   `*.json` session document in the directory, measured exactly like
+//!   `read_session` (`created_at` plus the default TTL, 24 h, against the
+//!   system clock) plus one grace period of the same length, so a session that
+//!   just expired still answers `SESSION_EXPIRED` ("start a new session")
+//!   instead of `SESSION_NOT_FOUND` for another day. That includes version 1 and
+//!   2 documents, which are refused
+//!   on read and would otherwise stay forever. A file that is not a JSON
+//!   object with a numeric `created_at`, or is larger than the read cap, is
+//!   left alone. The sweep is best effort and runs once per `new`; a store
+//!   opened with a shorter [`FileSessionStore::with_ttl`] still removes only
+//!   documents past the default TTL.
 
 #![warn(missing_docs)]
 
@@ -56,9 +68,10 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use sc_agent_types::observability::v2::{LogEvent, SharedSessionLog};
 use sc_agent_types::{BackendId, JevError, SessionId};
-use sc_decision_schema::{JudgeOutcome, PayloadBundle, QuestionAnswer, QuestionId};
+use sc_decision_schema::{
+    DecisionSchemaId, JudgeOutcome, PayloadBundle, QuestionAnswer, QuestionId,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -89,8 +102,10 @@ const MAX_SESSION_BYTES: u64 = 8 * 1024 * 1024;
 /// Session document version written and accepted by this store.
 ///
 /// Version 1 (Phase A) files are refused: their outcomes carry the removed
-/// `probabilities` field and untyped answers (r-1 D7.6).
-const SESSION_VERSION: u64 = 2;
+/// `probabilities` field and untyped answers (r-1 D7.6). Version 2 files are
+/// refused too: they predate ULID session ids and the `decision_schema` field
+/// (r-6, ADR-SAG-0030); they expire by TTL and are not migrated.
+const SESSION_VERSION: u64 = 3;
 
 /// Session file extension.
 const SESSION_EXT: &str = "json";
@@ -131,7 +146,9 @@ impl FileSessionStore {
                 "Choose a writable directory, then retry.",
             )
         })?;
-        sweep_stale_tmp(&dir, SystemTime::now());
+        let now = SystemTime::now();
+        sweep_stale_tmp(&dir, now);
+        sweep_expired_sessions(&dir, now, DEFAULT_SESSION_TTL.saturating_mul(2));
         Ok(Self {
             dir,
             ttl: DEFAULT_SESSION_TTL,
@@ -196,6 +213,7 @@ impl FileSessionStore {
             created_at: unix_ms(session.created_at)?,
             payload_utf8: session.payload.as_str().to_owned(),
             prompt_sha256: session.payload.sha256().clone(),
+            decision_schema: DecisionSchemaId::CURRENT,
             system_prompt: session.system_prompt.clone(),
             outcomes: session.outcomes.clone(),
             follow_ups: session.follow_ups.clone(),
@@ -346,10 +364,6 @@ pub(crate) fn check_follow_up(stored: &StoredSession, follow_up: &str) -> Result
     Ok(())
 }
 
-pub(crate) fn emit_log(log: &SharedSessionLog, event: LogEvent) {
-    let _ = log.emit(event);
-}
-
 /// `serde_json` failure without its message, which can quote document values.
 fn json_cause(error: &serde_json::Error) -> String {
     format!(
@@ -398,7 +412,7 @@ fn check_version(path: &Path, value: &Value) -> Result<(), JevError> {
                 path.display(),
                 older.map_or_else(|| "missing".to_owned(), |v| v.to_string())
             ),
-            "re-run the check; Phase A session files cannot be resumed",
+            "re-run the check; session files from before Phase A.1 cannot be resumed",
         )),
     }
 }
@@ -527,6 +541,54 @@ fn sweep_stale_tmp(dir: &Path, now: SystemTime) {
     }
 }
 
+/// Removes `*.json` session documents in `dir` whose `created_at` plus
+/// `retention` is not after `now` (the `is_expired` rule with a longer
+/// lifetime: the TTL plus a grace period of one more TTL). Best effort: anything that
+/// cannot be read or parsed as a document with a numeric `created_at` stays.
+fn sweep_expired_sessions(dir: &Path, now: SystemTime, retention: Duration) {
+    let Ok(now_ms) = unix_ms(now) else {
+        return;
+    };
+    let retention_ms = u64::try_from(retention.as_millis()).unwrap_or(u64::MAX);
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let is_session = path.extension().and_then(|ext| ext.to_str()) == Some(SESSION_EXT)
+            && !entry
+                .file_name()
+                .to_str()
+                .is_some_and(|name| name.contains(TMP_MARKER));
+        if !is_session || !entry.file_type().is_ok_and(|kind| kind.is_file()) {
+            continue;
+        }
+        let Some(created_at) = created_at_of(&path) else {
+            continue;
+        };
+        if now_ms >= created_at.saturating_add(retention_ms) {
+            let _ = fs::remove_file(&path);
+        }
+    }
+}
+
+/// The `created_at` of the session document at `path`, when it has one.
+fn created_at_of(path: &Path) -> Option<u64> {
+    let mut bytes = Vec::new();
+    File::open(path)
+        .ok()?
+        .take(MAX_SESSION_BYTES.saturating_add(1))
+        .read_to_end(&mut bytes)
+        .ok()?;
+    if u64::try_from(bytes.len()).ok()? > MAX_SESSION_BYTES {
+        return None;
+    }
+    serde_json::from_slice::<Value>(&bytes)
+        .ok()?
+        .get("created_at")?
+        .as_u64()
+}
+
 /// Syncs the directory entry after a rename so the new file survives a crash.
 fn sync_parent(path: &Path) -> std::io::Result<()> {
     #[cfg(unix)]
@@ -572,6 +634,7 @@ struct SessionDocument {
     created_at: u64,
     payload_utf8: String,
     prompt_sha256: sc_agent_types::Sha256Digest,
+    decision_schema: DecisionSchemaId,
     system_prompt: Option<String>,
     outcomes: Vec<JudgeOutcome>,
     follow_ups: Vec<String>,

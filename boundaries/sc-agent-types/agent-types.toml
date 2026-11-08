@@ -22,7 +22,7 @@ name = "agent-types"
 
 [public]
 facade = "sc_agent_types::JevError, sc_agent_types::ErrorCode, sc_agent_types::NetworkErrorKind, sc_agent_types::OperationalArea, sc_agent_types::ScAgentErrorResponse, sc_agent_types::BackendId, sc_agent_types::BackendKeyId, sc_agent_types::BackendFamily, sc_agent_types::BackendDescriptor, sc_agent_types::BACKENDS, sc_agent_types::BackendSet, sc_agent_types::RepoRoot, sc_agent_types::Rev, sc_agent_types::SessionId, sc_agent_types::Sha256Digest, sc_agent_types::BlobSha, sc_agent_types::RepoRelativePath, sc_agent_types::Operation, sc_agent_types::AnswerId, sc_agent_types::ProjectLabel, sc_agent_types::ModelId, sc_agent_types::UnknownModel, sc_agent_types::ModelFamily, sc_agent_types::ModelDescriptor, sc_agent_types::MODELS, sc_agent_types::ModelAliases, sc_agent_types::SendTrace, sc_agent_types::CancelToken, sc_agent_types::ResolvedApiKey, sc_agent_types::schema::subjects, sc_agent_types::observability::v2, sc_agent_types::git"
-notes = "Errors (explicit variants, ErrorCode), the stderr error shape, ids and the static backend catalog (BACKENDS), the model catalog (ModelId, MODELS, ModelAliases), SendTrace, ProjectLabel, the secret wrapper, schema::subjects, the session log port (observability::v2), and argv-only git helpers. Cargo features (r-1, r-7, ADR-SAG-0027): secret and obs default-on; git non-default; error/envelope/ids/schema/cancel/models/trace always on. The judge contract, canonical payload and MockJudgeBackend moved to sc-decision-schema (ADR-SAG-0030). The integration target git declares [[test]] required-features (D0 spike outcome, boundaries/README.md). Links no sc-observability*. ResolvedApiKey::as_str is not restricted here: sc-lint 0.8.0 does not enforce references.forbidden."
+notes = "Errors (explicit variants, ErrorCode), the stderr error shape, ids and the static backend catalog (BACKENDS), the model catalog (ModelId, MODELS, ModelAliases), SendTrace, ProjectLabel, the secret wrapper, schema::subjects, the session log port (observability::v2), and argv-only git helpers (discover_toplevel, discover_common_dir, read_at_rev, hash_blob). SessionId and AnswerId wrap ulid::Ulid and Sha256Digest::of_text goes through sc-sha (r-6, ADR-SAG-0027 r-6 amendment): both are core dependencies, caret, owned by this crate only (sc-lint.toml ownership records); sha2 and uuid are not direct dependencies. observability::v2::LogEvent carries one session-log row as a JSON object (ADR-SAG-0016 r-6 amendment). Cargo features (r-1, r-7, ADR-SAG-0027): secret and obs default-on; git non-default; error/envelope/ids/schema/cancel/models/trace always on. The judge contract, canonical payload and MockJudgeBackend moved to sc-decision-schema (ADR-SAG-0030). The integration target git declares [[test]] required-features (D0 spike outcome, boundaries/README.md). Links no sc-observability*. ResolvedApiKey::as_str is not restricted here: sc-lint 0.8.0 does not enforce references.forbidden."
 
 [implementation]
 type = "marker"
@@ -35,7 +35,7 @@ roots = ["JevError", "ModelId", "SendTrace"]
 
 [dependencies]
 allowed_dependents = ["sc-decision-schema", "sc-agent-secrets", "sc-agent-http", "sc-jev-check", "sc-jev", "sc-jev-backends", "sc-treesitter", "sc-ai", "sc-jev-py", "sc-jev-host", "workspace-tests"]
-allowed_dependencies = ["serde", "serde_json", "sha2", "thiserror", "uuid"]
+allowed_dependencies = ["sc-sha", "serde", "serde_json", "thiserror", "ulid"]
 forbidden_edges = [
     { from = "sc-agent-types", to = "sc-observability" },
     { from = "sc-agent-types", to = "ureq" },

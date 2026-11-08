@@ -1,14 +1,14 @@
 ---
 id: r-6
 phase: r
-status: planned
+status: complete
 closure_type: contract
 target_boundary: session-log
 track: observability
 wave: 6
 size: L
-branch: sprint/r-6-session-log-wiring
-worktree: sprint/r-6-session-log-wiring
+branch: sprint/r-6-session-log-record
+worktree: sprint/r-6-session-log-record
 recommended_agent: sai
 recommended_model: gpt-5.6-sol-medium
 must_follow: [r-7]   # r-2b, r-3, r-3b transitively through r-7
@@ -43,6 +43,44 @@ requirements:
   - NFR-SAG-0003
   - NFR-SAG-0004   # regression: ulid and sc-sha are caret workspace deps (check-exact-pins.sh)
   - REQ-SAG-0107   # regression: observability port and core deps change; every feature combination builds
+  # Crate-level ids of the seven crates this sprint owns paths in. None is a
+  # req: root of this sprint; their regression coverage is `just test` plus the
+  # --features test-util runs named once in the boundary:session-log row.
+  - REQ-SAG-0101   # sc-agent-types
+  - REQ-SAG-0103
+  - REQ-SAG-0120
+  - REQ-SAG-0121
+  - REQ-SAG-0147
+  - REQ-SAG-0148
+  - REQ-SAG-0505   # sc-agent-http
+  - REQ-SAG-0140   # sc-decision-schema
+  - REQ-SAG-0141
+  - REQ-SAG-0142
+  - REQ-SAG-0144
+  - REQ-SAG-0145
+  - REQ-SAG-0300   # sc-jev-check
+  - REQ-SAG-0301
+  - REQ-SAG-0302
+  - REQ-SAG-0303
+  - REQ-SAG-0305
+  - REQ-SAG-0309
+  - REQ-SAG-0311
+  - REQ-SAG-0312
+  - REQ-SAG-0313
+  - REQ-SAG-0314
+  - REQ-SAG-0503
+  - REQ-SAG-0601
+  - REQ-SAG-0602
+  - REQ-SAG-0603
+  - REQ-SAG-0620
+  - REQ-SAG-0604   # sc-jev-host, sc-ai, sc-jev-py
+  - REQ-SAG-0605
+  - REQ-SAG-0702   # sc-ai
+  - REQ-SAG-0703
+  - REQ-SAG-0710
+  - REQ-SAG-0712
+  - REQ-SAG-0900
+  - REQ-SAG-0803   # sc-jev-py
 adrs:
   - ADR-SAG-0001  # new INPUT_INVALID paths (UUID session id, bad project text) are JevError constructors
   - ADR-SAG-0002  # prompt_sha256 stays the digest of the canonical bytes; sc-sha gives the same digest for them (D0)
@@ -125,6 +163,15 @@ owned_paths:
   - "docs/sc-jev-host/**#log context (repo, project)"
   - "docs/sc-ai/**#--project; NFR-SAG-0003 row"
   - "docs/sc-jev-py/**#project kwarg"
+  - "crates/sc-agent-http/Cargo.toml#[[test]] trace (QA fix: listed for completeness)"
+  - "crates/sc-agent-types/tests/features.rs#core dependency set and module doc (QA fix)"
+  - "crates/sc-agent-types/tests/fixtures/error-codes.json#nil ULID session id (QA fix)"
+  - "crates/sc-ai/tests/argv.rs#ULID session id cases (QA fix)"
+  - "crates/sc-jev-check/tests/run_response.rs#ULID session id (QA fix)"
+  - "crates/sc-jev-check/tests/fixtures/run-response/*.json#ULID session id (QA fix)"
+  - "crates/sc-jev-check/tests/multi_backend.rs#LogEvent fields accessors (QA fix)"
+  - "boundaries/sc-agent-types/agent-types.toml#allowed_dependencies, notes (QA fix)"
+  - "boundaries/sc-jev-check/jev-check.toml#facade, notes (QA fix)"
 ---
 
 # Sprint r-6 — Session log wiring: ULID, sc-sha, request digest, repo, project
@@ -171,8 +218,10 @@ Every deliverable below lands production-ready for the scope this sprint claims;
 - Session file names, session documents, the CLI `--session-id` value,
   stdout `session_id` and Python session ids are ULIDs. A UUID (or any
   non-ULID) id is `INPUT_INVALID` with the fix hint "session ids are ULIDs
-  since Phase A.1; start a new session with `sc-ai jev run`" (CLI) or "…
-  with `run_check`" (Python). No migration of old files; they expire by TTL.
+  since Phase A.1; start a new session with `sc-ai jev run`". The refusal and
+  its hint are **CLI-only**: Python only ever receives ULID session ids
+  (`CheckResult.session_id`, `Session.session_id`) and has no UUID input path,
+  so no Python hint exists. No migration of old files; they expire by TTL.
 - Session document version 2 → **3** (adds `decision_schema`,
   ADR-SAG-0030). A v2 file is `SessionDocumentInvalid` (`INPUT_INVALID`)
   with "re-run the check" recovery, as r-1 did for v1. Mode 0600, expiry
@@ -253,8 +302,9 @@ Every deliverable below lands production-ready for the scope this sprint claims;
   text, stored as given and **not scrubbed** (documented in the CLI and
   Python docs and in ADR-SAG-0031).
 - `sc-jev-host` (`compose.rs`): `ComposeInputs::project(..)` setter;
-  `run_from`/`ask_from` resolve `repo` with `discover_main_repo_root(cwd)`
-  and pass `LogContext { repo, project }` through
+  `run_from`/`ask_from` resolve `repo` with `discover_main_repo_root`, starting
+  from the explicit repo root when one is set (`--repo-root`), else from cwd; a
+  dry run skips git and uses the resolved root. They pass `LogContext { repo, project }` through
   `RunConfig::log_context(..)`, so neither consumer builds log context.
 
 ### D6 — Emit the row in `fields{}` (REQ-SAG-0617, REQ-SAG-0611 amendment, REQ-SAG-0610)
@@ -377,7 +427,7 @@ Each named test prints `1 passed`; the scrum-master rejects `0 passed`.
 
 | Root | Criterion |
 | --- | --- |
-| req:REQ-SAG-0612 | `cargo test -p sc-agent-types --test ids -- test_session_id_is_ulid --exact` (round-trip through `Display`/`FromStr`/serde; UUID string refused); `cargo test -p sc-jev-check --features test-util --test session -- test_v2_session_document_is_invalid --exact`; `cargo test -p sc-ai --features test-util --test cli -- test_cli_uuid_session_id_is_input_invalid --exact` (one `ScAgentErrorResponse` line, `INPUT_INVALID`, fix hint mentions ULID, exit 2); `uv run --directory tests/fixtures/jev-python pytest -q tests/test_run_check_and_ask.py::test_uuid_session_id_is_input_invalid` |
+| req:REQ-SAG-0612 | `cargo test -p sc-agent-types --test ids -- test_session_id_is_ulid --exact` (round-trip through `Display`/`FromStr`/serde; UUID string refused); `cargo test -p sc-jev-check --features test-util --test session -- test_v2_session_document_is_invalid --exact`; `cargo test -p sc-ai --features test-util --test cli -- test_cli_uuid_session_id_is_input_invalid --exact` (one `ScAgentErrorResponse` line, `INPUT_INVALID`, fix hint mentions ULID, exit 2); `uv run --directory tests/fixtures/jev-python pytest -q tests/test_run_check_and_ask.py::test_session_ids_are_ulids` (Python only receives ULID ids; the UUID refusal is CLI-only) |
 | req:REQ-SAG-0613 | `cargo test -p sc-agent-http --features test-util --test trace -- test_request_sha256_is_digest_of_sent_body --exact`; `cargo test -p sc-agent-http --features test-util --test trace -- test_request_sha256_recorded_once_across_retries --exact`; `cargo test -p sc-agent-http --features test-util --test trace -- test_cancel_before_first_send_records_nothing --exact`; `cargo test -p sc-jev-check --features test-util --test session_log -- test_ok_row_request_sha256_is_sent_body_digest --exact`; `cargo test -p sc-jev-check --features test-util --test session_log -- test_failed_before_body_row_has_null_request_sha256 --exact`; `cargo test -p sc-jev-check --features test-util --test session_log -- test_multi_backend_rows_carry_own_request_sha256 --exact` (two scripted backends send different bodies; each row carries its own backend's digest). The backend hand-off is r-7's required `SendTrace` parameter (compiler-enforced) |
 | req:REQ-SAG-0614 | `cargo test -p sc-jev-check --test repo -- test_main_repo_root_resolves_worktree --exact`; `cargo test -p sc-jev-check --test repo -- test_main_repo_root_outside_git_is_cwd --exact`; `cargo test -p sc-jev-check --test repo -- test_main_repo_root_separate_git_dir_falls_back_to_toplevel --exact`; `cargo test -p sc-jev-host --test log_context -- test_log_context_repo_is_main_repo_paths_stay_on_worktree --exact` (run from a linked worktree with `PathPolicy::cli()`: the session file is under `<worktree>/.sc-ai/sessions`, the log under `<worktree>/.sc-ai/logs/sc-ai.log.jsonl`, and the row's `repo` is the main repository) |
 | req:REQ-SAG-0615 | `cargo test -p sc-ai --features test-util --test cli -- test_cli_project_flag_reaches_log --exact`; `cargo test -p sc-ai --features test-util --test cli -- test_cli_project_over_limit_is_input_invalid --exact`; `uv run --directory tests/fixtures/jev-python pytest -q tests/test_run_check_and_ask.py::test_project_kwarg_reaches_log tests/test_run_check_and_ask.py::test_project_kwarg_control_char_is_input_invalid` prints `2 passed` |
@@ -387,7 +437,7 @@ Each named test prints `1 passed`; the scrum-master rejects `0 passed`.
 | req:REQ-SAG-0600 (amended) | `cargo test -p sc-jev-check --features test-util --test sessions_exact -- test_session_file_named_by_ulid_mode_0600_expiry --exact` (ULID file name, mode 0600 on Unix, expiry from `created_at`) |
 | req:REQ-SAG-0611 (amended) | `cargo test -p sc-jev-check --features test-util --test session_log -- test_every_row_carries_context --exact` (every row, `judge` and `ask`, `ok` and `failed`, carries `session_id`, `repo`, `project`, `model_id`, `prompt_sha256`); `cargo test -p sc-jev-check --features test-util --test session_log -- test_row_has_no_body_prompt_or_key_bytes --exact` |
 | adr:ADR-SAG-0031 | Wiring subsection Active (r-6); index row `Active (r-7 storage schema, r-6 wiring)`; r-6 subsections in 0008, 0013, 0016, 0026, 0027 and their markers Active |
-| boundary:session-log | Regression: `just test` plus the `required-features` runs `cargo test -p sc-jev-check --features test-util`, `cargo test -p sc-ai --features test-util`, `cargo test -p sc-jev --features test-util`, `cargo test -p sc-agent-http --features test-util`, `cargo test -p sc-decision-schema --features test-util`; `cargo test -p sc-jev-host --test log_context -- test_log_and_session_paths_unchanged_with_ulid_names --exact` (NFR-SAG-0003, ADR-SAG-0021); NFR-SAG-0004 `bash .github/scripts/check-exact-pins.sh`; REQ-SAG-0107 `cargo hack check -p sc-agent-types --feature-powerset --no-dev-deps` |
+| boundary:session-log | Regression: `just test` plus the `required-features` runs `cargo test -p sc-jev-check --features test-util`, `cargo test -p sc-ai --features test-util`, `cargo test -p sc-jev --features test-util`, `cargo test -p sc-agent-http --features test-util`, `cargo test -p sc-decision-schema --features test-util`; `cargo test -p sc-jev-host --test log_context -- test_log_and_session_paths_unchanged_with_ulid_names --exact` (NFR-SAG-0003, ADR-SAG-0021); the crate-level ids added to `requirements:` (REQ-SAG-0101 … 0900) have no command of their own: their regression coverage is `just test` plus the `--features test-util` runs above; `cargo test -p sc-jev-host --test log_context -- test_log_context_explicit_repo_root_starts_discovery --exact` (D5 explicit-root rule); NFR-SAG-0004 `bash .github/scripts/check-exact-pins.sh`; REQ-SAG-0107 `cargo hack check -p sc-agent-types --feature-powerset --no-dev-deps` |
 
 ## Required validation
 
@@ -407,3 +457,88 @@ bash scripts/sc-publish-dry-run.sh
 - A SQLite sink or loader (the schema is r-7's; post-A.1).
 - Any change to where logs or sessions are written (ADR-SAG-0021).
 - The Jev body shape (r-5, D9).
+
+## Implementation notes
+
+Choices where the sprint doc is silent (all conservative):
+
+- `sc-sha` is pinned to 1.7.0 in `Cargo.lock` (`cargo update -p sc-sha
+  --precise 1.7.0`) and declared `sc-sha = "1.7.0"` (caret) in
+  `[workspace.dependencies]`, because D0 describes 1.7.0; 1.8.0 resolved first.
+  `sha2` 0.10 stays in the lock transitively; `uuid` is gone.
+- `SessionId` and `AnswerId` parse the strict canonical text only: after
+  `Ulid::from_string`, the re-rendered text must equal the input. That
+  refuses lowercase, the `I`/`L`/`O` aliases and values above `7ZZ...`
+  (`Ulid::from_string` wraps them), keeps the r-7 `AnswerId` rule, and gives
+  one id one file name on case-insensitive file systems. Both are `Copy`.
+  `SessionId` derives `PartialOrd`/`Ord`.
+- The `SessionId` parse message is generic ("session ids are ULIDs since
+  Phase A.1"). The CLI value parser (`sc-ai/src/cli.rs`) replaces it with the
+  D1 hint "... start a new session with `sc-ai jev run`" as an
+  `Operational { Io }` error (`INPUT_INVALID`, fix hint verbatim). Python has
+  no entry point that takes a session id, so the "... with `run_check`"
+  wording is unreachable and not added; `test_session_ids_are_ulids`
+  checks that Python only ever sees 26-character ULID ids.
+- `StoredSession` gets no `decision_schema` field (it is a public struct built
+  by literal in tests). The v3 document always writes
+  `DecisionSchemaId::CURRENT`; reading a document with an unknown id fails
+  serde like any bad field. An `ask` row uses `CURRENT`.
+- The v1/v2 recovery hint now reads "re-run the check; session files from
+  before Phase A.1 cannot be resumed" (it said "Phase A session files").
+- `session_created_at` is captured once at run start (`FileSessionStore::now()`
+  when a store exists, else `SystemTime::now()`) and written both to the
+  document `created_at` and to every row of the run. `ts` is taken when each
+  send finishes.
+- `RunConfig::log_context` unset resolves `repo` at the first send with
+  `discover_main_repo_root(config repo root)`, falling back to the root as
+  given if discovery fails (logging never fails a run). `LogContext` is
+  exported from `sc_jev_check::run`.
+- Compose starts `discover_main_repo_root` from the explicit repo root when
+  one is set, else the working directory, so `--repo-root` and the logged
+  `repo` agree; the plan names the working directory only. A dry run skips git
+  and uses the resolved root. `ComposeInputs::project` is not carried into
+  `sc-jev-py`'s live-session inputs: each `ask` names its own project.
+- `--project` is on `RunArgs`, so `jev dry-run` accepts it too (it logs
+  nothing). `Session.ask` and `CheckResult.ask` both take `project=`;
+  `run_check_scripted` takes it as well.
+- Scripted backends (and `MockJudgeBackend::with_sent_body`) record the digest
+  of `{"scripted":"<backend id>"}` as their sent body; a refusing mock never
+  records. A mock with `with_failure` and a sent body records before it fails
+  (a send that failed after the body was built).
+- `discover_main_repo_root` takes the parent of the git common dir only when
+  the common dir is named `.git`; any other name (separate git dir, bare
+  repository) falls back to `discover_repo_root`.
+- Tests outside the listed owned paths that carry session-id literals were
+  updated: `crates/sc-ai/tests/argv.rs`,
+  `crates/sc-jev-check/tests/run_response.rs` and its two
+  `tests/fixtures/run-response/*.json`, `crates/sc-jev-check/src/run/tests.rs`,
+  `crates/sc-jev-check/tests/multi_backend.rs`,
+  `crates/sc-agent-types/tests/features.rs`,
+  `crates/sc-agent-types/tests/fixtures/error-codes.json`.
+- `boundaries/sc-agent-types/agent-types.toml` (allowed dependencies, notes)
+  and `boundaries/sc-jev-check/jev-check.toml` (facade, notes) are kept in
+  sync with the code.
+- QA-1 fixes (PR 35): the requirements list names the crate-level ids of the
+  seven owned crates, covered by `just test` and the `--features test-util`
+  runs; D1 states the UUID refusal is CLI-only and the pytest is
+  `test_session_ids_are_ulids`; the Python fixture `git init` goes through one
+  isolated, 60 s bounded helper; the GIL test has no worker deadline of its
+  own; `log_context` asserts empty warnings; `FileSessionStore::new` sweeps
+  expired `*.json` documents (v1/v2 included) against the default 24 h TTL plus one
+  TTL of grace (a deviation from "same cutoff as is_expired": with no grace
+  `SESSION_EXPIRED` could never reach a CLI user, because every command opens
+  the store first; `with_ttl` set later does not change the sweep); `HostRun::run` and
+  `ask_from` flush the log on the error path, and a flush failure there is
+  appended once to the error detail (first text field), because no response can
+  carry a warning; the adapter sets envelope `correlation_id` to the session id
+  and `request_id` to the answer id (built through serde, since
+  `sc-observability-types` is not a direct dependency) and logs failed sends at
+  `Warn`; D5 states the explicit-root rule and a test covers it.
+- Release input: no `release/` change. `Cargo.lock` now has `ulid`, `rand`
+  0.9 and `sc-sha`; the parent runs `install.py` if the kit input needs a
+  refresh.
+
+- Status stayed `in-review` through QA; the coordinator flipped it to
+  `complete` once follow-up QA left no open finding. Finding closure is
+  recorded by the quality-mgr report on PR 35, not by the triage records
+  (triaging-findings, Closure Rules).

@@ -14,12 +14,16 @@ acceptance root, when it differs, is shown as "root a-N"; the closure table in
 | REQ-SAG-0302 | Repo-root resolution | a-3 |
 | REQ-SAG-0303 | Question-set schema | a-3 |
 | REQ-SAG-0503 | LLM system prompt load + inject (parse field a-3; read/inject a-6) | a-6 (root a-7) |
-| REQ-SAG-0600 | Sessions | a-6 (root a-7) |
+| REQ-SAG-0600 | Sessions; session id and file name are a ULID, session document version 3 (amended in r-6) | a-6 (root a-7), r-6 | `--features test-util --test sessions_exact` (`test_session_file_named_by_ulid_mode_0600_expiry`), `--test session` (`test_v2_session_document_is_invalid`) |
 | REQ-SAG-0601 | `run_check` / dry-run; `prepare`/`run` with `RunConfig::dry_run` (r-2) | a-6 (root a-7), r-2 |
 | REQ-SAG-0602 | Equal-input record | a-6 |
 | REQ-SAG-0603 | Multi-backend run | a-6 (root a-7) |
-| REQ-SAG-0610 | Session logging via `SharedSessionLog` | a-6 (root a-8) |
-| REQ-SAG-0611 | Log fields, no secrets | a-6 (root a-8) |
+| REQ-SAG-0610 | Session logging via `SharedSessionLog`; exactly one row per `judge`/`ask` send, `Failed` included, `NotSent` none (amended in r-6) | a-6 (root a-8), r-6 | `--features test-util --test session_log` (`test_one_row_per_send_failed_included_not_sent_none`) |
+| REQ-SAG-0611 | Log fields, no secrets; every row is one ADR-SAG-0031 row with `session_id`, `repo`, `project`, `model_id`, `prompt_sha256` (amended in r-6) | a-6 (root a-8), r-6 | `--test session_log` (`test_every_row_carries_context`, `test_row_has_no_body_prompt_or_key_bytes`) |
+| REQ-SAG-0613 | Per-send `SendTrace`; row `request_sha256` is the sent-body digest, `null` before a body exists | r-6 | `--test session_log` (`test_ok_row_request_sha256_is_sent_body_digest`, `test_failed_before_body_row_has_null_request_sha256`, `test_multi_backend_rows_carry_own_request_sha256`) |
+| REQ-SAG-0614 | `discover_main_repo_root`: a worktree resolves to its main repository; separate git dir falls back to the toplevel; outside git the folder | r-6 | `--test repo` (`test_main_repo_root_resolves_worktree`, `test_main_repo_root_outside_git_is_cwd`, `test_main_repo_root_separate_git_dir_falls_back_to_toplevel`) |
+| REQ-SAG-0616 | Row `model_id` is `JudgeBackend::model_id()`, `Failed` included | r-6 | `--test session_log` (`test_failed_row_carries_model_id`) |
+| REQ-SAG-0617 | A rejected log row never fails the run | r-6 | `--test session_log` (`test_rejected_log_row_keeps_run_ok`) |
 | REQ-SAG-0312 | `command` input `path` field substituted for `{path}` | r-2 |
 | REQ-SAG-0313 | Command producer stderr error response re-raised with its code | r-2 |
 | REQ-SAG-0314 | Request byte cap owned by each backend; dry-run reports `over_limit` | r-2 |

@@ -12,7 +12,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use uuid::Uuid;
+use ulid::Ulid;
 
 use crate::catalog::{
     ANTHROPIC_HAIKU, BACKENDS, BackendDescriptor, BackendFamily, JEV, OPENAI_LUNA,
@@ -150,16 +150,28 @@ impl fmt::Display for Rev {
     }
 }
 
-/// Session correlation id.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct SessionId(Uuid);
+/// Session correlation id: a ULID (26 Crockford base32 characters).
+///
+/// `Display`, `FromStr` and serde all use the 26-character text form. The id
+/// carries a millisecond clock, so session file names sort by creation time.
+///
+/// # Examples
+///
+/// ```
+/// use sc_agent_types::SessionId;
+///
+/// let id = SessionId::new();
+/// assert_eq!(id.to_string().len(), 26);
+/// assert_eq!(id.to_string().parse::<SessionId>().unwrap(), id);
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct SessionId(Ulid);
 
 impl SessionId {
-    /// Creates a new random session id.
+    /// Creates a new session id (`Ulid::new()`; no shared generator state).
     ///
     /// `SessionId` does not implement [`Default`]: a default value that is a
-    /// fresh random UUID would surprise callers that expect `default()` to be
+    /// fresh random id would surprise callers that expect `default()` to be
     /// deterministic.
     #[must_use]
     #[expect(
@@ -167,46 +179,55 @@ impl SessionId {
         reason = "a random id is not a sensible Default value"
     )]
     pub fn new() -> Self {
-        Self(Uuid::new_v4())
-    }
-
-    /// Wraps an existing UUID.
-    #[must_use]
-    pub const fn from_uuid(id: Uuid) -> Self {
-        Self(id)
-    }
-
-    /// Returns the inner UUID.
-    #[must_use]
-    pub const fn as_uuid(self) -> Uuid {
-        self.0
+        Self(Ulid::new())
     }
 }
 
 impl FromStr for SessionId {
     type Err = JevError;
 
-    /// Parses a hyphenated UUID.
+    /// Parses a 26-character ULID.
+    ///
+    /// # Errors
+    ///
+    /// `INPUT_INVALID` for anything else, a UUID included; the message says
+    /// session ids are ULIDs since Phase A.1.
     ///
     /// # Examples
     ///
     /// ```
     /// use sc_agent_types::SessionId;
     ///
-    /// let id: SessionId = "00000000-0000-0000-0000-000000000000".parse().unwrap();
-    /// assert_eq!(id.to_string(), "00000000-0000-0000-0000-000000000000");
-    /// assert_eq!("nope".parse::<SessionId>().unwrap_err().code(), "INPUT_INVALID");
+    /// let id: SessionId = "01ARZ3NDEKTSV4RRFFQ69G5FAV".parse().unwrap();
+    /// assert_eq!(id.to_string(), "01ARZ3NDEKTSV4RRFFQ69G5FAV");
+    /// let uuid = "00000000-0000-0000-0000-000000000000";
+    /// assert_eq!(uuid.parse::<SessionId>().unwrap_err().code(), "INPUT_INVALID");
     /// ```
     fn from_str(text: &str) -> Result<Self, Self::Err> {
-        Uuid::parse_str(text)
-            .map(Self)
-            .map_err(|_| JevError::input_invalid(format!("session id {text:?} is not a UUID")))
+        parse_ulid(text).map(Self).ok_or_else(|| {
+            JevError::input_invalid(format!(
+                "session id {text:?} is not a ULID; session ids are ULIDs since Phase A.1"
+            ))
+        })
     }
 }
 
 impl fmt::Display for SessionId {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(&self.0, formatter)
+    }
+}
+
+impl Serialize for SessionId {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_str(self)
+    }
+}
+
+impl<'de> Deserialize<'de> for SessionId {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let text = String::deserialize(deserializer)?;
+        text.parse().map_err(serde::de::Error::custom)
     }
 }
 
@@ -511,12 +532,11 @@ impl Sha256Digest {
         Self(encode_hex(&bytes))
     }
 
-    /// SHA-256 of `text`.
+    /// SHA-256 of `text` through `sc-sha`'s text identity.
     ///
-    /// From r-6 this is `sc-sha`'s text identity: CRLF and bare CR are
-    /// normalized to LF first, so it equals SHA-256 of the bytes only for
-    /// text without CR (all compact JSON bodies and payloads). In r-7 it
-    /// hashes the UTF-8 bytes directly.
+    /// CRLF and bare CR are normalized to LF before hashing, so the digest
+    /// equals SHA-256 of the bytes only for text without CR. Compact JSON
+    /// (every request body and canonical payload) has no raw CR.
     ///
     /// # Examples
     ///
@@ -527,14 +547,18 @@ impl Sha256Digest {
     ///     Sha256Digest::of_text("").as_str(),
     ///     "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     /// );
+    /// assert_eq!(Sha256Digest::of_text("a\r\nb"), Sha256Digest::of_text("a\nb"));
     /// ```
     #[must_use]
     pub fn of_text(text: &str) -> Self {
-        use sha2::{Digest, Sha256};
-        let digest = Sha256::digest(text.as_bytes());
-        let mut raw = [0_u8; 32];
-        raw.copy_from_slice(&digest);
-        Self::from_bytes(raw)
+        let input = sc_sha::HashInput::TextFileBytes {
+            utf8_file_bytes: text.as_bytes(),
+        };
+        match sc_sha::calculate_hash(input) {
+            Ok(result) => Self(result.template().to_hex()),
+            // A `&str` is valid UTF-8, the only error `calculate_hash` has.
+            Err(error) => unreachable!("a &str is valid UTF-8: {error}"),
+        }
     }
 
     /// Parses 64 lowercase hex characters.
@@ -846,10 +870,7 @@ impl<'de> Deserialize<'de> for ProjectLabel {
     }
 }
 
-/// One send's id: ULID text (26 Crockford base32 characters).
-///
-/// In r-7 the text is built here (48-bit millisecond clock plus 80 random
-/// bits); r-6 wraps `ulid::Ulid` with the same text form.
+/// One send's id: a ULID (26 Crockford base32 characters).
 ///
 /// # Examples
 ///
@@ -862,33 +883,14 @@ impl<'de> Deserialize<'de> for ProjectLabel {
 /// assert_eq!("nope".parse::<AnswerId>().unwrap_err().code(), "INPUT_INVALID");
 /// # Ok::<(), sc_agent_types::JevError>(())
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct AnswerId(String);
-
-const CROCKFORD: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct AnswerId(Ulid);
 
 impl AnswerId {
     /// A fresh id.
     #[must_use]
     pub fn new() -> Self {
-        let millis = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0_u128, |elapsed| elapsed.as_millis())
-            & 0xFFFF_FFFF_FFFF;
-        let random = Uuid::new_v4().as_u128() & ((1_u128 << 80) - 1);
-        let value = (millis << 80) | random;
-        let mut out = String::with_capacity(26);
-        for index in (0..26).rev() {
-            let digit = usize::try_from((value >> (index * 5)) & 0x1F).unwrap_or(0);
-            out.push(char::from(CROCKFORD[digit]));
-        }
-        Self(out)
-    }
-
-    /// The 26-character text.
-    #[must_use]
-    pub fn as_str(&self) -> &str {
-        &self.0
+        Self(Ulid::new())
     }
 }
 
@@ -903,32 +905,26 @@ impl FromStr for AnswerId {
 
     /// # Errors
     ///
-    /// `INPUT_INVALID` unless the text is 26 uppercase Crockford base32
-    /// characters whose first character is at most `7`; the fix hint says to
-    /// use the logged `answer_id`.
+    /// `INPUT_INVALID` unless the text is a ULID; the fix hint says to use
+    /// the logged `answer_id`.
     fn from_str(text: &str) -> Result<Self, Self::Err> {
-        let valid = text.len() == 26
-            && text.bytes().all(|byte| CROCKFORD.contains(&byte))
-            && text.as_bytes()[0] <= b'7';
-        if valid {
-            Ok(Self(text.to_owned()))
-        } else {
-            Err(JevError::input_invalid(format!(
+        parse_ulid(text).map(Self).ok_or_else(|| {
+            JevError::input_invalid(format!(
                 "answer id {text:?} is not a ULID (26 Crockford base32 characters); use the answer_id the session log recorded"
-            )))
-        }
+            ))
+        })
     }
 }
 
 impl fmt::Display for AnswerId {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(&self.0)
+        fmt::Display::fmt(&self.0, formatter)
     }
 }
 
 impl Serialize for AnswerId {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(&self.0)
+        serializer.collect_str(self)
     }
 }
 
@@ -994,6 +990,16 @@ impl FromStr for Operation {
                 JevError::input_invalid(format!("log operation must be judge or ask, not {text:?}"))
             })
     }
+}
+
+/// Strict ULID text: the canonical 26-character uppercase Crockford form.
+///
+/// `Ulid::from_string` also accepts lowercase, the `I`/`L`/`O` aliases and
+/// values above 2^128 (which wrap); comparing with the re-rendered text
+/// rejects all three, so one id has one spelling (and one file name).
+fn parse_ulid(text: &str) -> Option<Ulid> {
+    let ulid = Ulid::from_string(text).ok()?;
+    (ulid.to_string() == text).then_some(ulid)
 }
 
 fn is_lower_hex(text: &str) -> bool {

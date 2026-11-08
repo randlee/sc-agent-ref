@@ -23,7 +23,7 @@
 //! and prompts are off (`GIT_TERMINAL_PROMPT=0`).
 
 use std::io::{self, Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Output, Stdio};
 use std::sync::mpsc::{self, Receiver};
 use std::thread;
@@ -213,6 +213,33 @@ pub fn discover_toplevel(start: &Path) -> Result<Option<RepoRoot>, JevError> {
         return Ok(None);
     }
     Ok(Some(RepoRoot::new(path)))
+}
+
+/// Finds the git common directory of the repository that contains `start`.
+///
+/// Runs `git rev-parse --path-format=absolute --git-common-dir`. For a
+/// linked worktree this is the main repository's git directory, shared by
+/// every worktree; for an ordinary checkout it is its own `.git`. Returns
+/// `Ok(None)` when `start` is not inside a git repository.
+///
+/// # Errors
+///
+/// `INPUT_INVALID` when git cannot be started or prints a path that is not
+/// UTF-8.
+pub fn discover_common_dir(start: &Path) -> Result<Option<PathBuf>, JevError> {
+    let mut command = git(start);
+    command.args(["rev-parse", "--path-format=absolute", "--git-common-dir"]);
+    let output = run(command)?;
+    if !output.status.success() {
+        return Ok(None);
+    }
+    let text = std::str::from_utf8(&output.stdout)
+        .map_err(|_| JevError::input_invalid("git printed a common dir path that is not UTF-8"))?;
+    let path = text.trim_end_matches(['\n', '\r']);
+    if path.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(PathBuf::from(path)))
 }
 
 /// Reads `path` at `rev` from the repository at `root`.

@@ -79,9 +79,15 @@ struct Sink(Mutex<Vec<(String, String, String)>>);
 impl SessionLog for Sink {
     fn emit(&self, event: LogEvent) -> Result<(), LogRejected> {
         self.0.lock().expect("lock").push((
-            event.backend().to_string(),
+            event.fields()["backend"]
+                .as_str()
+                .expect("backend")
+                .to_owned(),
             event.operation().as_str().to_owned(),
-            event.prompt_sha256().as_str().to_owned(),
+            event.fields()["prompt_sha256"]
+                .as_str()
+                .expect("prompt_sha256")
+                .to_owned(),
         ));
         Ok(())
     }

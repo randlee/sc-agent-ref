@@ -72,3 +72,13 @@ required-features = ["test-util"]
 [[test]]
 name = "models"
 required-features = ["test-util"]
+
+# Row emission drives `run` and `ask` through `MockJudgeBackend` and the
+# scripted registry (REQ-SAG-0610, REQ-SAG-0613, REQ-SAG-0616, REQ-SAG-0617).
+[[test]]
+name = "session_log"
+required-features = ["test-util"]
+
+# `discover_main_repo_root` needs no seam, so `repo` declares no feature.
+[[test]]
+name = "repo"

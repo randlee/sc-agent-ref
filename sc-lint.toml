@@ -70,6 +70,20 @@ manifest_message = "Only sc-treesitter may depend on tree-sitter-rust (ADR-SAG-0
 source_message = "Only sc-treesitter may depend on tree-sitter-rust (ADR-SAG-0015)."
 
 [[tool.sc-lint.analyzers.boundary.global_dependency_ownership]]
+dependency = "ulid"
+allowed_manifest_paths = ["crates/sc-agent-types/Cargo.toml"]
+allowed_source_roots = ["crates/sc-agent-types"]
+manifest_message = "Only sc-agent-types may depend on ulid: SessionId and AnswerId are its core types (ADR-SAG-0008 and ADR-SAG-0027 r-6 amendments)."
+source_message = "Only sc-agent-types may depend on ulid: SessionId and AnswerId are its core types (ADR-SAG-0008 and ADR-SAG-0027 r-6 amendments)."
+
+[[tool.sc-lint.analyzers.boundary.global_dependency_ownership]]
+dependency = "sc-sha"
+allowed_manifest_paths = ["crates/sc-agent-types/Cargo.toml"]
+allowed_source_roots = ["crates/sc-agent-types"]
+manifest_message = "Only sc-agent-types may depend on sc-sha: Sha256Digest::of_text is the one SHA-256 identity (ADR-SAG-0031 wiring, ADR-SAG-0027 r-6 amendment)."
+source_message = "Only sc-agent-types may depend on sc-sha: Sha256Digest::of_text is the one SHA-256 identity (ADR-SAG-0031 wiring, ADR-SAG-0027 r-6 amendment)."
+
+[[tool.sc-lint.analyzers.boundary.global_dependency_ownership]]
 dependency = "keyring"
 allowed_manifest_paths = ["crates/sc-agent-secrets/Cargo.toml"]
 allowed_source_roots = ["crates/sc-agent-secrets"]

@@ -8,12 +8,13 @@ use sc_agent_types::observability::v2::{
 use sc_agent_types::{BackendId, Operation, SessionId, Sha256Digest};
 
 fn event(operation: Operation) -> LogEvent {
-    LogEvent::new(
-        SessionId::from_uuid(uuid::Uuid::nil()),
-        BackendId::Jev,
-        Sha256Digest::of_text("payload"),
-        operation,
-    )
+    let mut fields = serde_json::Map::new();
+    fields.insert("backend".to_owned(), BackendId::Jev.as_str().into());
+    fields.insert(
+        "prompt_sha256".to_owned(),
+        Sha256Digest::of_text("payload").as_str().into(),
+    );
+    LogEvent::new(SessionId::new(), operation, fields)
 }
 
 #[test]
@@ -68,10 +69,9 @@ fn test_log_event_operation_is_typed_and_carries_no_secret() {
         let event = event(operation);
         assert_eq!(event.operation(), operation);
         let rendered = format!(
-            "{} {} {} {}",
+            "{} {} {}",
             event.session_id(),
-            event.backend(),
-            event.prompt_sha256(),
+            serde_json::Value::Object(event.fields().clone()),
             event.operation()
         )
         .to_ascii_lowercase();

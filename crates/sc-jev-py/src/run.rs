@@ -15,7 +15,7 @@ use std::sync::Arc;
 use pyo3::prelude::*;
 use pyo3::types::{PyAnyMethods, PyBytes};
 use sc_agent_types::schema::subjects::SubjectsProducer;
-use sc_agent_types::{BackendSet, JevError, Rev, SessionId, Sha256Digest};
+use sc_agent_types::{BackendSet, JevError, ProjectLabel, Rev, SessionId, Sha256Digest};
 use sc_decision_schema::{MultiBackendMode, canonical_json_bytes};
 use sc_jev_check::run::{CheckSource, RunResponse};
 use sc_jev_host::compose::{ComposeInputs, ask_from, explicit_repo_root, prepare_from};
@@ -37,6 +37,8 @@ struct CheckRun {
     system_prompt_file: Option<PathBuf>,
     /// `chain_context=True` selects `MultiBackendMode::ChainContext`.
     chain_context: bool,
+    /// `project=`: label for this run's log rows (REQ-SAG-0615).
+    project: Option<ProjectLabel>,
     /// Scripted judge answers; only `cargo test` and the `test-util` feature
     /// can set this (ADR-SAG-0022).
     #[cfg(any(test, feature = "test-util"))]
@@ -139,7 +141,13 @@ fn execute(spec: CheckRun) -> Result<FinishedRun, JevError> {
     let source = CheckSource::check_file(&resolved.repo_root, &spec.check_path)?;
     // The root is resolved once; the host does not discover it again.
     let inputs = inputs.repo_root(resolved.repo_root.clone());
-    let prepared = prepare_from(source, inputs.clone())?;
+    // The project belongs to this call only: a later `ask` names its own, so
+    // the live session's inputs are cloned before it is set.
+    let call_inputs = match spec.project {
+        Some(project) => inputs.clone().project(project),
+        None => inputs.clone(),
+    };
+    let prepared = prepare_from(source, call_inputs)?;
     let request = prepared.prepared().request();
     let payload = request.payload().as_str().to_owned();
     let system_prompt = request.llm().map(|llm| llm.system_prompt.clone());
@@ -242,14 +250,25 @@ fn to_py(py: Python<'_>, label: &str, value: serde_json::Result<Value>) -> PyRes
     Ok(py.import("json")?.call_method1("loads", (text,))?.unbind())
 }
 
+/// Validates the `project=` text of one call (`INPUT_INVALID` when it is over
+/// 256 bytes or has a control character). `None` is "no label".
+fn parse_project(project: Option<String>) -> Result<Option<ProjectLabel>, JevError> {
+    project.map(ProjectLabel::new).transpose()
+}
+
 fn ask_with(
     py: Python<'_>,
     live: &LiveSession,
     id: SessionId,
     follow_up: &str,
+    project: Option<String>,
 ) -> PyResult<Py<PyAny>> {
     let follow_up = follow_up.to_owned();
-    let inputs = live.inputs.clone();
+    let project = map_err(py, parse_project(project))?;
+    let mut inputs = live.inputs.clone();
+    if let Some(project) = project {
+        inputs = inputs.project(project);
+    }
     let outcome = py.detach(move || ask_from(id, &follow_up, inputs));
     let response = map_err(py, outcome)?;
     to_py(py, "outcome JSON", serde_json::to_value(response.outcome()))
@@ -351,14 +370,16 @@ impl CheckResult {
 
     /// Sends `follow_up` to the live session's Haiku or Luna backend.
     ///
-    /// Same as `self.session.ask(follow_up)`.
+    /// Same as `self.session.ask(follow_up, project=project)`.
     ///
     /// # Errors
     ///
     /// Raises `JevError`. Dry-run uses `CONFIG_INVALID`. A run with no
-    /// session (Jev only) uses `INPUT_INVALID`. `code` is the stable id and
+    /// session (Jev only) uses `INPUT_INVALID`, as does a `project` over 256
+    /// bytes or with a control character. `code` is the stable id and
     /// `message` is the fix hint.
-    fn ask(&self, py: Python<'_>, follow_up: &str) -> PyResult<Py<PyAny>> {
+    #[pyo3(signature = (follow_up, *, project=None))]
+    fn ask(&self, py: Python<'_>, follow_up: &str, project: Option<String>) -> PyResult<Py<PyAny>> {
         let Some(live) = self.inner.live.as_ref() else {
             return Err(error::to_py_err(
                 py,
@@ -373,7 +394,7 @@ impl CheckResult {
                 ),
             ));
         };
-        ask_with(py, live, id, follow_up)
+        ask_with(py, live, id, follow_up, project)
     }
 
     fn __repr__(&self) -> String {
@@ -402,12 +423,18 @@ impl Session {
 
     /// Sends `follow_up` through `sc-jev-check` and appends one JSONL line.
     ///
+    /// `project` labels this call's log row only; it is per call, caller
+    /// text, stored as given and not scrubbed.
+    ///
     /// # Errors
     ///
     /// Raises `JevError`. A Jev session uses `INPUT_INVALID` because Jev has
-    /// no rationale field. `code` is the stable id and `message` is the fix hint.
-    fn ask(&self, py: Python<'_>, follow_up: &str) -> PyResult<Py<PyAny>> {
-        ask_with(py, &self.live, self.id, follow_up)
+    /// no rationale field, and so does a `project` over 256 bytes or with a
+    /// control character. `code` is the stable id and `message` is the fix
+    /// hint.
+    #[pyo3(signature = (follow_up, *, project=None))]
+    fn ask(&self, py: Python<'_>, follow_up: &str, project: Option<String>) -> PyResult<Py<PyAny>> {
+        ask_with(py, &self.live, self.id, follow_up, project)
     }
 
     fn __repr__(&self) -> String {
@@ -468,6 +495,7 @@ fn check_run(
     session_dir: Option<PathBuf>,
     system_prompt_file: Option<PathBuf>,
     chain_context: bool,
+    project: Option<String>,
 ) -> Result<CheckRun, JevError> {
     Ok(CheckRun {
         check_path: check_path.to_path_buf(),
@@ -479,6 +507,7 @@ fn check_run(
         session_dir: non_empty(session_dir),
         system_prompt_file: non_empty(system_prompt_file),
         chain_context,
+        project: parse_project(project)?,
         #[cfg(any(test, feature = "test-util"))]
         scripted_answers: None,
     })
@@ -517,12 +546,15 @@ fn finish_check(py: Python<'_>, spec: CheckRun) -> PyResult<CheckResult> {
 /// released while the check runs.
 ///
 /// Log and session paths follow ADR-SAG-0021. See the module documentation
-/// for `SC_AGENT_LOG_DIR`, `SC_LOG_ROOT`, and the JSONL path.
+/// for `SC_AGENT_LOG_DIR`, `SC_LOG_ROOT`, and the JSONL path. `project`
+/// labels this run's log rows (per call; caller text, stored as given and
+/// not scrubbed, so put no secret in it).
 ///
 /// # Errors
 ///
 /// Raises `JevError` with `code` and `message` set from the facade error. An
-/// unknown backend id or a malformed `rev` is `INPUT_INVALID`. When some, not
+/// unknown backend id, a malformed `rev`, or a `project` over 256 bytes or
+/// with a control character is `INPUT_INVALID`. When some, not
 /// all, backends fail, the `JevError` carries the first failure's code and a
 /// `response` attribute holding the response body (with the successful
 /// answers) as a dict; when every backend fails there is no `response`.
@@ -545,6 +577,7 @@ fn finish_check(py: Python<'_>, spec: CheckRun) -> PyResult<CheckResult> {
     session_dir=None,
     system_prompt_file=None,
     chain_context=false,
+    project=None,
 ))]
 #[expect(clippy::too_many_arguments, reason = "Python keyword API")]
 pub(crate) fn run_check(
@@ -558,6 +591,7 @@ pub(crate) fn run_check(
     session_dir: Option<PathBuf>,
     system_prompt_file: Option<PathBuf>,
     chain_context: bool,
+    project: Option<String>,
 ) -> PyResult<CheckResult> {
     let spec = map_err(
         py,
@@ -571,6 +605,7 @@ pub(crate) fn run_check(
             session_dir,
             system_prompt_file,
             chain_context,
+            project,
         ),
     )?;
     finish_check(py, spec)
@@ -605,6 +640,7 @@ pub(crate) mod testing {
         session_dir=None,
         system_prompt_file=None,
         chain_context=false,
+        project=None,
     ))]
     #[expect(clippy::too_many_arguments, reason = "Python keyword API")]
     pub(crate) fn run_check_scripted(
@@ -619,6 +655,7 @@ pub(crate) mod testing {
         session_dir: Option<PathBuf>,
         system_prompt_file: Option<PathBuf>,
         chain_context: bool,
+        project: Option<String>,
     ) -> PyResult<CheckResult> {
         let answers = map_err(py, py_to_value(&scripted_answers))?;
         let mut spec = map_err(
@@ -633,6 +670,7 @@ pub(crate) mod testing {
                 session_dir,
                 system_prompt_file,
                 chain_context,
+                project,
             ),
         )?;
         spec.scripted_answers = Some(answers);
@@ -770,6 +808,7 @@ mod tests {
             session_dir: Some(sessions.to_path_buf()),
             system_prompt_file: None,
             chain_context: false,
+            project: None,
             scripted_answers: Some(serde_json::json!({"relevant": "yes"})),
         }
     }
@@ -1044,6 +1083,7 @@ mod tests {
                 None,
                 None,
                 false,
+                None,
             )
             .expect("dry run");
             assert_eq!(result.prompt_sha256(), digest);
@@ -1056,7 +1096,7 @@ mod tests {
                 .extract()
                 .expect("bool");
             assert!(!equal, "a dry run sends nothing, so equal is false");
-            let error = result.ask(py, "why?").expect_err("dry-run ask");
+            let error = result.ask(py, "why?", None).expect_err("dry-run ask");
             let code: String = error
                 .value(py)
                 .getattr("code")
@@ -1079,6 +1119,7 @@ mod tests {
                 Some(root.path().join("sessions")),
                 None,
                 false,
+                None,
             )
             .expect("scripted run");
             let outcomes = live.outcomes(py);
@@ -1093,8 +1134,8 @@ mod tests {
             assert!(outcomes.is(live.outcomes(py)), "converted once");
             let session = live.session().expect("session");
             assert_eq!(Some(session.session_id()), live.session_id());
-            session.ask(py, "why?").expect("session ask");
-            live.ask(py, "and?").expect("result ask");
+            session.ask(py, "why?", None).expect("session ask");
+            live.ask(py, "and?", None).expect("result ask");
             assert!(live.__repr__().contains("CheckResult"));
             assert!(session.__repr__().contains("Session"));
             assert!(!live.payload().is_empty());

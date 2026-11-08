@@ -1,7 +1,7 @@
 # sc-agent-types — architecture
 
 **Boundary:** `agent-types`
-**Depends on:** `serde`, `serde_json`, `sha2`, `thiserror`, `uuid`. No
+**Depends on:** `sc-sha`, `serde`, `serde_json`, `thiserror`, `ulid`. No
 `sc-observability*`, HTTP, Python, or tree-sitter crate (REQ-SAG-0107).
 
 **Contract status:** the a-1 frozen contract was unfrozen once by sprint r-1
@@ -95,8 +95,17 @@ reports the received digest, and enforces LLM context from the descriptor.
 ## Session log port (`observability::v2`)
 
 `SessionLog::emit(LogEvent) -> Result<(), LogRejected>`; `LogEvent` carries
-`session_id`, `backend`, `prompt_sha256`, `operation: Operation`, never a
-secret. `sc-ai` and `sc-jev-py` adapt their `sc_observability::v2::Logger` to
+`session_id`, `operation: Operation` and `fields`, a JSON object that is one
+ADR-SAG-0031 session-log row (`LogEvent::new(session_id, operation, fields)`,
+accessors `session_id()`, `operation()`, `fields()`; r-6). The port does not
+name the row type, and the row never holds a secret.
+
+`SessionId` and `AnswerId` wrap `ulid::Ulid` (26-character Crockford base32,
+strict uppercase; a UUID is `INPUT_INVALID`). `Sha256Digest::of_text` goes
+through `sc-sha`, which normalizes CRLF and bare CR to LF, so the digest is
+SHA-256 of the bytes only for text without CR (all compact JSON). With the
+`git` feature, `git::discover_common_dir` finds the repository a linked
+worktree belongs to; it reuses the one argv-only spawn site. `sc-ai` and `sc-jev-py` adapt their `sc_observability::v2::Logger` to
 it; `sc-jev-check` takes a `SharedSessionLog`. Removal of the module still
 waits on upstream v2 (bead `agt-obs-v2-shim-removal`).
 

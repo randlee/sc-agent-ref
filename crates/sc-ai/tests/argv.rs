@@ -160,17 +160,12 @@ fn test_missing_and_empty_values_are_input_invalid() {
     for args in [
         &["jev", "run", "--repo-root"][..],
         &["jev", "run", "--check="],
+        &["jev", "ask", "--session-id", "01JC4Z7A5B0000000000000009"],
         &[
             "jev",
             "ask",
             "--session-id",
-            "00000000-0000-4000-8000-000000000000",
-        ],
-        &[
-            "jev",
-            "ask",
-            "--session-id",
-            "00000000-0000-4000-8000-000000000000",
+            "01JC4Z7A5B0000000000000009",
             "--text=",
         ],
     ] {
@@ -210,7 +205,7 @@ fn test_request_json_conflicts_with_check_and_rev() {
 fn test_hyphen_values_are_values_not_flags() {
     let dir = TempDir::new().expect("temp");
     // `--text` takes `-1 is wrong` and `--help` as text; the session id is
-    // checked first, so the failure is the id, never help.
+    // checked first, so the failure is the id (not a ULID), never help.
     for text in [
         &["--text", "-1 is wrong"][..],
         &["--text=--help"],
@@ -220,7 +215,7 @@ fn test_hyphen_values_are_values_not_flags() {
         args.extend_from_slice(text);
         let output = run(dir.path(), &args);
         assert_eq!(error_code(&output), "INPUT_INVALID", "{text:?}");
-        assert!(message(&output).contains("UUID"), "{text:?}");
+        assert!(message(&output).contains("ULID"), "{text:?}");
     }
     // `--rev -p` reaches `Rev::parse`, which names the revision, not clap.
     let output = run(dir.path(), &["jev", "dry-run", "--rev", "-p"]);
@@ -320,7 +315,7 @@ fn test_chain_context_is_a_run_flag() {
             "ask",
             "--chain-context",
             "--session-id",
-            "00000000-0000-4000-8000-000000000000",
+            "01JC4Z7A5B0000000000000009",
             "--text",
             "why?",
         ],
@@ -337,12 +332,12 @@ fn test_usage_ignores_the_binary_name() {
 }
 
 #[test]
-fn test_session_id_must_be_a_uuid() {
+fn test_session_id_must_be_a_ulid() {
     let dir = TempDir::new().expect("temp");
     let output = run(
         dir.path(),
-        &["jev", "ask", "--session-id", "not-a-uuid", "--text", "why?"],
+        &["jev", "ask", "--session-id", "not-a-ulid", "--text", "why?"],
     );
     assert_eq!(error_code(&output), "INPUT_INVALID");
-    assert!(message(&output).contains("UUID"));
+    assert!(message(&output).contains("ULID"));
 }

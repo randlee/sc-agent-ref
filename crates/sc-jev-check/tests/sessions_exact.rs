@@ -106,9 +106,8 @@ impl SessionLog for JsonlSink {
     fn emit(&self, event: LogEvent) -> Result<(), LogRejected> {
         let line = serde_json::json!({
             "session_id": event.session_id().to_string(),
-            "backend": event.backend().to_string(),
-            "prompt_sha256": event.prompt_sha256().as_str(),
             "operation": event.operation().as_str(),
+            "fields": event.fields(),
         });
         let mut file = fs::OpenOptions::new()
             .create(true)
@@ -208,6 +207,61 @@ fn test_session_file_mode_0600() {
         let mode = fs::metadata(&path).expect("meta").permissions().mode() & 0o777;
         assert_eq!(mode, 0o600);
     }
+}
+
+/// The file is named by a ULID, written mode 0600, and expires from
+/// `created_at` (REQ-SAG-0600 amended, REQ-SAG-0607).
+#[test]
+fn test_session_file_named_by_ulid_mode_0600_expiry() {
+    let dir = temp_dir();
+    let store = FileSessionStore::new(dir.path())
+        .expect("store")
+        .with_ttl(Duration::from_secs(60))
+        .with_clock(ulid_clock);
+    let id = SessionId::new();
+    store
+        .save(&StoredSession {
+            session_id: id,
+            backend: BackendId::Jev,
+            created_at: store.now(),
+            payload: bundle(),
+            system_prompt: None,
+            outcomes: Vec::new(),
+            follow_ups: Vec::new(),
+        })
+        .expect("save");
+    let path = store.path(&id);
+    let name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .expect("name");
+    let stem = name.strip_suffix(".json").expect("json file");
+    assert_eq!(stem.len(), 26, "{name}");
+    assert_eq!(stem.parse::<SessionId>().expect("ULID stem"), id);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = fs::metadata(&path).expect("meta").permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600);
+    }
+    let document: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&path).expect("json")).expect("parse");
+    assert_eq!(document["version"], 3);
+    assert_eq!(document["session_id"], stem);
+    assert_eq!(document["decision_schema"], "canonical.v1");
+    assert_eq!(document["created_at"], 1_800_000_000_000_u64);
+    store.load(&id).expect("fresh");
+    ULID_NOW_MS.store(1_800_000_060_000, Ordering::SeqCst);
+    assert_eq!(
+        store.load(&id).expect_err("expired").code(),
+        "SESSION_EXPIRED"
+    );
+}
+
+static ULID_NOW_MS: AtomicU64 = AtomicU64::new(1_800_000_000_000);
+
+fn ulid_clock() -> SystemTime {
+    UNIX_EPOCH + Duration::from_millis(ULID_NOW_MS.load(Ordering::SeqCst))
 }
 
 /// Test clock: a fixed instant the test moves forward.
@@ -402,9 +456,14 @@ fn test_log_event_has_no_secrets() {
     for (line, backend) in lines.iter().zip(["jev", "openai_luna"]) {
         let value: serde_json::Value = serde_json::from_str(line).expect("line");
         assert_eq!(value["session_id"], session_id);
-        assert_eq!(value["backend"], backend);
-        assert_eq!(value["prompt_sha256"], result.prompt_sha256().as_str());
+        assert_eq!(value["fields"]["session_id"], session_id);
+        assert_eq!(value["fields"]["backend"], backend);
+        assert_eq!(
+            value["fields"]["prompt_sha256"],
+            result.prompt_sha256().as_str()
+        );
         assert_eq!(value["operation"], "judge");
+        assert_eq!(value["fields"]["operation"], "judge");
     }
 }
 

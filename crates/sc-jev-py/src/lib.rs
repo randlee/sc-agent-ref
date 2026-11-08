@@ -18,9 +18,13 @@
 //!    the process temp directory plus `sc-agent/log` when both are unset).
 //!
 //! The active file is `{log_root}/logs/sc-jev-py.log.jsonl`. One JSONL line is
-//! written per judge send and per session `ask`. The line carries
-//! `session_id`, `backend`, `prompt_sha256`, and `operation`. It does not
-//! carry API keys. Session directory resolution, first match wins:
+//! written per judge send and per session `ask`, `Failed` sends included. The
+//! line's `fields` object is one session-log row (ADR-SAG-0031): `answer_id`,
+//! `session_id` (a ULID), `repo` (the main repository), `project` (the
+//! `project=` text of that call, or `null`), `prompt_sha256`, `request_sha256`,
+//! `backend`, `model_id`, `operation`, `send_outcome`, `error_code` and the
+//! typed `answers_json`. It carries no API key, prompt text or request body;
+//! `project` is caller text and is not scrubbed. Session directory resolution, first match wins:
 //!
 //! 1. The `session_dir` argument.
 //! 2. `SC_AGENT_SESSION_DIR`.
@@ -53,8 +57,10 @@ use crate::error::JevError;
 /// `~/.sc-agent/log` (`%USERPROFILE%\.sc-agent\log` when `HOME` is unset; the
 /// process temp directory plus `sc-agent/log` when both are unset). The JSONL
 /// file is `{log_root}/logs/sc-jev-py.log.jsonl`. One line is appended per
-/// judge send and per session `ask`. Lines contain `session_id`, `backend`,
-/// `prompt_sha256`, and `operation`, and do not contain API keys.
+/// judge send and per session `ask`. Each line's `fields` object is one
+/// session-log row (`session_id`, `repo`, `project`, `prompt_sha256`,
+/// `request_sha256`, `backend`, `model_id`, `operation`, `send_outcome`, and
+/// the typed answers); lines do not contain API keys or prompt text.
 ///
 /// Session directory resolution, first match wins: the `session_dir`
 /// argument, `SC_AGENT_SESSION_DIR`, then `{log_root}/sessions`.

@@ -23,7 +23,12 @@ one `INPUT_INVALID` stderr line and exit 2 (a value parser's own `JevError`,
 such as a malformed `--rev` or `--session-id`, is returned unwrapped). Value
 flags accept values starting with `-`. `--rev` and `--check` conflict with
 `--request-json`. `--chain-context` sets `MultiBackendMode::ChainContext`;
-independent is the default (ADR-SAG-0008).
+independent is the default (ADR-SAG-0008). `--session-id` is a ULID: any other
+value, a UUID included, is one `INPUT_INVALID` line whose fix hint says session
+ids are ULIDs since Phase A.1 and to start a new session with `sc-ai jev run`.
+`--project <TEXT>` on `jev run` and `jev ask` is validated as a `ProjectLabel`
+(at most 256 bytes, no control characters) and reaches that call's log row
+through `ComposeInputs::project`; it is per call and not scrubbed (REQ-SAG-0615).
 
 ## Partial failure (REQ-SAG-0604, ADR-SAG-0025)
 

@@ -105,11 +105,11 @@
   },
   "SessionExpired": {
     "code": "SESSION_EXPIRED",
-    "fix_hint": "Start a new session. Session 00000000-0000-0000-0000-000000000000 expired; expiry is measured from the session created_at timestamp."
+    "fix_hint": "Start a new session. Session 00000000000000000000000000 expired; expiry is measured from the session created_at timestamp."
   },
   "SessionNotFound": {
     "code": "SESSION_NOT_FOUND",
-    "fix_hint": "Create a session or pass the id of a session that still exists. Missing session: 00000000-0000-0000-0000-000000000000."
+    "fix_hint": "Create a session or pass the id of a session that still exists. Missing session: 00000000000000000000000000."
   },
   "SessionStoreIo": {
     "code": "CONFIG_INVALID",

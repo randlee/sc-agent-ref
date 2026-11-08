@@ -9,6 +9,15 @@
 //! `BackendRegistry::from_env` in `sc-jev-check` unless a registry is
 //! injected with [`ComposeInputs::registry`].
 //!
+//! # Log context
+//!
+//! Every log row carries the main repository root (`repo`) and the caller's
+//! optional `project` (REQ-SAG-0614, REQ-SAG-0615). Compose resolves both
+//! here, once per call ([`ComposeInputs::project`]; `repo` through
+//! `discover_main_repo_root`) and hands them to the engine as a `LogContext`,
+//! so neither consumer builds log context. `repo` changes only the log field:
+//! session and log paths keep using the worktree's own root (ADR-SAG-0021).
+//!
 //! # Warnings
 //!
 //! When the logger reports a flush failure (CR-014), the failure is not an
@@ -25,12 +34,12 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use sc_agent_types::observability::v2::{NoopSessionLog, SharedSessionLog};
-use sc_agent_types::{BackendSet, CancelToken, JevError, RepoRoot, Rev, SessionId};
+use sc_agent_types::{BackendSet, CancelToken, JevError, ProjectLabel, RepoRoot, Rev, SessionId};
 use sc_decision_schema::MultiBackendMode;
 use sc_jev_check::registry::BackendRegistry;
 use sc_jev_check::run::{
-    AskResponse, CheckSource, PreparedRun, RunConfig, RunResponse, ask, discover_repo_root,
-    prepare, run,
+    AskResponse, CheckSource, LogContext, PreparedRun, RunConfig, RunResponse, ask,
+    discover_main_repo_root, discover_repo_root, prepare, run,
 };
 use sc_jev_check::session::FileSessionStore;
 
@@ -73,6 +82,7 @@ pub struct ComposeInputs {
     mode: MultiBackendMode,
     cancel: CancelToken,
     registry: Option<Arc<BackendRegistry>>,
+    project: Option<ProjectLabel>,
 }
 
 impl std::fmt::Debug for ComposeInputs {
@@ -90,6 +100,7 @@ impl std::fmt::Debug for ComposeInputs {
             .field("system_prompt_override", &self.system_prompt_override)
             .field("mode", &self.mode)
             .field("registry", &self.registry.is_some())
+            .field("project", &self.project)
             .finish_non_exhaustive()
     }
 }
@@ -125,6 +136,7 @@ impl ComposeInputs {
             mode: MultiBackendMode::Independent,
             cancel: CancelToken::new(),
             registry: None,
+            project: None,
         }
     }
 
@@ -203,6 +215,17 @@ impl ComposeInputs {
         self
     }
 
+    /// Labels this call's log rows with `project` (`--project`, `project=`).
+    ///
+    /// Per call: two sends of one session may differ. The text is the
+    /// caller's, stored as given and not scrubbed (ADR-SAG-0031). Unset, the
+    /// row's `project` is `null`.
+    #[must_use]
+    pub fn project(mut self, project: ProjectLabel) -> Self {
+        self.project = Some(project);
+        self
+    }
+
     /// Resolves the repo root and the log and session paths.
     ///
     /// The repo root is the explicit one ([`Self::repo_root`]), else
@@ -229,8 +252,26 @@ impl ComposeInputs {
         })
     }
 
+    /// The `repo` and `project` of this call's log rows. `repo` is the main
+    /// repository of the explicit repo root, else of the working directory; a
+    /// discovery failure falls back to the resolved root, because the log is
+    /// best effort.
+    fn log_context(&self, resolved: &ResolvedPaths) -> LogContext {
+        if self.dry_run {
+            // A dry run logs nothing, so it does not run git for `repo`.
+            return LogContext::new(resolved.repo_root.clone(), self.project.clone());
+        }
+        let start = match &self.repo_root {
+            Some(root) => root.as_path(),
+            None => self.cwd.as_path(),
+        };
+        let repo = discover_main_repo_root(start).unwrap_or_else(|_| resolved.repo_root.clone());
+        LogContext::new(repo, self.project.clone())
+    }
+
     fn run_config(&self, resolved: &ResolvedPaths, log: SharedSessionLog) -> RunConfig {
         let mut config = RunConfig::new(resolved.repo_root.clone(), log)
+            .log_context(self.log_context(resolved))
             .dry_run(self.dry_run)
             .sessions_dir(resolved.sessions_dir.clone())
             .mode(self.mode)
@@ -299,12 +340,21 @@ impl HostRun {
     /// # Errors
     ///
     /// Any [`JevError`] from `run`, including the all-backends-failed case.
+    /// The log is flushed on this path too, so the rows of the sends that
+    /// failed are durable; a flush failure there is appended to the error
+    /// detail (`session log was not flushed: <hint>`) because no response
+    /// exists to carry a warning.
     pub fn run(self) -> Result<RunResponse, JevError> {
-        let mut response = run(self.prepared)?;
-        if let Some(warning) = self.adapter.as_ref().and_then(finish_log) {
-            response = response.with_warning(warning);
+        let Self { prepared, adapter } = self;
+        match run(prepared) {
+            Ok(mut response) => {
+                if let Some(warning) = adapter.as_ref().and_then(finish_log) {
+                    response = response.with_warning(warning);
+                }
+                Ok(response)
+            }
+            Err(error) => Err(note_flush(error, adapter.as_ref().and_then(finish_log))),
         }
-        Ok(response)
     }
 }
 
@@ -375,11 +425,33 @@ pub fn ask_from(
     let adapter = ObservabilityAdapter::open(&inputs.policy, &resolved.log_root)?;
     let sessions = FileSessionStore::new(&resolved.sessions_dir)?;
     let config = inputs.run_config(&resolved, adapter.shared());
-    let mut response = ask(&sessions, session_id, follow_up, config)?;
-    if let Some(warning) = finish_log(&adapter) {
-        response = response.with_warning(warning);
+    match ask(&sessions, session_id, follow_up, config) {
+        Ok(mut response) => {
+            if let Some(warning) = finish_log(&adapter) {
+                response = response.with_warning(warning);
+            }
+            Ok(response)
+        }
+        // Flush before propagating: a failed send wrote its row too.
+        Err(error) => Err(note_flush(error, finish_log(&adapter))),
     }
-    Ok(response)
+}
+
+/// Appends a failed flush to `error`'s detail, once, so it stays observable
+/// when an error (not a response) leaves the call. The error code is
+/// unchanged. `None` means the flush succeeded.
+fn note_flush(error: JevError, warning: Option<String>) -> JevError {
+    let Some(warning) = warning else {
+        return error;
+    };
+    let noted = std::cell::Cell::new(false);
+    error.map_detail(|text| {
+        if noted.replace(true) {
+            text.to_owned()
+        } else {
+            format!("{text} ({warning})")
+        }
+    })
 }
 
 /// Flushes the session log. The log is best effort: a failure becomes a
@@ -409,11 +481,27 @@ mod tests {
     }
 
     #[test]
+    fn flush_failure_on_the_error_path_is_noted_in_the_detail_once() {
+        let error = JevError::input_invalid("bad input");
+        let code = error.code();
+        let noted = note_flush(
+            error.clone(),
+            Some("session log was not flushed: disk full".into()),
+        );
+        assert_eq!(noted.code(), code);
+        let hint = noted.fix_hint();
+        assert!(hint.contains("bad input"), "{hint}");
+        assert_eq!(hint.matches("disk full").count(), 1, "{hint}");
+        assert_eq!(note_flush(error.clone(), None), error);
+    }
+
+    #[test]
     fn defaults_are_independent_and_unset() {
         let inputs = ComposeInputs::new(PathBuf::from("."), PathPolicy::cli());
         assert_eq!(inputs.mode, MultiBackendMode::Independent);
         assert!(!inputs.dry_run);
         assert!(inputs.registry.is_none());
         assert!(inputs.backends.is_none());
+        assert!(inputs.project.is_none());
     }
 }

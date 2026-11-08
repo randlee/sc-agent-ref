@@ -6,7 +6,10 @@
 //! through [`crate::run::RunConfig::registry`] (ADR-SAG-0022 r-2 amendment).
 //! Each mock reports, as `input_sha256`, the digest of the bundle it
 //! received, so equal-input attests it like a real backend (ADR-SAG-0022
-//! r-2b amendment).
+//! r-2b amendment). Each mock also records the digest of a synthetic sent
+//! body, `{"scripted":"<backend id>"}`, into the send's trace (ADR-SAG-0022 r-6
+//! amendment), so a run's log rows carry a `request_sha256` and two scripted
+//! backends carry different ones.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -17,6 +20,16 @@ use sc_decision_schema::{JudgeBackend, QuestionAnswer, QuestionId};
 use serde_json::Value;
 
 use super::BackendRegistry;
+
+/// The body a scripted judge for `id` pretends to have sent.
+///
+/// Its digest is the row's `request_sha256`: stable per backend id and
+/// different between backends (tests compute the same text). No transport exists, so this is the only
+/// "sent body" a scripted run has.
+#[must_use]
+fn scripted_body(id: BackendId) -> String {
+    format!("{{\"scripted\":\"{id}\"}}")
+}
 
 /// Registers one scripted judge per `ids` entry.
 ///
@@ -88,7 +101,9 @@ pub fn register_scripted_backends(
     }
     let answers = normalize_answers(answers)?;
     for id in ids.iter().copied() {
-        registry.register(Arc::new(MockJudgeBackend::new(id, answers.clone())))?;
+        registry.register(Arc::new(
+            MockJudgeBackend::new(id, answers.clone()).with_sent_body(scripted_body(id)),
+        ))?;
     }
     Ok(registry)
 }
@@ -117,7 +132,9 @@ enum Entry {
 impl Entry {
     fn into_backend(self, id: BackendId) -> Arc<dyn JudgeBackend> {
         match self {
-            Self::Answers(answers) => Arc::new(MockJudgeBackend::new(id, answers)),
+            Self::Answers(answers) => {
+                Arc::new(MockJudgeBackend::new(id, answers).with_sent_body(scripted_body(id)))
+            }
             Self::Failure {
                 error,
                 validate: true,
@@ -125,7 +142,11 @@ impl Entry {
             Self::Failure {
                 error,
                 validate: false,
-            } => Arc::new(MockJudgeBackend::new(id, BTreeMap::new()).with_failure(error)),
+            } => Arc::new(
+                MockJudgeBackend::new(id, BTreeMap::new())
+                    .with_sent_body(scripted_body(id))
+                    .with_failure(error),
+            ),
         }
     }
 }

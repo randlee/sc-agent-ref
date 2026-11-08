@@ -17,7 +17,9 @@ fn null_device() -> &'static str {
     if cfg!(windows) { "NUL" } else { "/dev/null" }
 }
 
-use sc_agent_types::git::{MAX_INPUT_BYTES, discover_toplevel, hash_blob, read_at_rev};
+use sc_agent_types::git::{
+    MAX_INPUT_BYTES, discover_common_dir, discover_toplevel, hash_blob, read_at_rev,
+};
 use sc_agent_types::{RepoRelativePath, RepoRoot, Rev};
 
 #[expect(
@@ -143,6 +145,43 @@ fn test_discover_toplevel_from_subdirectory() {
     );
     let outside = tempfile::tempdir().expect("outside");
     assert_eq!(discover_toplevel(outside.path()).expect("not a repo"), None);
+}
+
+#[test]
+fn test_discover_common_dir_cases() {
+    let (dir, _root) = repo();
+    let canonical = std::fs::canonicalize(dir.path()).expect("canonical");
+    let common = discover_common_dir(&dir.path().join("src"))
+        .expect("discover")
+        .expect("repo");
+    assert_eq!(
+        std::fs::canonicalize(&common).expect("common"),
+        canonical.join(".git")
+    );
+
+    // A linked worktree shares the main repository's common dir.
+    let linked = dir.path().join("linked");
+    git(
+        dir.path(),
+        &[
+            "worktree",
+            "add",
+            "-q",
+            "-b",
+            "side",
+            linked.to_str().expect("utf8"),
+        ],
+    );
+    let from_linked = discover_common_dir(&linked)
+        .expect("discover")
+        .expect("repo");
+    assert_eq!(
+        std::fs::canonicalize(&from_linked).expect("common"),
+        canonical.join(".git")
+    );
+
+    let outside = tempfile::tempdir().expect("outside");
+    assert_eq!(discover_common_dir(outside.path()).expect("none"), None);
 }
 
 /// `hash_blob` gives the id git stored for the same bytes, in both object

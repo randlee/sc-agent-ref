@@ -39,9 +39,21 @@ Log and session paths follow ADR-SAG-0021 and are resolved by
 `log_dir`, `SC_AGENT_LOG_DIR`, `SC_LOG_ROOT`, then `~/.sc-agent/log`. Session
 directory, first match: `session_dir`, `SC_AGENT_SESSION_DIR`, then
 `{log_root}/sessions`. The JSONL file is `{log_root}/logs/sc-jev-py.log.jsonl`
-through the `sc-jev-host` adapter over the v2 `LoggerBuilder` file sink
+through the `sc-jev-host` adapter over the v2 `LoggerBuilder` file sink, one
+session-log row (ADR-SAG-0031) in each line's `fields`
 (ADR-SAG-0013, ADR-SAG-0016 r-3b amendment). This crate keeps argument
 conversion, the GIL release and exception mapping only (ADR-SAG-0011 r-3b).
+
+## Project label and session ids (REQ-SAG-0615, REQ-SAG-0612)
+
+`run_check(..., project=None)` and `CheckResult.ask` / `Session.ask(follow_up,
+*, project=None)` take caller text for that call's log row (per call: a run's
+project does not carry into a later `ask`). It is validated as a
+`ProjectLabel`, so a label over 256 bytes or with a control character raises
+`JevError` `INPUT_INVALID`; the text is stored as given and not scrubbed.
+Session ids (`CheckResult.session_id`, `Session.session_id`) are 26-character
+ULIDs. Python never accepts a session id as input, so the UUID refusal is
+reached through the CLI.
 
 ## Multi-backend runs (REQ-SAG-0604, REQ-SAG-0605)
 
