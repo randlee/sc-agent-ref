@@ -1,0 +1,61 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R5-QA3-ARCH-012>
+  a triage:Finding ;
+  triage:findingId "R5-QA3-ARCH-012" ;
+  triage:title "The binding code sample for CheckResponse::into_answers (in the 'Explicit code samples' block) places response-to-answer mapping in sc_decision_schema::jev" ;
+  triage:description "The binding code sample for CheckResponse::into_answers (in the 'Explicit code samples' block) places response-to-answer mapping in sc_decision_schema::jev::v1. That contradicts ADR-SAG-0012 r-5 (see ARCH-011). RULE-ADR-PLAN treats a plan that contradicts a binding ADR as Blocking even when intended." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "qa" ;
+  triage:severity "blocking" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T06:41:28Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R5 ;
+  triage:foundAt "2026-11-08T06:39:59Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R5-QA3-ARCH-012/ARCH012-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R5-QA3-ARCH-012/ARCH012-2> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R5-QA3-ARCH-012/ARCH012-1>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md" ;
+  triage:line 296 ;
+  triage:snippet "pub fn into_answers(self, request: &CheckRequest) -> Result<DecisionAnswers, JevError>;" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-5-jev-wire-envelope" ;
+  triage:headSha "69725308455bd8827b0a46e31e3f598327d66f55" ;
+  triage:occursIn <urn:atm:triage:worktree/sprint-r-5-jev-wire-envelope/6972530> .
+
+<urn:atm:triage:occurrence/R5-QA3-ARCH-012/ARCH012-2>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md" ;
+  triage:line 278 ;
+  triage:snippet "pub fn into_answers(self, request: &CheckRequest) -> Result<DecisionAnswers, JevError>;" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "48c4d1cf5a0972351bc146721db41888fbc5cfa3" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/48c4d1c> .
+
+<urn:atm:triage:worktree/integrate-phase-a/48c4d1c>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "48c4d1cf5a0972351bc146721db41888fbc5cfa3" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/sprint-r-5-jev-wire-envelope/6972530>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-5-jev-wire-envelope" ;
+  triage:branch "sprint/r-5-jev-wire-envelope" ;
+  triage:headSha "69725308455bd8827b0a46e31e3f598327d66f55" ;
+  triage:orderIndex 1 .
