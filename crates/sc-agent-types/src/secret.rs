@@ -89,13 +89,23 @@ impl ResolvedApiKey {
         &self.0
     }
 
+    /// Replaces the secret with `[redacted]` in `text`.
+    ///
+    /// Use it on text that is about to be cut to a length bound: redacting
+    /// after the cut could leave the front half of a key that straddles the
+    /// cut.
+    #[must_use]
+    pub fn redact_text(&self, text: &str) -> String {
+        text.replace(&*self.0, "[redacted]")
+    }
+
     /// Replaces the secret with `[redacted]` in every text field of `error`.
     ///
     /// Built on [`JevError::map_detail`], so a new variant with a text field
     /// is redacted without changing this method.
     #[must_use]
     pub fn redact_error(&self, error: JevError) -> JevError {
-        error.map_detail(|detail| detail.replace(&*self.0, "[redacted]"))
+        error.map_detail(|detail| self.redact_text(detail))
     }
 }
 

@@ -67,10 +67,12 @@ pub use cancel::CancelToken;
 #[doc(inline)]
 pub use catalog::{BACKENDS, BackendDescriptor, BackendFamily};
 #[doc(inline)]
-pub use envelope::{ErrorDetails, ScAgentErrorResponse};
+pub use envelope::{
+    ERROR_TEXT_MAX_BYTES, EXIT_FAILURE, EXIT_RETRYABLE, ErrorDetails, ScAgentErrorResponse,
+};
 #[doc(inline)]
 pub use error::{
-    BusyCause, ErrorCategory, ErrorCode, JevError, LimitUnit, NetworkErrorKind,
+    BusyCause, ErrorCategory, ErrorCode, IO_KIND_IDS, JevError, LimitUnit, NetworkErrorKind,
     PROVIDER_TEXT_MAX_BYTES, ProviderFailure, ResponseInvalidCause, bound_provider_text,
 };
 #[doc(inline)]

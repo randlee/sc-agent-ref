@@ -21,7 +21,8 @@
         "suggested_action": "Check connectivity and DNS to the provider, then retry.",
         "retryable": true,
         "details": {
-          "network_kind": "connect"
+          "network_kind": "connect",
+          "backend": "jev"
         },
         "schema_version": 1
       }

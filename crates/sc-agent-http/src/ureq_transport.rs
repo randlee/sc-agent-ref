@@ -265,8 +265,8 @@ fn ureq_error(error: ureq::Error) -> JevError {
 /// Classifies a ureq failure for [`JevError::retryable`].
 ///
 /// TLS, certificate and https-only refusals are `Tls` (not retryable); a
-/// timeout is `Timeout`; everything else that fails before a response, DNS
-/// included, is `Connect`.
+/// timeout is `Timeout`; a connection, DNS or proxy-connect failure is `Connect`; an
+/// error that is none of these is `Other` (not retryable).
 fn ureq_error_kind(error: &ureq::Error) -> NetworkErrorKind {
     match error {
         ureq::Error::Timeout(_) => NetworkErrorKind::Timeout,
@@ -276,7 +276,13 @@ fn ureq_error_kind(error: &ureq::Error) -> NetworkErrorKind {
         | ureq::Error::RequireHttpsOnly(_)
         | ureq::Error::Pem(_)
         | ureq::Error::Rustls(_) => NetworkErrorKind::Tls,
-        _ => NetworkErrorKind::Connect,
+        ureq::Error::BodyStalled => NetworkErrorKind::Timeout,
+        ureq::Error::HostNotFound
+        | ureq::Error::ConnectionFailed
+        | ureq::Error::ConnectProxyFailed(_) => NetworkErrorKind::Connect,
+        // Anything else (a bad URI, a protocol error, too many redirects, a
+        // decode failure, a future variant) is not known to be transient.
+        _ => NetworkErrorKind::Other,
     }
 }
 

@@ -284,11 +284,20 @@ pub enum NetworkErrorKind {
     Tls,
     /// The caller cancelled the request.
     Cancelled,
+    /// A transport error that is none of the above. Not retryable: an
+    /// unclassified failure is not assumed to be transient.
+    Other,
 }
 
 impl NetworkErrorKind {
     /// Every kind, in declaration order.
-    pub const ALL: &'static [Self] = &[Self::Timeout, Self::Connect, Self::Tls, Self::Cancelled];
+    pub const ALL: &'static [Self] = &[
+        Self::Timeout,
+        Self::Connect,
+        Self::Tls,
+        Self::Cancelled,
+        Self::Other,
+    ];
 
     /// The snake_case spelling.
     #[must_use]
@@ -298,6 +307,7 @@ impl NetworkErrorKind {
             Self::Connect => "connect",
             Self::Tls => "tls",
             Self::Cancelled => "cancelled",
+            Self::Other => "other",
         }
     }
 
@@ -325,7 +335,7 @@ impl FromStr for NetworkErrorKind {
             .find(|kind| kind.as_str() == text)
             .ok_or_else(|| {
                 JevError::input_invalid(format!(
-                    "network error kind {text:?} is not timeout, connect, tls, or cancelled"
+                    "network error kind {text:?} is not timeout, connect, tls, cancelled, or other"
                 ))
             })
     }

@@ -1,4 +1,19 @@
 {
+  "Annotated.Backend": {
+    "details": {
+      "backend": "anthropic_haiku",
+      "http_status": 500,
+      "provider": "Jev",
+      "provider_request_id": "req_1",
+      "provider_type": "some_error"
+    },
+    "error": "API_ERROR",
+    "kind": "dependency",
+    "message": "provider API error: Jev HTTP 500 (some_error): the provider said no",
+    "retryable": true,
+    "schema_version": 1,
+    "suggested_action": "Jev failed on its side. Wait and retry; if it keeps failing, check the provider's status page."
+  },
   "ApiError.404": {
     "details": {
       "http_status": 404,
@@ -147,7 +162,7 @@
     "error": "EXTRACTION_TIMEOUT",
     "kind": "timeout",
     "message": "git did not finish within 60s",
-    "retryable": false,
+    "retryable": true,
     "schema_version": 1,
     "suggested_action": "git did not finish within 60s. Check for a stalled git process, a lock file (such as .git/index.lock) or a slow filesystem, then retry."
   },
@@ -186,6 +201,17 @@
     "retryable": false,
     "schema_version": 1,
     "suggested_action": "Create gone.toml or correct the path in check.toml, then retry."
+  },
+  "InputMissing.Recovery": {
+    "details": {
+      "path": "/nope"
+    },
+    "error": "INPUT_MISSING",
+    "kind": "not_found",
+    "message": "input path /nope is missing",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "Pass --repo-root with an existing directory."
   },
   "InputTooLarge.Bytes": {
     "details": {
@@ -240,6 +266,18 @@
     "schema_version": 1,
     "suggested_action": "Check that stdout exists and is readable or writable, then retry."
   },
+  "IoFailed.Interrupted": {
+    "details": {
+      "io_kind": "interrupted",
+      "what": "stdin"
+    },
+    "error": "IO_FAILED",
+    "kind": "dependency",
+    "message": "stdin: I/O failed (operation interrupted)",
+    "retryable": true,
+    "schema_version": 1,
+    "suggested_action": "Check that stdin exists and is readable or writable, then retry."
+  },
   "IoFailed.Recovery": {
     "details": {
       "io_kind": "not_found",
@@ -251,6 +289,18 @@
     "retryable": false,
     "schema_version": 1,
     "suggested_action": "Check that git is installed."
+  },
+  "IoFailed.TimedOut": {
+    "details": {
+      "io_kind": "timed_out",
+      "what": "git output"
+    },
+    "error": "IO_FAILED",
+    "kind": "dependency",
+    "message": "git output: I/O failed (timed out)",
+    "retryable": true,
+    "schema_version": 1,
+    "suggested_action": "Check that git output exists and is readable or writable, then retry."
   },
   "KeyMissing": {
     "error": "KEY_MISSING",
@@ -300,6 +350,17 @@
     "retryable": true,
     "schema_version": 1,
     "suggested_action": "Check connectivity and DNS to the provider, then retry."
+  },
+  "NetworkError.Other": {
+    "details": {
+      "network_kind": "other"
+    },
+    "error": "NETWORK_ERROR",
+    "kind": "dependency",
+    "message": "network error (other): bad uri",
+    "retryable": false,
+    "schema_version": 1,
+    "suggested_action": "The transport failed in a way sc-agent could not classify. Check the endpoint, proxy and network, then retry once; if it repeats, report it."
   },
   "NetworkError.Timeout": {
     "details": {

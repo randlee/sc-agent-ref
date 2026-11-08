@@ -175,7 +175,7 @@ fn test_failed_before_body_row_has_null_request_sha256() {
         &[BackendId::Jev],
         vec![judge],
     )
-    .expect_err("every backend failed");
+    .expect("an all-failed run still returns its response");
     let rows = sink.rows();
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].send_outcome(), SendOutcome::Failed);

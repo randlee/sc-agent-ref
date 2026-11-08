@@ -651,13 +651,13 @@ fn live_run(prepared: PreparedRun) -> Result<RunResponse, JevError> {
         attestations.push(BackendAttestation::new(*id, attestation));
     }
 
-    // ADR-SAG-0025: a run in which every backend failed is an error.
-    if answered.is_empty() {
-        let first = results.iter().find_map(|result| match result.status() {
-            BackendStatus::Failed(failure) => Some(failure.error().clone()),
-            BackendStatus::Ok(_) => None,
-        });
-        return Err(first.unwrap_or_else(|| JevError::input_invalid("the run selected no backend")));
+    // A run that selected no backend at all is an error. A run in which
+    // every backend failed is NOT: it returns the response (no primary
+    // answers, one typed failure per backend) so no backend's error is lost
+    // (ADR-SAG-0025 as amended by agt-2a3); `is_partial()` is true and the
+    // consumer reports `first_failure()` and exits non-zero or raises.
+    if results.is_empty() {
+        return Err(JevError::input_invalid("the run selected no backend"));
     }
     let leak = results
         .iter()
@@ -666,6 +666,8 @@ fn live_run(prepared: PreparedRun) -> Result<RunResponse, JevError> {
     // A failed save keeps the answers (ADR-SAG-0025): `session_saved = false`
     // and one warning that carries the error code only, never a path.
     let (saved, save_warning) = match &store {
+        // Nothing answered, so there is nothing to resume: no session.
+        _ if answered.is_empty() => (false, None),
         Some(store) => {
             match save_session(store, session_id, session_created_at, &request, &answered) {
                 Ok(saved) => (saved, None),

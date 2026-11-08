@@ -304,7 +304,11 @@ pub fn read_at_rev(
         .map(str::trim)
         .unwrap_or_default();
     let sha = BlobSha::try_from(sha_text).map_err(|_| {
-        JevError::extraction_failed("git rev-parse returned an unexpected object id")
+        JevError::io_failed_with(
+            "git rev-parse (it returned an unexpected object id)",
+            io::ErrorKind::InvalidData,
+            None,
+        )
     })?;
 
     let mut kind = git(root.as_path());
@@ -389,10 +393,10 @@ pub fn read_at_rev(
 ///
 /// # Errors
 ///
-/// - `IO_FAILED` when git cannot be started or its pipes
-///   fail;
-/// - `EXTRACTION_FAILED` when git exits non-zero (the detail carries the
-///   start of git's stderr) or prints something other than an object id.
+/// - `IO_FAILED` when git cannot be started, its pipes fail, git exits
+///   non-zero (`what` carries the start of git's stderr) or prints something
+///   other than an object id: a dependency failing during the work, by the
+///   `IO_FAILED` rule in `docs/stability.md`.
 pub fn hash_blob(root: &RepoRoot, bytes: &[u8]) -> Result<BlobSha, JevError> {
     let mut command = git(root.as_path());
     command
@@ -407,8 +411,10 @@ pub fn hash_blob(root: &RepoRoot, bytes: &[u8]) -> Result<BlobSha, JevError> {
             _ => {
                 let _ = child.kill();
                 let _ = child.wait();
-                return Err(JevError::extraction_failed(
-                    "git hash-object pipes are unavailable",
+                return Err(JevError::io_failed_with(
+                    "git hash-object pipes",
+                    io::ErrorKind::BrokenPipe,
+                    None,
                 ));
             }
         };
@@ -449,16 +455,30 @@ pub fn hash_blob(root: &RepoRoot, bytes: &[u8]) -> Result<BlobSha, JevError> {
     if !exit.success() || written.is_err() {
         let detail = detail.unwrap_or_default();
         let reason = String::from_utf8_lossy(detail.trim_ascii());
-        let reason = reason.lines().next().unwrap_or("no stderr");
-        return Err(JevError::extraction_failed(format!(
-            "git hash-object failed: {reason}"
-        )));
+        let reason: String = reason
+            .lines()
+            .next()
+            .unwrap_or("no stderr")
+            .chars()
+            .take(256)
+            .collect();
+        return Err(JevError::io_failed_with(
+            format!("git hash-object (exit failure: {reason})"),
+            io::ErrorKind::Other,
+            Some(
+                "Check that the repository is readable and git works there, then retry.".to_owned(),
+            ),
+        ));
     }
     std::str::from_utf8(id.trim_ascii())
         .ok()
         .and_then(|text| BlobSha::try_from(text).ok())
         .ok_or_else(|| {
-            JevError::extraction_failed("git hash-object returned an unexpected object id")
+            JevError::io_failed_with(
+                "git hash-object (it returned an unexpected object id)",
+                io::ErrorKind::InvalidData,
+                None,
+            )
         })
 }
 

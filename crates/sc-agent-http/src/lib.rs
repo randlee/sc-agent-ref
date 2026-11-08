@@ -85,7 +85,7 @@ mod ureq_transport;
 pub mod test_util;
 
 #[doc(inline)]
-pub use failure::api_failure;
+pub use failure::{ReplyShape, api_failure};
 #[doc(inline)]
 pub use redact::redact;
 #[doc(inline)]

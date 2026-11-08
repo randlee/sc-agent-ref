@@ -84,7 +84,28 @@ fn cli(args: &[&str]) -> Command {
         .env_remove("TYPESAFE_API_KEY")
         .env_remove("ANTHROPIC_API_KEY")
         .env_remove("OPENAI_API_KEY");
+    if let Some(profile) = child_profile_file() {
+        command.env("LLVM_PROFILE_FILE", profile);
+    }
     command
+}
+
+/// A coverage profile file name that only this child process writes, when the
+/// test run is instrumented (`LLVM_PROFILE_FILE` is set).
+///
+/// Hypothesis, not a proven cause: a coverage run's intermittent failure may
+/// come from several instrumented children sharing one profile file and the
+/// runtime reporting a merge problem on stderr, which these tests require to
+/// be exactly one JSON line. `%p` (process id) and `%m` (binary signature)
+/// give each child its own file in the same directory. Stderr is not filtered.
+fn child_profile_file() -> Option<PathBuf> {
+    let base = std::env::var_os("LLVM_PROFILE_FILE")?;
+    let dir = Path::new(&base).parent().map(Path::to_path_buf);
+    let name = "sc-ai-cli-child-%p-%m.profraw";
+    Some(match dir {
+        Some(dir) if !dir.as_os_str().is_empty() => dir.join(name),
+        _ => PathBuf::from(name),
+    })
 }
 
 fn run_cli(args: &[&str]) -> Output {
@@ -106,15 +127,24 @@ fn stdout_json(output: &Output) -> Value {
     serde_json::from_slice(&output.stdout).expect("stdout json")
 }
 
+/// The one stderr line as JSON. The exit code must be the one the error asks
+/// for: 3 when `retryable`, otherwise 2 (`docs/stability.md`).
 fn stderr_json(output: &Output) -> Value {
-    assert_eq!(output.status.code(), Some(2), "status {:?}", output.status);
     let stderr = output.stderr.strip_suffix(b"\n").unwrap_or(&output.stderr);
     assert!(
         !stderr.contains(&b'\n'),
         "stderr must be one line, got: {:?}",
         String::from_utf8_lossy(&output.stderr)
     );
-    serde_json::from_slice(stderr).expect("stderr json")
+    let value: Value = serde_json::from_slice(stderr).expect("stderr json");
+    let expected = if value["retryable"] == true { 3 } else { 2 };
+    assert_eq!(
+        output.status.code(),
+        Some(expected),
+        "status {:?} for {value}",
+        output.status
+    );
+    value
 }
 
 fn canon(path: &Path) -> String {
@@ -222,7 +252,8 @@ fn test_multi_backend_cli_equal_input() {
 
 /// REQ-SAG-0604, REQ-SAG-0603, ADR-SAG-0025: a partial response prints the
 /// envelope with the successful answers on stdout, the first failure on
-/// stderr, and exits 2. An all-failed run is a plain error.
+/// stderr, and exits 2, or 3 when that failure is retryable. An all-failed run
+/// does the same with no answers, so no backend's error is lost (ERR-QA-1).
 #[test]
 fn test_cli_partial_failure_both_streams_exit_2() {
     let repo = temp_dir("partial");
@@ -249,7 +280,8 @@ fn test_cli_partial_failure_both_streams_exit_2() {
         "--scripted-answers",
         text(&answers),
     ]);
-    assert_eq!(output.status.code(), Some(2), "{:?}", output.status);
+    // The failure is PROVIDER_BUSY, which is retryable: exit 3.
+    assert_eq!(output.status.code(), Some(3), "{:?}", output.status);
     // stdout: the envelope, with the successful answer.
     let envelope: Value = serde_json::from_slice(&output.stdout).expect("stdout envelope");
     assert_eq!(envelope["version"], "1");
@@ -265,14 +297,30 @@ fn test_cli_partial_failure_both_streams_exit_2() {
     assert_eq!(error["schema_version"], 1);
     assert_eq!(error["error"], "PROVIDER_BUSY");
     assert_eq!(error["error"], data["results"][1]["error"]["error"]);
+    assert_eq!(error["kind"], "capacity");
+    assert_eq!(error["retryable"], true);
+    assert!(
+        error["suggested_action"]
+            .as_str()
+            .expect("action")
+            .contains("Wait")
+    );
+    assert_eq!(error["details"]["backend"], "anthropic_haiku");
+    assert_eq!(error["details"]["cause"], "sends");
+    assert_eq!(error["details"]["attempts"], 4);
+    assert_eq!(
+        data["results"][1]["error"]["details"]["backend"],
+        "anthropic_haiku"
+    );
     assert_no_prompt_leak(&String::from_utf8_lossy(&output.stderr));
 
-    // All backends failed: a plain error, no envelope.
+    // All backends failed: the same envelope with no answers and every
+    // backend's own typed error, plus the first failure on stderr.
     let all_failed = scripted(
         repo.path(),
         &json!({"backends": {
-            "jev": {"failure": {"error": "PROVIDER_BUSY"}},
-            "anthropic_haiku": {"failure": {"error": "PROVIDER_BUSY"}}
+            "jev": {"failure": {"error": "AUTH_FAILED"}},
+            "anthropic_haiku": {"failure": {"error": "QUOTA_EXHAUSTED"}}
         }}),
     );
     let output = run_cli(&[
@@ -289,8 +337,27 @@ fn test_cli_partial_failure_both_streams_exit_2() {
         "--scripted-answers",
         text(&all_failed),
     ]);
-    assert!(output.stdout.is_empty(), "no envelope when all failed");
-    assert_eq!(stderr_json(&output)["error"], "PROVIDER_BUSY");
+    let envelope: Value = serde_json::from_slice(&output.stdout).expect("stdout envelope");
+    let data = &envelope["data"];
+    assert!(data.get("answers").is_none(), "no answers when all failed");
+    assert!(data.get("primary_backend").is_none());
+    assert_eq!(data["session_saved"], false);
+    assert_eq!(data["results"][0]["backend"], "jev");
+    assert_eq!(data["results"][0]["error"]["error"], "AUTH_FAILED");
+    assert_eq!(data["results"][0]["error"]["details"]["backend"], "jev");
+    assert_eq!(data["results"][1]["backend"], "anthropic_haiku");
+    assert_eq!(data["results"][1]["error"]["error"], "QUOTA_EXHAUSTED");
+    assert_eq!(
+        data["results"][1]["error"]["details"]["backend"],
+        "anthropic_haiku"
+    );
+    // The first failure is on stderr; a non-retryable one exits 2.
+    let error = stderr_json(&output);
+    assert_eq!(error["error"], "AUTH_FAILED");
+    assert_eq!(error["kind"], "permission");
+    assert_eq!(error["retryable"], false);
+    assert_eq!(error["details"]["backend"], "jev");
+    assert_eq!(output.status.code(), Some(2));
 }
 
 /// REQ-SAG-0605, ADR-SAG-0008: independent is the default; the flag selects
@@ -920,7 +987,18 @@ fn cli_usage_errors_are_input_invalid_and_name_the_argument() {
     ]);
     let error = stderr_json(&output);
     assert_eq!(error["error"], "INPUT_INVALID");
-    assert_eq!(error["field"], "session_id");
+    assert_eq!(error["field"], "--session-id");
+    let long = "x".repeat(100_000);
+    let output = run_cli(&["jev", "ask", "--session-id", &long, "--text", "hello"]);
+    let error = stderr_json(&output);
+    assert!(
+        error["message"].as_str().expect("message").len() < 400,
+        "{error}"
+    );
+    let output = run_cli(&["jev", "run", "--backend", "nope"]);
+    let error = stderr_json(&output);
+    assert_eq!(error["error"], "INPUT_INVALID");
+    assert_eq!(error["field"], "--backend");
 }
 
 #[test]

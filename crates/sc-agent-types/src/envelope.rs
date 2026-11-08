@@ -28,12 +28,17 @@ pub(crate) const ERROR_RESPONSE_SCHEMA_VERSION: u32 = 1;
 ///   versions this error shape only, independent of the stdout envelope
 ///   `version`.
 ///
-/// Reading (producer stderr) denies unknown keys at the top level and inside
-/// `details`, and accepts `schema_version` absent or `1`; anything else does
-/// not parse. Only `error` and `message` are required, so a producer that
-/// writes the short shape still parses. Consumers that see a
+/// Reading (producer stderr) ignores keys it does not know, at the top level
+/// and inside `details`, so a producer that adds a key does not make its line
+/// unparseable; it accepts `schema_version` absent or `1`, and anything else
+/// does not parse. Only `error` and `message` are required, so a producer
+/// that writes the short shape still parses. Consumers that see a
 /// `schema_version` other than `1` treat the line as an unknown error shape
 /// and fall back to the exit code and the raw line.
+///
+/// `message` and `suggested_action` are cut to [`ERROR_TEXT_MAX_BYTES`]
+/// bytes (ending in `...`) when the body is built, so caller text echoed in
+/// an error (a mistyped argument, say) is bounded.
 ///
 /// # Examples
 ///
@@ -63,14 +68,36 @@ pub struct ScAgentErrorResponse {
     schema_version: u32,
 }
 
-/// The closed `details` object of an error response: the machine fields of
-/// one error.
+/// Exit code of a failed command whose error is not retryable.
+pub const EXIT_FAILURE: u8 = 2;
+
+/// Exit code of a failed command whose error is retryable: waiting or trying
+/// again, with no change, may succeed.
+pub const EXIT_RETRYABLE: u8 = 3;
+
+/// Longest `message` or `suggested_action` written in an error body, in
+/// bytes. Longer text is cut at a character boundary and ends in `...`.
+pub const ERROR_TEXT_MAX_BYTES: usize = 4096;
+
+/// `text` cut to [`ERROR_TEXT_MAX_BYTES`].
+fn cap_text(text: &str) -> String {
+    if text.len() <= ERROR_TEXT_MAX_BYTES {
+        return text.to_owned();
+    }
+    let mut end = ERROR_TEXT_MAX_BYTES - 3;
+    while !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    format!("{}...", &text[..end])
+}
+
+/// The `details` object of an error response: the machine fields of one
+/// error. A reader ignores keys it does not know.
 ///
 /// Every key is optional and written only when the error has it. Which keys
 /// an error carries is part of its id's contract; see `docs/stability.md`.
 /// Text values come from redacted, bounded sources.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 #[non_exhaustive]
 pub struct ErrorDetails {
     /// The producer that reported the error.
@@ -120,6 +147,10 @@ pub struct ErrorDetails {
     /// The missing path of `INPUT_MISSING` and `PROMPT_FILE_MISSING`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub path: Option<String>,
+    /// The backend (descriptor name) the error belongs to, such as `jev`
+    /// or `anthropic_haiku`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backend: Option<String>,
     /// A session-log flush failure that happened while the error left.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub log_flush_failure: Option<String>,
@@ -145,6 +176,7 @@ impl ErrorDetails {
             io_kind: text(self.io_kind),
             network_kind: text(self.network_kind),
             path: text(self.path),
+            backend: text(self.backend),
             log_flush_failure: text(self.log_flush_failure),
         }
     }
@@ -152,7 +184,7 @@ impl ErrorDetails {
     /// Copies the provider's status, label, type, code and request id.
     pub(crate) fn set_provider(&mut self, failure: &crate::error::ProviderFailure) {
         self.http_status = Some(failure.status);
-        self.provider = Some(failure.provider.clone());
+        self.provider = (!failure.provider.is_empty()).then(|| failure.provider.clone());
         self.provider_type.clone_from(&failure.provider_type);
         self.provider_code.clone_from(&failure.provider_code);
         self.provider_request_id.clone_from(&failure.request_id);
@@ -164,7 +196,6 @@ impl ErrorDetails {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
 struct RawErrorResponse {
     error: String,
     #[serde(default)]
@@ -218,13 +249,25 @@ impl ScAgentErrorResponse {
         Self {
             error: error.code().as_str().to_owned(),
             kind: Some(error.category()),
-            message: error.message(),
-            suggested_action: error.suggested_action(),
+            message: cap_text(&error.message()),
+            suggested_action: cap_text(&error.suggested_action()),
             retryable: error.retryable(),
             retry_after_seconds: error.retry_after_seconds(),
             field: error.field().map(str::to_owned),
             details: error.details().filter(|details| !details.is_empty()),
             schema_version: ERROR_RESPONSE_SCHEMA_VERSION,
+        }
+    }
+
+    /// The process exit code of a command that fails with this error:
+    /// [`EXIT_FAILURE`] (2) when the error is not retryable, [`EXIT_RETRYABLE`]
+    /// (3) when it is. Success is 0.
+    #[must_use]
+    pub fn exit_code(&self) -> u8 {
+        if self.retryable {
+            EXIT_RETRYABLE
+        } else {
+            EXIT_FAILURE
         }
     }
 
@@ -311,6 +354,14 @@ mod tests {
     }
 
     #[test]
+    fn long_text_is_capped() {
+        let error = JevError::input_invalid("é".repeat(10_000));
+        let body = ScAgentErrorResponse::from_jev_error(&error);
+        assert!(body.message().len() <= ERROR_TEXT_MAX_BYTES);
+        assert!(body.message().ends_with("..."));
+    }
+
+    #[test]
     fn retryable_is_always_written() {
         let value =
             serde_json::to_value(ScAgentErrorResponse::from_jev_error(&JevError::InputEmpty))
@@ -319,11 +370,15 @@ mod tests {
     }
 
     #[test]
-    fn reader_rejects_unknown_keys_and_versions() {
+    fn reader_tolerates_unknown_keys_and_rejects_unknown_versions() {
+        // A key a newer producer adds does not make its line unparseable.
+        let tolerated: ScAgentErrorResponse = serde_json::from_str(
+            r#"{"error":"INPUT_EMPTY","message":"m","extra":1,"details":{"producer":"p","x":1}}"#,
+        )
+        .expect("unknown keys are ignored");
+        assert_eq!(tolerated.producer(), Some("p"));
         for line in [
-            r#"{"error":"INPUT_EMPTY","message":"m","extra":1}"#,
             r#"{"error":"INPUT_EMPTY","message":"m","schema_version":2}"#,
-            r#"{"error":"INPUT_EMPTY","message":"m","details":{"producer":"p","x":1}}"#,
             r#"{"error":"INPUT_EMPTY","message":"m","kind":"nope"}"#,
         ] {
             assert!(
@@ -336,5 +391,21 @@ mod tests {
         assert_eq!(short.schema_version(), 1);
         assert_eq!(short.suggested_action(), "");
         assert!(!short.retryable());
+    }
+
+    #[test]
+    fn exit_code_follows_retryable() {
+        let busy = JevError::provider_busy("b", 429, 1, crate::BusyCause::Sends, None);
+        assert_eq!(
+            ScAgentErrorResponse::from_jev_error(&busy).exit_code(),
+            EXIT_RETRYABLE
+        );
+        assert_eq!(EXIT_RETRYABLE, 3);
+        let invalid = JevError::input_invalid("x");
+        assert_eq!(
+            ScAgentErrorResponse::from_jev_error(&invalid).exit_code(),
+            EXIT_FAILURE
+        );
+        assert_eq!(EXIT_FAILURE, 2);
     }
 }

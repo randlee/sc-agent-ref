@@ -401,6 +401,11 @@ fn test_llm_input_is_refused_like_jev_and_nothing_is_sent() {
         .judge(&oversized, &SendTrace::new())
         .expect_err("oversize");
     assert_eq!(too_big.code(), "INPUT_TOO_LARGE");
+    let details = too_big.details().expect("details");
+    assert_eq!(details.unit.as_deref(), Some("bytes"));
+    assert_eq!(details.limit, Some(96_000));
+    assert!(details.actual.expect("actual") > 96_000);
+    assert!(too_big.suggested_action().contains("never split"));
     assert!(posts(&recorded).is_empty());
 
     // `Question::new_unchecked` does not check the choice count, so a caller can build
@@ -421,6 +426,11 @@ fn test_llm_input_is_refused_like_jev_and_nothing_is_sent() {
         .judge(&short, &SendTrace::new())
         .expect_err("one choice");
     assert_eq!(invalid.code(), "INPUT_INVALID");
+    assert_eq!(
+        invalid.category(),
+        sc_agent_types::ErrorCategory::Validation
+    );
+    assert!(!invalid.retryable());
     assert!(invalid.to_string().contains("needs 2 to 255 choices"));
     assert!(posts(&recorded).is_empty());
 
@@ -429,6 +439,11 @@ fn test_llm_input_is_refused_like_jev_and_nothing_is_sent() {
         .judge(&missing_prompt, &SendTrace::new())
         .expect_err("prompt");
     assert_eq!(missing.code(), "INPUT_INVALID");
+    assert!(
+        missing
+            .to_string()
+            .contains("LLM system prompt is required")
+    );
     assert!(posts(&recorded).is_empty());
 }
 
@@ -464,6 +479,16 @@ fn test_llm_bad_reply_is_typed() {
             .judge(&standard_request(PROMPT), &SendTrace::new())
             .expect_err(reply);
         assert_eq!(error.code(), "RESPONSE_INVALID", "{reply} -> {error}");
+        assert!(!error.retryable(), "{reply}");
+        let cause = error.details().and_then(|d| d.cause).expect("cause");
+        assert!(
+            ["not_json", "schema"].contains(&cause.as_str()),
+            "{reply}: {cause}"
+        );
+        assert!(
+            error.to_string().starts_with("response is invalid ("),
+            "{error}"
+        );
         assert_eq!(posts(&recorded).len(), 2, "{reply}");
     }
 }
@@ -478,6 +503,11 @@ fn test_llm_stop_reason_truncation_is_response_invalid() {
         .judge(&standard_request(PROMPT), &SendTrace::new())
         .expect_err("truncated haiku");
     assert_eq!(haiku_error.code(), "RESPONSE_INVALID");
+    assert_eq!(
+        haiku_error.details().and_then(|d| d.cause).as_deref(),
+        Some("truncated")
+    );
+    assert!(!haiku_error.retryable());
     assert!(haiku_error.to_string().contains("max_tokens"));
     assert!(haiku_error.to_string().contains("stop_reason"));
     assert_eq!(posts(&haiku_recorded).len(), 2);
@@ -490,6 +520,10 @@ fn test_llm_stop_reason_truncation_is_response_invalid() {
         .judge(&standard_request(PROMPT), &SendTrace::new())
         .expect_err("truncated luna");
     assert_eq!(luna_error.code(), "RESPONSE_INVALID");
+    assert_eq!(
+        luna_error.details().and_then(|d| d.cause).as_deref(),
+        Some("truncated")
+    );
     assert!(luna_error.to_string().contains("max_tokens"));
     assert!(luna_error.to_string().contains("incomplete"));
     assert_eq!(posts(&luna_recorded).len(), 2);
@@ -543,7 +577,7 @@ fn test_llm_busy_exhausted_wording_and_decimal_retry_after() {
         response(
             429,
             vec![("retry-after", "1.5")],
-            json!({"error": "slow down"}),
+            json!({"type": "error", "error": {"type": "rate_limit_error", "message": "slow down"}, "request_id": "req_busy"}),
         )
     };
     let (backend, recorded) = luna(vec![busy(), busy(), busy(), busy(), busy()]);
@@ -553,11 +587,20 @@ fn test_llm_busy_exhausted_wording_and_decimal_retry_after() {
     assert_eq!(error.code(), "PROVIDER_BUSY");
     assert_eq!(
         error.to_string(),
-        "provider is busy: luna HTTP 429 busy; 5 sends exhausted"
+        "provider is busy: luna HTTP 429 busy; 5 sends exhausted (rate_limit_error: slow down)"
     );
     assert!(error.retryable());
     // The provider's `Retry-After` (1.5 s, rounded up) is reported.
     assert_eq!(error.retry_after_seconds(), Some(2));
+    // The last busy reply's words and ids are kept, like any provider error.
+    let details = error.details().expect("details");
+    assert_eq!(details.provider.as_deref(), Some("luna"));
+    assert_eq!(details.provider_type.as_deref(), Some("rate_limit_error"));
+    assert_eq!(details.provider_request_id.as_deref(), Some("req_busy"));
+    assert!(
+        error.message().contains("rate_limit_error: slow down"),
+        "{error}"
+    );
     assert_eq!(posts(&recorded).len(), 5);
     assert_eq!(recorded.delays(), [Duration::from_millis(1_500); 4]);
 }
@@ -754,6 +797,14 @@ fn test_llm_text_reply_is_not_json_vendor_envelope() {
         .judge(&standard_request(PROMPT), &SendTrace::new())
         .expect_err("envelope");
     assert_eq!(error.code(), "RESPONSE_INVALID");
+    assert_eq!(
+        error.details().and_then(|d| d.cause).as_deref(),
+        Some("not_json")
+    );
+    assert!(
+        error.to_string().contains("haiku reply is not JSON"),
+        "{error}"
+    );
 }
 
 /// A cancelled token stops the call before any send (`with_cancel`).

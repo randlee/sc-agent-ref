@@ -301,7 +301,10 @@ impl ComposeInputs {
 /// cannot be made absolute.
 pub fn explicit_repo_root(path: &Path) -> Result<RepoRoot, JevError> {
     if !path.is_dir() {
-        return Err(JevError::input_missing(path.display().to_string()));
+        return Err(JevError::input_missing_with(
+            path.display().to_string(),
+            "Pass an existing directory as the repository root (--repo-root, or repo_root in Python).",
+        ));
     }
     let absolute = std::path::absolute(path).map_err(|error| {
         JevError::io_failed_with(

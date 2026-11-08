@@ -43,19 +43,59 @@ impl EnvSource for ProcessEnv {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct PlatformKeyring;
 
+/// Longest a platform keyring read may take.
+///
+/// A keystore that waits for the user (a locked macOS Keychain with no way to
+/// show its prompt, a Secret Service with no agent) can block a read forever.
+/// A headless run must not hang on it, so the read gets a deadline and a
+/// typed, retryable error (`IO_FAILED`, `timed_out`).
+pub(crate) const KEYRING_READ_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15);
+
+/// Runs `read` on its own thread and waits at most `timeout`.
+///
+/// On timeout the thread is left to finish (or stay blocked) on its own; it
+/// only reads the keystore and holds no state, so abandoning it is safe, and
+/// the process can still exit.
+pub(crate) fn read_with_deadline<T: Send + 'static>(
+    timeout: std::time::Duration,
+    read: impl FnOnce() -> T + Send + 'static,
+) -> Option<T> {
+    let (sender, receiver) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = sender.send(read());
+    });
+    receiver.recv_timeout(timeout).ok()
+}
+
+fn keyring_timed_out() -> JevError {
+    JevError::io_failed_with(
+        format!("{KEYRING_UNREADABLE} (it did not answer in time)"),
+        std::io::ErrorKind::TimedOut,
+        Some("Unlock or allow the platform keystore for this OS user and retry, or provide the key in the process environment or the repo-root .env file instead.".to_owned()),
+    )
+}
+
 impl KeyringSource for PlatformKeyring {
     fn password(&self, service: &str, account: &str) -> Result<Option<String>, JevError> {
-        let entry = match keyring::Entry::new(service, account) {
-            Ok(entry) => entry,
-            Err(error) => {
-                return Err(keyring_unavailable(
-                    sanitized_keyring_cause(&error),
-                    keyring_io_kind(&error),
-                ));
-            }
-        };
-        classify_keyring(entry.get_password())
+        let (service, account) = (service.to_owned(), account.to_owned());
+        match read_with_deadline(KEYRING_READ_TIMEOUT, move || read_entry(&service, &account)) {
+            Some(result) => result,
+            None => Err(keyring_timed_out()),
+        }
     }
+}
+
+fn read_entry(service: &str, account: &str) -> Result<Option<String>, JevError> {
+    let entry = match keyring::Entry::new(service, account) {
+        Ok(entry) => entry,
+        Err(error) => {
+            return Err(keyring_unavailable(
+                sanitized_keyring_cause(&error),
+                keyring_io_kind(&error),
+            ));
+        }
+    };
+    classify_keyring(entry.get_password())
 }
 
 pub(crate) fn classify_keyring(
@@ -161,5 +201,27 @@ mod tests {
     fn assert_secret_absent(error: &JevError, secret: &str) {
         let rendered = format!("{error} {error:?} {}", error.message());
         assert!(!rendered.contains(secret), "{rendered}");
+    }
+
+    /// A keystore read that never answers returns a typed, retryable error
+    /// at the deadline instead of hanging (the macOS Keychain prompt case).
+    #[test]
+    fn a_blocked_keyring_read_times_out_with_a_typed_error() {
+        let started = std::time::Instant::now();
+        let blocked = read_with_deadline(std::time::Duration::from_millis(50), || {
+            std::thread::sleep(std::time::Duration::from_secs(30));
+            1_u8
+        });
+        assert!(blocked.is_none());
+        assert!(started.elapsed() < std::time::Duration::from_secs(5));
+        let error = keyring_timed_out();
+        assert_eq!(error.code(), "IO_FAILED");
+        assert!(error.retryable());
+        assert!(error.suggested_action().contains("process environment"));
+        // A prompt answer is returned as is.
+        assert_eq!(
+            read_with_deadline(std::time::Duration::from_secs(5), || 7_u8),
+            Some(7)
+        );
     }
 }

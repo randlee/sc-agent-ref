@@ -249,10 +249,7 @@ fn run_argv(
         Err(CapError::TooLarge) => Err(JevError::extraction_invalid(format!(
             "stdout exceeds {MAX_COMMAND_STDOUT_BYTES} bytes"
         ))),
-        Err(CapError::Io(error)) => Err(JevError::extraction_failed(format!(
-            "stdout read failed (cause: {})",
-            error.kind()
-        ))),
+        Err(CapError::Io(error)) => Err(JevError::io_failed(format!("{producer} stdout"), &error)),
     }
 }
 

@@ -36,9 +36,9 @@ class JevError(Exception):
     schema_version: int
     """The error shape version; always 1."""
     response: dict[str, Any] | None
-    """Set when some, not all, backends failed: the run response body
-    (`data`, with the answers that succeeded). `None` otherwise, including
-    when every backend failed."""
+    """Set when any backend failed: the run response body (`data`). It holds
+    the answers that succeeded, if any, and every failed backend's typed error
+    with `details.backend`. `None` otherwise."""
 
 class Session:
     """Live judge session returned by `CheckResult.session`."""

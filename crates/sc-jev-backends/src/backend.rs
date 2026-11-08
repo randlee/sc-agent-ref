@@ -24,8 +24,8 @@ use std::fmt;
 use std::sync::Arc;
 
 use sc_agent_http::{
-    BusyPolicy, Endpoint, HttpClient, HttpRequest, HttpResponse, Method, Timeouts, Transport,
-    UreqTransport, api_failure,
+    BusyPolicy, Endpoint, HttpClient, HttpRequest, HttpResponse, Method, ReplyShape, Timeouts,
+    Transport, UreqTransport, api_failure,
 };
 use sc_agent_types::{
     BackendId, CancelToken, JevError, ModelId, ResolvedApiKey, ResponseInvalidCause, SendTrace,
@@ -231,7 +231,12 @@ impl<T: Transport> Client<T> {
         self.http
             .send_and_parse(&request, trace.clone(), |response| {
                 if response.status() != 200 {
-                    return Err(api_failure(self.provider.name, &response));
+                    return Err(api_failure(
+                        self.provider.name,
+                        ReplyShape::Llm,
+                        &request,
+                        &response,
+                    ));
                 }
                 parse(response)
             })

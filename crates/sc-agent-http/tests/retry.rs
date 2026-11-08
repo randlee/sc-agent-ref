@@ -291,7 +291,8 @@ fn test_quota_body_is_not_retried_but_unknown_429_is() {
         assert_eq!(transport.sends(), 1, "{body}");
         assert!(hooks.sleeper.waits().is_empty());
         assert_eq!(
-            sc_agent_http::api_failure("p", &response).code(),
+            sc_agent_http::api_failure("p", sc_agent_http::ReplyShape::Llm, &request(), &response)
+                .code(),
             "QUOTA_EXHAUSTED"
         );
     }

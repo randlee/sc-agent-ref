@@ -20,8 +20,10 @@ use sc_ai::{AskCommand, Command, RunCommand};
 /// Usage notes appended to `--help`.
 const NOTES: &str = "\
 Success writes one JSON envelope to stdout: {\"version\",\"operation\",\"data\"}.
-Failure writes one {\"schema_version\",\"error\",\"message\"} line to stderr and
-exits 2. When some, not all, backends fail, stdout carries the envelope with the
+Failure writes one JSON line to stderr and exits 2. Its keys are error (a stable
+id), kind, message (what failed), suggested_action, retryable (always present),
+retry_after_seconds, field and details (the last three only when the error has
+them) and schema_version (1). When some, not all, backends fail, stdout carries the envelope with the
 successful answers, stderr carries the first failure, and the exit code is 2.
 
 --check is a repo-relative check.toml (default check.toml).
@@ -330,28 +332,33 @@ fn non_empty_path(value: &str) -> Result<PathBuf, JevError> {
 }
 
 fn parse_rev(value: &str) -> Result<Rev, JevError> {
-    Rev::parse(value)
+    Rev::parse(value).map_err(|error| error.with_field("--rev"))
 }
 
 fn parse_backend(value: &str) -> Result<BackendId, JevError> {
-    value.parse()
+    value
+        .parse()
+        .map_err(|error: JevError| error.with_field("--backend"))
 }
 
 /// A session id is a ULID since Phase A.1; anything else, a UUID included,
 /// is one `INPUT_INVALID` line whose fix hint says how to start over.
 fn parse_session_id(value: &str) -> Result<SessionId, JevError> {
     value.parse().map_err(|_| {
+        // Caller text echoed in an error is cut short (it can be any length).
+        let shown: String = value.chars().take(64).collect();
+        let cut = if shown.len() < value.len() { "..." } else { "" };
         JevError::input_invalid_field(
-            "session_id",
+            "--session-id",
             format!(
-                "session id {value:?} is not a ULID; session ids are ULIDs since Phase A.1; start a new session with `sc-ai jev run`"
+                "session id {shown:?}{cut} is not a ULID; session ids are ULIDs since Phase A.1; start a new session with `sc-ai jev run`"
             ),
         )
     })
 }
 
 fn parse_project(value: &str) -> Result<ProjectLabel, JevError> {
-    ProjectLabel::new(value)
+    ProjectLabel::new(value).map_err(|error| error.with_field("--project"))
 }
 
 #[cfg(test)]
@@ -373,9 +380,31 @@ mod tests {
             let message = error.message();
             assert!(message.contains("ULID"), "{message}");
             assert!(message.contains("sc-ai jev run"), "{message}");
-            assert_eq!(error.field(), Some("session_id"));
+            assert_eq!(error.field(), Some("--session-id"));
+            assert!(error.message().len() < 400);
         }
         assert!(parse_session_id("01JC4Z7A5B0000000000000001").is_ok());
+    }
+
+    /// The `--help` notes list the amended stderr keys (REQ-SAG-0701).
+    #[test]
+    fn help_notes_list_the_error_body_keys() {
+        let Ok(Parsed::Print(text)) = parse(["sc-ai", "--help"]) else {
+            panic!("--help must print");
+        };
+        for key in [
+            "error (a stable",
+            "kind,",
+            "message (what failed)",
+            "suggested_action",
+            "retryable (always present)",
+            "retry_after_seconds",
+            "field and details",
+            "schema_version (1)",
+        ] {
+            assert!(text.contains(key), "{key}: {text}");
+        }
+        assert!(!text.contains("{\"schema_version\",\"error\",\"message\"}"));
     }
 
     /// Usage text names `sc-ai`, never argv\[0\] such as `sc-ai.exe`.

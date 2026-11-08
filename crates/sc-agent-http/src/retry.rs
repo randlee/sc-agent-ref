@@ -39,7 +39,7 @@ use std::time::{Duration, Instant};
 
 use sc_agent_types::{BusyCause, CancelToken, JevError, NetworkErrorKind, SendTrace, Sha256Digest};
 
-use crate::failure::{is_quota_reply, retry_after_seconds};
+use crate::failure::{busy_reply, is_quota_reply, retry_after_seconds};
 use crate::redact::redact;
 use crate::request::{HttpRequest, HttpResponse};
 use crate::transport::Transport;
@@ -450,7 +450,8 @@ fn retry_loop(
                 sends,
                 BusyCause::Sends,
                 reported_wait,
-            ));
+            )
+            .with_busy_reply(busy_reply(request, &response)));
         }
         let remaining = BUDGET.saturating_sub(hooks.elapsed(started));
         if remaining.is_zero() {
@@ -463,7 +464,8 @@ fn retry_loop(
                 sends,
                 BusyCause::Budget,
                 reported_wait,
-            ));
+            )
+            .with_busy_reply(busy_reply(request, &response)));
         }
         let base =
             parse_retry_after(response.header("retry-after")).unwrap_or_else(|| backoff(sends));

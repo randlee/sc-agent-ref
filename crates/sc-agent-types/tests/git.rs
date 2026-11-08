@@ -237,13 +237,13 @@ fn test_hash_blob_large_input() {
 
 /// Outside a repository git fails; the detail carries git's own reason.
 #[test]
-fn test_hash_blob_failure_is_extraction_failed() {
+fn test_hash_blob_failure_is_io_failed() {
     let outside = tempfile::tempdir().expect("outside");
     let missing = outside.path().join("no-such-dir");
     let error = hash_blob(&RepoRoot::new(&missing), b"x").expect_err("no dir");
-    assert_eq!(error.code(), "EXTRACTION_FAILED");
+    assert_eq!(error.code(), "IO_FAILED");
     assert!(
-        error.message().contains("git hash-object failed"),
+        error.message().contains("git hash-object (exit failure"),
         "{}",
         error.message()
     );

@@ -88,6 +88,26 @@ fn every_variant() -> Vec<(&'static str, JevError)> {
             JevError::io_failed("stdout", &io::Error::from(io::ErrorKind::BrokenPipe)),
         ),
         (
+            "IoFailed.TimedOut",
+            JevError::io_failed("git output", &io::Error::from(io::ErrorKind::TimedOut)),
+        ),
+        (
+            "IoFailed.Interrupted",
+            JevError::io_failed("stdin", &io::Error::from(io::ErrorKind::Interrupted)),
+        ),
+        (
+            "InputMissing.Recovery",
+            JevError::input_missing_with("/nope", "Pass --repo-root with an existing directory."),
+        ),
+        (
+            "NetworkError.Other",
+            JevError::network(NetworkErrorKind::Other, "bad uri"),
+        ),
+        (
+            "Annotated.Backend",
+            JevError::api_error(failure(500)).with_backend("anthropic_haiku"),
+        ),
+        (
             "IoFailed.Recovery",
             JevError::io_failed_with(
                 "git",
@@ -325,6 +345,10 @@ fn test_retryable_decisions() {
         "NetworkError.Connect",
         "ApiError.500",
         "ApiError.503",
+        "GitTimeout",
+        "Annotated.Backend",
+        "IoFailed.TimedOut",
+        "IoFailed.Interrupted",
         "ProviderBusy.Sends",
         "ProviderBusy.Budget",
     ];
@@ -339,6 +363,7 @@ fn test_retryable_decisions() {
         assert_eq!(
             JevError::network(kind, "x").retryable(),
             matches!(kind, NetworkErrorKind::Timeout | NetworkErrorKind::Connect),
+            // `other` is an unclassified error and is never assumed transient.
             "{kind}"
         );
     }
@@ -576,6 +601,7 @@ fn test_network_error_kind_spelling() {
         (NetworkErrorKind::Connect, "connect"),
         (NetworkErrorKind::Tls, "tls"),
         (NetworkErrorKind::Cancelled, "cancelled"),
+        (NetworkErrorKind::Other, "other"),
     ];
     assert_eq!(expected.len(), NetworkErrorKind::ALL.len());
     for (kind, text) in expected {
@@ -632,4 +658,47 @@ fn test_map_detail_reaches_provider_text_and_details() {
         mapped
     );
     assert!(!rendered.contains("secret"), "{rendered}");
+}
+
+#[test]
+fn test_backend_is_a_machine_field() {
+    let error = JevError::api_error(failure(500)).with_backend("anthropic_haiku");
+    assert_eq!(error.backend(), Some("anthropic_haiku"));
+    let body = ScAgentErrorResponse::from_jev_error(&error);
+    let details = body.details().expect("details");
+    assert_eq!(details.backend.as_deref(), Some("anthropic_haiku"));
+    assert_eq!(details.http_status, Some(500));
+    // Only the first backend counts, and flush failure composes with it.
+    let both = error
+        .with_backend("jev")
+        .with_log_flush_failure("disk full");
+    assert_eq!(both.backend(), Some("anthropic_haiku"));
+    assert_eq!(both.log_flush_failure(), Some("disk full"));
+}
+
+#[test]
+fn test_unknown_keys_in_a_producer_line_are_tolerated() {
+    let line = r#"{"error":"QUERY_NOT_FOUND","message":"m","suggested_action":"a","newer_key":{"x":1},"details":{"path":"p","newer_detail":true},"schema_version":1}"#;
+    let response: ScAgentErrorResponse = serde_json::from_str(line).expect("tolerated");
+    let error = JevError::from_error_response("sc-treesitter", &response);
+    assert_eq!(error.code(), "QUERY_NOT_FOUND");
+    assert_eq!(error.details().and_then(|d| d.path).as_deref(), Some("p"));
+}
+
+#[test]
+fn test_retryable_io_kinds_are_the_transient_ones() {
+    for kind in [io::ErrorKind::Interrupted, io::ErrorKind::TimedOut] {
+        assert!(JevError::io_failed("x", &io::Error::from(kind)).retryable());
+    }
+    for kind in [
+        io::ErrorKind::NotFound,
+        io::ErrorKind::PermissionDenied,
+        io::ErrorKind::BrokenPipe,
+    ] {
+        assert!(!JevError::io_failed("x", &io::Error::from(kind)).retryable());
+    }
+    // One rule for both timeouts: a stalled git is transient, a command
+    // extractor over its configured limit is not.
+    assert!(JevError::git_timeout(60).retryable());
+    assert!(!JevError::extraction_timeout(30).retryable());
 }

@@ -468,10 +468,16 @@ fn test_backend_failure_response_derived_from_error() {
         let value = serde_json::to_value(&response).expect("json");
         assert_eq!(
             value["results"][0]["error"],
-            serde_json::to_value(ScAgentErrorResponse::from_jev_error(&error)).expect("error")
+            // The stored error names its backend (`details.backend`).
+            serde_json::to_value(ScAgentErrorResponse::from_jev_error(
+                &error.clone().with_backend("jev")
+            ))
+            .expect("error")
         );
         match response.results()[0].status() {
-            BackendStatus::Failed(stored) => assert_eq!(stored, &failure),
+            BackendStatus::Failed(stored) => {
+                assert_eq!(stored.error(), &error.clone().with_backend("jev"));
+            }
             other => panic!("expected a failure, got {other:?}"),
         }
         assert!(response.is_partial());

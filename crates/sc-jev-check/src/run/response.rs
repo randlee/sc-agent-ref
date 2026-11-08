@@ -397,7 +397,9 @@ impl BackendResult {
     pub fn failed(backend: BackendId, error: JevError) -> Self {
         Self {
             backend,
-            status: BackendStatus::Failed(BackendFailure::new(error)),
+            status: BackendStatus::Failed(BackendFailure::new(
+                error.with_backend(backend.to_string()),
+            )),
         }
     }
 

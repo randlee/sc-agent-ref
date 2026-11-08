@@ -75,7 +75,7 @@ def test_partial_failure_raises_with_response(tmp_path: Path) -> None:
     assert response["answers"]["relevant"]["choice"] == "yes"
     assert [entry["status"] for entry in response["results"]] == ["ok", "failed"]
 
-    # All backends failed: a plain error, no response.
+    # All backends failed.
     failing = {"failure": {"error": "PROVIDER_BUSY"}}
     with pytest.raises(sc_jev_py.JevError) as plain:
         run_check_scripted(
@@ -87,7 +87,16 @@ def test_partial_failure_raises_with_response(tmp_path: Path) -> None:
             session_dir=tmp_path / "sessions",
         )
     assert plain.value.code == "PROVIDER_BUSY"
-    assert plain.value.response is None
+    # All backends failed: the response is still set (no answers, one typed
+    # error per backend, each naming its backend).
+    response = plain.value.response
+    assert isinstance(response, dict)
+    assert "answers" not in response
+    assert [entry["status"] for entry in response["results"]] == ["failed", "failed"]
+    assert [entry["error"]["details"]["backend"] for entry in response["results"]] == [
+        "jev",
+        "anthropic_haiku",
+    ]
 
 
 def test_chain_context_kwarg(tmp_path: Path) -> None:

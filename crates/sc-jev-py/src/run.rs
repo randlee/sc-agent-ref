@@ -556,10 +556,10 @@ fn finish_check(py: Python<'_>, spec: CheckRun) -> PyResult<CheckResult> {
 ///
 /// Raises `JevError` with `code` and `message` set from the facade error. An
 /// unknown backend id, a malformed `rev`, or a `project` over 256 bytes or
-/// with a control character is `INPUT_INVALID`. When some, not
-/// all, backends fail, the `JevError` carries the first failure's code and a
+/// with a control character is `INPUT_INVALID`. When any
+/// backend fails, the `JevError` carries the first failure's fields and a
 /// `response` attribute holding the response body (with the successful
-/// answers) as a dict; when every backend fails there is no `response`.
+/// answers if any, and every failed backend's typed error) as a dict.
 ///
 /// # Examples
 ///

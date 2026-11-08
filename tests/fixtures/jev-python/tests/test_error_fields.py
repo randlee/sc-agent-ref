@@ -23,17 +23,81 @@ FIELDS = (
     "schema_version",
 )
 
-# (scripted failure, expected id, kind, retryable)
+# (scripted failure, expected id, kind, retryable, expected details subset,
+# word the suggested action must contain)
 CASES = [
-    ({"error": "PROVIDER_BUSY"}, "PROVIDER_BUSY", "capacity", True),
-    ({"error": "QUOTA_EXHAUSTED"}, "QUOTA_EXHAUSTED", "capacity", False),
-    ({"error": "AUTH_FAILED"}, "AUTH_FAILED", "permission", False),
-    ({"error": "API_REQUEST_INVALID"}, "API_REQUEST_INVALID", "validation", False),
-    ({"error": "API_ERROR"}, "API_ERROR", "dependency", True),
-    ({"error": "RESPONSE_INVALID"}, "RESPONSE_INVALID", "dependency", False),
-    ({"error": "INPUT_TOO_LARGE"}, "INPUT_TOO_LARGE", "validation", False),
-    ({"error": "NETWORK_ERROR", "kind": "timeout"}, "NETWORK_ERROR", "timeout", True),
-    ({"error": "NETWORK_ERROR", "kind": "tls"}, "NETWORK_ERROR", "dependency", False),
+    (
+        {"error": "PROVIDER_BUSY"},
+        "PROVIDER_BUSY",
+        "capacity",
+        True,
+        {"cause": "sends", "attempts": 4, "http_status": 429, "backend": "jev"},
+        "Wait",
+    ),
+    (
+        {"error": "QUOTA_EXHAUSTED"},
+        "QUOTA_EXHAUSTED",
+        "capacity",
+        False,
+        {"http_status": 402, "provider": "jev", "backend": "jev"},
+        "credit",
+    ),
+    (
+        {"error": "AUTH_FAILED"},
+        "AUTH_FAILED",
+        "permission",
+        False,
+        {"http_status": 401, "backend": "jev"},
+        "credential",
+    ),
+    (
+        {"error": "API_REQUEST_INVALID"},
+        "API_REQUEST_INVALID",
+        "validation",
+        False,
+        {"http_status": 422, "backend": "jev"},
+        "Correct",
+    ),
+    (
+        {"error": "API_ERROR"},
+        "API_ERROR",
+        "dependency",
+        True,
+        {"http_status": 500, "backend": "jev"},
+        "status page",
+    ),
+    (
+        {"error": "RESPONSE_INVALID"},
+        "RESPONSE_INVALID",
+        "dependency",
+        False,
+        {"cause": "schema", "backend": "jev"},
+        "Retrying is unlikely",
+    ),
+    (
+        {"error": "INPUT_TOO_LARGE"},
+        "INPUT_TOO_LARGE",
+        "validation",
+        False,
+        {"unit": "bytes", "backend": "jev"},
+        "never split",
+    ),
+    (
+        {"error": "NETWORK_ERROR", "kind": "timeout"},
+        "NETWORK_ERROR",
+        "timeout",
+        True,
+        {"network_kind": "timeout", "backend": "jev"},
+        "timed out",
+    ),
+    (
+        {"error": "NETWORK_ERROR", "kind": "tls"},
+        "NETWORK_ERROR",
+        "dependency",
+        False,
+        {"network_kind": "tls", "backend": "jev"},
+        "TLS",
+    ),
 ]
 
 
@@ -60,9 +124,15 @@ def _repo(tmp: Path) -> Path:
     return repo
 
 
-@pytest.mark.parametrize(("failure", "code", "kind", "retryable"), CASES)
+@pytest.mark.parametrize(("failure", "code", "kind", "retryable", "details", "action"), CASES)
 def test_exception_has_every_field(
-    tmp_path: Path, failure: dict, code: str, kind: str, retryable: bool
+    tmp_path: Path,
+    failure: dict,
+    code: str,
+    kind: str,
+    retryable: bool,
+    details: dict,
+    action: str,
 ) -> None:
     repo = _repo(tmp_path)
     with pytest.raises(sc_jev_py.JevError) as caught:
@@ -85,9 +155,16 @@ def test_exception_has_every_field(
     assert isinstance(error.suggested_action, str) and error.suggested_action
     # `message` says what failed; the fix is in its own attribute.
     assert error.suggested_action not in error.message
-    assert error.retry_after_seconds is None or isinstance(error.retry_after_seconds, int)
-    assert error.field is None or isinstance(error.field, str)
-    assert error.details is None or isinstance(error.details, dict)
+    assert action in error.suggested_action
+    assert error.retry_after_seconds is None
+    assert error.field is None
+    assert isinstance(error.details, dict)
+    for key, value in details.items():
+        assert error.details[key] == value, (key, error.details)
+    # The failing backend is named in the error and in the response.
+    assert error.response is not None
+    assert error.response["results"][0]["error"]["error"] == code
+    assert error.response["results"][0]["error"]["details"]["backend"] == "jev"
     assert str(error).startswith(f"{code}: ")
 
 

@@ -9,8 +9,8 @@ use std::fmt;
 use std::sync::Arc;
 
 use sc_agent_http::{
-    BusyPolicy, HeaderName, HttpClient, HttpRequest, Method, SecretHeader, Timeouts, Transport,
-    UreqTransport, api_failure,
+    BusyPolicy, HeaderName, HttpClient, HttpRequest, Method, ReplyShape, SecretHeader, Timeouts,
+    Transport, UreqTransport, api_failure,
 };
 use sc_agent_types::{BackendId, CancelToken, JevError, ModelId, ResolvedApiKey, SendTrace};
 use sc_decision_schema::{JudgeBackend, JudgeOutcome, JudgeRequest};
@@ -213,7 +213,7 @@ impl<T: Transport> JevClient<T> {
         self.http
             .send_and_parse(&request, trace.clone(), |response| {
                 if response.status() != 200 {
-                    return Err(api_failure("Jev", &response));
+                    return Err(api_failure("Jev", ReplyShape::Jev, &request, &response));
                 }
                 check::parse_outcome(response.body(), &check, judged)
             })

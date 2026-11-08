@@ -263,8 +263,10 @@ fn test_error_path_flushes_the_failed_row() {
     let inputs = ComposeInputs::new(dir.path().to_path_buf(), PathPolicy::cli())
         .backends(BackendSet::try_from(vec![BackendId::AnthropicHaiku]).expect("set"))
         .registry(Arc::new(failing));
-    let error = run_from(source, inputs).expect_err("every backend failed");
-    assert_eq!(error.code(), "RESPONSE_INVALID");
+    let response = run_from(source, inputs).expect("an all-failed run returns its response");
+    let failure = response.first_failure().expect("failed").error();
+    assert_eq!(failure.code(), "RESPONSE_INVALID");
+    assert_eq!(failure.backend(), Some("anthropic_haiku"));
     let envelopes = lines(&dir.path().join(".sc-ai/logs/sc-ai.log.jsonl"));
     assert_eq!(envelopes.len(), 1);
     assert_envelope(&envelopes[0], "Warn");

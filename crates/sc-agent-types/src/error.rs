@@ -213,6 +213,24 @@ impl fmt::Display for ProviderFailure {
     }
 }
 
+/// Text of a `PROVIDER_BUSY` message: the retry outcome, then the provider's
+/// own words from its last busy reply when it said any.
+fn busy_text(detail: &str, reply: Option<&ProviderFailure>) -> String {
+    let Some(reply) = reply else {
+        return detail.to_owned();
+    };
+    let kind = match (&reply.provider_type, &reply.provider_code) {
+        (Some(kind), Some(code)) => format!("{kind}, {code}: "),
+        (Some(text), None) | (None, Some(text)) => format!("{text}: "),
+        (None, None) => String::new(),
+    };
+    if kind.is_empty() && reply.message.is_empty() {
+        detail.to_owned()
+    } else {
+        format!("{detail} ({kind}{})", reply.message)
+    }
+}
+
 /// Text of an `INPUT_TOO_LARGE` message.
 fn too_large_text(
     limit: Option<u64>,
@@ -238,21 +256,97 @@ impl fmt::Display for LimitUnit {
     }
 }
 
-/// `io::ErrorKind` as a stable snake_case id, such as `not_found`.
-fn io_kind_id(kind: io::ErrorKind) -> String {
-    let debug = format!("{kind:?}");
-    let mut id = String::with_capacity(debug.len() + 4);
-    for (index, ch) in debug.chars().enumerate() {
-        if ch.is_ascii_uppercase() {
-            if index > 0 {
-                id.push('_');
-            }
-            id.push(ch.to_ascii_lowercase());
-        } else {
-            id.push(ch);
-        }
+/// Every value of `details.io_kind`, a closed set. Anything the standard
+/// library adds later, or reports as uncategorized, is `other`.
+pub const IO_KIND_IDS: &[&str] = &[
+    "not_found",
+    "permission_denied",
+    "connection_refused",
+    "connection_reset",
+    "host_unreachable",
+    "network_unreachable",
+    "connection_aborted",
+    "not_connected",
+    "addr_in_use",
+    "addr_not_available",
+    "network_down",
+    "broken_pipe",
+    "already_exists",
+    "would_block",
+    "not_a_directory",
+    "is_a_directory",
+    "directory_not_empty",
+    "read_only_filesystem",
+    "stale_network_file_handle",
+    "invalid_input",
+    "invalid_data",
+    "timed_out",
+    "write_zero",
+    "storage_full",
+    "not_seekable",
+    "quota_exceeded",
+    "file_too_large",
+    "resource_busy",
+    "executable_file_busy",
+    "deadlock",
+    "crosses_devices",
+    "too_many_links",
+    "invalid_filename",
+    "argument_list_too_long",
+    "interrupted",
+    "unsupported",
+    "unexpected_eof",
+    "out_of_memory",
+    "other",
+];
+
+/// `io::ErrorKind` as a fixed id (an explicit table, not the `Debug` text,
+/// which is not a stability promise). Kinds not listed, such as
+/// `Uncategorized` or a kind added to the standard library later, are
+/// `other`.
+fn io_kind_id(kind: io::ErrorKind) -> &'static str {
+    match kind {
+        io::ErrorKind::NotFound => "not_found",
+        io::ErrorKind::PermissionDenied => "permission_denied",
+        io::ErrorKind::ConnectionRefused => "connection_refused",
+        io::ErrorKind::ConnectionReset => "connection_reset",
+        io::ErrorKind::HostUnreachable => "host_unreachable",
+        io::ErrorKind::NetworkUnreachable => "network_unreachable",
+        io::ErrorKind::ConnectionAborted => "connection_aborted",
+        io::ErrorKind::NotConnected => "not_connected",
+        io::ErrorKind::AddrInUse => "addr_in_use",
+        io::ErrorKind::AddrNotAvailable => "addr_not_available",
+        io::ErrorKind::NetworkDown => "network_down",
+        io::ErrorKind::BrokenPipe => "broken_pipe",
+        io::ErrorKind::AlreadyExists => "already_exists",
+        io::ErrorKind::WouldBlock => "would_block",
+        io::ErrorKind::NotADirectory => "not_a_directory",
+        io::ErrorKind::IsADirectory => "is_a_directory",
+        io::ErrorKind::DirectoryNotEmpty => "directory_not_empty",
+        io::ErrorKind::ReadOnlyFilesystem => "read_only_filesystem",
+        io::ErrorKind::StaleNetworkFileHandle => "stale_network_file_handle",
+        io::ErrorKind::InvalidInput => "invalid_input",
+        io::ErrorKind::InvalidData => "invalid_data",
+        io::ErrorKind::TimedOut => "timed_out",
+        io::ErrorKind::WriteZero => "write_zero",
+        io::ErrorKind::StorageFull => "storage_full",
+        io::ErrorKind::NotSeekable => "not_seekable",
+        io::ErrorKind::QuotaExceeded => "quota_exceeded",
+        io::ErrorKind::FileTooLarge => "file_too_large",
+        io::ErrorKind::ResourceBusy => "resource_busy",
+        io::ErrorKind::ExecutableFileBusy => "executable_file_busy",
+        io::ErrorKind::Deadlock => "deadlock",
+        io::ErrorKind::CrossesDevices => "crosses_devices",
+        io::ErrorKind::TooManyLinks => "too_many_links",
+        io::ErrorKind::InvalidFilename => "invalid_filename",
+        io::ErrorKind::ArgumentListTooLong => "argument_list_too_long",
+        io::ErrorKind::Interrupted => "interrupted",
+        io::ErrorKind::Unsupported => "unsupported",
+        io::ErrorKind::UnexpectedEof => "unexpected_eof",
+        io::ErrorKind::OutOfMemory => "out_of_memory",
+        io::ErrorKind::Other => "other",
+        _ => "other",
     }
-    id
 }
 
 /// Stable error ids, messages, fix text and machine fields for Jev, check,
@@ -456,6 +550,8 @@ pub enum JevError {
     InputMissing {
         /// Path that could not be read.
         path: String,
+        /// The caller-facing fix; `None` means the generic one.
+        recovery: Option<String>,
     },
     /// A judge response failed validation.
     #[error("response is invalid ({cause}): {detail}", cause = .cause.as_str())]
@@ -482,7 +578,7 @@ pub enum JevError {
         /// What the provider said.
         failure: Box<ProviderFailure>,
     },
-    /// The provider rejected the request (HTTP 400, 422, other 4xx).
+    /// The provider rejected the request (HTTP 400, 422).
     #[error("provider rejected the request: {failure}")]
     #[non_exhaustive]
     ApiRequestInvalid {
@@ -505,7 +601,7 @@ pub enum JevError {
     },
     /// The provider stayed busy (rate limit or overload) through the busy
     /// retry.
-    #[error("provider is busy: {detail}")]
+    #[error("provider is busy: {}", busy_text(.detail, .reply.as_deref()))]
     #[non_exhaustive]
     ProviderBusy {
         /// The last busy status and how the retry ended.
@@ -519,6 +615,9 @@ pub enum JevError {
         /// The provider's `Retry-After` in whole seconds, when it sent a
         /// valid one.
         retry_after_seconds: Option<u64>,
+        /// What the provider said in its last busy reply (type, code,
+        /// message, request id), bounded; `None` when not recorded.
+        reply: Option<Box<ProviderFailure>>,
     },
     /// An LLM system-prompt file could not be read.
     #[error("prompt file {path} is missing")]
@@ -541,15 +640,19 @@ pub enum JevError {
         /// Id that expired.
         session_id: SessionId,
     },
-    /// `error` with a second failure: the session log could not be flushed
-    /// while `error` was leaving. The id, message and action are `error`'s.
+    /// `error` with machine annotations: which backend failed
+    /// ([`Self::with_backend`]) and/or that the session log could not be
+    /// flushed while `error` was leaving ([`Self::with_log_flush_failure`]).
+    /// The id, message, action and retryability are `error`'s.
     #[error("{error}")]
     #[non_exhaustive]
-    LogFlushFailed {
+    Annotated {
         /// The failure the caller is told about.
         error: Box<JevError>,
         /// Why the log flush failed, redacted.
-        flush_failure: String,
+        flush_failure: Option<String>,
+        /// The backend that failed (its descriptor name), when known.
+        backend: Option<String>,
     },
 }
 
@@ -942,7 +1045,40 @@ impl JevError {
     /// `INPUT_MISSING` for `path`.
     #[must_use]
     pub fn input_missing(path: impl Into<String>) -> Self {
-        Self::InputMissing { path: path.into() }
+        Self::InputMissing {
+            path: path.into(),
+            recovery: None,
+        }
+    }
+
+    /// `INPUT_MISSING` for `path` with its own fix, for a path that is not a
+    /// `check.toml` entry (a flag value, for instance).
+    #[must_use]
+    pub fn input_missing_with(path: impl Into<String>, recovery: impl Into<String>) -> Self {
+        Self::InputMissing {
+            path: path.into(),
+            recovery: Some(recovery.into()),
+        }
+    }
+
+    /// Names `field` on an `INPUT_INVALID` that has none; any other error is
+    /// returned unchanged.
+    ///
+    /// Field names are the argument as the caller wrote it: the `--flag`
+    /// spelling for a command-line argument, the parameter name for a
+    /// library or Python argument.
+    #[must_use]
+    pub fn with_field(self, field: impl Into<String>) -> Self {
+        match self {
+            Self::InputInvalid {
+                detail,
+                field: None,
+            } => Self::InputInvalid {
+                detail,
+                field: Some(field.into()),
+            },
+            other => other,
+        }
     }
 
     /// `RESPONSE_INVALID` of cause `Schema`: the reply parsed but breaks the
@@ -1024,7 +1160,19 @@ impl JevError {
             sends,
             cause,
             retry_after_seconds,
+            reply: None,
         }
+    }
+
+    /// Records the provider's last busy reply on a `PROVIDER_BUSY` (message,
+    /// type, code, request id; bounded by [`ProviderFailure`]). Any other
+    /// error is returned unchanged.
+    #[must_use]
+    pub fn with_busy_reply(mut self, failure: ProviderFailure) -> Self {
+        if let Self::ProviderBusy { reply, .. } = &mut self {
+            *reply = Some(Box::new(failure));
+        }
+        self
     }
 
     /// `PROMPT_FILE_MISSING` for `path`.
@@ -1064,12 +1212,58 @@ impl JevError {
     /// ```
     #[must_use]
     pub fn with_log_flush_failure(self, flush_failure: impl Into<String>) -> Self {
-        if matches!(self, Self::LogFlushFailed { .. }) {
-            return self;
+        match self {
+            Self::Annotated {
+                error,
+                flush_failure: None,
+                backend,
+            } => Self::Annotated {
+                error,
+                flush_failure: Some(flush_failure.into()),
+                backend,
+            },
+            already @ Self::Annotated { .. } => already,
+            other => Self::Annotated {
+                error: Box::new(other),
+                flush_failure: Some(flush_failure.into()),
+                backend: None,
+            },
         }
-        Self::LogFlushFailed {
-            error: Box::new(self),
-            flush_failure: flush_failure.into(),
+    }
+
+    /// Records which backend this error belongs to (`details.backend`).
+    ///
+    /// `backend` is the backend's descriptor name, such as `anthropic_haiku`.
+    /// Only the first call counts. Id, message, action and retryability stay
+    /// those of `self`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sc_agent_types::JevError;
+    ///
+    /// let error = JevError::InputEmpty.with_backend("jev");
+    /// assert_eq!(error.code(), "INPUT_EMPTY");
+    /// assert_eq!(error.backend(), Some("jev"));
+    /// ```
+    #[must_use]
+    pub fn with_backend(self, backend: impl Into<String>) -> Self {
+        match self {
+            Self::Annotated {
+                error,
+                flush_failure,
+                backend: None,
+            } => Self::Annotated {
+                error,
+                flush_failure,
+                backend: Some(backend.into()),
+            },
+            already @ Self::Annotated { .. } => already,
+            other => Self::Annotated {
+                error: Box::new(other),
+                flush_failure: None,
+                backend: Some(backend.into()),
+            },
         }
     }
 
@@ -1200,7 +1394,10 @@ impl JevError {
                 field: field.as_deref().map(map).map(String::into_boxed_str),
                 details: details.map(|details| Box::new((*details).map_text(map))),
             },
-            Self::InputMissing { path } => Self::input_missing(map(&path)),
+            Self::InputMissing { path, recovery } => Self::InputMissing {
+                path: map(&path),
+                recovery: recovery.as_deref().map(map),
+            },
             Self::ResponseInvalid { cause, detail } => {
                 Self::response_invalid_because(cause, map(&detail))
             }
@@ -1223,14 +1420,24 @@ impl JevError {
                 sends,
                 cause,
                 retry_after_seconds,
-            } => Self::provider_busy(map(&detail), status, sends, cause, retry_after_seconds),
+                reply,
+            } => Self::ProviderBusy {
+                detail: map(&detail),
+                status,
+                sends,
+                cause,
+                retry_after_seconds,
+                reply: reply.map(|failure| Box::new((*failure).map_text(map))),
+            },
             Self::PromptFileMissing { path } => Self::prompt_file_missing(map(&path)),
-            Self::LogFlushFailed {
+            Self::Annotated {
                 error,
                 flush_failure,
-            } => Self::LogFlushFailed {
+                backend,
+            } => Self::Annotated {
                 error: Box::new(error.map_text(map)),
-                flush_failure: map(&flush_failure),
+                flush_failure: flush_failure.as_deref().map(map),
+                backend: backend.as_deref().map(map),
             },
             Self::InputTooLarge {
                 limit,
@@ -1276,12 +1483,34 @@ impl JevError {
             | Self::QuotaExhausted { .. }
             | Self::ApiError { .. }
             | Self::InputTooLarge { .. } => self,
-            Self::LogFlushFailed {
+            Self::Annotated {
                 error,
                 flush_failure,
-            } => Self::LogFlushFailed {
+                backend,
+            } => Self::Annotated {
                 error: Box::new(error.prefix_detail(prefix)),
                 flush_failure,
+                backend,
+            },
+            Self::ProviderBusy {
+                detail,
+                status,
+                sends,
+                cause,
+                retry_after_seconds,
+                reply,
+            } => Self::ProviderBusy {
+                detail: format!("{prefix} {detail}"),
+                status,
+                sends,
+                cause,
+                retry_after_seconds,
+                reply: reply.map(|mut failure| {
+                    if failure.provider.is_empty() {
+                        failure.provider = prefix.to_owned();
+                    }
+                    failure
+                }),
             },
             other => {
                 let done = std::cell::Cell::new(false);
@@ -1337,7 +1566,7 @@ impl JevError {
             Self::PromptFileMissing { .. } => ErrorCode::PromptFileMissing,
             Self::SessionNotFound { .. } => ErrorCode::SessionNotFound,
             Self::SessionExpired { .. } => ErrorCode::SessionExpired,
-            Self::LogFlushFailed { error, .. } => error.code(),
+            Self::Annotated { error, .. } => error.code(),
         }
     }
 
@@ -1352,7 +1581,7 @@ impl JevError {
                 kind: NetworkErrorKind::Timeout,
                 ..
             } => ErrorCategory::Timeout,
-            Self::LogFlushFailed { error, .. } => error.category(),
+            Self::Annotated { error, .. } => error.category(),
             other => other.code().category(),
         }
     }
@@ -1364,14 +1593,24 @@ impl JevError {
     /// provider already processed and billed the request, so resending a
     /// non-busy failure could double-charge).
     ///
-    /// - `NETWORK_ERROR`: true for `timeout` and `connect`, false for `tls`
-    ///   and `cancelled`.
+    /// - `NETWORK_ERROR`: true for `timeout` and `connect`, false for `tls`,
+    ///   `cancelled` and `other` (an error the transport could not classify
+    ///   is not assumed to be transient).
     /// - `PROVIDER_BUSY`: true; the provider said it is a matter of time.
     /// - `API_ERROR`: true for status 500 and above (500, 503 and 504
     ///   included): the provider reports a failure on its side that a later
     ///   attempt can get past, and Anthropic's own guidance for 500 is to
     ///   retry with backoff. False for other statuses, which a retry
     ///   without a change will repeat.
+    /// - `IO_FAILED`: true for `interrupted` and `timed_out`, which are
+    ///   transient by definition; false for the rest (a permission or a
+    ///   missing file does not fix itself).
+    /// - `EXTRACTION_TIMEOUT`: one rule for both variants, "would the same
+    ///   attempt, unchanged, plausibly succeed?". A git subprocess that did
+    ///   not finish ([`Self::GitTimeout`]) was stalled by a lock or a slow
+    ///   disk, so true. A `command` extractor that exceeded its configured
+    ///   `timeout_seconds` ([`Self::ExtractionTimeout`]) will exceed it again
+    ///   on the same input, so false: raise the limit or shrink the input.
     /// - A producer's error: the producer's own flag.
     /// - Everything else, `QUOTA_EXHAUSTED`, `AUTH_FAILED`,
     ///   `API_REQUEST_INVALID` and `RESPONSE_INVALID` included: false.
@@ -1382,7 +1621,11 @@ impl JevError {
             Self::ProviderBusy { .. } => true,
             Self::ApiError { failure } => failure.status >= 500,
             Self::ProducerError { retryable, .. } => *retryable,
-            Self::LogFlushFailed { error, .. } => error.retryable(),
+            Self::IoFailed { kind, .. } => {
+                matches!(kind, io::ErrorKind::Interrupted | io::ErrorKind::TimedOut)
+            }
+            Self::GitTimeout { .. } => true,
+            Self::Annotated { error, .. } => error.retryable(),
             _ => false,
         }
     }
@@ -1400,7 +1643,7 @@ impl JevError {
                 ..
             } => *retry_after_seconds,
             Self::ApiError { failure } => failure.retry_after_seconds,
-            Self::LogFlushFailed { error, .. } => error.retry_after_seconds(),
+            Self::Annotated { error, .. } => error.retry_after_seconds(),
             _ => None,
         }
     }
@@ -1412,7 +1655,7 @@ impl JevError {
             Self::InputInvalid { field, .. } => field.as_deref(),
             Self::ProducerError { field, .. } => field.as_deref(),
             Self::ApiRequestInvalid { failure } => failure.param.as_deref(),
-            Self::LogFlushFailed { error, .. } => error.field(),
+            Self::Annotated { error, .. } => error.field(),
             _ => None,
         }
     }
@@ -1422,7 +1665,16 @@ impl JevError {
     #[must_use]
     pub fn log_flush_failure(&self) -> Option<&str> {
         match self {
-            Self::LogFlushFailed { flush_failure, .. } => Some(flush_failure),
+            Self::Annotated { flush_failure, .. } => flush_failure.as_deref(),
+            _ => None,
+        }
+    }
+
+    /// The backend recorded by [`Self::with_backend`].
+    #[must_use]
+    pub fn backend(&self) -> Option<&str> {
+        match self {
+            Self::Annotated { backend, .. } => backend.as_deref(),
             _ => None,
         }
     }
@@ -1443,7 +1695,7 @@ impl JevError {
         match self {
             Self::IoFailed { what, kind, .. } => {
                 details.what = Some(what.clone());
-                details.io_kind = Some(io_kind_id(*kind));
+                details.io_kind = Some(io_kind_id(*kind).to_owned());
             }
             Self::InputTooLarge {
                 limit,
@@ -1458,7 +1710,7 @@ impl JevError {
                     details.set_provider(failure);
                 }
             }
-            Self::InputMissing { path } | Self::PromptFileMissing { path } => {
+            Self::InputMissing { path, .. } | Self::PromptFileMissing { path } => {
                 details.path = Some(path.clone());
             }
             Self::ResponseInvalid { cause, .. } => {
@@ -1477,8 +1729,12 @@ impl JevError {
                 status,
                 sends,
                 cause,
+                reply,
                 ..
             } => {
+                if let Some(failure) = reply {
+                    details.set_provider(failure);
+                }
                 details.http_status = Some(*status);
                 details.attempts = Some(*sends);
                 details.cause = Some(cause.as_str().to_owned());
@@ -1491,12 +1747,14 @@ impl JevError {
                 details = producer_details.as_deref().cloned().unwrap_or_default();
                 details.producer = Some(producer.clone());
             }
-            Self::LogFlushFailed {
+            Self::Annotated {
                 error,
                 flush_failure,
+                backend,
             } => {
                 details = error.details().unwrap_or_default();
-                details.log_flush_failure = Some(flush_failure.clone());
+                details.log_flush_failure.clone_from(flush_failure);
+                details.backend.clone_from(backend);
             }
             _ => return None,
         }
@@ -1590,9 +1848,10 @@ impl JevError {
                     format!("{producer}: {suggested_action}")
                 }
             }
-            Self::InputMissing { path } => {
-                format!("Create {path} or correct the path in check.toml, then retry.")
-            }
+            Self::InputMissing { path, recovery } => match recovery {
+                Some(recovery) => recovery.clone(),
+                None => format!("Create {path} or correct the path in check.toml, then retry."),
+            },
             Self::ResponseInvalid { cause, .. } => match cause {
                 ResponseInvalidCause::Truncated => "The provider stopped at its output limit. Ask fewer questions per check or shorten the state, then run it again; retrying the same check gives the same cut-off.".to_owned(),
                 ResponseInvalidCause::TooLarge => "The reply was larger than the read cap. Retrying gives the same reply; report it, and check whether a proxy rewrites responses.".to_owned(),
@@ -1604,6 +1863,7 @@ impl JevError {
                 NetworkErrorKind::Connect => "Check connectivity and DNS to the provider, then retry.".to_owned(),
                 NetworkErrorKind::Tls => "Fix the TLS setup (system clock, certificates, proxy) before retrying; retrying alone will fail again.".to_owned(),
                 NetworkErrorKind::Cancelled => "The request was cancelled. Run it again if you still need the result.".to_owned(),
+                NetworkErrorKind::Other => "The transport failed in a way sc-agent could not classify. Check the endpoint, proxy and network, then retry once; if it repeats, report it.".to_owned(),
             },
             Self::AuthFailed { failure } => format!(
                 "Check that the {} credential is valid, not revoked, and allowed to use this model; replace it in the process environment, the repo-root .env file or the keyring. Retrying with the same credential fails again.",
@@ -1651,7 +1911,7 @@ impl JevError {
             Self::SessionExpired { session_id } => format!(
                 "Start a new session. Session {session_id} expired; expiry is measured from the session created_at timestamp."
             ),
-            Self::LogFlushFailed { error, .. } => error.suggested_action(),
+            Self::Annotated { error, .. } => error.suggested_action(),
         }
     }
 }
@@ -1734,8 +1994,10 @@ mod tests {
             | JevError::InputMissing { .. }
             | JevError::ResponseInvalid { .. }
             | JevError::NetworkError { .. }
-            | JevError::ProviderBusy { .. }
             | JevError::PromptFileMissing { .. } => 1,
+            JevError::ProviderBusy { reply, .. } => {
+                1 + if reply.is_some() { provider_texts } else { 0 }
+            }
             JevError::AuthFailed { .. }
             | JevError::ApiRequestInvalid { .. }
             | JevError::QuotaExhausted { .. }
@@ -1747,7 +2009,15 @@ mod tests {
                     0
                 }
             }
-            JevError::LogFlushFailed { error, .. } => text_fields(error) + 1,
+            JevError::Annotated {
+                error,
+                flush_failure,
+                backend,
+            } => {
+                text_fields(error)
+                    + usize::from(flush_failure.is_some())
+                    + usize::from(backend.is_some())
+            }
             JevError::KeyMissing { .. }
             | JevError::InputEmpty
             | JevError::ExtractionEmpty
@@ -1794,10 +2064,13 @@ mod tests {
             JevError::quota_exhausted(failure()),
             JevError::api_error(failure()),
             JevError::provider_busy("busy", 429, 4, BusyCause::Sends, Some(3)),
+            JevError::provider_busy("busy", 429, 4, BusyCause::Sends, None)
+                .with_busy_reply(failure()),
             JevError::prompt_file_missing("prompt.md"),
             JevError::session_not_found(session),
             JevError::session_expired(session),
             JevError::InputEmpty.with_log_flush_failure("disk full"),
+            JevError::InputEmpty.with_backend("jev"),
         ]
     }
 
@@ -1840,14 +2113,64 @@ mod tests {
         }
     }
 
+    /// Every id is pinned: each listed kind maps to its fixed literal, every
+    /// literal is in the closed set, and the set has no duplicates.
     #[test]
-    fn io_kind_ids_are_snake_case() {
-        assert_eq!(io_kind_id(io::ErrorKind::NotFound), "not_found");
-        assert_eq!(
-            io_kind_id(io::ErrorKind::PermissionDenied),
-            "permission_denied"
-        );
-        assert_eq!(io_kind_id(io::ErrorKind::Other), "other");
+    fn io_kind_ids_are_a_fixed_closed_set() {
+        let pinned: &[(io::ErrorKind, &str)] = &[
+            (io::ErrorKind::NotFound, "not_found"),
+            (io::ErrorKind::PermissionDenied, "permission_denied"),
+            (io::ErrorKind::ConnectionRefused, "connection_refused"),
+            (io::ErrorKind::ConnectionReset, "connection_reset"),
+            (io::ErrorKind::HostUnreachable, "host_unreachable"),
+            (io::ErrorKind::NetworkUnreachable, "network_unreachable"),
+            (io::ErrorKind::ConnectionAborted, "connection_aborted"),
+            (io::ErrorKind::NotConnected, "not_connected"),
+            (io::ErrorKind::AddrInUse, "addr_in_use"),
+            (io::ErrorKind::AddrNotAvailable, "addr_not_available"),
+            (io::ErrorKind::NetworkDown, "network_down"),
+            (io::ErrorKind::BrokenPipe, "broken_pipe"),
+            (io::ErrorKind::AlreadyExists, "already_exists"),
+            (io::ErrorKind::WouldBlock, "would_block"),
+            (io::ErrorKind::NotADirectory, "not_a_directory"),
+            (io::ErrorKind::IsADirectory, "is_a_directory"),
+            (io::ErrorKind::DirectoryNotEmpty, "directory_not_empty"),
+            (io::ErrorKind::ReadOnlyFilesystem, "read_only_filesystem"),
+            (
+                io::ErrorKind::StaleNetworkFileHandle,
+                "stale_network_file_handle",
+            ),
+            (io::ErrorKind::InvalidInput, "invalid_input"),
+            (io::ErrorKind::InvalidData, "invalid_data"),
+            (io::ErrorKind::TimedOut, "timed_out"),
+            (io::ErrorKind::WriteZero, "write_zero"),
+            (io::ErrorKind::StorageFull, "storage_full"),
+            (io::ErrorKind::NotSeekable, "not_seekable"),
+            (io::ErrorKind::QuotaExceeded, "quota_exceeded"),
+            (io::ErrorKind::FileTooLarge, "file_too_large"),
+            (io::ErrorKind::ResourceBusy, "resource_busy"),
+            (io::ErrorKind::ExecutableFileBusy, "executable_file_busy"),
+            (io::ErrorKind::Deadlock, "deadlock"),
+            (io::ErrorKind::CrossesDevices, "crosses_devices"),
+            (io::ErrorKind::TooManyLinks, "too_many_links"),
+            (io::ErrorKind::InvalidFilename, "invalid_filename"),
+            (io::ErrorKind::ArgumentListTooLong, "argument_list_too_long"),
+            (io::ErrorKind::Interrupted, "interrupted"),
+            (io::ErrorKind::Unsupported, "unsupported"),
+            (io::ErrorKind::UnexpectedEof, "unexpected_eof"),
+            (io::ErrorKind::OutOfMemory, "out_of_memory"),
+            (io::ErrorKind::Other, "other"),
+        ];
+        assert_eq!(pinned.len(), IO_KIND_IDS.len());
+        for (kind, id) in pinned {
+            assert_eq!(io_kind_id(*kind), *id, "{kind:?}");
+            assert!(IO_KIND_IDS.contains(id), "{id}");
+        }
+        let unique: std::collections::BTreeSet<_> = IO_KIND_IDS.iter().collect();
+        assert_eq!(unique.len(), IO_KIND_IDS.len());
+        // Uncategorized (and any future kind) falls back to `other`.
+        let uncategorized = io::Error::from_raw_os_error(i32::MAX).kind();
+        assert!(IO_KIND_IDS.contains(&io_kind_id(uncategorized)));
     }
 
     #[test]

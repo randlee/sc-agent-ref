@@ -10,7 +10,7 @@
 //! | --- | --- |
 //! | 401, 403 | `AUTH_FAILED` |
 //! | 402, or a quota body (below) | `QUOTA_EXHAUSTED` |
-//! | 400, 413, 422 whose body says the input is too long (below) | `INPUT_TOO_LARGE` (unit `bytes` for 413, else `tokens`) |
+//! | 413, or 400/422 with a structured marker (`context_length_exceeded`, `request_too_large`), or, for Jev only ([`ReplyShape::Jev`]), a message naming `max_tokens` or tokens exceeded (below) | `INPUT_TOO_LARGE` (unit `bytes` for 413, else `tokens`) |
 //! | 400, 422 | `API_REQUEST_INVALID` |
 //! | every other status, 5xx included | `API_ERROR` |
 //!
@@ -38,8 +38,10 @@
 //!   `context_length_exceeded` is a too-long input (that code is widely
 //!   reported but not listed on the page above).
 //! - **Jev** (`plan-anchor`'s `jev_judge.py.j2`, `http_error`): a 4xx whose
-//!   body mentions `max_tokens`, or `token` and `exceed`, is a context
-//!   overflow; 401 is a credential failure; 422 carries the field error text;
+//!   message mentions `max_tokens`, or `token` and `exceed`, is a context
+//!   overflow (matched on the message text, never on JSON keys, and only for
+//!   [`ReplyShape::Jev`]; for Haiku and Luna a message about `max_tokens`, the
+//!   output cap, is an ordinary invalid request); 401 is a credential failure; 422 carries the field error text;
 //!   429 and 529 are busy; 5xx is transient. Jev's own error JSON is not
 //!   documented here, so the reader also accepts `{"detail": "..."}`,
 //!   `{"detail": [{"loc": [...], "msg": "..."}]}` and `{"message": "..."}`,
@@ -48,10 +50,10 @@
 //! A body that is none of these stays what its status says: an unknown 429
 //! body is busy, never quota.
 
-use sc_agent_types::{JevError, LimitUnit, ProviderFailure, bound_provider_text};
+use sc_agent_types::{JevError, LimitUnit, ProviderFailure};
 use serde_json::Value;
 
-use crate::request::HttpResponse;
+use crate::request::{HttpRequest, HttpResponse};
 
 /// Largest `Retry-After` reported, in seconds (one day).
 const RETRY_AFTER_REPORT_MAX: u64 = 86_400;
@@ -203,80 +205,102 @@ pub(crate) fn retry_after_seconds(header: Option<&str>) -> Option<u64> {
     )
 }
 
-/// Whether a 4xx body says the input is longer than the model accepts.
-fn says_input_too_long(status: u16, body: &Body, raw_lower: &str) -> bool {
+/// Which provider family sent a failing reply; decides how "the input is
+/// too long" is recognised.
+///
+/// The Jev service has no documented error code for it, so its 4xx message
+/// text is matched (the rule of `plan-anchor`'s `jev_judge.py.j2`). Haiku and
+/// Luna document structured markers, so only those and status 413 count: a
+/// message that merely mentions `max_tokens` (the output cap, a request
+/// parameter) is an ordinary invalid request there.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum ReplyShape {
+    /// The Jev check service.
+    Jev,
+    /// An LLM provider (Anthropic, OpenAI).
+    Llm,
+}
+
+/// Whether a 4xx reply says the input is longer than the model accepts.
+fn says_input_too_long(shape: ReplyShape, status: u16, body: &Body, text_lower: &str) -> bool {
     if !matches!(status, 400 | 413 | 422) {
         return false;
+    }
+    if status == 413 {
+        return true;
     }
     let marked = |value: &Option<String>| {
         value
             .as_deref()
             .is_some_and(|text| matches!(text, "context_length_exceeded" | "request_too_large"))
     };
-    status == 413
-        || marked(&body.provider_code)
-        || marked(&body.provider_type)
-        || raw_lower.contains("max_tokens")
-        || (raw_lower.contains("token") && raw_lower.contains("exceed"))
+    if marked(&body.provider_code) || marked(&body.provider_type) {
+        return true;
+    }
+    match shape {
+        ReplyShape::Jev => {
+            text_lower.contains("max_tokens")
+                || (text_lower.contains("token") && text_lower.contains("exceed"))
+        }
+        // Anthropic reports an over-long prompt as an ordinary 400
+        // `invalid_request_error` whose message starts "prompt is too long".
+        // That wording is reported widely but is not in the documented error
+        // table, so this rule is unverified against a live reply.
+        ReplyShape::Llm => {
+            body.provider_type.as_deref() == Some("invalid_request_error")
+                && text_lower.starts_with("prompt is too long")
+        }
+    }
 }
 
 /// Maps a reply with a failing status to its error.
 ///
 /// `provider` labels the provider in messages (`Jev`, `luna`). The result
 /// keeps the provider's status, type, code, message, parameter and request
-/// id, each bounded by [`bound_provider_text`]; a body that is not a
+/// id, each bounded by `sc_agent_types::bound_provider_text`; a body that is not a
 /// recognised error JSON falls back to the bounded raw text. The caller's
 /// `send_and_parse` redacts the secret from the result.
 ///
 /// # Examples
 ///
 /// ```
-/// use sc_agent_http::{HttpResponse, api_failure};
+/// use std::sync::Arc;
+///
+/// use sc_agent_http::{Endpoint, HttpRequest, HttpResponse, Method, ReplyShape, api_failure};
 ///
 /// let body = br#"{"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"},"request_id":"req_1"}"#;
-/// let error = api_failure("luna", &HttpResponse::new(401, Vec::new(), body.to_vec()));
+/// let request = HttpRequest::new(
+///     Method::Post,
+///     Endpoint::parse("https://api.example.test/v1/x")?,
+///     Arc::from("{}"),
+/// );
+/// let reply = HttpResponse::new(401, Vec::new(), body.to_vec());
+/// let error = api_failure("luna", ReplyShape::Llm, &request, &reply);
 /// assert_eq!(error.code(), "AUTH_FAILED");
 /// assert!(error.message().contains("invalid x-api-key"));
 /// assert!(!error.retryable());
+/// # Ok::<(), sc_agent_types::JevError>(())
 /// ```
 #[must_use]
-pub fn api_failure(provider: &str, response: &HttpResponse) -> JevError {
+pub fn api_failure(
+    provider: &str,
+    shape: ReplyShape,
+    request: &HttpRequest,
+    response: &HttpResponse,
+) -> JevError {
     let status = response.status();
-    let bytes = response.body();
-    let body = Body::read(bytes);
-    let raw_len = bytes.len().min(RAW_FALLBACK_BYTES);
-    let raw = String::from_utf8_lossy(&bytes[..raw_len]).into_owned();
-    let raw_lower = raw.to_ascii_lowercase();
-    let message = body
-        .message
-        .clone()
-        .unwrap_or_else(|| bound_provider_text(&raw));
-    let mut failure = ProviderFailure::new(provider, status, &message)
-        .with_retry_after(retry_after_seconds(response.header("retry-after")));
-    if let Some(text) = &body.provider_type {
-        failure = failure.with_type(text);
-    }
-    if let Some(text) = &body.provider_code {
-        failure = failure.with_code(text);
-    }
-    if let Some(text) = &body.param {
-        failure = failure.with_param(text);
-    }
-    let request_id = body
-        .request_id
-        .as_deref()
-        .or_else(|| response.header("request-id"))
-        .or_else(|| response.header("x-request-id"));
-    if let Some(text) = request_id {
-        failure = failure.with_request_id(text);
-    }
+    let (failure, body) = read_failure(provider, request, response);
+    // Only the provider's message (or, when the body is not error JSON, the
+    // bounded raw text) is matched, never JSON keys.
+    let text_lower = failure.message.to_ascii_lowercase();
     if matches!(status, 401 | 403) {
         return JevError::auth_failed(failure);
     }
     if status == 402 || body.marks_quota(status) {
         return JevError::quota_exhausted(failure);
     }
-    if says_input_too_long(status, &body, &raw_lower) {
+    if says_input_too_long(shape, status, &body, &text_lower) {
         let unit = if status == 413 {
             LimitUnit::Bytes
         } else {
@@ -290,9 +314,66 @@ pub fn api_failure(provider: &str, response: &HttpResponse) -> JevError {
     JevError::api_error(failure)
 }
 
+/// What a busy reply said, for `PROVIDER_BUSY`: the same fields as a failing
+/// reply, with no provider label yet.
+pub(crate) fn busy_reply(request: &HttpRequest, response: &HttpResponse) -> ProviderFailure {
+    read_failure("", request, response).0
+}
+
+/// The provider's status, type, code, message, parameter, request id and
+/// `Retry-After` from a failing reply, bounded. `provider` may be empty (the
+/// busy retry does not know the backend name; the caller's label is added
+/// later by `JevError::prefix_detail`).
+fn read_failure(
+    provider: &str,
+    request: &HttpRequest,
+    response: &HttpResponse,
+) -> (ProviderFailure, Body) {
+    // The secret is removed from every provider text *before* it is cut to
+    // the length bound: a key that straddles the cut would otherwise leave
+    // its front half behind.
+    let scrub = |text: &str| match request.secret() {
+        Some(secret) => secret.key().redact_text(text),
+        None => text.to_owned(),
+    };
+    let bytes = response.body();
+    let body = Body::read(bytes);
+    let raw_len = bytes.len().min(RAW_FALLBACK_BYTES);
+    let raw = String::from_utf8_lossy(&bytes[..raw_len]);
+    let message = body.message.as_deref().map_or_else(|| scrub(&raw), scrub);
+    let mut failure = ProviderFailure::new(provider, response.status(), &message)
+        .with_retry_after(retry_after_seconds(response.header("retry-after")));
+    if let Some(text) = &body.provider_type {
+        failure = failure.with_type(&scrub(text));
+    }
+    if let Some(text) = &body.provider_code {
+        failure = failure.with_code(&scrub(text));
+    }
+    if let Some(text) = &body.param {
+        failure = failure.with_param(&scrub(text));
+    }
+    let request_id = body
+        .request_id
+        .as_deref()
+        .or_else(|| response.header("request-id"))
+        .or_else(|| response.header("x-request-id"));
+    if let Some(text) = request_id {
+        failure = failure.with_request_id(&scrub(text));
+    }
+    (failure, body)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn req() -> HttpRequest {
+        HttpRequest::new(
+            crate::Method::Post,
+            crate::Endpoint::parse("https://api.example.test/v1/x").expect("https"),
+            std::sync::Arc::from("{}"),
+        )
+    }
 
     fn reply(status: u16, body: &str) -> HttpResponse {
         HttpResponse::new(status, Vec::new(), body.as_bytes().to_vec())
@@ -332,7 +413,7 @@ mod tests {
         ] {
             assert!(is_quota_reply(status, body.as_bytes()), "{status} {body}");
             assert_eq!(
-                api_failure("p", &reply(status, body)).code(),
+                api_failure("p", ReplyShape::Llm, &req(), &reply(status, body)).code(),
                 "QUOTA_EXHAUSTED"
             );
         }
@@ -368,7 +449,7 @@ mod tests {
             (302, "API_ERROR", false),
         ];
         for (status, id, retryable) in cases {
-            let error = api_failure("Jev", &reply(status, "oops"));
+            let error = api_failure("Jev", ReplyShape::Jev, &req(), &reply(status, "oops"));
             assert_eq!(error.code(), id, "{status}");
             assert_eq!(error.retryable(), retryable, "{status}");
             assert!(error.message().contains("oops"), "{status}");
@@ -378,30 +459,55 @@ mod tests {
     #[test]
     fn input_too_long_is_one_id_with_units() {
         let openai = r#"{"error":{"message":"maximum context length","type":"invalid_request_error","code":"context_length_exceeded"}}"#;
-        let jev = "request exceeds max_tokens";
         let anthropic =
             r#"{"type":"error","error":{"type":"request_too_large","message":"too big"}}"#;
         for (status, body, unit) in [
             (400, openai, "tokens"),
-            (422, jev, "tokens"),
             (413, anthropic, "bytes"),
-            (400, "prompt tokens exceed the window", "tokens"),
+            (413, "plain", "bytes"),
         ] {
-            let error = api_failure("p", &reply(status, body));
+            let error = api_failure("p", ReplyShape::Llm, &req(), &reply(status, body));
             assert_eq!(error.code(), "INPUT_TOO_LARGE", "{status} {body}");
             assert_eq!(error.details().and_then(|d| d.unit).as_deref(), Some(unit));
         }
+        // Jev has no documented code: its message text is matched (plan-anchor's rule).
+        for body in [
+            "request exceeds max_tokens",
+            r#"{"detail":"prompt tokens exceed the window"}"#,
+        ] {
+            let error = api_failure("Jev", ReplyShape::Jev, &req(), &reply(422, body));
+            assert_eq!(error.code(), "INPUT_TOO_LARGE", "{body}");
+        }
         // A 401 that mentions tokens is still an auth failure.
         assert_eq!(
-            api_failure("p", &reply(401, "token exceeded")).code(),
+            api_failure("p", ReplyShape::Jev, &req(), &reply(401, "token exceeded")).code(),
             "AUTH_FAILED"
+        );
+    }
+
+    /// RBP-F002: for Haiku and Luna raw text never decides. A 400 that names
+    /// `max_tokens` (the output cap parameter) stays an invalid request, and
+    /// so does one that mentions tokens exceeding something else.
+    #[test]
+    fn llm_text_about_max_tokens_is_an_invalid_request() {
+        let output_cap = r#"{"type":"error","error":{"type":"invalid_request_error","message":"max_tokens: 99999 > 8192, which is the maximum allowed number of output tokens"}}"#;
+        let exceed = r#"{"error":{"message":"the number of tokens requested exceeds your plan","type":"invalid_request_error","code":null}}"#;
+        for body in [output_cap, exceed, "max_tokens is too large"] {
+            let error = api_failure("haiku", ReplyShape::Llm, &req(), &reply(400, body));
+            assert_eq!(error.code(), "API_REQUEST_INVALID", "{body}");
+        }
+        // Jev matching looks at the message, not at JSON key names.
+        let key_only = r#"{"detail":"bad","max_tokens":1}"#;
+        assert_eq!(
+            api_failure("Jev", ReplyShape::Jev, &req(), &reply(422, key_only)).code(),
+            "API_REQUEST_INVALID"
         );
     }
 
     #[test]
     fn provider_fields_are_kept_and_bounded() {
         let body = r#"{"type":"error","error":{"type":"invalid_request_error","message":"bad field","param":"model"},"request_id":"req_9"}"#;
-        let error = api_failure("luna", &reply(400, body));
+        let error = api_failure("luna", ReplyShape::Llm, &req(), &reply(400, body));
         assert_eq!(error.field(), Some("model"));
         let details = error.details().expect("details");
         assert_eq!(details.http_status, Some(400));
@@ -412,7 +518,7 @@ mod tests {
         assert_eq!(details.provider_request_id.as_deref(), Some("req_9"));
         assert_eq!(details.provider.as_deref(), Some("luna"));
         let huge = "x".repeat(10_000);
-        let error = api_failure("luna", &reply(500, &huge));
+        let error = api_failure("luna", ReplyShape::Llm, &req(), &reply(500, &huge));
         assert!(error.message().len() < 1200, "{}", error.message().len());
         assert!(error.message().contains("..."));
     }
@@ -421,12 +527,22 @@ mod tests {
     fn jev_style_bodies_and_raw_fallback() {
         let detail =
             r#"{"detail":[{"loc":["body","questions",0,"choices"],"msg":"too few choices"}]}"#;
-        let error = api_failure("Jev", &reply(422, detail));
+        let error = api_failure("Jev", ReplyShape::Jev, &req(), &reply(422, detail));
         assert_eq!(error.field(), Some("choices"));
         assert!(error.message().contains("too few choices"));
-        let plain = api_failure("Jev", &reply(422, r#"{"detail":"bad question"}"#));
+        let plain = api_failure(
+            "Jev",
+            ReplyShape::Jev,
+            &req(),
+            &reply(422, r#"{"detail":"bad question"}"#),
+        );
         assert!(plain.message().contains("bad question"));
-        let raw = api_failure("Jev", &reply(502, "<html>\nBad gateway\n</html>"));
+        let raw = api_failure(
+            "Jev",
+            ReplyShape::Jev,
+            &req(),
+            &reply(502, "<html>\nBad gateway\n</html>"),
+        );
         assert!(
             raw.message().contains("<html> Bad gateway </html>"),
             "{}",
@@ -441,6 +557,70 @@ mod tests {
             vec![("Retry-After".to_owned(), "7".to_owned())],
             Vec::new(),
         );
-        assert_eq!(api_failure("p", &response).retry_after_seconds(), Some(7));
+        assert_eq!(
+            api_failure("p", ReplyShape::Llm, &req(), &response).retry_after_seconds(),
+            Some(7)
+        );
+    }
+
+    /// ERR-QA-4: a 422 that blames `max_tokens` by location but whose message
+    /// is about a value is an invalid request, and keeps `field`.
+    #[test]
+    fn jev_422_blaming_max_tokens_by_location_keeps_the_field() {
+        let body = r#"{"detail":[{"loc":["body","max_tokens"],"msg":"value must be positive"}]}"#;
+        let error = api_failure("Jev", ReplyShape::Jev, &req(), &reply(422, body));
+        assert_eq!(error.code(), "API_REQUEST_INVALID");
+        assert_eq!(error.field(), Some("max_tokens"));
+    }
+
+    /// ERR-QA-17 (unverified wording): Anthropic's "prompt is too long".
+    #[test]
+    fn anthropic_prompt_too_long_is_input_too_large() {
+        let body = r#"{"type":"error","error":{"type":"invalid_request_error","message":"prompt is too long: 215000 tokens > 200000 maximum"}}"#;
+        let error = api_failure("haiku", ReplyShape::Llm, &req(), &reply(400, body));
+        assert_eq!(error.code(), "INPUT_TOO_LARGE");
+        let other =
+            r#"{"type":"error","error":{"type":"api_error","message":"prompt is too long"}}"#;
+        assert_eq!(
+            api_failure("haiku", ReplyShape::Llm, &req(), &reply(400, other)).code(),
+            "API_REQUEST_INVALID"
+        );
+    }
+
+    /// ERR-QA-3: the key is removed before the 1024-byte cut, so a key that
+    /// straddles the cut leaves no fragment, in the message or any other
+    /// provider field.
+    #[test]
+    fn key_straddling_the_length_cut_leaves_no_fragment() {
+        use sc_agent_types::{BackendKeyId, PROVIDER_TEXT_MAX_BYTES, ResolvedApiKey};
+        const KEY: &str = "sk-straddle-secret-0123456789";
+        let key = ResolvedApiKey::try_new(BackendKeyId::OpenAi, KEY.to_owned()).expect("key");
+        let request = HttpRequest::new(
+            crate::Method::Post,
+            crate::Endpoint::parse("https://api.example.test/v1/x").expect("https"),
+            std::sync::Arc::from("{}"),
+        )
+        .with_secret(crate::SecretHeader::bearer(key));
+        // Every offset of the key around the cut, for the message, the raw
+        // fallback and the type field.
+        for lead in (PROVIDER_TEXT_MAX_BYTES - KEY.len() - 4)..=(PROVIDER_TEXT_MAX_BYTES + 2) {
+            let text = format!("{}{KEY}tail", "a".repeat(lead));
+            let json = format!(r#"{{"error":{{"type":"{text}","message":"{text}"}}}}"#);
+            for body in [text.clone(), json] {
+                let error = api_failure("p", ReplyShape::Llm, &request, &reply(500, &body));
+                let rendered = format!(
+                    "{} {}",
+                    error.message(),
+                    serde_json::to_string(&error.details()).expect("json")
+                );
+                for size in 4..=KEY.len() {
+                    assert!(
+                        !rendered.contains(&KEY[..size])
+                            && !rendered.contains(&KEY[KEY.len() - size..]),
+                        "lead {lead}: a {size}-byte key fragment survived"
+                    );
+                }
+            }
+        }
     }
 }
