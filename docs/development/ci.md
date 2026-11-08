@@ -24,7 +24,7 @@ retries; bounded cargo network-fetch retries only (`CARGO_NET_RETRY=2`).
 | `python` | ubuntu-24.04, macos-15, windows-2022 | `just test-python` |
 | `features` | ubuntu-24.04 | `cargo hack --each-feature test -p sc-treesitter` |
 | `doc` | ubuntu-24.04 | `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps` |
-| `coverage` | ubuntu-24.04 | `cargo llvm-cov --workspace --no-report`, then `cargo llvm-cov report` |
+| `coverage` | ubuntu-24.04 | `cargo llvm-cov --workspace --no-report`, then `cargo llvm-cov --no-report -p sc-ai --features cli,test-util`, then `cargo llvm-cov report` |
 
 `just lint` runs the three `[[tool.sc-lint.lint]]` steps in `sc-lint.toml`:
 `sc-lint lint sc-boundary` (see [`boundaries/README.md`](../../boundaries/README.md)
