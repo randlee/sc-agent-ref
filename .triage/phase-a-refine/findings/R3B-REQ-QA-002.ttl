@@ -1,0 +1,61 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R3B-REQ-QA-002>
+  a triage:Finding ;
+  triage:findingId "R3B-REQ-QA-002" ;
+  triage:title "The REQ-SAG-0135 acceptance row requires the clap rows to 'pass in CI for both l" ;
+  triage:description "The REQ-SAG-0135 acceptance row requires the clap rows to 'pass in CI for both libraries'. The developer report lists 'Remote CI not yet exercised for the new jobs' as a deferral. The `deps`, `wheel` and `workspace-tests` jobs are wired but have no recorded green run on PR #31. This criterion cannot be confirmed from repository evidence alone, so it is not-verifiable. Recommendation: Run the PR CI and record green results for the `deps` (cargo tree gates, check-exact-pins), `wheel` and `workspace-tests` jobs. Fix any job that fails. The finding clears when the CI evidence is attached to the PR." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "REQ" ;
+  triage:severity "blocking" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-07T23:54:32Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R3B ;
+  triage:foundAt "2026-11-07T23:55:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R3B-REQ-QA-002/R3B-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R3B-REQ-QA-002/INT-1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R3B-REQ-QA-002/R3B-1>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md" ;
+  triage:line 567 ;
+  triage:snippet "| req:REQ-SAG-0135 | `cargo-tree-gates.sh` clap rows pass in CI for both libraries |" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-3b-compose-and-workspace-tests" ;
+  triage:headSha "90004d758db92b84afd5afd99e3f2ce89d5e1425" ;
+  triage:occursIn <urn:atm:triage:worktree/r-3b/90004d7> .
+
+<urn:atm:triage:occurrence/R3B-REQ-QA-002/INT-1>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md" ;
+  triage:line 567 ;
+  triage:snippet "| req:REQ-SAG-0135 | `cargo-tree-gates.sh` clap rows pass in CI for both libraries |" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "9187024c80b42611088fa1466926fcb508b669de" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/9187024> .
+
+<urn:atm:triage:worktree/r-3b/90004d7>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-3b-compose-and-workspace-tests" ;
+  triage:branch "sprint/r-3b-compose-and-workspace-tests" ;
+  triage:headSha "90004d758db92b84afd5afd99e3f2ce89d5e1425" ;
+  triage:orderIndex 1 .
+
+<urn:atm:triage:worktree/integrate-phase-a/9187024>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "9187024c80b42611088fa1466926fcb508b669de" ;
+  triage:orderIndex 0 .
