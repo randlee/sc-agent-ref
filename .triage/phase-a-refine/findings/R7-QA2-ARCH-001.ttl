@@ -1,0 +1,49 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R7-QA2-ARCH-001>
+  a triage:Finding ;
+  triage:findingId "R7-QA2-ARCH-001" ;
+  triage:title "The engine's send() suppresses the LogEvent when the request token was already cancelled at entry and the backend returns NETWORK_ERROR kind" ;
+  triage:description "The engine's send() suppresses the LogEvent when the request token was already cancelled at entry and the backend returns NETWORK_ERROR kind Cancelled (lines 806-820). The engine still records that backend as Step::Failed with Attestation::Failed (lines 618-625, 681-682), so the result and the log disagree. The only no-log case the engine defines is NotSent (refused before a send). The binding requirement REQ-SAG-0610 (docs/requirements.md:102) says every Jev/LLM prompt send emits a LogEvent, and the ADR-SAG-0013 expectation recorded in the r-2b sprint and the plan-review-5 disposition (ARCH-R2B-002) is 'every judge call emits one LogEvent, a Failed backend included, NotSent emits none'. The new test crates/sc-jev-check/src/run/tests.rs:643-679 (cancelled_before_send_emits_no_log_event) codifies the suppression. The ADR-SAG-0013 body text is general, so the binding basis is REQ-SAG-0610 read with ADR-SAG-0013." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "RULE-ADR-CODE" ;
+  triage:severity "blocking" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T04:33:39Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R7 ;
+  triage:foundAt "2026-11-08T02:45:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-ARCH-001/SR7-4eb8265-1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R7-QA2-ARCH-001/SR7-4eb8265-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-check/src/run/mod.rs" ;
+  triage:line 810 ;
+  triage:snippet "if cancelled_at_entry && matches!(Err(NetworkError{kind: Cancelled})) { return judged; } - suppresses LogEvent" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c" ;
+  triage:occursIn <urn:atm:triage:worktree/SR7/4eb8265> .
+
+<urn:atm:triage:worktree/INT/81ffec2>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "81ffec2fcab6d1b18967a84963df35fe9fb91e80" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/SR7/4eb8265>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-7-decision-schema" ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c" ;
+  triage:orderIndex 1 .

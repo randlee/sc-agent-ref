@@ -1,0 +1,241 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R7-QA2-RQA-QA-002>
+  a triage:Finding ;
+  triage:findingId "R7-QA2-RQA-QA-002" ;
+  triage:title "RSH-006 as scoped (main clippy, test and doc steps) is closed" ;
+  triage:description "RSH-006 as scoped (main clippy, test and doc steps) is closed. Other cargo steps in the same file still lack --locked, so CI can still resolve versions other than Cargo.lock there. The unlocked steps are cargo hack --each-feature test (256), cargo hack check --feature-powerset (276, 280), cargo build --lib --no-default-features (316, 320) and cargo llvm-cov (535, 542-543). I did not check every run line (the test -p sc-treesitter/sc-ai steps at 262-270 and workspace-tests at 445 were not looked at)." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "artifacts" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T02:51:19Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R7 ;
+  triage:foundAt "2026-11-08T04:00:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/IPA-01> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/IPA-02> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/IPA-03> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/IPA-04> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/IPA-05> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/IPA-06> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/IPA-07> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/IPA-08> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/IPA-09> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/IPA-10> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/IPA-11> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/RDS-01> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/RDS-02> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/RDS-03> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/RDS-04> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/RDS-05> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/RDS-06> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/IPA-01>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 127 ;
+  triage:snippet "run: cargo clippy --workspace --all-targets --all-features -- -D warnings" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "81ffec2fcab6d1b18967a84963df35fe9fb91e80" ;
+  triage:occursIn <urn:atm:triage:worktree/PHASE-A-INTEGRATE/81ffec2> .
+
+<urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/IPA-02>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 131 ;
+  triage:snippet "run: cargo test --workspace" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "81ffec2fcab6d1b18967a84963df35fe9fb91e80" ;
+  triage:occursIn <urn:atm:triage:worktree/PHASE-A-INTEGRATE/81ffec2> .
+
+<urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/IPA-03>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 137 ;
+  triage:snippet "run: cargo test -p sc-agent-types --features git,test-util" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "81ffec2fcab6d1b18967a84963df35fe9fb91e80" ;
+  triage:occursIn <urn:atm:triage:worktree/PHASE-A-INTEGRATE/81ffec2> .
+
+<urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/IPA-04>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 144 ;
+  triage:snippet "run: cargo test -p sc-agent-http --features test-util" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "81ffec2fcab6d1b18967a84963df35fe9fb91e80" ;
+  triage:occursIn <urn:atm:triage:worktree/PHASE-A-INTEGRATE/81ffec2> .
+
+<urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/IPA-05>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 150 ;
+  triage:snippet "run: cargo test -p sc-ai --features test-util" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "81ffec2fcab6d1b18967a84963df35fe9fb91e80" ;
+  triage:occursIn <urn:atm:triage:worktree/PHASE-A-INTEGRATE/81ffec2> .
+
+<urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/IPA-06>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 239 ;
+  triage:snippet "run: cargo hack --each-feature test -p sc-treesitter" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "81ffec2fcab6d1b18967a84963df35fe9fb91e80" ;
+  triage:occursIn <urn:atm:triage:worktree/PHASE-A-INTEGRATE/81ffec2> .
+
+<urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/IPA-07>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 259 ;
+  triage:snippet "run: cargo hack check -p sc-agent-types --feature-powerset --no-dev-deps" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "81ffec2fcab6d1b18967a84963df35fe9fb91e80" ;
+  triage:occursIn <urn:atm:triage:worktree/PHASE-A-INTEGRATE/81ffec2> .
+
+<urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/IPA-08>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 464 ;
+  triage:snippet "run: cargo doc --workspace --no-deps" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "81ffec2fcab6d1b18967a84963df35fe9fb91e80" ;
+  triage:occursIn <urn:atm:triage:worktree/PHASE-A-INTEGRATE/81ffec2> .
+
+<urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/IPA-09>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 514 ;
+  triage:snippet "run: cargo llvm-cov --workspace --no-report" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "81ffec2fcab6d1b18967a84963df35fe9fb91e80" ;
+  triage:occursIn <urn:atm:triage:worktree/PHASE-A-INTEGRATE/81ffec2> .
+
+<urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/IPA-10>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 521 ;
+  triage:snippet "cargo llvm-cov report | tee coverage/summary.txt" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "81ffec2fcab6d1b18967a84963df35fe9fb91e80" ;
+  triage:occursIn <urn:atm:triage:worktree/PHASE-A-INTEGRATE/81ffec2> .
+
+<urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/IPA-11>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 522 ;
+  triage:snippet "cargo llvm-cov report --json --summary-only --output-path coverage/summary.json" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "81ffec2fcab6d1b18967a84963df35fe9fb91e80" ;
+  triage:occursIn <urn:atm:triage:worktree/PHASE-A-INTEGRATE/81ffec2> .
+
+<urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/RDS-01>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 256 ;
+  triage:snippet "run: cargo hack --each-feature test -p sc-treesitter" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c" ;
+  triage:occursIn <urn:atm:triage:worktree/R7-DECISION-SCHEMA/4eb8265> .
+
+<urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/RDS-02>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 276 ;
+  triage:snippet "run: cargo hack check -p sc-agent-types --feature-powerset --no-dev-deps" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c" ;
+  triage:occursIn <urn:atm:triage:worktree/R7-DECISION-SCHEMA/4eb8265> .
+
+<urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/RDS-03>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 280 ;
+  triage:snippet "run: cargo hack check -p sc-decision-schema --feature-powerset --no-dev-deps" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c" ;
+  triage:occursIn <urn:atm:triage:worktree/R7-DECISION-SCHEMA/4eb8265> .
+
+<urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/RDS-04>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 535 ;
+  triage:snippet "run: cargo llvm-cov --workspace --no-report" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c" ;
+  triage:occursIn <urn:atm:triage:worktree/R7-DECISION-SCHEMA/4eb8265> .
+
+<urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/RDS-05>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 542 ;
+  triage:snippet "cargo llvm-cov report | tee coverage/summary.txt" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c" ;
+  triage:occursIn <urn:atm:triage:worktree/R7-DECISION-SCHEMA/4eb8265> .
+
+<urn:atm:triage:occurrence/R7-QA2-RQA-QA-002/RDS-06>
+  a triage:Occurrence ;
+  triage:file ".github/workflows/sc-agent-ci.yml" ;
+  triage:line 543 ;
+  triage:snippet "cargo llvm-cov report --json --summary-only --output-path coverage/summary.json" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c" ;
+  triage:occursIn <urn:atm:triage:worktree/R7-DECISION-SCHEMA/4eb8265> .
+
+<urn:atm:triage:worktree/PHASE-A-INTEGRATE/81ffec2>
+  a triage:WorktreeSnapshot ;
+  triage:path "worktrees/integrate-phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "81ffec2fcab6d1b18967a84963df35fe9fb91e80" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/R7-DECISION-SCHEMA/4eb8265>
+  a triage:WorktreeSnapshot ;
+  triage:path "worktrees/sprint-r-7-decision-schema" ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c" ;
+  triage:orderIndex 1 .

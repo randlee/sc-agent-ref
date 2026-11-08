@@ -1,0 +1,61 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R7-QA2-RQA-QA-001>
+  a triage:Finding ;
+  triage:findingId "R7-QA2-RQA-QA-001" ;
+  triage:title "A git timeout is reported as EXTRACTION_TIMEOUT, whose fix hint says 'Raise timeout_seconds above N or reduce the input so extraction finish" ;
+  triage:description "A git timeout is reported as EXTRACTION_TIMEOUT, whose fix hint says 'Raise timeout_seconds above N or reduce the input so extraction finishes in time.' This misleads the user. The git deadline (GIT_DEADLINE, 60 s, git.rs) is a fixed constant and the doc says it is 'not configurable'. No timeout_seconds setting exists for it, so the user cannot act on the first half of the hint. The git call may also be a rev read, a repo-root discovery or hash-object. 'Reduce the input' does not describe a hung or slow git (a stuck lock, a network filesystem, a huge repo). The Display text 'extraction timed out after 60s' also names the wrong stage." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "correctness" ;
+  triage:severity "important" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T02:50:45Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R7 ;
+  triage:foundAt "2026-11-08T04:00:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-RQA-QA-001/PA-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-RQA-QA-001/R7-1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R7-QA2-RQA-QA-001/PA-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/error.rs" ;
+  triage:line 842 ;
+  triage:snippet "Raise timeout_seconds above {timeout_seconds} or reduce the input so extraction finishes in time." ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "81ffec2fcab6d1b18967a84963df35fe9fb91e80" ;
+  triage:occursIn <urn:atm:triage:worktree/PA/81ffec2> .
+
+<urn:atm:triage:occurrence/R7-QA2-RQA-QA-001/R7-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/error.rs" ;
+  triage:line 842 ;
+  triage:snippet "Raise timeout_seconds above {timeout_seconds} or reduce the input so extraction finishes in time." ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c" ;
+  triage:occursIn <urn:atm:triage:worktree/R7/4eb8265> .
+
+<urn:atm:triage:worktree/PA/81ffec2>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "81ffec2fcab6d1b18967a84963df35fe9fb91e80" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/R7/4eb8265>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-7-decision-schema" ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c" ;
+  triage:orderIndex 1 .
