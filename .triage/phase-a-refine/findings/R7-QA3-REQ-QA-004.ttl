@@ -1,0 +1,49 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R7-QA3-REQ-QA-004>
+  a triage:Finding ;
+  triage:findingId "R7-QA3-REQ-QA-004" ;
+  triage:title "owned_paths spells error-codes.json crate-relative (tests/fixtures/error-codes.json)" ;
+  triage:description "The owned_paths entry reads 'crates/sc-agent-types/tests/errors.rs, tests/fixtures/error-codes.json#GitTimeout row'. The second path is relative to the crate (the real file is crates/sc-agent-types/tests/fixtures/error-codes.json) and could be read as the repo-root tests/fixtures/. The ownership claim is still unambiguous enough to count REQ-QA-003 as closed." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "cross-doc-conflict" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T04:47:19Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R7 ;
+  triage:foundAt "2026-11-08T04:45:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA3-REQ-QA-004/R7-1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R7-QA3-REQ-QA-004/R7-1>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 182 ;
+  triage:snippet "crates/sc-agent-types/tests/errors.rs, tests/fixtures/error-codes.json#GitTimeout row (QA fix)" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "a6a13879c59b176b6f8ceed32b9830ec6ad33754" ;
+  triage:occursIn <urn:atm:triage:worktree/r-7/a6a1387> .
+
+<urn:atm:triage:worktree/integrate-phase-a/d958938>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "d958938eaec8894b5fd37431925ffab28863387c" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/r-7/a6a1387>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-7-decision-schema" ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "a6a13879c59b176b6f8ceed32b9830ec6ad33754" ;
+  triage:orderIndex 1 .

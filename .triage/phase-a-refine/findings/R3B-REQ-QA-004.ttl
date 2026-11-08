@@ -1,0 +1,109 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R3B-REQ-QA-004>
+  a triage:Finding ;
+  triage:findingId "R3B-REQ-QA-004" ;
+  triage:title "ADR-SAG-0026 host half (Active, r-3b) says the run_from/ask_from signatures name" ;
+  triage:description "ADR-SAG-0026 host half (Active, r-3b) says the run_from/ask_from signatures name `JudgeOutcome`, and sprint D2.2 specifies `ask_from -> Result<JudgeOutcome, JevError>`. The code and docs/sc-jev-host/architecture.md:62 say `ask_from` returns `AskResponse`. The change is explained only in the sprint implementation notes. Recommendation: Edit docs/architecture.md:1346 to name `AskResponse` (`response.outcome()` is the `JudgeOutcome`). Align the D2.2 bullet in the sprint doc." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "REQ" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-07T23:54:58Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R3B ;
+  triage:foundAt "2026-11-07T23:55:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R3B-REQ-QA-004/INT-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R3B-REQ-QA-004/INT-2> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R3B-REQ-QA-004/INT-3> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R3B-REQ-QA-004/SPR-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R3B-REQ-QA-004/SPR-2> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R3B-REQ-QA-004/SPR-3> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R3B-REQ-QA-004/INT-1>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md" ;
+  triage:line 194 ;
+  triage:snippet "(`CheckSource`, `RunResponse`, `JudgeOutcome` via `sc-agent-types`," ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "9187024c80b42611088fa1466926fcb508b669de" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/9187024> .
+
+<urn:atm:triage:occurrence/R3B-REQ-QA-004/INT-2>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md" ;
+  triage:line 199 ;
+  triage:snippet "compose::ask_from(session_id, follow_up, inputs) -> Result<JudgeOutcome, JevError>" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "9187024c80b42611088fa1466926fcb508b669de" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/9187024> .
+
+<urn:atm:triage:occurrence/R3B-REQ-QA-004/INT-3>
+  a triage:Occurrence ;
+  triage:file "docs/architecture.md" ;
+  triage:line 1331 ;
+  triage:snippet "`sc-agent-types` (`CheckSource`, `RunResponse`, `JudgeOutcome`," ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "9187024c80b42611088fa1466926fcb508b669de" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/9187024> .
+
+<urn:atm:triage:occurrence/R3B-REQ-QA-004/SPR-1>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md" ;
+  triage:line 194 ;
+  triage:snippet "(`CheckSource`, `RunResponse`, `JudgeOutcome` via `sc-agent-types`," ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-3b-compose-and-workspace-tests" ;
+  triage:headSha "90004d758db92b84afd5afd99e3f2ce89d5e1425" ;
+  triage:occursIn <urn:atm:triage:worktree/sprint-r-3b/90004d7> .
+
+<urn:atm:triage:occurrence/R3B-REQ-QA-004/SPR-2>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md" ;
+  triage:line 199 ;
+  triage:snippet "compose::ask_from(session_id, follow_up, inputs) -> Result<JudgeOutcome, JevError>" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-3b-compose-and-workspace-tests" ;
+  triage:headSha "90004d758db92b84afd5afd99e3f2ce89d5e1425" ;
+  triage:occursIn <urn:atm:triage:worktree/sprint-r-3b/90004d7> .
+
+<urn:atm:triage:occurrence/R3B-REQ-QA-004/SPR-3>
+  a triage:Occurrence ;
+  triage:file "docs/architecture.md" ;
+  triage:line 1346 ;
+  triage:snippet "`sc-agent-types` (`CheckSource`, `RunResponse`, `JudgeOutcome`," ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-3b-compose-and-workspace-tests" ;
+  triage:headSha "90004d758db92b84afd5afd99e3f2ce89d5e1425" ;
+  triage:occursIn <urn:atm:triage:worktree/sprint-r-3b/90004d7> .
+
+<urn:atm:triage:worktree/integrate-phase-a/9187024>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "9187024c80b42611088fa1466926fcb508b669de" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/sprint-r-3b/90004d7>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-3b-compose-and-workspace-tests" ;
+  triage:branch "sprint/r-3b-compose-and-workspace-tests" ;
+  triage:headSha "90004d758db92b84afd5afd99e3f2ce89d5e1425" ;
+  triage:orderIndex 1 .

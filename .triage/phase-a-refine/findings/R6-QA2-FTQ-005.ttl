@@ -1,0 +1,61 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R6-QA2-FTQ-005>
+  a triage:Finding ;
+  triage:findingId "R6-QA2-FTQ-005" ;
+  triage:title "The concurrent-writer helper joins eight std threads with no deadline" ;
+  triage:description "The concurrent-writer helper joins eight std threads with no deadline. If any writer thread wedges inside save() or load(), the test blocks forever instead of failing, and the CI job only ends at its own timeout. Today the store takes no lock (session/mod.rs:21 states there is no lock), so no blocking path is reachable and this is not a current flake. It still violates the Fix Standard: a join with no hard deadline is a path on which the test can block forever." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "qa" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T06:41:03Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R6 ;
+  triage:foundAt "2026-11-08T06:39:59Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R6-QA2-FTQ-005/IA-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R6-QA2-FTQ-005/R6-1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R6-QA2-FTQ-005/IA-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-check/tests/session.rs" ;
+  triage:line 359 ;
+  triage:snippet "writer.join().expect('writer');" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "48c4d1cf5a0972351bc146721db41888fbc5cfa3" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/48c4d1c> .
+
+<urn:atm:triage:occurrence/R6-QA2-FTQ-005/R6-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-check/tests/session.rs" ;
+  triage:line 467 ;
+  triage:snippet "writer.join().expect('writer');" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-6-session-log-record" ;
+  triage:headSha "34655a4465760a9e31860b5eea8b78960674714c" ;
+  triage:occursIn <urn:atm:triage:worktree/r-6-session-log-record/34655a4> .
+
+<urn:atm:triage:worktree/integrate-phase-a/48c4d1c>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "48c4d1cf5a0972351bc146721db41888fbc5cfa3" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/r-6-session-log-record/34655a4>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-6-session-log-record" ;
+  triage:branch "sprint/r-6-session-log-record" ;
+  triage:headSha "34655a4465760a9e31860b5eea8b78960674714c" ;
+  triage:orderIndex 1 .

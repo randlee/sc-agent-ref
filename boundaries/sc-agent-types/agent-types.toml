@@ -1,0 +1,66 @@
+# Boundary manifest for sc-agent-types. Checked by `sc-lint lint sc-boundary` (`just lint`).
+#
+# Conventions (Phase A phase-end, RBQA-F001 option B):
+# - `allowed_dependencies` lists EVERY direct normal (non-dev) dependency in
+#   crates/sc-agent-types/Cargo.toml, workspace and third-party, including optional and
+#   target-specific ones. Dev-dependencies are not listed.
+# - `forbidden_edges` are direct edges only; transitive reachability is not
+#   checked.
+# - What sc-lint 0.8.0 enforces from this file: workspace-to-workspace edges
+#   (SCB-DEPENDENCY-001 unlisted edge, -002 unlisted dependent, -003 forbidden
+#   edge present, -004 stale dependent permission). Third-party names here are
+#   accepted but not enforced by sc-boundary; the third-party edges that matter
+#   are enforced by the `global_dependency_ownership` records in sc-lint.toml
+#   (SCB-MANIFEST-004). Enforcement is Cargo-edge only: sc-lint 0.8.0 accepts
+#   `references.forbidden` entries but does not report on them, so this file
+#   declares none.
+
+boundary_id = "BOUNDARY-agent-types"
+owner_package = "sc-agent-types"
+owner_crate_path = "sc_agent_types"
+name = "agent-types"
+
+[public]
+facade = "sc_agent_types::JevError, sc_agent_types::ErrorCode, sc_agent_types::NetworkErrorKind, sc_agent_types::OperationalArea, sc_agent_types::ScAgentErrorResponse, sc_agent_types::BackendId, sc_agent_types::BackendKeyId, sc_agent_types::BackendFamily, sc_agent_types::BackendDescriptor, sc_agent_types::BACKENDS, sc_agent_types::BackendSet, sc_agent_types::RepoRoot, sc_agent_types::Rev, sc_agent_types::SessionId, sc_agent_types::Sha256Digest, sc_agent_types::BlobSha, sc_agent_types::RepoRelativePath, sc_agent_types::Operation, sc_agent_types::AnswerId, sc_agent_types::ProjectLabel, sc_agent_types::ModelId, sc_agent_types::UnknownModel, sc_agent_types::ModelFamily, sc_agent_types::ModelDescriptor, sc_agent_types::MODELS, sc_agent_types::ModelAliases, sc_agent_types::SendTrace, sc_agent_types::CancelToken, sc_agent_types::ResolvedApiKey, sc_agent_types::schema::subjects, sc_agent_types::observability::v2, sc_agent_types::git"
+notes = "Errors (explicit variants, ErrorCode), the stderr error shape, ids and the static backend catalog (BACKENDS), the model catalog (ModelId, MODELS, ModelAliases), SendTrace, ProjectLabel, the secret wrapper, schema::subjects, the session log port (observability::v2), and argv-only git helpers (discover_toplevel, discover_common_dir, read_at_rev, hash_blob). SessionId and AnswerId wrap ulid::Ulid and Sha256Digest::of_text goes through sc-sha (r-6, ADR-SAG-0027 r-6 amendment): both are core dependencies, caret, owned by this crate only (sc-lint.toml ownership records); sha2 and uuid are not direct dependencies. observability::v2::LogEvent carries one session-log row as a JSON object (ADR-SAG-0016 r-6 amendment). Cargo features (r-1, r-7, ADR-SAG-0027): secret and obs default-on; git non-default; error/envelope/ids/schema/cancel/models/trace always on. The judge contract, canonical payload and MockJudgeBackend moved to sc-decision-schema (ADR-SAG-0030). The integration target git declares [[test]] required-features (D0 spike outcome, boundaries/README.md). Links no sc-observability*. ResolvedApiKey::as_str is not restricted here: sc-lint 0.8.0 does not enforce references.forbidden."
+
+[implementation]
+type = "marker"
+module = "sc_agent_types"
+visibility = "public"
+constructor = "none"
+
+[composition]
+roots = ["JevError", "ModelId", "SendTrace"]
+
+[dependencies]
+allowed_dependents = ["sc-decision-schema", "sc-agent-secrets", "sc-agent-http", "sc-jev-check", "sc-jev", "sc-jev-backends", "sc-treesitter", "sc-ai", "sc-jev-py", "sc-jev-host", "workspace-tests"]
+allowed_dependencies = ["sc-sha", "serde", "serde_json", "thiserror", "ulid"]
+forbidden_edges = [
+    { from = "sc-agent-types", to = "sc-observability" },
+    { from = "sc-agent-types", to = "ureq" },
+    { from = "sc-agent-types", to = "pyo3" },
+]
+
+# Required by the sc-lint 0.8.0 inventory schema. Not enforced: the
+# validator accepts entries here but reports nothing for them.
+[references]
+scope = "outside_owner_crate"
+forbidden = []
+
+# Required by the schema. Declarative: sc-lint 0.8.0 reports nothing for
+# these fields. This crate has no test doubles after r-7.
+# Dev-only edges are counted by sc-boundary (D0 spike); this crate has no
+# self dev-dependency (its `mock` and `git` targets use required-features).
+[testing]
+allowed_test_double_paths = []
+forbidden_test_bypasses = []
+
+# The sc-lint rules that check this boundary on every `just lint`. Listing
+# them here is documentation; sc-lint 0.8.0 does not read this field.
+[enforcement]
+lint_rules = ["SCB-DEPENDENCY-001", "SCB-DEPENDENCY-002", "SCB-DEPENDENCY-003", "SCB-DEPENDENCY-004", "SCB-MANIFEST-004"]
+review_gates = []
+
+[status]
+state = "concrete_landed"

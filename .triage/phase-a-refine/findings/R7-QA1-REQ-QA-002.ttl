@@ -1,0 +1,109 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R7-QA1-REQ-QA-002>
+  a triage:Finding ;
+  triage:findingId "R7-QA1-REQ-QA-002" ;
+  triage:title "owned_paths names crates/sc-jev/src/check.rs#fn model_id, and D2.4 lists check.rs as an an" ;
+  triage:description "owned_paths names crates/sc-jev/src/check.rs#fn model_id, and D2.4 lists check.rs as an anchor. The implementation puts the trait impl, and so model_id, in client/mod.rs. The sprint's Implementation notes disclose this, but the frontmatter and the D2.4 anchor text were not corrected." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "cross-doc-conflict" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T02:34:02Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R7 ;
+  triage:foundAt "2026-11-08T02:30:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-REQ-QA-002/INT-126> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-REQ-QA-002/INT-407> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-REQ-QA-002/INT-627> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-REQ-QA-002/SPR-126> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-REQ-QA-002/SPR-407> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-REQ-QA-002/SPR-627> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R7-QA1-REQ-QA-002/INT-126>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 126 ;
+  triage:snippet "crates/sc-jev/src/check.rs#impl JudgeBackend for JevClient: fn model_id" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1983412ff750b775ed40c3261fe17383dd" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/0d0ebc1> .
+
+<urn:atm:triage:occurrence/R7-QA1-REQ-QA-002/INT-407>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 407 ;
+  triage:snippet "D7: sc-jev/src/config.rs (model as ModelId), sc-jev/src/check.rs" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1983412ff750b775ed40c3261fe17383dd" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/0d0ebc1> .
+
+<urn:atm:triage:occurrence/R7-QA1-REQ-QA-002/INT-627>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 627 ;
+  triage:snippet "JevClient (check.rs) returns its JevConfig model" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1983412ff750b775ed40c3261fe17383dd" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/0d0ebc1> .
+
+<urn:atm:triage:occurrence/R7-QA1-REQ-QA-002/SPR-126>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 126 ;
+  triage:snippet "crates/sc-jev/src/check.rs#impl JudgeBackend for JevClient: fn model_id" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "94972978d9e6321be71e884368721cf0f79d3d54" ;
+  triage:occursIn <urn:atm:triage:worktree/sprint-r-7-decision-schema/9497297> .
+
+<urn:atm:triage:occurrence/R7-QA1-REQ-QA-002/SPR-407>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 407 ;
+  triage:snippet "D7: sc-jev/src/config.rs (model as ModelId), sc-jev/src/check.rs" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "94972978d9e6321be71e884368721cf0f79d3d54" ;
+  triage:occursIn <urn:atm:triage:worktree/sprint-r-7-decision-schema/9497297> .
+
+<urn:atm:triage:occurrence/R7-QA1-REQ-QA-002/SPR-627>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 627 ;
+  triage:snippet "JevClient (check.rs) returns its JevConfig model" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "94972978d9e6321be71e884368721cf0f79d3d54" ;
+  triage:occursIn <urn:atm:triage:worktree/sprint-r-7-decision-schema/9497297> .
+
+<urn:atm:triage:worktree/integrate-phase-a/0d0ebc1>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1983412ff750b775ed40c3261fe17383dd" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/sprint-r-7-decision-schema/9497297>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-7-decision-schema" ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "94972978d9e6321be71e884368721cf0f79d3d54" ;
+  triage:orderIndex 1 .

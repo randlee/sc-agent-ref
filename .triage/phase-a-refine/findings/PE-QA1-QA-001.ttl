@@ -1,0 +1,42 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/PE-QA1-QA-001>
+  a triage:Finding ;
+  triage:findingId "PE-QA1-QA-001" ;
+  triage:title "crates/sc-ai/src/command.rs Workspace line coverage from the CI-equivalent default-feature run (cargo llvm-cov --workspace, sc-jev-py exclud" ;
+  triage:description "crates/sc-ai/src/command.rs Workspace line coverage from the CI-equivalent default-feature run (cargo llvm-cov --workspace, sc-jev-py excluded) is 54.1% lines, 58.0% functions. The branch figure is 0 because llvm-cov reports no branch data on this toolchain. Several risk-bearing src files show very low or zero coverage in that run. Confirm that the files below are exercised only by test-util or cli feature-gated suites, or by subprocess tests that llvm-cov does not instrument. If so, run llvm-cov with those features, or record the gap as accepted. Otherwise add tests. Low-coverage files: sc-ai/src/command.rs 14% of 738 lines; sc-ai/src/observe.rs 0%; sc-treesitter/src/main.rs 20%; sc-jev-check/src/registry/scripted.rs 17%; sc-jev-check/src/session/mod.rs 34%; sc-jev-check/src/run/mod.rs 36%; sc-jev-check/src/run/builder.rs 0%; sc-jev-backends/src/transport.rs 0%; sc-jev-backends/src/retry.rs 0%; sc-jev/src/client/https.rs 0%; sc-jev/src/api/config.rs 0%; sc-agent-types/src/subjects.rs 0%." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "coverage" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T17:17:36Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R6 ;
+  triage:foundAt "2026-11-08T17:15:25Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/PE-QA1-QA-001/PE-1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/PE-QA1-QA-001/PE-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-ai/src/command.rs" ;
+  triage:line 1 ;
+  triage:snippet "file-level coverage finding: cited 14% of 738 lines; file is 311 lines at head" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "91d36b3ad309deb3350434acaecee0ab2938b13f" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/91d36b3> .
+
+<urn:atm:triage:worktree/integrate-phase-a/91d36b3>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "91d36b3ad309deb3350434acaecee0ab2938b13f" ;
+  triage:orderIndex 0 .

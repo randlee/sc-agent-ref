@@ -1,0 +1,114 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/PE-QA1-REQ-QA-002>
+  a triage:Finding ;
+  triage:findingId "PE-QA1-REQ-QA-002" ;
+  triage:title "plan.md still reads 'Status: **proposed**'. Its header covers review rounds 1-4 and 6 only, and does not mention round 5. The Phase acceptance" ;
+  triage:description "plan.md still reads 'Status: **proposed**'. Its header covers review rounds 1-4 and 6 only, and does not mention round 5. The Phase acceptance section says it runs 'after r-1, r-4, r-2, r-3, r-3c, r-2b, r-3b merge', which omits r-7, r-5 and r-6. The next paragraph adds their blocks only 'after r-7 and r-6 merge'. docs/requirements.md:148 is headed 'Phase A.1 — refinement (proposed)', and its preamble says rows carry '(Proposed, r-N)' markers, but none remain. The anchor #phase-a1--refinement-proposed is linked from docs/sc-agent-types/requirements.md:28. Set the plan status to complete, or to the state the phase-end gate defines. Update the Phase acceptance preamble to list all ten sprints. Retitle the docs/requirements.md heading, reword its preamble, and update the anchor link in docs/sc-agent-types/requirements.md:28. partially-compliant" ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "plan" ;
+  triage:severity "important" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T17:18:14Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R6 ;
+  triage:foundAt "2026-11-08T17:15:25Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/PE-QA1-REQ-QA-002/PE-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/PE-QA1-REQ-QA-002/PE-2> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/PE-QA1-REQ-QA-002/PE-3> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/PE-QA1-REQ-QA-002/PE-4> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/PE-QA1-REQ-QA-002/PE-5> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/PE-QA1-REQ-QA-002/PE-6> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/PE-QA1-REQ-QA-002/PE-7> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/PE-QA1-REQ-QA-002/PE-1>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/plan.md" ;
+  triage:line 38 ;
+  triage:snippet "Status: **proposed** — plan review round 3 (final) findings applied in the" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "91d36b3" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/91d36b3> .
+
+<urn:atm:triage:occurrence/PE-QA1-REQ-QA-002/PE-2>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/plan.md" ;
+  triage:line 905 ;
+  triage:snippet "Run on integrate/phase-a HEAD after r-1, r-4, r-2, r-3, r-3c, r-2b, r-3b" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "91d36b3" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/91d36b3> .
+
+<urn:atm:triage:occurrence/PE-QA1-REQ-QA-002/PE-3>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/plan.md" ;
+  triage:line 942 ;
+  triage:snippet "After r-7 and r-6 merge, the phase run adds their" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "91d36b3" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/91d36b3> .
+
+<urn:atm:triage:occurrence/PE-QA1-REQ-QA-002/PE-4>
+  a triage:Occurrence ;
+  triage:file "docs/requirements.md" ;
+  triage:line 148 ;
+  triage:snippet "## Phase A.1 — refinement (proposed)" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "91d36b3" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/91d36b3> .
+
+<urn:atm:triage:occurrence/PE-QA1-REQ-QA-002/PE-5>
+  a triage:Occurrence ;
+  triage:file "docs/requirements.md" ;
+  triage:line 150 ;
+  triage:snippet "Each row and amendment carries a marker `(Proposed, r-N)` that its owning" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "91d36b3" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/91d36b3> .
+
+<urn:atm:triage:occurrence/PE-QA1-REQ-QA-002/PE-6>
+  a triage:Occurrence ;
+  triage:file "docs/sc-agent-types/requirements.md" ;
+  triage:line 28 ;
+  triage:snippet "requirements.md#phase-a1--refinement-proposed" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "91d36b3" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/91d36b3> .
+
+<urn:atm:triage:occurrence/PE-QA1-REQ-QA-002/PE-7>
+  a triage:Occurrence ;
+  triage:file "docs/sc-decision-schema/requirements.md" ;
+  triage:line 4 ;
+  triage:snippet "requirements.md#phase-a1--refinement-proposed" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "91d36b3" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/91d36b3> .
+
+<urn:atm:triage:worktree/integrate-phase-a/91d36b3>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "91d36b3" ;
+  triage:orderIndex 0 .

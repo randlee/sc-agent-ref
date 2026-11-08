@@ -1,6 +1,25 @@
+---
+adrs:
+  - ADR-SAG-0001
+  - ADR-SAG-0002
+  - ADR-SAG-0003
+  - ADR-SAG-0004
+  - ADR-SAG-0005
+  - ADR-SAG-0006
+  - ADR-SAG-0007
+  - ADR-SAG-0012
+  - ADR-SAG-0013
+  - ADR-SAG-0015
+  - ADR-SAG-0019
+  - ADR-SAG-0020
+---
+
 # Phase A — sc-jev and sc-ai CLI foundation
 
-Status: **planned** — awaiting Rand approval before implementation.
+Status: **approved** — implementation complete on `integrate/phase-a`
+(`d4a0111`); phase-end review open — see the `PHASE-A-REVIEW.md` items and
+[Phase close notes / open items](#phase-close-notes--open-items). Phase A is
+not closed. (Plan PR #4 merged 2026-11-02.)
 
 Sprint doc shape follows
 [`docs/development/sprint-planning-guidelines.md`](../../development/sprint-planning-guidelines.md).
@@ -113,8 +132,19 @@ depends on CLI, PyO3, or full `sc-observability`.
 | `jev-py` | `sc-jev-py` | PyO3 over facade |
 | `sc-ai-cli` | `sc-ai` | argv → operations → JSON envelope |
 
-Sprint **a-1** commits **stub** manifests only. Each boundary sprint owns
-`boundaries/<id>/**` for its crate thereafter (a-1 does not retain `boundaries/**`).
+Sprint **a-1** commits stub manifests for every Phase A boundary and lists
+`boundaries/**` in its `owned_paths`, along with `.gitignore`,
+`.sc-lint/bootstrap.py`, the `sc-jev-check` module files, and the `sc-ai`
+library stub. Each later boundary sprint also lists `boundaries/<id>/**` for
+the boundary it closes and may replace the a-1 stub for that id.
+
+## Governing ADRs
+
+The `adrs` list in this document's frontmatter governs wave 2 (sprints a-2,
+a-3, a-11, a-4, and a-5). Each sprint doc repeats the subset that applies to
+its owned paths. Those ids are ADR-SAG-0001, ADR-SAG-0002, ADR-SAG-0003,
+ADR-SAG-0004, ADR-SAG-0005, ADR-SAG-0006, ADR-SAG-0007, ADR-SAG-0012,
+ADR-SAG-0013, ADR-SAG-0015, ADR-SAG-0019, and ADR-SAG-0020.
 
 ## Wave table
 
@@ -231,7 +261,7 @@ to the same Jev answer shape inside `data`; fake transports are test-only.
 
 None blocking plan approval. **Kickoff decisions** (can default in sprint if silent):
 
-1. **Session JSONL root** — default directory and env var (e.g. `SC_AGENT_LOG_DIR` vs reuse an `sc-observability` convention)?
+1. ~~**Session JSONL root**~~ — **Resolved:** ADR-SAG-0021. CLI (`sc-ai`): `--log-dir`, then `SC_LOG_ROOT`, then `<repo-root>/.sc-ai`; sessions `--sessions-dir`, then `<repo-root>/.sc-ai/sessions`. Python (`sc-jev-py`): `log_dir`, then `SC_AGENT_LOG_DIR`, then `SC_LOG_ROOT`, then `~/.sc-agent/log`; sessions `session_dir`, then `SC_AGENT_SESSION_DIR`, then `{log_root}/sessions`.
 2. ~~**`sc-observability` pin**~~ — **`=1.5.0`**, v2 `LoggerBuilder` in `sc-ai` only (resolved).
 3. ~~Cross-impl bytes~~ — **Resolved:** a-1 commits Python reference bytes;
    phase acceptance runs `tests/fixtures/jev-python` pytest (a-8); Rust-only
@@ -309,11 +339,22 @@ Authoritative **`req:<ID>` acceptance roots** live on integration sprints only.
 Boundary sprints **a-1…a-6** prove `boundary:` / ADR rows; feature REQ closure
 below is verified at phase integration:
 
-| Sprint | REQ / NFR ids closed at integration |
+Every `req:` root is owned by exactly one sprint. Rule applied when two
+integration sprints prove the same id: the owner is the sprint whose surface
+is the primary one for that requirement, and every other sprint records the
+proof as an `evidence:<ID>` row, which is not an acceptance root. Applied at
+phase end: **REQ-SAG-0610** → a-8 (in-process session JSONL; a-7 keeps an
+`evidence:` row for the CLI adapter); **NFR-SAG-0002** and **NFR-SAG-0003** →
+a-7 (CLI output is the primary surface; a-8 keeps `evidence:` rows for the
+Python half). **REQ-SAG-0802** → a-8 (a-9 keeps an `evidence:` row for the CI
+job).
+
+| Sprint | REQ / NFR ids closed |
 | --- | --- |
+| a-1 (contract) | 0005 (workspace layout matches `docs/architecture.md` and the per-crate requirement tables) |
 | a-7 | 0101, 0600, 0601, 0603, 0700–0703, 0710, 0711, 0503 (CLI override), NFR-0001–0003 |
-| a-8 | 0102, 0610, 0611, 0800, 0801, 0802, NFR-0002–0003 |
-| a-9 | 0130, 0131, 0132, 0803 |
+| a-8 | 0102, 0610, 0611, 0800, 0801, 0802; evidence only: NFR-0002, NFR-0003 |
+| a-9 | 0130, 0131, 0132, 0803; evidence only: 0802 |
 
 Remaining feature REQs (0100, 0103, 0104, 0120, 0121, 0200–0202, 0300–0303,
 0305, 0309, 0310, 0311, 0400–0401, 0500–0502, 0504–0505, 0602, 0110) close via
@@ -332,8 +373,14 @@ just lint
 just test
 cargo test -p sc-jev -- --nocapture
 cargo test -p sc-ai -- --nocapture
+# Publish-surface wheel build: default features (`extension-module` only,
+# ADR-SAG-0022). It is not the test build.
 maturin build -m crates/sc-jev-py/Cargo.toml -o /tmp/sc-agent-wheels
+# Test build: a-8's `--features extension-module,test-util`. uv passes it
+# through tests/fixtures/jev-python/pyproject.toml; `just test-python` passes
+# it to `maturin develop` (the CI path).
 uv run --directory tests/fixtures/jev-python pytest -q
+just test-python
 cargo test -p sc-jev-check cross_impl_branches -- --nocapture
 bash .github/scripts/run-consumer-preflight.sh
 cargo publish --dry-run --locked -p sc-agent-types -p sc-agent-secrets -p sc-jev -p sc-jev-backends -p sc-jev-check -p sc-treesitter -p sc-ai
@@ -345,6 +392,57 @@ fixtures; release preflight + publish dry-run satisfy REQ-SAG-0803 (a-9).
 Optional evidence (not CI-gated in Phase A): one live `sc-ai jev run`
 against TypeSafe with Rand-provided key, artifact attached to phase PR.
 
+### Acceptance evidence
+
+Recorded `sc-agent-ci` run: [42345904358](https://github.com/randlee/sc-agent/actions/runs/42345904358) on PR #18 at `5283307`,
+all nine jobs green. It is the run on the commit **before** this
+evidence-only docs commit; the docs commit changes no CI input.
+
+| Command (above) | Where it runs | Recorded result |
+| --- | --- | --- |
+| `just lint` | `sc-agent-ci.yml` job `test`, ubuntu-24.04 only (the managed sc-lint bootstrap fails on Windows; [`ci.md`](../../development/ci.md#known-limits)) | Green: [test (ubuntu-24.04)](https://github.com/randlee/sc-agent/actions/runs/42345904358/job/128323467345). Re-run at a-10 QA-2 head 9482380 (after the boundary-manifest and clippy edits): green in [test (ubuntu-24.04)](https://github.com/randlee/sc-agent/actions/runs/42361431082/job/128370466596) (`compatibility.check: ok`, `lint.ci.consumer: ok`); local `lint.ci.consumer: pass (3 steps)`, sc-lint-boundary 0.8.0 pass with 0 findings over 9 crates. Later commits are docs-only |
+| `cargo test -p …`, `cross_impl_branches`, and the `workspace` layer of `just test` (`cargo test --workspace`) | `sc-agent-ci.yml` job `test` (ubuntu-24.04, macos-15, windows-2022) | 194 passed, 0 failed on each OS: [ubuntu-24.04](https://github.com/randlee/sc-agent/actions/runs/42345904358/job/128323467345), [macos-15](https://github.com/randlee/sc-agent/actions/runs/42345904358/job/128323467493), [windows-2022](https://github.com/randlee/sc-agent/actions/runs/42345904358/job/128323467473) |
+| `clippy --workspace --all-targets --all-features -- -D warnings` | `sc-agent-ci.yml` job `test` (three OSes) | Green in the same three jobs |
+| `cargo doc` with `RUSTDOCFLAGS=-D warnings` | `sc-agent-ci.yml` job `doc` (a hard gate; no `continue-on-error` since a-10) | Historical: run [42345904358](https://github.com/randlee/sc-agent/actions/runs/42345904358/job/128323467366) failed underneath the former `continue-on-error` (could not document `sc-agent-types`, `sc-treesitter`). QA-005 (a-10) fixed the warnings and removed `continue-on-error`; the job now fails the run on any rustdoc warning |
+| Test-util wheel + `tests/fixtures/jev-python` pytest (the `jev-python` layer of `just test`) | `sc-agent-ci.yml` job `python` (`just test-python`, three OSes) | 7 passed on each OS: [ubuntu-24.04](https://github.com/randlee/sc-agent/actions/runs/42345904358/job/128323467398), [macos-15](https://github.com/randlee/sc-agent/actions/runs/42345904358/job/128323467414), [windows-2022](https://github.com/randlee/sc-agent/actions/runs/42345904358/job/128323467289) |
+| sc-treesitter feature matrix | `sc-agent-ci.yml` job `features` (`cargo hack --each-feature test -p sc-treesitter` since a-10) | Historical: [features](https://github.com/randlee/sc-agent/actions/runs/42345904358/job/128323467072) ran `check` only. a-10 feature-gated the per-language tests (QA-006) and the job now runs `test` for every feature combination |
+| Coverage | `sc-agent-ci.yml` job `coverage` (cargo-llvm-cov) | 82.52% line (TOTAL row): [coverage job](https://github.com/randlee/sc-agent/actions/runs/42345904358/job/128323467256), artifact `coverage-summary` of run [42345904358](https://github.com/randlee/sc-agent/actions/runs/42345904358) |
+| Preflight, `cargo publish --dry-run`, publish-surface `maturin build` | `.github/workflows/sc-publish-dry-run.yml` | Runs [42339767937](https://github.com/randlee/sc-agent/actions/runs/42339767937), [42341299125](https://github.com/randlee/sc-agent/actions/runs/42341299125), [42341873748](https://github.com/randlee/sc-agent/actions/runs/42341873748) on PR #17 (sprint a-9), all green |
+
+Local equivalents of every CI job: [`docs/development/ci.md`](../../development/ci.md).
+
+## Phase close notes / open items
+
+Phase A is in phase-end review and is not closed. Phase A.1 (`r`, ten sprints
+r-1 to r-7) has landed on `integrate/phase-a`; see
+[`../phase-a-refine/plan.md`](../phase-a-refine/plan.md).
+
+The phase-end review decisions D1-D13 (`PHASE-A-REVIEW.md` section 4) landed
+in r-1 to r-7: the sprint-to-decision mapping is the "Sprints and waves" table
+of the A.1 plan. Genuinely open at phase end:
+
+- Bead **`agt-luna-live-count`** — Luna live token count is unverified
+  (resolved decision **4**); requested feature **8** stays open until a key
+  exists and the a-5 probe runs once with its output attached.
+- Bead **`agt-obs-v2-shim-removal`** (sprint a-1) stays open until upstream v2
+  is released.
+- Bead **`agt-scoop-multi-shim`** — Scoop and WinGet expose only `sc-ai`;
+  `sc-treesitter` needs a shim or alias once the sc-publish kit supports a
+  binary list.
+- Bead **`agt-sft`** — WinGet first submission is by hand (Komac pin; one
+  portable alias per binary); deferred by the owner until the first publish
+  attempt.
+
+Closed in a-10: the `sc-agent-ci` `doc` job is a hard gate (no
+`continue-on-error`), and the sc-treesitter feature matrix runs
+`cargo hack --each-feature test`. The run ids in the table above are
+historical evidence from before those changes.
+
 ## Approval gate
 
-**Stop:** no implementation PRs until Rand approves this plan and sprint docs.
+Phase A plan and sprint docs were approved when PR #4 merged on 2026-11-02.
+Implementation is complete on `integrate/phase-a` (`d4a0111`, all ten sprints
+merged). The phase-end review is open; see
+[Phase close notes / open items](#phase-close-notes--open-items). The phase
+closes when those items are fixed or deferred and `integrate/phase-a` merges to
+`develop`.

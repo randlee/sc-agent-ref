@@ -1,0 +1,61 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R2B-RBP-F002>
+  a triage:Finding ;
+  triage:findingId "R2B-RBP-F002" ;
+  triage:title "PreparedCheck.criteria is BTreeMap<String, BTreeSet<String>>, so question ids and choice labels are raw strings. question_criteria, criteria_from_object and criteria_from_array (check.rs:245-329) re-validate and re-derive them from the payload bytes. parse_outcome (check.rs:226, 228) later converts them to QuestionId and ChoiceId via try_from and response_label. The typed map already exists on PayloadBundle::question_choices(). Recommendation: Build the expected-answer map from request.payload().question_choices() (QuestionId/ChoiceId) and have parse_outcome compare typed ids. Keep only the Jev-specific shape checks (object or array questions, at least 2 criteria) that the bundle does not cover." ;
+  triage:description "PreparedCheck.criteria is BTreeMap<String, BTreeSet<String>>, so question ids and choice labels are raw strings. question_criteria, criteria_from_object and criteria_from_array (check.rs:245-329) re-validate and re-derive them from the payload bytes. parse_outcome (check.rs:226, 228) later converts them to QuestionId and ChoiceId via try_from and response_label. The typed map already exists on PayloadBundle::question_choices(). Recommendation: Build the expected-answer map from request.payload().question_choices() (QuestionId/ChoiceId) and have parse_outcome compare typed ids. Keep only the Jev-specific shape checks (object or array questions, at least 2 criteria) that the bundle does not cover." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "RBP" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-07T22:49:59Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R2B ;
+  triage:foundAt "2026-11-07T22:55:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R2B-RBP-F002/PHA-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R2B-RBP-F002/R2B-1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R2B-RBP-F002/PHA-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev/src/check.rs" ;
+  triage:line 21 ;
+  triage:snippet "pub(crate) criteria: BTreeMap<String, BTreeSet<String>>," ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "a6ec03201cba50dcf79e9099bdf4a661bd732918" ;
+  triage:occursIn <urn:atm:triage:worktree/PHA/a6ec032> .
+
+<urn:atm:triage:occurrence/R2B-RBP-F002/R2B-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev/src/check.rs" ;
+  triage:line 22 ;
+  triage:snippet "pub(crate) criteria: BTreeMap<String, BTreeSet<String>>," ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-2b-multi-backend-semantics" ;
+  triage:headSha "330986f574914ada17e79d074227527cce4eb9ba" ;
+  triage:occursIn <urn:atm:triage:worktree/R2B/330986f> .
+
+<urn:atm:triage:worktree/PHA/a6ec032>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "a6ec03201cba50dcf79e9099bdf4a661bd732918" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/R2B/330986f>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-2b-multi-backend-semantics" ;
+  triage:branch "sprint/r-2b-multi-backend-semantics" ;
+  triage:headSha "330986f574914ada17e79d074227527cce4eb9ba" ;
+  triage:orderIndex 1 .

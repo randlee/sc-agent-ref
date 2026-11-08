@@ -1,0 +1,85 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R7-QA4-REQ-QA-005>
+  a triage:Finding ;
+  triage:findingId "R7-QA4-REQ-QA-005" ;
+  triage:title "Commit 20a46a8 moved test_release_binary_rejects_scripted_answers out of the test_util_off target into test_util_off_binary" ;
+  triage:description "Commit 20a46a8 moved test_release_binary_rejects_scripted_answers out of the test_util_off target into test_util_off_binary. The r-3b acceptance command `cargo test -p workspace-tests --test test_util_off -- test_release_binary_rejects_scripted_answers --exact` (line 613) now matches 0 tests, which the acceptance rule rejects. Lines 261, 420 and 594 still name test_util_off as the holder of that test." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "cross-doc-conflict" ;
+  triage:severity "blocking" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T04:55:03Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R7 ;
+  triage:foundAt "2026-11-08T04:53:55Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA4-REQ-QA-005/R7-L261> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA4-REQ-QA-005/R7-L420> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA4-REQ-QA-005/R7-L594> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA4-REQ-QA-005/R7-L613> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R7-QA4-REQ-QA-005/R7-L261>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md" ;
+  triage:line 261 ;
+  triage:snippet "(`test_util_off`, `test_release_binary_rejects_scripted_answers`)." ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "20a46a88dcfcc1899d8baec0934837912d638b88" ;
+  triage:occursIn <urn:atm:triage:worktree/R7/20a46a8> .
+
+<urn:atm:triage:occurrence/R7-QA4-REQ-QA-005/R7-L420>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md" ;
+  triage:line 420 ;
+  triage:snippet "- `test_release_binary_rejects_scripted_answers` (RBQA-F103 (a)):" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "20a46a88dcfcc1899d8baec0934837912d638b88" ;
+  triage:occursIn <urn:atm:triage:worktree/R7/20a46a8> .
+
+<urn:atm:triage:occurrence/R7-QA4-REQ-QA-005/R7-L594>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md" ;
+  triage:line 594 ;
+  triage:snippet "| boundary:workspace | `source_scans` and `test_util_off` targets green (incl. `test_release_binary_rejects_scripted_answers`)" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "20a46a88dcfcc1899d8baec0934837912d638b88" ;
+  triage:occursIn <urn:atm:triage:worktree/R7/20a46a8> .
+
+<urn:atm:triage:occurrence/R7-QA4-REQ-QA-005/R7-L613>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md" ;
+  triage:line 613 ;
+  triage:snippet "cargo test -p workspace-tests --test test_util_off -- test_release_binary_rejects_scripted_answers --exact" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "20a46a88dcfcc1899d8baec0934837912d638b88" ;
+  triage:occursIn <urn:atm:triage:worktree/R7/20a46a8> .
+
+<urn:atm:triage:worktree/PHASE-A/b58ffd2>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "b58ffd2a55f03c54b63ab55db33819244b1a8a48" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/R7/20a46a8>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-7-decision-schema" ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "20a46a88dcfcc1899d8baec0934837912d638b88" ;
+  triage:orderIndex 1 .

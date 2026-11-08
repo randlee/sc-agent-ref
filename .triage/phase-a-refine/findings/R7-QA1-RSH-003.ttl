@@ -1,0 +1,61 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R7-QA1-RSH-003>
+  a triage:Finding ;
+  triage:findingId "R7-QA1-RSH-003" ;
+  triage:title "There is no end-to-end deadline for one judge call. Each Haiku or Luna judge makes two busy-retry exchanges (count, then message), and each exchange gets its own 90 s start budget and up to 4 sends. Backends in a run are judged sequentially, each with its own budget. Worst-case wall time is about 210 s per exchange, about 420 s per backend, and more than 20 minutes for a three-backend run." ;
+  triage:description "There is no end-to-end deadline for one judge call. Each Haiku or Luna judge makes two busy-retry exchanges (count, then message), and each exchange gets its own 90 s start budget and up to 4 sends. Backends in a run are judged sequentially, each with its own budget. Worst-case wall time is about 210 s per exchange, about 420 s per backend, and more than 20 minutes for a three-backend run." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "timeouts" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T02:33:53Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R7 ;
+  triage:foundAt "2026-11-08T02:30:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-003/R7-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-003/R7-2> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-003/R7-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-backends/src/backend.rs" ;
+  triage:line 176 ;
+  triage:snippet "fn judge(&self, request: &JudgeRequest) -> Result<JudgeOutcome, JevError>" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/0d0ebc1> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-003/R7-2>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-backends/src/backend.rs" ;
+  triage:line 148 ;
+  triage:snippet "fn judge(&self, request: &JudgeRequest, trace: &SendTrace)" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "9497297" ;
+  triage:occursIn <urn:atm:triage:worktree/sprint-r-7-decision-schema/9497297> .
+
+<urn:atm:triage:worktree/integrate-phase-a/0d0ebc1>
+  a triage:WorktreeSnapshot ;
+  triage:path ".worktrees/integrate-phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1983412ff750b775ed40c3261fe17383dd" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/sprint-r-7-decision-schema/9497297>
+  a triage:WorktreeSnapshot ;
+  triage:path ".worktrees/sprint-r-7-decision-schema" ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "94972978d9e6321be71e884368721cf0f79d3d54" ;
+  triage:orderIndex 1 .

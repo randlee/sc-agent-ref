@@ -1,0 +1,109 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/RBP-F010>
+  a triage:Finding ;
+  triage:findingId "RBP-F010" ;
+  triage:title "Several new error paths define a code but no recovery hint. Only DecisionSchemaId names it" ;
+  triage:description "Several new error paths define a code but no recovery hint. Only DecisionSchemaId names its remedy ('hint lists KNOWN'). Not specified: ModelAliases::with_override unknown alias (should list valid aliases), ProjectLabel::new (limits), and try_from_fields (should name the offending key). The [models] path remaps a ModelId::from_str INPUT_INVALID to CONFIG_INVALID by inspecting the code, so the original message and hint must survive the remap. Recommendation: State in the sample doc comments that each of these returns a JevError with a fix hint (valid aliases, the limits, the key name), and that the CONFIG_INVALID remap preserves the hint and adds the check.toml key." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "RBP" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-07T22:47:28Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-PLAN67 ;
+  triage:foundAt "2026-11-07T23:55:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F010/plan-r6-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F010/plan-r6-2> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F010/plan-r6-3> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F010/plan-r6-4> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F010/plan-r6-5> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F010/plan-r6-6> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/RBP-F010/plan-r6-1>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 467 ;
+  triage:snippet "SessionLogRow::try_from_fields(&Map) (unknown key, missing key or wrong" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F010/plan-r6-2>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 557 ;
+  triage:snippet "`with_override`). `BackendDescriptor` gains `default_model_alias()`" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F010/plan-r6-3>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 605 ;
+  triage:snippet "is `Option<ProjectLabel>`, so `try_from_fields` uses the same validator" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F010/plan-r6-4>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 669 ;
+  triage:snippet "pub fn with_override(self, alias: &str, model: ModelId) -> Result<Self, JevError>; // unknown alias: CONFIG_INVALID" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F010/plan-r6-5>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 791 ;
+  triage:snippet "pub fn try_from_fields(fields: &serde_json::Map<String, serde_json::Value>) -> Result<Self, JevError>; // INPUT_INVALID" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F010/plan-r6-6>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ;
+  triage:line 839 ;
+  triage:snippet "| req:REQ-SAG-0146 | ... `cargo test -p sc-agent-types --test ids -- test_project_label_limits --exact` (the validator `try_from_fields` uses) |" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-r6/5836f1b> .
+
+<urn:atm:triage:worktree/integrate/dfd683f>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "dfd683f1a7200b06363bb8e7c7b8cd2a16d6c6e9" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/plan-r6/5836f1b>
+  a triage:WorktreeSnapshot ;
+  triage:path "plan/phase-a-refine-r6" ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:orderIndex 1 .

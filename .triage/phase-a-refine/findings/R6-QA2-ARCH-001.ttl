@@ -1,0 +1,38 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R6-QA2-ARCH-001>
+  a triage:Finding ;
+  triage:findingId "R6-QA2-ARCH-001" ;
+  triage:title "Four delta behaviours are recorded only in the sprint doc and the crate docs (docs/sc-jev-host/architecture.md:62, docs/sc-jev-check/archite" ;
+  triage:description "Four delta behaviours are recorded only in the sprint doc and the crate docs (docs/sc-jev-host/architecture.md:62, docs/sc-jev-check/architecture.md:20). The repo-level ADR amendments do not state them. (1) The adapter sets the envelope correlation_id to the session id and request_id to the answer id, and logs failed sends at Warn. This is not in the ADR-SAG-0013 r-6 amendment (lines 856-864). (2) FileSessionStore::new deletes expired *.json documents after TTL plus one TTL of grace. This is not in the ADR-SAG-0008 r-6 amendment (lines 254-266). The sprint doc itself calls it a deviation from the is_expired cutoff. (3) ADR-SAG-0031 Wiring (lines 1754-1756) says a flush failure is a data.warnings entry. It does not cover the error path, where the failure is appended once to the error detail. (4) The ADR-SAG-0016 r-6 amendment does not record the envelope request_id and correlation_id mapping either. No ADR is contradicted. The ADR texts are incomplete, so the contract that governs the code is split between the ADRs and the sprint doc." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "qa" ;
+  triage:severity "important" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady false ;
+  triage:triagedAt "2026-11-08T06:41:16Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R6 ;
+  triage:foundAt "2026-11-08T06:39:59Z"^^xsd:dateTime ;
+  triage:deferredNote "Pattern RULE-ADR-CODE has zero matches in file_filter docs/architecture.md on both branches; pattern correlation cannot evaluate this missing-text finding. Manual check of docs/architecture.md found no correlation_id/request_id mapping, no expired-document grace rule, and no error-path warning text. Requires manual review before dispatch." ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:worktree/integrate-phase-a/48c4d1c>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "48c4d1cf5a0972351bc146721db41888fbc5cfa3" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/sprint-r-6/34655a4>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-6-session-log-record" ;
+  triage:branch "sprint/r-6-session-log-record" ;
+  triage:headSha "34655a4465760a9e31860b5eea8b78960674714c" ;
+  triage:orderIndex 1 .

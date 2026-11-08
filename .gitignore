@@ -43,6 +43,9 @@ reports/coverage/[0-9][0-9][0-9][0-9]-*-mac.json
 reports/coverage/[0-9][0-9][0-9][0-9]-*-win.md
 reports/coverage/[0-9][0-9][0-9][0-9]-*-win.json
 
+# sc-ai session logs and sessions (default log root: <repo-root>/.sc-ai)
+.sc-ai/
+
 # Local prompt scratch, notes, and transient review payloads
 .prompts/
 memory/
@@ -58,7 +61,12 @@ tmp/
 #.idea/
 
 # sc-publish kit bootstrap cache (pinned clone, see release/sc-publish-pin.toml)
+# and the sc-compose renderer venv created by bootstrap_sc_compose.py.
 .sc-publish-kit/
+.sc-publish-venv/
+
+# Local sc-lint bootstrap environment. Commit `.sc-lint/bootstrap.py` only.
+.sc-lint/venv/
 **/.sc-compose/
 
 # Beads / Dolt files (added by bd init)
@@ -67,3 +75,4 @@ tmp/
 .beads-credential-key
 .beads/proxieddb/
 *.gate.lock*
+*.profraw

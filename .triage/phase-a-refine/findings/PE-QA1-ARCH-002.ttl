@@ -1,0 +1,54 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/PE-QA1-ARCH-002>
+  a triage:Finding ;
+  triage:findingId "PE-QA1-ARCH-002" ;
+  triage:title "The heading 'Phase A.1 - refinement (proposed)' and the paragraph at line 150 ('Each row and amendment carries a marker (Proposed, r-N)') ar" ;
+  triage:description "The heading 'Phase A.1 - refinement (proposed)' and the paragraph at line 150 ('Each row and amendment carries a marker (Proposed, r-N)') are still present at phase end. No row in docs/requirements.md or the crate requirements files carries a Proposed marker any more, so the text is stale. The marker convention is stale in the sense that every sprint has landed." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "documentation" ;
+  triage:severity "important" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T17:18:16Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R6 ;
+  triage:foundAt "2026-11-08T17:15:25Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/PE-QA1-ARCH-002/IPA-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/PE-QA1-ARCH-002/IPA-2> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/PE-QA1-ARCH-002/IPA-1>
+  a triage:Occurrence ;
+  triage:file "docs/requirements.md" ;
+  triage:line 148 ;
+  triage:snippet "Phase A.1 — refinement (proposed)" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "91d36b3ad309deb3350434acaecee0ab2938b13f" ;
+  triage:occursIn <urn:atm:triage:worktree/IPA/91d36b3> .
+
+<urn:atm:triage:occurrence/PE-QA1-ARCH-002/IPA-2>
+  a triage:Occurrence ;
+  triage:file "docs/requirements.md" ;
+  triage:line 150 ;
+  triage:snippet "Each row and amendment carries a marker `(Proposed, r-N)` that its owning" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "91d36b3ad309deb3350434acaecee0ab2938b13f" ;
+  triage:occursIn <urn:atm:triage:worktree/IPA/91d36b3> .
+
+<urn:atm:triage:worktree/IPA/91d36b3>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "91d36b3ad309deb3350434acaecee0ab2938b13f" ;
+  triage:orderIndex 0 .

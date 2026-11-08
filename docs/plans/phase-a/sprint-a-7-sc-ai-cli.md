@@ -1,7 +1,7 @@
 ---
 id: a-7
 phase: a
-status: planned
+status: complete
 closure_type: integration
 target_boundary: sc-ai-cli
 track: cli
@@ -30,15 +30,25 @@ requirements:
   - NFR-SAG-0003
 adrs:
   - ADR-SAG-0001
+  - ADR-SAG-0002
+  - ADR-SAG-0003
+  - ADR-SAG-0004
+  - ADR-SAG-0005
+  - ADR-SAG-0006
+  - ADR-SAG-0007
+  - ADR-SAG-0008
+  - ADR-SAG-0009
   - ADR-SAG-0010
+  - ADR-SAG-0012
   - ADR-SAG-0013
   - ADR-SAG-0014
   - ADR-SAG-0015
   - ADR-SAG-0016
   - ADR-SAG-0019
+  - ADR-SAG-0020
 owned_paths:
   - "crates/sc-ai/**"
-  - "boundaries/sc-ai-cli/**"
+  - "boundaries/sc-ai/**"
   - "justfile"
   - "README.md"
 ---
@@ -72,14 +82,18 @@ via integration test on this sprint (see acceptance).
 ## Explicit code samples
 
 ```rust
-// crates/sc-ai/src/error.rs — map JevError → stderr JSON + exit 2
-fn emit_cli_error(err: &JevError) -> ! {
-    let body = ScAgentErrorResponse {
-        error: err.code().into(),
-        message: err.fix_hint().into(),
-    };
-    eprintln!("{}", serde_json::to_string(&body).unwrap());
-    std::process::exit(2);
+// crates/sc-ai/src/main.rs — `emit` maps JevError → stderr JSON; main exits 2
+fn emit(error: &JevError) {
+    let body = ScAgentErrorResponse::from_jev_error(error);
+    let line = serde_json::to_string(&body).unwrap_or_else(|_| {
+        serde_json::to_string(&ScAgentErrorResponse::from_jev_error(
+            &JevError::operational_io(
+                "stderr encoding failed. Retry the command; the error text could not be written as JSON.",
+            ),
+        ))
+        .expect("ScAgentErrorResponse from JevError must serialize")
+    });
+    let _ = writeln!(io::stderr(), "{line}");
 }
 ```
 
@@ -92,15 +106,16 @@ fn emit_cli_error(err: &JevError) -> ! {
 | req:REQ-SAG-0600 | Session create/load + TTL via CLI `ask` path |
 | req:REQ-SAG-0601 | CLI `run`/`dry-run` resolve keys and inject LLM system prompt per ADR-SAG-0019 |
 | req:REQ-SAG-0603 | Two backends in one CLI run share payload + equal-input |
+| evidence:REQ-SAG-0610 | Boundary evidence only; the `req:` root is owned by **a-8**. The CLI logger adapter writes one JSONL `LogEvent` per judge send through the v2 `SharedSessionLog` adapter (`crates/sc-ai/tests/cli.rs::cli_logger_adapter_records_session_without_secrets`) |
 | req:REQ-SAG-0700 | `run`, `dry-run`, `ask` emit versioned envelope |
 | req:REQ-SAG-0701 | Failure exits 2; stderr JSON `{error, message}` only |
 | req:REQ-SAG-0702 | Readback tests for path-consuming flags |
 | req:REQ-SAG-0703 | README or `just` target documents install |
 | req:REQ-SAG-0710 | `data` includes Jev body + `session_id` inside envelope |
 | req:REQ-SAG-0711 | v2 logger adapter wired to `SharedSessionLog` |
-| NFR-SAG-0001 | Typed errors only; no ad hoc exit messages |
-| NFR-SAG-0002 | No secrets in stdout/stderr/logs |
-| NFR-SAG-0003 | Default log root documented |
+| req:NFR-SAG-0001 | Typed errors only; no ad hoc exit messages |
+| req:NFR-SAG-0002 | No secrets in stdout/stderr/logs. Owning sprint (CLI output is the primary surface). Tests in `crates/sc-ai/tests/cli.rs`: `cli_logger_adapter_records_session_without_secrets` writes `sk-ant-test-secret` into the system prompt and asserts it is absent from the JSONL session log and the stdout envelope; `cli_run_resolves_dotenv_key_and_dry_run_does_not` runs the built binary with `TYPESAFE_API_KEY=sk-test-whitespace key` in a repo `.env` and asserts the key is absent from dry-run stdout and from the run's stderr error JSON. Both use `assert_no_prompt_leak`. Recorded run: `sc-agent-ci` [42345904358](https://github.com/randlee/sc-agent/actions/runs/42345904358), `test` job (`cargo test --workspace`) on three OSes |
+| req:NFR-SAG-0003 | Default log root documented (`README.md`: `<repo-root>/.sc-ai`, `--log-dir`, `SC_LOG_ROOT`; test `cli_default_log_root_and_env_override`). Owning sprint; a-8 records the Python half of ADR-SAG-0021 as evidence |
 | boundary:sc-ai-cli | No HTTP crates in **direct** deps (`cargo tree -p sc-ai --depth 1`) |
 
 ## Required validation

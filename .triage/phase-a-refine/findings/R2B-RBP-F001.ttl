@@ -1,0 +1,109 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R2B-RBP-F001>
+  a triage:Finding ;
+  triage:findingId "R2B-RBP-F001" ;
+  triage:title "Semantic question ids and choice labels are carried as raw String/Vec<String> (ParsedQuestion)" ;
+  triage:description "Semantic question ids and choice labels are carried as raw String/Vec<String> (ParsedQuestion { id: String, choices: Vec<String> }). validate_questions re-parses the canonical bytes and re-runs the id-present, duplicate-id and choices-are-strings checks. wire::parse_answers (wire.rs:292-353) compares reply keys and labels as &str sets. backend::typed_answers (backend.rs:89-106) then validates each id a third time with QuestionId::try_from, after the paid judge call. PayloadBundle already holds the validated typed form (payload.rs:134, 235). Recommendation: drop ParsedQuestion and the byte re-parse for ids and choices; use request.payload().question_choices() (QuestionId/ChoiceId) in parse_answers and typed_answers, and keep only the type and prompt checks the bundle does not cover. Id validity is then decided once, at PayloadBundle::encode." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "RBP" ;
+  triage:severity "important" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-07T22:49:57Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R2B ;
+  triage:foundAt "2026-11-07T22:55:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R2B-RBP-F001/INT-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R2B-RBP-F001/INT-2> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R2B-RBP-F001/INT-3> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R2B-RBP-F001/R2B-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R2B-RBP-F001/R2B-2> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R2B-RBP-F001/R2B-3> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R2B-RBP-F001/INT-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-backends/src/validate.rs" ;
+  triage:line 14 ;
+  triage:snippet "pub(crate) struct ParsedQuestion {" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "a6ec032" ;
+  triage:occursIn <urn:atm:triage:worktree/INT-PHASE-A/a6ec032> .
+
+<urn:atm:triage:occurrence/R2B-RBP-F001/INT-2>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-backends/src/validate.rs" ;
+  triage:line 75 ;
+  triage:snippet "pub(crate) fn validate_questions(bytes: &[u8]) -> Result<Vec<ParsedQuestion>, JevError> {" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "a6ec032" ;
+  triage:occursIn <urn:atm:triage:worktree/INT-PHASE-A/a6ec032> .
+
+<urn:atm:triage:occurrence/R2B-RBP-F001/INT-3>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-backends/src/validate.rs" ;
+  triage:line 146 ;
+  triage:snippet "        parsed.push(ParsedQuestion {" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "a6ec032" ;
+  triage:occursIn <urn:atm:triage:worktree/INT-PHASE-A/a6ec032> .
+
+<urn:atm:triage:occurrence/R2B-RBP-F001/R2B-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-backends/src/validate.rs" ;
+  triage:line 14 ;
+  triage:snippet "pub(crate) struct ParsedQuestion {" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-2b-multi-backend-semantics" ;
+  triage:headSha "330986f" ;
+  triage:occursIn <urn:atm:triage:worktree/R2B-SPRINT/330986f> .
+
+<urn:atm:triage:occurrence/R2B-RBP-F001/R2B-2>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-backends/src/validate.rs" ;
+  triage:line 75 ;
+  triage:snippet "pub(crate) fn validate_questions(bytes: &[u8]) -> Result<Vec<ParsedQuestion>, JevError> {" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-2b-multi-backend-semantics" ;
+  triage:headSha "330986f" ;
+  triage:occursIn <urn:atm:triage:worktree/R2B-SPRINT/330986f> .
+
+<urn:atm:triage:occurrence/R2B-RBP-F001/R2B-3>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-backends/src/validate.rs" ;
+  triage:line 146 ;
+  triage:snippet "        parsed.push(ParsedQuestion {" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-2b-multi-backend-semantics" ;
+  triage:headSha "330986f" ;
+  triage:occursIn <urn:atm:triage:worktree/R2B-SPRINT/330986f> .
+
+<urn:atm:triage:worktree/INT-PHASE-A/a6ec032>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "a6ec032" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/R2B-SPRINT/330986f>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-2b-multi-backend-semantics" ;
+  triage:branch "sprint/r-2b-multi-backend-semantics" ;
+  triage:headSha "330986f" ;
+  triage:orderIndex 1 .

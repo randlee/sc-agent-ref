@@ -1,0 +1,73 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/RBP-F006>
+  a triage:Finding ;
+  triage:findingId "RBP-F006" ;
+  triage:title "Two binding signatures disagree and one fake failure path loses data. (1) Sha256Digest::of" ;
+  triage:description "Two binding signatures disagree and one fake failure path loses data. (1) Sha256Digest::of takes &str (r-7 D2.5, r-6 l.318), but MockJudgeBackend::with_sent_body(body: impl Into<Vec<u8>>) is documented as 'records Sha256Digest::of(body)' (l.340-343, 214-216), which does not type-check. (2) send_with_busy_retry hashes only 'if let Ok(text) = from_utf8(request.body())', and the comment calls the Err arm 'unreachable in practice'. A non-UTF-8 body silently leaves request_sha256 null, contradicting 'SHA-256 of exactly the bytes sent'. Recommendation: Give HttpRequest a text-typed body (String) or a validated body accessor, so UTF-8 is guaranteed by construction and no Result or Option arm is needed. Make with_sent_body take impl Into<String>. If a non-UTF-8 body is truly possible, fail with a typed JevError rather than record nothing." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "RBP" ;
+  triage:severity "important" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-07T22:47:41Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-PLAN67 ;
+  triage:foundAt "2026-11-07T23:55:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F006/PLAN-214> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F006/PLAN-335> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/RBP-F006/PLAN-342> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/RBP-F006/PLAN-214>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md" ;
+  triage:line 214 ;
+  triage:snippet "MockJudgeBackend::with_sent_body(bytes) records Sha256Digest::of(bytes) into the request trace" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F006/PLAN-335>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md" ;
+  triage:line 335 ;
+  triage:snippet "if let Ok(text) = std::str::from_utf8(request.body()) { trace.record(Sha256Digest::of(text)); }" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:occurrence/RBP-F006/PLAN-342>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md" ;
+  triage:line 342 ;
+  triage:snippet "pub fn with_sent_body(self, body: impl Into<Vec<u8>>) -> Self; records Sha256Digest::of(body)" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:occursIn <urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b> .
+
+<urn:atm:triage:worktree/integrate-phase-a/dfd683f>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "dfd683f1a7200b06363bb8e7c7b8cd2a16d6c6e9" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/plan-phase-a-refine-r6/5836f1b>
+  a triage:WorktreeSnapshot ;
+  triage:path "plan/phase-a-refine-r6" ;
+  triage:branch "plan/phase-a-refine-r6" ;
+  triage:headSha "5836f1befb9550ff4f5125f928cbce0c74e5ef1c" ;
+  triage:orderIndex 1 .

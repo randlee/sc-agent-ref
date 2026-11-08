@@ -1,0 +1,49 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R3B-REQ-QA-006>
+  a triage:Finding ;
+  triage:findingId "R3B-REQ-QA-006" ;
+  triage:title "Edits outside the listed owned_paths: tests/support/{deadline,git_env}.rs, doc" ;
+  triage:description "Edits outside the listed owned_paths: tests/support/{deadline,git_env}.rs, docs/development/sc-publish.md, boundaries/sc-agent-http/agent-http.toml (comment only), Cargo.lock, and the rename edits across docs/plans/** (authorized by the coordinator). The two tests/support files carry disallowed_methods expects but live outside crates/**, so source_scans does not scan them. Sprint text says scans cover crates/**/*.rs, so this matches the plan, but the expects in those files are unchecked. Recommendation: Add the unlisted paths to owned_paths in the sprint doc. Consider extending the existing rust_files() walk to include tests/support/*.rs, under the test-file rule, so that the existing scan covers those expects. This is not a new gate." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "REQ" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-07T23:54:40Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R3B ;
+  triage:foundAt "2026-11-07T23:55:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R3B-REQ-QA-006/R3B-1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R3B-REQ-QA-006/R3B-1>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md" ;
+  triage:line 741 ;
+  triage:snippet "tests/support/{deadline,git_env}.rs (outside the listed owned paths," ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-3b-compose-and-workspace-tests" ;
+  triage:headSha "90004d758db92b84afd5afd99e3f2ce89d5e1425" ;
+  triage:occursIn <urn:atm:triage:worktree/R3B/90004d7> .
+
+<urn:atm:triage:worktree/PHASEA/9187024>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "9187024c80b42611088fa1466926fcb508b669de" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/R3B/90004d7>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-3b-compose-and-workspace-tests" ;
+  triage:branch "sprint/r-3b-compose-and-workspace-tests" ;
+  triage:headSha "90004d758db92b84afd5afd99e3f2ce89d5e1425" ;
+  triage:orderIndex 1 .

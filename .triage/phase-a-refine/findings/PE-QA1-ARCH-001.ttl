@@ -1,0 +1,66 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/PE-QA1-ARCH-001>
+  a triage:Finding ;
+  triage:findingId "PE-QA1-ARCH-001" ;
+  triage:title "The 'Phase A crate graph' prose (lines 23-40) was not updated when r-3b landed. It still says 'Only the composition roots sc-ai and sc-jev-p" ;
+  triage:description "The 'Phase A crate graph' prose (lines 23-40) was not updated when r-3b landed. It still says 'Only the composition roots sc-ai and sc-jev-py depend on full sc-observability' and draws sc-ai and sc-jev-py linking sc-observability directly. The binding ADR-SAG-0013 r-3b amendment, the ADR-SAG-0010 r-3b amendment, the A.1 graph at lines 66-97 and crates/sc-jev-host/Cargo.toml:27 all say sc-jev-host is the only crate that links sc-observability. The Cargo manifests of sc-ai and sc-jev-py show no sc-observability dependency. The repo-level architecture doc therefore contradicts its own Active ADRs. The graph at lines 23-35 also omits sc-jev-host, sc-agent-http and sc-decision-schema. The 'starting point' note at line 83 does not cover the false sentence at 38-40." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "documentation" ;
+  triage:severity "blocking" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T17:17:37Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R6 ;
+  triage:foundAt "2026-11-08T17:15:25Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/PE-QA1-ARCH-001/IPA-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/PE-QA1-ARCH-001/IPA-2> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/PE-QA1-ARCH-001/IPA-3> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/PE-QA1-ARCH-001/IPA-1>
+  a triage:Occurrence ;
+  triage:file "docs/architecture.md" ;
+  triage:line 24 ;
+  triage:snippet "sc-ai (binary) -- sc-observability v2 Logger edge in Phase A crate graph" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "91d36b3ad309deb3350434acaecee0ab2938b13f" ;
+  triage:occursIn <urn:atm:triage:worktree/IPA/91d36b3> .
+
+<urn:atm:triage:occurrence/PE-QA1-ARCH-001/IPA-2>
+  a triage:Occurrence ;
+  triage:file "docs/architecture.md" ;
+  triage:line 31 ;
+  triage:snippet "sc-jev-py (PyO3) -- sc-observability v2 Logger edge in Phase A crate graph" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "91d36b3ad309deb3350434acaecee0ab2938b13f" ;
+  triage:occursIn <urn:atm:triage:worktree/IPA/91d36b3> .
+
+<urn:atm:triage:occurrence/PE-QA1-ARCH-001/IPA-3>
+  a triage:Occurrence ;
+  triage:file "docs/architecture.md" ;
+  triage:line 39 ;
+  triage:snippet "Only the composition roots sc-ai and sc-jev-py depend on full sc-observability" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "91d36b3ad309deb3350434acaecee0ab2938b13f" ;
+  triage:occursIn <urn:atm:triage:worktree/IPA/91d36b3> .
+
+<urn:atm:triage:worktree/IPA/91d36b3>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "91d36b3ad309deb3350434acaecee0ab2938b13f" ;
+  triage:orderIndex 0 .

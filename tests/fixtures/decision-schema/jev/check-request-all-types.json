@@ -1,0 +1,20 @@
+{
+  "model": "jev-1.13.0",
+  "state": [{"choice": "pass", "question_id": "quality"}],
+  "questions": {
+    "quality": {
+      "type": "choice",
+      "instructions": "Is the change good?",
+      "criteria": {"pass": "Meets the bar", "fail": "Does not meet the bar"}
+    },
+    "severity": {
+      "type": "score",
+      "instructions": "How severe is the defect?",
+      "criteria": {"low": "Cosmetic", "medium": "Likely to bite", "high": "Breaks users"}
+    },
+    "urgent": {
+      "type": "noul",
+      "instructions": "Is it urgent?"
+    }
+  }
+}

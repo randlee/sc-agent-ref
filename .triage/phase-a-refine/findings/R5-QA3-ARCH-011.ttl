@@ -1,0 +1,49 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R5-QA3-ARCH-011>
+  a triage:Finding ;
+  triage:findingId "R5-QA3-ARCH-011" ;
+  triage:title "CheckResponse::into_answers maps a Jev reply to DecisionAnswers, including the answer-type, criteria, probability and range rules, inside sc" ;
+  triage:description "CheckResponse::into_answers maps a Jev reply to DecisionAnswers, including the answer-type, criteria, probability and range rules, inside sc-decision-schema. The sc-jev caller only delegates (crates/sc-jev/src/check.rs:156). ADR-SAG-0012 r-5 (docs/architecture.md:1035-1039) says sc-jev still implements every Jev HTTP operation, including 'mapping responses'. ADR-SAG-0030 r-5 (docs/architecture.md:1630-1637) sanctions CheckRequest for building and CheckResponse for parsing. It does not name response-to-answer mapping as moving out of sc-jev. Result: violated on the literal text. The ADR-SAG-0012 r-5 subsection is Active, so an amendment is the only path, and it has to be Active before code can stay. Interpretation risk: a reader who treats 'data-only' as covering pure mapping could read this as upheld. The reviewer reads the literal rule." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "qa" ;
+  triage:severity "blocking" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T06:41:11Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R5 ;
+  triage:foundAt "2026-11-08T06:39:59Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R5-QA3-ARCH-011/SPRINT-1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R5-QA3-ARCH-011/SPRINT-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-decision-schema/src/jev/v1.rs" ;
+  triage:line 760 ;
+  triage:snippet "pub fn into_answers(self, request: &CheckRequest) -> Result<DecisionAnswers, JevError> {" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-5-jev-wire-envelope" ;
+  triage:headSha "69725308455bd8827b0a46e31e3f598327d66f55" ;
+  triage:occursIn <urn:atm:triage:worktree/r-5-jev-wire-envelope/69725308455bd8827b0a46e31e3f598327d66f55> .
+
+<urn:atm:triage:worktree/integrate-phase-a/48c4d1cf5a0972351bc146721db41888fbc5cfa3>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "48c4d1cf5a0972351bc146721db41888fbc5cfa3" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/r-5-jev-wire-envelope/69725308455bd8827b0a46e31e3f598327d66f55>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-5-jev-wire-envelope" ;
+  triage:branch "sprint/r-5-jev-wire-envelope" ;
+  triage:headSha "69725308455bd8827b0a46e31e3f598327d66f55" ;
+  triage:orderIndex 1 .

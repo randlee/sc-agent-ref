@@ -1,0 +1,66 @@
+[package]
+name = "sc-ai"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "sc-ai CLI for Jev check parity: run, dry-run, and ask."
+readme = "README.md"
+keywords = ["llm", "evaluation", "jev", "cli", "sc-agent"]
+categories = ["command-line-utilities"]
+# Allowlist. `tests/**` ships so cargo keeps every test target (no publish
+# warning); tests that read repo-root fixtures run from the workspace only.
+include = ["Cargo.toml", "README.md", "LICENSE", "src/**", "tests/**"]
+
+[lints]
+workspace = true
+
+[features]
+default = ["cli"]
+# Binary-only dependencies (ADR-SAG-0023): the `sc-ai` bin and the `cli` test
+# target need them; `--no-default-features` builds the library without them.
+cli = ["dep:mimalloc", "dep:clap"]
+# Test seam (ADR-SAG-0022, plan "Test seams"): only under this feature does
+# the binary accept the hidden `--scripted-answers <file>` flag, which
+# injects `sc-jev-check`'s scripted backends through `ComposeInputs::registry`.
+# The published binary has no such flag (`test_util_off_binary`). No self
+# dev-dependency (boundaries/README.md, D0 outcome 4): the `cli` test target
+# declares `required-features` and its validation lines pass
+# `--features test-util`.
+test-util = ["sc-jev-check/test-util"]
+
+[dependencies]
+clap = { workspace = true, optional = true }
+mimalloc = { workspace = true, optional = true }
+# Deliberate `=` lockstep with the sc-jev-host release (ADR-SAG-0023
+# list; compose's signatures name sc-jev-check types).
+sc-jev-host.workspace = true
+sc-agent-types = { path = "../sc-agent-types", version = "0.1.0" }
+sc-decision-schema = { path = "../sc-decision-schema", version = "0.1.0" }
+sc-jev-check = { path = "../sc-jev-check", version = "0.1.0" }
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[[bin]]
+name = "sc-ai"
+path = "src/main.rs"
+required-features = ["cli"]
+
+# Runs the binary through CARGO_BIN_EXE_sc-ai, so it needs the bin's features;
+# `--scripted-answers` exists only with `test-util`.
+[[test]]
+name = "cli"
+path = "tests/cli.rs"
+required-features = ["cli", "test-util"]
+
+# argv edge cases of the clap parser (REQ-SAG-0712); runs the `cli` binary.
+[[test]]
+name = "argv"
+path = "tests/argv.rs"
+required-features = ["cli"]

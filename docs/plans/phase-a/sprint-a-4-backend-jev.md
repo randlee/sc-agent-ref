@@ -1,7 +1,7 @@
 ---
 id: a-4
 phase: a
-status: planned
+status: complete
 closure_type: boundary
 target_boundary: jev
 track: jev
@@ -20,15 +20,22 @@ requirements:
   - REQ-SAG-0401
   - NFR-SAG-0002
 adrs:
+  - ADR-SAG-0001
+  - ADR-SAG-0002
+  - ADR-SAG-0003
   - ADR-SAG-0004
+  - ADR-SAG-0005
   - ADR-SAG-0006
   - ADR-SAG-0012
+  - ADR-SAG-0013
+  - ADR-SAG-0019
+  - ADR-SAG-0020
 owned_paths:
-  - "crates/sc-jev/src/api/**"
+  - "crates/sc-jev/src/config.rs"
   - "crates/sc-jev/src/client/**"
   - "crates/sc-jev/Cargo.toml"
   - "crates/sc-jev/src/lib.rs"
-  - "boundaries/jev/**"
+  - "boundaries/sc-jev/**"
 ---
 
 # Sprint a-4 — TypeSafe Jev API (check endpoint)
@@ -71,6 +78,7 @@ Consumes **`JudgeBackend` / `JudgeRequest` from a-1** only (not a-3 payload buil
 | boundary:jev | `JevClient: JudgeBackend`; transport + resolved key at construction |
 | ADR-SAG-0004 | `validate_for_send` + refuse before send on oversize input |
 | ADR-SAG-0006 | No transport parameter on `judge` |
+| REQ-SAG-0103 | `JevClient` `JudgeOutcome` field names match `sc_agent_types::test_util::judge_outcome_field_names()` |
 
 ## Required validation
 

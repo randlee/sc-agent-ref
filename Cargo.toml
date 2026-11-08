@@ -1,0 +1,66 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/sc-agent-types",
+    "crates/sc-decision-schema",
+    "crates/sc-agent-secrets",
+    "crates/sc-agent-http",
+    "crates/sc-jev",
+    "crates/sc-jev-backends",
+    "crates/sc-jev-check",
+    "crates/sc-jev-host",
+    "crates/sc-treesitter",
+    "crates/sc-ai",
+    "crates/sc-jev-py",
+    "crates/workspace-tests",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.94.1"
+authors = ["Rand Lee <github@randlee.com>"]
+license = "MIT"
+repository = "https://github.com/randlee/sc-agent"
+homepage = "https://github.com/randlee/sc-agent"
+# Shared crates.io metadata. Crates add their own `keywords` / `categories`
+# when the shared values do not fit (sc-ai, sc-treesitter).
+keywords = ["llm", "evaluation", "jev", "sc-agent"]
+categories = ["development-tools"]
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+# ULID ids (ADR-SAG-0008 r-6 amendment) and text SHA-256 identity (D0). Caret.
+ulid = "1"
+sc-sha = "1.7.0"
+toml = "1.1.8"
+ureq = "3.5.1"
+# The decision schema crate (ADR-SAG-0030). Caret; not on the lockstep list.
+sc-decision-schema = { version = "0.1.0", path = "crates/sc-decision-schema" }
+# The shared HTTP layer (ADR-SAG-0026). Caret, like every workspace library.
+sc-agent-http = { version = "0.1.0", path = "crates/sc-agent-http" }
+# Pinning policy: ADR-SAG-0023 (docs/architecture.md). Caret ranges, except
+# the deliberate-lockstep crates listed there; .github/scripts/check-exact-pins.sh
+# fails on any other `=` requirement (NFR-SAG-0004).
+sc-observability = "=1.5.0"
+# Intra-workspace lockstep (ADR-SAG-0023 r-3b): sc-ai and sc-jev-py pin the
+# composition crate exactly; its signatures name sc-jev-check types.
+sc-jev-host = { version = "=0.1.0", path = "crates/sc-jev-host" }
+# Binary-only: optional behind the `cli` feature of sc-ai and sc-treesitter.
+mimalloc = "0.1.52"
+clap = { version = "4", features = ["derive"] }
+# Dev-only. Tests use tempfile::TempDir instead of hand-rolled temp dirs.
+tempfile = "3"
+
+# Every crate, sc-jev-py included, opts in with `[lints] workspace = true`.
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+# ADR-SAG-0020 r-3 amendment: a lint suppression must be a visible
+# `#[expect(.., reason = "..")]`, so a second `ResolvedApiKey::as_str` call
+# site (clippy.toml `disallowed-methods`) cannot hide behind `#[allow]`.
+[workspace.lints.clippy]
+allow_attributes = "deny"
+allow_attributes_without_reason = "deny"

@@ -21,7 +21,8 @@ development workflows.
 - Replacing product runtime code in `sc-runtime`
 - Embedding host-specific paths or secrets in committed agent text
 - **Wrapping vendor harness CLIs** (claude-code, codex-cli, cursor-cli) as
-  launch paths — use provider HTTP APIs instead
+  launch paths in Phase A and B — use provider HTTP APIs instead (CLI
+  wrappers are a later agent kind, ADR-SAG-0030)
 
 ## Rust agents (roadmap)
 

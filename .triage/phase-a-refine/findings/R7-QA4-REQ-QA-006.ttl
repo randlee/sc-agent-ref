@@ -1,0 +1,109 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R7-QA4-REQ-QA-006>
+  a triage:Finding ;
+  triage:findingId "R7-QA4-REQ-QA-006" ;
+  triage:title "plan.md:151-153 says `workspace-tests --test test_util_off` is a graph query plus a release-built sc-ai that rejects --scripted-answers" ;
+  triage:description "plan.md:151-153 says `workspace-tests --test test_util_off` is a graph query plus a release-built sc-ai that rejects --scripted-answers. After 20a46a8 that target is the graph half only, and the release-built check is in test_util_off_binary. The plan validation list at plan.md:917 runs only `--test test_util_off` and so omits the release-binary proof." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "cross-doc-conflict" ;
+  triage:severity "blocking" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T04:54:38Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R7 ;
+  triage:foundAt "2026-11-08T04:53:55Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA4-REQ-QA-006/int-152> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA4-REQ-QA-006/int-229> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA4-REQ-QA-006/int-917> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA4-REQ-QA-006/r7-152> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA4-REQ-QA-006/r7-229> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA4-REQ-QA-006/r7-917> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R7-QA4-REQ-QA-006/int-152>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/plan.md" ;
+  triage:line 152 ;
+  triage:snippet "test_util_off` (graph query plus a release-built `sc-ai` that rejects" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "b58ffd2a55f03c54b63ab55db33819244b1a8a48" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/b58ffd2> .
+
+<urn:atm:triage:occurrence/R7-QA4-REQ-QA-006/int-229>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/plan.md" ;
+  triage:line 229 ;
+  triage:snippet "`test_util_off` (graph + release binary); helper `tests/support/bin_path.rs`" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "b58ffd2a55f03c54b63ab55db33819244b1a8a48" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/b58ffd2> .
+
+<urn:atm:triage:occurrence/R7-QA4-REQ-QA-006/int-917>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/plan.md" ;
+  triage:line 917 ;
+  triage:snippet "cargo test -p workspace-tests --test test_util_off" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "b58ffd2a55f03c54b63ab55db33819244b1a8a48" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/b58ffd2> .
+
+<urn:atm:triage:occurrence/R7-QA4-REQ-QA-006/r7-152>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/plan.md" ;
+  triage:line 152 ;
+  triage:snippet "test_util_off` (graph query plus a release-built `sc-ai` that rejects" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "20a46a88dcfcc1899d8baec0934837912d638b88" ;
+  triage:occursIn <urn:atm:triage:worktree/r-7-decision-schema/20a46a8> .
+
+<urn:atm:triage:occurrence/R7-QA4-REQ-QA-006/r7-229>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/plan.md" ;
+  triage:line 229 ;
+  triage:snippet "`test_util_off` (graph + release binary); helper `tests/support/bin_path.rs`" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "20a46a88dcfcc1899d8baec0934837912d638b88" ;
+  triage:occursIn <urn:atm:triage:worktree/r-7-decision-schema/20a46a8> .
+
+<urn:atm:triage:occurrence/R7-QA4-REQ-QA-006/r7-917>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/plan.md" ;
+  triage:line 917 ;
+  triage:snippet "cargo test -p workspace-tests --test test_util_off" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "20a46a88dcfcc1899d8baec0934837912d638b88" ;
+  triage:occursIn <urn:atm:triage:worktree/r-7-decision-schema/20a46a8> .
+
+<urn:atm:triage:worktree/integrate-phase-a/b58ffd2>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "b58ffd2a55f03c54b63ab55db33819244b1a8a48" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/r-7-decision-schema/20a46a8>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-7-decision-schema" ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "20a46a88dcfcc1899d8baec0934837912d638b88" ;
+  triage:orderIndex 1 .

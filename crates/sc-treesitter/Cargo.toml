@@ -1,0 +1,64 @@
+[package]
+name = "sc-treesitter"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Tree-sitter producer for sc/subjects/1 documents."
+readme = "README.md"
+keywords = ["tree-sitter", "parsing", "subjects", "sc-agent"]
+categories = ["command-line-utilities", "parsing"]
+# Allowlist. `tests/**` ships so cargo keeps every test target (no publish
+# warning); tests that read repo-root fixtures run from the workspace only.
+include = ["Cargo.toml", "README.md", "LICENSE", "src/**", "tests/**", "assets/queries/**"]
+
+[lints]
+workspace = true
+
+[features]
+default = ["cli", "python", "rust"]
+# Binary-only dependencies (ADR-SAG-0023): the `sc-treesitter` bin and the
+# `cli` / `argv` test targets need them; `--no-default-features` builds the
+# library without them. `sc-agent-types/git` (the shared argv-only git reads,
+# RBQA-F006) is non-default there and only this feature turns it on.
+cli = ["dep:mimalloc", "dep:clap", "sc-agent-types/git"]
+python = ["dep:tree-sitter-python"]
+rust = ["dep:tree-sitter-rust"]
+
+[dependencies]
+clap = { workspace = true, optional = true }
+mimalloc = { workspace = true, optional = true }
+# The library uses only the always-on `error`, `ids`, `envelope` and `schema`
+# modules; `default-features = false` keeps `judge`, `secret` and `obs` out
+# (ADR-SAG-0015, ADR-SAG-0027, RBQA-F009).
+sc-agent-types = { path = "../sc-agent-types", version = "0.1.0", default-features = false }
+serde_json.workspace = true
+# Deliberate `=` lockstep (ADR-SAG-0023 list): grammar ABI and query captures
+# are tested against these exact tree-sitter releases (output determinism).
+tree-sitter = { version = "=0.27.1" }
+tree-sitter-python = { version = "=0.25.0", optional = true }
+tree-sitter-rust = { version = "=0.24.2", optional = true }
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[[bin]]
+name = "sc-treesitter"
+path = "src/main.rs"
+required-features = ["cli"]
+
+# Runs the binary through CARGO_BIN_EXE_sc-treesitter, so it needs the bin's
+# features.
+[[test]]
+name = "cli"
+path = "tests/cli.rs"
+required-features = ["cli"]
+
+# argv edge cases of the clap parser; also runs the binary (CPR-207).
+[[test]]
+name = "argv"
+path = "tests/argv.rs"
+required-features = ["cli"]

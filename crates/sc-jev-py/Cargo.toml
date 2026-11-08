@@ -1,0 +1,49 @@
+[package]
+name = "sc-jev-py"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "PyO3 bindings over sc-jev-check."
+readme = "README.md"
+# Ships to PyPI as a maturin wheel only (sprint a-9); never to crates.io.
+publish = false
+
+[lib]
+name = "sc_jev_py"
+# cdylib only: the Python module is the whole surface. `cargo test` still
+# builds the unit tests from source.
+crate-type = ["cdylib"]
+
+[lints]
+workspace = true
+
+[features]
+default = []
+# Maturin enables this so the wheel does not link libpython. `cargo test`
+# leaves it off and links the interpreter.
+extension-module = ["pyo3/extension-module"]
+# Adds the `sc_jev_py._testing` submodule (`run_check_scripted`), which
+# forwards scripted answers to `sc-jev-check`'s test-only registry. The
+# `run_check` signature is the same with or without it. Production wheels
+# leave this off (ADR-SAG-0022).
+test-util = ["sc-jev-check/test-util"]
+
+[dependencies]
+pyo3 = { version = "0.29", features = ["abi3-py311"] }
+sc-agent-types = { path = "../sc-agent-types", version = "0.1.0" }
+sc-decision-schema = { path = "../sc-decision-schema", version = "0.1.0" }
+sc-jev-check = { path = "../sc-jev-check", version = "0.1.0" }
+# Deliberate `=` lockstep with the sc-jev-host release (ADR-SAG-0023
+# list); the host owns the session logger, path policy and run wiring.
+sc-jev-host.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+# `cargo test` enables this so Rust tests can register scripted judges.
+# Maturin and `cargo build` do not. The publish wheel leaves `test-util` off.
+sc-jev-check = { path = "../sc-jev-check", version = "0.1.0", features = ["test-util"] }
+tempfile.workspace = true

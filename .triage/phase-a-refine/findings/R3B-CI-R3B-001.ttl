@@ -1,0 +1,49 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R3B-CI-R3B-001>
+  a triage:Finding ;
+  triage:findingId "R3B-CI-R3B-001" ;
+  triage:title "clippy large_enum_variant fails on test (windows-2022) cargo clippy --all-featur" ;
+  triage:description "clippy large_enum_variant fails on test (windows-2022) cargo clippy --all-features: crates/sc-ai/src/cli.rs:156 enum has a large size difference between variants (run 42426835557, job 128566810090). Recommendation: Box the large variant (or restructure) so clippy -D warnings passes on Windows; do not #[allow]." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "CI" ;
+  triage:severity "important" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-07T23:54:38Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R3B ;
+  triage:foundAt "2026-11-07T23:55:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R3B-CI-R3B-001/R3B-1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R3B-CI-R3B-001/R3B-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-ai/src/cli.rs" ;
+  triage:line 156 ;
+  triage:snippet "pub(crate) enum Parsed {" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-3b-compose-and-workspace-tests" ;
+  triage:headSha "90004d758db92b84afd5afd99e3f2ce89d5e1425" ;
+  triage:occursIn <urn:atm:triage:worktree/R3B/90004d7> .
+
+<urn:atm:triage:worktree/R3B/90004d7>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-3b-compose-and-workspace-tests" ;
+  triage:branch "sprint/r-3b-compose-and-workspace-tests" ;
+  triage:headSha "90004d758db92b84afd5afd99e3f2ce89d5e1425" ;
+  triage:orderIndex 1 .
+
+<urn:atm:triage:worktree/PHASE-A/9187024>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "9187024c80b42611088fa1466926fcb508b669de" ;
+  triage:orderIndex 0 .

@@ -1,0 +1,84 @@
+[package]
+name = "sc-jev-check"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Jev check engine: check.toml, extractors, sessions, and the prepare/run API."
+readme = "README.md"
+keywords.workspace = true
+categories.workspace = true
+# Allowlist. `tests/**` ships so cargo keeps every test target (no publish
+# warning); tests that read repo-root fixtures run from the workspace only.
+include = ["Cargo.toml", "README.md", "LICENSE", "src/**", "tests/**", "assets/**"]
+
+[lints]
+workspace = true
+
+[features]
+default = []
+# Test seams (ADR-SAG-0022, plan "Test seams"): `register_scripted_backends`
+# and `RunResponse::test_builder`. Production builds leave this off; it adds
+# no run API (ADR-SAG-0009).
+test-util = ["sc-decision-schema/test-util"]
+
+[dependencies]
+sc-agent-secrets = { path = "../sc-agent-secrets", version = "0.1.0" }
+# `git`: `discover_toplevel` (repo root) and `read_at_rev` (revision reads).
+sc-agent-types = { path = "../sc-agent-types", version = "0.1.0", features = ["git"] }
+sc-decision-schema = { path = "../sc-decision-schema", version = "0.1.0" }
+sc-jev = { path = "../sc-jev", version = "0.1.0" }
+sc-jev-backends = { path = "../sc-jev-backends", version = "0.1.0" }
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+
+[dev-dependencies]
+sc-decision-schema = { path = "../sc-decision-schema", version = "0.1.0", features = ["test-util"] }
+tempfile.workspace = true
+
+# D0 outcome 4 (boundaries/README.md "Dev-dependency and self edges"): no
+# self dev-dependency. A target that needs this crate's `test-util` seam
+# declares it here, and its validation lines pass `--features test-util`.
+[[test]]
+name = "run_response"
+required-features = ["test-util"]
+
+# `session` and `sessions_exact` write and read session documents directly
+# (`FileSessionStore::{save, load}`, `StoredSession`), public only under
+# `test-util`.
+[[test]]
+name = "session"
+required-features = ["test-util"]
+
+[[test]]
+name = "sessions_exact"
+required-features = ["test-util"]
+
+# Multi-backend semantics (ADR-SAG-0025) drive `run` through `MockJudgeBackend`.
+[[test]]
+name = "multi_backend"
+required-features = ["test-util"]
+
+# `register_scripted_backends` is public only under `test-util`.
+[[test]]
+name = "scripted"
+required-features = ["test-util"]
+
+# `[models]` override reaches the backends through the scripted registry.
+[[test]]
+name = "models"
+required-features = ["test-util"]
+
+# Row emission drives `run` and `ask` through `MockJudgeBackend` and the
+# scripted registry (REQ-SAG-0610, REQ-SAG-0613, REQ-SAG-0616, REQ-SAG-0617).
+[[test]]
+name = "session_log"
+required-features = ["test-util"]
+
+# `discover_main_repo_root` needs no seam, so `repo` declares no feature.
+[[test]]
+name = "repo"

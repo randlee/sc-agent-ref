@@ -1,0 +1,7 @@
+# TypeSafe Jev HTTP pins (tighten #12).
+# The API version is the /v1 path prefix. The evaluator model id is not set
+# here: the sc-agent-types model catalog is its one source (ADR-SAG-0030).
+host = "api.typesafe.ai"
+path = "/v1/systemone"
+attempts = 5
+timeout_seconds = 60

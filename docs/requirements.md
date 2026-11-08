@@ -1,7 +1,7 @@
 # sc-agent requirements
 
 **ID range:** REQ-SAG-0001+  
-**Status:** Draft (Phase A planning)  
+**Status:** Approved  
 **Owner:** sc-agent maintainers
 
 ## Product purpose
@@ -77,7 +77,7 @@ the **`sc-ai`** CLI. Behavioural contract for errors and parity rows:
 
 | ID | Requirement |
 | --- | --- |
-| REQ-SAG-0400 | Injectable transport; byte-exact Jev check/judge body |
+| REQ-SAG-0400 | Injectable transport; the Jev check/judge body is built once per call and every busy retry resends it unchanged |
 | REQ-SAG-0401 | Busy retry policy (429/502/529 + Retry-After) |
 
 ## Phase A — LLM backends (sprint a-5)
@@ -95,6 +95,8 @@ the **`sc-ai`** CLI. Behavioural contract for errors and parity rows:
 
 | ID | Requirement |
 | --- | --- |
+| REQ-SAG-0802 | `sc-jev-py` publishes six `abi3-py311` wheels (Linux, macOS, Windows on x86_64 and arm64); Windows MSVC targets link the CRT statically (ADR-SAG-0023, phase-end amendment); the `wheel` CI job builds the release-shape wheel on `windows-2022` and `windows-11-arm`, installs it in a fresh venv and imports `sc_jev_py` without `_testing` — (Active, phase-end) |
+| REQ-SAG-0133 | A repo-owned check (`scripts/check-scoop-manifest.py`, run by `scripts/sc-publish-dry-run.sh checks`) renders the Scoop manifest at the pin and fails unless both binaries are shimmed — (Active, phase-end) |
 | REQ-SAG-0600 | Session store: UUID, mode 0600, expiry from `created_at` |
 | REQ-SAG-0601 | `run_check` / dry-run library API |
 | REQ-SAG-0602 | Equal-input record on every backend run |
@@ -113,7 +115,7 @@ the **`sc-ai`** CLI. Behavioural contract for errors and parity rows:
 | REQ-SAG-0710 | Blocking CLI: stdout = versioned envelope (ADR-SAG-0014) with Jev answer JSON in `data` + `session_id`; stderr errors; exit 2 |
 | NFR-SAG-0002 | Secrets never appear in CLI output or logs |
 | NFR-SAG-0003 | Session JSONL retained on disk (path configurable; default documented) |
-| REQ-SAG-0711 | `sc-ai` wires `v2::LoggerBuilder` + adapter into `SharedSessionLog` for `sc-jev-check` |
+| REQ-SAG-0711 | `sc-ai` wires the logger through `sc_jev_host::obs` into `SharedSessionLog` for `sc-jev-check` (amended in r-3b; was `v2::LoggerBuilder` + a local adapter) |
 
 ## Phase A — sc-jev-py + first release (sprint a-8)
 
@@ -129,7 +131,7 @@ the **`sc-ai`** CLI. Behavioural contract for errors and parity rows:
 | --- | --- |
 | REQ-SAG-0130 | sc-publish consumer input enables **crates.io**, **pypi**, **homebrew**, **scoop**, **winget** + `sc-ai` release binaries |
 | REQ-SAG-0131 | `docs/development/sc-publish.md`; do not hand-edit rendered publish manifests |
-| REQ-SAG-0132 | Release preflight CI green; local preflight script matches kit |
+| REQ-SAG-0132 | Consumer-owned **`sc-publish dry-run`** workflow green on every PR: `install.py --dry-run` drift check, manifest validation, version lockstep, consumer preflight, `cargo publish --dry-run`, `maturin build`; it runs the same script as the local recipe. The kit's Release Preflight is `workflow_dispatch`-only and is run by the publisher at release time |
 | REQ-SAG-0803 | **First release:** all five channels via sc-publish — **a-9** installs kit + consumer input + preflight + publish dry-run in CI |
 
 ## Phase B (draft — not scheduled)
@@ -144,3 +146,71 @@ the **`sc-ai`** CLI. Behavioural contract for errors and parity rows:
 
 Sprint docs under `docs/plans/phase-a/` list REQ ids in YAML frontmatter.
 Phase plan: [`docs/plans/phase-a/plan.md`](plans/phase-a/plan.md).
+
+## Phase A.1 — refinement (landed)
+
+Each row and amendment carries an `(Active, r-N)` marker; `r-N` records the
+sprint that landed it (before landing, the marker read `(Proposed, r-N)`). When two sprints of one wave edit adjacent
+rows, the second to merge resolves the textual conflict, keeping both rows
+verbatim. Plan: [`plans/phase-a-refine/plan.md`](plans/phase-a-refine/plan.md).
+
+| ID | Requirement |
+| --- | --- |
+| REQ-SAG-0105 | Open backend set: `#[non_exhaustive]` ids; static facts on `BackendDescriptor` rows in one `BACKENDS` catalog; `JudgeBackend::capabilities()` derived from the descriptor; production dispatch is one factory table checked by `test_every_backend_has_factory`; elsewhere code branches on descriptor facts, never on id equality (test-and-review convention, ADR-SAG-0009) — (Active, r-1) |
+| REQ-SAG-0106 | Explicit `JevError` variants with unchanged `code()` ids, producer-neutral variants, `ProducerError`, `retryable()`, no detail-prefix parsing — (Active, r-1) |
+| REQ-SAG-0107 | `sc-agent-types` has no `sc-observability*` dependency; session log port uses local `LogRejected`; module seams are cargo features (`judge`, `secret`, `obs` default; `git`, `test-util` non-default; `cancel` core), every combination builds — (Active, r-1) |
+| REQ-SAG-0108 | `SubjectsDocument` is the one validated subjects type (private fields; validated on deserialize and by `SubjectsBuilder::build`); it and the id-assigning `SubjectsBuilder` live in `sc-agent-types`; producer and consumer share them — (Active, r-1) |
+| REQ-SAG-0109 | `crates/workspace-tests` (`publish = false`, no pyo3/tree-sitter in its graph) hosts cross-crate proofs incl. `jev_cross_impl`, a real `sc-treesitter` → `check.toml` e2e test, CLI/Python parity and git-read parity — (Active, r-3b) |
+| REQ-SAG-0133 | Both released binaries (`sc-ai`, `sc-treesitter`) documented with per-channel coverage — (Active, r-4; Scoop multi-binary support landed upstream as https://github.com/randlee/sc-publish/pull/176 (owner decision: a PR instead of an issue; optional `[channels.scoop].binaries`); sc-agent has re-pinned the kit (sc-publish `34dab3f`) and sets `binaries`, so Scoop shims both `sc-ai` and `sc-treesitter`, bead `agt-scoop-multi-shim` resolved; WinGet command aliases are not an upstream issue, the kit pins Komac 2.16.0 and the first hand-submitted manifest must list both binaries with aliases, bead `agt-sft`) |
+| REQ-SAG-0134 | CI proves `mimalloc` is absent from `--no-default-features` library builds of `sc-ai` and `sc-treesitter` — (Active, r-4) |
+| REQ-SAG-0135 | CI proves `clap` is absent from `--no-default-features` library builds of `sc-ai` and `sc-treesitter` (`cargo tree` gates) — (Active, r-3b) |
+| NFR-SAG-0004 | Library deps use caret ranges; `=` pins only for lockstep listed in ADR-SAG-0023, checked by `check-exact-pins.sh` — (Active, r-4) |
+| REQ-SAG-0312 | `command` input `path` field (`RepoRelativePath`) settable in `check.toml`, substituted for `{path}` — (Active, r-2) |
+| REQ-SAG-0313 | Command producer stderr `ScAgentErrorResponse` re-raised with its code (`ProducerError`), named by the input's optional `producer` (default: the stem of `command[0]`, which for an interpreter-run script is the interpreter) — (Active, r-2) |
+| REQ-SAG-0314 | Request byte cap has one owner per backend (descriptor limit), enforced in `validate_for_send` before any send; dry-run reports `payload_bytes` and per-backend `over_limit` without failing — (Active, r-2) |
+| REQ-SAG-0402 | One shared HTTP layer (`sc-agent-http`) for all backend families — (Active, r-3) |
+| REQ-SAG-0403 | Both backends validate `CanonicalJudgePayload` by deserializing; the Jev body is the documented flat `{model, state, questions}` object (no byte-splice) — (Active, r-5) |
+| REQ-SAG-0604 | Per-backend results; a failure keeps other answers; `leak` = any failed; consumers print the envelope on stdout and the first failure on stderr and exit 2 / raise with `.response` — (Active, r-3b) |
+| REQ-SAG-0605 | Multi-backend runs independent by default; `chain_context` explicit (CLI flag, Python kwarg) and recorded — (Active, r-3b) |
+| REQ-SAG-0606 | `equal` computed from backend-reported digests of the canonical blob recovered from each final wire body — (Active, r-2b) |
+| REQ-SAG-0607 | Stateless `FileSessionStore` with a written no-lock concurrency model; session written once per run, only when an `ask`-capable backend returned `Ok` — (Active, r-2) |
+| REQ-SAG-0620 | One engine API (`prepare` → `run`) and one `RunResponse` with one serialization printed by every consumer — (Active, r-2) |
+| REQ-SAG-0712 | `sc-ai` and `sc-treesitter` parse argv with clap derive behind the `cli` feature; error contract unchanged — (Active, r-3b) |
+| REQ-SAG-0140 | `sc-decision-schema` is a published, data-only crate above `sc-agent-types`: dependencies `sc-agent-types` (core only), `serde`, `serde_json`; no HTTP, git, process, file or logging dependency and no I/O — (Active, r-7) |
+| REQ-SAG-0141 | Each decision type has one home: the question/answer payload, judge contract and attestation types move (not copy) from `sc-agent-types` to `sc-decision-schema`, with no re-export — (Active, r-7) |
+| REQ-SAG-0142 | The decision schema is versioned (`DecisionSchemaId`, e.g. `canonical.v1`); readers accept known versions and refuse others; the version lives outside the hashed canonical bytes, so `prompt_sha256` and the cross-impl fixture are unchanged — (Active, r-7) |
+| REQ-SAG-0143 | One serde request and response struct per Jev API call known today (`jev::v1` check) in `sc-decision-schema`; `sc-jev` builds the body with `CheckRequest` and parses replies with `CheckResponse`, with no byte-splice; it encodes the documented Jev API: flat `{model, state, questions}`, question types `choice`, `score` and `noul`, string/object/array `state`, and the `{model, answers, usage}` reply — (Active, r-5) |
+| REQ-SAG-0144 | Haiku/Luna input and output use the same schema: canonical bytes in, `DecisionAnswers` out (the Jev answers type) — (Active, r-7) |
+| REQ-SAG-0145 | Model-family schema variants: `schema_for(ModelFamily)` with static dispatch keyed by `SchemaFamily` (no trait until a second variant); the canonical variant is the identity on the payload — (Active, r-7) |
+| REQ-SAG-0146 | The session-log storage contract is an authoritative SQLite DDL with `schema_version`; the JSONL projection is the `fields{}` object of one v2 log line with exactly the column keys (`send_outcome`, nullable `request_sha256`, non-null `model_id`); a loader reads it into the tables losslessly — (Active, r-7) |
+| REQ-SAG-0147 | Model catalog in `sc-agent-types`: open `ModelId` enum (known variants plus an unknown-model form that only parsing can build), so a model released after the build parses, is sent verbatim and is logged — (Active, r-7) |
+| REQ-SAG-0148 | `ModelAliases::latest(alias)` returns the newest model for `jev`, `haiku`, `luna`, … from an in-crate table, overridable by `check.toml` `[models]`; backends send their configured model — (Active, r-7) |
+| REQ-SAG-0612 | `SessionId` is a ULID (26-char Crockford base32) in documents, file names, CLI and Python; a UUID id (CLI) or a v2 session document is `INPUT_INVALID` (Python only receives ULID ids and has no UUID input path) — (Active, r-6) |
+| REQ-SAG-0613 | Each send logs `request_sha256`: SHA-256 of the exact request body sent (headers excluded), recorded by `sc-agent-http` at the send site; `null` when the send failed before a body was built; future response-cache key — (Active, r-6) |
+| REQ-SAG-0614 | Each row logs `repo`: the main repository root (a worktree resolves to it), else the calling folder; log and session paths are unchanged (ADR-SAG-0021) — (Active, r-6) |
+| REQ-SAG-0615 | Each row logs `project`: optional caller text (`sc-ai --project`, Python `project=`), ≤ 256 bytes, no control characters, stored unscrubbed — (Active, r-6) |
+| REQ-SAG-0616 | Each row logs `model_id`: the `ModelId` string from `JudgeBackend::model_id()` (catalog default, backend's configured model), never null — (Active, r-6) |
+| REQ-SAG-0617 | Every `judge`/`ask` send, `Ok` or `Failed`, writes exactly one row in the v2 `fields{}` object (NotSent none); a rejected or failed log write never fails the run (best effort; flush failure is a `data.warnings` entry) — (Active, r-6) |
+| REQ-SAG-0618 | SHA-256 digests are computed with `sc-sha` (`calculate_hash`, strict UTF-8, CR normalized to LF; for request bodies and canonical payloads, compact JSON with no raw CR, the digest is SHA-256 of the bytes sent; other text such as query sources is identified in its LF-normalized form); no workspace manifest lists `sha2` or `uuid` — (Active, r-6) |
+
+### Phase A.1 amendments to existing rows
+
+| ID | Amendment |
+| --- | --- |
+| REQ-SAG-0101 | "One variant per id" becomes "every variant maps to exactly one id in `errors.json`; an id may have several variants" — (Active, r-1) |
+| REQ-SAG-0103 | The a-1 frozen contract is unfrozen once by r-1 (types break) and re-frozen at r-1 merge; later changes are additive — (Active, r-1) |
+| REQ-SAG-0120 | The `observability::v2::SessionLog` port stays in `sc-agent-types` but no longer depends on `sc-observability-types`: `emit` returns the local `LogRejected`; the module is behind the default `obs` feature — (Active, r-1) |
+| REQ-SAG-0121 | Noop and test-util doubles stay; "trim deps" is done for `sc-observability-types` (dependency and root entry removed); module deletion still waits on upstream v2 — (Active, r-1) |
+| NFR-SAG-0001 | `ScAgentErrorResponse` is `{error, message}` plus `schema_version` (always `1`), `retryable` (only when `true`) and `details` (only for producer errors), in that key order; readers accept `schema_version` absent or `1` and deny unknown keys, so any added key (top level or in `details`) is breaking and bumps `schema_version` — (Active, r-1) |
+| REQ-SAG-0701 | stderr is one `ScAgentErrorResponse` line per NFR-SAG-0001 (amended): `{error, message, schema_version, ...}`, exit 2 — (Active, r-1) |
+| REQ-SAG-0601 | `prepare`/`run` library API; dry-run via `RunConfig::dry_run` (replaces the Phase A `run_check` / dry-run API) — (Active, r-2) |
+| REQ-SAG-0710 | `data` is the `RunResponse` serialization (ADR-SAG-0014 r-2 amendment): the primary backend is the first `Ok` backend in `BackendSet` order and its answers are at the top level (the verbatim Jev response when Jev is primary); plus `session_id` (null unless `session_saved`), `results`, `equal_input`, `warnings` — (Active, r-2) |
+| REQ-SAG-0505 | Busy retry (owner decision 2026-11-06, amended 2026-11-08): 429/502/529 only; 5 sends in total (4 delays: 1, 2, 4, 8 s, 15 s before jitter); no policy or backend may exceed 5 sends; valid Retry-After honoured, clamped 0–30 s; Retry-After grammar ASCII digits with optional fraction, ≤ 32 bytes, else malformed; absent or malformed Retry-After → exponential backoff 1, 2, 4, 8 … s capped at 30 s; ≤ 250 ms jitter; 90 s budget for starting attempts (in-flight attempt keeps its request timeout); transport deadlines are bounded in the shared layer: request 1 ms–120 s, connect 1 ms–10 s; timeouts and other network errors, including connect/DNS failures, are not retried — `NETWORK_ERROR`, `retryable() == true`, caller decides — (Active, r-3; amended 2026-11-08) |
+| REQ-SAG-0130 | Consumer input publishes `sc-agent-http` (publish order per ADR-SAG-0017, r-3 amendment as amended by r-7, `docs/architecture.md`, and `docs/development/sc-publish.md`) — (Active, r-3) |
+| REQ-SAG-0130 | Consumer input publishes `sc-jev-host` (internal support, directly after `sc-jev-check`; owner decision 2026-11-06); no crates.io publish until r-5 (D9) lands — (Active, r-3b) |
+| REQ-SAG-0711 | `sc-ai` wires the logger through `sc_jev_host::obs` — (Active, r-3b) |
+| REQ-SAG-0103 | The frozen `JudgeBackend` / `JudgeRequest` contract and its contract tests move to `sc-decision-schema` (ADR-SAG-0030), unchanged except that `judge` takes the per-send `&SendTrace` and `model_id()` is added; later changes stay additive — (Active, r-7) |
+| REQ-SAG-0107 | `sc-agent-types` loses the `judge` and `test-util` features with the moved modules; features are `secret`, `obs` (default) and `git` (non-default); every combination builds — (Active, r-7) |
+| REQ-SAG-0130 | Consumer input publishes `sc-decision-schema` (publish order 2, directly after `sc-agent-types`) — (Active, r-7) |
+| REQ-SAG-0600 | Session store: session id is a **ULID** (was UUID) in file names and documents; mode 0600, expiry from `created_at` — (Active, r-6) |
+| REQ-SAG-0611 | Every log line's `fields{}` object is one ADR-SAG-0031 session-log row (session ULID, `repo`, `project`, `model_id`, `prompt_sha256`, nullable `request_sha256`, `send_outcome`, typed answers or `error_code`), on every line; never secrets, payload text or raw response bodies — (Active, r-6) |

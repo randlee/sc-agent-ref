@@ -1,0 +1,7 @@
+# Packaged check settings. This document is intentionally empty.
+#
+# The packaged LLM system prompt is compiled in from llm-evaluator-system.md
+# (sc_jev_check::config::PACKAGED_SYSTEM_PROMPT). Model ids live in the
+# sc-agent-types model catalog (`check.toml` `[models]` overrides them). The request byte cap is each backend's own descriptor limit
+# (`BackendDescriptor::request_limit_bytes`), enforced by `validate_for_send`
+# before any send (REQ-SAG-0314); the engine keeps no second cap.

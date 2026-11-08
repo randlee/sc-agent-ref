@@ -1,0 +1,61 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R7-QA1-FTQ-003>
+  a triage:Finding ;
+  triage:findingId "R7-QA1-FTQ-003" ;
+  triage:title "refused_port() binds 127.0.0.1:0, reads the port, and drops the listener. The test then co" ;
+  triage:description "refused_port() binds 127.0.0.1:0, reads the port, and drops the listener. The test then connects to that port and expects a connect-phase failure. In the window between the drop and the connect, any other test in the same process (LoopbackServer::spawn binds 127.0.0.1:0 in parallel tests) or another process can bind the freed port. The client then connects to that other listener, not to a refused port. The test sees a successful or different response, or the other test's server records an unexpected request and fails its finish() count. This is a port-reuse race on a shared socket resource. The likelihood is low because ephemeral allocation usually does not hand back a just-freed port immediately, but the mechanism is concrete and the test has no way to detect it." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "fixed_runtime_path" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T02:33:35Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R7 ;
+  triage:foundAt "2026-11-08T02:30:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-FTQ-003/IA-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-FTQ-003/SP-1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R7-QA1-FTQ-003/IA-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-http/tests/ureq.rs" ;
+  triage:line 239 ;
+  triage:snippet "let endpoint = Endpoint::loopback_http(refused_port(), ...)" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1983412ff750b775ed40c3261fe17383dd" ;
+  triage:occursIn <urn:atm:triage:worktree/IA/0d0ebc19> .
+
+<urn:atm:triage:occurrence/R7-QA1-FTQ-003/SP-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-http/tests/ureq.rs" ;
+  triage:line 242 ;
+  triage:snippet "let endpoint = Endpoint::loopback_http(refused_port(), ...)" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "94972978d9e6321be71e884368721cf0f79d3d54" ;
+  triage:occursIn <urn:atm:triage:worktree/SP/94972978> .
+
+<urn:atm:triage:worktree/IA/0d0ebc19>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1983412ff750b775ed40c3261fe17383dd" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/SP/94972978>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-7-decision-schema" ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "94972978d9e6321be71e884368721cf0f79d3d54" ;
+  triage:orderIndex 1 .

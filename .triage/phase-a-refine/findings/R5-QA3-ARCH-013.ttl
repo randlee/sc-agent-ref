@@ -1,0 +1,73 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R5-QA3-ARCH-013>
+  a triage:Finding ;
+  triage:findingId "R5-QA3-ARCH-013" ;
+  triage:title "ARCH-002 closure is complete for the two named entry points (CanonicalJudgePayload::from_bytes at payload.rs:428 and CheckRequest::parse at " ;
+  triage:description "ARCH-002 closure is complete for the two named entry points (CanonicalJudgePayload::from_bytes at payload.rs:428 and CheckRequest::parse at jev/v1.rs:565 now use decode_failed, which returns INPUT_INVALID with category and line/column only and a fix hint). Two decode-side sites still use encode_failed: Question::from_json (payload.rs:245) and PayloadBundle::decode (payload.rs:520). Their code is still INPUT_INVALID, which ADR-SAG-0027 and ADR-SAG-0029(c) accept. However, encode_failed's fix hint (crates/sc-agent-types/src/error.rs:833-835) reads '… could not be encoded as JSON' for a parse failure, which is misleading. The stated rule 'encode_failed kept for encode-side sites only' is not what the tree does. Note: the Question::from_json doc block (payload.rs:229-231) says 'EncodeFailed', and the Errors section says INPUT_INVALID." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "qa" ;
+  triage:severity "important" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T06:41:21Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R5 ;
+  triage:foundAt "2026-11-08T06:39:59Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R5-QA3-ARCH-013/integrate-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R5-QA3-ARCH-013/sprint-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R5-QA3-ARCH-013/sprint-2> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R5-QA3-ARCH-013/integrate-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-decision-schema/src/payload.rs" ;
+  triage:line 204 ;
+  triage:snippet "PayloadBundle::decode: JevError::encode_failed(canonical payload, &error)" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "48c4d1cf5a0972351bc146721db41888fbc5cfa3" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/48c4d1c> .
+
+<urn:atm:triage:occurrence/R5-QA3-ARCH-013/sprint-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-decision-schema/src/payload.rs" ;
+  triage:line 245 ;
+  triage:snippet "Question::from_json: JevError::encode_failed(question, &error)" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-5-jev-wire-envelope" ;
+  triage:headSha "69725308455bd8827b0a46e31e3f598327d66f55" ;
+  triage:occursIn <urn:atm:triage:worktree/r-5-jev-wire-envelope/6972530> .
+
+<urn:atm:triage:occurrence/R5-QA3-ARCH-013/sprint-2>
+  a triage:Occurrence ;
+  triage:file "crates/sc-decision-schema/src/payload.rs" ;
+  triage:line 520 ;
+  triage:snippet "PayloadBundle::decode: JevError::encode_failed(canonical payload, &error)" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-5-jev-wire-envelope" ;
+  triage:headSha "69725308455bd8827b0a46e31e3f598327d66f55" ;
+  triage:occursIn <urn:atm:triage:worktree/r-5-jev-wire-envelope/6972530> .
+
+<urn:atm:triage:worktree/integrate-phase-a/48c4d1c>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "48c4d1cf5a0972351bc146721db41888fbc5cfa3" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/r-5-jev-wire-envelope/6972530>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-5-jev-wire-envelope" ;
+  triage:branch "sprint/r-5-jev-wire-envelope" ;
+  triage:headSha "69725308455bd8827b0a46e31e3f598327d66f55" ;
+  triage:orderIndex 1 .

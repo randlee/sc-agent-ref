@@ -1,0 +1,17 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+triage:PhaseA1 a triage:Phase .
+
+triage:A1-R1 a triage:Sprint ; triage:inPhase triage:PhaseA1 ; triage:order 1 ; triage:criteria "docs/plans/phase-a-refine/sprint-r-1-types-break.md" ; triage:branch "sprint/r-1-types-break" .
+triage:A1-R4 a triage:Sprint ; triage:inPhase triage:PhaseA1 ; triage:order 2 ; triage:criteria "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md" ; triage:branch "sprint/r-4-adrs-and-manifests" .
+triage:A1-R3C a triage:Sprint ; triage:inPhase triage:PhaseA1 ; triage:order 3 ; triage:criteria "docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md" ; triage:branch "sprint/r-3c-treesitter-cli" .
+triage:A1-R3 a triage:Sprint ; triage:inPhase triage:PhaseA1 ; triage:order 4 ; triage:criteria "docs/plans/phase-a-refine/sprint-r-3-shared-http.md" ; triage:branch "sprint/r-3-shared-http" .
+triage:A1-R2 a triage:Sprint ; triage:inPhase triage:PhaseA1 ; triage:order 5 ; triage:criteria "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md" ; triage:branch "sprint/r-2-engine-shape" .
+triage:A1-CLOSE12 a triage:Sprint ; triage:inPhase triage:PhaseA1 ; triage:order 6 ; triage:criteria "PR #28 wave-1/2 sprint-doc closeout" ; triage:branch "docs/close-wave1-2" .
+triage:A1-R2B a triage:Sprint ; triage:inPhase triage:PhaseA1 ; triage:order 7 ; triage:criteria "docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md" ; triage:branch "sprint/r-2b-multi-backend-semantics" .
+triage:A1-PLAN67 a triage:Sprint ; triage:inPhase triage:PhaseA1 ; triage:order 8 ; triage:criteria "PR #29 r-5/r-6/r-7 plan" ; triage:branch "plan/phase-a-refine-r6" .
+triage:A1-R3B a triage:Sprint ; triage:inPhase triage:PhaseA1 ; triage:order 9 ; triage:criteria "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md" ; triage:branch "sprint/r-3b-compose-and-workspace-tests" .
+triage:A1-R7 a triage:Sprint ; triage:inPhase triage:PhaseA1 ; triage:order 10 ; triage:criteria "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md" ; triage:branch "sprint/r-7-decision-schema" .
+triage:A1-R5 a triage:Sprint ; triage:inPhase triage:PhaseA1 ; triage:order 11 ; triage:criteria "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md" ; triage:branch "sprint/r-5-jev-wire-envelope" .
+triage:A1-R6 a triage:Sprint ; triage:inPhase triage:PhaseA1 ; triage:order 12 ; triage:criteria "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md" ; triage:branch "sprint/r-6-session-log-record" .

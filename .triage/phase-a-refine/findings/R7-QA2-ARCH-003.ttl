@@ -1,0 +1,157 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R7-QA2-ARCH-003>
+  a triage:Finding ;
+  triage:findingId "R7-QA2-ARCH-003" ;
+  triage:title "The QA-1 fix adds a wall-clock deadline on every git subprocess (pub const GIT_DEADLINE = 60 s, fixed and not configurable, lines 18-23 and " ;
+  triage:description "The QA-1 fix adds a wall-clock deadline on every git subprocess (pub const GIT_DEADLINE = 60 s, fixed and not configurable, lines 18-23 and 43; enforced at lines 171, 308 and 383). A timeout now surfaces as JevError::ExtractionTimeout, so the code is EXTRACTION_TIMEOUT with timeout_seconds 60. The git module is public (crates/sc-agent-types/src/lib.rs:61 'pub mod git;'), and ADR-SAG-0027 lists it as stable surface. No ADR or crate doc records this process contract, the fixed value, the new public constant, or the new failure mode for git reads (grep of docs/ finds no git deadline text; docs/sc-agent-types/architecture.md has none). ADR-SAG-0027 does allow several variants to map to one existing id, so reusing the id is not itself an ADR-SAG-0027 violation. However, the variant's rustdoc (crates/sc-agent-types/src/error.rs:160 'The extractor exceeded its time limit') and docs/sc-jev-check/extraction.md:37 describe EXTRACTION_TIMEOUT as an extractor-only code, so consumers reading it will misattribute git timeouts. The new process and error contract is therefore a structural decision with no ADR." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "RULE-ADR-CODE" ;
+  triage:severity "blocking" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T02:50:39Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R7 ;
+  triage:foundAt "2026-11-08T04:00:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-ARCH-003/SR-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-ARCH-003/SR-2> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-ARCH-003/SR-3> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-ARCH-003/SR-4> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-ARCH-003/SR-5> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-ARCH-003/SR-6> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-ARCH-003/SR-7> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-ARCH-003/SR-8> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-ARCH-003/SR-9> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-ARCH-003/SR-10> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R7-QA2-ARCH-003/SR-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/git.rs" ;
+  triage:line 18 ;
+  triage:snippet "//! Every git subprocess has a wall-clock deadline, [`GIT_DEADLINE`] (60 s, a" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c" ;
+  triage:occursIn <urn:atm:triage:worktree/r-7-decision-schema/4eb8265> .
+
+<urn:atm:triage:occurrence/R7-QA2-ARCH-003/SR-2>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/git.rs" ;
+  triage:line 43 ;
+  triage:snippet "pub const GIT_DEADLINE: Duration = Duration::from_secs(60);" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c" ;
+  triage:occursIn <urn:atm:triage:worktree/r-7-decision-schema/4eb8265> .
+
+<urn:atm:triage:occurrence/R7-QA2-ARCH-003/SR-3>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/git.rs" ;
+  triage:line 108 ;
+  triage:snippet "run_with_deadline(command, GIT_DEADLINE)" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c" ;
+  triage:occursIn <urn:atm:triage:worktree/r-7-decision-schema/4eb8265> .
+
+<urn:atm:triage:occurrence/R7-QA2-ARCH-003/SR-4>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/git.rs" ;
+  triage:line 160 ;
+  triage:snippet "/// deadline the child is killed and reaped and the call is `EXTRACTION_TIMEOUT`." ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c" ;
+  triage:occursIn <urn:atm:triage:worktree/r-7-decision-schema/4eb8265> .
+
+<urn:atm:triage:occurrence/R7-QA2-ARCH-003/SR-5>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/git.rs" ;
+  triage:line 304 ;
+  triage:snippet "Some(rx) => match rx.recv_timeout(GIT_DEADLINE) {" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c" ;
+  triage:occursIn <urn:atm:triage:worktree/r-7-decision-schema/4eb8265> .
+
+<urn:atm:triage:occurrence/R7-QA2-ARCH-003/SR-6>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/git.rs" ;
+  triage:line 308 ;
+  triage:snippet "return Err(JevError::extraction_timeout(GIT_DEADLINE.as_secs()));" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c" ;
+  triage:occursIn <urn:atm:triage:worktree/r-7-decision-schema/4eb8265> .
+
+<urn:atm:triage:occurrence/R7-QA2-ARCH-003/SR-7>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/git.rs" ;
+  triage:line 324 ;
+  triage:snippet "let exit = wait_bounded(&mut child, started, GIT_DEADLINE)?;" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c" ;
+  triage:occursIn <urn:atm:triage:worktree/r-7-decision-schema/4eb8265> .
+
+<urn:atm:triage:occurrence/R7-QA2-ARCH-003/SR-8>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/git.rs" ;
+  triage:line 383 ;
+  triage:snippet "let expired = || Err::<(), JevError>(JevError::extraction_timeout(GIT_DEADLINE.as_secs()));" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c" ;
+  triage:occursIn <urn:atm:triage:worktree/r-7-decision-schema/4eb8265> .
+
+<urn:atm:triage:occurrence/R7-QA2-ARCH-003/SR-9>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/git.rs" ;
+  triage:line 384 ;
+  triage:snippet "let left = || GIT_DEADLINE.saturating_sub(started.elapsed());" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c" ;
+  triage:occursIn <urn:atm:triage:worktree/r-7-decision-schema/4eb8265> .
+
+<urn:atm:triage:occurrence/R7-QA2-ARCH-003/SR-10>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/git.rs" ;
+  triage:line 404 ;
+  triage:snippet "let exit = wait_bounded(&mut child, started, GIT_DEADLINE)?;" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c" ;
+  triage:occursIn <urn:atm:triage:worktree/r-7-decision-schema/4eb8265> .
+
+<urn:atm:triage:worktree/integrate-phase-a/81ffec2>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "81ffec2fcab6d1b18967a84963df35fe9fb91e80" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/r-7-decision-schema/4eb8265>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-7-decision-schema" ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c" ;
+  triage:orderIndex 1 .

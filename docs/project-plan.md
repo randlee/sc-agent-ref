@@ -1,6 +1,6 @@
 # sc-agent project plan
 
-**Status:** Phase A planned (awaiting approval)  
+**Status:** Phase A and Phase A.1 (`r`) implementation have landed on `integrate/phase-a`; the phase is in phase-end review and is not closed — see the open items in `PHASE-A-REVIEW.md`, the owner's working notes (not committed).  
 **Default branch:** `develop`
 
 ## Phases
@@ -8,7 +8,8 @@
 | Phase | Status | Integration branch | Plan |
 | --- | --- | --- | --- |
 | Bootstrap | Complete | `develop` | Agent teams, plan-anchor, beads, policy |
-| **A — sc-jev + sc-ai** | **Planned** | `integrate/phase-a` | [`docs/plans/phase-a/plan.md`](plans/phase-a/plan.md) |
+| **A — sc-jev + sc-ai** | **Implementation landed (a-1 to a-10); in phase-end review, not closed** | `integrate/phase-a` | [`docs/plans/phase-a/plan.md`](plans/phase-a/plan.md) |
+| **r (A.1) — architectural refinement** | **Implementation landed (r-1 to r-7); in phase-end review, not closed** | `integrate/phase-a` | [`docs/plans/phase-a-refine/plan.md`](plans/phase-a-refine/plan.md) |
 | B (draft) | Not planned | — | Remaining Jev API (REQ-SAG-0110); check features 4–7; **API-direct** Claude + Codex via `sc-ai`. **Not** claude-code/codex-cli/cursor-cli wrappers |
 
 ## Lead
@@ -31,9 +32,25 @@ Wave table in [`docs/plans/phase-a/plan.md`](plans/phase-a/plan.md) is authorita
 
 Sprint docs: `docs/plans/phase-a/sprint-a-*.md`.
 
+## Phase A.1 (`r`) sprints (dependency order)
+
+Wave table in [`docs/plans/phase-a-refine/plan.md`](plans/phase-a-refine/plan.md#wave-table) is authoritative.
+
+1. **Wave 1 (parallel):** r-1 sc-agent-types break ∥ r-4 pins, allocator, released binaries
+2. **Wave 2 (parallel):** r-2 engine shape, r-3 `sc-agent-http`, r-3c sc-treesitter clap + git helper
+3. **Wave 3:** r-2b multi-backend semantics
+4. **Wave 4:** r-3b composition crate (`sc-jev-host`), workspace tests, consumers
+5. **Wave 5:** r-7 `sc-decision-schema` crate and model catalog
+6. **Wave 6 (parallel):** r-5 Jev wire body (`jev::v1`) ∥ r-6 session log wiring
+
+Sprint docs: `docs/plans/phase-a-refine/sprint-r-*.md`.
+
 ## Approval gate
 
-**No Rust implementation PRs** until Rand approves `plan.md` and sprint docs.
+Phase A plan approved (PR #4 merged 2026-11-02). Phase A (a-1 to a-10) and
+Phase A.1 (r-1 to r-7) have landed on `integrate/phase-a`. The phase is in
+phase-end review and is not closed; open items are listed in
+[`plans/phase-a/plan.md`](plans/phase-a/plan.md#phase-close-notes--open-items).
 
 ## After Phase A
 

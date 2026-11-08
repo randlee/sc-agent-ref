@@ -1,0 +1,49 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R7-QA2-ARCH-002>
+  a triage:Finding ;
+  triage:findingId "R7-QA2-ARCH-002" ;
+  triage:title "workspace-tests gains a dev-dependency on sc-decision-schema (also boundaries/workspace-tests/workspace-tests.toml:31 allowed_dependencies)" ;
+  triage:description "workspace-tests gains a dev-dependency on sc-decision-schema (also boundaries/workspace-tests/workspace-tests.toml:31 allowed_dependencies). ADR-SAG-0028 (docs/architecture.md:1537-1546) states the dev-dependencies are 'exactly' sc-agent-types, sc-jev-check, sc-jev-host, serde_json, tempfile. The ADR-SAG-0028 section (docs/architecture.md:1522-1564) has no r-7 amendment, and the sprint's owned_paths amendment list (sprint doc line 172) names only ADR-SAG-0005, 0009, 0016, 0017, 0019, 0022, 0026 and 0027. The sprint doc still names ADR-SAG-0028 in its adrs list (line 84) as 'workspace-tests gains a dev edge on sc-decision-schema'. A sprint deliverable cannot relax a binding ADR, so this contradiction is Blocking under RULE-ADR-PLAN as well as RULE-ADR-CODE." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "RULE-ADR-CODE" ;
+  triage:severity "blocking" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T02:50:27Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R7 ;
+  triage:foundAt "2026-11-08T04:00:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-ARCH-002/R7-1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R7-QA2-ARCH-002/R7-1>
+  a triage:Occurrence ;
+  triage:file "crates/workspace-tests/Cargo.toml" ;
+  triage:line 24 ;
+  triage:snippet "sc-decision-schema = { path = \"../sc-decision-schema\", version = \"0.1.0\", features = [\"test-util\"] }" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c" ;
+  triage:occursIn <urn:atm:triage:worktree/r-7-decision-schema/4eb8265> .
+
+<urn:atm:triage:worktree/integrate-phase-a/81ffec2>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "81ffec2fcab6d1b18967a84963df35fe9fb91e80" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/r-7-decision-schema/4eb8265>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-7-decision-schema" ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c" ;
+  triage:orderIndex 1 .

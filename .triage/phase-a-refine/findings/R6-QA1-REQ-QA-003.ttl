@@ -1,0 +1,85 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R6-QA1-REQ-QA-003>
+  a triage:Finding ;
+  triage:findingId "R6-QA1-REQ-QA-003" ;
+  triage:title "The sprint front matter gives branch and worktree `sprint/r-6-session-log-wiring`" ;
+  triage:description "The sprint front matter gives branch and worktree `sprint/r-6-session-log-wiring`. The actual branch, worktree and the sprint doc's own file name use `sprint/r-6-session-log-record`. The quality policy's sprint-branch form is `sprint/<phase>-<n>-<slug>`." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "cross-doc-conflict" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T06:09:10Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R6 ;
+  triage:foundAt "2026-11-08T06:07:39Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R6-QA1-REQ-QA-003/INT-L10> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R6-QA1-REQ-QA-003/INT-L11> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R6-QA1-REQ-QA-003/SPR-L10> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R6-QA1-REQ-QA-003/SPR-L11> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R6-QA1-REQ-QA-003/INT-L10>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md" ;
+  triage:line 10 ;
+  triage:snippet "branch: sprint/r-6-session-log-wiring" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "714d2845c48cd0b4fa40bcd2017c248049f3662a" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/714d284> .
+
+<urn:atm:triage:occurrence/R6-QA1-REQ-QA-003/INT-L11>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md" ;
+  triage:line 11 ;
+  triage:snippet "worktree: sprint/r-6-session-log-wiring" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "714d2845c48cd0b4fa40bcd2017c248049f3662a" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/714d284> .
+
+<urn:atm:triage:occurrence/R6-QA1-REQ-QA-003/SPR-L10>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md" ;
+  triage:line 10 ;
+  triage:snippet "branch: sprint/r-6-session-log-wiring" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-6-session-log-record" ;
+  triage:headSha "f6ddc71c5fc8e0ea9a9e4d100529457784039873" ;
+  triage:occursIn <urn:atm:triage:worktree/r-6-session-log-record/f6ddc71> .
+
+<urn:atm:triage:occurrence/R6-QA1-REQ-QA-003/SPR-L11>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md" ;
+  triage:line 11 ;
+  triage:snippet "worktree: sprint/r-6-session-log-wiring" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-6-session-log-record" ;
+  triage:headSha "f6ddc71c5fc8e0ea9a9e4d100529457784039873" ;
+  triage:occursIn <urn:atm:triage:worktree/r-6-session-log-record/f6ddc71> .
+
+<urn:atm:triage:worktree/integrate-phase-a/714d284>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "714d2845c48cd0b4fa40bcd2017c248049f3662a" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/r-6-session-log-record/f6ddc71>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-6-session-log-record" ;
+  triage:branch "sprint/r-6-session-log-record" ;
+  triage:headSha "f6ddc71c5fc8e0ea9a9e4d100529457784039873" ;
+  triage:orderIndex 1 .

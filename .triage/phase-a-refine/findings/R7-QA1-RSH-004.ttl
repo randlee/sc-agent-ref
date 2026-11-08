@@ -1,0 +1,61 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R7-QA1-RSH-004>
+  a triage:Finding ;
+  triage:findingId "R7-QA1-RSH-004" ;
+  triage:title "The judge log event is emitted unconditionally after judge() returns, even when the send never reached the transport. A cancelled backend is logged as a judge send, and its failure has no distinct event." ;
+  triage:description "The judge log event is emitted unconditionally after judge() returns, even when the send never reached the transport. A cancelled backend is logged as a judge send, and its failure has no distinct event." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "structured_logging_tracing" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T02:33:58Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R7 ;
+  triage:foundAt "2026-11-08T02:30:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-004/IPA-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA1-RSH-004/SPR-1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-004/IPA-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-check/src/run/mod.rs" ;
+  triage:line 754 ;
+  triage:snippet "let judged = judge.judge(request); emit_log(" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1983412ff750b775ed40c3261fe17383dd" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/0d0ebc1> .
+
+<urn:atm:triage:occurrence/R7-QA1-RSH-004/SPR-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-jev-check/src/run/mod.rs" ;
+  triage:line 794 ;
+  triage:snippet "let judged = judge.judge(request, &trace); emit_log(" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "94972978d9e6321be71e884368721cf0f79d3d54" ;
+  triage:occursIn <urn:atm:triage:worktree/sprint-r-7/9497297> .
+
+<urn:atm:triage:worktree/integrate-phase-a/0d0ebc1>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "0d0ebc1983412ff750b775ed40c3261fe17383dd" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/sprint-r-7/9497297>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-7-decision-schema" ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "94972978d9e6321be71e884368721cf0f79d3d54" ;
+  triage:orderIndex 1 .

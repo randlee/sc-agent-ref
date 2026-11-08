@@ -1,0 +1,49 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R7-QA2-REQ-QA-003>
+  a triage:Finding ;
+  triage:findingId "R7-QA2-REQ-QA-003" ;
+  triage:title "The QA-1 fix R7-QA1-RSH-002 edits crates/sc-agent-types/src/git.rs" ;
+  triage:description "The QA-1 fix R7-QA1-RSH-002 edits crates/sc-agent-types/src/git.rs. I found no owned_paths entry for that file (sc-agent-types entries are lib.rs, Cargo.toml, ids.rs, catalog.rs, models.rs, trace.rs and tests). I could not check whether another sprint owns it. This is informational and not a requirement violation." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "plan" ;
+  triage:severity "minor" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T02:51:00Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R7 ;
+  triage:foundAt "2026-11-08T04:00:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA2-REQ-QA-003/R7-1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R7-QA2-REQ-QA-003/R7-1>
+  a triage:Occurrence ;
+  triage:file "crates/sc-agent-types/src/git.rs" ;
+  triage:line 108 ;
+  triage:snippet "run_with_deadline(command, GIT_DEADLINE)" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c" ;
+  triage:occursIn <urn:atm:triage:worktree/r-7/4eb8265> .
+
+<urn:atm:triage:worktree/integrate-phase-a/81ffec2>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "81ffec2fcab6d1b18967a84963df35fe9fb91e80" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/r-7/4eb8265>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-7-decision-schema" ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c" ;
+  triage:orderIndex 1 .

@@ -1,0 +1,69 @@
+# Boundary manifest for sc-jev-check. Checked by `sc-lint lint sc-boundary` (`just lint`).
+#
+# Conventions (Phase A phase-end, RBQA-F001 option B):
+# - `allowed_dependencies` lists EVERY direct normal (non-dev) dependency in
+#   crates/sc-jev-check/Cargo.toml, workspace and third-party, including optional and
+#   target-specific ones. Dev-dependencies are not listed.
+# - `forbidden_edges` are direct edges only; transitive reachability is not
+#   checked.
+# - What sc-lint 0.8.0 enforces from this file: workspace-to-workspace edges
+#   (SCB-DEPENDENCY-001 unlisted edge, -002 unlisted dependent, -003 forbidden
+#   edge present, -004 stale dependent permission). Third-party names here are
+#   accepted but not enforced by sc-boundary; the third-party edges that matter
+#   are enforced by the `global_dependency_ownership` records in sc-lint.toml
+#   (SCB-MANIFEST-004). Enforcement is Cargo-edge only: sc-lint 0.8.0 accepts
+#   `references.forbidden` entries but does not report on them, so this file
+#   declares none.
+
+boundary_id = "BOUNDARY-jev-check"
+owner_package = "sc-jev-check"
+owner_crate_path = "sc_jev_check"
+name = "jev-check"
+
+[public]
+# Production facade, then the test-util-only items (see notes).
+facade = "sc_jev_check::run::prepare, sc_jev_check::run::run, sc_jev_check::run::ask, sc_jev_check::run::discover_repo_root, sc_jev_check::run::discover_main_repo_root, sc_jev_check::run::LogContext, sc_jev_check::run::CheckSource, sc_jev_check::run::CallerRequest, sc_jev_check::run::RunConfig, sc_jev_check::run::PreparedRun, sc_jev_check::run::RunResponse, sc_jev_check::run::AskResponse, sc_jev_check::run::BackendResult, sc_jev_check::run::BackendStatus, sc_jev_check::run::BackendFailure, sc_jev_check::run::BackendLimit, sc_jev_check::run::Envelope, sc_jev_check::run::ENVELOPE_VERSION, sc_jev_check::run::OP_RUN, sc_jev_check::run::OP_DRY_RUN, sc_jev_check::run::OP_ASK, sc_jev_check::config::load_check_at, sc_jev_check::config::CheckSpec, sc_jev_check::config::InputSpec, sc_jev_check::config::PACKAGED_SYSTEM_PROMPT, sc_jev_check::session::FileSessionStore, sc_jev_check::registry::BackendRegistry, sc_jev_check::registry::register_scripted_backends, sc_jev_check::run::RunResponseBuilder, sc_jev_check::session::StoredSession"
+notes = "Facade (r-2, ADR-SAG-0024; QA-1 RBQA-F002/F004, REQ-QA-R2-006): production items first, then the test-util-only group (register_scripted_backends, RunResponseBuilder from RunResponse::test_builder, StoredSession with FileSessionStore::{save, load}), which exist only when the test-util feature is on. Run entry points: prepare, run, ask (session follow-up), discover_repo_root and discover_main_repo_root (the log row's repo, r-6; LogContext carries repo and project into RunConfig::log_context); run and ask share the one send step (validate, judge, log), and FileSessionStore never sends (RBQA-F001). Payload assembly, extraction and equal-input helpers (build_payload, extract_input, load_check_str, parse_question_set, producer_from_extractions) are pub(crate): config, registry, run and session are the only public modules, and every public item in them is listed here, so no snapshot gate is added (RBQA-F003 closed by narrowing). config::PACKAGED_SYSTEM_PROMPT stays public: it is the packaged default prompt (ADR-SAG-0019) that consumers compare a resolved prompt against. The envelope version and operation constants have one owner, sc_jev_check::run (sc-ai no longer re-exports them). This crate's integration targets run_response, session, sessions_exact and session_log declare [[test]] required-features = [\"test-util\"] (no self dev-dependency, boundaries/README.md D0 outcome 4). sc-agent-types is a normal dependency with features = [\"git\"]."
+
+[implementation]
+type = "marker"
+module = "sc_jev_check"
+visibility = "public"
+constructor = "none"
+
+[composition]
+roots = ["config", "extract", "payload", "run", "session", "equal_input", "registry"]
+
+[dependencies]
+allowed_dependents = ["sc-ai", "sc-jev-py", "sc-jev-host", "workspace-tests"]
+allowed_dependencies = ["sc-agent-secrets", "sc-agent-types", "sc-decision-schema", "sc-jev", "sc-jev-backends", "serde", "serde_json", "toml"]
+forbidden_edges = [
+    { from = "sc-jev-check", to = "sc-treesitter" },
+    { from = "sc-jev-check", to = "ureq" },
+    { from = "sc-jev-check", to = "tree-sitter" },
+    { from = "sc-jev-check", to = "tree-sitter-python" },
+    { from = "sc-jev-check", to = "tree-sitter-rust" },
+    { from = "sc-jev-check", to = "pyo3" },
+    { from = "sc-jev-check", to = "sc-observability" },
+]
+
+# Required by the sc-lint 0.8.0 inventory schema. Not enforced: the
+# validator accepts entries here but reports nothing for them.
+[references]
+scope = "outside_owner_crate"
+forbidden = []
+
+# Required by the schema. Declarative: sc-lint 0.8.0 reports nothing for
+# these fields. Paths name the feature-gated (`test-util`) test doubles.
+[testing]
+allowed_test_double_paths = ["crates/sc-jev-check/src/registry/scripted.rs"]
+forbidden_test_bypasses = []
+
+# The sc-lint rules that check this boundary on every `just lint`. Listing
+# them here is documentation; sc-lint 0.8.0 does not read this field.
+[enforcement]
+lint_rules = ["SCB-DEPENDENCY-001", "SCB-DEPENDENCY-002", "SCB-DEPENDENCY-003", "SCB-DEPENDENCY-004", "SCB-MANIFEST-004"]
+review_gates = []
+
+[status]
+state = "concrete_landed"

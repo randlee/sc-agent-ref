@@ -1,0 +1,61 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R3B-REQ-QA-001>
+  a triage:Finding ;
+  triage:findingId "R3B-REQ-QA-001" ;
+  triage:title "The sprint owns paths in crates/sc-ai/**, crates/sc-jev-py/**, docs/sc-ai/** and" ;
+  triage:description "The sprint owns paths in crates/sc-ai/**, crates/sc-jev-py/**, docs/sc-ai/** and docs/sc-jev-py/**, but its `requirements` list omits two crate-level ids. REQ-SAG-0703 (sc-ai install documentation; r-3b edits the sc-ai docs and the sc-publish.md crate-order lines) and REQ-SAG-0803 (sc-jev-py first release on all five channels; r-3b edits the rendered release inputs and release/**) are not named. Every other row in both crate requirements files is listed. REQ-SAG-0134 (cargo-tree-gates.sh mimalloc rows, which this sprint extends) and REQ-SAG-0620 (one RunResponse serialization printed by every consumer, per D3.2) are also in the sprint's subject area and unlisted. Recommendation: Add REQ-SAG-0703 and REQ-SAG-0803 to the sprint front-matter `requirements` list. Add REQ-SAG-0134 and REQ-SAG-0620 as well, or record in the sprint doc why they are not constraints. Then record a requirement_check for each." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "REQ" ;
+  triage:severity "blocking" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-07T23:54:33Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R3B ;
+  triage:foundAt "2026-11-07T23:55:00Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R3B-REQ-QA-001/R3B-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R3B-REQ-QA-001/IPA-1> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R3B-REQ-QA-001/R3B-1>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md" ;
+  triage:line 17 ;
+  triage:snippet "requirements:" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-3b-compose-and-workspace-tests" ;
+  triage:headSha "90004d758db92b84afd5afd99e3f2ce89d5e1425" ;
+  triage:occursIn <urn:atm:triage:worktree/r-3b/90004d7> .
+
+<urn:atm:triage:occurrence/R3B-REQ-QA-001/IPA-1>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md" ;
+  triage:line 17 ;
+  triage:snippet "requirements:" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "9187024c80b42611088fa1466926fcb508b669de" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/9187024> .
+
+<urn:atm:triage:worktree/integrate-phase-a/9187024>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "9187024c80b42611088fa1466926fcb508b669de" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/r-3b/90004d7>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-3b-compose-and-workspace-tests" ;
+  triage:branch "sprint/r-3b-compose-and-workspace-tests" ;
+  triage:headSha "90004d758db92b84afd5afd99e3f2ce89d5e1425" ;
+  triage:orderIndex 1 .

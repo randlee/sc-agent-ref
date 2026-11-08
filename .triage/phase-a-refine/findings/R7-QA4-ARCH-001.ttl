@@ -1,0 +1,61 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R7-QA4-ARCH-001>
+  a triage:Finding ;
+  triage:findingId "R7-QA4-ARCH-001" ;
+  triage:title "Delta file (edited in this delta) still states the workspace-tests dev-dependencies as sc-agent-types, sc-jev-check, sc-jev-host, serde_json and tempfile" ;
+  triage:description "Delta file (edited in this delta) still states the workspace-tests dev-dependencies as sc-agent-types, sc-jev-check, sc-jev-host, serde_json and tempfile. The amended ADR-SAG-0028 (r-7 'Dev-only edges' bullet, docs/architecture.md:1580-1584) and crates/workspace-tests/Cargo.toml:24 add sc-decision-schema (features = [\"test-util\"]). The crate's own documentation therefore contradicts the amended ADR's dev-only edge set." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "RULE-ADR-CODE" ;
+  triage:severity "blocking" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T04:54:45Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R7 ;
+  triage:foundAt "2026-11-08T04:53:55Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA4-ARCH-001/1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R7-QA4-ARCH-001/2> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R7-QA4-ARCH-001/1>
+  a triage:Occurrence ;
+  triage:file "crates/workspace-tests/README.md" ;
+  triage:line 5 ;
+  triage:snippet "Its dev-dependencies are `sc-agent-types`, `sc-jev-check`, `sc-jev-host`," ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "b58ffd2a55f03c54b63ab55db33819244b1a8a48" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/b58ffd2> .
+
+<urn:atm:triage:occurrence/R7-QA4-ARCH-001/2>
+  a triage:Occurrence ;
+  triage:file "crates/workspace-tests/README.md" ;
+  triage:line 5 ;
+  triage:snippet "Its dev-dependencies are `sc-agent-types`, `sc-jev-check`, `sc-jev-host`," ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "20a46a88dcfcc1899d8baec0934837912d638b88" ;
+  triage:occursIn <urn:atm:triage:worktree/r-7-decision-schema/20a46a8> .
+
+<urn:atm:triage:worktree/integrate-phase-a/b58ffd2>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "b58ffd2a55f03c54b63ab55db33819244b1a8a48" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/r-7-decision-schema/20a46a8>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-7-decision-schema" ;
+  triage:branch "sprint/r-7-decision-schema" ;
+  triage:headSha "20a46a88dcfcc1899d8baec0934837912d638b88" ;
+  triage:orderIndex 1 .

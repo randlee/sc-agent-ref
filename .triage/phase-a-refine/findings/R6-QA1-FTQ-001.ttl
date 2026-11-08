@@ -1,0 +1,61 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R6-QA1-FTQ-001>
+  a triage:Finding ;
+  triage:findingId "R6-QA1-FTQ-001" ;
+  triage:title "The fixture repository is created with subprocess.run(['git','init',...], env={**os.environ, 'GIT_CONFIG_GLOBAL': devnull, 'GIT_CONFIG_NOSYS" ;
+  triage:description "The fixture repository is created with subprocess.run(['git','init',...], env={**os.environ, 'GIT_CONFIG_GLOBAL': devnull, 'GIT_CONFIG_NOSYSTEM': '1'}). The ambient GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, GIT_OBJECT_DIRECTORY, GIT_COMMON_DIR and similar variables are inherited. Git hooks such as pre-commit export GIT_INDEX_FILE and sometimes GIT_DIR. When pytest is launched from such a context, 'git init' initialises or reinitialises the host repository instead of tmp_path/repo, and the later toplevel discovery from src/pkg resolves against the host. The test's CONFIG_INVALID and .env expectations then fail. Whether it fails depends on how the suite was launched, not on a random draw. The Rust side already strips these variables (crates/sc-agent-types/src/git.rs lines 98-102, and the git() helpers in crates/sc-jev-check/tests/repo.rs and crates/sc-jev-host/tests/log_context.rs), so this is the one fixture that does not." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "env_leak" ;
+  triage:severity "important" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T06:08:56Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R6 ;
+  triage:foundAt "2026-11-08T06:07:39Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R6-QA1-FTQ-001/A1R6-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R6-QA1-FTQ-001/A1R6-2> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R6-QA1-FTQ-001/A1R6-1>
+  a triage:Occurrence ;
+  triage:file "tests/fixtures/jev-python/tests/test_run_check_and_ask.py" ;
+  triage:line 238 ;
+  triage:snippet "subprocess.run(['git', 'init', '-q', str(repo)], env={**os.environ, 'GIT_CONFIG_GLOBAL': os.devnull, 'GIT_CONFIG_NOSYSTEM': '1'})" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "714d2845c48cd0b4fa40bcd2017c248049f3662a" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/714d284> .
+
+<urn:atm:triage:occurrence/R6-QA1-FTQ-001/A1R6-2>
+  a triage:Occurrence ;
+  triage:file "tests/fixtures/jev-python/tests/test_run_check_and_ask.py" ;
+  triage:line 334 ;
+  triage:snippet "subprocess.run(['git', 'init', '-q', str(repo)], env={**os.environ, 'GIT_CONFIG_GLOBAL': os.devnull, 'GIT_CONFIG_NOSYSTEM': '1'})" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-6-session-log-record" ;
+  triage:headSha "f6ddc71c5fc8e0ea9a9e4d100529457784039873" ;
+  triage:occursIn <urn:atm:triage:worktree/sprint-r6/f6ddc71> .
+
+<urn:atm:triage:worktree/integrate-phase-a/714d284>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "714d2845c48cd0b4fa40bcd2017c248049f3662a" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/sprint-r6/f6ddc71>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-6-session-log-record" ;
+  triage:branch "sprint/r-6-session-log-record" ;
+  triage:headSha "f6ddc71c5fc8e0ea9a9e4d100529457784039873" ;
+  triage:orderIndex 1 .

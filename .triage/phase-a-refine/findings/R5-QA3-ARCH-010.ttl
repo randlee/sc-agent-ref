@@ -1,0 +1,61 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/R5-QA3-ARCH-010>
+  a triage:Finding ;
+  triage:findingId "R5-QA3-ARCH-010" ;
+  triage:title "The adrs list (lines 42-56) omits ADR-SAG-0029 (Active)" ;
+  triage:description "The adrs list (lines 42-56) omits ADR-SAG-0029 (Active). Its (c) row (docs/architecture.md:1095) governs every serde_json encode/decode failure: INPUT_INVALID with category and line/column only. The delta this sprint owns (decode_failed in payload.rs:104 and its call sites at payload.rs:428 and jev/v1.rs:565) implements that row, and the sprint's own deliverable 9 cites it in substance. The omission is a RULE-ADR-PLAN miss." ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "qa" ;
+  triage:severity "blocking" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T06:41:16Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R5 ;
+  triage:foundAt "2026-11-08T06:39:59Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R5-QA3-ARCH-010/INT/48c4d1c-L30> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/R5-QA3-ARCH-010/R5/6972530-L42> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/R5-QA3-ARCH-010/INT/48c4d1c-L30>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md" ;
+  triage:line 30 ;
+  triage:snippet "adrs: list lacks ADR-SAG-0029" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "48c4d1cf5a0972351bc146721db41888fbc5cfa3" ;
+  triage:occursIn <urn:atm:triage:worktree/INT/48c4d1c> .
+
+<urn:atm:triage:occurrence/R5-QA3-ARCH-010/R5/6972530-L42>
+  a triage:Occurrence ;
+  triage:file "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md" ;
+  triage:line 42 ;
+  triage:snippet "adrs: list lacks ADR-SAG-0029" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "sprint/r-5-jev-wire-envelope" ;
+  triage:headSha "69725308455bd8827b0a46e31e3f598327d66f55" ;
+  triage:occursIn <urn:atm:triage:worktree/R5/6972530> .
+
+<urn:atm:triage:worktree/INT/48c4d1c>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "48c4d1cf5a0972351bc146721db41888fbc5cfa3" ;
+  triage:orderIndex 0 .
+
+<urn:atm:triage:worktree/R5/6972530>
+  a triage:WorktreeSnapshot ;
+  triage:path "sprint/r-5-jev-wire-envelope" ;
+  triage:branch "sprint/r-5-jev-wire-envelope" ;
+  triage:headSha "69725308455bd8827b0a46e31e3f598327d66f55" ;
+  triage:orderIndex 1 .

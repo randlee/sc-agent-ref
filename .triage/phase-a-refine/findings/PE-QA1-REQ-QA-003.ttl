@@ -1,0 +1,78 @@
+@prefix triage: <urn:atm:triage:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Persisted file/path values are repository-relative. Runtime checkout paths
+# belong in the agent input only and must not be copied into this record.
+
+<urn:atm:triage:finding/PE-QA1-REQ-QA-003>
+  a triage:Finding ;
+  triage:findingId "PE-QA1-REQ-QA-003" ;
+  triage:title "Crate tables do not carry every root id for the crate that owns the subject. REQ-SAG-0105, 0106 and 0108 are r-1 rows about sc-agent-types (" ;
+  triage:description "Crate tables do not carry every root id for the crate that owns the subject. REQ-SAG-0105, 0106 and 0108 are r-1 rows about sc-agent-types (backend descriptor, JevError variants, SubjectsDocument) and are absent from docs/sc-agent-types/requirements.md. The plan required only 0101, 0103, 0120, 0121 and NFR-0001 there, so this is a gap against the review brief, not against plan text. REQ-SAG-0606 (r-2b, equal from backend-reported digests) is absent from docs/sc-jev-check/requirements.md and from every other crate requirements doc. The same grep found 0606 only in the root table, architecture docs, sprint docs, code and boundary manifests. Add crate-level rows with an owning sprint and test reference: 0105, 0106 and 0108 in docs/sc-agent-types/requirements.md, and 0606 in docs/sc-jev-check/requirements.md. Alternatively record in each crate doc that the root table is authoritative for these ids. partially-compliant" ;
+  triage:phaseId "phase-a-refine" ;
+  triage:triageMode "initial_pass" ;
+  triage:category "cross-doc-conflict" ;
+  triage:severity "important" ;
+  triage:repeatable false ;
+  triage:sweepScope "file_only" ;
+  triage:status "open" ;
+  triage:dispatchReady true ;
+  triage:triagedAt "2026-11-08T17:17:45Z"^^xsd:dateTime ;
+  triage:foundIn triage:A1-R6 ;
+  triage:foundAt "2026-11-08T17:15:25Z"^^xsd:dateTime ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/PE-QA1-REQ-QA-003/PE-1> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/PE-QA1-REQ-QA-003/PE-2> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/PE-QA1-REQ-QA-003/PE-3> ;
+  triage:hasOccurrence <urn:atm:triage:occurrence/PE-QA1-REQ-QA-003/PE-4> ;
+  triage:triageRecordVersion "1" .
+
+<urn:atm:triage:occurrence/PE-QA1-REQ-QA-003/PE-1>
+  a triage:Occurrence ;
+  triage:file "docs/requirements.md" ;
+  triage:line 157 ;
+  triage:snippet "REQ-SAG-0105" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "91d36b3" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/91d36b3> .
+
+<urn:atm:triage:occurrence/PE-QA1-REQ-QA-003/PE-2>
+  a triage:Occurrence ;
+  triage:file "docs/requirements.md" ;
+  triage:line 158 ;
+  triage:snippet "REQ-SAG-0106" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "91d36b3" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/91d36b3> .
+
+<urn:atm:triage:occurrence/PE-QA1-REQ-QA-003/PE-3>
+  a triage:Occurrence ;
+  triage:file "docs/requirements.md" ;
+  triage:line 160 ;
+  triage:snippet "REQ-SAG-0108" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "91d36b3" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/91d36b3> .
+
+<urn:atm:triage:occurrence/PE-QA1-REQ-QA-003/PE-4>
+  a triage:Occurrence ;
+  triage:file "docs/requirements.md" ;
+  triage:line 173 ;
+  triage:snippet "REQ-SAG-0606" ;
+  triage:status "open" ;
+  triage:closed false ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "91d36b3" ;
+  triage:occursIn <urn:atm:triage:worktree/integrate-phase-a/91d36b3> .
+
+<urn:atm:triage:worktree/integrate-phase-a/91d36b3>
+  a triage:WorktreeSnapshot ;
+  triage:path "integrate/phase-a" ;
+  triage:branch "integrate/phase-a" ;
+  triage:headSha "91d36b3" ;
+  triage:orderIndex 0 .

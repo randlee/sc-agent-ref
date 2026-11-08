@@ -1,0 +1,46 @@
+[package]
+name = "sc-agent-types"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Shared error, id, catalog, and subjects types for sc-agent."
+readme = "README.md"
+keywords.workspace = true
+categories.workspace = true
+# Allowlist: repo-root fixtures and the integration tests stay out of the package.
+include = ["Cargo.toml", "README.md", "LICENSE", "src/**"]
+
+[lints]
+workspace = true
+
+[features]
+# Module seams (ADR-SAG-0027). `error`, `envelope`, `ids`, `schema`, and
+# `cancel` are always on.
+default = ["secret", "obs"]
+# `secret`: `ResolvedApiKey`.
+secret = []
+# `observability::v2`: the `SessionLog` port.
+obs = []
+# `git`: argv-only `discover_toplevel` / `read_at_rev` helpers.
+git = []
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+sc-sha.workspace = true
+thiserror.workspace = true
+ulid.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+# D0 spike outcome (boundaries/README.md "Dev-dependency and self edges"): no
+# self dev-dependency; integration targets that need a non-default feature
+# declare it here and their validation lines pass `--features`.
+[[test]]
+name = "git"
+required-features = ["git"]
