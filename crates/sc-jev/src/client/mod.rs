@@ -26,8 +26,9 @@ const CONTENT_TYPE: HeaderName = HeaderName::new("Content-Type");
 
 /// TypeSafe check/judge client.
 ///
-/// Posts `JudgeRequest::payload` bytes with the pinned model spliced in
-/// front, as `Authorization: Bearer` over `T` (by default
+/// Posts the documented Jev body (`{model, state, questions}`, built from
+/// `JudgeRequest::payload` by `sc_decision_schema::jev::v1::CheckRequest`)
+/// with the pinned model, as `Authorization: Bearer` over `T` (by default
 /// [`UreqTransport`]). Ignores `JudgeRequest::llm`. Busy replies (429, 502,
 /// 529) are retried with the same body under
 /// [`BusyPolicy`] (REQ-SAG-0505): `Retry-After` honoured up to 30 s,
@@ -47,12 +48,12 @@ const CONTENT_TYPE: HeaderName = HeaderName::new("Content-Type");
 ///
 /// impl Transport for Scripted {
 ///     fn send(&self, request: &HttpRequest) -> Result<HttpResponse, JevError> {
-///         assert!(request.body().starts_with(r#"{"model":"jev-1.13.0","#));
+///         assert!(request.body().starts_with(r#"{"model":"jev-1.13.0","state":[],"questions":{"q":"#));
 ///         assert!(request.secret().expect("bearer").matches("test-key"));
 ///         Ok(HttpResponse::new(
 ///             200,
 ///             Vec::new(),
-///             br#"{"model":"jev-1.13.0","answers":{"q":{"choice":"yes","confidence":1,"probabilities":{"no":0,"yes":1}}}}"#.to_vec(),
+///             br#"{"model":"jev-1.13.0","answers":{"q":{"type":"choice","choice":"yes","confidence":1,"probabilities":{"no":0,"yes":1}}},"usage":{}}"#.to_vec(),
 ///         ))
 ///     }
 /// }
@@ -126,8 +127,7 @@ impl<T: Transport> JevClient<T> {
 
     /// Seeds `fault` into the wire builder (feature `test-util`).
     ///
-    /// The fault is applied after the canonical bytes are embedded and
-    /// before the reported `input_sha256` is recovered from the body, so a
+    /// The fault is applied after the body is built and before the reported `input_sha256` is recovered from the body, so a
     /// test shows the digest follows the bytes that would be sent
     /// (REQ-SAG-0606). Production builds leave the feature off.
     #[cfg(feature = "test-util")]
@@ -178,21 +178,18 @@ impl<T: Transport> JevClient<T> {
     }
 
     #[cfg(feature = "test-util")]
-    fn apply_wire_fault(&self, prepared: PreparedCheck, judged: &JudgeRequest) -> PreparedCheck {
+    fn apply_wire_fault(&self, prepared: PreparedCheck) -> PreparedCheck {
         let Some(fault) = self.wire_fault else {
             return prepared;
         };
-        // The embedded payload is everything after the spliced `{"model":..,`.
-        let embedded = judged.payload().bytes().len().saturating_sub(1);
-        let payload_start = prepared.body.len().saturating_sub(embedded);
         PreparedCheck {
-            body: fault.apply(prepared.body, payload_start),
-            criteria: prepared.criteria,
+            body: fault.apply(prepared.body),
+            request: prepared.request,
         }
     }
 
     #[cfg(not(feature = "test-util"))]
-    fn apply_wire_fault(&self, prepared: PreparedCheck, _judged: &JudgeRequest) -> PreparedCheck {
+    fn apply_wire_fault(&self, prepared: PreparedCheck) -> PreparedCheck {
         prepared
     }
 
@@ -202,7 +199,10 @@ impl<T: Transport> JevClient<T> {
         judged: &JudgeRequest,
         trace: &SendTrace,
     ) -> Result<JudgeOutcome, JevError> {
-        let PreparedCheck { body, criteria } = prepared;
+        let PreparedCheck {
+            body,
+            request: check,
+        } = prepared;
         let request = HttpRequest::new(
             Method::Post,
             self.config.endpoint().clone(),
@@ -220,12 +220,7 @@ impl<T: Transport> JevClient<T> {
                         format!("HTTP {}", response.status()),
                     ));
                 }
-                check::parse_outcome(
-                    response.body(),
-                    self.config.model().as_str(),
-                    &criteria,
-                    judged,
-                )
+                check::parse_outcome(response.body(), &check, judged)
             })
             .map_err(|error| error.map_detail(|detail| format!("Jev {detail}")))
     }
@@ -246,7 +241,7 @@ impl<T: Transport> JudgeBackend for JevClient<T> {
 
     fn judge(&self, req: &JudgeRequest, trace: &SendTrace) -> Result<JudgeOutcome, JevError> {
         let prepared = check::prepare(&self.config, self.limit_bytes(), req.payload())?;
-        let prepared = self.apply_wire_fault(prepared, req);
+        let prepared = self.apply_wire_fault(prepared);
         // REQ-SAG-0606: the digest is recovered from the final serialized
         // body, before it is handed to `send_with_busy_retry`. A body that
         // cannot be parsed fails here and nothing is sent.

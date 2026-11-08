@@ -249,14 +249,12 @@ impl<T: Transport> Client<T> {
     }
 }
 
-/// `NETWORK_ERROR` kind `Status` with the first 300 bytes of the body.
+/// `NETWORK_ERROR` kind `Status` with the status only. The response body is
+/// not echoed (it can repeat request or account text), as in `sc-jev`.
 fn http_failure(response: &HttpResponse) -> JevError {
-    let body = response.body();
-    let end = body.len().min(300);
-    let snippet = String::from_utf8_lossy(&body[..end]).replace(['\n', '\r'], " ");
     JevError::network(
         NetworkErrorKind::Status,
-        format!("HTTP {}: {snippet}", response.status()),
+        format!("HTTP {}", response.status()),
     )
 }
 

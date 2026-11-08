@@ -2,8 +2,9 @@
 //!
 //! `sc-jev` owns every TypeSafe Jev HTTP operation (REQ-SAG-0110). Phase A
 //! implements the check/judge slice: [`JevClient`] implements
-//! [`JudgeBackend`](sc_decision_schema::JudgeBackend), posts the canonical payload
-//! byte-exact with the pinned model, and retries busy responses.
+//! [`JudgeBackend`](sc_decision_schema::JudgeBackend), posts the documented Jev
+//! body (`{model, state, questions}`, from `sc_decision_schema::jev::v1`) with
+//! the pinned model, and retries busy responses.
 //!
 //! The crate does not read `check.toml`, run extractors, or resolve API keys.
 //! Callers pass a [`ResolvedApiKey`](sc_agent_types::ResolvedApiKey) and an

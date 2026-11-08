@@ -27,3 +27,14 @@ acceptance root, when it differs, is shown as "root a-N"; the closure table in
 | REQ-SAG-0620 | One engine API (`prepare` → `run`) and one `RunResponse` | r-2 |
 
 Consumer boundary: [`extraction.md`](extraction.md). Subjects schema: [`subjects-schema.md`](../sc-agent-types/subjects-schema.md).
+
+## Phase A.1 (r-5): question kinds
+
+Question-set files (`plan-anchoring/questions/1`, `check.toml`) stay
+`choice`-only: they carry `criteria`, never `kind` or `descriptions`. Caller
+`--request-json` documents may carry `kind` (`choice`, `score`, `noul`) and
+`descriptions` on a question. `validate_question_set` requires choices only for
+`choice` and `score` questions; the payload deserializer enforces the counts
+(`choice` 2 to 255, `score` 2 to 10, `noul` none) and a violation is reported
+with the rule text (question id, kind and counts, never the prompt). Haiku and
+Luna refuse a `noul` question before any send; only `jev` answers it.

@@ -112,6 +112,20 @@ label_newtype!(
     "question id"
 );
 
+impl ChoiceId {
+    /// The `yes` label of a `noul` answer.
+    #[must_use]
+    pub fn yes() -> Self {
+        Self("yes".to_owned())
+    }
+
+    /// The `no` label of a `noul` answer.
+    #[must_use]
+    pub fn no() -> Self {
+        Self("no".to_owned())
+    }
+}
+
 label_newtype!(
     /// One choice label of a question (non-empty, no control characters).
     ///

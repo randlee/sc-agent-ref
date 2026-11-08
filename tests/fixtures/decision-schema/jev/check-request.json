@@ -1,0 +1,16 @@
+{
+  "model": "jev-1.13.0",
+  "state": [{"choice": "yes", "question_id": "relevant"}],
+  "questions": {
+    "relevant": {
+      "type": "choice",
+      "instructions": "Does the café policy apply?",
+      "criteria": {"yes": "yes", "no": "no"}
+    },
+    "risk": {
+      "type": "choice",
+      "instructions": "Is the change risky?",
+      "criteria": {"high": "high", "low": "low"}
+    }
+  }
+}

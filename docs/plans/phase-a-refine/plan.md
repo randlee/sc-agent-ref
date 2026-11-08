@@ -1017,7 +1017,7 @@ round-1 ids are dispositioned in `plan-review-1-dispositions.md`.
 - **ARCHP-009** (one file per producer call, `Parser`/`Query` rebuilt per
   call, no match limit): producer throughput with no A.1 consumer; the Phase B
   multi-file producer owns it. Bead `agt-treesitter-multifile`.
-- **D9** (r-5): resolved; the `"model"` byte-splice remains until r-5 lands.
+- **D9** (r-5): resolved and landed in r-5; the `"model"` byte-splice is deleted.
 - Phase B features: API-direct agents (REQ-SAG-0900/0901), MCP server (a third
   thin adapter over `sc-jev-host`), typed `JudgeMeta`, a second session
   store, a crate split of `sc-agent-types` (module paths are the stable surface
