@@ -38,5 +38,5 @@ First release. Channels once published: crates.io (ten crates), PyPI
 - The Luna live token count is unverified (bead `agt-luna-live-count`).
 - Backend ids are written `openai_luna` / `openai`; the old spellings
   `open_ai_luna` / `open_ai` are still read in config and caller-request input.
-  Removal is tracked by bead `agt-backend-serde-alias-removal`; no removal is
+  Removal is tracked by bead `agt-ho2`; no removal is
   scheduled and it would be announced here.

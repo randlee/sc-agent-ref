@@ -1492,7 +1492,7 @@ HTTP half amends ADR-SAG-0006, 0007,
   (`openai_luna`, `openai`), with a one-release read alias for
   `open_ai_luna` / `open_ai` in config and caller-request input. Whether and
   when the alias is removed is the owner's decision, tracked by bead
-  `agt-backend-serde-alias-removal`; nothing has been released, so no release
+  `agt-ho2`; nothing has been released, so no release
   has shipped the alias, and a removal would be announced in `CHANGELOG.md`.
 - (Active, r-1) Module seams are cargo features of `sc-agent-types`:
   `judge`, `secret`, `obs` (default-on), `git` and `test-util`

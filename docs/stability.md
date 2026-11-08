@@ -75,4 +75,4 @@ These are not decided in any ADR or README, so no promise is made:
    `JevError` shapes) has any compatibility promise before 1.0.
 5. How long a deprecated spelling such as the backend alias
    `open_ai_luna` / `open_ai` is kept, and when it is removed (bead
-   `agt-backend-serde-alias-removal`).
+   `agt-ho2`).
