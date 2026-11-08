@@ -147,3 +147,9 @@ Phase plans live only under `docs/plans/phase-<phase>/`.
   Proposed design. At sprint QA for `r-N`, the flip is present on the
   sprint branch. Any other dependency on a Proposed ADR stays a finding.
   Recorded by PR 32 (ARCH-006).
+
+- **Sprint `requirements:` lists (`docs/plans/phase-a-refine/`).** `req-qa`
+  checks a sprint's `requirements:` list against plan.md's rule, "every id a
+  sprint's files touch" (`docs/plans/phase-a-refine/plan.md`, the
+  requirements-coverage paragraph), not against every id of each crate the
+  sprint owns paths in. Recorded by the phase-end API fix batch.

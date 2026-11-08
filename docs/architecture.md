@@ -146,7 +146,7 @@ own row's Status cell and its own marker text, and added or removed no entry).
 | ADR-SAG-0022 | Scripted backends are a test-util feature | Active | Amends ADR-SAG-0009; amended by ADR-SAG-0029; A.1 subsection (Active, r-1); ADR-SAG-0024 (Active, r-2); ADR-SAG-0025 (Active, r-2b); ADR-SAG-0030 (Active, r-7) |
 | ADR-SAG-0023 | Dependency pins, allocator, released binaries | Active (r-4; host pin r-3b) | Amends ADR-SAG-0016, ADR-SAG-0017 |
 | ADR-SAG-0024 | Engine entry point and response contract | Active (r-2) | Amends ADR-SAG-0003, ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0014, ADR-SAG-0019, ADR-SAG-0022; supersedes the ADR-SAG-0014 A.1 r-1 interim subsection |
-| ADR-SAG-0025 | Multi-backend semantics and equal-input attestation | Active | Amends ADR-SAG-0004, ADR-SAG-0008, ADR-SAG-0019, ADR-SAG-0022 |
+| ADR-SAG-0025 | Multi-backend semantics and equal-input attestation | Active (r-2b) | Amends ADR-SAG-0004, ADR-SAG-0008, ADR-SAG-0019, ADR-SAG-0022 |
 | ADR-SAG-0026 | Shared HTTP crate and host crate | Active (HTTP half, r-3; host half, r-3b) | Amends ADR-SAG-0006, ADR-SAG-0007, ADR-SAG-0020, ADR-SAG-0017 (HTTP half); ADR-SAG-0010, ADR-SAG-0011, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0017 (host half); amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6) |
 | ADR-SAG-0027 | Error taxonomy and extensibility | Active (r-1) | Amends ADR-SAG-0001, ADR-SAG-0009, ADR-SAG-0016; amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6) |
 | ADR-SAG-0028 | workspace-tests crate | Active (r-3b) | Amended by ADR-SAG-0030 (Active, r-7) |
