@@ -119,6 +119,12 @@ fn rows(log: &Path) -> Vec<serde_json::Value> {
         .collect()
 }
 
+/// The row's `repo` canonicalized the same way, so the comparison holds on
+/// Windows, where git prints `C:/...` and `canonicalize` gives `\\?\C:\...`.
+fn logged_repo(row: &serde_json::Value) -> String {
+    canonical(Path::new(row["repo"].as_str().expect("repo is a string")))
+}
+
 fn canonical(path: &Path) -> String {
     std::fs::canonicalize(path)
         .expect("canonical")
@@ -146,7 +152,7 @@ fn test_log_context_repo_is_main_repo_paths_stay_on_worktree() {
 
     let rows = rows(&linked.join(".sc-ai/logs/sc-ai.log.jsonl"));
     assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0]["repo"], canonical(main.path()));
+    assert_eq!(logged_repo(&rows[0]), canonical(main.path()));
     assert_eq!(rows[0]["project"], "billing");
     assert_eq!(rows[0]["session_id"], id.to_string());
 
@@ -155,7 +161,7 @@ fn test_log_context_repo_is_main_repo_paths_stay_on_worktree() {
     let rows = self::rows(&linked.join(".sc-ai/logs/sc-ai.log.jsonl"));
     assert_eq!(rows.len(), 2);
     assert_eq!(rows[1]["operation"], "ask");
-    assert_eq!(rows[1]["repo"], canonical(main.path()));
+    assert_eq!(logged_repo(&rows[1]), canonical(main.path()));
     assert!(rows[1]["project"].is_null());
     assert_eq!(rows[1]["session_created_at"], rows[0]["session_created_at"]);
 }
