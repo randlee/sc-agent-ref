@@ -486,6 +486,28 @@ fn classify_missing(
     })
 }
 
+/// The guard inside `read_at_rev` behind `Rev::parse`. A `Rev` that git would
+/// read as an option cannot be built through the public API, so this test
+/// builds one with the crate-private `Rev::unchecked`.
+#[cfg(all(test, feature = "git"))]
+mod guard_tests {
+    use super::*;
+
+    #[test]
+    fn test_read_at_rev_refuses_an_option_shaped_revision_without_running_git() {
+        let dir = tempfile::tempdir().expect("temp");
+        let target = dir.path().join("FILE");
+        let rev = Rev::unchecked(format!("--output={}", target.display()));
+        let root = RepoRoot::new(dir.path());
+        let path = RepoRelativePath::try_from("src/a.py").expect("path");
+        let error = read_at_rev(&root, &rev, &path, 1024).expect_err("option");
+        assert_eq!(error.code(), "INPUT_INVALID");
+        assert!(!target.exists(), "no file is created");
+        let empty = read_at_rev(&root, &Rev::unchecked(""), &path, 1024).expect_err("empty");
+        assert_eq!(empty.code(), "INPUT_INVALID");
+    }
+}
+
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;

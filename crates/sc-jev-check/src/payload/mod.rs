@@ -127,7 +127,7 @@ pub(crate) fn encode_payload(
 mod tests {
     use super::*;
     use crate::config::load_check_at;
-    use crate::extract::test_support::{self, copy_fixture, git_fixture, rel, workspace_root};
+    use crate::extract::test_support::{self, copy_fixture, git_fixture, rel, rev, workspace_root};
     use sc_agent_types::Rev;
 
     #[test]
@@ -230,10 +230,10 @@ mod tests {
         let (dir, sha) = git_fixture();
         let repo = RepoRoot::new(dir.path());
         let spec = load_check_at(&repo, &Rev::worktree(), &rel("check.toml")).expect("check");
-        let head = build_payload(&spec, &repo, &Rev::new(&sha)).expect("head");
+        let head = build_payload(&spec, &repo, &rev(&sha)).expect("head");
         std::fs::write(dir.path().join("notes/readme.txt"), "worktree edit\n").expect("edit");
         let worktree = build_payload(&spec, &repo, &Rev::worktree()).expect("worktree");
-        let head_again = build_payload(&spec, &repo, &Rev::new(sha)).expect("head again");
+        let head_again = build_payload(&spec, &repo, &rev(&sha)).expect("head again");
         let worktree_text = std::str::from_utf8(worktree.bundle.bytes()).expect("utf-8");
         let head_text = std::str::from_utf8(head.bundle.bytes()).expect("utf-8");
         assert!(worktree_text.contains("worktree edit"));

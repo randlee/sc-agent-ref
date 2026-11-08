@@ -365,7 +365,7 @@ fn read_tail(mut pipe: impl Read, keep: usize) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::extract::test_support::{self, rel, temp_dir};
+    use crate::extract::test_support::{self, rel, rev, temp_dir};
 
     const EMIT: &str = r#"
 import json, sys
@@ -542,7 +542,7 @@ sys.stdout.write(json.dumps(doc))
                 "{unknown}".to_owned(),
             ],
             &RepoRoot::new("repo"),
-            &Rev::new("v{repo_root}"),
+            &rev("v{repo_root}"),
             Some("dir/{rev}.py"),
         )
         .expect("argv");

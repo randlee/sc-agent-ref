@@ -76,6 +76,11 @@ pub(crate) mod test_support {
         sc_agent_types::RepoRelativePath::try_from(text).expect("repo-relative path")
     }
 
+    /// A parsed revision for tests.
+    pub fn rev(text: &str) -> sc_agent_types::Rev {
+        sc_agent_types::Rev::parse(text).expect("revision")
+    }
+
     pub fn temp_dir(label: &str) -> TempDir {
         tempfile::Builder::new()
             .prefix(&format!("sc-jev-check-{label}-"))

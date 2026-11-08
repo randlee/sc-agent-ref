@@ -77,6 +77,10 @@ fn repo() -> (tempfile::TempDir, RepoRoot) {
     (dir, root)
 }
 
+fn rev(text: &str) -> Rev {
+    Rev::parse(text).expect("revision")
+}
+
 fn path(text: &str) -> RepoRelativePath {
     RepoRelativePath::try_from(text).expect("path")
 }
@@ -84,13 +88,13 @@ fn path(text: &str) -> RepoRelativePath {
 #[test]
 fn test_read_at_rev_matches_worktree_bytes() {
     let (dir, root) = repo();
-    let blob = read_at_rev(&root, &Rev::new("HEAD"), &path("src/a.py"), 1024).expect("read");
+    let blob = read_at_rev(&root, &rev("HEAD"), &path("src/a.py"), 1024).expect("read");
     let worktree = std::fs::read(dir.path().join("src/a.py")).expect("worktree");
     assert_eq!(blob.bytes(), worktree.as_slice());
     assert_eq!(blob.sha().as_str().len(), 40);
     assert_eq!(blob.clone().into_bytes(), worktree);
     let missing =
-        read_at_rev(&root, &Rev::new("HEAD"), &path("src/none.py"), 1024).expect_err("absent path");
+        read_at_rev(&root, &rev("HEAD"), &path("src/none.py"), 1024).expect_err("absent path");
     assert_eq!(missing.code(), "INPUT_MISSING");
 }
 
@@ -98,11 +102,16 @@ fn test_read_at_rev_matches_worktree_bytes() {
 fn test_read_at_rev_rejects_option_injection() {
     let (dir, root) = repo();
     let target = dir.path().join("FILE");
-    let rev = Rev::new(format!("--output={}", target.display()));
-    let error = read_at_rev(&root, &rev, &path("src/a.py"), 1024).expect_err("option");
-    assert_eq!(error.code(), "INPUT_INVALID");
+    // A revision that git would read as an option cannot be built: the
+    // guard inside `read_at_rev` is proved by a unit test in `git.rs`, which
+    // can skip `Rev::parse`.
+    let text = format!("--output={}", target.display());
+    assert_eq!(
+        Rev::parse(&text).expect_err("option").code(),
+        "INPUT_INVALID"
+    );
     assert!(!target.exists(), "no file is created");
-    let unknown = read_at_rev(&root, &Rev::new("no-such-branch"), &path("src/a.py"), 1024)
+    let unknown = read_at_rev(&root, &rev("no-such-branch"), &path("src/a.py"), 1024)
         .expect_err("unknown rev");
     assert_eq!(unknown.code(), "INPUT_INVALID");
     let worktree =
@@ -113,7 +122,7 @@ fn test_read_at_rev_rejects_option_injection() {
 #[test]
 fn test_read_at_rev_rejects_tree() {
     let (_dir, root) = repo();
-    let error = read_at_rev(&root, &Rev::new("HEAD"), &path("src"), 1024).expect_err("tree");
+    let error = read_at_rev(&root, &rev("HEAD"), &path("src"), 1024).expect_err("tree");
     assert_eq!(error.code(), "INPUT_INVALID");
     assert!(
         error.fix_hint().contains("not a file"),
@@ -125,9 +134,9 @@ fn test_read_at_rev_rejects_tree() {
 #[test]
 fn test_read_at_rev_bounded() {
     let (_dir, root) = repo();
-    let error = read_at_rev(&root, &Rev::new("HEAD"), &path("src/a.py"), 4).expect_err("cap");
+    let error = read_at_rev(&root, &rev("HEAD"), &path("src/a.py"), 4).expect_err("cap");
     assert_eq!(error.code(), "INPUT_TOO_LARGE");
-    let exact = read_at_rev(&root, &Rev::new("HEAD"), &path("src/a.py"), 18).expect("fits");
+    let exact = read_at_rev(&root, &rev("HEAD"), &path("src/a.py"), 18).expect("fits");
     assert_eq!(exact.bytes().len(), 18);
 }
 
@@ -190,7 +199,7 @@ fn test_discover_common_dir_cases() {
 fn test_hash_blob_matches_stored_blob() {
     let (dir, root) = repo();
     let stored =
-        read_at_rev(&root, &Rev::new("HEAD"), &path("src/a.py"), MAX_INPUT_BYTES).expect("read");
+        read_at_rev(&root, &rev("HEAD"), &path("src/a.py"), MAX_INPUT_BYTES).expect("read");
     let hashed = hash_blob(&root, stored.bytes()).expect("hash");
     assert_eq!(&hashed, stored.sha());
     // The empty blob id is fixed for SHA-1 repositories.

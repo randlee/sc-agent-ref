@@ -197,7 +197,7 @@ mod tests {
     }
 
     use super::*;
-    use crate::extract::test_support::{commit_all, git_fixture};
+    use crate::extract::test_support::{commit_all, git_fixture, rev};
 
     #[test]
     fn subdirectory_repo_root_reads_the_same_file_at_rev_and_worktree() {
@@ -205,7 +205,7 @@ mod tests {
         std::fs::write(dir.path().join("readme.txt"), "toplevel decoy\n").expect("decoy");
         commit_all(dir.path(), "decoy");
         let sub = RepoRoot::new(dir.path().join("notes"));
-        let head = read_repo_text(&sub, &Rev::new("HEAD"), &rel("readme.txt")).expect("head");
+        let head = read_repo_text(&sub, &rev("HEAD"), &rel("readme.txt")).expect("head");
         let worktree =
             read_repo_text(&sub, &Rev::worktree(), &rel("readme.txt")).expect("worktree");
         assert_eq!(head, worktree);
@@ -230,7 +230,7 @@ mod tests {
     fn bad_revision_is_input_invalid_with_git_message() {
         let (dir, _sha) = git_fixture();
         let repo = RepoRoot::new(dir.path());
-        let error = read_repo_bytes(&repo, &Rev::new("no-such-rev"), &rel("notes/readme.txt"))
+        let error = read_repo_bytes(&repo, &rev("no-such-rev"), &rel("notes/readme.txt"))
             .expect_err("bad rev");
         assert_eq!(error.code(), "INPUT_INVALID");
         assert!(error.to_string().contains("no-such-rev"), "{error}");
@@ -240,8 +240,8 @@ mod tests {
     fn path_absent_at_rev_is_input_missing() {
         let (dir, _sha) = git_fixture();
         let repo = RepoRoot::new(dir.path());
-        let error = read_repo_bytes(&repo, &Rev::new("HEAD"), &rel("notes/absent.txt"))
-            .expect_err("absent");
+        let error =
+            read_repo_bytes(&repo, &rev("HEAD"), &rel("notes/absent.txt")).expect_err("absent");
         assert_eq!(error.code(), "INPUT_MISSING");
     }
 
@@ -249,7 +249,7 @@ mod tests {
     fn tree_at_rev_is_not_a_file() {
         let (dir, _sha) = git_fixture();
         let repo = RepoRoot::new(dir.path());
-        let error = read_repo_bytes(&repo, &Rev::new("HEAD"), &rel("notes")).expect_err("tree");
+        let error = read_repo_bytes(&repo, &rev("HEAD"), &rel("notes")).expect_err("tree");
         assert_eq!(error.code(), "INPUT_INVALID");
         assert!(error.to_string().contains("not a file"), "{error}");
     }
@@ -282,12 +282,8 @@ mod tests {
         let big = vec![b'a'; usize::try_from(MAX_INPUT_BYTES).expect("cap") + 1];
         std::fs::write(dir.path().join("big.txt"), big).expect("write");
         commit_all(dir.path(), "big");
-        let error = read_repo_bytes(
-            &RepoRoot::new(dir.path()),
-            &Rev::new("HEAD"),
-            &rel("big.txt"),
-        )
-        .expect_err("too large");
+        let error = read_repo_bytes(&RepoRoot::new(dir.path()), &rev("HEAD"), &rel("big.txt"))
+            .expect_err("too large");
         assert_eq!(error.code(), "INPUT_TOO_LARGE");
     }
 

@@ -72,18 +72,11 @@ impl Rev {
     /// Revision string meaning the working tree rather than a commit.
     pub const WORKTREE: &'static str = "WORKTREE";
 
-    /// Wraps a git revision or [`Self::WORKTREE`] without validation.
+    /// Parses revision text, the one way to build a revision.
     ///
-    /// Use this for revisions the program builds itself, such as
-    /// [`Self::worktree`] or a SHA read back from git. Text that comes from a
-    /// caller (CLI flags, Python arguments, `check.toml`) goes through
-    /// [`Self::parse`], which is the edge entry point.
-    #[must_use]
-    pub fn new(rev: impl Into<String>) -> Self {
-        Self(rev.into())
-    }
-
-    /// Parses caller-supplied revision text.
+    /// A revision is passed to git as an argument, so there is no unchecked
+    /// constructor: CLI flags, Python arguments, `check.toml`, and a SHA read
+    /// back from git all go through this check.
     ///
     /// Accepts [`Self::WORKTREE`] or any text git may resolve. Rejects text
     /// that git would read as an option or that cannot be one argv element:
@@ -117,10 +110,17 @@ impl Rev {
         }
     }
 
+    /// A revision that skips [`Self::parse`], to prove the guards that sit
+    /// behind it. Compiled only for this crate's unit tests of the `git` feature.
+    #[cfg(all(test, feature = "git"))]
+    pub(crate) fn unchecked(rev: impl Into<String>) -> Self {
+        Self(rev.into())
+    }
+
     /// Returns the working-tree sentinel.
     #[must_use]
     pub fn worktree() -> Self {
-        Self::new(Self::WORKTREE)
+        Self(Self::WORKTREE.to_owned())
     }
 
     /// Whether this is the [`Self::WORKTREE`] sentinel rather than a git
