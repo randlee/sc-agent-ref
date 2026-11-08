@@ -83,11 +83,15 @@ fn run_extract(args: &ExtractArgs) -> Result<Vec<u8>, JevError> {
         .as_ref()
         .map(|captures| captures.names().collect());
     let document = extract(
-        &ExtractInput::new(&args.language, query_text, &blob.bytes)
-            .with_captures(capture_refs.as_deref())
-            .with_path(blob.path)
-            .with_rev(args.rev.clone())
-            .with_blob_sha(blob.sha),
+        &ExtractInput::new(
+            &args.language,
+            query_text,
+            &blob.bytes,
+            blob.path,
+            args.rev.clone(),
+            blob.sha,
+        )
+        .with_captures(capture_refs.as_deref()),
     )?;
     subjects_to_json_bytes(&document)
 }

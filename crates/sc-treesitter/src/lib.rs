@@ -19,10 +19,10 @@
 //!     "python",
 //!     "(binary_operator left: (identifier) @name right: (identifier) @name)\n",
 //!     b"value = left + right\n",
-//! )
-//! .with_path(RepoRelativePath::try_from("sample.py")?)
-//! .with_rev(Rev::parse("HEAD")?)
-//! .with_blob_sha(BlobSha::try_from("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")?);
+//!     RepoRelativePath::try_from("sample.py")?,
+//!     Rev::parse("HEAD")?,
+//!     BlobSha::try_from("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")?,
+//! );
 //! let document = sc_treesitter::extract(&input)?;
 //! assert_eq!(document.schema(), sc_agent_types::schema::subjects::SUBJECTS_SCHEMA_V1);
 //! assert_eq!(document.producer().mode().as_str(), "matches");

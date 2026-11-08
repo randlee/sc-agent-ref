@@ -44,11 +44,12 @@ First release. Channels once published: crates.io (ten crates), PyPI
   `Probability::new` no longer echoes its value in its error text.
 - `sc_treesitter::ExtractInput` is `#[non_exhaustive]`, no longer `Copy`,
   and has private fields with accessors (`language()`, `query()`,
-  `captures()`, `source()`, `path()`, `rev()`, `blob_sha()`). `with_path`,
-  `with_rev` and `with_blob_sha` take `RepoRelativePath`, `Rev` and `BlobSha`,
-  so a malformed value fails where the caller builds it; `extract` still
-  rejects an input whose path, revision or blob id was never set. CLI error
-  codes and messages are unchanged.
+  `captures()`, `source()`, `path()`, `rev()`, `blob_sha()`). `ExtractInput::new`
+  takes `RepoRelativePath`, `Rev` and `BlobSha` after `language`, `query` and
+  `source`, so a malformed value fails where the caller builds it and an input
+  cannot lack one; there are no `with_path`, `with_rev` or `with_blob_sha`
+  setters and the accessors return the values directly. Only `with_captures`
+  remains. CLI error codes and messages are unchanged.
 - `sc_jev_check::config`: `InputSpec` and each of its struct variants are
   `#[non_exhaustive]` and gain the constructors `file`, `table_column`,
   `subjects` and `command` plus the `with_timeout_seconds`, `with_path` and
