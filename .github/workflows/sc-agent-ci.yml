@@ -396,9 +396,17 @@ jobs:
         run: cargo deny --locked check advisories
 
   wheel:
-    name: release wheel has no _testing
-    runs-on: ubuntu-24.04
+    # The ubuntu name is unchanged so existing required checks still match.
+    # The Windows legs are the acceptance check for the static CRT
+    # (`.cargo/config.toml`, ADR-SAG-0023 phase-end amendment): they build
+    # the release-shape wheel and import it.
+    name: release wheel has no _testing${{ matrix.os == 'ubuntu-24.04' && '' || format(' ({0})', matrix.os) }}
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022, windows-11-arm]
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         timeout-minutes: 5
@@ -432,12 +440,24 @@ jobs:
       # hash-pinned lock the pytest job uses.
       - name: maturin build (release shape) and import check
         timeout-minutes: 25
+        shell: bash
         run: |
-          python -m venv "$RUNNER_TEMP/wheel-venv"
-          "$RUNNER_TEMP/wheel-venv/bin/python" -m pip install --require-hashes -r tests/fixtures/jev-python/constraints.txt
-          "$RUNNER_TEMP/wheel-venv/bin/maturin" build -m crates/sc-jev-py/Cargo.toml -o "$RUNNER_TEMP/wheels"
-          "$RUNNER_TEMP/wheel-venv/bin/python" -m pip install "$RUNNER_TEMP"/wheels/sc_jev_py-*.whl
-          "$RUNNER_TEMP/wheel-venv/bin/python" -c 'import sc_jev_py, sys; sys.exit(1 if hasattr(sc_jev_py, "_testing") else 0)'
+          set -euo pipefail
+          # Relative paths keep the glob and venv path identical under Git
+          # Bash on Windows. Windows venvs use Scripts\ with .exe names.
+          venv=target/wheel-venv
+          wheels=target/wheels
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            bindir="$venv/Scripts"
+          else
+            bindir="$venv/bin"
+          fi
+          python -m venv "$venv"
+          "$bindir/python" -m pip install --require-hashes -r tests/fixtures/jev-python/constraints.txt
+          rm -rf "$wheels"
+          "$bindir/maturin" build -m crates/sc-jev-py/Cargo.toml -o "$wheels"
+          "$bindir/python" -m pip install "$wheels"/sc_jev_py-*.whl
+          "$bindir/python" -c 'import sc_jev_py, sys; sys.exit(1 if hasattr(sc_jev_py, "_testing") else 0)'
 
   workspace-tests:
     name: workspace-tests (cross-crate proofs)
