@@ -224,14 +224,15 @@ local `rg` check.)
    caller decides. A transport error or timeout after the body was sent is
    never retried. 502 retry can double-charge a provider that processed the
    request; documented in the amendment. Tests (target `retry`):
-   `test_busy_policy_numbers` (default: three waits 1, 2, 4 s + jitter),
+   `test_busy_policy_numbers` (default at r-3: three waits 1, 2, 4 s + jitter;
+   four waits 1, 2, 4, 8 s since the phase-end amendment),
    `test_missing_and_malformed_retry_after_back_off_exponentially`,
    `test_retry_after_grammar` (table: `"3"`, `"2.5"` valid; `"0"` valid with
-   a zero wait, bounded by the 4-send cap; 32 nines valid and saturating to
+   a zero wait, bounded by the send cap; 32 nines valid and saturating to
    the 30 s clamp without overflow; `"-1"`, `"1e9"`, `"inf"`, `"NaN"`, `""`,
    an HTTP-date, 33 digits malformed),
    `test_exhaustion_reason_distinguishable` (the error after the fourth
-   send's busy status says "4 sends exhausted"; the error when the 90 s
+   send's busy status says "4 sends exhausted" at r-3, "5 sends exhausted" since the phase-end amendment; the error when the 90 s
    budget forbids the next attempt says "retry budget exhausted"; both are
    `NetworkError { kind: Busy }` with `retryable() == true`, distinguished by
    detail text),
@@ -479,9 +480,9 @@ input's.
 | `SecretHeader::matches` is implemented in `ureq_transport.rs` through the one `expose` fn | ADR-SAG-0020 r-3 | keeps a single `as_str` call site and a single `#[expect]` |
 | `UreqTransport::loopback_for_tests(Timeouts)` takes timeouts | test-util seam | the loopback timeout test needs a short request timeout; production constructor unchanged |
 | Exhaustion details: `HTTP <s> busy; N sends exhausted` / `HTTP <s> busy after N sends; retry budget exhausted`; backends prefix their name (`Jev …`, `luna …`) with `JevError::map_detail` | REQ-SAG-0505, ADR-SAG-0007 r-3 | RSH: distinguishable reasons; the old "retry attempts exhausted" wording in `jev_api`/`llm` tests updated |
-| Malformed Retry-After now backs off (1, 2, 4 s) instead of waiting 30 s; `test_llm_busy_retry_same_body` expects 30, 1, 2 s | REQ-SAG-0505 (decided) | owner decision (b) |
+| Malformed Retry-After now backs off (1, 2, 4 s at r-3; 1, 2, 4, 8 s since the phase-end amendment) instead of waiting 30 s; `test_llm_busy_retry_same_body` expects 30, 1, 2 s | REQ-SAG-0505 (decided) | owner decision (b) |
 | Removed `with_timeouts`, `with_retry_sleeper`, `JevClient::with_retry_delay`, `RetrySleeper`, `RetryDelay`, `DEFAULT_CONNECT_TIMEOUT` / `DEFAULT_REQUEST_TIMEOUT`; added `with_busy_policy`, `with_cancel` on every backend | ADR-SAG-0006, ADR-SAG-0007 ("configurable … for tests") | timeouts are transport construction state (`new(key, UreqTransport::new(Timeouts::new(..)))`); supersedes a-10 ARCHC-018's `with_timeouts`; `test_with_timeouts_reaches_every_request` replaced by `test_timeouts_are_transport_construction_state` |
-| `JevClient<T: Transport = UreqTransport>` is generic too; `with_config` keeps `jev.toml` `attempts` (packaged 4 = `BusyPolicy::default()`, test `packaged_attempts_match_the_shared_busy_policy`); `JevClientConfig::endpoint()` returns `&Endpoint`, validated in `try_new` | REQ-SAG-0400/0401, ADR-SAG-0009 (registry unchanged) | one transport model for every backend |
+| `JevClient<T: Transport = UreqTransport>` is generic too; `with_config` keeps `jev.toml` `attempts` (packaged 4 at r-3, 5 since the phase-end amendment, = `BusyPolicy::default()`, test `packaged_attempts_match_the_shared_busy_policy`); `JevClientConfig::endpoint()` returns `&Endpoint`, validated in `try_new` | REQ-SAG-0400/0401, ADR-SAG-0009 (registry unchanged) | one transport model for every backend |
 | `User-Agent` is `sc-agent-http/<ver>` for every backend (was `sc-jev/…`, `sc-jev-backends/…`) | REQ-SAG-0402 | one agent configuration |
 | Also deleted: both `retry_policy.rs` and `test_server.rs` copies and the `shared_copies` test; loopback tests moved to `sc-agent-http --test ureq` (`tests/support/mod.rs`); the sc-jev client-over-loopback test is covered by `jev_api` (scripted) plus `--test ureq` | REQ-SAG-0402 | the copies existed only until D5 |
 | Backends redact non-2xx snippets and reply-parse errors with `sc_agent_http::redact` (no redaction code of their own) | NFR-SAG-0002, ADR-SAG-0020 r-3 | a response body may echo the key; `test_llm_non_2xx_detail_is_redacted` |

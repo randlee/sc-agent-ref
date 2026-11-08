@@ -808,14 +808,16 @@ amendment and the REQ-SAG-0505 amendment record it.
 > waits of 1, 2, 4, 8 s. See the ADR-SAG-0007 phase-end amendment and
 > REQ-SAG-0505 amendment. The 4-send text here describes what r-3 shipped.
 
-- Statuses 429/502/529 only; at most 4 sends.
+- Statuses 429/502/529 only; at most 4 sends at r-3 (5 since the phase-end
+  amendment).
 - A valid Retry-After is honoured, clamped 0–30 s. Valid means at most 32
   bytes of ASCII digits with an optional `.` and ASCII-digit fraction
   (`^[0-9]+(\.[0-9]+)?$`); anything else (HTTP-date, sign, exponent, `inf`,
   `NaN`, empty) is malformed. Absent **or malformed** Retry-After (malformed
   is treated like missing, not 30 s): exponential backoff from about 1 s —
-  1, 2, 4, 8 … capped at 30 s. With at most 4 sends there are at most three
-  waits, so the default sequence is 1, 2, 4 s; 8 s and the 30 s cap apply only
+  1, 2, 4, 8 … capped at 30 s. With at most 4 sends at r-3 there are at most three
+  waits, so the r-3 default sequence is 1, 2, 4 s (1, 2, 4, 8 s since the
+  phase-end amendment); 8 s and the 30 s cap apply only
   to a non-default `BusyPolicy` with more sends. Every wait adds up to 250 ms
   jitter.
 - 90 s budget from the first send for **starting** new attempts; every wait
@@ -829,7 +831,8 @@ amendment and the REQ-SAG-0505 amendment record it.
   immediately, and the caller (CLI, Python, future MCP) decides whether to
   retry. A transport error or timeout after the body was sent is never
   retried.
-- This removes round 1's malformed-header exhaustion (CPR-M7): 4 sends fit
+- This removes round 1's malformed-header exhaustion (CPR-M7): 4 sends (5 since
+  the phase-end amendment) fit
   inside the budget unless the server's own Retry-After values exceed it.
 
 **(c) D9 Jev payload shape — resolved (owner, 2026-11-07).** The source of

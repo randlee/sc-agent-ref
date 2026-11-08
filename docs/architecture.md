@@ -703,7 +703,9 @@ configured on the injected `UreqTransport`, not on a backend builder.
 ### Amendment (Phase A.1, r-3)
 
 **Status:** Active (Phase A.1) — landed in r-3. Numbers decided by the
-owner (2026-11-06).
+owner (2026-11-06). The send count and default waits below are what r-3
+shipped; the phase-end amendment below supersedes them with 5 sends and waits
+of 1, 2, 4, 8 s.
 
 - (Active, r-3) One busy-retry policy for every backend, in
   `sc_agent_http::BusyPolicy`: statuses 429/502/529 only; at most 4 sends;
