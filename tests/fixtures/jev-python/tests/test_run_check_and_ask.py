@@ -23,6 +23,38 @@ FIXTURES = Path(__file__).resolve().parents[2]
 SECRET = "sk-test-sentinel-not-a-real-key"
 
 
+# Variables that would redirect fixture git to another repository or inject
+# config; the same list as the Rust fixture helpers (`git()` in the tests).
+_GIT_STRIPPED_ENV = (
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_COMMON_DIR",
+    "GIT_PREFIX",
+    "GIT_CONFIG_PARAMETERS",
+    "GIT_CONFIG_COUNT",
+    "GIT_DEFAULT_HASH",
+)
+
+# A fixture git call finishes in well under a second; a stuck one fails the
+# test (subprocess.TimeoutExpired) instead of hanging CI.
+_GIT_TIMEOUT_SECONDS = 60
+
+
+def _git(*args: str) -> None:
+    """Run fixture git isolated from the launching context's git environment."""
+    env = {k: v for k, v in os.environ.items() if k not in _GIT_STRIPPED_ENV}
+    env.update(
+        GIT_CONFIG_GLOBAL=os.devnull,
+        GIT_CONFIG_SYSTEM=os.devnull,
+        GIT_CONFIG_NOSYSTEM="1",
+        GIT_TERMINAL_PROMPT="0",
+    )
+    subprocess.run(["git", *args], check=True, env=env, timeout=_GIT_TIMEOUT_SECONDS)
+
+
 def _questions(instructions: str) -> str:
     return json.dumps(
         {
@@ -182,13 +214,13 @@ def _rows(log_dir: Path) -> list[dict]:
     return [json.loads(line)["fields"] for line in _lines(log_dir)]
 
 
-def test_uuid_session_id_is_input_invalid(tmp_path: Path) -> None:
+def test_session_ids_are_ulids(tmp_path: Path) -> None:
     """Session ids are ULIDs (REQ-SAG-0612, REQ-SAG-0701).
 
     Python never takes a session id as input: `Session.ask` carries the id the
-    run returned. So the UUID refusal shows up as the ids Python is given: a
-    26-character ULID, never a UUID, named by the session file, and a session
-    file named by a UUID is not a session.
+    run returned, so the UUID refusal and its hint are CLI-only. This checks
+    the ids Python is given: a 26-character ULID, never a UUID, named by the
+    session file, and a stray UUID-named file is ignored.
     """
     repo = _repo(tmp_path, "Does it apply?")
     log_dir = tmp_path / "log"
@@ -331,11 +363,7 @@ def test_dotenv_read_from_toplevel_in_subdir(
     for name in ["TYPESAFE_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"]:
         monkeypatch.delenv(name, raising=False)
     repo = _repo(tmp_path, "Does it apply?")
-    subprocess.run(
-        ["git", "init", "-q", str(repo)],
-        check=True,
-        env={**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"},
-    )
+    _git("init", "-q", str(repo))
     (repo / ".env").write_text(f"TYPESAFE_API_KEY={SECRET} spaced\n", encoding="utf-8")
     sub = repo / "src" / "pkg"
     sub.mkdir(parents=True)
@@ -400,8 +428,8 @@ def test_build_request_releases_the_gil(tmp_path: Path) -> None:
     stop = threading.Event()
 
     def answer() -> None:
-        deadline = time.monotonic() + 20
-        while not stop.is_set() and time.monotonic() < deadline:
+        # No deadline of its own: the `finally` below bounds it via `stop`.
+        while not stop.is_set():
             if started.exists():
                 ack.write_text("1")
                 return
@@ -415,6 +443,7 @@ def test_build_request_releases_the_gil(tmp_path: Path) -> None:
     finally:
         stop.set()
         worker.join(30)
+    assert started.exists(), "the extractor never started"
     assert caught.value.code == "EXTRACTION_INVALID", (
         "EXTRACTION_FAILED means the worker never ran: the GIL was held"
     )

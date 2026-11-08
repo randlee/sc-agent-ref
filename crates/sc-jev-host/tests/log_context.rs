@@ -141,6 +141,7 @@ fn test_log_context_repo_is_main_repo_paths_stay_on_worktree() {
         CheckSource::check_file(&RepoRoot::new(&linked), Path::new("check.toml")).expect("source");
     let label = ProjectLabel::new("billing").expect("label");
     let response = run_from(source, inputs(&linked).project(label)).expect("run");
+    assert!(response.warnings().is_empty(), "{:?}", response.warnings());
     let id: SessionId = response.session_id().expect("session saved");
 
     assert!(linked.join(format!(".sc-ai/sessions/{id}.json")).is_file());
@@ -157,7 +158,8 @@ fn test_log_context_repo_is_main_repo_paths_stay_on_worktree() {
     assert_eq!(rows[0]["session_id"], id.to_string());
 
     // A follow-up is its own call: its own project (here none), same repo.
-    ask_from(id, "why?", inputs(&linked)).expect("ask");
+    let asked = ask_from(id, "why?", inputs(&linked)).expect("ask");
+    assert!(asked.warnings().is_empty(), "{:?}", asked.warnings());
     let rows = self::rows(&linked.join(".sc-ai/logs/sc-ai.log.jsonl"));
     assert_eq!(rows.len(), 2);
     assert_eq!(rows[1]["operation"], "ask");
@@ -180,6 +182,7 @@ fn test_log_and_session_paths_unchanged_with_ulid_names() {
     let source = CheckSource::check_file(&RepoRoot::new(dir.path()), Path::new("check.toml"))
         .expect("source");
     let response = run_from(source, inputs(dir.path())).expect("run");
+    assert!(response.warnings().is_empty(), "{:?}", response.warnings());
     let id = response.session_id().expect("session saved");
     let text = id.to_string();
     assert_eq!(text.len(), 26);
@@ -194,4 +197,53 @@ fn test_log_and_session_paths_unchanged_with_ulid_names() {
         .map(|entry| entry.expect("entry").file_name())
         .collect();
     assert_eq!(sessions, [std::ffi::OsString::from(format!("{text}.json"))]);
+}
+
+/// With an explicit repo root, discovery starts there, not at the working
+/// directory (D5): the cwd is an unrelated folder outside git.
+#[test]
+fn test_log_context_explicit_repo_root_starts_discovery() {
+    let (main, linked) = main_and_linked();
+    let elsewhere = tempfile::tempdir().expect("elsewhere");
+    let explicit = sc_jev_host::compose::explicit_repo_root(&linked).expect("explicit root");
+    let source = CheckSource::check_file(&explicit, Path::new("check.toml")).expect("source");
+    let inputs = ComposeInputs::new(elsewhere.path().to_path_buf(), PathPolicy::cli())
+        .repo_root(explicit)
+        .backends(BackendSet::try_from(vec![BackendId::AnthropicHaiku]).expect("set"))
+        .registry(registry());
+    let response = run_from(source, inputs).expect("run");
+    assert!(response.warnings().is_empty(), "{:?}", response.warnings());
+    let rows = rows(&linked.join(".sc-ai/logs/sc-ai.log.jsonl"));
+    assert_eq!(rows.len(), 1);
+    assert_eq!(logged_repo(&rows[0]), canonical(main.path()));
+}
+
+/// An all-backends-failed run is an `Err`, and its failed row is still in the
+/// flushed log (RSH-002).
+#[test]
+fn test_error_path_flushes_the_failed_row() {
+    let dir = tempfile::tempdir().expect("temp");
+    std::fs::write(dir.path().join("questions.json"), QUESTIONS).expect("questions");
+    std::fs::write(
+        dir.path().join("check.toml"),
+        "[questions]\npath = \"questions.json\"\n",
+    )
+    .expect("check");
+    let mut failing = BackendRegistry::new();
+    failing
+        .register(Arc::new(
+            MockJudgeBackend::new(BackendId::AnthropicHaiku, Default::default())
+                .with_failure(sc_agent_types::JevError::response_invalid("scripted")),
+        ))
+        .expect("register");
+    let source = CheckSource::check_file(&RepoRoot::new(dir.path()), Path::new("check.toml"))
+        .expect("source");
+    let inputs = ComposeInputs::new(dir.path().to_path_buf(), PathPolicy::cli())
+        .backends(BackendSet::try_from(vec![BackendId::AnthropicHaiku]).expect("set"))
+        .registry(Arc::new(failing));
+    let error = run_from(source, inputs).expect_err("every backend failed");
+    assert_eq!(error.code(), "RESPONSE_INVALID");
+    let rows = rows(&dir.path().join(".sc-ai/logs/sc-ai.log.jsonl"));
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0]["send_outcome"], "failed");
 }

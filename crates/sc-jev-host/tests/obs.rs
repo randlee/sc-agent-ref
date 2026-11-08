@@ -111,7 +111,9 @@ fn test_log_line_fields_is_one_session_log_row() {
     for index in 0..rows.len() {
         adapter.emit(event_for(index)).expect("log");
     }
-    adapter.flush().expect("flush");
+    adapter
+        .flush()
+        .unwrap_or_else(|error| panic!("log flush failed: {}", error.fix_hint()));
     let text = jsonl(root.path());
     let lines: Vec<serde_json::Value> = text
         .lines()
@@ -147,7 +149,9 @@ fn test_one_writer_per_log_root_while_any_handle_lives() {
     assert!(first.shares_writer_with(&second));
     first.emit(event_for(0)).expect("first line");
     second.emit(event_for(3)).expect("second line");
-    second.flush().expect("flush");
+    second
+        .flush()
+        .unwrap_or_else(|error| panic!("log flush failed: {}", error.fix_hint()));
     let text = jsonl(root.path());
     assert_eq!(text.lines().filter(|line| !line.is_empty()).count(), 2);
 

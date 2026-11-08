@@ -22,6 +22,8 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock, PoisonError, Weak};
 
+use serde_json::Value;
+
 use crate::paths::PathPolicy;
 use sc_agent_types::observability::v2::{
     LogEvent as SessionEvent, LogRejected, SessionLog, SharedSessionLog,
@@ -185,7 +187,7 @@ impl ObservabilityAdapter {
             version: SchemaVersion::new(OBSERVATION_ENVELOPE_VERSION)
                 .map_err(|_| LogRejected::new("observation envelope version is not valid"))?,
             timestamp: Timestamp::now_utc(),
-            level: Level::Info,
+            level: level_of(event),
             service: self.service.clone(),
             target: TargetCategory::new(TARGET)
                 .map_err(|_| LogRejected::new("session log target is not valid"))?,
@@ -193,8 +195,16 @@ impl ObservabilityAdapter {
             message: None,
             identity: ProcessIdentity::default(),
             trace: None,
-            request_id: None,
-            correlation_id: None,
+            // The session correlates its sends; the answer id names one send.
+            // Both are ULIDs, valid ids (`sc-observability-types` is not a
+            // direct dependency, so the ids are built through serde);
+            // `fields` is unchanged.
+            request_id: event
+                .fields()
+                .get("answer_id")
+                .and_then(|id| serde_json::from_value(id.clone()).ok()),
+            correlation_id: serde_json::from_value(Value::String(event.session_id().to_string()))
+                .ok(),
             outcome: None,
             diagnostic: None,
             state_transition: None,
@@ -209,6 +219,14 @@ impl SessionLog for ObservabilityAdapter {
             .0
             .log(self.log_event(&event)?)
             .map_err(|error| LogRejected::new(error.to_string()))
+    }
+}
+
+/// `Warn` for a failed send, else `Info`, from the row's `send_outcome`.
+fn level_of(event: &SessionEvent) -> Level {
+    match event.fields().get("send_outcome").and_then(Value::as_str) {
+        Some("failed") => Level::Warn,
+        _ => Level::Info,
     }
 }
 

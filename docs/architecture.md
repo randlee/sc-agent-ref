@@ -1735,7 +1735,7 @@ ADR-SAG-0027 (an r-6 subsection in each). Owner decisions 2026-11-07.
   (ADR-SAG-0002/0025).
 - (Active, r-6) The row's `model_id` is `JudgeBackend::model_id()`
   (ADR-SAG-0009 r-7 amendment), never NULL.
-- (Active, r-6) `repo` is `sc_jev_check::discover_main_repo_root`: a
+- (Active, r-6) `repo` is `sc_jev_check::discover_main_repo_root`, started from the explicit repo root when one is set, else from the working directory (a dry run skips git): a
   linked worktree resolves to its main repository; a separate or bare git
   dir falls back to the current toplevel; outside git it is the calling
   folder, absolutized. It uses `sc_agent_types::git::discover_common_dir`,

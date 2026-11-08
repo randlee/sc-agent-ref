@@ -340,12 +340,21 @@ impl HostRun {
     /// # Errors
     ///
     /// Any [`JevError`] from `run`, including the all-backends-failed case.
+    /// The log is flushed on this path too, so the rows of the sends that
+    /// failed are durable; a flush failure there is appended to the error
+    /// detail (`session log was not flushed: <hint>`) because no response
+    /// exists to carry a warning.
     pub fn run(self) -> Result<RunResponse, JevError> {
-        let mut response = run(self.prepared)?;
-        if let Some(warning) = self.adapter.as_ref().and_then(finish_log) {
-            response = response.with_warning(warning);
+        let Self { prepared, adapter } = self;
+        match run(prepared) {
+            Ok(mut response) => {
+                if let Some(warning) = adapter.as_ref().and_then(finish_log) {
+                    response = response.with_warning(warning);
+                }
+                Ok(response)
+            }
+            Err(error) => Err(note_flush(error, adapter.as_ref().and_then(finish_log))),
         }
-        Ok(response)
     }
 }
 
@@ -416,11 +425,33 @@ pub fn ask_from(
     let adapter = ObservabilityAdapter::open(&inputs.policy, &resolved.log_root)?;
     let sessions = FileSessionStore::new(&resolved.sessions_dir)?;
     let config = inputs.run_config(&resolved, adapter.shared());
-    let mut response = ask(&sessions, session_id, follow_up, config)?;
-    if let Some(warning) = finish_log(&adapter) {
-        response = response.with_warning(warning);
+    match ask(&sessions, session_id, follow_up, config) {
+        Ok(mut response) => {
+            if let Some(warning) = finish_log(&adapter) {
+                response = response.with_warning(warning);
+            }
+            Ok(response)
+        }
+        // Flush before propagating: a failed send wrote its row too.
+        Err(error) => Err(note_flush(error, finish_log(&adapter))),
     }
-    Ok(response)
+}
+
+/// Appends a failed flush to `error`'s detail, once, so it stays observable
+/// when an error (not a response) leaves the call. The error code is
+/// unchanged. `None` means the flush succeeded.
+fn note_flush(error: JevError, warning: Option<String>) -> JevError {
+    let Some(warning) = warning else {
+        return error;
+    };
+    let noted = std::cell::Cell::new(false);
+    error.map_detail(|text| {
+        if noted.replace(true) {
+            text.to_owned()
+        } else {
+            format!("{text} ({warning})")
+        }
+    })
 }
 
 /// Flushes the session log. The log is best effort: a failure becomes a
@@ -447,6 +478,21 @@ mod tests {
         .expect("warning");
         assert!(warning.contains("disk full"), "{warning}");
         assert!(flush_warning(Ok(())).is_none());
+    }
+
+    #[test]
+    fn flush_failure_on_the_error_path_is_noted_in_the_detail_once() {
+        let error = JevError::input_invalid("bad input");
+        let code = error.code();
+        let noted = note_flush(
+            error.clone(),
+            Some("session log was not flushed: disk full".into()),
+        );
+        assert_eq!(noted.code(), code);
+        let hint = noted.fix_hint();
+        assert!(hint.contains("bad input"), "{hint}");
+        assert_eq!(hint.matches("disk full").count(), 1, "{hint}");
+        assert_eq!(note_flush(error.clone(), None), error);
     }
 
     #[test]

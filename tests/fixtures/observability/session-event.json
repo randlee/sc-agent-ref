@@ -1,7 +1,7 @@
 {
   "ask": {
     "action": "ask",
-    "correlation_id": null,
+    "correlation_id": "01JC4Z7A5B0000000000000002",
     "diagnostic": null,
     "fields": {
       "answer_id": "01JC4Z8M3K5N7P9Q1R2S3T4V5Z",
@@ -36,7 +36,7 @@
     "level": "Info",
     "message": null,
     "outcome": null,
-    "request_id": null,
+    "request_id": "01JC4Z8M3K5N7P9Q1R2S3T4V5Z",
     "state_transition": null,
     "target": "jev.session",
     "trace": null,
@@ -44,7 +44,7 @@
   },
   "judge_failed": {
     "action": "judge",
-    "correlation_id": null,
+    "correlation_id": "01JC4Z7A5B0000000000000002",
     "diagnostic": null,
     "fields": {
       "answer_id": "01JC4Z8M3K5N7P9Q1R2S3T4V5X",
@@ -68,10 +68,10 @@
       "session_id": "01JC4Z7A5B0000000000000002",
       "ts": "2026-11-07T10:05:03.411Z"
     },
-    "level": "Info",
+    "level": "Warn",
     "message": null,
     "outcome": null,
-    "request_id": null,
+    "request_id": "01JC4Z8M3K5N7P9Q1R2S3T4V5X",
     "state_transition": null,
     "target": "jev.session",
     "trace": null,
@@ -79,7 +79,7 @@
   },
   "judge_failed_no_body": {
     "action": "judge",
-    "correlation_id": null,
+    "correlation_id": "01JC4Z7A5B0000000000000003",
     "diagnostic": null,
     "fields": {
       "answer_id": "01JC4Z8M3K5N7P9Q1R2S3T4V5Y",
@@ -102,10 +102,10 @@
       "session_id": "01JC4Z7A5B0000000000000003",
       "ts": "2026-11-07T10:10:00.020Z"
     },
-    "level": "Info",
+    "level": "Warn",
     "message": null,
     "outcome": null,
-    "request_id": null,
+    "request_id": "01JC4Z8M3K5N7P9Q1R2S3T4V5Y",
     "state_transition": null,
     "target": "jev.session",
     "trace": null,
@@ -113,7 +113,7 @@
   },
   "judge_ok": {
     "action": "judge",
-    "correlation_id": null,
+    "correlation_id": "01JC4Z7A5B0000000000000001",
     "diagnostic": null,
     "fields": {
       "answer_id": "01JC4Z8M3K5N7P9Q1R2S3T4V5W",
@@ -157,7 +157,7 @@
     "level": "Info",
     "message": null,
     "outcome": null,
-    "request_id": null,
+    "request_id": "01JC4Z8M3K5N7P9Q1R2S3T4V5W",
     "state_transition": null,
     "target": "jev.session",
     "trace": null,

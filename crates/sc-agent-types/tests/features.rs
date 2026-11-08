@@ -5,8 +5,9 @@
 //! so a patch bump does not churn it; `--target all`, so the list does not
 //! depend on the host platform). `cargo tree` runs `--offline` through the
 //! workspace's bounded runner, so it needs a warm registry cache (any prior
-//! `cargo build` or `cargo test` of the workspace provides one). `sha2` is a core dependency because
-//! `Sha256Digest::of_text` is in core `ids`.
+//! `cargo build` or `cargo test` of the workspace provides one). The core dependencies are `sc-sha` and `ulid`
+//! (`Sha256Digest::of_text` and `SessionId` are core `ids` types); `sha2`
+//! comes in transitively through `sc-sha`.
 
 use std::collections::BTreeSet;
 use std::path::PathBuf;

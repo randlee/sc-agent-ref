@@ -590,7 +590,13 @@ fn cli_dry_run_readback_run_ask_and_expiry() {
     // covered by sc-jev-check's session tests).
     let path = sessions.path().join(format!("{session_id}.json"));
     let mut doc = session_doc(sessions.path(), &session_id);
-    doc["created_at"] = json!(1);
+    // 25 h old: past the 24 h TTL, inside the retention grace that keeps
+    // the file (older documents are swept when a store opens).
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock")
+        .as_millis();
+    doc["created_at"] = json!(now_ms - 25 * 60 * 60 * 1000);
     std::fs::write(&path, doc.to_string()).expect("age the session");
     let expired = ask("still there?");
     let error = stderr_json(&expired);

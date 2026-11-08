@@ -104,6 +104,88 @@ fn test_v2_session_document_is_invalid() {
     assert!(hint.contains(OLD_SESSION_ID), "hint names the file: {hint}");
 }
 
+/// `FileSessionStore::new` removes expired session documents, version 1 and 2
+/// included, and leaves fresh ones and files that are not documents (RSH-001).
+#[test]
+fn test_new_store_sweeps_expired_session_documents() {
+    let dir = tempfile::tempdir().expect("temp");
+    let ids = [
+        "01JC4Z7A5B0000000000000011",
+        "01JC4Z7A5B0000000000000012",
+        "01JC4Z7A5B0000000000000013",
+    ];
+    // Phase A (v1), Phase A.1 (v2) and current (v3) documents, all created
+    // in 2023, long past the 24 h default TTL.
+    for (id, version) in ids.iter().zip([1, 2, 3]) {
+        let mut document: serde_json::Value = serde_json::from_str(&fixture()).expect("json");
+        document["session_id"] = serde_json::json!(id);
+        document["version"] = serde_json::json!(version);
+        fs::write(dir.path().join(format!("{id}.json")), document.to_string()).expect("write");
+    }
+    for id in ids {
+        assert!(dir.path().join(format!("{id}.json")).is_file());
+    }
+    // Opening the store sweeps them; a fresh document (created now) survives.
+    let fresh_store = FileSessionStore::new(dir.path()).expect("store");
+    let fresh_id = SessionId::new();
+    let payload = {
+        let document: serde_json::Value = serde_json::from_str(&fixture()).expect("json");
+        PayloadBundle::decode(
+            document["payload_utf8"]
+                .as_str()
+                .expect("payload")
+                .as_bytes(),
+        )
+        .expect("bundle")
+    };
+    fresh_store
+        .save(&StoredSession {
+            session_id: fresh_id,
+            backend: BackendId::AnthropicHaiku,
+            created_at: SystemTime::now(),
+            payload,
+            system_prompt: None,
+            outcomes: Vec::new(),
+            follow_ups: Vec::new(),
+        })
+        .expect("save fresh");
+    // Not documents: left alone.
+    fs::write(dir.path().join("notes.json"), "{\"unrelated\":true}").expect("notes");
+    fs::write(dir.path().join("broken.json"), "{").expect("broken");
+    fs::write(dir.path().join("keep.txt"), "x").expect("txt");
+
+    for id in ids {
+        assert!(
+            !dir.path().join(format!("{id}.json")).exists(),
+            "{id} swept"
+        );
+    }
+    let names = |dir: &Path| {
+        let mut names: Vec<String> = fs::read_dir(dir)
+            .expect("dir")
+            .map(|entry| {
+                entry
+                    .expect("entry")
+                    .file_name()
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .collect();
+        names.sort();
+        names
+    };
+    let mut expected = vec![
+        format!("{fresh_id}.json"),
+        "broken.json".to_owned(),
+        "keep.txt".to_owned(),
+        "notes.json".to_owned(),
+    ];
+    expected.sort();
+    let reopened = FileSessionStore::new(dir.path()).expect("reopen");
+    assert_eq!(names(dir.path()), expected);
+    reopened.load(&fresh_id).expect("fresh session still loads");
+}
+
 #[test]
 fn test_newer_session_version_is_invalid() {
     let mut newer: serde_json::Value = serde_json::from_str(&fixture()).expect("json");

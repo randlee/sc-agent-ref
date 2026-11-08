@@ -17,7 +17,7 @@ TypeSafe HTTP itself — delegates to `JudgeBackend` impls in `sc-jev` and
 | `extract` | `file`, `table-column`, `subjects`, `command` — matched directly by `extract_input` (no extractor trait); see [`extraction.md`](extraction.md); **no** tree-sitter deps |
 | `payload` | `build_payload`: one canonical `PayloadBundle` per check; caller request documents. No byte cap (each backend owns its cap, REQ-SAG-0314) |
 | `run` | `prepare` → `run`, `discover_repo_root`, `discover_main_repo_root`, `RunConfig` (with `log_context(LogContext)`), `RunResponse` + `Envelope` (ADR-SAG-0024); the one send step writes the session-log row (below) |
-| `session` | Stateless `FileSessionStore`: `save`, `load`, `ask(&registry, &log)`; ULID file names, session document version 3 (`decision_schema`); no-lock concurrency model (REQ-SAG-0607) |
+| `session` | Stateless `FileSessionStore`: `save`, `load`, `ask(&registry, &log)`; ULID file names, session document version 3 (`decision_schema`); `new` removes `*.json` documents past TTL plus one TTL of grace (v1/v2 included); no-lock concurrency model (REQ-SAG-0607) |
 | `equal_input` | Equal-input record helpers; `equal` comes from backend-reported digests (REQ-SAG-0606, ADR-SAG-0025) |
 | `registry` | `BackendRegistry::{from_env, from_resolver, register}` plus `*_with_models` variants taking `&ModelAliases`; private `FACTORIES` table of `fn(ResolvedApiKey, &ModelAliases)` (ADR-SAG-0009). Feature `test-util` adds `register_scripted_backends` and `RunResponse::test_builder` for tests only (ADR-SAG-0022). |
 

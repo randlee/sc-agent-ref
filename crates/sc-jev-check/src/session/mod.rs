@@ -45,6 +45,18 @@
 //! - A crashed writer can leave a temporary file behind.
 //!   [`FileSessionStore::new`] removes `*.tmp.*` files older than one hour;
 //!   younger ones may belong to a live writer.
+//! - Retention: [`FileSessionStore::new`] also removes every expired
+//!   `*.json` session document in the directory, measured exactly like
+//!   `read_session` (`created_at` plus the default TTL, 24 h, against the
+//!   system clock) plus one grace period of the same length, so a session that
+//!   just expired still answers `SESSION_EXPIRED` ("start a new session")
+//!   instead of `SESSION_NOT_FOUND` for another day. That includes version 1 and
+//!   2 documents, which are refused
+//!   on read and would otherwise stay forever. A file that is not a JSON
+//!   object with a numeric `created_at`, or is larger than the read cap, is
+//!   left alone. The sweep is best effort and runs once per `new`; a store
+//!   opened with a shorter [`FileSessionStore::with_ttl`] still removes only
+//!   documents past the default TTL.
 
 #![warn(missing_docs)]
 
@@ -134,7 +146,9 @@ impl FileSessionStore {
                 "Choose a writable directory, then retry.",
             )
         })?;
-        sweep_stale_tmp(&dir, SystemTime::now());
+        let now = SystemTime::now();
+        sweep_stale_tmp(&dir, now);
+        sweep_expired_sessions(&dir, now, DEFAULT_SESSION_TTL.saturating_mul(2));
         Ok(Self {
             dir,
             ttl: DEFAULT_SESSION_TTL,
@@ -525,6 +539,54 @@ fn sweep_stale_tmp(dir: &Path, now: SystemTime) {
             let _ = fs::remove_file(entry.path());
         }
     }
+}
+
+/// Removes `*.json` session documents in `dir` whose `created_at` plus
+/// `retention` is not after `now` (the `is_expired` rule with a longer
+/// lifetime: the TTL plus a grace period of one more TTL). Best effort: anything that
+/// cannot be read or parsed as a document with a numeric `created_at` stays.
+fn sweep_expired_sessions(dir: &Path, now: SystemTime, retention: Duration) {
+    let Ok(now_ms) = unix_ms(now) else {
+        return;
+    };
+    let retention_ms = u64::try_from(retention.as_millis()).unwrap_or(u64::MAX);
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let is_session = path.extension().and_then(|ext| ext.to_str()) == Some(SESSION_EXT)
+            && !entry
+                .file_name()
+                .to_str()
+                .is_some_and(|name| name.contains(TMP_MARKER));
+        if !is_session || !entry.file_type().is_ok_and(|kind| kind.is_file()) {
+            continue;
+        }
+        let Some(created_at) = created_at_of(&path) else {
+            continue;
+        };
+        if now_ms >= created_at.saturating_add(retention_ms) {
+            let _ = fs::remove_file(&path);
+        }
+    }
+}
+
+/// The `created_at` of the session document at `path`, when it has one.
+fn created_at_of(path: &Path) -> Option<u64> {
+    let mut bytes = Vec::new();
+    File::open(path)
+        .ok()?
+        .take(MAX_SESSION_BYTES.saturating_add(1))
+        .read_to_end(&mut bytes)
+        .ok()?;
+    if u64::try_from(bytes.len()).ok()? > MAX_SESSION_BYTES {
+        return None;
+    }
+    serde_json::from_slice::<Value>(&bytes)
+        .ok()?
+        .get("created_at")?
+        .as_u64()
 }
 
 /// Syncs the directory entry after a rename so the new file survives a crash.

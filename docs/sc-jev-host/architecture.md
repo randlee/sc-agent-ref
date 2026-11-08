@@ -49,10 +49,18 @@ with `=` (ADR-SAG-0023) and `cargo tree -d` gates keep one version of
 
 `run_from`, `prepare_from` and `ask_from` build the `LogContext` for
 `RunConfig::log_context`: `repo` is `discover_main_repo_root` of the explicit
-repo root, else of the working directory (a discovery failure falls back to
+repo root when one is set (`--repo-root`), else of the working directory (a discovery failure falls back to
 the resolved root; a dry run skips git), and `project` is
 `ComposeInputs::project`, per call. Neither consumer builds log context. Paths
 stay on the worktree (ADR-SAG-0021): `--test log_context`.
+
+## Error path
+
+When `run` or `ask` fails, `HostRun::run` and `ask_from` still flush the log
+(the failed rows are durable). A flush failure there has no response to carry
+a warning, so it is appended once to the error detail; the error code is
+unchanged. The adapter sets the envelope `correlation_id` to the session id,
+`request_id` to the answer id, and the level to `Warn` for a failed send.
 
 ## Warnings
 
