@@ -128,7 +128,7 @@ own row's Status cell and its own marker text, and added or removed no entry).
 | ADR-SAG-0004 | One check, one request | Active | Amended by ADR-SAG-0025 (Active, r-2b) |
 | ADR-SAG-0005 | Facade owns payload assembly | Active | Amended by ADR-SAG-0024 (Active, r-2); A.1 subsections (Active, r-4), (Active, r-5); ADR-SAG-0030 (Active, r-7) |
 | ADR-SAG-0006 | Transport injection | Active | Amended by ADR-SAG-0026 (Active, r-3) |
-| ADR-SAG-0007 | API-direct LLM backends | Active | Amended by ADR-SAG-0026 (Active, r-3) |
+| ADR-SAG-0007 | API-direct LLM backends | Active (r-3; retry numbers phase-end) | Amended by ADR-SAG-0026 (Active, r-3) |
 | ADR-SAG-0008 | Sessions carry prior answers to later backends | Active | A.1 subsection (Active, r-1); amended by ADR-SAG-0025 (Active, r-2b); ADR-SAG-0031 (Active, r-6) |
 | ADR-SAG-0009 | Local backend registers without caller changes | Active | Amended by ADR-SAG-0022; ADR-SAG-0027 (Active, r-1); ADR-SAG-0024 (Active, r-2); ADR-SAG-0030 (Active, r-7) |
 | ADR-SAG-0010 | CLI thin adapter | Active | Amended by ADR-SAG-0026 (Active, r-3b) |
@@ -706,21 +706,18 @@ configured on the injected `UreqTransport`, not on a backend builder.
 owner (2026-11-06).
 
 - (Active, r-3) One busy-retry policy for every backend, in
-  `sc_agent_http::BusyPolicy`: statuses 429/502/529 only; at most 5 sends in total (amended 2026-11-08, was 4);
+  `sc_agent_http::BusyPolicy`: statuses 429/502/529 only; at most 4 sends;
   a valid Retry-After (integer or decimal seconds) is honoured, clamped to
   0–30 s. A valid Retry-After is 1–32 bytes of ASCII digits with an
   optional `.` and ASCII-digit fraction; anything else (HTTP-date, sign,
   exponent, `inf`, `NaN`, empty) is malformed. When Retry-After is absent
   **or malformed** (treated the same), the wait backs off exponentially from
-  1 s (1, 2, 4, 8 … capped at 30 s); with the default 5 sends four waits
-  occur (1, 2, 4, 8 s: 15 s before jitter), so the 30 s cap applies only to
-  an honoured Retry-After. No policy may exceed 5 sends. Every wait adds up to 250 ms jitter. A 90 s budget from the first send governs
+  1 s (1, 2, 4, 8 … capped at 30 s); with the default 4 sends at most three
+  waits occur (1, 2, 4 s), so 8 s and the cap apply only to a non-default
+  policy. Every wait adds up to 250 ms jitter. A 90 s budget from the first send governs
   starting new attempts: no attempt starts after it, and every wait is capped
   to the remaining budget; an in-flight attempt keeps its 120 s request
-  timeout (covering the body read); the 90 s budget stays as a ceiling for
-  slow or Retry-After-heavy sequences. The shared layer bounds the
-  transport deadlines (request 1 ms–120 s, connect 1 ms–10 s) for every
-  backend. A `CancelToken` is checked before each
+  timeout (covering the body read). A `CancelToken` is checked before each
   attempt and during sliced waits (≤ 100 ms); a cancel during an in-flight
   request is observed when it returns, so worst-case cancel latency is the
   120 s request timeout. A transport error or timeout after the body was
@@ -737,6 +734,20 @@ owner (2026-11-06).
   passes `new(key, UreqTransport::new(Timeouts::new(..)))`. The backend
   builder `with_timeouts` is removed. This supersedes the base sentence
   "configurable on backend builder for tests".
+
+### Amendment (Phase A.1, phase-end, 2026-11-08)
+
+**Status:** Active (Phase A.1). Owner decision (2026-11-08).
+
+Amends the r-3 busy-retry numbers above; the rest of r-3 stands.
+
+- `BusyPolicy` makes at most 5 sends in total, and no policy may exceed 5.
+  With the default 5 sends, four waits occur when Retry-After is absent or
+  malformed: 1, 2, 4, 8 s, 15 s before jitter. The 30 s cap applies only to an
+  honoured Retry-After. The 90 s budget stays as a ceiling for slow or
+  Retry-After-heavy sequences.
+- The shared layer bounds the transport deadlines for every backend: request
+  1 ms–120 s, connect 1 ms–10 s.
 
 ## ADR-SAG-0010 — CLI thin adapter
 
