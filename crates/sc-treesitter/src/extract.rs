@@ -84,7 +84,11 @@ impl<'a> ExtractInput<'a> {
         self.language
     }
 
-    /// Query text. `producer.query_sha256` is the SHA-256 of these bytes.
+    /// Query text.
+    ///
+    /// `producer.query_sha256` is the SHA-256 of this text after CRLF and bare
+    /// CR are normalized to LF (`Sha256Digest::of_text`), so it equals the
+    /// SHA-256 of the bytes only for a query without CR.
     #[must_use]
     pub fn query(&self) -> &str {
         self.query
@@ -386,6 +390,35 @@ mod tests {
             )
             .with_captures(captures),
         )
+    }
+
+    /// `query_sha256` hashes the LF-normalized query text, so a CRLF query and
+    /// its LF form carry one digest (other implementations must do the same).
+    #[cfg(feature = "python")]
+    #[test]
+    fn query_sha256_is_the_digest_of_the_lf_normalized_query() {
+        let lf = "(identifier) @name\n(identifier) @name\n";
+        let crlf = lf.replace('\n', "\r\n");
+        let cr = lf.replace('\n', "\r");
+        let digest = |query: &str| {
+            run("python", query, b"x = 1\n", "a.py", None)
+                .expect("extract")
+                .producer()
+                .query_sha256()
+                .clone()
+        };
+        assert_eq!(digest(&crlf), Sha256Digest::of_text(lf));
+        assert_eq!(digest(&cr), Sha256Digest::of_text(lf));
+        assert_eq!(digest(lf), Sha256Digest::of_text(lf));
+        // SHA-256 of the LF bytes; the raw CRLF bytes hash to a different value.
+        assert_eq!(
+            digest(&crlf).as_str(),
+            "6882063e0fbeac9c629dcacb8f8d965aa5c3a0e4d811f3a57c5d1c2f4e6ba7dc"
+        );
+        assert_ne!(
+            digest(&crlf).as_str(),
+            "61fddca9b6019c10daa92f1d38b39d97c02f4bc7e811a2b06352328f03e5f382"
+        );
     }
 
     #[cfg(feature = "python")]

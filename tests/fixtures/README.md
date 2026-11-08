@@ -68,6 +68,8 @@ The reference implementation produces the same digest as `prompt_sha256` of
 
 A producer implementation conforms when, run on `hook.py` with the arguments in
 `request.json`, it emits `subjects.json` byte for byte. The compiled-in query is
-pinned by `producer.query_sha256` in `subjects.json`; the rules for line
+pinned by `producer.query_sha256` in `subjects.json`: the SHA-256 (lowercase
+hex) of the query text after CRLF and bare CR are normalized to LF, which is
+the SHA-256 of the file bytes since the query contains no CR. The rules for line
 numbers, byte spans, ids and ordering are in
 [`docs/sc-agent-types/subjects-schema.md`](../../docs/sc-agent-types/subjects-schema.md).
