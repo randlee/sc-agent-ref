@@ -555,29 +555,15 @@ mod tests {
         assert!(output.status.success());
     }
 
-    /// Kills the background process recorded in a pid file when dropped, so a
-    /// failing test cannot leave it behind.
-    struct Reaper(std::path::PathBuf);
-
-    impl Drop for Reaper {
-        fn drop(&mut self) {
-            if let Ok(pid) = std::fs::read_to_string(&self.0) {
-                let _ = child("kill", &[pid.trim()]).status();
-            }
-        }
-    }
-
-    /// A child that exits at once while a background grandchild keeps stdout
-    /// open: the pipe never reaches EOF, so the call ends with the typed
-    /// `pipe did not close` error instead of blocking on the grandchild.
+    /// A pipe that never reaches EOF (its writer stays open) ends the wait
+    /// with the typed `pipe did not close` error. The test holds the writer
+    /// itself, so no process is involved and nothing races the deadline.
     #[test]
-    fn test_pipe_held_by_a_leftover_process_is_a_typed_error() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        let pid_file = dir.path().join("grandchild.pid");
-        let _reaper = Reaper(pid_file.clone());
-        let mut command = child("sh", &["-c", "sleep 30 & echo $! > \"$1\"", "sh"]);
-        command.arg(&pid_file);
-        let error = run_with_deadline(command, Duration::from_millis(200)).expect_err("held pipe");
+    fn test_pipe_held_open_is_a_typed_error() {
+        let (reader, writer) = std::os::unix::net::UnixStream::pair().expect("socket pair");
+        let rx = drain(reader);
+        let error =
+            collect(Some(rx), Instant::now() + Duration::from_millis(50)).expect_err("held pipe");
         // `pipe did not close` is an `io::ErrorKind::TimedOut` on `git output`;
         // `JevError` keeps the kind and drops the OS message.
         assert!(
@@ -588,5 +574,20 @@ mod tests {
             ),
             "{error:?}"
         );
+        // The writer is open for the whole assert.
+        drop(writer);
+    }
+
+    /// A pipe whose writer wrote and closed hands over its bytes even when the
+    /// deadline is short, as long as it has not passed.
+    #[test]
+    fn test_closed_pipe_yields_its_bytes_before_the_deadline() {
+        use std::io::Write;
+        let (reader, mut writer) = std::os::unix::net::UnixStream::pair().expect("socket pair");
+        let rx = drain(reader);
+        writer.write_all(b"hello").expect("write");
+        drop(writer);
+        let bytes = collect(Some(rx), Instant::now() + Duration::from_secs(30)).expect("bytes");
+        assert_eq!(bytes, b"hello");
     }
 }
