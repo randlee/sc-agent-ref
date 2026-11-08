@@ -197,6 +197,7 @@ owned_paths:
   - "boundaries/workspace-tests/workspace-tests.toml#notes dev-dependency list (QA fix)"
   - "crates/workspace-tests/README.md#dev-dependency list (QA fix)"
   - "crates/sc-ai/Cargo.toml#comment names test_util_off_binary (QA fix)"
+  - "boundaries/README.md#counted dev edges: sc-decision-schema (QA fix)"
 ---
 
 # Sprint r-7 — `sc-decision-schema` crate and model catalog
