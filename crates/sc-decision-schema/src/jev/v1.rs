@@ -643,6 +643,7 @@ impl CheckRequest {
 #[non_exhaustive]
 pub enum JevAnswer {
     /// The answer to a `choice` question.
+    #[non_exhaustive]
     Choice {
         /// The selected option.
         choice: ChoiceId,
@@ -652,6 +653,7 @@ pub enum JevAnswer {
         confidence: Probability,
     },
     /// The answer to a `score` question.
+    #[non_exhaustive]
     Score {
         /// The selected level.
         choice: ChoiceId,
@@ -661,6 +663,7 @@ pub enum JevAnswer {
         confidence: Probability,
     },
     /// The answer to a `noul` question: the probability of yes.
+    #[non_exhaustive]
     Noul {
         /// The single `yes` probability.
         probabilities: NoulProbabilities,

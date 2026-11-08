@@ -457,6 +457,19 @@ impl BackendSet {
     }
 }
 
+impl From<BackendId> for BackendSet {
+    /// A set of exactly `id`: one backend, so no validation can fail.
+    ///
+    /// ```
+    /// use sc_agent_types::{BackendId, BackendSet};
+    ///
+    /// assert_eq!(BackendSet::from(BackendId::AnthropicHaiku).as_slice(), [BackendId::AnthropicHaiku]);
+    /// ```
+    fn from(id: BackendId) -> Self {
+        Self(vec![id])
+    }
+}
+
 impl Default for BackendSet {
     /// The default selection, `[jev]`: one built-in backend, so no
     /// validation can fail.

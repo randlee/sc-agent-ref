@@ -1,7 +1,7 @@
 //! Matches-mode extraction into `sc/subjects/1`.
 
 use sc_agent_types::schema::subjects::{
-    Span, SubjectsBuilder, SubjectsDocument, SubjectsProducer, SubjectsSource,
+    GrammarRef, Span, SubjectsBuilder, SubjectsDocument, SubjectsProducer, SubjectsSource,
 };
 use sc_agent_types::{BlobSha, JevError, RepoRelativePath, Rev, Sha256Digest};
 use tree_sitter::{Node, Parser, Point, Query, QueryCursor, StreamingIterator};
@@ -267,9 +267,11 @@ pub fn extract(input: &ExtractInput<'_>) -> Result<SubjectsDocument, JevError> {
         SubjectsProducer::new(
             PRODUCER_NAME,
             env!("CARGO_PKG_VERSION"),
-            info.id,
-            info.grammar,
-            info.grammar_version,
+            GrammarRef {
+                language: info.id.to_owned(),
+                grammar: info.grammar.to_owned(),
+                grammar_version: info.grammar_version.to_owned(),
+            },
             Sha256Digest::of_text(input.query),
         )
         .with_mode(PRODUCER_MODE),

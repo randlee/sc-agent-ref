@@ -87,7 +87,7 @@ pub fn producer_from_extractions(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sc_agent_types::schema::subjects::SubjectsDocument;
+    use sc_agent_types::schema::subjects::{GrammarRef, SubjectsDocument};
     use sc_agent_types::{BackendId, Sha256Digest};
     use sc_decision_schema::{Attestation, CanonicalJudgePayload};
 
@@ -186,9 +186,11 @@ mod tests {
         let other = SubjectsProducer::new(
             "another-producer",
             producer.version(),
-            producer.language(),
-            producer.grammar(),
-            producer.grammar_version(),
+            GrammarRef {
+                language: producer.language().to_owned(),
+                grammar: producer.grammar().to_owned(),
+                grammar_version: producer.grammar_version().to_owned(),
+            },
             producer.query_sha256().clone(),
         );
         extractions.insert(
@@ -206,9 +208,11 @@ mod tests {
         SubjectsProducer::new(
             "sc-treesitter",
             "0.1.0",
-            "python",
-            "tree-sitter-python",
-            "0.23.6",
+            GrammarRef {
+                language: "python".to_owned(),
+                grammar: "tree-sitter-python".to_owned(),
+                grammar_version: "0.23.6".to_owned(),
+            },
             Sha256Digest::parse("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
                 .expect("digest"),
         )

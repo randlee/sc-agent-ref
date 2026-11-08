@@ -846,7 +846,7 @@ pub fn ask(
         Some(registry) => Arc::clone(registry),
         None => Arc::new(BackendRegistry::from_env_with_models(
             &config.repo_root,
-            &BackendSet::try_from(vec![stored.backend])?,
+            &BackendSet::from(stored.backend),
             &config.models.clone().unwrap_or_else(ModelAliases::builtin),
         )?),
     };

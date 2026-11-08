@@ -83,6 +83,33 @@ impl QueryMode {
     }
 }
 
+/// The grammar a producer ran: language id, grammar crate and pinned version.
+///
+/// Named fields keep the three strings from being swapped at a call site of
+/// [`SubjectsProducer::new`].
+///
+/// # Examples
+///
+/// ```
+/// use sc_agent_types::schema::subjects::GrammarRef;
+///
+/// let grammar = GrammarRef {
+///     language: "python".to_owned(),
+///     grammar: "tree-sitter-python".to_owned(),
+///     grammar_version: "0.23.6".to_owned(),
+/// };
+/// assert_eq!(grammar.language, "python");
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GrammarRef {
+    /// Grammar language id, such as `python`.
+    pub language: String,
+    /// Grammar crate or package name, such as `tree-sitter-python`.
+    pub grammar: String,
+    /// Pinned grammar version.
+    pub grammar_version: String,
+}
+
 /// Tool that emitted the subjects document.
 ///
 /// Fields are private; build one with [`Self::new`] (mode [`QueryMode::Matches`])
@@ -101,23 +128,20 @@ pub struct SubjectsProducer {
 
 impl SubjectsProducer {
     /// A producer `name` at `version` that ran the query with digest
-    /// `query_sha256` in `matches` mode against the `grammar` crate (at
-    /// `grammar_version`) for `language`.
+    /// `query_sha256` in `matches` mode against `grammar`.
     #[must_use]
     pub fn new(
         name: impl Into<String>,
         version: impl Into<String>,
-        language: impl Into<String>,
-        grammar: impl Into<String>,
-        grammar_version: impl Into<String>,
+        grammar: GrammarRef,
         query_sha256: Sha256Digest,
     ) -> Self {
         Self {
             name: name.into(),
             version: version.into(),
-            language: language.into(),
-            grammar: grammar.into(),
-            grammar_version: grammar_version.into(),
+            language: grammar.language,
+            grammar: grammar.grammar,
+            grammar_version: grammar.grammar_version,
             query_sha256,
             mode: QueryMode::Matches,
         }
@@ -429,16 +453,20 @@ fn subject_id(path: &str, line: u32, index_on_line: u32) -> String {
 /// # Examples
 ///
 /// ```
-/// use sc_agent_types::schema::subjects::{Span, SubjectsBuilder, SubjectsProducer, SubjectsSource};
+/// use sc_agent_types::schema::subjects::{
+///     GrammarRef, Span, SubjectsBuilder, SubjectsProducer, SubjectsSource,
+/// };
 /// use sc_agent_types::{Rev, Sha256Digest};
 ///
 /// let source = SubjectsSource::new("a.py".parse()?, Rev::parse("HEAD")?, "b".repeat(40).parse()?);
 /// let producer = SubjectsProducer::new(
 ///     "sc-treesitter",
 ///     "0.1.0",
-///     "python",
-///     "tree-sitter-python",
-///     "0.23.6",
+///     GrammarRef {
+///         language: "python".to_owned(),
+///         grammar: "tree-sitter-python".to_owned(),
+///         grammar_version: "0.23.6".to_owned(),
+///     },
 ///     Sha256Digest::of_text("q"),
 /// );
 /// let mut builder = SubjectsBuilder::new(source, producer);

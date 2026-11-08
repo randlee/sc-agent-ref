@@ -60,6 +60,13 @@ First release. Channels once published: crates.io (ten crates), PyPI
   keys `CheckSpec::inputs()`; `check.toml` parsing and hand-built specs share
   its validation, so a bad name fails at construction. `check.toml` behaviour
   and error text are unchanged.
+- `sc_decision_schema::jev::v1::JevAnswer` struct variants and
+  `sc_decision_schema::QuestionKind` are `#[non_exhaustive]`: match struct
+  variants with `..` and add a wildcard arm for `QuestionKind`.
+- `BackendSet` implements `From<BackendId>` (a one-backend set, infallible).
+- `sc_agent_types::schema::subjects::SubjectsProducer::new` takes a named
+  `GrammarRef { language, grammar, grammar_version }` instead of three
+  positional strings.
 
 ### Known limits
 
