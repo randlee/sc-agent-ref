@@ -20,8 +20,8 @@
 //!
 //! # Documented body shapes
 //!
-//! The bodies below are the shapes the providers document; none was
-//! observed against a live endpoint in this repository.
+//! The bodies below are the shapes the providers document, not observed
+//! against a live endpoint here, except Jev's `detail` object, below.
 //!
 //! - **Anthropic** ([errors](https://platform.claude.com/docs/en/api/errors),
 //!   [rate limits](https://platform.claude.com/docs/en/api/rate-limits)):
@@ -45,7 +45,9 @@
 //!   429 and 529 are busy; 5xx is transient. Jev's own error JSON is not
 //!   documented here, so the reader also accepts `{"detail": "..."}`,
 //!   `{"detail": [{"loc": [...], "msg": "..."}]}` and `{"message": "..."}`,
-//!   and falls back to the bounded raw body.
+//!   and falls back to the bounded raw body. Live replies on 2026-11-08
+//!   showed `{"detail": {"error_type": "billing_error", "message": "..."}}`
+//!   on 402 and the same shape with `authentication_error` on 401.
 //!
 //! A body that is none of these stays what its status says: an unknown 429
 //! body is busy, never quota.
@@ -127,7 +129,9 @@ impl Body {
                 // Jev's billing and auth errors, observed live 2026-11-08:
                 // {"detail":{"error_type":"billing_error","message":"..."}}.
                 Some(Value::Object(detail)) => {
-                    body.provider_type = detail.get("error_type").and_then(string_of);
+                    if body.provider_type.is_none() {
+                        body.provider_type = detail.get("error_type").and_then(string_of);
+                    }
                     body.message = detail.get("message").and_then(string_of);
                 }
                 Some(Value::Array(items)) => {
@@ -471,9 +475,6 @@ mod tests {
         );
     }
 
-    /// RBP-F002: for Haiku and Luna raw text never decides. A 400 that names
-    /// `max_tokens` (the output cap parameter) stays an invalid request, and
-    /// so does one that mentions tokens exceeding something else.
     /// The exact bodies Jev returned on live calls (2026-11-08): an unfunded
     /// organization gets 402 `billing_error`, ahead of body validation.
     #[test]
@@ -503,6 +504,9 @@ mod tests {
         assert!(error.message().contains("Cannot authenticate"));
     }
 
+    /// RBP-F002: for Haiku and Luna raw text never decides. A 400 that names
+    /// `max_tokens` (the output cap parameter) stays an invalid request, and
+    /// so does one that mentions tokens exceeding something else.
     #[test]
     fn llm_text_about_max_tokens_is_an_invalid_request() {
         let output_cap = r#"{"type":"error","error":{"type":"invalid_request_error","message":"max_tokens: 99999 > 8192, which is the maximum allowed number of output tokens"}}"#;

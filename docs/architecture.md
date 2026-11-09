@@ -1610,7 +1610,8 @@ HTTP half of ADR-SAG-0026.
   success body, a request, or a Jev answer. The shapes it reads: the
   Anthropic and OpenAI `{"error": {type, code, message, param, details}}`
   and `request_id`; for Jev (undocumented here) `{"detail": "..."}`,
-  `{"detail": [{"loc", "msg"}]}`, `{"message": "..."}`, a top-level
+  `{"detail": [{"loc", "msg"}]}`, `{"detail": {"error_type", "message"}}`
+  (seen in live replies, 2026-11-08), `{"message": "..."}`, a top-level
   `code`, and, for any other body, the whole body, scrubbed then bounded, as raw text.
   For Haiku and Luna "the input is too long" is recognised only from
   structured markers, status 413 and Anthropic's "prompt is too long"
@@ -1842,7 +1843,11 @@ the (Active, r-1) bullets on `retryable()` and on the field rule, and the
   "enforced_spend_limit_reached"`, no `retry-after`), a customer spend limit
   (400 `invalid_request_error`, message starting `You have reached your
   specified`), 402 `billing_error`; OpenAI's `insufficient_quota` and
-  `credit_balance_exhausted` codes. An unknown 429 body stays busy. The
+  `credit_balance_exhausted` codes; Jev's 402 with `detail.error_type ==
+  "billing_error"` (seen in live replies, 2026-11-08, unfunded organization,
+  checked after authentication and before body validation). A marker in
+  `detail.error_type` counts the same at any status, so a Jev 429 saying
+  `billing_error` is quota too. An unknown 429 body stays busy. The
   hook is `sc_agent_http::failure` (`is_quota_reply`), called by the retry
   loop; retry timing is untouched.
 - (Active, agt-2a3) **Busy exhausted.** `PROVIDER_BUSY` carries
