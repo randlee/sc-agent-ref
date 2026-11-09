@@ -341,3 +341,128 @@ fn test_session_id_must_be_a_ulid() {
     assert_eq!(error_code(&output), "INPUT_INVALID");
     assert!(message(&output).contains("ULID"));
 }
+
+/// `--help` pins the short names, model-id pinning, the models file and the
+/// `jev models` command (agt-akp).
+#[test]
+fn test_help_pins_short_names_and_models() {
+    let dir = TempDir::new().expect("temp");
+    let flags = stdout_text(&run(dir.path(), &["jev", "run", "--help"]));
+    for needle in ["--backend", "claude-haiku-5-5", "--models-file"] {
+        assert!(flags.contains(needle), "{needle:?} missing from {flags}");
+    }
+    let text = stdout_text(&run(dir.path(), &["--help"]));
+    for needle in [
+        "--backend is jev, haiku, or luna (each means the latest model of that line)",
+        "or a known model id of one of them, such as claude-haiku-5-5",
+        "sonnet, opus, fable,",
+        "terra, sol, astra) are defined but not selectable yet",
+        "jev models lists the resolved models",
+        "~/.sc-agent/models.toml",
+        "--models-file",
+        "check.toml\n[models] still wins",
+        "CONFIG_INVALID",
+    ] {
+        assert!(text.contains(needle), "{needle:?} missing from {text}");
+    }
+    for old in ["anthropic_haiku", "openai_luna"] {
+        assert!(!text.contains(old), "{old}");
+    }
+    let models = stdout_text(&run(dir.path(), &["jev", "models", "--help"]));
+    assert!(models.contains("--models-file"), "{models}");
+}
+
+#[test]
+fn test_backend_takes_a_model_id_and_refuses_definition_only_models() {
+    let repo = repo();
+    let root = repo.path().to_str().expect("utf8");
+    let pinned = run(
+        repo.path(),
+        &[
+            "jev",
+            "dry-run",
+            "--repo-root",
+            root,
+            "--backend",
+            "claude-haiku-5-5",
+        ],
+    );
+    let envelope: Value = serde_json::from_str(&stdout_text(&pinned)).expect("envelope");
+    assert_eq!(envelope["data"]["limits"][0]["backend"], "haiku");
+    for refused in [
+        "sonnet",
+        "claude-sonnet-5-5",
+        "gpt-6.1-sol",
+        "openai_luna",
+        "anthropic_haiku",
+    ] {
+        let output = run(
+            repo.path(),
+            &["jev", "dry-run", "--repo-root", root, "--backend", refused],
+        );
+        assert_eq!(error_code(&output), "INPUT_INVALID", "{refused}");
+        let text = message(&output);
+        for valid in ["jev", "haiku", "luna", "claude-haiku-5-5"] {
+            assert!(text.contains(valid), "{refused}: {text}");
+        }
+    }
+}
+
+#[test]
+fn test_models_lists_resolved_models_with_their_source() {
+    let dir = TempDir::new().expect("temp");
+    let file = dir.path().join("models.toml");
+    std::fs::write(
+        &file,
+        "[[model]]\nid = \"claude-haiku-9\"\nalias = \"haiku\"\nreleased = \"2099-01-01\"\n",
+    )
+    .expect("file");
+    let output = run(
+        dir.path(),
+        &[
+            "jev",
+            "models",
+            "--models-file",
+            file.to_str().expect("utf8"),
+        ],
+    );
+    let envelope: Value = serde_json::from_str(&stdout_text(&output)).expect("envelope");
+    assert_eq!(envelope["operation"], "models");
+    assert_eq!(envelope["data"]["models_file_present"], true);
+    let rows = envelope["data"]["models"].as_array().expect("rows");
+    let row = |alias: &str| rows.iter().find(|row| row["alias"] == alias).expect(alias);
+    assert_eq!(row("haiku")["model"], "claude-haiku-9");
+    assert_eq!(row("haiku")["source"], "file");
+    assert_eq!(row("haiku")["backend"], "haiku");
+    assert_eq!(row("jev")["model"], "jev-1.14.0");
+    assert_eq!(row("jev")["source"], "crate");
+    assert_eq!(row("sonnet")["model"], "claude-sonnet-5-5");
+    assert_eq!(row("sonnet")["backend"], Value::Null);
+    assert_eq!(rows.len(), 9);
+
+    // Missing file: the crate table. Malformed file: CONFIG_INVALID.
+    let missing = dir.path().join("none.toml");
+    let output = run(
+        dir.path(),
+        &[
+            "jev",
+            "models",
+            "--models-file",
+            missing.to_str().expect("utf8"),
+        ],
+    );
+    let envelope: Value = serde_json::from_str(&stdout_text(&output)).expect("envelope");
+    assert_eq!(envelope["data"]["models_file_present"], false);
+    assert_eq!(envelope["data"]["models"][0]["source"], "crate");
+    std::fs::write(&file, "[[model]]\nid = \"x\"\n").expect("bad");
+    let output = run(
+        dir.path(),
+        &[
+            "jev",
+            "models",
+            "--models-file",
+            file.to_str().expect("utf8"),
+        ],
+    );
+    assert_eq!(error_code(&output), "CONFIG_INVALID");
+}

@@ -448,6 +448,82 @@ pub fn load_global_models(
     }
 }
 
+/// The resolved models of a call, for `sc-ai jev models` and
+/// `sc_jev_py.models()`: one row per alias, and where the file was.
+///
+/// Serializes as `{"models_file","models_file_present","models":[...]}`;
+/// each model row is `{"alias","model","source","released","backend"}`
+/// where `source` is `crate` or `file` and `backend` is the `--backend`
+/// short name, or `null` for a model that is only a definition today.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct ModelListing {
+    models_file: Option<String>,
+    models_file_present: bool,
+    models: Vec<ModelRow>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+struct ModelRow {
+    alias: &'static str,
+    model: String,
+    source: &'static str,
+    released: String,
+    backend: Option<&'static str>,
+}
+
+impl ModelListing {
+    /// The models file that was read, if home is known.
+    #[must_use]
+    pub fn models_file(&self) -> Option<&str> {
+        self.models_file.as_deref()
+    }
+
+    /// Alias, model and source per row, sorted by alias.
+    #[must_use]
+    pub fn rows(&self) -> Vec<(&'static str, &str, &'static str)> {
+        self.models
+            .iter()
+            .map(|row| (row.alias, row.model.as_str(), row.source))
+            .collect()
+    }
+}
+
+/// Lists the resolved models: the crate table plus the models file
+/// (`explicit`, else `~/.sc-agent/models.toml`). Check-file overrides and
+/// pins are per run and are not part of this listing.
+///
+/// # Errors
+///
+/// `CONFIG_INVALID` for a malformed file; see [`load_global_models`].
+pub fn list_models(
+    explicit: Option<&Path>,
+    general: &dyn GeneralLog,
+) -> Result<ModelListing, JevError> {
+    let models = load_global_models(explicit, general)?;
+    let path = explicit
+        .map(Path::to_path_buf)
+        .or_else(crate::paths::models_file);
+    let rows = models
+        .resolved()
+        .into_iter()
+        .map(|row| ModelRow {
+            alias: row.alias(),
+            model: row.model().to_string(),
+            source: row.source().as_str(),
+            released: row.released().to_owned(),
+            backend: sc_agent_types::BACKENDS
+                .iter()
+                .find(|backend| backend.default_model_alias() == row.alias())
+                .map(sc_agent_types::BackendDescriptor::name),
+        })
+        .collect();
+    Ok(ModelListing {
+        models_file_present: path.as_ref().is_some_and(|path| path.is_file()),
+        models_file: path.map(|path| path.display().to_string()),
+        models: rows,
+    })
+}
+
 /// An explicit repo root (`--repo-root`): it must be a directory and is made
 /// absolute. It is used as given; no git discovery runs.
 ///
