@@ -18,6 +18,7 @@ acceptance root, when it differs, is shown as "root a-N"; the closure table in
 | NFR-SAG-0002 | No secrets in output | a-7 |
 | REQ-SAG-0615 | `jev run` / `jev ask` take `--project <TEXT>` (≤ 256 bytes, no control characters; stored as given, not scrubbed); `--session-id` is a ULID | r-6 |
 | REQ-SAG-0162 | A failed read or write (a directory as `--request-json`, stdout, git, the session store) is `IO_FAILED` with `details.what` and `details.io_kind`; a missing named path stays `INPUT_MISSING` (`JevError::read_failed`) | agt-2a3 |
+| REQ-SAG-0167 | A `test-util`-only hidden `--loopback-port <PORT>` flag on `jev run` builds the real HTTP backends aimed at `127.0.0.1:<PORT>` (keys from the environment); the published binary rejects it (`workspace-tests --test test_util_off_binary`) | agt-2a3 |
 | NFR-SAG-0003 | Document default log root, session files and the one log row per send (README "Session logs") | a-7, r-6 |
 
 Phase A: `sc-ai jev` check parity only. Phase B: more Jev API + API-direct Claude/Codex (REQ-SAG-0900/0901); no vendor CLI wrappers in Phase A or B (a later agent kind, ADR-SAG-0030).

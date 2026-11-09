@@ -103,7 +103,7 @@ probability key) was not offered. `QuestionAnswer` keeps `choice`, optional
 derived from per-backend `Attestation`s.
 
 `JudgeBackend` is intentionally open; calls block (async hosts use
-`spawn_blocking`). `test_util::MockJudgeBackend` is the one double: it
+`spawn_blocking`). `MockJudgeBackend` (in `sc-decision-schema`'s `test_util`, not this crate) is the one double: it
 answers through `JudgeOutcome::new`, records requests, counts validations,
 reports the received digest, and enforces LLM context from the descriptor.
 

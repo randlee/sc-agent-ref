@@ -143,7 +143,7 @@ own row's Status cell and its own marker text, and added or removed no entry).
 | ADR-SAG-0019 | LLM wire envelope vs canonical payload | Active | A.1 subsection (Active, r-1); amended by ADR-SAG-0024 (Active, r-2); ADR-SAG-0025 (Active, r-2b); ADR-SAG-0030 (Active, r-7) |
 | ADR-SAG-0020 | Secret injection and redaction | Active | Amends ADR-SAG-0003; amended by ADR-SAG-0029; A.1 subsection (Active, r-1); ADR-SAG-0026 (Active, r-3); A.1 subsection (Active, r-3b); agt-2a3 provider error detail (Active) |
 | ADR-SAG-0021 | Log and session path precedence | Active | Amends ADR-SAG-0013 |
-| ADR-SAG-0022 | Scripted backends are a test-util feature | Active | Amends ADR-SAG-0009; amended by ADR-SAG-0029; A.1 subsection (Active, r-1); ADR-SAG-0024 (Active, r-2); ADR-SAG-0025 (Active, r-2b); ADR-SAG-0030 (Active, r-7) |
+| ADR-SAG-0022 | Scripted backends are a test-util feature | Active | Amends ADR-SAG-0009; amended by ADR-SAG-0029; A.1 subsection (Active, r-1); ADR-SAG-0024 (Active, r-2); ADR-SAG-0025 (Active, r-2b); ADR-SAG-0030 (Active, r-7); agt-2a3 loopback test seam (Active) |
 | ADR-SAG-0023 | Dependency pins, allocator, released binaries | Active (r-4; host pin r-3b; Windows CRT phase-end) | Amends ADR-SAG-0016, ADR-SAG-0017 |
 | ADR-SAG-0024 | Engine entry point and response contract | Active (r-2) | Amends ADR-SAG-0003, ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0014, ADR-SAG-0019, ADR-SAG-0022; supersedes the ADR-SAG-0014 A.1 r-1 interim subsection |
 | ADR-SAG-0025 | Multi-backend semantics and equal-input attestation | Active (r-2b) | Amends ADR-SAG-0004, ADR-SAG-0008, ADR-SAG-0019, ADR-SAG-0022; amended by agt-2a3 (all-failed runs keep every error) (Active) |
@@ -454,6 +454,33 @@ and not a second `run_check` policy.
   `sc-decision-schema`); `sc-jev-check`'s `test-util` feature enables it and
   `register_scripted_backends` is built over it as before (ADR-SAG-0030).
 
+### Amendment (agt-2a3, loopback test seam)
+
+**Status:** Active (bead `agt-2a3`, before the first release).
+
+- (Active, agt-2a3) The hidden `sc-ai jev run --loopback-port <PORT>` flag is
+  a second test seam next to `--scripted-answers`. It builds the **real HTTP**
+  backends (`BackendRegistry::loopback_from_env`) aimed at
+  `http://127.0.0.1:<PORT>`, one send each, so a binary test can drive a
+  mapped 401, a busy reply and a redacted key through the whole path.
+- (Active, agt-2a3) **Limits.** Only under the `test-util` cargo feature;
+  keys still come from the environment and `.env` like a real run (nothing is
+  faked); the only endpoint it can build is `Endpoint::loopback_http`, which
+  is `127.0.0.1` over plain HTTP and cannot name another host. The published
+  binary has neither the flag nor the code:
+  `workspace-tests --test test_util_off_binary`
+  (`test_release_binary_rejects_loopback_port`) builds the release binary and
+  asserts the flag is refused, and the dev-only graph check
+  (`test_util_off`) keeps `test-util` out of the normal graph.
+- (Active, agt-2a3) **Gated items** (all `#[cfg(feature = "test-util")]`):
+  `sc_jev::JevClient::loopback` (and the crate-private
+  `JevClientConfig::with_loopback_port`),
+  `sc_jev_backends::{AnthropicHaikuBackend, OpenAiLunaBackend}::loopback`,
+  `sc_jev_check::registry::BackendRegistry::loopback_from_env`, and the
+  `--loopback-port` argument in the `sc-ai` binary. The `test-util` features of
+  `sc-jev`, `sc-jev-backends` and `sc-jev-check` enable `sc-agent-http`'s
+  `test-util` (`Endpoint::loopback_http`, `UreqTransport::loopback_for_tests`).
+
 ## ADR-SAG-0019 — LLM wire envelope vs canonical payload
 
 **Status:** Active
@@ -657,6 +684,49 @@ points and the secret-bearing return type.
   crate stops inheriting the workspace lints or adds a per-crate
   `[lints.*]` override. From r-3b this replaces r-3's local `rg` check.
 
+### Amendment (agt-2a3, provider error detail)
+
+**Status:** Active (bead `agt-2a3`, before the first release).
+
+- (Active, agt-2a3) **Provider error text is allowed in errors.** The rule
+  that a failing reply's body is never echoed (status only) is replaced.
+  An error built from a non-200 reply from Jev, Haiku or Luna carries the
+  provider's status, error type, error code, message, blamed parameter and
+  request id, falling back to the raw body text when the body is not a
+  recognised error JSON. Prompt text and model output stay out: they can
+  appear only if the provider's own error text repeats them.
+- (Active, agt-2a3) **Scrubbing.** Provider text is made single-line
+  (control characters become spaces) and bounded to **1024 bytes per field**,
+  cut at a character boundary and ending in `...`
+  (`sc_agent_types::bound_provider_text`, `PROVIDER_TEXT_MAX_BYTES`), when the
+  error is built; the request's key is removed from the provider text
+  *before* the cut (`ResolvedApiKey::redact_text`), so a key straddling the
+  1024-byte boundary leaves no fragment (ERR-QA-3). The error then leaves
+  through `redact`, once, in
+  `send_and_parse` (r-3 amendment), so every occurrence of the request's key,
+  in any provider field or in the raw fallback, becomes `[redacted]`.
+  `ResolvedApiKey::redact_error` covers the provider fields and `details`
+  strings (`JevError::map_detail` reaches them; a test proves it). The raw
+  fallback scrubs the whole body, then bounds it. Session
+  logs still store only the `error_code`, never the text (NFR-SAG-0002,
+  ADR-SAG-0031).
+- (Active, agt-2a3) **Keyring read deadline.** A platform keyring read
+  (`PlatformKeyring::password`) runs on its own thread with a fixed 15 s
+  deadline (`KEYRING_READ_TIMEOUT`, not configurable). A keystore that waits
+  for a prompt it cannot show (a locked macOS Keychain in a headless run)
+  gives `IO_FAILED` with `io_kind` `other` (not retryable: the blocked
+  read does not clear until the user unlocks the keystore, so a retry
+  blocks again) instead of hanging. A read that has been stuck past the
+  deadline makes every later read in the process return the same error at
+  once, so several backends cost one wait and at most one thread is
+  stranded. The blocked thread is detached and left to finish; it holds no
+  state and reads only the keystore, so abandoning it is safe and the
+  process can still exit. A reader thread that cannot start or that panics
+  is a non-retryable `IO_FAILED` (`other`). The deadline applies to the
+  keyring only; the environment and `.env` sources are unchanged. The Python
+  entry points resolve keys inside `py.detach`, so the GIL is released
+  during the wait.
+
 ## ADR-SAG-0004 — One check, one request
 
 **Status:** Active
@@ -690,49 +760,6 @@ Both use test doubles for unit tests.
   (ADR-SAG-0026). `sc-jev` and `sc-jev-backends` are wire-format crates that
   take an injected `sc_agent_http::Transport` at construction. Injection at
   construction (not per `judge`) is unchanged.
-
-### Amendment (agt-2a3, provider error detail)
-
-**Status:** Active (bead `agt-2a3`, before the first release).
-
-- (Active, agt-2a3) **Provider error text is allowed in errors.** The rule
-  that a failing reply's body is never echoed (status only) is replaced.
-  An error built from a non-200 reply from Jev, Haiku or Luna carries the
-  provider's status, error type, error code, message, blamed parameter and
-  request id, falling back to the raw body text when the body is not a
-  recognised error JSON. Prompt text and model output stay out: they can
-  appear only if the provider's own error text repeats them.
-- (Active, agt-2a3) **Scrubbing.** Provider text is made single-line
-  (control characters become spaces) and bounded to **1024 bytes per field**,
-  cut at a character boundary and ending in `...`
-  (`sc_agent_types::bound_provider_text`, `PROVIDER_TEXT_MAX_BYTES`), when the
-  error is built; the request's key is removed from the provider text
-  *before* the cut (`ResolvedApiKey::redact_text`), so a key straddling the
-  1024-byte boundary leaves no fragment (ERR-QA-3). The error then leaves
-  through `redact`, once, in
-  `send_and_parse` (r-3 amendment), so every occurrence of the request's key,
-  in any provider field or in the raw fallback, becomes `[redacted]`.
-  `ResolvedApiKey::redact_error` covers the provider fields and `details`
-  strings (`JevError::map_detail` reaches them; a test proves it). The raw
-  fallback reads at most 4096 bytes of the body before bounding. Session
-  logs still store only the `error_code`, never the text (NFR-SAG-0002,
-  ADR-SAG-0031).
-- (Active, agt-2a3) **Keyring read deadline.** A platform keyring read
-  (`PlatformKeyring::password`) runs on its own thread with a fixed 15 s
-  deadline (`KEYRING_READ_TIMEOUT`, not configurable). A keystore that waits
-  for a prompt it cannot show (a locked macOS Keychain in a headless run)
-  gives `IO_FAILED` with `io_kind` `other` (not retryable: the blocked
-  read does not clear until the user unlocks the keystore, so a retry
-  blocks again) instead of hanging. A read that has been stuck past the
-  deadline makes every later read in the process return the same error at
-  once, so several backends cost one wait and at most one thread is
-  stranded. The blocked thread is detached and left to finish; it holds no
-  state and reads only the keystore, so abandoning it is safe and the
-  process can still exit. A reader thread that cannot start or that panics
-  is a non-retryable `IO_FAILED` (`other`). The deadline applies to the
-  keyring only; the environment and `.env` sources are unchanged. The Python
-  entry points resolve keys inside `py.detach`, so the GIL is released
-  during the wait.
 
 ## ADR-SAG-0007 — API-direct LLM backends
 
@@ -1189,14 +1216,16 @@ REQ-SAG-0800).** Phase A hardening moved some failures to a different
 existing id. Every id below is in
 `tests/fixtures/jev/README-contract/errors.json` and is a `JevError`
 variant; no id was added or removed, and `JevError::code()` still matches
-the snapshot (test `codes_match_readme_contract_snapshot`).
+the snapshot (test `codes_match_readme_contract_snapshot`). *(Superseded by the
+agt-2a3 amendment to ADR-SAG-0027: six ids were added to `errors.json`, and
+the table's row for file or process I/O now reads `IO_FAILED`.)*
 
 | Surface | Failure | Before | After |
 | --- | --- | --- | --- |
 | `sc_jev_py.run_check` / `_testing.run_check_scripted` | unknown backend name | `CONFIG_INVALID` | `INPUT_INVALID` (`BackendId::from_str`, same as `sc-ai` and `check.toml`) |
 | same | kebab-case alias (`anthropic-haiku`, `openai-luna`) | accepted | `INPUT_INVALID` (one documented spelling) |
 | any crate | `serde_json` encode / decode failure (`JevError::encode_failed`) | mixed (`INPUT_INVALID`, `EXTRACTION_FAILED`) or raw text | `INPUT_INVALID`, detail keeps only category and line/column |
-| any crate | file or process I/O failure (`JevError::io_failed`) | mixed (`INPUT_MISSING` for any read error, `EXTRACTION_FAILED` for git spawn) | `INPUT_INVALID` with the `io::ErrorKind`; a missing file stays `INPUT_MISSING` |
+| any crate | file or process I/O failure (`JevError::io_failed`) | mixed (`INPUT_MISSING` for any read error, `EXTRACTION_FAILED` for git spawn) | `INPUT_INVALID` with the `io::ErrorKind`; a missing file stays `INPUT_MISSING` | *(Superseded by agt-2a3: `IO_FAILED` with `details.what` and `details.io_kind`; a missing file stays `INPUT_MISSING`.)*
 | `sc-treesitter` CLI | missing positional source path | `INPUT_MISSING` | `INPUT_INVALID` (an argument error, not a missing file) |
 | `sc-treesitter` library | span or line number does not fit `u32` | `INPUT_TOO_LARGE` | `INPUT_INVALID` naming the field and value |
 | `sc-treesitter` CLI | revision starting with `-`, path outside the repo or with a forbidden component, unresolvable revision, non-blob object | mixed | `INPUT_INVALID` (absent path at a revision stays `INPUT_MISSING`) |
@@ -1582,7 +1611,7 @@ HTTP half of ADR-SAG-0026.
   Anthropic and OpenAI `{"error": {type, code, message, param, details}}`
   and `request_id`; for Jev (undocumented here) `{"detail": "..."}`,
   `{"detail": [{"loc", "msg"}]}`, `{"message": "..."}`, a top-level
-  `code`, and, for any other body, the first 4096 bytes as bounded raw text.
+  `code`, and, for any other body, the whole body, scrubbed then bounded, as raw text.
   For Haiku and Luna "the input is too long" is recognised only from
   structured markers, status 413 and Anthropic's "prompt is too long"
   message (unverified wording); only Jev's message text is matched for
