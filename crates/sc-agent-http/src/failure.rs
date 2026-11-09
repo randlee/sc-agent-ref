@@ -497,6 +497,12 @@ mod tests {
         let details = error.details().expect("details");
         assert_eq!(details.provider_type.as_deref(), Some("billing_error"));
 
+        // The marker counts at any status: billing is never retried as busy.
+        let on_429 = r#"{"detail":{"error_type":"billing_error","message":"no credits"}}"#;
+        assert!(is_quota_reply(429, on_429.as_bytes()));
+        let rate = r#"{"detail":{"error_type":"rate_limit_error"}}"#;
+        assert!(!is_quota_reply(429, rate.as_bytes()));
+
         let denied =
             r#"{"detail":{"error_type":"authentication_error","message":"Cannot authenticate"}}"#;
         let error = api_failure("Jev", ReplyShape::Jev, &req(), &reply(401, denied));
@@ -681,10 +687,4 @@ mod tests {
             }
         }
     }
-        // The marker counts at any status: billing is never retried as busy.
-        let on_429 = r#"{"detail":{"error_type":"billing_error","message":"no credits"}}"#;
-        assert!(is_quota_reply(429, on_429.as_bytes()));
-        let rate = r#"{"detail":{"error_type":"rate_limit_error"}}"#;
-        assert!(!is_quota_reply(429, rate.as_bytes()));
-
 }
