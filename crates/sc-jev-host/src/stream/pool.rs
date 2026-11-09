@@ -197,6 +197,7 @@ struct Counters {
 
 type RunFn<J, A> = dyn Fn(&J) -> A + Send + Sync;
 type SkipFn<J, A> = dyn Fn(&J, Skipped) -> A + Send + Sync;
+type LostFn<J, A> = dyn Fn(&J) -> A + Send + Sync;
 
 /// A fixed set of worker threads draining a bounded job queue.
 pub(crate) struct WorkerPool<J, A> {
@@ -212,13 +213,16 @@ pub(crate) struct WorkerPool<J, A> {
 impl<J: Send + 'static, A: Send + 'static> WorkerPool<J, A> {
     /// Starts `workers` threads (at least one). Each queue holds
     /// `queue_capacity` items (at least one). `run` turns a job into its
-    /// answer; `skipped` does so for a job that is not run.
+    /// answer; `skipped` does so for a job that is not run. `lost` is the
+    /// last resort when `skipped` itself panics: it must not panic, so every
+    /// accepted job gets exactly one answer.
     pub(crate) fn start(
         workers: usize,
         queue_capacity: usize,
         cancel: CancelToken,
         run: Arc<RunFn<J, A>>,
         skipped: Arc<SkipFn<J, A>>,
+        lost: Arc<LostFn<J, A>>,
     ) -> Self {
         let workers = workers.max(1);
         let queue_capacity = queue_capacity.max(1);
@@ -239,6 +243,7 @@ impl<J: Send + 'static, A: Send + 'static> WorkerPool<J, A> {
                     cancel: cancel.clone(),
                     run: Arc::clone(&run),
                     skipped: Arc::clone(&skipped),
+                    lost: Arc::clone(&lost),
                 };
                 thread::spawn(move || worker.work())
             })
@@ -292,7 +297,8 @@ impl<J: Send + 'static, A: Send + 'static> WorkerPool<J, A> {
         popped
     }
 
-    /// Jobs submitted whose answer was not yet received.
+    /// Jobs submitted whose answer was not yet received. A sample taken from
+    /// a thread other than the receiver can be one too high for an instant.
     pub(crate) fn in_flight(&self) -> usize {
         let submitted = self.counters.submitted.load(Ordering::Acquire);
         let received = self.counters.received.load(Ordering::Acquire);
@@ -357,25 +363,48 @@ struct Worker<J, A> {
     cancel: CancelToken,
     run: Arc<RunFn<J, A>>,
     skipped: Arc<SkipFn<J, A>>,
+    lost: Arc<LostFn<J, A>>,
+}
+
+/// Runs on every exit of a worker, a panic included: the last worker out
+/// closes the answer queue, so the stream cannot hang on a dead worker.
+struct Exit<A> {
+    counters: Arc<Counters>,
+    answers: Arc<BoundedQueue<A>>,
+}
+
+impl<A> Drop for Exit<A> {
+    fn drop(&mut self) {
+        if self.counters.alive.fetch_sub(1, Ordering::AcqRel) == 1 {
+            self.answers.close();
+        }
+    }
 }
 
 impl<J, A> Worker<J, A> {
     fn work(self) {
+        let _exit = Exit {
+            counters: Arc::clone(&self.counters),
+            answers: Arc::clone(&self.answers),
+        };
         while let Popped::Item(job) = self.jobs.pop(None) {
             let answer = if self.cancel.is_cancelled() {
-                (self.skipped)(&job, Skipped::Cancelled)
+                self.skip(&job, Skipped::Cancelled)
             } else {
                 self.counters.running.fetch_add(1, Ordering::AcqRel);
                 let outcome = catch_unwind(AssertUnwindSafe(|| (self.run)(&job)));
                 self.counters.running.fetch_sub(1, Ordering::AcqRel);
-                outcome.unwrap_or_else(|_| (self.skipped)(&job, Skipped::Panicked))
+                outcome.unwrap_or_else(|_| self.skip(&job, Skipped::Panicked))
             };
             // A refused push means the consumer is gone: drop the answer.
             let _ = self.answers.push(answer, None);
         }
-        if self.counters.alive.fetch_sub(1, Ordering::AcqRel) == 1 {
-            self.answers.close();
-        }
+    }
+
+    /// The answer for a job that was not run; `skipped` may panic (it logs).
+    fn skip(&self, job: &J, why: Skipped) -> A {
+        catch_unwind(AssertUnwindSafe(|| (self.skipped)(job, why)))
+            .unwrap_or_else(|_| (self.lost)(job))
     }
 }
 

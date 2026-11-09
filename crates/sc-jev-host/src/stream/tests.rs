@@ -52,14 +52,14 @@ fn reading_never_buffers_more_than_the_cap() {
 
 #[test]
 fn ids_are_bounded_and_printable() {
-    assert!(check_id("q-1").is_ok());
-    assert!(check_id(&"a".repeat(MAX_ID_BYTES)).is_ok());
+    assert!(RequestId::new("q-1").is_ok());
+    assert!(RequestId::new(&"a".repeat(MAX_ID_BYTES)).is_ok());
     for bad in [
         String::new(),
         "a".repeat(MAX_ID_BYTES + 1),
         "a\nb".to_owned(),
     ] {
-        let error = check_id(&bad).expect_err("bad id");
+        let error = RequestId::new(&bad).expect_err("bad id");
         assert_eq!(error.code(), "INPUT_INVALID");
         assert_eq!(error.field(), Some("id"));
     }
@@ -68,7 +68,7 @@ fn ids_are_bounded_and_printable() {
 #[test]
 fn a_line_splits_into_id_and_the_request_text_verbatim() {
     let (id, request) = split_line(r#"{"id":"a","request":{"questions": []}}"#).expect("split");
-    assert_eq!(id, "a");
+    assert_eq!(id.as_str(), "a");
     assert_eq!(request, r#"{"questions": []}"#);
 }
 
@@ -103,4 +103,13 @@ fn concurrency_is_one_to_sixty_four_with_a_default_of_eight() {
         assert_eq!(error.code(), "INPUT_INVALID");
         assert_eq!(error.field(), Some("concurrency"));
     }
+}
+
+#[test]
+fn a_stream_request_is_validated_whole_before_it_is_queued() {
+    assert!(StreamRequest::new("ok", r#"{"questions":[]}"#).is_ok());
+    let bad_id = StreamRequest::new("", "{}").expect_err("empty id");
+    assert_eq!(bad_id.field(), Some("id"));
+    let bad_json = StreamRequest::new("ok", "{nope").expect_err("not json");
+    assert_eq!(bad_json.field(), Some("request"));
 }

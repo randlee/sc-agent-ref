@@ -1655,80 +1655,119 @@ fn stream_exit_code_follows_the_retryable_rule() {
     assert_eq!(mixed.status.code(), Some(2), "{mixed:?}");
 }
 
+/// Reads one HTTP/1.1 request (headers and body) from `stream`.
+fn read_http_request(stream: &mut std::net::TcpStream) -> std::io::Result<()> {
+    use std::io::Read;
+    let mut received = Vec::new();
+    let mut chunk = [0_u8; 4096];
+    loop {
+        let read = stream.read(&mut chunk)?;
+        received.extend_from_slice(&chunk[..read]);
+        let text = String::from_utf8_lossy(&received).to_ascii_lowercase();
+        if let Some(end) = text.find("\r\n\r\n") {
+            let length = text
+                .lines()
+                .find_map(|line| line.strip_prefix("content-length:"))
+                .and_then(|value| value.trim().parse::<usize>().ok())
+                .unwrap_or(0);
+            if received.len() >= end + 4 + length {
+                return Ok(());
+            }
+        }
+        if read == 0 {
+            return Err(std::io::ErrorKind::UnexpectedEof.into());
+        }
+    }
+}
+
+/// Serves `workers` connections at once, holding every reply until all of
+/// them are open. Blocks in `accept`; the test wakes it with one extra
+/// connection once the child has exited. Every socket has read and write
+/// timeouts and every failure is returned, never a panic.
+fn serve_held_replies(
+    listener: &std::net::TcpListener,
+    workers: usize,
+    done: &std::sync::atomic::AtomicBool,
+) -> Result<(), String> {
+    use std::io::Write;
+    use std::sync::atomic::Ordering;
+    use std::sync::{Arc, Condvar, Mutex};
+    use std::time::Duration;
+
+    let arrived = Arc::new((Mutex::new(0_usize), Condvar::new()));
+    let mut handlers = Vec::new();
+    while handlers.len() < workers {
+        let (mut stream, _) = listener
+            .accept()
+            .map_err(|error| format!("accept: {error}"))?;
+        if done.load(Ordering::Acquire) {
+            break;
+        }
+        let arrived = Arc::clone(&arrived);
+        handlers.push(std::thread::spawn(move || -> Result<(), String> {
+            let io = |error: std::io::Error| error.to_string();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(20)))
+                .map_err(io)?;
+            stream
+                .set_write_timeout(Some(Duration::from_secs(20)))
+                .map_err(io)?;
+            read_http_request(&mut stream).map_err(io)?;
+            let (count, changed) = &*arrived;
+            let mut open = count.lock().map_err(|_| "poisoned".to_owned())?;
+            *open += 1;
+            changed.notify_all();
+            let (open, _) = changed
+                .wait_timeout_while(open, Duration::from_secs(30), |open| *open < workers)
+                .map_err(|_| "poisoned".to_owned())?;
+            let all_here = *open >= workers;
+            drop(open);
+            let body = r#"{"model":"jev-1.13.0","answers":{"q":{"type":"choice","choice":"a","confidence":1,"probabilities":{"a":1,"b":0}}},"usage":{}}"#;
+            let status = if all_here { "200 OK" } else { "500 X" };
+            let reply = format!(
+                "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            stream.write_all(reply.as_bytes()).map_err(io)?;
+            if all_here {
+                Ok(())
+            } else {
+                Err("not all connections were open together".to_owned())
+            }
+        }));
+    }
+    for handler in handlers {
+        handler
+            .join()
+            .map_err(|_| "handler panicked".to_owned())??;
+    }
+    Ok(())
+}
+
 /// Real HTTP through the one shared `JevClient`: the loopback server holds
 /// every response until all four connections are open at once, so the
 /// answers arrive only if four requests were in flight together over HTTP.
 /// This is the thread-safety check for the shared client.
 #[test]
 fn stream_runs_concurrent_requests_over_real_http_with_one_shared_client() {
-    use std::io::{Read, Write};
-    use std::sync::{Arc, Condvar, Mutex};
-    use std::time::{Duration, Instant};
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::time::Duration;
 
     const WORKERS: usize = 4;
     const KEY: &str = "sk-stream-loopback-1234567890";
     let repo = temp_dir("stream-http");
     let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
-    listener.set_nonblocking(true).expect("nonblocking");
-    let port = listener.local_addr().expect("addr").port().to_string();
-    let arrived = Arc::new((Mutex::new(0_usize), Condvar::new()));
-    let server = {
-        let arrived = Arc::clone(&arrived);
-        std::thread::spawn(move || {
-            let failsafe = Instant::now() + Duration::from_secs(50);
-            let mut handlers = Vec::new();
-            while handlers.len() < WORKERS && Instant::now() < failsafe {
-                let Ok((mut stream, _)) = listener.accept() else {
-                    std::thread::yield_now();
-                    continue;
-                };
-                let arrived = Arc::clone(&arrived);
-                handlers.push(std::thread::spawn(move || {
-                    stream.set_nonblocking(false).expect("blocking");
-                    let mut received = Vec::new();
-                    let mut chunk = [0_u8; 4096];
-                    loop {
-                        let read = stream.read(&mut chunk).expect("read");
-                        received.extend_from_slice(&chunk[..read]);
-                        let text = String::from_utf8_lossy(&received).to_ascii_lowercase();
-                        if let Some(end) = text.find("\r\n\r\n") {
-                            let length = text
-                                .lines()
-                                .find_map(|line| line.strip_prefix("content-length:"))
-                                .and_then(|value| value.trim().parse::<usize>().ok())
-                                .unwrap_or(0);
-                            if received.len() >= end + 4 + length {
-                                break;
-                            }
-                        }
-                        if read == 0 {
-                            break;
-                        }
-                    }
-                    // Hold the reply until all WORKERS connections are open.
-                    let (count, changed) = &*arrived;
-                    let mut open = count.lock().expect("lock");
-                    *open += 1;
-                    changed.notify_all();
-                    let (open, _) = changed
-                        .wait_timeout_while(open, Duration::from_secs(50), |open| *open < WORKERS)
-                        .expect("wait");
-                    let all_here = *open >= WORKERS;
-                    drop(open);
-                    let body = r#"{"model":"jev-1.13.0","answers":{"q":{"type":"choice","choice":"a","confidence":1,"probabilities":{"a":1,"b":0}}},"usage":{}}"#;
-                    let status = if all_here { "200 OK" } else { "500 X" };
-                    let reply = format!(
-                        "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
-                        body.len()
-                    );
-                    stream.write_all(reply.as_bytes()).expect("write");
-                }));
-            }
-            for handler in handlers {
-                handler.join().expect("handler");
-            }
-        })
-    };
+    let port_number = listener.local_addr().expect("addr").port();
+    let port = port_number.to_string();
+    let done = Arc::new(AtomicBool::new(false));
+    let (result_send, result_recv) = std::sync::mpsc::channel();
+    {
+        let done = Arc::clone(&done);
+        drop(std::thread::spawn(move || {
+            let _ = result_send.send(serve_held_replies(&listener, WORKERS, &done));
+        }));
+    }
     let input: String = (0..WORKERS)
         .map(|i| stream_line(&format!("h{i}")) + "\n")
         .collect();
@@ -1746,11 +1785,24 @@ fn stream_runs_concurrent_requests_over_real_http_with_one_shared_client() {
         .env("TYPESAFE_API_KEY", KEY),
         Some(input.as_bytes()),
     );
-    server.join().expect("server");
-    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    // The child is gone. Wake the server if it is still waiting in accept.
+    done.store(true, Ordering::Release);
+    let _ = std::net::TcpStream::connect(("127.0.0.1", port_number));
+    // Assert on the child first, with its output in the failure message.
+    let shown = format!(
+        "status {:?}\nstdout: {}\nstderr: {}",
+        output.status,
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.status.code(), Some(0), "{shown}");
     let lines = stream_lines(&output);
-    assert_eq!(lines.len(), WORKERS);
-    assert!(lines.iter().all(|line| line["ok"] == true), "{lines:?}");
+    assert_eq!(lines.len(), WORKERS, "{shown}");
+    assert!(lines.iter().all(|line| line["ok"] == true), "{shown}");
     assert!(!String::from_utf8_lossy(&output.stdout).contains(KEY));
     assert!(!String::from_utf8_lossy(&output.stderr).contains(KEY));
+    match result_recv.recv_timeout(Duration::from_secs(30)) {
+        Ok(served) => served.expect("loopback server"),
+        Err(_) => panic!("the loopback server thread did not finish (or died)"),
+    }
 }

@@ -42,7 +42,12 @@ with `=` (ADR-SAG-0023) and `cargo tree -d` gates keep one version of
   does `prepare` then `run` for one `CallerRequest`, with the one session
   logger the stream opened and one `BackendRegistry` (so one client) per
   backend selection, shared by all workers. `serve_jsonl` is the JSONL
-  driver; `StreamSummary::exit_code` applies the stability exit rule across the
+  driver and `Batch` runs a fixed list of validated `StreamRequest`s (feeder
+  thread, drop guard that cancels on any early exit) for adapters that want
+  every answer; `RequestId` and `StreamRequest` are validated once at the
+  boundary. `DecisionStream::start` owns its cancel token (it replaces any set
+  on the inputs); `finish` closes the input and drops unread answers.
+  `StreamSummary::exit_code` applies the stability exit rule across the
   stream. Finished = input closed, queue empty, workers idle. Lifecycle log
   events go through `stream/log.rs`, the only logging site.
 - **`compose::run_from` / `prepare_from` / `ask_from`** call

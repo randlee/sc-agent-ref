@@ -20,6 +20,6 @@ acceptance root, when it differs, is shown as "root a-N"; the closure table in
 
 | ID | Requirement | Proof |
 | --- | --- | --- |
-| REQ-SAG-0726 | `run_many` and `DecisionStream` (submit, next, iterate, close_input, cancel, finish); the GIL is released while workers run | pytest `test_stream.py` (`test_run_many_answers_every_id_and_a_bad_request_does_not_raise`, `test_early_answers_become_follow_up_requests`, `test_the_gil_is_released_while_waiting_for_an_answer`) |
+| REQ-SAG-0726 | `run_many` (returns `(answers, summary)`, validates every id and body before anything starts, interruptible) and `DecisionStream` (submit, submit_line, next, iterate, close_input, cancel, finish); the GIL is released while workers run | pytest `test_stream.py` (`test_run_many_answers_every_id_and_a_bad_request_does_not_raise`, `test_early_answers_become_follow_up_requests`, `test_run_many_validates_every_id_and_body_before_anything_starts`, `test_submit_line_takes_the_cli_jsonl_form`, `test_finish_closes_input_and_never_hangs_on_unread_answers`, `test_the_gil_is_released_while_waiting_for_an_answer`) |
 | REQ-SAG-0724 | `concurrency=` 1 to 64, default 8 | `test_concurrency_is_validated` |
-| REQ-SAG-0727 | A full queue applies backpressure; `cancel` stops new work | `test_a_full_queue_applies_backpressure`, `test_cancel_stops_new_work` |
+| REQ-SAG-0727 | A full queue applies backpressure; `cancel` stops new work | `test_a_full_queue_applies_backpressure`, `test_a_single_thread_submitting_past_capacity_times_out`, `test_cancel_stops_new_work` |

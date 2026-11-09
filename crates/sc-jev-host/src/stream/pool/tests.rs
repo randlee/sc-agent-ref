@@ -45,7 +45,7 @@ impl Rendezvous {
     }
 }
 
-fn pool_of<J: Send + 'static, A: Send + 'static>(
+fn pool_of<J: Send + 'static, A: Default + Send + 'static>(
     workers: usize,
     queue: usize,
     cancel: &CancelToken,
@@ -58,6 +58,7 @@ fn pool_of<J: Send + 'static, A: Send + 'static>(
         cancel.clone(),
         Arc::new(run),
         Arc::new(skipped),
+        Arc::new(|_| A::default()),
     )
 }
 
@@ -141,9 +142,13 @@ fn a_slow_consumer_stops_the_producer_at_capacity() {
     assert!(producer.join().expect("producer thread"));
     pool.join();
     assert_eq!(received, JOBS, "every job was answered");
+    // `received` is counted just after the pop that frees the room, so the
+    // producer's own sample can see the one answer the single consumer holds
+    // in between: the sampled peak is at most `capacity + 1`. The queues
+    // themselves are bounded by construction.
     assert!(
-        peak.load(Ordering::Acquire) <= capacity,
-        "peak {} exceeded capacity {capacity}",
+        peak.load(Ordering::Acquire) <= capacity + 1,
+        "peak {} exceeded capacity {capacity} + 1",
         peak.load(Ordering::Acquire)
     );
 }
@@ -284,6 +289,52 @@ fn abandon_releases_workers_blocked_on_a_full_answer_queue() {
         assert!(pool.submit(job, Some(FAILSAFE)).is_ok());
     }
     pool.abandon();
+    pool.join();
+    assert_eq!(pool.alive(), 0);
+}
+
+/// A panic inside `skipped` (where logging will live) must not lose the
+/// answer or hang the stream: the last-resort answer stands in, and the
+/// worker survives to answer the next job.
+#[test]
+fn a_panicking_skipped_function_still_gives_one_answer_per_job() {
+    let cancel = CancelToken::new();
+    let pool: WorkerPool<usize, (usize, &'static str)> = WorkerPool::start(
+        1,
+        4,
+        cancel.clone(),
+        Arc::new(|job: &usize| {
+            assert_ne!(*job, 1, "run panics");
+            (*job, "ran")
+        }),
+        Arc::new(|_: &usize, _| panic!("skipped panics")),
+        Arc::new(|job: &usize| (*job, "lost")),
+    );
+    for job in 0..3 {
+        assert!(pool.submit(job, Some(FAILSAFE)).is_ok());
+    }
+    pool.close_input();
+    let answers = drain(&pool);
+    pool.join();
+    assert_eq!(answers, vec![(0, "ran"), (1, "lost"), (2, "ran")]);
+    assert_eq!(pool.alive(), 0);
+}
+
+/// Even when the last-resort function panics too, the worker's exit still
+/// closes the answer queue: the stream ends instead of hanging.
+#[test]
+fn a_dead_worker_still_lets_the_stream_finish() {
+    let pool: WorkerPool<usize, usize> = WorkerPool::start(
+        1,
+        4,
+        CancelToken::new(),
+        Arc::new(|_: &usize| panic!("run panics")),
+        Arc::new(|_: &usize, _| panic!("skipped panics")),
+        Arc::new(|_: &usize| panic!("lost panics")),
+    );
+    assert!(pool.submit(0, Some(FAILSAFE)).is_ok());
+    pool.close_input();
+    assert!(pool.recv().is_none(), "no answer, but the stream ends");
     pool.join();
     assert_eq!(pool.alive(), 0);
 }

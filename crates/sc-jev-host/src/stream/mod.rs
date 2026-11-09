@@ -34,8 +34,12 @@
 //! path `readback`). `error` is the existing `ScAgentErrorResponse`. `ok` is
 //! false whenever `error` is present: a failed request has only `error`; a
 //! request in which some backends failed carries both, as `jev run` prints
-//! the envelope on stdout and the first failure on stderr. A line that could
-//! not be read as a request has `"id": null`.
+//! the envelope on stdout and the first failure on stderr. A client must
+//! therefore read `envelope` whenever it is present, even when `ok` is false.
+//! `id` is echoed whenever a usable id could be read from the line, even if
+//! the rest of the line is not a valid request; it is `null` only when no
+//! usable id could be read (not JSON, no string `id`, an invalid `id`, a line
+//! over [`MAX_LINE_BYTES`] or not UTF-8).
 //!
 //! # Lifecycle
 //!
@@ -72,8 +76,8 @@ use std::time::Duration;
 
 use sc_agent_types::observability::v2::SharedSessionLog;
 use sc_agent_types::{
-    BackendId, BackendSet, EXIT_FAILURE, EXIT_RETRYABLE, JevError, ModelAliases, NetworkErrorKind,
-    ScAgentErrorResponse,
+    BackendId, BackendSet, CancelToken, EXIT_FAILURE, EXIT_RETRYABLE, JevError, ModelAliases,
+    NetworkErrorKind, ScAgentErrorResponse,
 };
 use sc_jev_check::registry::BackendRegistry;
 use sc_jev_check::run::{
@@ -138,12 +142,70 @@ impl Default for Concurrency {
     }
 }
 
+/// A validated request id: 1 to [`MAX_ID_BYTES`] bytes, no control character.
+///
+/// Built once at the boundary (a line, a Python call), so nothing downstream
+/// re-checks it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RequestId(String);
+
+impl RequestId {
+    /// Validates `id`.
+    ///
+    /// # Errors
+    ///
+    /// `INPUT_INVALID` naming `id` when it is empty, too long, or has a
+    /// control character.
+    pub fn new(id: &str) -> Result<Self, JevError> {
+        if id.is_empty() || id.len() > MAX_ID_BYTES || id.chars().any(char::is_control) {
+            Err(JevError::input_invalid_field(
+                "id",
+                format!("id must be 1 to {MAX_ID_BYTES} bytes with no control characters"),
+            ))
+        } else {
+            Ok(Self(id.to_owned()))
+        }
+    }
+
+    /// The id text.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+/// A request that is valid before it is queued: a [`RequestId`] and a
+/// request document that is well-formed JSON.
+#[derive(Debug, Clone)]
+pub struct StreamRequest {
+    id: RequestId,
+    json: String,
+}
+
+impl StreamRequest {
+    /// Validates `id` and that `request_json` is JSON. Whether it is a valid
+    /// questions document is decided by the worker and reported on its answer.
+    ///
+    /// # Errors
+    ///
+    /// `INPUT_INVALID` for a bad id (field `id`) or text that is not JSON
+    /// (field `request`).
+    pub fn new(id: &str, request_json: &str) -> Result<Self, JevError> {
+        let id = RequestId::new(id)?;
+        serde_json::from_str::<&RawValue>(request_json).map_err(|error| {
+            JevError::input_invalid_field("request", format!("request is not JSON: {error}"))
+        })?;
+        Ok(Self {
+            id,
+            json: request_json.to_owned(),
+        })
+    }
+}
+
 /// Why a request was not accepted.
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub enum SubmitError {
-    /// The request itself is invalid (id or JSON). Nothing was queued.
-    Invalid(JevError),
     /// The input is closed or the stream was cancelled.
     Closed,
     /// The queue stayed full for the whole wait.
@@ -154,8 +216,8 @@ pub enum SubmitError {
 enum Job {
     /// A raw input line: `{"id": ..., "request": ...}`.
     Line(String),
-    /// An already split request.
-    Request { id: String, json: String },
+    /// An already validated request.
+    Request(StreamRequest),
     /// An input that failed before it reached a worker (too long, not UTF-8).
     Rejected(JevError),
 }
@@ -309,17 +371,19 @@ impl DecisionStream {
     ///
     /// `inputs` carries what `sc-ai jev run` would use: repo root, log and
     /// session directories, `--backend` override, registry, project label,
-    /// mode, system prompt override and the cancel token. [`Self::cancel`]
-    /// cancels that token, so every request in flight sees it.
+    /// mode and system prompt override. The stream owns its cancel token:
+    /// it replaces any token set on `inputs`, and [`Self::cancel`] is the
+    /// only way to cancel, so every request in flight sees it.
     ///
     /// # Errors
     ///
     /// Any error of root discovery or logger start.
     pub fn start(inputs: ComposeInputs, concurrency: Concurrency) -> Result<Self, JevError> {
+        let cancel = CancelToken::new();
+        let inputs = inputs.cancel(cancel.clone());
         let resolved = inputs.resolve()?;
         let adapter = ObservabilityAdapter::open(inputs.policy(), &resolved.log_root)?;
         let log = Arc::new(StreamLog);
-        let cancel = inputs.cancel_token().clone();
         let engine = Arc::new(Engine {
             log_context: inputs.log_context(&resolved),
             session_log: adapter.shared(),
@@ -341,6 +405,7 @@ impl DecisionStream {
             cancel,
             Arc::new(move |job: &Job| on_run.answer(job)),
             Arc::new(move |job: &Job, why| on_skip.skipped(job, why)),
+            Arc::new(|job: &Job| lost(job)),
         );
         Ok(Self {
             pool,
@@ -364,33 +429,23 @@ impl DecisionStream {
         self.push(Job::Line(line), wait)
     }
 
-    /// Queues the request document `request_json` under `id`, waiting at
-    /// most `wait` (forever when `None`) for room.
+    /// Queues one validated request, waiting at most `wait` (forever when
+    /// `None`) for room.
+    ///
+    /// An answer that is not read holds a place in the stream: a caller that
+    /// submits more than [`Self::capacity`] requests without reading answers
+    /// from another thread blocks forever with `wait == None`. Read answers
+    /// concurrently, or pass a `wait`.
     ///
     /// # Errors
     ///
-    /// [`SubmitError::Invalid`] for a bad `id` or text that is not JSON;
-    /// otherwise as [`Self::submit_line`].
+    /// [`SubmitError::Closed`] or [`SubmitError::Full`].
     pub fn submit_request(
         &self,
-        id: &str,
-        request_json: &str,
+        request: StreamRequest,
         wait: Option<Duration>,
     ) -> Result<(), SubmitError> {
-        check_id(id).map_err(SubmitError::Invalid)?;
-        serde_json::from_str::<&RawValue>(request_json).map_err(|error| {
-            SubmitError::Invalid(JevError::input_invalid_field(
-                "request",
-                format!("request is not JSON: {error}"),
-            ))
-        })?;
-        self.push(
-            Job::Request {
-                id: id.to_owned(),
-                json: request_json.to_owned(),
-            },
-            wait,
-        )
+        self.push(Job::Request(request), wait)
     }
 
     fn submit_rejected(&self, error: JevError) -> Result<(), SubmitError> {
@@ -466,11 +521,14 @@ impl DecisionStream {
         self.pool.capacity()
     }
 
-    /// Waits for the workers to exit, flushes the session log once and
-    /// returns the summary. Call after [`Self::next_answer`] returned
-    /// `None`, or after [`Self::cancel`] with the answers drained.
+    /// Closes the input, discards answers not yet read (they still count in
+    /// the summary), waits for the workers, flushes the session log once and
+    /// returns the summary. It never hangs on unread answers; it does wait
+    /// for requests already sent, which are not interrupted.
     #[must_use]
     pub fn finish(&self) -> StreamSummary {
+        self.close_input();
+        while self.next_answer().is_some() {}
         self.pool.join();
         let log_flush_warning = self
             .adapter
@@ -504,6 +562,71 @@ pub enum Poll {
     Pending,
     /// Finished: input closed, queue empty, workers idle.
     Finished,
+}
+
+/// A fixed list of validated requests run on a [`DecisionStream`]: a feeder
+/// thread submits them while the caller reads answers, so neither side can
+/// fill a bounded queue and block the other.
+///
+/// The caller polls [`Batch::next_within`] (so it can check for interrupts
+/// between waits) and ends with [`Batch::finish`]. Dropping a batch that was
+/// not finished cancels the stream and drops unread answers, on every early
+/// exit.
+pub struct Batch {
+    stream: Arc<DecisionStream>,
+    feeder: Option<std::thread::JoinHandle<()>>,
+    finished: bool,
+}
+
+impl Batch {
+    /// Starts feeding `requests` into `stream` and closes its input after the
+    /// last one.
+    #[must_use]
+    pub fn start(stream: Arc<DecisionStream>, requests: Vec<StreamRequest>) -> Self {
+        let feeding = Arc::clone(&stream);
+        let feeder = std::thread::spawn(move || {
+            for request in requests {
+                if feeding.submit_request(request, None).is_err() {
+                    break;
+                }
+            }
+            feeding.close_input();
+        });
+        Self {
+            stream,
+            feeder: Some(feeder),
+            finished: false,
+        }
+    }
+
+    /// Waits at most `wait` for the next answer.
+    #[must_use]
+    pub fn next_within(&self, wait: Duration) -> Poll {
+        self.stream.next_answer_within(wait)
+    }
+
+    /// Stops the batch (cancelling anything not started), waits for the
+    /// workers and returns the summary.
+    #[must_use]
+    pub fn finish(mut self) -> StreamSummary {
+        self.finished = true;
+        let summary = self.stream.finish();
+        if let Some(feeder) = self.feeder.take() {
+            // The feeder ends once the input is closed; a panic in it has
+            // nobody left to be reported to.
+            let _ = feeder.join();
+        }
+        summary
+    }
+}
+
+impl Drop for Batch {
+    fn drop(&mut self) {
+        if !self.finished {
+            self.stream.cancel();
+            self.stream.abandon();
+        }
+    }
 }
 
 /// Serves JSONL: reads requests from `input` until end of input, writes one
@@ -653,18 +776,6 @@ fn read_line_bounded<R: BufRead>(
     }
 }
 
-/// An id is 1 to [`MAX_ID_BYTES`] bytes with no control character.
-fn check_id(id: &str) -> Result<(), JevError> {
-    if id.is_empty() || id.len() > MAX_ID_BYTES || id.chars().any(char::is_control) {
-        Err(JevError::input_invalid_field(
-            "id",
-            format!("id must be 1 to {MAX_ID_BYTES} bytes with no control characters"),
-        ))
-    } else {
-        Ok(())
-    }
-}
-
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct WireRequest<'a> {
@@ -682,17 +793,17 @@ struct BadLine {
 
 /// Splits an input line into its id and request text. On failure returns the
 /// id when one could still be read, with the error.
-fn split_line(line: &str) -> Result<(String, &str), Box<BadLine>> {
+fn split_line(line: &str) -> Result<(RequestId, &str), Box<BadLine>> {
     match serde_json::from_str::<WireRequest<'_>>(line) {
-        Ok(wire) => match check_id(&wire.id) {
-            Ok(()) => Ok((wire.id, wire.request.get())),
+        Ok(wire) => match RequestId::new(&wire.id) {
+            Ok(id) => Ok((id, wire.request.get())),
             Err(error) => Err(Box::new(BadLine { id: None, error })),
         },
         Err(error) => {
             let id = serde_json::from_str::<serde_json::Value>(line)
                 .ok()
-                .and_then(|value| value.get("id")?.as_str().map(str::to_owned))
-                .filter(|id| check_id(id).is_ok());
+                .and_then(|value| RequestId::new(value.get("id")?.as_str()?).ok())
+                .map(|id| id.0);
             Err(Box::new(BadLine {
                 id,
                 error: JevError::input_invalid(format!(
@@ -701,6 +812,28 @@ fn split_line(line: &str) -> Result<(String, &str), Box<BadLine>> {
             }))
         }
     }
+}
+
+/// The caller's id of `job`, when it has a usable one. Pure: no logging.
+fn job_id(job: &Job) -> Option<String> {
+    match job {
+        Job::Rejected(_) => None,
+        Job::Request(request) => Some(request.id.0.clone()),
+        Job::Line(line) => split_line(line).map_or_else(|failed| failed.id, |(id, _)| Some(id.0)),
+    }
+}
+
+/// The answer of last resort when even the skipped-job path panicked: the
+/// caller's id and a typed error, and nothing that can fail.
+fn lost(job: &Job) -> StreamAnswer {
+    StreamAnswer::failed(
+        job_id(job),
+        JevError::io_failed_with(
+            "stream worker (internal error)",
+            std::io::ErrorKind::Other,
+            Some("Report this if it repeats.".to_owned()),
+        ),
+    )
 }
 
 /// Shared by every worker: everything one request needs.
@@ -723,7 +856,7 @@ impl Engine {
                 Ok((id, request)) => self.answer_request(id, request),
                 Err(failed) => StreamAnswer::failed(failed.id, failed.error),
             },
-            Job::Request { id, json } => self.answer_request(id.clone(), json),
+            Job::Request(request) => self.answer_request(request.id.clone(), &request.json),
         };
         if let Err(error) = answer.outcome() {
             self.log.request_failed(answer.id(), error.code());
@@ -731,22 +864,18 @@ impl Engine {
         answer
     }
 
-    fn answer_request(&self, id: String, request_json: &str) -> StreamAnswer {
-        self.log.request_started(Some(&id));
+    fn answer_request(&self, id: RequestId, request_json: &str) -> StreamAnswer {
+        self.log.request_started(Some(id.as_str()));
         let outcome = CallerRequest::from_json(request_json.as_bytes())
             .and_then(|request| self.run_request(request));
         StreamAnswer {
-            id: Some(id),
+            id: Some(id.0),
             outcome,
         }
     }
 
     fn skipped(&self, job: &Job, why: Skipped) -> StreamAnswer {
-        let id = match job {
-            Job::Rejected(_) => None,
-            Job::Request { id, .. } => Some(id.clone()),
-            Job::Line(line) => split_line(line).map_or_else(|failed| failed.id, |(id, _)| Some(id)),
-        };
+        let id = job_id(job);
         let error = match why {
             Skipped::Cancelled => JevError::network(
                 NetworkErrorKind::Cancelled,

@@ -65,8 +65,11 @@ one process: JSONL in (stdin or `--input FILE`), one JSONL answer per request on
 stdout, in completion order, not input order. Each input line is
 `{"id":"q-1","request":{...}}` (the `--request-json` document) and its answer
 line echoes the id: `{"id":"q-1","ok":true,"envelope":{...}}`, or
-`{"id":"q-1","ok":false,"error":{...}}` with the stderr error body above. A
-failed request does not stop the stream. Requests may keep arriving while
+`{"id":"q-1","ok":false,"error":{...}}` with the stderr error body above.
+`ok` is false whenever `error` is present, and a request in which only some
+backends failed has both `envelope` (the answers that succeeded; read it even
+when `ok` is false) and `error`. `id` is `null` only when no usable id could be
+read from the line. A failed request does not stop the stream. Requests may keep arriving while
 answers come back, so an early answer can become a follow-up request. The
 stream ends when the input is closed, the queue is empty and the workers are
 idle. `--concurrency N` (1 to 64, default 8) sets the worker threads; the queue

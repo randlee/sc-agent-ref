@@ -124,7 +124,14 @@ class DecisionStream:
         *,
         timeout: float | None = None,
     ) -> bool:
-        """Queue a request; blocks while the queue is full. False on timeout."""
+        """Queue a request; blocks while the queue is full. False on timeout.
+
+        An unread answer holds a place: past `capacity` unread answers a single
+        thread blocks forever unless it reads from another thread or passes
+        `timeout=`.
+        """
+    def submit_line(self, line: str, *, timeout: float | None = None) -> bool:
+        """Queue one `{"id", "request"}` JSONL line, as `sc-ai jev stream` reads it."""
     def next(self, timeout: float | None = None) -> dict[str, Any] | None:
         """The next answer, or None once finished. TimeoutError on timeout."""
     def __iter__(self) -> Iterator[dict[str, Any]]: ...
@@ -136,7 +143,10 @@ class DecisionStream:
     @property
     def capacity(self) -> int: ...
     def finish(self) -> dict[str, Any]:
-        """`{"answered", "failed", "exit_code", "log_flush_warning"}`."""
+        """Close input, drop unread answers, wait for workers, flush the log.
+
+        Returns `{"answered", "failed", "exit_code", "log_flush_warning"}`.
+        """
     def __enter__(self) -> DecisionStream: ...
     def __exit__(self, *exc: object) -> None: ...
 
@@ -151,8 +161,12 @@ def run_many(
     system_prompt_file: StrPath | None = None,
     chain_context: bool = False,
     project: str | None = None,
-) -> list[dict[str, Any]]:
-    """Run a batch in parallel; answers in completion order, ids echoed."""
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Run a batch in parallel: `(answers, summary)`.
+
+    Answers are in completion order with ids echoed; the summary is
+    `finish()`'s. Every id and body is validated before anything starts.
+    """
 def canonical_bytes(json_text: str) -> bytes: ...
 def canonical_sha256(json_text: str) -> str: ...
 def default_log_root() -> pathlib.Path: ...

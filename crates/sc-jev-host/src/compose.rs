@@ -230,10 +230,6 @@ impl ComposeInputs {
         &self.policy
     }
 
-    pub(crate) fn cancel_token(&self) -> &CancelToken {
-        &self.cancel
-    }
-
     pub(crate) fn injected_registry(&self) -> Option<&Arc<BackendRegistry>> {
         self.registry.as_ref()
     }

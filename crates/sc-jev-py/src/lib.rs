@@ -41,7 +41,7 @@
 //! ```text
 //! import sc_jev_py as jev
 //! result = jev.run_check("check.toml", backends=["jev"], dry_run=False)
-//! answers = jev.run_many({"q-1": {"questions": [...]}, "q-2": {"questions": [...]}})
+//! answers, summary = jev.run_many({"q-1": {"questions": [...]}, "q-2": {"questions": [...]}})
 //! ```
 //!
 //! The wheel ships type stubs (`sc_jev_py.pyi`, installed as `__init__.pyi`)

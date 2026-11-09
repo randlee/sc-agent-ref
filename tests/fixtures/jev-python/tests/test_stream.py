@@ -35,7 +35,7 @@ def test_run_many_answers_every_id_and_a_bad_request_does_not_raise(tmp_path: Pa
     repo.mkdir()
     requests = {f"r{i}": REQUEST for i in range(30)}
     requests["bad"] = {"questions": []}
-    answers = sc_jev_py._testing.run_many_scripted(
+    answers, summary = sc_jev_py._testing.run_many_scripted(
         requests,
         scripted_answers=ANSWERS,
         concurrency=4,
@@ -50,6 +50,11 @@ def test_run_many_answers_every_id_and_a_bad_request_does_not_raise(tmp_path: Pa
     assert by_id["bad"]["ok"] is False
     assert by_id["bad"]["error"]["error"] == "INPUT_INVALID"
     assert by_id["bad"]["error"]["retryable"] is False
+    # The summary carries what the CLI's exit code and stderr would.
+    assert summary["answered"] == 31
+    assert summary["failed"] == 1
+    assert summary["exit_code"] == 2
+    assert "log_flush_warning" in summary
 
 
 def test_run_many_accepts_pairs_and_json_text(tmp_path: Path) -> None:
@@ -57,7 +62,7 @@ def test_run_many_accepts_pairs_and_json_text(tmp_path: Path) -> None:
 
     repo = tmp_path / "repo"
     repo.mkdir()
-    answers = sc_jev_py._testing.run_many_scripted(
+    answers, summary = sc_jev_py._testing.run_many_scripted(
         [("a", json.dumps(REQUEST)), ("b", REQUEST)],
         scripted_answers=ANSWERS,
         repo_root=repo,
@@ -66,20 +71,61 @@ def test_run_many_accepts_pairs_and_json_text(tmp_path: Path) -> None:
     )
     assert sorted(a["id"] for a in answers) == ["a", "b"]
     assert all(a["ok"] for a in answers)
+    assert summary["exit_code"] == 0
 
 
-def test_run_many_rejects_a_bad_id_before_running(tmp_path: Path) -> None:
+def test_run_many_validates_every_id_and_body_before_anything_starts(tmp_path: Path) -> None:
+    """A bad id after good requests raises, and nothing was sent or logged."""
     repo = tmp_path / "repo"
     repo.mkdir()
-    with pytest.raises(sc_jev_py.JevError) as caught:
-        sc_jev_py._testing.run_many_scripted(
-            [("", REQUEST)],
-            scripted_answers=ANSWERS,
-            repo_root=repo,
-            log_dir=tmp_path / "log",
-        )
-    assert caught.value.code == "INPUT_INVALID"
-    assert caught.value.field == "id"
+    for bad in (("", REQUEST), ("x", "{nope")):
+        with pytest.raises(sc_jev_py.JevError) as caught:
+            sc_jev_py._testing.run_many_scripted(
+                [("first", REQUEST), ("second", REQUEST), bad],
+                scripted_answers=ANSWERS,
+                repo_root=repo,
+                log_dir=tmp_path / "log",
+            )
+        assert caught.value.code == "INPUT_INVALID"
+    # No stream started: no session log was opened, so nothing was sent.
+    assert not (tmp_path / "log").exists()
+
+
+def test_submit_line_takes_the_cli_jsonl_form(tmp_path: Path) -> None:
+    import json
+
+    stream = _stream(tmp_path)
+    assert stream.submit_line(json.dumps({"id": "l1", "request": REQUEST}))
+    assert stream.submit_line("not json")
+    assert stream.submit_line(json.dumps({"id": "l2", "request": {"questions": []}}))
+    stream.close_input()
+    answers = {a["id"]: a for a in stream}
+    assert answers["l1"]["ok"] is True
+    assert answers["l2"]["ok"] is False
+    assert answers["l2"]["error"]["error"] == "INPUT_INVALID"
+    assert answers[None]["error"]["error"] == "INPUT_INVALID"
+
+
+def test_finish_closes_input_and_never_hangs_on_unread_answers(tmp_path: Path) -> None:
+    stream = _stream(tmp_path, concurrency=1)
+    accepted = sum(
+        1 for i in range(stream.capacity) if stream.submit(f"u{i}", REQUEST, timeout=0.05)
+    )
+    summary = stream.finish()
+    assert summary["answered"] == accepted
+    with pytest.raises(sc_jev_py.JevError):
+        stream.submit("late", REQUEST)
+
+
+def test_a_single_thread_submitting_past_capacity_times_out(tmp_path: Path) -> None:
+    """Unread answers hold capacity: with `timeout=` the caller is told."""
+    stream = _stream(tmp_path, concurrency=1)
+    total = stream.capacity + 10
+    results = [stream.submit(f"p{i}", REQUEST, timeout=0.02) for i in range(total)]
+    assert results.count(True) <= stream.capacity
+    assert results.count(False) >= 10
+    stream.close_input()
+    assert sum(1 for _ in stream) == results.count(True)
 
 
 def test_early_answers_become_follow_up_requests(tmp_path: Path) -> None:

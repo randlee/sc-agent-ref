@@ -19,7 +19,10 @@ use pyo3::exceptions::PyTimeoutError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAnyMethods, PyDict};
 use sc_agent_types::JevError;
-use sc_jev_host::stream::{Concurrency, DecisionStream as HostStream, Poll, SubmitError};
+use sc_jev_host::stream::{
+    Batch, Concurrency, DecisionStream as HostStream, Poll, StreamRequest, StreamSummary,
+    SubmitError,
+};
 use serde_json::Value;
 
 use crate::error::{map_err, to_py_err};
@@ -188,6 +191,12 @@ impl DecisionStream {
     /// bytes, no control characters), text that is not JSON, or a closed or
     /// cancelled stream. `request` is the `--request-json` document as a dict
     /// or JSON text. Ids are not checked for uniqueness.
+    ///
+    /// **An answer you have not read holds a place in the stream.** Past
+    /// `capacity` unread answers, `submit` blocks: a single thread that
+    /// submits more than `capacity` requests before reading any answer waits
+    /// forever. Read answers from another thread while submitting, or pass
+    /// `timeout=` and read when it returns `False`.
     #[pyo3(signature = (id, request, *, timeout=None))]
     fn submit(
         &self,
@@ -196,26 +205,21 @@ impl DecisionStream {
         request: &Bound<'_, PyAny>,
         timeout: Option<f64>,
     ) -> PyResult<bool> {
-        let text = request_text(request)?;
-        let deadline = deadline_of(timeout);
-        loop {
-            let slice = remaining(deadline, SLICE);
-            let stream = Arc::clone(&self.inner);
-            let id = id.to_owned();
-            let text = text.clone();
-            let queued = py.detach(move || stream.submit_request(&id, &text, Some(slice)));
-            match queued {
-                Ok(()) => return Ok(true),
-                Err(SubmitError::Full) => {
-                    py.check_signals()?;
-                    if expired(deadline) {
-                        return Ok(false);
-                    }
-                }
-                Err(SubmitError::Invalid(error)) => return Err(to_py_err(py, &error)),
-                Err(_) => return Err(to_py_err(py, &closed())),
-            }
-        }
+        let request = map_err(py, StreamRequest::new(id, &request_text(request)?))?;
+        self.queue(py, timeout, |stream, slice| {
+            stream.submit_request(request.clone(), Some(slice))
+        })
+    }
+
+    /// Queues one JSONL input line, `{"id": ..., "request": ...}`, exactly as
+    /// `sc-ai jev stream` reads it from a file or stdin. A line that is not a
+    /// valid request is not an exception: it comes back as an answer with
+    /// `ok == False`. Blocking and `timeout` are as for `submit`.
+    #[pyo3(signature = (line, *, timeout=None))]
+    fn submit_line(&self, py: Python<'_>, line: &str, timeout: Option<f64>) -> PyResult<bool> {
+        self.queue(py, timeout, |stream, slice| {
+            stream.submit_line(line.to_owned(), Some(slice))
+        })
     }
 
     /// The next answer as a dict, in completion order.
@@ -275,19 +279,23 @@ impl DecisionStream {
         self.inner.capacity()
     }
 
-    /// Waits for the workers, flushes the log, and returns the summary:
-    /// `{"answered", "failed", "exit_code"}` where `exit_code` is the CLI's
-    /// (0, or 3 if every failure is retryable, else 2). Call after `next()`
-    /// returned `None`.
+    /// Closes the input, drops answers not yet read, waits for the workers,
+    /// flushes the log, and returns the summary: `{"answered", "failed",
+    /// "exit_code", "log_flush_warning"}` where `exit_code` is the CLI's
+    /// (0, or 3 if every failure is retryable, else 2). It never hangs on
+    /// unread answers; it waits for requests already sent (the wait can be
+    /// interrupted with `Ctrl-C`).
     fn finish(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        self.inner.close_input();
+        loop {
+            let stream = Arc::clone(&self.inner);
+            match py.detach(move || stream.next_answer_within(SLICE)) {
+                Poll::Finished => break,
+                Poll::Answer(_) | Poll::Pending => py.check_signals()?,
+            }
+        }
         let stream = Arc::clone(&self.inner);
-        let summary = py.detach(move || stream.finish());
-        let dict = PyDict::new(py);
-        dict.set_item("answered", summary.answered())?;
-        dict.set_item("failed", summary.failed())?;
-        dict.set_item("exit_code", summary.exit_code())?;
-        dict.set_item("log_flush_warning", summary.log_flush_warning())?;
-        Ok(dict.into_any().unbind())
+        summary_dict(py, &py.detach(move || stream.finish()))
     }
 
     fn __enter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
@@ -303,6 +311,31 @@ impl DecisionStream {
 }
 
 impl DecisionStream {
+    /// Retries `try_queue` in slices until it is accepted, the stream is
+    /// closed, or `timeout` passes, checking for Python signals between.
+    fn queue(
+        &self,
+        py: Python<'_>,
+        timeout: Option<f64>,
+        try_queue: impl Fn(&HostStream, Duration) -> Result<(), SubmitError> + Send + Sync,
+    ) -> PyResult<bool> {
+        let deadline = deadline_of(timeout);
+        loop {
+            let slice = remaining(deadline, SLICE);
+            let stream = &self.inner;
+            match py.detach(|| try_queue(stream, slice)) {
+                Ok(()) => return Ok(true),
+                Err(SubmitError::Full) => {
+                    py.check_signals()?;
+                    if expired(deadline) {
+                        return Ok(false);
+                    }
+                }
+                Err(_) => return Err(to_py_err(py, &closed())),
+            }
+        }
+    }
+
     fn from_spec(py: Python<'_>, spec: StreamSpec) -> PyResult<Self> {
         let started = py.detach(move || spec.start());
         Ok(Self {
@@ -315,6 +348,15 @@ impl Drop for DecisionStream {
     fn drop(&mut self) {
         self.inner.abandon();
     }
+}
+
+fn summary_dict(py: Python<'_>, summary: &StreamSummary) -> PyResult<Py<PyAny>> {
+    let dict = PyDict::new(py);
+    dict.set_item("answered", summary.answered())?;
+    dict.set_item("failed", summary.failed())?;
+    dict.set_item("exit_code", summary.exit_code())?;
+    dict.set_item("log_flush_warning", summary.log_flush_warning())?;
+    Ok(dict.into_any().unbind())
 }
 
 fn deadline_of(timeout: Option<f64>) -> Option<Instant> {
@@ -333,15 +375,17 @@ fn remaining(deadline: Option<Instant>, slice: Duration) -> Duration {
 }
 
 /// Runs a batch: every `(id, request)` pair in `requests` in parallel on
-/// `concurrency` workers, and returns every answer dict in completion order.
+/// `concurrency` workers. Returns `(answers, summary)`: every answer dict in
+/// completion order, and the CLI's summary (`answered`, `failed`,
+/// `exit_code`, `log_flush_warning`).
 ///
 /// `requests` is a dict of id to request, or an iterable of `(id, request)`
-/// pairs; a request is a dict or JSON text. A failed request is an answer
-/// with `ok == False`, not an exception, so one bad request cannot lose the
-/// others. Raises `JevError` only for a bad argument or a stream-level
-/// failure (no repo root, logger start), or for a bad `id` before anything
-/// runs. The GIL is released while the workers run. Other arguments are as
-/// `DecisionStream`.
+/// pairs; a request is a dict or JSON text. Every id and body is validated
+/// before anything starts, so a bad one raises `JevError` with nothing sent.
+/// A failed request is an answer with `ok == False`, not an exception, so one
+/// bad request cannot lose the others. Waiting is interruptible (`Ctrl-C`
+/// cancels the batch and raises `KeyboardInterrupt`). The GIL is released
+/// while the workers run. Other arguments are as `DecisionStream`.
 #[pyfunction]
 #[pyo3(signature = (
     requests,
@@ -367,7 +411,7 @@ pub(crate) fn run_many(
     system_prompt_file: Option<PathBuf>,
     chain_context: bool,
     project: Option<String>,
-) -> PyResult<Vec<Py<PyAny>>> {
+) -> PyResult<(Vec<Py<PyAny>>, Py<PyAny>)> {
     let spec = map_err(
         py,
         StreamSpec::new(
@@ -384,7 +428,8 @@ pub(crate) fn run_many(
     run_batch(py, spec, requests)
 }
 
-fn pairs(requests: &Bound<'_, PyAny>) -> PyResult<Vec<(String, String)>> {
+/// Every pair of `requests`, validated.
+fn validated(py: Python<'_>, requests: &Bound<'_, PyAny>) -> PyResult<Vec<StreamRequest>> {
     let items: Vec<Bound<'_, PyAny>> = match requests.cast::<PyDict>() {
         Ok(dict) => dict.items().iter().collect(),
         Err(_) => requests.try_iter()?.collect::<PyResult<_>>()?,
@@ -393,7 +438,7 @@ fn pairs(requests: &Bound<'_, PyAny>) -> PyResult<Vec<(String, String)>> {
         .iter()
         .map(|item| {
             let (id, request): (String, Bound<'_, PyAny>) = item.extract()?;
-            Ok((id, request_text(&request)?))
+            map_err(py, StreamRequest::new(&id, &request_text(&request)?))
         })
         .collect()
 }
@@ -402,51 +447,23 @@ fn run_batch(
     py: Python<'_>,
     spec: StreamSpec,
     requests: &Bound<'_, PyAny>,
-) -> PyResult<Vec<Py<PyAny>>> {
-    let batch = pairs(requests)?;
-    let lines = map_err(py, py.detach(move || drive(spec, batch)))?;
-    lines
-        .iter()
-        .map(|line| to_py(py, "stream answer", serde_json::from_slice::<Value>(line)))
-        .collect()
-}
-
-/// Feeds `batch` from a helper thread while this thread drains the answers,
-/// so neither side can fill a bounded queue and block the other.
-fn drive(spec: StreamSpec, batch: Vec<(String, String)>) -> Result<Vec<Vec<u8>>, JevError> {
-    let stream = Arc::new(spec.start()?);
-    // Validate every id and body before anything runs.
-    for (id, text) in &batch {
-        serde_json::from_str::<&serde_json::value::RawValue>(text).map_err(|error| {
-            JevError::input_invalid_field("request", format!("request {id:?} is not JSON: {error}"))
-        })?;
+) -> PyResult<(Vec<Py<PyAny>>, Py<PyAny>)> {
+    // Validate everything before a stream, a log or a send exists.
+    let batch = validated(py, requests)?;
+    let started = py.detach(move || spec.start());
+    let stream = Arc::new(map_err(py, started)?);
+    // Dropping `batch` on any early exit (`?`, Ctrl-C) cancels the stream.
+    let batch = Batch::start(stream, batch);
+    let mut answers = Vec::new();
+    loop {
+        match py.detach(|| batch.next_within(SLICE)) {
+            Poll::Answer(answer) => answers.push(answer_dict(py, &answer)?),
+            Poll::Pending => py.check_signals()?,
+            Poll::Finished => break,
+        }
     }
-    let feeder = {
-        let stream = Arc::clone(&stream);
-        std::thread::spawn(move || -> Result<(), JevError> {
-            for (id, text) in batch {
-                match stream.submit_request(&id, &text, None) {
-                    Ok(()) => {}
-                    Err(SubmitError::Invalid(error)) => {
-                        stream.cancel();
-                        return Err(error);
-                    }
-                    Err(_) => break,
-                }
-            }
-            stream.close_input();
-            Ok(())
-        })
-    };
-    let mut lines = Vec::new();
-    while let Some(answer) = stream.next_answer() {
-        lines.push(answer.to_line()?);
-    }
-    let _ = stream.finish();
-    feeder.join().map_err(|_| {
-        JevError::io_failed_with("run_many feeder thread", std::io::ErrorKind::Other, None)
-    })??;
-    Ok(lines)
+    let summary = py.detach(move || batch.finish());
+    Ok((answers, summary_dict(py, &summary)?))
 }
 
 /// Test-only entry points, registered in `sc_jev_py._testing`.
@@ -516,7 +533,7 @@ pub(crate) mod testing {
         repo_root: Option<PathBuf>,
         log_dir: Option<PathBuf>,
         session_dir: Option<PathBuf>,
-    ) -> PyResult<Vec<Py<PyAny>>> {
+    ) -> PyResult<(Vec<Py<PyAny>>, Py<PyAny>)> {
         let answers = map_err(py, py_to_value(&scripted_answers))?;
         let mut spec = map_err(
             py,

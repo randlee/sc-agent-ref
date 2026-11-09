@@ -147,13 +147,13 @@ own row's Status cell and its own marker text, and added or removed no entry).
 | ADR-SAG-0023 | Dependency pins, allocator, released binaries | Active (r-4; host pin r-3b; Windows CRT phase-end) | Amends ADR-SAG-0016, ADR-SAG-0017 |
 | ADR-SAG-0024 | Engine entry point and response contract | Active (r-2) | Amends ADR-SAG-0003, ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0014, ADR-SAG-0019, ADR-SAG-0022; supersedes the ADR-SAG-0014 A.1 r-1 interim subsection |
 | ADR-SAG-0025 | Multi-backend semantics and equal-input attestation | Active (r-2b) | Amends ADR-SAG-0004, ADR-SAG-0008, ADR-SAG-0019, ADR-SAG-0022; amended by agt-2a3 (all-failed runs keep every error) (Active) |
-| ADR-SAG-0026 | Shared HTTP crate and host crate | Active (HTTP half, r-3; host half, r-3b) | Amends ADR-SAG-0006, ADR-SAG-0007, ADR-SAG-0020, ADR-SAG-0017 (HTTP half); ADR-SAG-0010, ADR-SAG-0011, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0017 (host half); amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6); agt-2a3 provider failure classification (Active) |
+| ADR-SAG-0026 | Shared HTTP crate and host crate | Active (HTTP half, r-3; host half, r-3b) | Amends ADR-SAG-0006, ADR-SAG-0007, ADR-SAG-0020, ADR-SAG-0017 (HTTP half); ADR-SAG-0010, ADR-SAG-0011, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0017 (host half); amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6); agt-2a3 provider failure classification (Active); ADR-SAG-0032 (Active, agt-1aq: `sc-jev-host` gains `stream` and a direct `serde` edge) |
 | ADR-SAG-0027 | Error taxonomy and extensibility | Active (r-1) | Amends ADR-SAG-0001, ADR-SAG-0009, ADR-SAG-0016; amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6); agt-2a3 error contract (Active) |
 | ADR-SAG-0028 | workspace-tests crate | Active (r-3b) | Amended by ADR-SAG-0030 (Active, r-7) |
 | ADR-SAG-0029 | Phase A hardening amendments | Active (a-10) | Amends ADR-SAG-0020 and ADR-SAG-0022; A.1 supersedes named sentences of (a) (Active, r-1), (Active, r-3) and of (b) (Active, r-1), (Active, r-2) |
 | ADR-SAG-0030 | Decision schema crate and model catalog | Active (r-7); jev::v1 (Active, r-5) | Amends ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0012, ADR-SAG-0016, ADR-SAG-0017, ADR-SAG-0019, ADR-SAG-0022, ADR-SAG-0026, ADR-SAG-0027, ADR-SAG-0028 |
 | ADR-SAG-0031 | Session log storage schema | Active (r-7 storage schema, r-6 wiring) | Amends ADR-SAG-0008, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0026, ADR-SAG-0027 (wiring) |
-| ADR-SAG-0032 | Streaming decision calls | Active (agt-1aq) | Amends ADR-SAG-0014 (one envelope per run), ADR-SAG-0026 (host crate gains `stream`); uses ADR-SAG-0013, ADR-SAG-0024, ADR-SAG-0027 |
+| ADR-SAG-0032 | Streaming decision calls | Active (agt-1aq) | Amends ADR-SAG-0014 (one envelope per run), ADR-SAG-0026 (host crate gains `stream` and a direct `serde` edge); uses ADR-SAG-0013, ADR-SAG-0024, ADR-SAG-0027 |
 
 ## ADR-SAG-0001 — Error enum is CLI authority
 
@@ -2101,10 +2101,16 @@ queries, so callers do not spawn a process per query.
   line, one per request, in completion order (not input order):
   `{"id", "ok", "envelope"?, "error"?}`. `envelope` is the existing `jev run`
   envelope without the path readback; `error` is the existing
-  `ScAgentErrorResponse`. A failed request is `ok: false` with only `error`;
-  a request with some failed backends has both (as `jev run` prints stdout and
-  stderr). A line that could not be read has `"id": null`. Ids are 1 to 256
-  bytes with no control character and are not checked for uniqueness.
+  `ScAgentErrorResponse`. `ok` is false whenever `error` is present. A failed
+  request has only `error`; a request with some failed backends has both
+  `envelope` and `error` (as `jev run` prints stdout and stderr), so a client
+  reads `envelope` whenever it is present. `id` is echoed whenever a usable id
+  could be read from the line, even if the rest is invalid; it is `null` only
+  when none could. Ids are 1 to 256 bytes with no control character and are
+  not checked for uniqueness. `sc-jev-host` gains a direct `serde` dependency
+  for the wire structs (and the `serde_json` `raw_value` feature, so the
+  request document is passed through byte for byte); it adds no new crate to
+  the lockfile.
 - (Active) **Per-request failure never stops the stream.** The failure is a
   typed error on that request's line. **Exit code**, the existing rule applied
   across the stream: 0 when no request failed; 3 when every failure is
@@ -2123,8 +2129,9 @@ queries, so callers do not spawn a process per query.
   client). The stream builds **one registry, so one client, per backend
   selection** and shares it across workers; there is no client per worker.
 - (Active) **Cancellation** stops new work: `cancel` closes the input, cancels
-  the engine's `CancelToken` (so a busy-retry wait ends within 100 ms), and
-  answers each request still queued with a `NETWORK_ERROR` "cancelled" line.
+  the stream's own `CancelToken` (`start` replaces any token on the inputs, so
+  cancelling is only through the stream), so a busy-retry wait ends within
+  100 ms, and answers each request still queued with a `NETWORK_ERROR` "cancelled" line.
   A request already sent is not interrupted. The CLI cancels on a write
   failure; it installs no signal handler (SIGINT ends the process, as for
   `jev run`).
@@ -2133,6 +2140,15 @@ queries, so callers do not spawn a process per query.
   and end, worker counts, per-request start and failure ids and error codes)
   go through the general-log port behind one internal seam
   (`stream/log.rs`). Never a secret, a prompt, a question or state.
+- (Active) **Lifecycle edges.** `finish` closes the input and drops unread
+  answers instead of waiting for a reader, so it never hangs on them. An
+  unread answer holds capacity: a caller that submits more than `capacity`
+  requests from the thread that should read the answers waits forever unless it
+  reads from another thread or submits with a timeout. A worker's exit is
+  accounted by a drop guard, and the path for a job that is not run is guarded
+  too, so every accepted job gets exactly one answer even if logging panics
+  there. The Python batch driver is `sc_jev_host::stream::Batch`; the PyO3
+  crate only converts arguments, detaches the GIL and maps errors (ADR-SAG-0011).
 - (Active) **Out of scope.** Resume, sha256 lookup and any result cache (a
   general concern for all calls); a shared rate limiter (each request keeps its
   own busy retry); a new session-log writer.

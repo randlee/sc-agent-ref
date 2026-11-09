@@ -46,10 +46,13 @@ JSONL in (--input FILE, or stdin), JSONL out on stdout, one line per request,
 in completion order, not input order. Each input line is
 {\"id\":\"<your id>\",\"request\":<the --request-json document>} and its answer
 line echoes the id: {\"id\",\"ok\",\"envelope\"?,\"error\"?}. envelope is the jev run
-envelope; error is the stderr body above. A failed request (a bad line, a failed
-backend) is an error on its own line and the stream continues. A line that
-cannot be read has \"id\": null. --concurrency N (1 to 64, default 8) sets the
-worker threads; the queue is bounded, so a slow reader slows the input. The
+envelope; error is the stderr body above. ok is false whenever error is present.
+A request in which some backends failed has both envelope (the answers that
+succeeded; read it even when ok is false) and error (the first failure). A
+failed request (a bad line, a failed backend) is an error on its own line and
+the stream continues. id is null only when no usable id could be read from the
+line; otherwise it is echoed, even if the rest of the line is invalid.
+--concurrency N (1 to 64, default 8) sets the worker threads; the queue is bounded, so a slow reader slows the input. The
 stream ends when the input is closed, the queue is empty and the workers are
 idle. Exit 0 when no request failed; else 3 if every failure is retryable, else
 2. Per-request errors go on stdout lines, not stderr. Ids are not checked for
@@ -585,7 +588,12 @@ mod tests {
             "{\"id\":\"<your id>\",\"request\":",
             "in completion order, not input order",
             "echoes the id",
-            "A failed request (a bad line, a failed",
+            "ok is false whenever error is present.",
+            "has both envelope (the answers that",
+            "succeeded; read it even when ok is false) and error (the first failure)",
+            "id is null only when no usable id could be read from the",
+            "otherwise it is echoed, even if the rest of the line is invalid.",
+            "failed request (a bad line, a failed",
             "the stream continues",
             "--concurrency N (1 to 64, default 8)",
             "the queue is bounded",
