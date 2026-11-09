@@ -61,10 +61,10 @@ fn test_dry_run_writes_nothing_and_defaults_to_independent() {
 #[test]
 fn test_live_run_logs_saves_a_session_and_ask_follows_up() {
     let repo = repo();
-    let registry = mock_registry(BackendId::AnthropicHaiku);
+    let registry = mock_registry(BackendId::Haiku);
     let configured = || {
         inputs(repo.path())
-            .backends(BackendSet::try_from(vec![BackendId::AnthropicHaiku]).expect("set"))
+            .backends(BackendSet::try_from(vec![BackendId::Haiku]).expect("set"))
             .registry(Arc::clone(&registry))
     };
     let response = run_from(source(repo.path()), configured()).expect("run");
@@ -80,7 +80,7 @@ fn test_live_run_logs_saves_a_session_and_ask_follows_up() {
     assert!(repo.path().join(".sc-ai/sessions").is_dir());
 
     let asked = ask_from(id, "why?", configured()).expect("ask");
-    assert_eq!(asked.outcome().backend(), BackendId::AnthropicHaiku);
+    assert_eq!(asked.outcome().backend(), BackendId::Haiku);
     let text = std::fs::read_to_string(&log).expect("jsonl");
     assert_eq!(
         text.lines().filter(|line| !line.is_empty()).count(),

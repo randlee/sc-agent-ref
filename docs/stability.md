@@ -136,7 +136,7 @@ the byte cap.
 | `RESPONSE_INVALID` | `cause` (`truncated`, `too_large`, `not_json`, `schema`) |
 | `INPUT_MISSING`, `PROMPT_FILE_MISSING` | `path` |
 | a producer's error | the producer's own `details`, plus `producer` |
-| any stored backend failure (a result in `results`, the first failure on stderr) | `backend` (the descriptor name, such as `jev` or `anthropic_haiku`) |
+| any stored backend failure (a result in `results`, the first failure on stderr) | `backend` (the descriptor name, such as `jev` or `haiku`) |
 | any, when the session log could not be flushed as the error left | `log_flush_failure` |
 
 `details.io_kind` is one of a closed set, from an explicit table (never the

@@ -77,11 +77,15 @@ pub use error::{
 };
 #[doc(inline)]
 pub use ids::{
-    AnswerId, BackendId, BackendKeyId, BackendSet, BlobSha, Operation, PayloadSha256, ProjectLabel,
-    QuestionsSha256, RepoRelativePath, RepoRoot, RequestSha256, Rev, SessionId, Sha256Digest,
+    AnswerId, BackendChoice, BackendId, BackendKeyId, BackendSet, BlobSha, Operation,
+    PayloadSha256, ProjectLabel, QuestionsSha256, RepoRelativePath, RepoRoot, RequestSha256, Rev,
+    SessionId, Sha256Digest,
 };
 #[doc(inline)]
-pub use models::{MODELS, ModelAliases, ModelDescriptor, ModelFamily, ModelId, UnknownModel};
+pub use models::{
+    MODELS, ModelAliases, ModelDescriptor, ModelFamily, ModelId, ModelSource, ResolvedModel,
+    UnknownModel,
+};
 #[cfg(feature = "secret")]
 #[doc(inline)]
 pub use secret::ResolvedApiKey;

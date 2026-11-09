@@ -103,7 +103,7 @@ mod tests {
             &bundle,
             RunAttestation {
                 mode: MultiBackendMode::ChainContext,
-                backends: [BackendId::Jev, BackendId::AnthropicHaiku]
+                backends: [BackendId::Jev, BackendId::Haiku]
                     .map(|id| BackendAttestation::new(id, Attestation::Unattested))
                     .to_vec(),
                 leak: true,

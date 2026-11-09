@@ -116,13 +116,13 @@ mod tests {
             "choices": ["no", "yes"]
         }],
         "state": [{"question_id": "relevant", "choice": "yes"}],
-        "backends": ["anthropic_haiku"]
+        "backends": ["haiku"]
     }"#;
 
     #[test]
     fn caller_request_builds_a_canonical_bundle() {
         let parsed = parse_caller_request(QUESTIONS.as_bytes()).expect("request");
-        assert_eq!(parsed.backends, vec![BackendId::AnthropicHaiku]);
+        assert_eq!(parsed.backends, vec![BackendId::Haiku]);
         let text = std::str::from_utf8(parsed.bundle.bytes()).expect("utf8");
         assert!(text.contains("\"id\":\"relevant\""));
         assert!(text.contains("\"choice\":\"yes\""));

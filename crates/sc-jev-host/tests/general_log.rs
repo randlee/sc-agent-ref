@@ -43,10 +43,7 @@ fn registry() -> Arc<BackendRegistry> {
         .expect("answers");
     let mut registry = BackendRegistry::new();
     registry
-        .register(Arc::new(MockJudgeBackend::new(
-            BackendId::AnthropicHaiku,
-            answers,
-        )))
+        .register(Arc::new(MockJudgeBackend::new(BackendId::Haiku, answers)))
         .expect("register");
     Arc::new(registry)
 }
@@ -54,7 +51,7 @@ fn registry() -> Arc<BackendRegistry> {
 fn inputs(repo: &Path) -> ComposeInputs {
     ComposeInputs::new(repo.to_path_buf(), PathPolicy::cli())
         .repo_root(RepoRoot::new(repo))
-        .backends(BackendSet::try_from(vec![BackendId::AnthropicHaiku]).expect("set"))
+        .backends(BackendSet::try_from(vec![BackendId::Haiku]).expect("set"))
         .registry(registry())
 }
 
@@ -214,7 +211,7 @@ fn runs_in_one_file_are_told_apart_by_run_id_and_carry_durations() {
     for row in sends {
         assert!(row["fields"]["duration_ms"].is_u64(), "{row}");
         assert_eq!(row["fields"]["session_id"].as_str().map(str::len), Some(26));
-        assert_eq!(row["fields"]["backend"], "anthropic_haiku");
+        assert_eq!(row["fields"]["backend"], "haiku");
     }
 }
 

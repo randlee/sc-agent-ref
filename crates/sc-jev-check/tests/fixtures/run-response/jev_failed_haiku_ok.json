@@ -5,7 +5,7 @@
     }
   },
   "model": "claude-haiku-test",
-  "primary_backend": "anthropic_haiku",
+  "primary_backend": "haiku",
   "session_id": "01JC4Z7A5B0000000000000004",
   "session_saved": true,
   "payload_sha256": "4761e8e5cb3c8da165b4869c6a252459ca5adc4cb23cfb45ce6800583d982587",
@@ -30,7 +30,7 @@
       }
     },
     {
-      "backend": "anthropic_haiku",
+      "backend": "haiku",
       "status": "ok",
       "outcome": {
         "answers": {
@@ -38,7 +38,7 @@
             "choice": "yes"
           }
         },
-        "backend": "anthropic_haiku",
+        "backend": "haiku",
         "provider_meta": {
           "commands": 0,
           "input_tokens": 412,
@@ -62,7 +62,7 @@
         }
       },
       {
-        "backend": "anthropic_haiku",
+        "backend": "haiku",
         "attestation": {
           "status": "unattested"
         }

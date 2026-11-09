@@ -83,7 +83,7 @@
 //!
 //! let repo = discover_repo_root(std::path::Path::new("."))?;
 //! let config = RunConfig::new(repo.clone(), Arc::new(NoopSessionLog))
-//!     .backends("jev,anthropic_haiku".parse()?)
+//!     .backends("jev,haiku".parse()?)
 //!     .sessions_dir(".sc-ai/sessions");
 //! let source = CheckSource::check_file(&repo, std::path::Path::new("check.toml"))?;
 //! let prepared = prepare(source, config)?;
@@ -1078,7 +1078,7 @@ fn presend_request_sha256(
         let model = model(id);
         let digest = match id {
             BackendId::Jev => sc_jev::request_sha256(&model, request.payload()),
-            BackendId::AnthropicHaiku | BackendId::OpenAiLuna => {
+            BackendId::Haiku | BackendId::Luna => {
                 sc_jev_backends::request_sha256(id, &model, &request)
             }
             _ => continue,

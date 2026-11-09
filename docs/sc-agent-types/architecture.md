@@ -87,7 +87,7 @@ body of every variant shape; `SC_UPDATE_GOLDEN=1` rewrites it.
 `aliases`, `key_id`, `family`, `requires_llm_context`,
 `supports_session_ask`, `request_limit_bytes`. `BackendId::descriptor` is the
 one exhaustive `match`; `Display`, serde and `FromStr` read the descriptor,
-so `openai_luna` / `openai` are the only written spellings and `open_ai_luna`
+so `luna` / `openai` are the only written spellings and `open_ai_luna`
 / `open_ai` are read aliases. `JudgeBackend::capabilities()` is provided from
 the descriptor. Callers branch on descriptor facts, never on id equality.
 

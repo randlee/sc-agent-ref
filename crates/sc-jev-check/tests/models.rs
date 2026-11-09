@@ -26,7 +26,7 @@ fn repo(models: &str) -> tempfile::TempDir {
     std::fs::write(dir.path().join("questions.json"), questions.to_string()).expect("questions");
     std::fs::write(
         dir.path().join("check.toml"),
-        format!("backends = [\"jev\", \"anthropic_haiku\", \"openai_luna\"]\n\n[questions]\npath = \"questions.json\"\n{models}"),
+        format!("backends = [\"jev\", \"haiku\", \"luna\"]\n\n[questions]\npath = \"questions.json\"\n{models}"),
     )
     .expect("check.toml");
     dir
@@ -56,13 +56,10 @@ fn test_check_toml_models_override_reaches_backend() {
     let dir = repo("\n[models]\nhaiku = \"claude-haiku-9-preview\"\nluna = \"gpt-6-luna\"\n");
     let from_toml = prepared(&dir, |config| config);
     assert_eq!(
-        model_of(&from_toml, BackendId::AnthropicHaiku).as_str(),
+        model_of(&from_toml, BackendId::Haiku).as_str(),
         "claude-haiku-9-preview"
     );
-    assert_eq!(
-        model_of(&from_toml, BackendId::OpenAiLuna),
-        ModelId::Gpt6Luna
-    );
+    assert_eq!(model_of(&from_toml, BackendId::Luna), ModelId::Gpt6Luna);
     // Unlisted aliases keep the catalog default.
     assert_eq!(model_of(&from_toml, BackendId::Jev), ModelId::Jev1_13_0);
 
@@ -79,11 +76,11 @@ fn test_check_toml_models_override_reaches_backend() {
         .expect("alias");
     let config_wins = prepared(&dir, |config| config.models(pinned));
     assert_eq!(
-        model_of(&config_wins, BackendId::OpenAiLuna).as_str(),
+        model_of(&config_wins, BackendId::Luna).as_str(),
         "gpt-7-luna"
     );
     assert_eq!(
-        model_of(&config_wins, BackendId::AnthropicHaiku),
+        model_of(&config_wins, BackendId::Haiku),
         ModelId::ClaudeHaiku5_5
     );
 }

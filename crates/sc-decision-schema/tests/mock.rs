@@ -90,7 +90,7 @@ fn test_mock_judge_backend_contract() {
     assert!(refusing.requests().is_empty());
 
     // LLM ids require LLM context (ADR-SAG-0022, CPR-302).
-    let haiku = MockJudgeBackend::new(BackendId::AnthropicHaiku, answers("yes"));
+    let haiku = MockJudgeBackend::new(BackendId::Haiku, answers("yes"));
     assert_eq!(
         haiku
             .validate_for_send(&bare)
@@ -119,23 +119,19 @@ fn test_mock_judge_backend_contract() {
 /// `with_model_id` replaces it.
 #[test]
 fn test_model_id_default_from_catalog() {
-    for id in [
-        BackendId::Jev,
-        BackendId::AnthropicHaiku,
-        BackendId::OpenAiLuna,
-    ] {
+    for id in [BackendId::Jev, BackendId::Haiku, BackendId::Luna] {
         let mock = MockJudgeBackend::new(id, BTreeMap::new());
         assert_eq!(mock.model_id(), id.descriptor().default_model());
     }
     let pinned: ModelId = "claude-haiku-9".parse().expect("model");
-    let mock = MockJudgeBackend::new(BackendId::AnthropicHaiku, BTreeMap::new())
-        .with_model_id(pinned.clone());
+    let mock =
+        MockJudgeBackend::new(BackendId::Haiku, BTreeMap::new()).with_model_id(pinned.clone());
     assert_eq!(mock.model_id(), pinned);
     // The trait's provided method serves a backend that does not override it.
     struct Plain;
     impl JudgeBackend for Plain {
         fn id(&self) -> BackendId {
-            BackendId::OpenAiLuna
+            BackendId::Luna
         }
         fn validate_for_send(&self, _req: &JudgeRequest) -> Result<(), JevError> {
             Ok(())

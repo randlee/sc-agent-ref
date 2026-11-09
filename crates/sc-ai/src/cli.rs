@@ -31,7 +31,7 @@ is retryable (retry only the failed backends).
 
 --check is a repo-relative check.toml (default check.toml).
 --request-json is a caller-built questions document, or - for stdin.
---backend is jev, anthropic_haiku, or openai_luna. The default is jev.
+--backend is jev, haiku, or luna. The default is jev.
 --llm-system-prompt-file overrides the LLM system prompt. It changes the
 provider wire, not payload_sha256.
 --rev defaults to WORKTREE.
@@ -174,7 +174,7 @@ struct RunArgs {
         conflicts_with = "request_json"
     )]
     rev: Option<Rev>,
-    /// Backend id; repeat for several (jev, anthropic_haiku, openai_luna).
+    /// Backend id; repeat for several (jev, haiku, luna).
     #[arg(long = "backend", value_name = "ID", allow_hyphen_values = true, value_parser = parse_backend)]
     backends: Vec<BackendId>,
     /// Caller-built questions document: a path, or - for stdin.

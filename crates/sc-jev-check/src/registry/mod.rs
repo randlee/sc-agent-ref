@@ -53,8 +53,8 @@ const TARGET: &str = "registry";
 /// One row per built-in backend (test-and-review convention, ADR-SAG-0027).
 static FACTORIES: &[(BackendId, Factory)] = &[
     (BackendId::Jev, jev_factory),
-    (BackendId::AnthropicHaiku, haiku_factory),
-    (BackendId::OpenAiLuna, luna_factory),
+    (BackendId::Haiku, haiku_factory),
+    (BackendId::Luna, luna_factory),
 ];
 
 /// The model `id` runs with: `aliases.latest(descriptor.default_model_alias())`.
@@ -87,7 +87,7 @@ fn haiku_factory(
 ) -> Arc<dyn JudgeBackend> {
     Arc::new(
         AnthropicHaikuBackend::with_default_transport(key)
-            .with_model(model_for(BackendId::AnthropicHaiku, aliases))
+            .with_model(model_for(BackendId::Haiku, aliases))
             .with_general_log(Arc::clone(log)),
     )
 }
@@ -99,7 +99,7 @@ fn luna_factory(
 ) -> Arc<dyn JudgeBackend> {
     Arc::new(
         OpenAiLunaBackend::with_default_transport(key)
-            .with_model(model_for(BackendId::OpenAiLuna, aliases))
+            .with_model(model_for(BackendId::Luna, aliases))
             .with_general_log(Arc::clone(log)),
     )
 }
@@ -249,11 +249,11 @@ impl BackendRegistry {
     /// use sc_agent_types::{BackendId, BackendSet, ResolvedApiKey};
     /// use sc_jev_check::registry::BackendRegistry;
     ///
-    /// let backends: BackendSet = "jev,anthropic_haiku".parse()?;
+    /// let backends: BackendSet = "jev,haiku".parse()?;
     /// let registry = BackendRegistry::from_resolver(&backends, |key_id| {
     ///     ResolvedApiKey::try_new(key_id, "example-key".to_owned())
     /// })?;
-    /// assert!(registry.contains(BackendId::AnthropicHaiku));
+    /// assert!(registry.contains(BackendId::Haiku));
     /// # Ok::<(), sc_agent_types::JevError>(())
     /// ```
     pub fn from_resolver(
@@ -292,14 +292,12 @@ impl BackendRegistry {
             let key = resolve_key(key_id, repo_root)?;
             let backend: Arc<dyn JudgeBackend> = match id {
                 BackendId::Jev => Arc::new(JevClient::loopback(key, port, sends)),
-                BackendId::AnthropicHaiku => {
-                    Arc::new(AnthropicHaikuBackend::loopback(key, port, sends))
-                }
-                BackendId::OpenAiLuna => Arc::new(OpenAiLunaBackend::loopback(key, port, sends)),
+                BackendId::Haiku => Arc::new(AnthropicHaikuBackend::loopback(key, port, sends)),
+                BackendId::Luna => Arc::new(OpenAiLunaBackend::loopback(key, port, sends)),
                 other => {
                     return Err(JevError::registry_invalid(
                         format!("Backend {other} has no loopback constructor"),
-                        "Use jev, anthropic_haiku or openai_luna.",
+                        "Use jev, haiku or luna.",
                     ));
                 }
             };
@@ -430,20 +428,20 @@ mod tests {
         assert!(duplicate_hint.contains("jev"), "{duplicate_hint}");
         assert!(!duplicate_hint.contains("check.toml"), "{duplicate_hint}");
         assert!(registry.get(BackendId::Jev).is_ok());
-        let missing = match registry.get(BackendId::OpenAiLuna) {
-            Ok(_) => panic!("openai_luna must be absent"),
+        let missing = match registry.get(BackendId::Luna) {
+            Ok(_) => panic!("luna must be absent"),
             Err(error) => error,
         };
         assert_eq!(missing.code(), "CONFIG_INVALID");
         let missing_hint = missing.message();
-        assert!(missing_hint.contains("openai_luna"), "{missing_hint}");
+        assert!(missing_hint.contains("luna"), "{missing_hint}");
         assert!(!missing_hint.contains("check.toml"), "{missing_hint}");
     }
 
     #[test]
     fn resolver_builds_backends_in_set_order_and_no_send() {
         let seen = std::sync::Mutex::new(Vec::new());
-        let backends: BackendSet = "jev,anthropic_haiku".parse().expect("set");
+        let backends: BackendSet = "jev,haiku".parse().expect("set");
         let registry = BackendRegistry::from_resolver(&backends, |id| {
             seen.lock().expect("seen").push(id);
             ResolvedApiKey::try_new(id, "test-key".to_owned())
@@ -454,7 +452,7 @@ mod tests {
             [BackendKeyId::TypeSafe, BackendKeyId::Anthropic]
         );
         assert!(registry.contains(BackendId::Jev));
-        assert!(registry.contains(BackendId::AnthropicHaiku));
+        assert!(registry.contains(BackendId::Haiku));
         let rendered = format!("{registry:?}");
         assert!(!rendered.contains("test-key"));
     }

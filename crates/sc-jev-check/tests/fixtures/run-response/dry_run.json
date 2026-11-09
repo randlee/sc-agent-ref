@@ -19,7 +19,7 @@
         }
       },
       {
-        "backend": "anthropic_haiku",
+        "backend": "haiku",
         "attestation": {
           "status": "not_sent"
         }
@@ -49,7 +49,7 @@
       "over_limit": false
     },
     {
-      "backend": "anthropic_haiku",
+      "backend": "haiku",
       "request_limit_bytes": 96000,
       "over_limit": false
     }

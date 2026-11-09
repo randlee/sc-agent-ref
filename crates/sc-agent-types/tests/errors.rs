@@ -105,7 +105,7 @@ fn every_variant() -> Vec<(&'static str, JevError)> {
         ),
         (
             "Annotated.Backend",
-            JevError::api_error(failure(500)).with_backend("anthropic_haiku"),
+            JevError::api_error(failure(500)).with_backend("haiku"),
         ),
         (
             "IoFailed.Recovery",
@@ -670,17 +670,17 @@ fn test_map_detail_reaches_provider_text_and_details() {
 
 #[test]
 fn test_backend_is_a_machine_field() {
-    let error = JevError::api_error(failure(500)).with_backend("anthropic_haiku");
-    assert_eq!(error.backend(), Some("anthropic_haiku"));
+    let error = JevError::api_error(failure(500)).with_backend("haiku");
+    assert_eq!(error.backend(), Some("haiku"));
     let body = ScAgentErrorResponse::from_jev_error(&error);
     let details = body.details().expect("details");
-    assert_eq!(details.backend.as_deref(), Some("anthropic_haiku"));
+    assert_eq!(details.backend.as_deref(), Some("haiku"));
     assert_eq!(details.http_status, Some(500));
     // Only the first backend counts, and flush failure composes with it.
     let both = error
         .with_backend("jev")
         .with_log_flush_failure("disk full");
-    assert_eq!(both.backend(), Some("anthropic_haiku"));
+    assert_eq!(both.backend(), Some("haiku"));
     assert_eq!(both.log_flush_failure(), Some("disk full"));
 }
 

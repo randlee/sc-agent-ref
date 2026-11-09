@@ -1,7 +1,7 @@
 {
   "version": 1,
   "session_id": "0b7c9d1e-2f3a-4b5c-8d6e-7f8091a2b3c4",
-  "backend": "anthropic_haiku",
+  "backend": "haiku",
   "created_at": 1700000000000,
   "payload_utf8": "{\"questions\":[{\"choices\":[\"no\",\"yes\"],\"id\":\"relevant\",\"prompt\":\"Does it apply?\"}],\"state\":[]}",
   "payload_sha256": "79b58710e937c53180dc2f263c9e09fce6afc2168b4a3f019b4f600aac30e0a3",
@@ -13,7 +13,7 @@
           "choice": "yes"
         }
       },
-      "backend": "anthropic_haiku",
+      "backend": "haiku",
       "probabilities": null,
       "provider_meta": null
     }

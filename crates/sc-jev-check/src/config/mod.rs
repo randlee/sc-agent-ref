@@ -542,13 +542,12 @@ mod tests {
             let error = load_check_str(bad).expect_err(bad);
             assert_eq!(error.code(), "CONFIG_INVALID", "{bad}");
         }
-        let spec = load_check_str(
-            "backends = [\"anthropic_haiku\", \"jev\"]\n[questions]\npath = \"q.json\"\n",
-        )
-        .expect("backends");
+        let spec =
+            load_check_str("backends = [\"haiku\", \"jev\"]\n[questions]\npath = \"q.json\"\n")
+                .expect("backends");
         assert_eq!(
             spec.backends().expect("set").as_slice(),
-            [BackendId::AnthropicHaiku, BackendId::Jev]
+            [BackendId::Haiku, BackendId::Jev]
         );
     }
 

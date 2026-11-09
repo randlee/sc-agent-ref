@@ -95,7 +95,7 @@ fn registry() -> Arc<BackendRegistry> {
     let mut registry = BackendRegistry::new();
     registry
         .register(Arc::new(
-            MockJudgeBackend::new(BackendId::AnthropicHaiku, answers).with_sent_body("{}"),
+            MockJudgeBackend::new(BackendId::Haiku, answers).with_sent_body("{}"),
         ))
         .expect("register");
     Arc::new(registry)
@@ -104,7 +104,7 @@ fn registry() -> Arc<BackendRegistry> {
 fn inputs(worktree: &Path) -> ComposeInputs {
     // No explicit repo root: compose discovers it from the working directory.
     ComposeInputs::new(worktree.to_path_buf(), PathPolicy::cli())
-        .backends(BackendSet::try_from(vec![BackendId::AnthropicHaiku]).expect("set"))
+        .backends(BackendSet::try_from(vec![BackendId::Haiku]).expect("set"))
         .registry(registry())
 }
 
@@ -231,7 +231,7 @@ fn test_log_context_explicit_repo_root_starts_discovery() {
     let source = CheckSource::check_file(&explicit, Path::new("check.toml")).expect("source");
     let inputs = ComposeInputs::new(elsewhere.path().to_path_buf(), PathPolicy::cli())
         .repo_root(explicit)
-        .backends(BackendSet::try_from(vec![BackendId::AnthropicHaiku]).expect("set"))
+        .backends(BackendSet::try_from(vec![BackendId::Haiku]).expect("set"))
         .registry(registry());
     let response = run_from(source, inputs).expect("run");
     assert!(response.warnings().is_empty(), "{:?}", response.warnings());
@@ -254,19 +254,19 @@ fn test_error_path_flushes_the_failed_row() {
     let mut failing = BackendRegistry::new();
     failing
         .register(Arc::new(
-            MockJudgeBackend::new(BackendId::AnthropicHaiku, Default::default())
+            MockJudgeBackend::new(BackendId::Haiku, Default::default())
                 .with_failure(sc_agent_types::JevError::response_invalid("scripted")),
         ))
         .expect("register");
     let source = CheckSource::check_file(&RepoRoot::new(dir.path()), Path::new("check.toml"))
         .expect("source");
     let inputs = ComposeInputs::new(dir.path().to_path_buf(), PathPolicy::cli())
-        .backends(BackendSet::try_from(vec![BackendId::AnthropicHaiku]).expect("set"))
+        .backends(BackendSet::try_from(vec![BackendId::Haiku]).expect("set"))
         .registry(Arc::new(failing));
     let response = run_from(source, inputs).expect("an all-failed run returns its response");
     let failure = response.first_failure().expect("failed").error();
     assert_eq!(failure.code(), "RESPONSE_INVALID");
-    assert_eq!(failure.backend(), Some("anthropic_haiku"));
+    assert_eq!(failure.backend(), Some("haiku"));
     let envelopes = lines(&dir.path().join(".sc-ai/logs/sc-ai.log.jsonl"));
     assert_eq!(envelopes.len(), 1);
     assert_envelope(&envelopes[0], "Warn");

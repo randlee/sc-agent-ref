@@ -1832,7 +1832,7 @@ HTTP half of ADR-SAG-0026.
   *`SessionStoreIo` no longer exists and the list is `CredentialStoreInvalid`,
   `NetworkError`, `EncodeFailed`, `IoFailed` (agt-2a3 amendment).*
 - (Active, r-1) Serde spelling of backend ids matches `Display`
-  (`openai_luna`, `openai`), with a one-release read alias for
+  (`luna`, `openai`), with a one-release read alias for
   `open_ai_luna` / `open_ai` in config and caller-request input. Whether and
   when the alias is removed is the owner's decision, tracked by bead
   `agt-ho2`; nothing has been released, so no release

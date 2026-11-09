@@ -164,19 +164,19 @@ fn luna(replies: Vec<HttpResponse>) -> (OpenAiLunaBackend<ScriptedTransport>, Re
 fn llm_backend_constructors_are_infallible() {
     assert_eq!(
         AnthropicHaikuBackend::new(credential(), script(Vec::new())).id(),
-        BackendId::AnthropicHaiku
+        BackendId::Haiku
     );
     assert_eq!(
         OpenAiLunaBackend::new(credential(), script(Vec::new())).id(),
-        BackendId::OpenAiLuna
+        BackendId::Luna
     );
     assert_eq!(
         OpenAiLunaBackend::with_default_transport(credential()).id(),
-        BackendId::OpenAiLuna
+        BackendId::Luna
     );
     assert_eq!(
         AnthropicHaikuBackend::with_default_transport(credential()).id(),
-        BackendId::AnthropicHaiku
+        BackendId::Haiku
     );
 }
 
@@ -282,7 +282,7 @@ fn test_haiku_request_embeds_canonical_payload() {
     assert_eq!(outcome.provider_meta().expect("meta")["input_tokens"], 102);
     assert_eq!(outcome.provider_meta().expect("meta")["prompt_tokens"], 100);
     assert_eq!(outcome.provider_meta().expect("meta")["commands"], 0);
-    assert_outcome_fields(&outcome, BackendId::AnthropicHaiku);
+    assert_outcome_fields(&outcome, BackendId::Haiku);
     let rendered = format!("{backend:?}");
     assert!(!rendered.contains(KEY));
 }
@@ -306,7 +306,7 @@ fn test_luna_request_embeds_canonical_payload() {
     assert_eq!(message["model"], "gpt-6-luna");
     assert!(message.get("tools").is_none());
     assert_eq!(body_json(&seen[0]), message);
-    assert_outcome_fields(&outcome, BackendId::OpenAiLuna);
+    assert_outcome_fields(&outcome, BackendId::Luna);
     assert!(!format!("{backend:?}").contains(KEY));
 }
 
@@ -618,7 +618,7 @@ fn test_timeouts_are_transport_construction_state() {
         Duration::from_secs(3),
     ));
     let backend = OpenAiLunaBackend::new(credential(), transport);
-    assert_eq!(backend.id(), BackendId::OpenAiLuna);
+    assert_eq!(backend.id(), BackendId::Luna);
     assert!(!format!("{backend:?}").contains(KEY));
 }
 
@@ -901,7 +901,7 @@ fn test_llm_model_id_is_configured_model() {
     let default = AnthropicHaikuBackend::with_default_transport(credential());
     assert_eq!(
         default.model_id(),
-        BackendId::AnthropicHaiku.descriptor().default_model()
+        BackendId::Haiku.descriptor().default_model()
     );
 }
 
@@ -969,9 +969,8 @@ fn test_request_sha256_equals_the_digest_a_send_records() {
         haiku_message(&answer_text(), "end_turn", 100),
         count_reply(100),
     ]);
-    let before =
-        sc_jev_backends::request_sha256(BackendId::AnthropicHaiku, &backend.model_id(), &request)
-            .expect("digest before sending");
+    let before = sc_jev_backends::request_sha256(BackendId::Haiku, &backend.model_id(), &request)
+        .expect("digest before sending");
     let trace = SendTrace::new();
     backend.judge(&request, &trace).expect("judge");
     assert_eq!(trace.request_sha256(), Some(before.clone()));
@@ -983,7 +982,7 @@ fn test_request_sha256_equals_the_digest_a_send_records() {
         count_reply(100),
     ]);
     let before =
-        sc_jev_backends::request_sha256(BackendId::OpenAiLuna, &luna_backend.model_id(), &request)
+        sc_jev_backends::request_sha256(BackendId::Luna, &luna_backend.model_id(), &request)
             .expect("luna digest");
     let trace = SendTrace::new();
     luna_backend.judge(&request, &trace).expect("judge");
@@ -1000,7 +999,7 @@ fn test_request_sha256_equals_the_digest_a_send_records() {
 fn test_request_sha256_changes_with_each_input() {
     let model: ModelId = "claude-haiku-5-5".parse().expect("model");
     let digest = |model: &ModelId, request: &JudgeRequest| {
-        sc_jev_backends::request_sha256(BackendId::AnthropicHaiku, model, request).expect("digest")
+        sc_jev_backends::request_sha256(BackendId::Haiku, model, request).expect("digest")
     };
     let base = digest(&model, &standard_request(PROMPT));
     assert_eq!(base, digest(&model, &standard_request(PROMPT)));
@@ -1019,7 +1018,7 @@ fn test_request_sha256_changes_with_each_input() {
         Some(PROMPT),
     );
     assert!(
-        sc_jev_backends::request_sha256(BackendId::AnthropicHaiku, &model, &noul).is_err(),
+        sc_jev_backends::request_sha256(BackendId::Haiku, &model, &noul).is_err(),
         "an LLM backend refuses noul, so nothing would be sent"
     );
 }

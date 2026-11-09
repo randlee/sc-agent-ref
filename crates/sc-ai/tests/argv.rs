@@ -289,12 +289,12 @@ fn test_backend_values_are_parsed_once() {
             "--backend",
             "jev",
             "--backend",
-            "openai_luna",
+            "luna",
         ],
     );
     let envelope: Value = serde_json::from_str(&stdout_text(&ok)).expect("envelope");
     assert_eq!(envelope["data"]["limits"][0]["backend"], "jev");
-    assert_eq!(envelope["data"]["limits"][1]["backend"], "openai_luna");
+    assert_eq!(envelope["data"]["limits"][1]["backend"], "luna");
 }
 
 #[test]

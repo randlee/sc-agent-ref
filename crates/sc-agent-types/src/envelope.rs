@@ -149,7 +149,7 @@ pub struct ErrorDetails {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub path: Option<String>,
     /// The backend (descriptor name) the error belongs to, such as `jev`
-    /// or `anthropic_haiku`.
+    /// or `haiku`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub backend: Option<String>,
     /// A session-log flush failure that happened while the error left.
