@@ -6,6 +6,7 @@ no test asserts on elapsed time.
 
 from __future__ import annotations
 
+import sys
 import threading
 from pathlib import Path
 
@@ -526,3 +527,65 @@ def test_streams_take_models_file(tmp_path: Path) -> None:
     )
     stream.close_input()
     assert stream.finish()["answered"] == 0
+
+
+_STUCK_CHILD = r"""
+import json, os, sys, threading, time
+from pathlib import Path
+import sc_jev_py
+
+work = Path(sys.argv[1]); repo = work / "repo"; repo.mkdir()
+log_file = sc_jev_py.general_log_file(work / "log")
+log_file.parent.mkdir(parents=True)
+os.mkfifo(log_file)
+reader = os.open(log_file, os.O_RDONLY | os.O_NONBLOCK)   # opened, never read: a stuck disk
+request = {"questions": [{"id": "q", "prompt": "p", "choices": ["a", "b"]}]}
+stream = sc_jev_py._testing.decision_stream_scripted(
+    scripted_answers={"q": "a"}, repo_root=repo, log_dir=work / "log",
+    session_dir=work / "sessions", concurrency=16)
+
+def feed():
+    try:
+        for i in range(3000):
+            stream.submit(f"r{i}", request)
+    except Exception:
+        pass
+def read():
+    try:
+        for _ in stream:
+            pass
+    except Exception:
+        pass
+threading.Thread(target=feed, daemon=True).start()
+threading.Thread(target=read, daemon=True).start()
+# Let the writer fill the pipe and the workers start waiting for log room.
+time.sleep(2.0)
+started = time.monotonic()
+stream.cancel()
+summary = stream.finish()
+print(json.dumps({"seconds": time.monotonic() - started, "dropped": summary["general_log_rows_dropped"],
+                  "answered": summary["answered"]}), flush=True)
+os._exit(0)
+"""
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="needs a FIFO as the log file")
+def test_cancel_stops_waiting_for_log_room_on_a_stuck_disk(tmp_path: Path) -> None:
+    """The log file is a FIFO nobody reads, so the writer stalls and the
+    queue stays full. After `cancel()`, `finish()` must not wait out the row
+    wait of every worker: it returns promptly and reports the rows it gave up
+    on (it used to take 18 to 19 s)."""
+    import json
+    import subprocess
+
+    done = subprocess.run(
+        [sys.executable, "-c", _STUCK_CHILD, str(tmp_path)],
+        capture_output=True, text=True, timeout=120, check=False,
+    )
+    assert done.returncode == 0, done.stderr
+    report = json.loads(done.stdout.strip().splitlines()[-1])
+    assert report["dropped"] > 0, report
+    # A failure bound, not a measurement: the flush of a stuck writer takes
+    # its own 5 s wait (about 5 s measured); without the cancel it also waits
+    # out the 10 s row wait of every worker.
+    assert report["seconds"] < 12, report

@@ -308,11 +308,16 @@ impl DecisionStream {
         self.inner.close_input();
     }
 
-    /// Stops new work and cancels the engine's token. Requests still queued
+    /// Stops new work and cancels the engine's token. It also stops waiting for
+    /// room in a full general-log queue: a row that finds it full is counted
+    /// as dropped, so a stuck log file cannot hold `finish()`. Requests still queued
     /// are answered with a `NETWORK_ERROR` ("cancelled") line; a request
     /// already sent is not interrupted. Further `submit` calls raise.
     fn cancel(&self) {
         self.inner.cancel();
+        if let Some(host) = &self.host {
+            host.cancel();
+        }
     }
 
     /// Requests accepted whose answer was not yet returned.
@@ -371,6 +376,9 @@ impl DecisionStream {
     /// Cancels, abandons (bounded) and flushes, with the GIL released so a
     /// worker that needs it for a Python logger can finish.
     fn leave(&self, py: Python<'_>) {
+        if let Some(host) = &self.host {
+            host.cancel();
+        }
         let stream = Arc::clone(&self.inner);
         let host = self.host.clone();
         py.detach(move || {
@@ -570,6 +578,9 @@ fn run_batch(
         }
     })();
     if let Err(error) = polled {
+        if let Some(host) = &host {
+            host.cancel();
+        }
         // Ctrl-C or a failure: cancel and abandon (bounded to 2 s, GIL
         // released), which writes `stream.end` and flushes the session log;
         // then flush the shared host logger.
