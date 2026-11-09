@@ -14,7 +14,7 @@ use std::path::PathBuf;
 
 use clap::error::ErrorKind;
 use clap::{Args, Parser, Subcommand};
-use sc_agent_types::{JevError, ProjectLabel, Rev, SessionId};
+use sc_agent_types::{BackendChoice, JevError, ProjectLabel, Rev, SessionId};
 use sc_ai::{AskCommand, Command, ModelsCommand, RunCommand, StreamCommand};
 use sc_jev_host::stream::Concurrency;
 
@@ -32,8 +32,8 @@ is retryable (retry only the failed backends).
 --check is a repo-relative check.toml (default check.toml).
 --request-json is a caller-built questions document, or - for stdin.
 --backend is jev, haiku, or luna (each means the latest model of that line),
-or a known model id of one of them, such as claude-haiku-5-5 (that backend
-pinned to that model). The default is jev. Other models (sonnet, opus, fable,
+or a model id of one of them from the crate table or the models file, such as
+claude-haiku-5-5 or jev-1.15.0 (that backend pinned to that model). The default is jev. Other models (sonnet, opus, fable,
 terra, sol, astra) are defined but not selectable yet.
 jev models lists the resolved models and where each came from (crate or file).
 New models are added without recompiling in ~/.sc-agent/models.toml, as
@@ -143,9 +143,9 @@ struct StreamArgs {
     /// Repository root (default: git toplevel of the current directory).
     #[arg(long, value_name = "PATH", allow_hyphen_values = true, value_parser = non_empty_path)]
     repo_root: Option<PathBuf>,
-    /// Backend (short name or known model id) for every request; repeat for several. Wins over a
+    /// Backend (short name, or a model id of the crate table or models file) for every request; repeat for several. Wins over a
     /// request's own `backends`, as in `jev run`.
-    #[arg(long = "backend", value_name = "ID", allow_hyphen_values = true, value_parser = non_empty_text)]
+    #[arg(long = "backend", value_name = "ID", allow_hyphen_values = true, value_parser = parse_backend_name)]
     backends: Vec<String>,
     /// JSONL requests: a path, or - for stdin (the default).
     #[arg(long, value_name = "PATH|-", allow_hyphen_values = true, value_parser = non_empty_text)]
@@ -205,9 +205,9 @@ struct RunArgs {
         conflicts_with = "request_json"
     )]
     rev: Option<Rev>,
-    /// Backend: jev, haiku or luna (latest), or a known model id such as
-    /// claude-haiku-5-5; repeat for several.
-    #[arg(long = "backend", value_name = "ID", allow_hyphen_values = true, value_parser = non_empty_text)]
+    /// Backend: jev, haiku or luna (latest), or a model id of the crate table
+    /// or the models file such as claude-haiku-5-5; repeat for several.
+    #[arg(long = "backend", value_name = "ID", allow_hyphen_values = true, value_parser = parse_backend_name)]
     backends: Vec<String>,
     /// Caller-built questions document: a path, or - for stdin.
     #[arg(long, value_name = "PATH|-", allow_hyphen_values = true, value_parser = non_empty_text)]
@@ -374,15 +374,8 @@ fn stream_registry(
     let Some(port) = args.loopback_port else {
         return Ok(None);
     };
-    let backends = if args.backends.is_empty() {
-        sc_agent_types::BackendSet::default()
-    } else {
-        sc_jev_host::compose::backend_set_from_names(
-            args.backends.iter().map(String::as_str),
-            args.models_file.as_deref(),
-            &sc_agent_types::observability::v2::NoopGeneralLog,
-        )
-        .map_err(|error| error.with_field("--backend"))?
+    let Some(backends) = loopback_backends(&args.backends, args.models_file.as_deref()) else {
+        return Ok(None);
     };
     let root = args.repo_root.clone().unwrap_or_else(|| PathBuf::from("."));
     sc_jev_check::registry::BackendRegistry::loopback_from_env(
@@ -429,15 +422,8 @@ fn run_registry(
     let Some(port) = args.loopback_port else {
         return Ok(None);
     };
-    let backends = if args.backends.is_empty() {
-        sc_agent_types::BackendSet::default()
-    } else {
-        sc_jev_host::compose::backend_set_from_names(
-            args.backends.iter().map(String::as_str),
-            args.models_file.as_deref(),
-            &sc_agent_types::observability::v2::NoopGeneralLog,
-        )
-        .map_err(|error| error.with_field("--backend"))?
+    let Some(backends) = loopback_backends(&args.backends, args.models_file.as_deref()) else {
+        return Ok(None);
     };
     let root = args.repo_root.clone().unwrap_or_else(|| PathBuf::from("."));
     sc_jev_check::registry::BackendRegistry::loopback_from_env(
@@ -447,6 +433,27 @@ fn run_registry(
         1,
     )
     .map(|registry| Some(std::sync::Arc::new(registry)))
+}
+
+/// The backends a loopback registry serves. `None` when the names do not
+/// resolve against the catalog (a malformed models file, an id it does not
+/// list): the run then loads the same file through its general log and
+/// refuses the names itself, with the log rows, so this seam does not report
+/// them first.
+#[cfg(feature = "test-util")]
+fn loopback_backends(
+    names: &[String],
+    models_file: Option<&std::path::Path>,
+) -> Option<sc_agent_types::BackendSet> {
+    if names.is_empty() {
+        return Some(sc_agent_types::BackendSet::default());
+    }
+    sc_jev_host::compose::backend_set_from_names(
+        names.iter().map(String::as_str),
+        models_file,
+        &sc_agent_types::observability::v2::NoopGeneralLog,
+    )
+    .ok()
 }
 
 /// The scripted registry for `--scripted-answers FILE` (ADR-SAG-0022, r-2b
@@ -539,6 +546,15 @@ fn message(error: &clap::Error) -> String {
     let rendered = error.render().to_string();
     let first = rendered.lines().next().unwrap_or_default();
     first.strip_prefix("error: ").unwrap_or(first).to_owned()
+}
+
+/// A `--backend` value that no catalog could make valid is refused here,
+/// before any I/O. Whether the catalog lists a well-formed id is asked once
+/// the models file is loaded (`ComposeInputs::backend_names`).
+fn parse_backend_name(value: &str) -> Result<String, JevError> {
+    BackendChoice::check_shape(value)
+        .map(|()| value.to_owned())
+        .map_err(|error| error.with_field("--backend"))
 }
 
 fn non_empty_text(value: &str) -> Result<String, JevError> {

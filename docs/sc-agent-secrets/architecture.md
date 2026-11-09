@@ -31,7 +31,9 @@ crate-private test code; the crate has no `test-util` feature.
 Every source's value is sealed by `ResolvedApiKey::try_new`, which is the one
 normalization rule set: trim; empty is `KEY_MISSING`; interior whitespace or a
 control character is `CONFIG_INVALID` with a credential-store hint. A blank
-value counts as absent, so the next source is tried.
+`.env` or keyring value counts as absent, so the next source is tried. A blank
+process-environment value is set, not absent: it skips the `.env` file and the
+lookup goes to the keyring.
 
 The keyring service is the environment variable name. Anthropic lookups honor
 `ANTHROPIC_KEYCHAIN_SERVICE` from the process environment only: a repo-root

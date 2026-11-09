@@ -258,9 +258,10 @@ fn keyring_service(id: BackendKeyId, env: &impl EnvSource) -> String {
 
 /// Whether a source holds a value worth sealing.
 ///
-/// A blank value counts as absent so the next source is tried. Everything
-/// else goes to [`ResolvedApiKey::try_new`], which owns the normalization
-/// rules.
+/// A blank `.env` or keyring value counts as absent, so the next source is
+/// tried. A blank process-environment value is set, not absent: it skips the
+/// `.env` file and goes to the keyring. Everything else goes to
+/// [`ResolvedApiKey::try_new`], which owns the normalization rules.
 fn is_present(value: &str) -> bool {
     !value.trim().is_empty()
 }

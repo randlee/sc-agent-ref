@@ -364,7 +364,7 @@ fn test_help_pins_short_names_and_models() {
     let text = stdout_text(&run(dir.path(), &["--help"]));
     for needle in [
         "--backend is jev, haiku, or luna (each means the latest model of that line)",
-        "or a known model id of one of them, such as claude-haiku-5-5",
+        "or a model id of one of them from the crate table or the models file, such as\nclaude-haiku-5-5 or jev-1.15.0 (that backend pinned to that model)",
         "sonnet, opus, fable,",
         "terra, sol, astra) are defined but not selectable yet",
         "jev models lists the resolved models",
@@ -488,6 +488,129 @@ fn test_backend_takes_a_model_id_from_the_models_file() {
         ],
     );
     assert_eq!(error_code(&output), "INPUT_INVALID");
+}
+
+/// Every file under `dir`, joined: the log rows of a run.
+fn all_text(dir: &Path) -> String {
+    let mut text = String::new();
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return text;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            text.push_str(&all_text(&path));
+        } else if let Ok(content) = std::fs::read_to_string(&path) {
+            text.push_str(&content);
+        }
+    }
+    text
+}
+
+fn files_under(dir: &Path) -> usize {
+    std::fs::read_dir(dir).map_or(0, |entries| {
+        entries
+            .flatten()
+            .map(|entry| {
+                let path = entry.path();
+                if path.is_dir() { files_under(&path) } else { 1 }
+            })
+            .sum()
+    })
+}
+
+/// A `--backend` value no catalog could make valid is refused before any I/O,
+/// as it was at parse time: not `INPUT_MISSING` for a missing `--repo-root`,
+/// not `CONFIG_INVALID` for a malformed models file, and no log row.
+#[test]
+fn test_unusable_backend_is_refused_before_any_io() {
+    let dir = TempDir::new().expect("temp");
+    let missing = dir.path().join("no-such-repo");
+    let logs = dir.path().join("logs");
+    let bad_file = dir.path().join("models.toml");
+    std::fs::write(&bad_file, "[[model]]\nid = 1\n").expect("bad file");
+    let missing = missing.to_str().expect("utf8");
+    let logs_arg = logs.to_str().expect("utf8");
+    let bad_file_arg = bad_file.to_str().expect("utf8");
+    for command in [["jev", "run"], ["jev", "dry-run"], ["jev", "stream"]] {
+        // `claude-sonnet-5-5` is a crate definition-only model: no file can fix it.
+        for refused in [
+            "nonsense",
+            "anthropic-haiku",
+            "jev,haiku",
+            "claude-sonnet-5-5",
+        ] {
+            for extra in [
+                vec!["--repo-root", missing],
+                vec!["--models-file", bad_file_arg],
+            ] {
+                let mut args = command.to_vec();
+                args.extend(["--backend", refused, "--log-dir", logs_arg]);
+                args.extend(extra.iter().copied());
+                let output = run(dir.path(), &args);
+                let value = error_of(&output);
+                assert_eq!(value["error"], "INPUT_INVALID", "{args:?}");
+                assert_eq!(value["field"], "--backend", "{args:?}");
+            }
+        }
+    }
+    assert_eq!(files_under(&logs), 0, "no log row, no log directory");
+}
+
+/// A well-formed id the crate table lacks is checked against the catalog once
+/// the models file is loaded, through the run's general log: a malformed file
+/// leaves its `models.file_invalid` warning, with `--backend` given or not.
+#[test]
+fn test_well_formed_backend_waits_for_the_models_file_and_its_log_row() {
+    let repo = repo();
+    let root = repo.path().to_str().expect("utf8");
+    let dir = TempDir::new().expect("temp");
+    let bad_file = dir.path().join("models.toml");
+    std::fs::write(&bad_file, "[[model]]\nid = 1\n").expect("bad file");
+    let bad = bad_file.to_str().expect("utf8");
+    for backend in [Some("jev-1.15.0"), Some("haiku"), None] {
+        let logs = dir
+            .path()
+            .join(format!("logs-{}", backend.unwrap_or("none")));
+        let logs_arg = logs.to_str().expect("utf8");
+        let mut args = vec![
+            "jev",
+            "run",
+            "--repo-root",
+            root,
+            "--models-file",
+            bad,
+            "--log-dir",
+            logs_arg,
+        ];
+        if let Some(backend) = backend {
+            args.extend(["--backend", backend]);
+        }
+        let output = run(repo.path(), &args);
+        assert_eq!(error_code(&output), "CONFIG_INVALID", "{backend:?}");
+        assert!(
+            all_text(&logs).contains("models.file_invalid"),
+            "{backend:?}: no models.file_invalid row"
+        );
+    }
+    // The same id with a good file that lacks it: INPUT_INVALID, `--backend`.
+    let good = dir.path().join("good.toml");
+    std::fs::write(&good, "").expect("good");
+    let output = run(
+        repo.path(),
+        &[
+            "jev",
+            "dry-run",
+            "--repo-root",
+            root,
+            "--models-file",
+            good.to_str().expect("utf8"),
+            "--backend",
+            "jev-1.15.0",
+        ],
+    );
+    assert_eq!(error_of(&output)["error"], "INPUT_INVALID");
+    assert_eq!(error_of(&output)["field"], "--backend");
 }
 
 #[test]

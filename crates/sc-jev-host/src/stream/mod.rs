@@ -393,7 +393,7 @@ impl DecisionStream {
     /// Any error of root discovery or logger start.
     pub fn start(inputs: ComposeInputs, concurrency: Concurrency) -> Result<Self, JevError> {
         let cancel = CancelToken::new();
-        let inputs = inputs.cancel(cancel.clone());
+        let mut inputs = inputs.cancel(cancel.clone());
         let resolved = inputs.resolve()?;
         let logs = Logs::open(&inputs, &resolved, true)?;
         let models = match inputs.load_models(logs.general.as_ref()) {
@@ -403,6 +403,10 @@ impl DecisionStream {
                 return Err(error);
             }
         };
+        if let Err(error) = inputs.settle_backends(&models, logs.general.as_ref()) {
+            logs.finish_general();
+            return Err(error);
+        }
         let log = Arc::new(StreamLog::new(
             Arc::clone(&logs.general),
             logs.run_id.clone(),

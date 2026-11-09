@@ -37,7 +37,9 @@
 //! line's `fields` object is one session-log row (ADR-SAG-0031): `answer_id`,
 //! `session_id` (a ULID), `repo` (the main repository), `project` (the
 //! `project=` text of that call, or `null`), `payload_sha256`, `request_sha256`,
-//! `backend`, `model_id`, `operation`, `send_outcome`, `error_code` and the
+//! `backend`, `model_id` (the model requested), `answered_model_id` (the
+//! model the reply named, `null` for a failed send), `operation`,
+//! `send_outcome`, `error_code` and the
 //! typed `answers_json`. It carries no API key, prompt text or request body;
 //! `project` is caller text and is not scrubbed. Session directory resolution, first match wins:
 //!
@@ -48,7 +50,9 @@
 //! # Models
 //!
 //! `backends=` takes `jev`, `haiku` or `luna` (each the latest model) or a
-//! known model id such as `claude-haiku-5-5`. New models are added in
+//! model id of the resolved catalog (the crate table plus the models file)
+//! such as `claude-haiku-5-5` or a file row `jev-1.15.0`. Each list item is
+//! one name; a comma is not a separator. New models are added in
 //! `~/.sc-agent/models.toml` (`[[model]]` rows with `id`, `alias`,
 //! `released`); `models()` lists the resolved models and their source.
 //!
@@ -90,7 +94,8 @@ use crate::error::JevError;
 /// file is `{log_root}/logs/sc-jev-py.log.jsonl`. One line is appended per
 /// judge send and per session `ask`. Each line's `fields` object is one
 /// session-log row (`session_id`, `repo`, `project`, `payload_sha256`,
-/// `request_sha256`, `backend`, `model_id`, `operation`, `send_outcome`, and
+/// `request_sha256`, `backend`, `model_id`, `answered_model_id`, `operation`,
+/// `send_outcome`, and
 /// the typed answers); lines do not contain API keys or prompt text.
 ///
 /// Session directory resolution, first match wins: the `session_dir`

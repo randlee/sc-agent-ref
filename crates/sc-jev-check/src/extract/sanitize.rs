@@ -5,8 +5,8 @@
 //! of text replaced by `[redacted]`: the value of any credential-looking
 //! environment variable of this process (`*_API_KEY`, `SC_*`), and any
 //! bearer-token shape, whatever its source (`Bearer <token>`, or an
-//! `sk-` prefixed key). A secret of another shape that is not in this
-//! process's environment is not recognized.
+//! `sk-` prefixed key; plain English after `bearer` is kept). A secret of
+//! another shape that is not in this process's environment is not recognized.
 
 use std::ffi::{OsStr, OsString};
 use std::process::Command;
@@ -98,40 +98,95 @@ fn token_end(bytes: &[u8], start: usize) -> usize {
         .map_or(bytes.len(), |length| start + length)
 }
 
+/// Fewest characters of an all-letter word that read as a token, not prose.
+const MIN_LETTER_TOKEN: usize = 16;
+
+/// Whether `byte` ends an unquoted or quoted `Bearer` token.
+fn ends_bearer_token(byte: u8) -> bool {
+    byte.is_ascii_whitespace() || matches!(byte, b'"' | b'\'' | b'`')
+}
+
+/// The token after the `Bearer` word that ends at `after`, as a byte range.
+///
+/// The word may be followed by `:` or `=` and then spaces or tabs, or by
+/// spaces or tabs alone; an opening quote may precede the token. The token
+/// runs to the next whitespace or quote, so a token with `%`, `$` or
+/// non-ASCII bytes goes whole. Ordinary prose is kept: an unquoted word of
+/// letters (and `-`) shorter than [`MIN_LETTER_TOKEN`] is not a token
+/// (`invalid bearer authentication scheme`). A quoted value always is, and any
+/// word with a digit or another symbol is.
+fn bearer_token(bytes: &[u8], after: usize) -> Option<(usize, usize)> {
+    let mut start = after;
+    let separator = matches!(bytes.get(start), Some(b':' | b'='));
+    if separator {
+        start += 1;
+    }
+    let gap = bytes[start..]
+        .iter()
+        .take_while(|byte| matches!(byte, b' ' | b'\t'))
+        .count();
+    if gap == 0 && !separator {
+        return None;
+    }
+    start += gap;
+    let quoted = matches!(bytes.get(start), Some(b'"' | b'\''));
+    if quoted {
+        start += 1;
+    }
+    let length = bytes[start..]
+        .iter()
+        .position(|byte| ends_bearer_token(*byte))
+        .unwrap_or(bytes.len() - start);
+    if length == 0 {
+        return None;
+    }
+    let end = start + length;
+    // `bytes` came from a `str` and both cuts follow ASCII bytes or the end,
+    // so the token is valid UTF-8.
+    let token = std::str::from_utf8(&bytes[start..end]).ok()?;
+    let prose = token.chars().count() < MIN_LETTER_TOKEN
+        && token.chars().next().is_some_and(char::is_alphabetic)
+        && token.chars().all(|c| c.is_alphabetic() || c == '-');
+    (quoted || !prose).then_some((start, end))
+}
+
 /// Replaces bearer-token shapes in `text`, whether or not the token is held
 /// in this process's environment:
 ///
-/// - `Bearer <token>` (any case, spaces or tabs between): the token goes,
-///   the word `Bearer` stays so the line still reads;
-/// - a key-shaped token `sk-` plus at least [`MIN_KEY_TAIL`] token
-///   characters, at a word start: the whole token goes.
+/// - `Bearer <token>` (any case; spaces, tabs, `:` or `=` between; the token
+///   may be quoted and runs to the next whitespace or quote): the token
+///   goes, the word `Bearer` stays so the line still reads. A plain English
+///   word after the word is not a token (see [`bearer_token`]);
+/// - a key-shaped token `sk-` (any case) plus at least [`MIN_KEY_TAIL`]
+///   token characters, at a word start: the whole token goes. The shape is
+///   all there is to go on, so an ordinary hyphenated name such as
+///   `sk-learn-something-library` is redacted too; that over-redaction is the
+///   price of recognizing keys whose source is not known.
 ///
-/// A token is a run of letters, digits and `-._~+/=`.
+/// A key token is a run of letters, digits and `-._~+/=`.
 fn redact_shapes(text: &str) -> String {
     const BEARER: &[u8] = b"bearer";
+    const KEY_PREFIX: &[u8] = b"sk-";
     let bytes = text.as_bytes();
     let mut out = String::with_capacity(text.len());
     let mut copied = 0;
     let mut at = 0;
     while at < bytes.len() {
         let word_start = at == 0 || !bytes[at - 1].is_ascii_alphanumeric();
-        // Cut points are ASCII bytes, so slicing `text` there is valid.
+        // Cut points are ASCII bytes or the end, so slicing `text` there is valid.
         let cut = if !word_start {
             None
         } else if bytes[at..]
             .get(..BEARER.len())
             .is_some_and(|word| word.eq_ignore_ascii_case(BEARER))
         {
-            let after = at + BEARER.len();
-            let gap = bytes[after..]
-                .iter()
-                .take_while(|byte| matches!(byte, b' ' | b'\t'))
-                .count();
-            let start = after + gap;
-            (gap > 0 && token_end(bytes, start) > start).then(|| (start, token_end(bytes, start)))
-        } else if bytes[at..].starts_with(b"sk-") {
+            bearer_token(bytes, at + BEARER.len())
+        } else if bytes[at..]
+            .get(..KEY_PREFIX.len())
+            .is_some_and(|word| word.eq_ignore_ascii_case(KEY_PREFIX))
+        {
             let end = token_end(bytes, at);
-            (end - at >= b"sk-".len() + MIN_KEY_TAIL).then_some((at, end))
+            (end - at >= KEY_PREFIX.len() + MIN_KEY_TAIL).then_some((at, end))
         } else {
             None
         };
@@ -206,7 +261,7 @@ mod tests {
                 "bearer\t[redacted]\nnext",
             ),
             (
-                "BEARER   tok123 and BeArEr  x.y",
+                "BEARER   tok123 and BeArEr  x.y9",
                 "BEARER   [redacted] and BeArEr  [redacted]",
             ),
             (
@@ -215,9 +270,23 @@ mod tests {
             ),
             ("(sk-proj-ABCDEFGH12345678)", "([redacted])"),
             (
-                "non-ascii \u{e9} Bearer abc\u{e9}",
-                "non-ascii \u{e9} Bearer [redacted]\u{e9}",
+                "non-ascii \u{e9} Bearer abc1\u{e9}",
+                "non-ascii \u{e9} Bearer [redacted]",
             ),
+            ("Bearer \"abc\" next", "Bearer \"[redacted]\" next"),
+            ("Bearer 'abc' next", "Bearer '[redacted]' next"),
+            ("Bearer: abc123", "Bearer: [redacted]"),
+            (
+                "Authorization=Bearer=abc123",
+                "Authorization=Bearer=[redacted]",
+            ),
+            ("bearer abc%def$ghi x", "bearer [redacted] x"),
+            ("SK-ANT-API03-ABCDEFGHIJ failed", "[redacted] failed"),
+            ("Sk-proj-ABCDEFGH12345678", "[redacted]"),
+            // Documented trade-off: the shape alone cannot tell a key from a
+            // hyphenated name, so the name goes too.
+            ("use sk-learn-something-library", "use [redacted]"),
+            ("bearer abcdefghijklmnop done", "bearer [redacted] done"),
         ] {
             assert_eq!(redact_shapes(input), expected, "{input}");
         }
@@ -230,6 +299,10 @@ mod tests {
             "Bearer",
             "Bearer ",
             "bearers are people",
+            "invalid bearer authentication scheme",
+            "the bearer token was rejected",
+            "bearer-only client",
+            "Bearer: ",
         ] {
             assert_eq!(redact_shapes(input), input, "{input}");
         }

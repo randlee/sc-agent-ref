@@ -524,6 +524,18 @@ impl ModelAliases {
             )));
         };
         let newer = entry.source != ModelSource::Override && released >= entry.released.as_str();
+        // An id belongs to one alias. Redeclaring it under another would
+        // move it away from the backend it selects today.
+        if let Some(&declared) = self
+            .1
+            .get(model.as_str())
+            .filter(|declared| **declared != name)
+        {
+            return Err(JevError::config_invalid(format!(
+                "models file: model {:?} is already declared under alias {declared:?}; it cannot also be {alias:?}",
+                model.as_str()
+            )));
+        }
         self.1.insert(model.as_str().to_owned(), name);
         if newer {
             *entry = Entry {

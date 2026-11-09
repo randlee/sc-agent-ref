@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -85,6 +86,45 @@ def test_models_file_ids_are_backends_and_unknown_ids_stay_refused(tmp_path, mon
     with pytest.raises(sc_jev_py.JevError) as caught:
         _dry(tmp_path, ["jev-1.15.0"])
     assert caught.value.code == "INPUT_INVALID"
+
+
+@pytest.mark.parametrize("joined", ["jev,haiku", "haiku, luna", " jev"])
+def test_a_backends_item_is_one_name_and_is_never_split_on_commas(tmp_path, joined):
+    # `--backend jev,haiku` is refused by the CLI; a list item is refused alike.
+    with pytest.raises(sc_jev_py.JevError) as caught:
+        _dry(tmp_path, [joined])
+    assert caught.value.code == "INPUT_INVALID"
+    assert joined in caught.value.message
+
+
+def test_malformed_models_file_with_backends_leaves_the_warning_row(tmp_path, monkeypatch):
+    _home(monkeypatch, tmp_path / "home")
+    bad = tmp_path / "bad.toml"
+    bad.write_text('[[model]]\nid = "x"\nalias = "nope"\nreleased = "2099-01-01"\n', encoding="utf-8")
+    (tmp_path / "check.toml").write_text(
+        '[questions]\npath = "questions.json"\n', encoding="utf-8"
+    )
+    (tmp_path / "questions.json").write_text(
+        '{"schema":"plan-anchoring/questions/1","version":1,"questions":{"relevant":'
+        '{"type":"choice","instructions":"Applies?","criteria":{"no":"No.","yes":"Yes."}}}}',
+        encoding="utf-8",
+    )
+    for backends in (["haiku"], None):
+        logs = tmp_path / ("with" if backends else "without")
+        kwargs = {"backends": backends} if backends else {}
+        with pytest.raises(sc_jev_py.JevError) as caught:
+            sc_jev_py.run_check(
+                "check.toml",
+                models_file=str(bad),
+                repo_root=str(tmp_path),
+                log_dir=str(logs),
+                session_dir=str(logs / "sessions"),
+                **kwargs,
+            )
+        assert caught.value.code == "CONFIG_INVALID"
+        path = sc_jev_py.general_log_file(logs)
+        rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
+        assert "models.file_invalid" in {row["action"] for row in rows}, backends
 
 
 def test_models_lists_crate_and_file_rows(tmp_path):

@@ -32,8 +32,8 @@
 //! `jev models` prints the resolved models and where each came from (`crate`
 //! or `file`), reading `~/.sc-agent/models.toml` (`--models-file` to
 //! override). `--backend` takes a short name (`jev`, `haiku`, `luna`: the
-//! latest model) or a known model id of one of them (that backend pinned to
-//! that model). The resolved model and its source go to the general log.
+//! latest model) or a model id of one of them from the crate table or the
+//! models file (that backend pinned to that model). The resolved model and its source go to the general log.
 //!
 //! # Partial failure
 //!

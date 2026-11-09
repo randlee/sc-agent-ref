@@ -514,6 +514,54 @@ impl FromStr for BackendChoice {
 }
 
 impl BackendChoice {
+    /// Refuses a `--backend` text that no catalog could make valid, without
+    /// reading the models file.
+    ///
+    /// The text passes when it is a short name (`jev`, `haiku`, `luna`) or a
+    /// valid model string of a selectable family: `jev` or `jev-...`,
+    /// `claude-...`, `gpt-...` (the prefixes a models-file row must carry for
+    /// `jev`, `haiku` and `luna`), and not a crate-table id of a
+    /// definition-only model such as `claude-sonnet-5-5`. Whether the catalog lists the id is
+    /// [`Self::parse_in`]'s question, asked once the models file is loaded.
+    ///
+    /// # Errors
+    ///
+    /// `INPUT_INVALID` with the same message as [`Self::parse_in`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sc_agent_types::BackendChoice;
+    ///
+    /// assert!(BackendChoice::check_shape("haiku").is_ok());
+    /// assert!(BackendChoice::check_shape("jev-1.15.0").is_ok());
+    /// assert_eq!(
+    ///     BackendChoice::check_shape("nonsense").unwrap_err().code(),
+    ///     "INPUT_INVALID"
+    /// );
+    /// ```
+    pub fn check_shape(text: &str) -> Result<(), JevError> {
+        let family_id = text.parse::<ModelId>().is_ok()
+            && (text == "jev"
+                || text.starts_with("jev-")
+                || text.starts_with("claude-")
+                || text.starts_with("gpt-"));
+        // A crate-table id of a definition-only alias (`claude-sonnet-5-5`)
+        // stays that alias whatever the models file says: a file row that
+        // redeclares it under another alias is `CONFIG_INVALID`.
+        let definition_only = ModelAliases::builtin()
+            .alias_of(text)
+            .is_some_and(|alias| backend_for_alias(alias).is_none());
+        if (family_id && !definition_only) || text.parse::<BackendId>().is_ok() {
+            Ok(())
+        } else {
+            Err(JevError::input_invalid(invalid_backend_message(
+                text,
+                &ModelAliases::builtin(),
+            )))
+        }
+    }
+
     /// Parses a short name or a model id of `aliases`, the catalog of this
     /// call ([`ModelAliases::alias_of`]: the crate table plus the models
     /// file). `FromStr` is this against the crate table alone.

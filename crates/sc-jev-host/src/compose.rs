@@ -102,6 +102,15 @@ pub struct ComposeInputs {
     session_log: Option<SharedSessionLog>,
     general_log: Option<SharedGeneralLog>,
     models_file: Option<PathBuf>,
+    backend_names: Option<NamedBackends>,
+}
+
+/// `--backend` names that wait for the models file (see
+/// [`ComposeInputs::backend_names`]).
+#[derive(Clone)]
+struct NamedBackends {
+    names: Vec<String>,
+    field: Option<&'static str>,
 }
 
 impl std::fmt::Debug for ComposeInputs {
@@ -114,6 +123,7 @@ impl std::fmt::Debug for ComposeInputs {
             .field("log_dir", &self.log_dir)
             .field("sessions_dir", &self.sessions_dir)
             .field("backends", &self.backends)
+            .field("backend_names", &self.backend_names.is_some())
             .field("rev", &self.rev)
             .field("dry_run", &self.dry_run)
             .field("system_prompt_override", &self.system_prompt_override)
@@ -161,6 +171,7 @@ impl ComposeInputs {
             session_log: None,
             general_log: None,
             models_file: None,
+            backend_names: None,
         }
     }
 
@@ -193,6 +204,60 @@ impl ComposeInputs {
     pub fn backends(mut self, backends: BackendSet) -> Self {
         self.backends = Some(backends);
         self
+    }
+
+    /// Selects the backends `names` name, one name per entry; wins over the
+    /// check document's `backends`, like [`Self::backends`].
+    ///
+    /// The names are checked against the catalog of this call (the crate
+    /// table plus the models file) once the run has loaded that file through
+    /// its general log, so the file is read once, a malformed file leaves its
+    /// `models.file_invalid` warning, and a name the catalog does not list is
+    /// `INPUT_INVALID` there. `field` is the caller's name for the input
+    /// (`--backend`); it is attached to that error. Callers that can refuse a
+    /// name that cannot be valid (see `BackendChoice::check_shape`) do so
+    /// first, before any I/O. An empty `names` selects nothing.
+    #[must_use]
+    pub fn backend_names<I, S>(mut self, names: I, field: Option<&'static str>) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        let names: Vec<String> = names.into_iter().map(Into::into).collect();
+        self.backend_names = (!names.is_empty()).then_some(NamedBackends { names, field });
+        self
+    }
+
+    /// Resolves [`Self::backend_names`] against `models`, the catalog this
+    /// call loaded, into the selected backends.
+    ///
+    /// # Errors
+    ///
+    /// `INPUT_INVALID` for a name the catalog does not list, `CONFIG_INVALID`
+    /// for a repeating list; see [`BackendSet::from_names_in`].
+    pub(crate) fn settle_backends(
+        &mut self,
+        models: &ModelAliases,
+        general: &dyn GeneralLog,
+    ) -> Result<(), JevError> {
+        let Some(named) = self.backend_names.take() else {
+            return Ok(());
+        };
+        match BackendSet::from_names_in(named.names.iter().map(String::as_str), models) {
+            Ok(set) => {
+                self.backends = Some(set);
+                Ok(())
+            }
+            Err(error) => {
+                GeneralEvent::error(TARGET, "backends.invalid", "the backend names are invalid")
+                    .with_error_code(error.code().as_str())
+                    .emit(general);
+                Err(match named.field {
+                    Some(field) => error.with_field(field),
+                    None => error,
+                })
+            }
+        }
     }
 
     /// Reads check inputs at `rev` instead of `WORKTREE`.
@@ -774,7 +839,7 @@ impl HostRun {
 /// # Errors
 ///
 /// Any [`JevError`] from root discovery, session logger start or `prepare`.
-pub fn prepare_from(source: CheckSource, inputs: ComposeInputs) -> Result<HostRun, JevError> {
+pub fn prepare_from(source: CheckSource, mut inputs: ComposeInputs) -> Result<HostRun, JevError> {
     let resolved = inputs
         .resolve()
         .inspect_err(|error| log_failure(&inputs, None, "resolve", error))?;
@@ -786,6 +851,10 @@ pub fn prepare_from(source: CheckSource, inputs: ComposeInputs) -> Result<HostRu
             return Err(error);
         }
     };
+    if let Err(error) = inputs.settle_backends(&models, logs.general.as_ref()) {
+        logs.finish_general();
+        return Err(error);
+    }
     let config = inputs.run_config(
         &resolved,
         Arc::clone(&logs.session),
@@ -835,7 +904,7 @@ pub fn run_from(source: CheckSource, inputs: ComposeInputs) -> Result<RunRespons
 pub fn ask_from(
     session_id: SessionId,
     follow_up: &str,
-    inputs: ComposeInputs,
+    mut inputs: ComposeInputs,
 ) -> Result<AskResponse, JevError> {
     let resolved = inputs
         .resolve()
@@ -858,6 +927,10 @@ pub fn ask_from(
             return Err(error);
         }
     };
+    if let Err(error) = inputs.settle_backends(&models, logs.general.as_ref()) {
+        logs.finish_general();
+        return Err(error);
+    }
     let config = inputs.run_config(
         &resolved,
         Arc::clone(&logs.session),

@@ -83,7 +83,9 @@ import sc_jev_py
 
 result = sc_jev_py.run_check("check.toml", dry_run=True, repo_root=".")
 print(result.payload_sha256)
-result = sc_jev_py.run_check(request_json=open("request.json").read(), backends=["jev"])
+result = sc_jev_py.run_check(
+    request_json=open("request.json").read(), backends=["jev"], dry_run=True, repo_root="."
+)
 ```
 
 Failures raise `sc_jev_py.JevError` with the CLI error fields (`code`,
