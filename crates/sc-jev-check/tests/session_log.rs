@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex};
 use sc_agent_types::observability::v2::{LogEvent, LogRejected, SessionLog, SharedSessionLog};
 use sc_agent_types::{
     BackendId, BackendSet, BusyCause, JevError, ModelId, Operation, ProjectLabel, RepoRoot,
-    SendTrace, SessionId, Sha256Digest,
+    RequestSha256, SendTrace, SessionId,
 };
 use sc_decision_schema::session_log::{SendOutcome, SessionLogRow};
 use sc_decision_schema::test_util::MockJudgeBackend;
@@ -129,8 +129,8 @@ fn run_with(
     )?)
 }
 
-fn digest_of(body: &str) -> Sha256Digest {
-    Sha256Digest::of_text(body)
+fn digest_of(body: &str) -> RequestSha256 {
+    RequestSha256::of_text(body)
 }
 
 /// The scripted registry's pretend body for `id` (see `scripted.rs`).
@@ -155,7 +155,7 @@ fn test_ok_row_request_sha256_is_sent_body_digest() {
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].send_outcome(), SendOutcome::Ok);
     assert_eq!(rows[0].context().request_sha256, Some(digest_of(body)));
-    assert_eq!(&rows[0].context().prompt_sha256, response.prompt_sha256());
+    assert_eq!(&rows[0].context().payload_sha256, response.payload_sha256());
     assert_eq!(rows[0].context().decision_schema, DecisionSchemaId::CURRENT);
 }
 
@@ -371,7 +371,7 @@ fn test_ask_writes_one_row_in_the_sessions_context() {
             .log_context(LogContext::new(RepoRoot::new(repo.path()), Some(project))),
     )
     .expect("ask");
-    assert_eq!(asked.prompt_sha256(), response.prompt_sha256());
+    assert_eq!(asked.payload_sha256(), response.payload_sha256());
     let rows = sink.rows();
     assert_eq!(rows.len(), 2);
     let (judged, followed) = (rows[0].context(), rows[1].context());
@@ -438,7 +438,7 @@ fn test_every_row_carries_context() {
         assert_eq!(fields["repo"], "/logged/main-repo");
         assert_eq!(fields["project"], "billing");
         assert!(fields["model_id"].is_string());
-        assert_eq!(fields["prompt_sha256"], response.prompt_sha256().as_str());
+        assert_eq!(fields["payload_sha256"], response.payload_sha256().as_str());
         assert_eq!(event.session_id(), &id);
         assert_eq!(event.operation(), row.context().operation);
     }
@@ -528,4 +528,44 @@ fn test_rejected_log_row_keeps_run_ok() {
         ))])),
     );
     assert!(asked.is_ok(), "ask also survives a rejected row");
+}
+
+/// The row carries `questions_sha256` (the question set alone) next to
+/// `payload_sha256` (questions and state): two runs of the same questions
+/// against different state share the first and differ in the second.
+#[test]
+fn test_row_questions_sha256_ignores_state() {
+    let run_with_state = |choice: &str| {
+        let repo = repo();
+        fs::write(
+            repo.path().join("state.json"),
+            format!(
+                r#"{{"schema":"plan-anchoring/state/1","answers":[{{"question_id":"relevant","choice":"{choice}"}}]}}"#
+            ),
+        )
+        .expect("state");
+        fs::write(
+            repo.path().join("check.toml"),
+            "[questions]\npath = \"questions.json\"\n[state]\npath = \"state.json\"\n",
+        )
+        .expect("check");
+        let sessions = tempfile::tempdir().expect("sessions");
+        let sink = Arc::new(Sink::default());
+        let response = run_with(
+            config(repo.path(), sessions.path(), &sink),
+            &[BackendId::Jev],
+            vec![dyn_judge(mock(BackendId::Jev, "yes"))],
+        )
+        .expect("run");
+        let rows = sink.rows();
+        assert_eq!(rows.len(), 1);
+        let context = rows[0].context().clone();
+        assert_eq!(&context.questions_sha256, response.questions_sha256());
+        assert_eq!(&context.payload_sha256, response.payload_sha256());
+        context
+    };
+    let first = run_with_state("yes");
+    let second = run_with_state("no");
+    assert_eq!(first.questions_sha256, second.questions_sha256);
+    assert_ne!(first.payload_sha256, second.payload_sha256);
 }

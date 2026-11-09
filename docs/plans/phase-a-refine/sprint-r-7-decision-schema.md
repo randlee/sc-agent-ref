@@ -202,6 +202,14 @@ owned_paths:
 
 # Sprint r-7 — `sc-decision-schema` crate and model catalog
 
+> **Historical record (phase-end digests, 2026-11-08).** This document records
+> the pre-rename names and the version 1 session-log DDL as they were planned
+> and built: `prompt_sha256` is now `payload_sha256`, the `questions` table
+> keyed by the payload digest is now `question_sets` plus `payloads`
+> (`schema_version` 2), and `questions_sha256` and per-backend `request_sha256`
+> were added. It is not rewritten. The current schema and migration notes are in
+> [`docs/sc-decision-schema/session-log-schema.md`](../../sc-decision-schema/session-log-schema.md).
+
 Owner decisions 2026-11-07 (plan.md "Owner decisions 2026-11-07", items 1–3,
 5, 6 and 7). Governing ADRs: ADR-SAG-0030 and ADR-SAG-0031's "Storage schema"
 subsection, both inserted **Proposed** by the plan PR and flipped by this

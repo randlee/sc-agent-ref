@@ -37,7 +37,9 @@ use std::hash::{BuildHasher, RandomState};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use sc_agent_types::{BusyCause, CancelToken, JevError, NetworkErrorKind, SendTrace, Sha256Digest};
+use sc_agent_types::{
+    BusyCause, CancelToken, JevError, NetworkErrorKind, RequestSha256, SendTrace,
+};
 
 use crate::failure::{busy_reply, is_quota_reply};
 use crate::redact::redact;
@@ -429,7 +431,7 @@ fn retry_loop(
         }
         if sends == 0 {
             // One value per send: every retry resends these bytes.
-            trace.record(Sha256Digest::of_text(request.body()));
+            trace.record(RequestSha256::of_text(request.body()));
         }
         sends += 1;
         let response = transport.send(request)?;

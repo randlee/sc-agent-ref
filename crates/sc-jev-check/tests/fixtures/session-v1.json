@@ -4,7 +4,7 @@
   "backend": "anthropic_haiku",
   "created_at": 1700000000000,
   "payload_utf8": "{\"questions\":[{\"choices\":[\"no\",\"yes\"],\"id\":\"relevant\",\"prompt\":\"Does it apply?\"}],\"state\":[]}",
-  "prompt_sha256": "79b58710e937c53180dc2f263c9e09fce6afc2168b4a3f019b4f600aac30e0a3",
+  "payload_sha256": "79b58710e937c53180dc2f263c9e09fce6afc2168b4a3f019b4f600aac30e0a3",
   "system_prompt": "base prompt",
   "outcomes": [
     {

@@ -172,7 +172,6 @@ fn test_response_rules_rejected() {
         reply
     };
     let cases: Vec<(&str, Value)> = vec![
-        ("model", edit(&|r| r["model"] = json!("jev-9.9.9"))),
         (
             "id mismatch",
             edit(&|r| {
@@ -210,9 +209,9 @@ fn test_response_rules_rejected() {
             edit(&|r| r["answers"]["quality"]["confidence"] = json!(1.2)),
         ),
         (
-            "sum off by more than 1e-6",
+            "sum off by more than 0.01 per option",
             edit(&|r| {
-                r["answers"]["quality"]["probabilities"] = json!({"pass": 0.7, "fail": 0.300_01})
+                r["answers"]["quality"]["probabilities"] = json!({"pass": 0.7, "fail": 0.35})
             }),
         ),
         (
@@ -241,15 +240,41 @@ fn test_response_rules_rejected() {
     for (name, reply) in cases {
         assert_eq!(rejected(&reply).code(), "RESPONSE_INVALID", "{name}");
     }
-    // The tolerance is inclusive of rounding: a sum within 1e-6 is accepted.
+    // A reply naming another model than requested is accepted (agt-cac) and
+    // keeps the answered model.
+    let request = CheckRequest::parse(&fixture("check-request-all-types.json")).expect("request");
+    let other = edit(&|r| r["model"] = json!("jev-9.9.9"));
+    let parsed = CheckResponse::parse(&serde_json::to_vec(&other).expect("json")).expect("parse");
+    assert_eq!(parsed.model().as_str(), "jev-9.9.9");
+    parsed.into_answers(&request).expect("other model accepted");
+    // The sum tolerance is 0.01 per option (two options: 0.02), because Jev
+    // rounds; it validates and the values pass through unchanged.
     let request = CheckRequest::parse(&fixture("check-request-all-types.json")).expect("request");
     let mut near = golden_reply();
-    near["answers"]["quality"]["probabilities"] = json!({"pass": 0.7, "fail": 0.300_000_5});
+    near["answers"]["quality"]["probabilities"] = json!({"pass": 0.7, "fail": 0.315_000_5});
     let bytes = serde_json::to_vec(&near).expect("json");
-    CheckResponse::parse(&bytes)
+    let answers = CheckResponse::parse(&bytes)
         .expect("parse")
         .into_answers(&request)
         .expect("within tolerance");
+    let quality = answers
+        .get(&QuestionId::try_from("quality").expect("id"))
+        .expect("quality");
+    let fail = quality
+        .probabilities()
+        .expect("probabilities")
+        .get(&ChoiceId::try_from("fail").expect("id"))
+        .expect("fail");
+    assert_eq!(fail.get().to_bits(), 0.315_000_5_f64.to_bits(), "unrounded");
+    // Past 0.02 for two options the reply is refused; the range check stays.
+    for bad in [
+        json!({"pass": 0.7, "fail": 0.33}),
+        json!({"pass": 1.2, "fail": -0.2}),
+    ] {
+        let mut far = golden_reply();
+        far["answers"]["quality"]["probabilities"] = bad;
+        assert_eq!(rejected(&far).code(), "RESPONSE_INVALID");
+    }
     // Not JSON.
     assert_eq!(
         CheckResponse::parse(b"not json").expect_err("json").code(),
@@ -470,4 +495,88 @@ fn test_probability_error_does_not_echo_its_value() {
         assert!(!text.contains("1.2345") && !text.contains("7.5"), "{text}");
         assert!(!text.contains("NaN"), "{text}");
     }
+}
+
+/// The questions digest is pinned by a literal: the bytes are plan-anchor's
+/// `questions_digest` form (sorted keys, compact, UTF-8, non-ASCII kept) over
+/// `{id: {type, instructions, criteria}}`, with descriptions. The expected
+/// digest was computed independently with Python `json.dumps(sort_keys=True,
+/// separators=(",", ":"), ensure_ascii=False)` and `hashlib.sha256`.
+#[test]
+fn test_questions_sha256_is_pinned_to_the_documented_bytes() {
+    use sc_decision_schema::jev::v1::{questions_canonical_text, questions_sha256};
+    let payload = CanonicalJudgePayload::from_bytes(
+        r#"{"questions":[
+            {"id":"urgent","prompt":"Urgent?","choices":[],"kind":"noul"},
+            {"id":"relevant","prompt":"Does it apply? é\n","choices":["no","yes"],"descriptions":["It does not.","It applies."]},
+            {"id":"plain","prompt":"Plain?","choices":["no","yes"]}
+        ],"state":[]}"#
+            .as_bytes(),
+    )
+    .expect("payload");
+    let text = questions_canonical_text(payload.questions()).expect("text");
+    assert_eq!(
+        text,
+        "{\"plain\":{\"criteria\":{\"no\":\"no\",\"yes\":\"yes\"},\"instructions\":\"Plain?\",\"type\":\"choice\"},\"relevant\":{\"criteria\":{\"no\":\"It does not.\",\"yes\":\"It applies.\"},\"instructions\":\"Does it apply? \u{e9}\\n\",\"type\":\"choice\"},\"urgent\":{\"instructions\":\"Urgent?\",\"type\":\"noul\"}}"
+    );
+    let digest = questions_sha256(payload.questions()).expect("digest");
+    assert_eq!(
+        digest.as_str(),
+        "ad8e0a8cebca33763fd388d96ce884066babd5aa09372aba4d55a40d0c1da8b7"
+    );
+    // Order of the questions does not matter; descriptions do.
+    let mut reversed = payload.questions().to_vec();
+    reversed.reverse();
+    assert_eq!(questions_sha256(&reversed).expect("digest"), digest);
+    let bundle = sc_decision_schema::PayloadBundle::encode(&payload).expect("bundle");
+    assert_eq!(bundle.questions_sha256().expect("bundle digest"), digest);
+}
+
+/// `questions_sha256` identifies a set: reordering the questions or a
+/// `choice`'s options does not change it, but a `score` question's levels are
+/// ordered, so reversing them does (the one departure from plan-anchor's form,
+/// which has no `score`).
+#[test]
+fn test_questions_sha256_order_rules() {
+    use sc_decision_schema::jev::v1::questions_sha256;
+    let parse = |json: &str| CanonicalJudgePayload::from_bytes(json.as_bytes()).expect("payload");
+    let score = |levels: &str, descriptions: &str| {
+        parse(&format!(
+            r#"{{"questions":[{{"id":"s","prompt":"How bad?","choices":{levels},"kind":"score","descriptions":{descriptions}}}],"state":[]}}"#
+        ))
+    };
+    let forward = score(r#"["low","mid","high"]"#, r#"["a","b","c"]"#);
+    let reversed = score(r#"["high","mid","low"]"#, r#"["c","b","a"]"#);
+    assert_ne!(
+        questions_sha256(forward.questions()).expect("forward"),
+        questions_sha256(reversed.questions()).expect("reversed"),
+        "reversed score levels change the digest"
+    );
+    // Same levels in the same order: stable.
+    assert_eq!(
+        questions_sha256(forward.questions()).expect("a"),
+        questions_sha256(score(r#"["low","mid","high"]"#, r#"["a","b","c"]"#).questions())
+            .expect("b")
+    );
+
+    // A choice's options and the questions' order do not matter.
+    let ab = parse(
+        r#"{"questions":[{"id":"a","prompt":"A?","choices":["no","yes"]},{"id":"b","prompt":"B?","choices":["no","yes"]}],"state":[]}"#,
+    );
+    let ba = parse(
+        r#"{"questions":[{"id":"b","prompt":"B?","choices":["yes","no"]},{"id":"a","prompt":"A?","choices":["yes","no"]}],"state":[]}"#,
+    );
+    assert_eq!(
+        questions_sha256(ab.questions()).expect("ab"),
+        questions_sha256(ba.questions()).expect("ba")
+    );
+    // The payload digest does see the order.
+    assert_ne!(
+        sc_decision_schema::PayloadBundle::encode(&ab)
+            .expect("ab")
+            .sha256(),
+        sc_decision_schema::PayloadBundle::encode(&ba)
+            .expect("ba")
+            .sha256()
+    );
 }

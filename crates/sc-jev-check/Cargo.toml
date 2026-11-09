@@ -67,6 +67,10 @@ required-features = ["test-util"]
 name = "multi_backend"
 required-features = ["test-util"]
 
+[[test]]
+name = "request_digest"
+required-features = ["test-util"]
+
 # `register_scripted_backends` is public only under `test-util`.
 [[test]]
 name = "scripted"

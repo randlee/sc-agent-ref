@@ -564,7 +564,7 @@ impl AsRef<[BackendId]> for BackendSet {
 
 /// Lowercase hex SHA-256 (64 characters).
 ///
-/// Used for canonical payload digests and equal-input `prompt_sha256`.
+/// Used for canonical payload digests and equal-input `payload_sha256`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct Sha256Digest(String);
@@ -653,6 +653,88 @@ impl TryFrom<String> for Sha256Digest {
     fn try_from(value: String) -> Result<Self, Self::Error> {
         Self::parse(value)
     }
+}
+
+/// Declares one of the three run digests as its own type over the shared
+/// [`Sha256Digest`] core. The wire, the log columns and Python strings are the
+/// plain hex text (`#[serde(transparent)]`); the types do not convert into
+/// each other, so a digest cannot be passed where another is meant.
+macro_rules! digest_newtype {
+    ($(#[$meta:meta])* $name:ident) => {
+        $(#[$meta])*
+        #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+        #[serde(transparent)]
+        pub struct $name(Sha256Digest);
+
+        impl $name {
+            /// SHA-256 of `text` through `sc-sha`'s text identity; see
+            /// [`Sha256Digest::of_text`].
+            #[must_use]
+            pub fn of_text(text: &str) -> Self {
+                Self(Sha256Digest::of_text(text))
+            }
+
+            /// Parses 64 lowercase hex characters.
+            ///
+            /// # Errors
+            ///
+            /// Returns [`JevError::InputInvalid`] when the text is not 64
+            /// lowercase hex characters.
+            pub fn parse(text: impl AsRef<str>) -> Result<Self, JevError> {
+                Sha256Digest::parse(text).map(Self)
+            }
+
+            /// Returns the lowercase hex text.
+            #[must_use]
+            pub fn as_str(&self) -> &str {
+                self.0.as_str()
+            }
+        }
+
+        impl fmt::Display for $name {
+            fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str(self.as_str())
+            }
+        }
+
+        impl AsRef<str> for $name {
+            fn as_ref(&self) -> &str {
+                self.as_str()
+            }
+        }
+    };
+}
+
+digest_newtype! {
+    /// SHA-256 of the canonical payload (questions and state): backend-neutral,
+    /// the equal-input proof that every backend judged the same input. It
+    /// excludes the LLM system prompt and the model, so it cannot key a
+    /// response cache.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sc_agent_types::PayloadSha256;
+    ///
+    /// let digest = PayloadSha256::of_text("{}");
+    /// assert_eq!(digest.as_str().len(), 64);
+    /// assert_eq!(serde_json::to_string(&digest)?, format!("\"{digest}\""));
+    /// # Ok::<(), serde_json::Error>(())
+    /// ```
+    PayloadSha256
+}
+
+digest_newtype! {
+    /// SHA-256 of a question set alone (ids, kinds, instructions, criteria):
+    /// the same for the same questions whatever the state or their order.
+    QuestionsSha256
+}
+
+digest_newtype! {
+    /// SHA-256 of the exact first request body one backend is sent for its
+    /// model: the key for substituting a cached response for an identical
+    /// request.
+    RequestSha256
 }
 
 /// Git object id of a blob: 40 (SHA-1) or 64 (SHA-256) lowercase hex digits.

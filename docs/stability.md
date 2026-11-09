@@ -25,11 +25,59 @@ one module per API shape and per version, and `v1` is the only version today.
 It encodes the Jev service's documented API, so its shape is set by that
 service.
 
+### Models
+
+sc-agent accepts `jev` or any supported version such as `jev-1.13.0`
+(`ModelId`). `jev` means the latest Jev model. It follows the vendor's
+releases, so an API change this build does not know can break it. That is
+expected; the remedy is upgrading sc-agent. Pin a version such as
+`jev-1.13.0` (`check.toml` `[models]`) to avoid it.
+
+The wire value for `jev` is `jev-latest`, the value plan-anchor's `jev-api.md`
+documents; `jev::v1::wire_model` is the one place that maps it. This is
+**unverified against the live API**: nothing confirms the API accepts the bare
+`jev`, and no test in this repository calls the live API.
+
+A reply naming a different model than the request is not an error (`jev` is
+answered by a concrete version). The answered model is the reply's `model`,
+printed as `model` in `sc-ai jev run` output and read with
+`JudgeOutcome::answered_model`. Output is byte-identical where the models match.
+
+### Digests
+
+Run output carries three digests. Their exact bytes are in
+[`tests/fixtures/README.md`](../tests/fixtures/README.md); a change to those
+bytes changes every consumer's cache keys, so it is a breaking change. sc-agent
+builds no cache.
+
+| Digest | Identifies | Use |
+| --- | --- | --- |
+| `questions_sha256` | The question set (ids, kinds, instructions, criteria descriptions). Same questions, any state. | Compare runs of the same questions against different state. |
+| `payload_sha256` | The canonical payload: questions and state. Backend-neutral; excludes the LLM system prompt and the model. | The equal-input proof that every backend judged the same input. |
+| `request_sha256` (per backend) | The exact first request body for that backend and model, computed before sending. | Substitute a cached response for an identical request. |
+
+`request_sha256` is computed with no key and no send, and equals the
+session-log `request_sha256` of the same send. It is absent for a backend whose
+bytes depend on an earlier answer (an LLM backend after another in
+`chain_context` mode) or that refuses the questions (a `noul` question to an
+LLM backend). `jev` is sent as `jev-latest`, so a key made with `jev` can
+return a stale answer after Jev moves: for caching, use a pinned version such
+as `jev-1.13.0`.
+
+### Numbers
+
+Probabilities, confidence and combined statistics are `f64`. sc-agent never
+rounds: values pass through unchanged, and a combined statistic is returned at
+full double precision. Jev rounds what it sends, so the sum of a reply's
+probabilities is checked within 0.01 per option (the plan-anchor rule), which
+validates input and changes no value. Each probability and confidence must lie
+in `[0, 1]`.
+
 ## Session-log record: `SESSION_LOG_SCHEMA_VERSION`
 
 The record is the `fields` object of each log line (the keys are
 `session_log::COLUMNS`), stored by the SQLite DDL in `sc-decision-schema`.
-`SESSION_LOG_SCHEMA_VERSION` is `1`. Adding or renaming a column, or changing
+`SESSION_LOG_SCHEMA_VERSION` is `2` (version 2 added `questions_sha256` and split the digest tables; see the migration notes). Adding or renaming a column, or changing
 a type or nullability, bumps the version and adds a migration note to
 [`docs/sc-decision-schema/session-log-schema.md`](sc-decision-schema/session-log-schema.md).
 `SessionLogRow::try_from_fields` refuses any other version with

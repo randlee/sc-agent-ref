@@ -10,7 +10,8 @@ use std::sync::{Arc, Mutex};
 
 use sc_agent_types::observability::v2::{LogEvent, LogRejected, SessionLog, SharedSessionLog};
 use sc_agent_types::{
-    BackendId, BackendSet, BusyCause, JevError, NetworkErrorKind, RepoRoot, SendTrace, Sha256Digest,
+    BackendId, BackendSet, BusyCause, JevError, NetworkErrorKind, PayloadSha256, RepoRoot,
+    SendTrace,
 };
 use sc_decision_schema::test_util::MockJudgeBackend;
 use sc_decision_schema::{Attestation, JudgeBackend, JudgeOutcome, JudgeRequest, MultiBackendMode};
@@ -84,9 +85,9 @@ impl SessionLog for Sink {
                 .expect("backend")
                 .to_owned(),
             event.operation().as_str().to_owned(),
-            event.fields()["prompt_sha256"]
+            event.fields()["payload_sha256"]
                 .as_str()
-                .expect("prompt_sha256")
+                .expect("payload_sha256")
                 .to_owned(),
         ));
         Ok(())
@@ -436,7 +437,7 @@ fn test_session_save_failure_keeps_answers() {
 #[test]
 fn test_equal_false_when_backend_digest_differs() {
     let (repo, sessions) = dirs();
-    let other = Sha256Digest::of_text("another payload");
+    let other = PayloadSha256::of_text("another payload");
     let jev = Arc::new(mock(BackendId::Jev, "yes"));
     let haiku = Arc::new(mock(BackendId::AnthropicHaiku, "no").with_reported_digest(other.clone()));
     let response = run_with(
@@ -474,7 +475,7 @@ fn test_equal_true_when_all_digests_match() {
             .iter()
             .all(|entry| entry.attestation() == &Attestation::Matched)
     );
-    assert_eq!(response.prompt_sha256(), record.prompt_sha256());
+    assert_eq!(response.payload_sha256(), record.payload_sha256());
 }
 
 #[test]
@@ -492,7 +493,7 @@ fn test_failed_backend_emits_one_log_event() {
         .backends(set(&JEV_HAIKU))
         .registry(registry(vec![dyn_judge(&jev), dyn_judge(&haiku)]));
     let prepared = prepare(source, config).expect("prepare");
-    let digest = prepared.prompt_sha256().as_str().to_owned();
+    let digest = prepared.payload_sha256().as_str().to_owned();
     run(prepared).expect("run");
     let events = sink.events();
     assert_eq!(events.len(), 2, "the failed backend logs too");

@@ -15,9 +15,12 @@ use std::sync::Arc;
 use pyo3::prelude::*;
 use pyo3::types::{PyAnyMethods, PyBytes};
 use sc_agent_types::schema::subjects::SubjectsProducer;
-use sc_agent_types::{BackendSet, JevError, ProjectLabel, Rev, SessionId, Sha256Digest};
+use sc_agent_types::{
+    BackendId, BackendSet, JevError, PayloadSha256, ProjectLabel, QuestionsSha256, RequestSha256,
+    Rev, SessionId, Sha256Digest,
+};
 use sc_decision_schema::{MultiBackendMode, canonical_json_bytes};
-use sc_jev_check::run::{CheckSource, RunResponse};
+use sc_jev_check::run::{CallerRequest, CheckSource, RunResponse};
 use sc_jev_host::compose::{ComposeInputs, ask_from, explicit_repo_root, prepare_from};
 use sc_jev_host::paths::PathPolicy;
 use serde_json::Value;
@@ -26,7 +29,7 @@ use crate::error::{self, map_err};
 
 /// One Python `run_check` invocation, with owned arguments.
 struct CheckRun {
-    check_path: PathBuf,
+    input: Input,
     /// `backends=`; `None` leaves the choice to `check.toml`, then `[jev]`.
     backends: Option<Vec<String>>,
     dry_run: bool,
@@ -43,6 +46,60 @@ struct CheckRun {
     /// can set this (ADR-SAG-0022).
     #[cfg(any(test, feature = "test-util"))]
     scripted_answers: Option<Value>,
+}
+
+/// Where a run's questions come from: a `check.toml` path, or the bytes of a
+/// caller-built questions document (the CLI's `--request-json`).
+#[derive(Clone)]
+enum Input {
+    Check(PathBuf),
+    Request(Vec<u8>),
+}
+
+impl Input {
+    /// The one input of a Python call.
+    ///
+    /// # Errors
+    ///
+    /// `INPUT_INVALID` when both or neither of `check_path` and
+    /// `request_json` is given, or `request_json` is neither `str` nor
+    /// `bytes`.
+    fn from_python(
+        check_path: Option<PathBuf>,
+        request_json: Option<&Bound<'_, PyAny>>,
+    ) -> Result<Self, JevError> {
+        match (check_path, request_json) {
+            (Some(path), None) => Ok(Self::Check(path)),
+            (None, Some(document)) => {
+                let bytes = if let Ok(text) = document.extract::<String>() {
+                    text.into_bytes()
+                } else if let Ok(bytes) = document.cast::<PyBytes>() {
+                    bytes.as_bytes().to_vec()
+                } else {
+                    return Err(JevError::input_invalid(
+                        "request_json must be str or bytes holding the questions document; pass JSON text",
+                    ));
+                };
+                Ok(Self::Request(bytes))
+            }
+            (Some(_), Some(_)) => Err(JevError::input_invalid(
+                "pass check_path or request_json, not both; they are alternative sources of questions",
+            )),
+            (None, None) => Err(JevError::input_invalid(
+                "pass check_path (a check.toml) or request_json (a questions document)",
+            )),
+        }
+    }
+
+    /// The engine source, resolving a check path against `repo_root`.
+    fn source(&self, repo_root: &sc_agent_types::RepoRoot) -> Result<CheckSource, JevError> {
+        match self {
+            Self::Check(path) => CheckSource::check_file(repo_root, path),
+            Self::Request(bytes) => {
+                Ok(CheckSource::CallerRequest(CallerRequest::from_json(bytes)?))
+            }
+        }
+    }
 }
 
 /// What `ask` needs to continue a live run: the host inputs resolved by the
@@ -65,14 +122,20 @@ impl FinishedRun {
         self.response.session_id()
     }
 
-    fn prompt_sha256(&self) -> &Sha256Digest {
-        self.response.prompt_sha256()
+    fn payload_sha256(&self) -> &PayloadSha256 {
+        self.response.payload_sha256()
+    }
+
+    fn questions_sha256(&self) -> &QuestionsSha256 {
+        self.response.questions_sha256()
     }
 }
 
 struct PreparedRequest {
     payload: String,
-    prompt_sha256: Sha256Digest,
+    payload_sha256: PayloadSha256,
+    questions_sha256: QuestionsSha256,
+    request_sha256: Vec<(BackendId, RequestSha256)>,
     producer: Option<SubjectsProducer>,
 }
 
@@ -138,7 +201,7 @@ fn execute(spec: CheckRun) -> Result<FinishedRun, JevError> {
         inputs = inputs.registry(scripted_registry(answers)?);
     }
     let resolved = inputs.resolve()?;
-    let source = CheckSource::check_file(&resolved.repo_root, &spec.check_path)?;
+    let source = spec.input.source(&resolved.repo_root)?;
     // The root is resolved once; the host does not discover it again.
     let inputs = inputs.repo_root(resolved.repo_root.clone());
     // The project belongs to this call only: a later `ask` names its own, so
@@ -192,19 +255,21 @@ fn scripted_registry(
 }
 
 fn build(
-    check_path: &Path,
+    input: &Input,
     repo_root: Option<&Path>,
     rev_text: &str,
 ) -> Result<PreparedRequest, JevError> {
     let rev = Rev::parse(rev_text)?;
     let inputs = base_inputs(repo_root, None, None)?.dry_run(true).rev(rev);
     let resolved = inputs.resolve()?;
-    let source = CheckSource::check_file(&resolved.repo_root, check_path)?;
+    let source = input.source(&resolved.repo_root)?;
     let host = prepare_from(source, inputs.repo_root(resolved.repo_root))?;
     let prepared = host.prepared();
     Ok(PreparedRequest {
         payload: prepared.request().payload().as_str().to_owned(),
-        prompt_sha256: prepared.prompt_sha256().clone(),
+        payload_sha256: prepared.payload_sha256().clone(),
+        questions_sha256: prepared.request().payload().questions_sha256()?,
+        request_sha256: prepared.request_sha256(),
         producer: prepared.producer().cloned(),
     })
 }
@@ -288,7 +353,23 @@ pub(crate) struct CheckResult {
     inner: FinishedRun,
     outcomes: Py<PyAny>,
     equal_input: Py<PyAny>,
+    request_sha256: Py<PyAny>,
     data: Py<PyAny>,
+}
+
+/// `request_sha256` as a backend-id to digest mapping.
+fn request_digest_map(digests: &[(BackendId, RequestSha256)]) -> serde_json::Value {
+    serde_json::Value::Object(
+        digests
+            .iter()
+            .map(|(backend, digest)| {
+                (
+                    backend.to_string(),
+                    serde_json::Value::String(digest.as_str().to_owned()),
+                )
+            })
+            .collect(),
+    )
 }
 
 impl CheckResult {
@@ -300,11 +381,17 @@ impl CheckResult {
             "equal-input JSON",
             serde_json::to_value(inner.response.equal_input()),
         )?;
+        let request_sha256 = to_py(
+            py,
+            "request digests JSON",
+            Ok(request_digest_map(inner.response.request_sha256())),
+        )?;
         let data = to_py(py, "run data JSON", serde_json::to_value(&inner.response))?;
         Ok(Self {
             inner,
             outcomes,
             equal_input,
+            request_sha256,
             data,
         })
     }
@@ -319,10 +406,30 @@ impl CheckResult {
         self.inner.session_id().map(|id| id.to_string())
     }
 
-    /// SHA-256 of the canonical payload. This is `prompt_sha256`.
+    /// SHA-256 of the canonical payload. This is `payload_sha256`.
     #[getter]
-    fn prompt_sha256(&self) -> &str {
-        self.inner.prompt_sha256().as_str()
+    fn payload_sha256(&self) -> &str {
+        self.inner.payload_sha256().as_str()
+    }
+
+    /// SHA-256 of the question set alone (ids, kinds, instructions and
+    /// criteria descriptions), for a consumer's cache lookup. The exact bytes
+    /// are in `tests/fixtures/README.md`.
+    #[getter]
+    fn questions_sha256(&self) -> &str {
+        self.inner.questions_sha256().as_str()
+    }
+
+    /// Per backend id, the SHA-256 of the exact first request body that
+    /// backend is sent, computed before sending (no key, no send). It
+    /// identifies an identical request, so a consumer can substitute a cached
+    /// response. Equals the session-log `request_sha256` of the same send.
+    /// A backend is absent when its bytes depend on an earlier answer
+    /// (`chain_context`) or it refuses the questions. `jev` is sent as
+    /// `jev-latest`: cache on pinned versions.
+    #[getter]
+    fn request_sha256(&self, py: Python<'_>) -> Py<PyAny> {
+        self.request_sha256.clone_ref(py)
     }
 
     /// Canonical payload JSON.
@@ -352,7 +459,7 @@ impl CheckResult {
         self.data.clone_ref(py)
     }
 
-    /// LLM system prompt injected for this run. Not part of `prompt_sha256`.
+    /// LLM system prompt injected for this run. Not part of `payload_sha256`.
     #[getter]
     fn system_prompt(&self) -> Option<&str> {
         self.inner.system_prompt.as_deref()
@@ -400,9 +507,9 @@ impl CheckResult {
 
     fn __repr__(&self) -> String {
         format!(
-            "CheckResult(session_id={:?}, prompt_sha256={})",
+            "CheckResult(session_id={:?}, payload_sha256={})",
             self.session_id(),
-            self.inner.prompt_sha256()
+            self.inner.payload_sha256()
         )
     }
 }
@@ -443,7 +550,10 @@ impl Session {
     }
 }
 
-/// Builds the canonical payload for repo-relative `check_path` without sending.
+/// Builds the canonical payload for repo-relative `check_path`, or for a
+/// caller-built questions document `request_json` (`str` or `bytes`, the CLI's
+/// `--request-json` document), without sending. Exactly one of the two is
+/// given; both or neither is `INPUT_INVALID`.
 ///
 /// Assembly is `sc_jev_host::compose::prepare_from` over
 /// `sc_jev_check::run::prepare` (ADR-SAG-0005, ADR-SAG-0024). This function
@@ -452,7 +562,7 @@ impl Session {
 /// current directory (the directory itself outside git).
 /// `rev` defaults to `WORKTREE`. The GIL is released while the request is
 /// assembled (git reads and command extractors may take seconds). The result
-/// mapping contains `payload`, `prompt_sha256`, and `producer`.
+/// mapping contains `payload`, `payload_sha256`, `questions_sha256`, `request_sha256` (a backend-id to digest mapping), and `producer`.
 ///
 /// # Errors
 ///
@@ -466,20 +576,24 @@ impl Session {
 /// built = jev.build_request("check.toml", repo_root=pathlib.Path("/path/to/repo"))
 /// ```
 #[pyfunction]
-#[pyo3(signature = (check_path, *, repo_root=None, rev="WORKTREE"))]
+#[pyo3(signature = (check_path=None, *, request_json=None, repo_root=None, rev="WORKTREE"))]
 pub(crate) fn build_request(
     py: Python<'_>,
-    check_path: PathBuf,
+    check_path: Option<PathBuf>,
+    request_json: Option<Bound<'_, PyAny>>,
     repo_root: Option<PathBuf>,
     rev: &str,
 ) -> PyResult<Py<PyAny>> {
+    let input = map_err(py, Input::from_python(check_path, request_json.as_ref()))?;
     let repo_root = non_empty(repo_root);
     let rev = rev.to_owned();
-    let built = py.detach(move || build(&check_path, repo_root.as_deref(), &rev));
+    let built = py.detach(move || build(&input, repo_root.as_deref(), &rev));
     let built = map_err(py, built)?;
     let body = serde_json::json!({
         "payload": built.payload,
-        "prompt_sha256": built.prompt_sha256,
+        "payload_sha256": built.payload_sha256,
+        "questions_sha256": built.questions_sha256,
+        "request_sha256": request_digest_map(&built.request_sha256),
         "producer": built.producer,
     });
     to_py(py, "build_request JSON", Ok(body))
@@ -488,7 +602,7 @@ pub(crate) fn build_request(
 /// Builds the owned [`CheckRun`] shared by both Python entry points.
 #[expect(clippy::too_many_arguments, reason = "mirrors the Python keyword API")]
 fn check_run(
-    check_path: &Path,
+    input: Input,
     backends: Option<Vec<String>>,
     dry_run: bool,
     repo_root: Option<PathBuf>,
@@ -500,7 +614,7 @@ fn check_run(
     project: Option<String>,
 ) -> Result<CheckRun, JevError> {
     Ok(CheckRun {
-        check_path: check_path.to_path_buf(),
+        input,
         backends,
         dry_run,
         repo_root: non_empty(repo_root),
@@ -536,7 +650,8 @@ fn finish_check(py: Python<'_>, spec: CheckRun) -> PyResult<CheckResult> {
     CheckResult::new(py, finished)
 }
 
-/// Runs `check_path` through `sc-jev-check`.
+/// Runs `check_path` (or the caller-built questions document `request_json`,
+/// as `str` or `bytes`; exactly one of the two) through `sc-jev-check`.
 ///
 /// `backends` wins over `check.toml`'s `backends`; with neither the run uses
 /// `["jev"]`. Ids are `jev`, `anthropic_haiku`, and `openai_luna`. `dry_run`
@@ -569,8 +684,9 @@ fn finish_check(py: Python<'_>, spec: CheckRun) -> PyResult<CheckResult> {
 /// ```
 #[pyfunction]
 #[pyo3(signature = (
-    check_path,
+    check_path=None,
     *,
+    request_json=None,
     backends=None,
     dry_run=false,
     repo_root=None,
@@ -584,7 +700,8 @@ fn finish_check(py: Python<'_>, spec: CheckRun) -> PyResult<CheckResult> {
 #[expect(clippy::too_many_arguments, reason = "Python keyword API")]
 pub(crate) fn run_check(
     py: Python<'_>,
-    check_path: PathBuf,
+    check_path: Option<PathBuf>,
+    request_json: Option<Bound<'_, PyAny>>,
     backends: Option<Vec<String>>,
     dry_run: bool,
     repo_root: Option<PathBuf>,
@@ -595,10 +712,11 @@ pub(crate) fn run_check(
     chain_context: bool,
     project: Option<String>,
 ) -> PyResult<CheckResult> {
+    let input = map_err(py, Input::from_python(check_path, request_json.as_ref()))?;
     let spec = map_err(
         py,
         check_run(
-            &check_path,
+            input,
             backends,
             dry_run,
             repo_root,
@@ -631,8 +749,9 @@ pub(crate) mod testing {
     /// or not a mapping of question ids is `INPUT_INVALID`.
     #[pyfunction]
     #[pyo3(signature = (
-        check_path,
+        check_path=None,
         *,
+        request_json=None,
         scripted_answers,
         backends=None,
         dry_run=false,
@@ -647,7 +766,8 @@ pub(crate) mod testing {
     #[expect(clippy::too_many_arguments, reason = "Python keyword API")]
     pub(crate) fn run_check_scripted(
         py: Python<'_>,
-        check_path: PathBuf,
+        check_path: Option<PathBuf>,
+        request_json: Option<Bound<'_, PyAny>>,
         scripted_answers: Bound<'_, PyAny>,
         backends: Option<Vec<String>>,
         dry_run: bool,
@@ -660,10 +780,11 @@ pub(crate) mod testing {
         project: Option<String>,
     ) -> PyResult<CheckResult> {
         let answers = map_err(py, py_to_value(&scripted_answers))?;
+        let input = map_err(py, Input::from_python(check_path, request_json.as_ref()))?;
         let mut spec = map_err(
             py,
             check_run(
-                &check_path,
+                input,
                 backends,
                 dry_run,
                 repo_root,
@@ -801,7 +922,7 @@ mod tests {
         dry_run: bool,
     ) -> CheckRun {
         CheckRun {
-            check_path: PathBuf::from("check.toml"),
+            input: Input::Check(PathBuf::from("check.toml")),
             backends: Some(vec![backend.to_owned()]),
             dry_run,
             repo_root: Some(repo.to_path_buf()),
@@ -857,14 +978,38 @@ mod tests {
             "[questions]\npath = \"questions.json\"\n\n[inputs.branches]\nkind = \"subjects\"\npath = \"subjects.json\"\n",
         )
         .expect("check");
-        let built = build(Path::new("check.toml"), Some(repo), "WORKTREE").expect("build");
+        let built = build(
+            &Input::Check(PathBuf::from("check.toml")),
+            Some(repo),
+            "WORKTREE",
+        )
+        .expect("build");
         assert!(built.payload.contains("Transition.GIVE_BACK"));
         let producer = built.producer.expect("producer");
         assert_eq!(producer.name(), "sc-treesitter");
         assert_eq!(producer.language(), "python");
         assert_eq!(producer.mode().as_str(), "matches");
-        let again = build(Path::new("check.toml"), Some(repo), "WORKTREE").expect("rebuild");
-        assert_eq!(built.prompt_sha256, again.prompt_sha256);
+        let again = build(
+            &Input::Check(PathBuf::from("check.toml")),
+            Some(repo),
+            "WORKTREE",
+        )
+        .expect("rebuild");
+        assert_eq!(built.payload_sha256, again.payload_sha256);
+    }
+
+    const REQUEST: &str = r#"{"questions":[{"id":"relevant","prompt":"Does it apply?","choices":["no","yes"]}],"state":[]}"#;
+
+    #[test]
+    fn request_json_builds_the_same_payload_as_the_cli_document() {
+        let repo = tempfile::tempdir().expect("repo");
+        let input = Input::Request(REQUEST.as_bytes().to_vec());
+        let built = build(&input, Some(repo.path()), "WORKTREE").expect("build");
+        assert_eq!(
+            built.payload,
+            r#"{"questions":[{"choices":["no","yes"],"id":"relevant","prompt":"Does it apply?"}],"state":[]}"#
+        );
+        assert_eq!(built.request_sha256.len(), 1, "jev is the default backend");
     }
 
     #[test]
@@ -911,7 +1056,7 @@ mod tests {
         let lines = jsonl_lines(&logs);
         assert_eq!(lines.len(), 1, "{lines:?}");
         assert!(lines[0].contains("judge"));
-        assert!(lines[0].contains(finished.prompt_sha256().as_str()));
+        assert!(lines[0].contains(finished.payload_sha256().as_str()));
         assert!(lines[0].contains("anthropic_haiku"));
         assert!(!lines[0].contains(sentinel));
         assert!(!lines[0].to_ascii_lowercase().contains("api_key"));
@@ -939,7 +1084,7 @@ mod tests {
         assert_eq!(std::fs::read_dir(&sessions).map_or(0, Iterator::count), 0);
         assert_eq!(jsonl_lines(&logs).len(), 1);
         let mut spec = run_spec(&repo, &logs, &sessions, "jev", false);
-        spec.check_path = PathBuf::from("missing.toml");
+        spec.input = Input::Check(PathBuf::from("missing.toml"));
         spec.scripted_answers = None;
         let Err(missing) = execute(spec) else {
             panic!("missing check should fail");
@@ -982,9 +1127,13 @@ mod tests {
         let root = temp_dir("rev");
         write_questions(root.path(), "Rev?");
         for rev in ["", "--output=x", "a b"] {
-            let error = build(Path::new("check.toml"), Some(root.path()), rev)
-                .err()
-                .expect("malformed rev");
+            let error = build(
+                &Input::Check(PathBuf::from("check.toml")),
+                Some(root.path()),
+                rev,
+            )
+            .err()
+            .expect("malformed rev");
             assert_eq!(error.code(), "INPUT_INVALID", "{rev:?}");
         }
         let absent = root.path().join("absent");
@@ -1061,14 +1210,15 @@ mod tests {
         Python::attach(|py| {
             let built = build_request(
                 py,
-                PathBuf::from("check.toml"),
+                Some(PathBuf::from("check.toml")),
+                None,
                 Some(repo.clone()),
                 "WORKTREE",
             )
             .expect("build_request");
             let digest: String = built
                 .bind(py)
-                .get_item("prompt_sha256")
+                .get_item("payload_sha256")
                 .expect("digest")
                 .extract()
                 .expect("str");
@@ -1076,7 +1226,8 @@ mod tests {
 
             let result = run_check(
                 py,
-                PathBuf::from("check.toml"),
+                Some(PathBuf::from("check.toml")),
+                None,
                 None,
                 true,
                 Some(repo.clone()),
@@ -1088,7 +1239,7 @@ mod tests {
                 None,
             )
             .expect("dry run");
-            assert_eq!(result.prompt_sha256(), digest);
+            assert_eq!(result.payload_sha256(), digest);
             assert!(result.session().is_none());
             let equal: bool = result
                 .equal_input(py)
@@ -1110,7 +1261,8 @@ mod tests {
             let logs = root.path().join("log");
             let live = testing::run_check_scripted(
                 py,
-                PathBuf::from("check.toml"),
+                Some(PathBuf::from("check.toml")),
+                None,
                 py.eval(c"{'relevant': 'yes'}", None, None)
                     .expect("answers"),
                 Some(vec!["anthropic_haiku".to_owned()]),
@@ -1232,7 +1384,8 @@ mod tests {
             let _guard = WorkerGuard(scope.clone().unbind());
             let error = build_request(
                 py,
-                PathBuf::from("check.toml"),
+                Some(PathBuf::from("check.toml")),
+                None,
                 Some(repo.to_path_buf()),
                 "WORKTREE",
             )

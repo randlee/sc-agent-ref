@@ -14,7 +14,7 @@ use serde_json::Value;
 use sc_agent_types::schema::subjects::SubjectsProducer;
 use sc_agent_types::{
     BackendDescriptor, BackendFamily, BackendId, BackendKeyId, CancelToken, JevError, ModelId,
-    SendTrace, Sha256Digest,
+    PayloadSha256, SendTrace,
 };
 
 use crate::ids::{ChoiceId, QuestionId};
@@ -24,7 +24,7 @@ use crate::probability::Probability;
 /// Caller-supplied evaluator instructions for LLM backends.
 ///
 /// Jev-only runs leave [`JudgeRequest::llm`] empty. The text is not part of
-/// `prompt_sha256`.
+/// `payload_sha256`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LlmWireContext {
     /// System prompt resolved by the facade.
@@ -182,7 +182,7 @@ pub struct JudgeOutcome {
     #[serde(default)]
     provider_meta: Option<Value>,
     #[serde(default)]
-    input_sha256: Option<Sha256Digest>,
+    input_sha256: Option<PayloadSha256>,
 }
 
 impl JudgeOutcome {
@@ -226,7 +226,7 @@ impl JudgeOutcome {
 
     /// Sets the digest of the canonical payload the backend reports it sent.
     #[must_use]
-    pub fn with_input_sha256(mut self, digest: Sha256Digest) -> Self {
+    pub fn with_input_sha256(mut self, digest: PayloadSha256) -> Self {
         self.input_sha256 = Some(digest);
         self
     }
@@ -249,9 +249,27 @@ impl JudgeOutcome {
         self.provider_meta.as_ref()
     }
 
+    /// The model that answered, as the backend's reply named it.
+    ///
+    /// It is read from the `model` field of [`Self::provider_meta`], so it
+    /// adds nothing to the serialized outcome and the bytes are the same
+    /// whether or not it equals the model requested. The two differ when the
+    /// request named `jev` (the latest) and the reply names a version such
+    /// as `jev-1.13.0`; that is not an error. `None` when there is no
+    /// metadata or its `model` is absent or not a valid model string.
+    #[must_use]
+    pub fn answered_model(&self) -> Option<ModelId> {
+        self.provider_meta
+            .as_ref()?
+            .get("model")?
+            .as_str()?
+            .parse()
+            .ok()
+    }
+
     /// The reported input digest; `None` means "this backend does not attest".
     #[must_use]
-    pub fn input_sha256(&self) -> Option<&Sha256Digest> {
+    pub fn input_sha256(&self) -> Option<&PayloadSha256> {
         self.input_sha256.as_ref()
     }
 }
@@ -414,12 +432,12 @@ pub enum MultiBackendMode {
 #[serde(tag = "status", rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum Attestation {
-    /// The backend reported the run's `prompt_sha256`.
+    /// The backend reported the run's `payload_sha256`.
     Matched,
     /// The backend reported a different digest.
     Mismatched {
         /// The digest the backend reported.
-        reported: Sha256Digest,
+        reported: PayloadSha256,
     },
     /// The backend does not report a digest.
     Unattested,
@@ -469,7 +487,7 @@ impl BackendAttestation {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(try_from = "EqualInputWire")]
 pub struct EqualInputRecord {
-    prompt_sha256: Sha256Digest,
+    payload_sha256: PayloadSha256,
     mode: MultiBackendMode,
     backends: Vec<BackendAttestation>,
     leak: bool,
@@ -479,7 +497,7 @@ pub struct EqualInputRecord {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct EqualInputWire {
-    prompt_sha256: Sha256Digest,
+    payload_sha256: PayloadSha256,
     mode: MultiBackendMode,
     backends: Vec<BackendAttestation>,
     leak: bool,
@@ -492,7 +510,7 @@ impl Serialize for EqualInputRecord {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         use serde::ser::SerializeStruct;
         let mut state = serializer.serialize_struct("EqualInputRecord", 6)?;
-        state.serialize_field("prompt_sha256", &self.prompt_sha256)?;
+        state.serialize_field("payload_sha256", &self.payload_sha256)?;
         state.serialize_field("mode", &self.mode)?;
         state.serialize_field("backends", &self.backends)?;
         state.serialize_field("leak", &self.leak)?;
@@ -507,7 +525,7 @@ impl TryFrom<EqualInputWire> for EqualInputRecord {
 
     fn try_from(wire: EqualInputWire) -> Result<Self, Self::Error> {
         let record = Self::new(
-            wire.prompt_sha256,
+            wire.payload_sha256,
             wire.mode,
             wire.backends,
             wire.leak,
@@ -534,7 +552,7 @@ impl EqualInputRecord {
     ///
     /// `INPUT_INVALID` when `backends` is empty or names a backend twice.
     pub fn new(
-        prompt_sha256: Sha256Digest,
+        payload_sha256: PayloadSha256,
         mode: MultiBackendMode,
         backends: Vec<BackendAttestation>,
         leak: bool,
@@ -553,7 +571,7 @@ impl EqualInputRecord {
             )));
         }
         Ok(Self {
-            prompt_sha256,
+            payload_sha256,
             mode,
             backends,
             leak,
@@ -563,8 +581,8 @@ impl EqualInputRecord {
 
     /// SHA-256 of the canonical payload bytes.
     #[must_use]
-    pub fn prompt_sha256(&self) -> &Sha256Digest {
-        &self.prompt_sha256
+    pub fn payload_sha256(&self) -> &PayloadSha256 {
+        &self.payload_sha256
     }
 
     /// The multi-backend mode of the run.
