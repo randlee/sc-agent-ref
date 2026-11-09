@@ -37,6 +37,8 @@ struct CheckRun {
     rev: String,
     log_dir: Option<PathBuf>,
     session_dir: Option<PathBuf>,
+    /// `models_file=`: read instead of `~/.sc-agent/models.toml`.
+    models_file: Option<PathBuf>,
     system_prompt_file: Option<PathBuf>,
     /// `chain_context=True` selects `MultiBackendMode::ChainContext`.
     chain_context: bool,
@@ -194,6 +196,9 @@ fn execute(spec: CheckRun) -> Result<FinishedRun, JevError> {
         } else {
             MultiBackendMode::Independent
         });
+    if let Some(path) = spec.models_file {
+        inputs = inputs.models_file(path);
+    }
     if let Some(backends) = backends {
         inputs = inputs.backends(backends);
     }
@@ -281,9 +286,13 @@ fn build(
     input: &Input,
     repo_root: Option<&Path>,
     rev_text: &str,
+    models_file: Option<&Path>,
 ) -> Result<PreparedRequest, JevError> {
     let rev = Rev::parse(rev_text)?;
-    let inputs = base_inputs(repo_root, None, None)?.dry_run(true).rev(rev);
+    let mut inputs = base_inputs(repo_root, None, None)?.dry_run(true).rev(rev);
+    if let Some(path) = models_file {
+        inputs = inputs.models_file(path);
+    }
     let resolved = inputs.resolve()?;
     let source = input.source(&resolved.repo_root)?;
     let host = prepare_from(source, inputs.repo_root(resolved.repo_root))?;
@@ -608,18 +617,21 @@ impl Session {
 /// built = jev.build_request("check.toml", repo_root=pathlib.Path("/path/to/repo"))
 /// ```
 #[pyfunction]
-#[pyo3(signature = (check_path=None, *, request_json=None, repo_root=None, rev="WORKTREE"))]
+#[pyo3(signature = (check_path=None, *, request_json=None, repo_root=None, rev="WORKTREE", models_file=None))]
 pub(crate) fn build_request(
     py: Python<'_>,
     check_path: Option<PathBuf>,
     request_json: Option<Bound<'_, PyAny>>,
     repo_root: Option<PathBuf>,
     rev: &str,
+    models_file: Option<PathBuf>,
 ) -> PyResult<Py<PyAny>> {
     let input = map_err(py, Input::from_python(check_path, request_json.as_ref()))?;
     let repo_root = non_empty(repo_root);
+    let models_file = non_empty(models_file);
     let rev = rev.to_owned();
-    let built = py.detach(move || build(&input, repo_root.as_deref(), &rev));
+    let built =
+        py.detach(move || build(&input, repo_root.as_deref(), &rev, models_file.as_deref()));
     let built = map_err(py, built)?;
     let body = serde_json::json!({
         "payload": built.payload,
@@ -641,6 +653,7 @@ fn check_run(
     rev: String,
     log_dir: Option<PathBuf>,
     session_dir: Option<PathBuf>,
+    models_file: Option<PathBuf>,
     system_prompt_file: Option<PathBuf>,
     chain_context: bool,
     project: Option<String>,
@@ -654,6 +667,7 @@ fn check_run(
         rev,
         log_dir: non_empty(log_dir),
         session_dir: non_empty(session_dir),
+        models_file: non_empty(models_file),
         system_prompt_file: non_empty(system_prompt_file),
         chain_context,
         project: parse_project(project)?,
@@ -728,6 +742,7 @@ fn finish_check(py: Python<'_>, spec: CheckRun) -> PyResult<CheckResult> {
     rev="WORKTREE",
     log_dir=None,
     session_dir=None,
+    models_file=None,
     system_prompt_file=None,
     chain_context=false,
     project=None,
@@ -745,6 +760,7 @@ pub(crate) fn run_check(
     rev: &str,
     log_dir: Option<PathBuf>,
     session_dir: Option<PathBuf>,
+    models_file: Option<PathBuf>,
     system_prompt_file: Option<PathBuf>,
     chain_context: bool,
     project: Option<String>,
@@ -763,6 +779,7 @@ pub(crate) fn run_check(
             rev.to_owned(),
             log_dir,
             session_dir,
+            models_file,
             system_prompt_file,
             chain_context,
             project,
@@ -800,6 +817,7 @@ pub(crate) mod testing {
         rev="WORKTREE",
         log_dir=None,
         session_dir=None,
+        models_file=None,
         system_prompt_file=None,
         chain_context=false,
         project=None,
@@ -818,6 +836,7 @@ pub(crate) mod testing {
         rev: &str,
         log_dir: Option<PathBuf>,
         session_dir: Option<PathBuf>,
+        models_file: Option<PathBuf>,
         system_prompt_file: Option<PathBuf>,
         chain_context: bool,
         project: Option<String>,
@@ -837,6 +856,7 @@ pub(crate) mod testing {
                 rev.to_owned(),
                 log_dir,
                 session_dir,
+                models_file,
                 system_prompt_file,
                 chain_context,
                 project,
@@ -1037,6 +1057,7 @@ mod tests {
             rev: "WORKTREE".to_owned(),
             log_dir: Some(logs.to_path_buf()),
             session_dir: Some(sessions.to_path_buf()),
+            models_file: None,
             system_prompt_file: None,
             chain_context: false,
             project: None,

@@ -96,3 +96,64 @@ def test_run_check_reads_the_home_models_file(tmp_path, monkeypatch):
     with pytest.raises(sc_jev_py.JevError) as caught:
         _dry(tmp_path, ["jev"])
     assert caught.value.code == "CONFIG_INVALID"
+
+
+def _file(tmp_path: Path, text: str) -> Path:
+    path = tmp_path / "custom-models.toml"
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def test_models_file_kwarg_on_run_check_and_build_request(tmp_path, monkeypatch):
+    _home(monkeypatch, tmp_path / "home")  # no file at HOME
+    file = _file(tmp_path, NEWER_JEV)
+    plain = dict(_dry(tmp_path, ["jev"]).request_sha256)["jev"]
+    with_file = sc_jev_py.run_check(
+        request_json=REQUEST,
+        dry_run=True,
+        repo_root=str(tmp_path),
+        log_dir=str(tmp_path / "log"),
+        session_dir=str(tmp_path / "sessions"),
+        models_file=file,
+    )
+    assert dict(with_file.request_sha256)["jev"] != plain
+    built = sc_jev_py.build_request(
+        request_json=REQUEST, repo_root=str(tmp_path), models_file=file
+    )
+    assert built["request_sha256"]["jev"] == dict(with_file.request_sha256)["jev"]
+    assert (
+        sc_jev_py.build_request(request_json=REQUEST, repo_root=str(tmp_path))["request_sha256"]["jev"]
+        == plain
+    )
+
+
+def test_models_file_kwarg_malformed_is_config_invalid(tmp_path):
+    bad = _file(tmp_path, "[[model]]\nid = 1\n")
+    with pytest.raises(sc_jev_py.JevError) as caught:
+        sc_jev_py.run_check(
+            request_json=REQUEST, dry_run=True, repo_root=str(tmp_path), models_file=bad
+        )
+    assert caught.value.code == "CONFIG_INVALID"
+    with pytest.raises(sc_jev_py.JevError) as caught:
+        sc_jev_py.build_request(request_json=REQUEST, repo_root=str(tmp_path), models_file=bad)
+    assert caught.value.code == "CONFIG_INVALID"
+    for start in (
+        lambda: sc_jev_py.DecisionStream(
+            repo_root=tmp_path, log_dir=tmp_path / "l", models_file=bad
+        ),
+        lambda: sc_jev_py.run_many(
+            {}, repo_root=tmp_path, log_dir=tmp_path / "l", models_file=bad
+        ),
+    ):
+        with pytest.raises(sc_jev_py.JevError) as caught:
+            start()
+        assert caught.value.code == "CONFIG_INVALID"
+
+
+def test_models_file_kwarg_on_a_good_stream_starts(tmp_path):
+    good = _file(tmp_path, NEWER_JEV)
+    stream = sc_jev_py.DecisionStream(
+        repo_root=tmp_path, log_dir=tmp_path / "l", models_file=good
+    )
+    stream.close_input()
+    stream.finish()
