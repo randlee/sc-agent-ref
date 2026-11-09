@@ -28,8 +28,8 @@ use sc_agent_http::{
     Transport, UreqTransport, api_failure,
 };
 use sc_agent_types::{
-    BackendId, CancelToken, JevError, ModelId, NetworkErrorKind, RequestSha256, ResolvedApiKey,
-    ResponseInvalidCause, SendTrace,
+    BackendId, CancelToken, JevError, ModelId, RequestSha256, ResolvedApiKey, ResponseInvalidCause,
+    SendTrace,
 };
 use sc_decision_schema::llm::v1;
 use sc_decision_schema::{JudgeBackend, JudgeOutcome, JudgeRequest};

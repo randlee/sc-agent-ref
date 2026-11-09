@@ -11,8 +11,8 @@ use std::sync::{Arc, Mutex};
 
 use sc_agent_types::observability::v2::{LogEvent, LogRejected, SessionLog, SharedSessionLog};
 use sc_agent_types::{
-    BackendId, BackendSet, BusyCause, JevError, ModelId, NetworkErrorKind, Operation, ProjectLabel,
-    RepoRoot, RequestSha256, SendTrace, SessionId,
+    BackendId, BackendSet, BusyCause, JevError, ModelId, Operation, ProjectLabel, RepoRoot,
+    RequestSha256, SendTrace, SessionId,
 };
 use sc_decision_schema::session_log::{SendOutcome, SessionLogRow};
 use sc_decision_schema::test_util::MockJudgeBackend;
