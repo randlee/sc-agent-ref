@@ -276,6 +276,17 @@ the body's `error`; also `kind`, `message`, `suggested_action`, `retryable`,
 `schema_version`), built from the same serialization so the two cannot drift. The release wheel has no
 `_testing` submodule; it is test-only and not part of the API.
 
+**Log and session roots differ between the CLI and Python.** `sc-ai` writes
+logs under `--log-dir`, then `SC_LOG_ROOT`, then `<repo-root>/.sc-ai`, and
+sessions under `--sessions-dir`, then `<repo-root>/.sc-ai/sessions`. Python uses `log_dir=`, then `SC_AGENT_LOG_DIR`,
+then `SC_LOG_ROOT`, then `~/.sc-agent/log`. `sc-ai` does not read
+`SC_AGENT_LOG_DIR`. A CLI `jev ask --session-id` therefore does not find a
+session a Python `run_check` saved (and the reverse) unless both sides are
+given the same session directory (`--sessions-dir` and `session_dir=`).
+
+**`ask` needs a saved session.** Only Haiku and Luna runs save one. A Jev run
+returns `session_id` as `null` and has nothing to `ask` about.
+
 ## Needs an owner decision
 
 These are not decided in any ADR or README, so no promise is made:

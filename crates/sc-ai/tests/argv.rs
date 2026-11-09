@@ -92,6 +92,16 @@ fn test_version_flag_exits_zero() {
 }
 
 #[test]
+fn test_help_banner_names_every_jev_command() {
+    let dir = TempDir::new().expect("temp");
+    let text = stdout_text(&run(dir.path(), &["--help"]));
+    assert!(
+        text.contains("Jev check client: run, dry-run, ask, stream, and models."),
+        "{text}"
+    );
+}
+
+#[test]
 fn test_help_prints_usage_and_exits_zero() {
     let dir = TempDir::new().expect("temp");
     for args in [
@@ -537,4 +547,68 @@ fn test_models_lists_resolved_models_with_their_source() {
         ],
     );
     assert_eq!(error_code(&output), "CONFIG_INVALID");
+}
+
+/// The Quick start and the reference page show the tested files verbatim, and
+/// those files work: `check.toml` and `--request-json` both dry-run.
+#[test]
+fn test_quickstart_files_work_and_docs_show_them() {
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/jev/quickstart");
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let read = |path: &Path| std::fs::read_to_string(path).expect("read");
+    let check = read(&fixture.join("check.toml"));
+    let questions = read(&fixture.join("questions.json"));
+    let request = read(&fixture.join("request.json"));
+    for doc in [
+        root.join("README.md"),
+        root.join("crates/sc-ai/README.md"),
+        root.join("docs/check-reference.md"),
+    ] {
+        let text = read(&doc);
+        assert!(text.contains(check.trim_end()), "{doc:?} lacks check.toml");
+    }
+    let reference = read(&root.join("docs/check-reference.md"));
+    assert!(reference.contains(questions.trim_end()), "questions.json");
+    assert!(reference.contains(request.trim_end()), "request.json");
+    for doc in [root.join("README.md"), root.join("crates/sc-ai/README.md")] {
+        let text = read(&doc);
+        assert!(
+            text.contains("\"schema\": \"plan-anchoring/questions/1\""),
+            "{doc:?}"
+        );
+        assert!(text.contains("TYPESAFE_API_KEY"), "{doc:?}");
+    }
+
+    let dir = TempDir::new().expect("temp");
+    std::fs::create_dir(dir.path().join("notes")).expect("notes");
+    for name in [
+        "check.toml",
+        "questions.json",
+        "request.json",
+        "notes/readme.txt",
+    ] {
+        std::fs::copy(fixture.join(name), dir.path().join(name)).expect("copy");
+    }
+    for args in [
+        &[
+            "jev",
+            "dry-run",
+            "--repo-root",
+            ".",
+            "--check",
+            "check.toml",
+        ][..],
+        &[
+            "jev",
+            "dry-run",
+            "--repo-root",
+            ".",
+            "--request-json",
+            "request.json",
+        ],
+    ] {
+        let value: Value =
+            serde_json::from_str(&stdout_text(&run(dir.path(), args))).expect("envelope");
+        assert_eq!(value["operation"], "jev.dry-run", "{args:?}");
+    }
 }

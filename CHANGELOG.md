@@ -1,13 +1,14 @@
 # Changelog
 
-All notable changes to sc-agent are recorded here. Nothing has been released
-yet; every crate is at 0.1.0 and the stability promises (and the lack of them)
-are in [`docs/stability.md`](docs/stability.md).
+All notable changes to sc-agent are recorded here. Every crate is at 0.1.0 and
+the stability promises (and the lack of them) are in
+[`docs/stability.md`](docs/stability.md).
 
 ## [Unreleased] - 0.1.0
 
-First release. Channels once published: crates.io (ten crates), PyPI
-(`sc-jev-py`), Homebrew, Scoop and WinGet (`sc-ai`).
+First release. Channels: crates.io (ten crates), PyPI (`pip install sc-jev-py`,
+the Python wheel), and Homebrew, Scoop and WinGet (`sc-ai`). The install
+commands are in [`README.md`](README.md).
 
 ### Added
 
@@ -29,6 +30,17 @@ First release. Channels once published: crates.io (ten crates), PyPI
   (`Bearer <token>` and `sk-` keys) replaced by `[redacted]` in errors, not
   only the values of `*_API_KEY` and `SC_*` environment variables. A secret
   of another shape that this process does not hold is not recognized.
+- A Quick start in `README.md` and the `sc-ai` crate page (a minimal
+  `check.toml`, `dry-run`, `run`, the key variable per backend and its lookup
+  order, build prerequisites) and `docs/check-reference.md` (`check.toml`, both
+  question formats, a `--request-json` example, Python `run_check`). Their
+  examples are tested.
+- `KEY_MISSING` and a keystore `IO_FAILED` now name the backend's variable
+  (`TYPESAFE_API_KEY`, `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`) and the
+  repo-root `.env` in `suggested_action`; the error ids and retryability are
+  unchanged. `sc_jev_py.JevError` carries the same text.
+- `ANTHROPIC_KEYCHAIN_SERVICE` is read from the process environment only; a
+  repo-root `.env` can no longer choose the keychain item (REQ-SAG-0201).
 
 - `sc_jev_py.ask(session_id, follow_up, *, project, repo_root, session_dir,
   log_dir, models_file, session_log, general_log)` resumes a stored session by
@@ -155,7 +167,7 @@ describes an older shape, the `Added` section above is what 0.1.0 does.
   the envelope (no answers, each backend's typed error with
   `details.backend`) with the first failure on stderr, and `sc_jev_py`
   sets `.response`. A platform keyring read that blocks now fails with a
-  retryable `IO_FAILED` after 15 s. A reader of an error line ignores unknown
+  non-retryable `IO_FAILED` (`io_kind` `other`) after 15 s. A reader of an error line ignores unknown
   keys.
 
 - `Probability` moved from `sc_decision_schema::jev::v1` to the crate root
@@ -231,11 +243,25 @@ describes an older shape, the `Added` section above is what 0.1.0 does.
   aliases.
 - Windows binaries link the C runtime statically (`.cargo/config.toml`), so
   they run without the Visual C++ redistributable.
+- `NETWORK_ERROR` kinds on real failures: a DNS lookup failure is now
+  `connect` (retryable, exit 3) instead of `other`, and a TLS failure (an
+  untrusted or self-signed certificate, a peer that does not speak TLS) is now
+  `tls` (not retryable) instead of `other`.
 
 ### Known limits
 
 - WinGet exposes only `sc-ai` until the first manifest is hand-submitted with
   an alias for each binary (bead `agt-sft`); `sc-treesitter` is in the
   package but has no alias yet.
+- `cargo install sc-ai` installs only `sc-ai`; install `sc-treesitter`
+  separately (`cargo install sc-treesitter --locked`) or use Homebrew or Scoop.
+- A TLS-inspecting proxy is not supported: the HTTP client (`ureq` with
+  `rustls`) trusts only the bundled `webpki-roots`, not the platform store.
+- `sc-ai jev dry-run` runs `command` inputs from `check.toml`, so a
+  `check.toml` from an untrusted change is code execution.
+- A Jev run saves no session (`session_id` is `null`), so `jev ask` applies to
+  `haiku` and `luna` runs only. The CLI and Python use different default log
+  and session roots (`<repo>/.sc-ai` and `~/.sc-agent/log`); Python also reads
+  `SC_AGENT_LOG_DIR`, the CLI does not.
 - The Luna live token count is unverified (bead `agt-luna-live-count`).
 - Backend ids are written `jev`, `haiku` and `luna`; no other spelling is read.

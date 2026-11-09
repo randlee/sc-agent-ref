@@ -3,7 +3,8 @@
 //! Precedence is the process environment, then the repo-root `.env` file,
 //! then the platform keyring. The keyring service is the environment variable
 //! name and the account is the OS user. Anthropic keyring lookups use
-//! `ANTHROPIC_KEYCHAIN_SERVICE` when that variable is set.
+//! `ANTHROPIC_KEYCHAIN_SERVICE` when that variable is set in the process
+//! environment (a repo-root `.env` is never read for it).
 //!
 //! Callers pass the git toplevel as a
 //! [`RepoRoot`](sc_agent_types::RepoRoot). This crate does not run git, does
