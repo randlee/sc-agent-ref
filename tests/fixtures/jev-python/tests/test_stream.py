@@ -586,6 +586,6 @@ def test_cancel_stops_waiting_for_log_room_on_a_stuck_disk(tmp_path: Path) -> No
     report = json.loads(done.stdout.strip().splitlines()[-1])
     assert report["dropped"] > 0, report
     # A failure bound, not a measurement: the flush of a stuck writer takes
-    # its own 5 s wait (about 5 s measured); without the cancel it also waits
+    # its own 5 s wait (about 8 s measured); without the cancel it also waits
     # out the 10 s row wait of every worker.
     assert report["seconds"] < 12, report

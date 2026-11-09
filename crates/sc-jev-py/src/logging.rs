@@ -74,6 +74,12 @@ const FLUSH_WAIT: Duration = Duration::from_secs(5);
 /// is counted and reported, never lost silently.
 const LOG_WAIT: Duration = Duration::from_secs(10);
 
+/// Longest one row waits for room once its stream is cancelled. A healthy
+/// writer still frees room in this time, so the tail rows (`stream.end`, the
+/// session flush row) survive an interrupt; a stuck one costs each worker this
+/// much once instead of [`LOG_WAIT`] per row.
+const CANCELLED_WAIT: Duration = Duration::from_millis(250);
+
 /// First pause between attempts while the queue is full; it doubles up to
 /// [`LOG_RETRY_PAUSE_MAX`].
 const LOG_RETRY_PAUSE_MIN: Duration = Duration::from_micros(200);
@@ -291,8 +297,8 @@ impl HostGeneralLog {
         })
     }
 
-    /// Stops waiting for room: from now on a row that finds the queue full is
-    /// tried once, counted as dropped, and let go. Called when the stream that
+    /// Shortens the wait for room to [`CANCELLED_WAIT`]: from now on a row that
+    /// finds the queue full waits at most that long, then is counted as dropped. Called when the stream that
     /// owns this log is cancelled, so a stuck writer cannot hold `finish()` or
     /// a `with` exit for the row wait of every worker.
     pub(crate) fn cancel(&self) {
@@ -327,6 +333,18 @@ impl HostGeneralLog {
     }
 }
 
+impl HostGeneralLog {
+    /// How long a row may wait for room: [`LOG_WAIT`], or [`CANCELLED_WAIT`]
+    /// once the stream is cancelled.
+    fn wait_limit(&self) -> Duration {
+        if self.cancelled.load(Ordering::Acquire) {
+            CANCELLED_WAIT
+        } else {
+            LOG_WAIT
+        }
+    }
+}
+
 impl GeneralLog for HostGeneralLog {
     /// Admits the row. A full queue is waited out for at most [`LOG_WAIT`]
     /// (the caller holds no GIL: workers and detached calls), so a stream at
@@ -343,9 +361,7 @@ impl GeneralLog for HostGeneralLog {
                 .try_log(dto.clone(), ProducerOrigin::RustHost)
             {
                 Ok(_) => return Ok(()),
-                Err(Failure::QueueFull { .. })
-                    if started.elapsed() < LOG_WAIT && !self.cancelled.load(Ordering::Acquire) =>
-                {
+                Err(Failure::QueueFull { .. }) if started.elapsed() < self.wait_limit() => {
                     std::thread::sleep(pause);
                     // Back off: a healthy writer frees room in microseconds,
                     // a stuck one should not be polled by every worker.

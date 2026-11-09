@@ -308,9 +308,9 @@ impl DecisionStream {
         self.inner.close_input();
     }
 
-    /// Stops new work and cancels the engine's token. It also stops waiting for
-    /// room in a full general-log queue: a row that finds it full is counted
-    /// as dropped, so a stuck log file cannot hold `finish()`. Requests still queued
+    /// Stops new work and cancels the engine's token. It also cuts the wait
+    /// for room in a full general-log queue to 250 ms per row (then the row is
+    /// counted as dropped), so a stuck log file cannot hold `finish()`. Requests still queued
     /// are answered with a `NETWORK_ERROR` ("cancelled") line; a request
     /// already sent is not interrupted. Further `submit` calls raise.
     fn cancel(&self) {

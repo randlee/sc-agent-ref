@@ -2476,7 +2476,7 @@ queries, so callers do not spawn a process per query.
   bounded, so a stream at full rate used to lose about 80% of its rows with no
   warning. `HostGeneralLog::log` now waits out a full queue (pauses of 200 µs,
   at most 10 s per row, on threads that hold no GIL); `run_check` shares the same
-  path. The pause doubles from 200 µs to 20 ms, so a stuck writer is not polled hard. `cancel()` (and a `with` exit or an interrupted `run_many`) stops the wait: a row that finds the queue full is tried once and counted. With a log file that nobody reads, `cancel()` then `finish()` returns in about 5 s (the flush's own bound) instead of 18 to 19 s. A row still refused after the bound is counted, reported as a Warn row
+  path. The pause doubles from 200 µs to 20 ms, so a stuck writer is not polled hard. `cancel()` (and a `with` exit or an interrupted `run_many`) cuts the wait to 250 ms per row, then the row is counted (so the tail rows `stream.end` and the session flush row survive an interrupt on a healthy disk). With a log file that nobody reads, `cancel()` then `finish()` returns in about 8 s instead of 18 to 19 s. A row still refused after the bound is counted, reported as a Warn row
   `general_log.rows_dropped` at flush, and returned as
   `general_log_rows_dropped` in the Python `finish()` and `run_many` summary.
   3,000 requests at concurrency 16 on scripted backends: 30,005 of 30,005 rows
