@@ -131,10 +131,12 @@ not resent automatically. `Retry-After` takes precedence over the default
 backoff for the busy wait, as REQ-SAG-0505 allows. `NETWORK_ERROR` kind
 `other` (an unclassified transport error) is not retryable.
 
-**Known limits.** Jev's quota signal is undocumented: only 402 and the
-documented Anthropic and OpenAI markers are `QUOTA_EXHAUSTED`, so a Jev 429
-with no marker reads as `PROVIDER_BUSY` until checked against a live reply
-(bead `agt-285`). Anthropic's "prompt is too long" wording
+Jev out of credits is `QUOTA_EXHAUSTED`, confirmed against live replies on
+2026-11-08: an unfunded organization gets HTTP 402 with
+`{"detail":{"error_type":"billing_error","message":...}}`, checked after
+authentication and before body validation, so it is never retried.
+
+**Known limits.** Anthropic's "prompt is too long" wording
 as an `INPUT_TOO_LARGE` rule is unverified against a live reply. Provider
 messages that echo a masked key suffix (for example `...abcd`) are kept as the
 provider sent them; only the exact key is redacted. A producer's error line

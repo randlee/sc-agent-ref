@@ -231,10 +231,10 @@ Made before the first release; nothing is kept for compatibility.
 | REQ-SAG-0167 | The `sc-ai` binary has a `test-util`-only `--loopback-port` flag that aims the real HTTP backends at a loopback server; the published binary rejects it — (Active, agt-2a3; ADR-SAG-0022 test seam) |
 | NFR-SAG-0002 | Provider error text (status, type, code, message, parameter, request id, or the raw body when it is not error JSON) may appear in an error, bounded to 1024 bytes per field and single-line, and always passes through `redact`; prompt text and model output are never added — (Active, agt-2a3; ADR-SAG-0020 amendment) |
 
-Known limit (ERR-QA-6): Jev's own quota signal is not documented. Only 402
-and the documented Anthropic and OpenAI markers count as quota, so a Jev 429
-without a marker cannot yet be told apart from busy and is treated as busy.
-Bead `agt-285` tracks checking this against a live Jev reply.
+Jev out of credits (ERR-QA-6, closed): live replies on 2026-11-08 show an
+unfunded organization gets HTTP 402 with
+`{"detail":{"error_type":"billing_error","message":...}}`, so it is
+`QUOTA_EXHAUSTED`, not retried, with Jev's message and type kept.
 
 **Owner decision (bead agt-2a3):** errors return as much or more detail than
 Jev returns, with a discriminated id and a message on every path; out of

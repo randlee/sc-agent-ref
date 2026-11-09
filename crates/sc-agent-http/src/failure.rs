@@ -124,6 +124,12 @@ impl Body {
         if body.message.is_none() {
             match root.get("detail") {
                 Some(Value::String(text)) if !text.is_empty() => body.message = Some(text.clone()),
+                // Jev's billing and auth errors, observed live 2026-11-08:
+                // {"detail":{"error_type":"billing_error","message":"..."}}.
+                Some(Value::Object(detail)) => {
+                    body.provider_type = detail.get("error_type").and_then(string_of);
+                    body.message = detail.get("message").and_then(string_of);
+                }
                 Some(Value::Array(items)) => {
                     let first = items.first();
                     body.message = first.and_then(|item| item.get("msg")).and_then(string_of);
@@ -468,6 +474,35 @@ mod tests {
     /// RBP-F002: for Haiku and Luna raw text never decides. A 400 that names
     /// `max_tokens` (the output cap parameter) stays an invalid request, and
     /// so does one that mentions tokens exceeding something else.
+    /// The exact bodies Jev returned on live calls (2026-11-08): an unfunded
+    /// organization gets 402 `billing_error`, ahead of body validation.
+    #[test]
+    fn jev_out_of_credits_is_quota_exhausted_with_its_message() {
+        let message = "Your organization has no available TypeSafe API credits. \
+                       Please add more credits and/or set up auto-reload at \
+                       https://console.typesafe.ai/settings/billing";
+        let body =
+            format!(r#"{{"detail":{{"error_type":"billing_error","message":"{message}"}}}}"#);
+        assert!(is_quota_reply(402, body.as_bytes()));
+        let error = api_failure("Jev", ReplyShape::Jev, &req(), &reply(402, &body));
+        assert_eq!(error.code(), "QUOTA_EXHAUSTED");
+        assert!(!error.retryable());
+        assert!(
+            error
+                .message()
+                .contains("no available TypeSafe API credits")
+        );
+        assert!(!error.message().contains("error_type"));
+        let details = error.details().expect("details");
+        assert_eq!(details.provider_type.as_deref(), Some("billing_error"));
+
+        let denied =
+            r#"{"detail":{"error_type":"authentication_error","message":"Cannot authenticate"}}"#;
+        let error = api_failure("Jev", ReplyShape::Jev, &req(), &reply(401, denied));
+        assert_eq!(error.code(), "AUTH_FAILED");
+        assert!(error.message().contains("Cannot authenticate"));
+    }
+
     #[test]
     fn llm_text_about_max_tokens_is_an_invalid_request() {
         let output_cap = r#"{"type":"error","error":{"type":"invalid_request_error","message":"max_tokens: 99999 > 8192, which is the maximum allowed number of output tokens"}}"#;
