@@ -133,6 +133,7 @@ impl<'a> SendLog<'a> {
             .operation(self.operation)
             .backend(judge.id())
             .model_id(judge.model_id())
+            .answered_model_id(judged.as_ref().ok().and_then(JudgeOutcome::answered_model))
             .build();
         // Every required value is set above, so `build` cannot fail; a row
         // that could not be built is skipped like any rejected row.

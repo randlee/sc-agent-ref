@@ -16,7 +16,7 @@ use ulid::Ulid;
 
 use crate::catalog::{BACKENDS, BackendDescriptor, BackendFamily, HAIKU, JEV, LUNA};
 use crate::error::JevError;
-use crate::models::{MODELS, ModelId};
+use crate::models::{ModelAliases, ModelId};
 
 /// Git toplevel used for path resolution.
 ///
@@ -407,29 +407,32 @@ impl FromStr for BackendId {
             .iter()
             .find(|row| row.name() == text)
             .map(BackendDescriptor::id)
-            .ok_or_else(|| JevError::input_invalid(invalid_backend_message(text)))
+            .ok_or_else(|| {
+                JevError::input_invalid(invalid_backend_message(text, &ModelAliases::builtin()))
+            })
     }
 }
 
 /// The `INPUT_INVALID` text for a spelling that selects no backend: it lists
-/// every valid name and every pinnable model id. `sonnet`, `claude-sonnet-5-5`
-/// and the other definition-only models land here.
-fn invalid_backend_message(text: &str) -> String {
+/// every valid name and every pinnable model id of `aliases`. `sonnet`,
+/// `claude-sonnet-5-5` and the other definition-only models land here.
+fn invalid_backend_message(text: &str, aliases: &ModelAliases) -> String {
     let names: Vec<&str> = BACKENDS.iter().map(BackendDescriptor::name).collect();
     format!(
         "backend {text} is not selectable; use one of {} (each means the latest model) or a known model id: {}",
         names.join(", "),
-        pinnable_models().join(", ")
+        pinnable_models(aliases).join(", ")
     )
 }
 
-/// The model ids a backend can be pinned to: every `MODELS` row whose alias
+/// The model ids a backend can be pinned to: every catalog id whose alias
 /// is a backend's default alias.
-fn pinnable_models() -> Vec<&'static str> {
-    MODELS
-        .iter()
-        .filter(|row| backend_for_alias(row.alias()).is_some())
-        .map(|row| row.model_str())
+fn pinnable_models(aliases: &ModelAliases) -> Vec<&str> {
+    aliases
+        .known_models()
+        .into_iter()
+        .filter(|(_, alias)| backend_for_alias(alias).is_some())
+        .map(|(id, _)| id)
         .collect()
 }
 
@@ -444,10 +447,10 @@ fn backend_for_alias(alias: &str) -> Option<BackendId> {
 ///
 /// The text is a short name (`jev`, `haiku`, `luna`: the latest model) or a
 /// known model id of one of those backends (`claude-haiku-5-5`: that backend
-/// pinned to that model). Models such as `sonnet` are defined in [`MODELS`]
+/// pinned to that model). Models such as `sonnet` are defined in [`MODELS`](crate::MODELS)
 /// but are not selectable; they are `INPUT_INVALID` with the valid names
-/// listed. Only the crate's `MODELS` ids are pinnable; a model added in
-/// `~/.sc-agent/models.toml` is reached through its short name.
+/// listed. `FromStr` knows the crate's `MODELS` ids; [`Self::parse_in`] also
+/// knows the rows of `~/.sc-agent/models.toml` (a pin such as `jev-1.15.0`).
 ///
 /// # Examples
 ///
@@ -496,18 +499,36 @@ impl FromStr for BackendChoice {
     /// `INPUT_INVALID` when the text is neither a short name nor a known
     /// model id of a selectable backend; the message lists the valid ones.
     fn from_str(text: &str) -> Result<Self, Self::Err> {
+        Self::parse_in(text, &ModelAliases::builtin())
+    }
+}
+
+impl BackendChoice {
+    /// Parses a short name or a model id of `aliases`, the catalog of this
+    /// call ([`ModelAliases::alias_of`]: the crate table plus the models
+    /// file). `FromStr` is this against the crate table alone.
+    ///
+    /// A model id selects the backend whose alias the catalog declared it
+    /// under, so a models-file row such as `jev-1.15.0` pins `jev`. The
+    /// family check already ran when the file row was added.
+    ///
+    /// # Errors
+    ///
+    /// `INPUT_INVALID` when the text is neither a short name nor a catalog
+    /// model id of a selectable backend; the message lists the valid ones.
+    pub fn parse_in(text: &str, aliases: &ModelAliases) -> Result<Self, JevError> {
         if let Ok(id) = text.parse::<BackendId>() {
             return Ok(id.into());
         }
-        MODELS
-            .iter()
-            .find(|row| row.model_str() == text)
-            .and_then(|row| Some((backend_for_alias(row.alias())?, row.model())))
+        aliases
+            .alias_of(text)
+            .and_then(backend_for_alias)
+            .and_then(|id| Some((id, text.parse::<ModelId>().ok()?)))
             .map(|(id, model)| Self {
                 id,
                 model: Some(model),
             })
-            .ok_or_else(|| JevError::input_invalid(invalid_backend_message(text)))
+            .ok_or_else(|| JevError::input_invalid(invalid_backend_message(text, aliases)))
     }
 }
 
@@ -680,6 +701,40 @@ impl FromStr for BackendSet {
             .filter(|part| !part.is_empty())
             .map(str::parse)
             .collect::<Result<Vec<BackendChoice>, JevError>>()?;
+        Self::try_from(choices)
+    }
+}
+
+impl BackendSet {
+    /// Parses a comma-separated list like [`FromStr`], with model ids
+    /// checked against `aliases` (the crate table plus the models file).
+    ///
+    /// # Errors
+    ///
+    /// As [`BackendChoice::parse_in`] and `BackendSet::try_from`.
+    pub fn parse_in(text: &str, aliases: &ModelAliases) -> Result<Self, JevError> {
+        Self::from_names_in(
+            text.split(',')
+                .map(str::trim)
+                .filter(|part| !part.is_empty()),
+            aliases,
+        )
+    }
+
+    /// Builds a set from one name per entry (a `--backend` value is not
+    /// split on commas), checked against `aliases`.
+    ///
+    /// # Errors
+    ///
+    /// As [`BackendChoice::parse_in`] and `BackendSet::try_from`.
+    pub fn from_names_in<'a>(
+        names: impl IntoIterator<Item = &'a str>,
+        aliases: &ModelAliases,
+    ) -> Result<Self, JevError> {
+        let choices = names
+            .into_iter()
+            .map(|name| BackendChoice::parse_in(name, aliases))
+            .collect::<Result<Vec<_>, _>>()?;
         Self::try_from(choices)
     }
 }

@@ -399,7 +399,12 @@ impl ResolvedModel {
 /// # Ok::<(), sc_agent_types::JevError>(())
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ModelAliases(BTreeMap<&'static str, Entry>);
+pub struct ModelAliases(
+    BTreeMap<&'static str, Entry>,
+    // Every model id the catalog knows (crate rows and models-file rows,
+    // not overrides) and the alias it was declared under.
+    BTreeMap<String, &'static str>,
+);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Entry {
@@ -421,6 +426,10 @@ impl ModelAliases {
                 newest.insert(row.alias, row);
             }
         }
+        let known = MODELS
+            .iter()
+            .map(|row| (row.model.to_owned(), row.alias))
+            .collect();
         Self(
             newest
                 .into_iter()
@@ -433,7 +442,28 @@ impl ModelAliases {
                     (alias, entry)
                 })
                 .collect(),
+            known,
         )
+    }
+
+    /// The alias a model id of the catalog was declared under (`jev` for
+    /// `jev-1.15.0`), or `None` for an id the catalog does not list.
+    ///
+    /// The catalog is the [`MODELS`] table plus the rows added with
+    /// [`Self::with_file_model`], whether or not a row is the newest of its
+    /// alias. Overrides ([`Self::with_override`]) do not add to it.
+    #[must_use]
+    pub fn alias_of(&self, id: &str) -> Option<&'static str> {
+        self.1.get(id).copied()
+    }
+
+    /// Every model id of the catalog with its alias, sorted by id.
+    #[must_use]
+    pub fn known_models(&self) -> Vec<(&str, &'static str)> {
+        self.1
+            .iter()
+            .map(|(id, alias)| (id.as_str(), *alias))
+            .collect()
     }
 
     /// The model `alias` currently names, or `None` for an unknown alias.
@@ -488,12 +518,13 @@ impl ModelAliases {
         self.check_family(alias, &model)
             .map_err(|error| error.map_detail(|detail| format!("models file: {detail}")))?;
         let valid = self.aliases().join(", ");
-        let Some(entry) = self.0.get_mut(alias) else {
+        let Some((&name, entry)) = self.0.iter_mut().find(|(name, _)| **name == alias) else {
             return Err(JevError::config_invalid(format!(
                 "models file: unknown model alias {alias:?}; valid aliases: {valid}"
             )));
         };
         let newer = entry.source != ModelSource::Override && released >= entry.released.as_str();
+        self.1.insert(model.as_str().to_owned(), name);
         if newer {
             *entry = Entry {
                 model,

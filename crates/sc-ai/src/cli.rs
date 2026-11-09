@@ -14,7 +14,7 @@ use std::path::PathBuf;
 
 use clap::error::ErrorKind;
 use clap::{Args, Parser, Subcommand};
-use sc_agent_types::{BackendChoice, JevError, ProjectLabel, Rev, SessionId};
+use sc_agent_types::{JevError, ProjectLabel, Rev, SessionId};
 use sc_ai::{AskCommand, Command, ModelsCommand, RunCommand, StreamCommand};
 use sc_jev_host::stream::Concurrency;
 
@@ -139,8 +139,8 @@ struct StreamArgs {
     repo_root: Option<PathBuf>,
     /// Backend (short name or known model id) for every request; repeat for several. Wins over a
     /// request's own `backends`, as in `jev run`.
-    #[arg(long = "backend", value_name = "ID", allow_hyphen_values = true, value_parser = parse_backend)]
-    backends: Vec<BackendChoice>,
+    #[arg(long = "backend", value_name = "ID", allow_hyphen_values = true, value_parser = non_empty_text)]
+    backends: Vec<String>,
     /// JSONL requests: a path, or - for stdin (the default).
     #[arg(long, value_name = "PATH|-", allow_hyphen_values = true, value_parser = non_empty_text)]
     input: Option<String>,
@@ -201,8 +201,8 @@ struct RunArgs {
     rev: Option<Rev>,
     /// Backend: jev, haiku or luna (latest), or a known model id such as
     /// claude-haiku-5-5; repeat for several.
-    #[arg(long = "backend", value_name = "ID", allow_hyphen_values = true, value_parser = parse_backend)]
-    backends: Vec<BackendChoice>,
+    #[arg(long = "backend", value_name = "ID", allow_hyphen_values = true, value_parser = non_empty_text)]
+    backends: Vec<String>,
     /// Caller-built questions document: a path, or - for stdin.
     #[arg(long, value_name = "PATH|-", allow_hyphen_values = true, value_parser = non_empty_text)]
     request_json: Option<String>,
@@ -368,12 +368,16 @@ fn stream_registry(
     let Some(port) = args.loopback_port else {
         return Ok(None);
     };
-    let ids = if args.backends.is_empty() {
-        vec![sc_agent_types::BackendId::Jev.into()]
+    let backends = if args.backends.is_empty() {
+        sc_agent_types::BackendSet::default()
     } else {
-        args.backends.clone()
+        sc_jev_host::compose::backend_set_from_names(
+            args.backends.iter().map(String::as_str),
+            args.models_file.as_deref(),
+            &sc_agent_types::observability::v2::NoopGeneralLog,
+        )
+        .map_err(|error| error.with_field("--backend"))?
     };
-    let backends = sc_agent_types::BackendSet::try_from(ids)?;
     let root = args.repo_root.clone().unwrap_or_else(|| PathBuf::from("."));
     sc_jev_check::registry::BackendRegistry::loopback_from_env(
         &backends,
@@ -419,12 +423,16 @@ fn run_registry(
     let Some(port) = args.loopback_port else {
         return Ok(None);
     };
-    let ids = if args.backends.is_empty() {
-        vec![sc_agent_types::BackendId::Jev.into()]
+    let backends = if args.backends.is_empty() {
+        sc_agent_types::BackendSet::default()
     } else {
-        args.backends.clone()
+        sc_jev_host::compose::backend_set_from_names(
+            args.backends.iter().map(String::as_str),
+            args.models_file.as_deref(),
+            &sc_agent_types::observability::v2::NoopGeneralLog,
+        )
+        .map_err(|error| error.with_field("--backend"))?
     };
-    let backends = sc_agent_types::BackendSet::try_from(ids)?;
     let root = args.repo_root.clone().unwrap_or_else(|| PathBuf::from("."));
     sc_jev_check::registry::BackendRegistry::loopback_from_env(
         &backends,
@@ -555,12 +563,6 @@ fn parse_concurrency(value: &str) -> Result<Concurrency, JevError> {
             format!("--concurrency must be between 1 and {}", Concurrency::MAX),
         )
     })
-}
-
-fn parse_backend(value: &str) -> Result<BackendChoice, JevError> {
-    value
-        .parse()
-        .map_err(|error: JevError| error.with_field("--backend"))
 }
 
 /// A session id is a ULID since Phase A.1; anything else, a UUID included,

@@ -76,10 +76,7 @@ fn test_answers_serde_golden() {
     );
     assert_eq!(
         map[&qid("r")].to_choice_answer(&qid("r")),
-        sc_decision_schema::ChoiceAnswer {
-            question_id: qid("r"),
-            choice: choice("yes")
-        }
+        sc_decision_schema::ChoiceAnswer::new(qid("r"), choice("yes"))
     );
 }
 

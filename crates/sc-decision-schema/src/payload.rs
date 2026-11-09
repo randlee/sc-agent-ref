@@ -353,13 +353,49 @@ fn kind_name(kind: QuestionKind) -> &'static str {
 /// This is an *input* (part of the `payload_sha256` bytes). A backend's output
 /// for one question is `QuestionAnswer`; `QuestionAnswer::to_choice_answer`
 /// is the one conversion.
+///
+/// Fields are private so a later field is additive, as for [`Question`] and
+/// `QuestionAnswer`; build with [`Self::new`], read with [`Self::question_id`]
+/// and [`Self::choice`]. The serialized keys are `question_id` and `choice`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ChoiceAnswer {
+    question_id: QuestionId,
+    choice: ChoiceId,
+}
+
+impl ChoiceAnswer {
+    /// A recorded choice of `choice` for `question_id`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sc_decision_schema::{ChoiceAnswer, ChoiceId, QuestionId};
+    ///
+    /// let answer = ChoiceAnswer::new(QuestionId::try_from("q")?, ChoiceId::try_from("yes")?);
+    /// assert_eq!(answer.question_id().as_str(), "q");
+    /// assert_eq!(answer.choice().as_str(), "yes");
+    /// # Ok::<(), sc_agent_types::JevError>(())
+    /// ```
+    #[must_use]
+    pub fn new(question_id: QuestionId, choice: ChoiceId) -> Self {
+        Self {
+            question_id,
+            choice,
+        }
+    }
+
     /// The question this answer belongs to.
-    pub question_id: QuestionId,
-    /// Selected choice label.
-    pub choice: ChoiceId,
+    #[must_use]
+    pub fn question_id(&self) -> &QuestionId {
+        &self.question_id
+    }
+
+    /// The selected choice label.
+    #[must_use]
+    pub fn choice(&self) -> &ChoiceId {
+        &self.choice
+    }
 }
 
 /// Questions plus state, before canonical encoding.
