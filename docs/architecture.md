@@ -2396,7 +2396,11 @@ queries, so callers do not spawn a process per query.
   cancelling is only through the stream), so a busy-retry wait ends within
   100 ms, and answers each request still queued with a `NETWORK_ERROR` "cancelled" line.
   A request already sent is not interrupted. The CLI cancels on a write
-  failure; it installs no signal handler (SIGINT ends the process, as for
+  failure, which it sees **at the next write**: a closed reader (`| head -1`)
+  is not noticed while nothing finishes, so when every worker is in a long
+  `Retry-After` wait the process keeps going until an answer is written or the
+  retry budget (about 90 s) ends (a possible later improvement, bead
+  agt-8e2); it installs no signal handler (SIGINT ends the process, as for
   `jev run`).
 - (Active) **Logging.** All workers share one session logger (one writer;
   concurrent writing is `sc-observability`'s) and one general logger. An
@@ -2411,6 +2415,16 @@ queries, so callers do not spawn a process per query.
   `.backend_failed` (backend id and `error_code`) are the rows. Never a prompt,
   a question, state or a secret; a request id is caller text, so it must
   carry no secret. All of it goes through `stream/log.rs`.
+- (Active) **Python general-log rows are not dropped at full rate.** The
+  shared host logger admits a row without blocking and the runtime's queue is
+  bounded, so a stream at full rate used to lose about 80% of its rows with no
+  warning. `HostGeneralLog::log` now waits out a full queue (pauses of 200 µs,
+  at most 1 s per row, on threads that hold no GIL); `run_check` shares the same
+  path. A row still refused after the bound is counted, reported as a Warn row
+  `general_log.rows_dropped` at flush, and returned as
+  `general_log_rows_dropped` in the Python `finish()` and `run_many` summary.
+  3,000 requests at concurrency 16 on scripted backends: 30,005 of 30,005 rows
+  in about 1.5 s (before: 6,659 rows in 0.4 s). The CLI path was never affected.
 - (Active) **Leaving a stream flushes, within a bound.** Every way out
   other than `finish` (`abandon`, a drop, a Python `with` exit, an interrupted
   `run_many`, `Batch` drop) cancels, waits at most **2 s** (`ABANDON_WAIT`) for

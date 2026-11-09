@@ -335,12 +335,12 @@ impl DecisionStream {
         }
         let stream = Arc::clone(&self.inner);
         let host = self.host.clone();
-        let summary = py.detach(move || {
+        let (summary, dropped) = py.detach(move || {
             let summary = stream.finish();
-            flush_host(host.as_deref());
-            summary
+            let dropped = flush_host(host.as_deref());
+            (summary, dropped)
         });
-        summary_dict(py, &summary)
+        summary_dict(py, &summary, dropped)
     }
 
     fn __enter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
@@ -366,7 +366,7 @@ impl DecisionStream {
         let host = self.host.clone();
         py.detach(move || {
             stream.abandon();
-            flush_host(host.as_deref());
+            let _ = flush_host(host.as_deref());
         });
     }
 
@@ -411,18 +411,20 @@ impl Drop for DecisionStream {
     }
 }
 
-fn flush_host(host: Option<&HostGeneralLog>) {
-    if let Some(host) = host {
-        host.flush();
-    }
+/// Flushes the shared host logger; returns the rows it had to give up on.
+fn flush_host(host: Option<&HostGeneralLog>) -> u64 {
+    host.map_or(0, HostGeneralLog::flush)
 }
 
-fn summary_dict(py: Python<'_>, summary: &StreamSummary) -> PyResult<Py<PyAny>> {
+fn summary_dict(py: Python<'_>, summary: &StreamSummary, dropped: u64) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     dict.set_item("answered", summary.answered())?;
     dict.set_item("failed", summary.failed())?;
     dict.set_item("exit_code", summary.exit_code())?;
     dict.set_item("log_flush_warning", summary.log_flush_warning())?;
+    // General-log rows given up on after the bounded wait (0 when none); the
+    // same count is a Warn row `general_log.rows_dropped`.
+    dict.set_item("general_log_rows_dropped", dropped)?;
     Ok(dict.into_any().unbind())
 }
 
@@ -561,16 +563,16 @@ fn run_batch(
         // then flush the shared host logger.
         py.detach(move || {
             drop(batch);
-            flush_host(host.as_deref());
+            let _ = flush_host(host.as_deref());
         });
         return Err(error);
     }
-    let summary = py.detach(move || {
+    let (summary, dropped) = py.detach(move || {
         let summary = batch.finish();
-        flush_host(host.as_deref());
-        summary
+        let dropped = flush_host(host.as_deref());
+        (summary, dropped)
     });
-    Ok((answers, summary_dict(py, &summary)?))
+    Ok((answers, summary_dict(py, &summary, dropped)?))
 }
 
 /// Test-only entry points, registered in `sc_jev_py._testing`.

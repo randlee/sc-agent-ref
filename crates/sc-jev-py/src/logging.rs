@@ -41,7 +41,7 @@
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 use std::time::Duration;
 
@@ -57,7 +57,7 @@ use sc_jev_host::paths::PathPolicy;
 use sc_observability_binding_runtime::{
     CoreLoggerBackend, CoreLoggerOwner, HostLoggingBackend, ProducerOrigin, create_core_backend,
 };
-use sc_observability_dto::LogEventDto;
+use sc_observability_dto::{Failure, LogEventDto};
 use serde_json::{Value, json};
 
 /// The module name the `sc_observability` Python package imports.
@@ -65,6 +65,16 @@ const NATIVE_NAME: &str = "sc_observability._native";
 
 /// How long a flush waits for the writer, per run.
 const FLUSH_WAIT: Duration = Duration::from_secs(5);
+
+/// Longest one row waits for room in the runtime's bounded queue. The queue
+/// admits without blocking and refuses when full, and a stream at full rate
+/// fills it; a full queue is waited out (the writer drains it in
+/// microseconds) instead of dropping the row. A row still refused after this
+/// is counted and reported, never lost silently.
+const LOG_WAIT: Duration = Duration::from_secs(1);
+
+/// Pause between attempts while the queue is full.
+const LOG_RETRY_PAUSE: Duration = Duration::from_micros(200);
 
 /// The registered `_native` module of this binary.
 static NATIVE: OnceLock<Py<PyModule>> = OnceLock::new();
@@ -86,6 +96,9 @@ pub(crate) struct HostEntry {
     log_file: PathBuf,
     /// Serializes this process's flushes (see [`HostEntry::flush`]).
     flush_lock: Mutex<()>,
+    /// Rows given up on after [`LOG_WAIT`] (see [`HostGeneralLog::log`]),
+    /// counted until [`HostGeneralLog::flush`] reports them.
+    dropped: AtomicU64,
 }
 
 type Key = (String, PathBuf);
@@ -150,6 +163,7 @@ impl HostEntry {
             _owner: owner,
             log_file: canonical.join("logs").join(format!("{service}.log.jsonl")),
             flush_lock: Mutex::new(()),
+            dropped: AtomicU64::new(0),
         });
         live.insert((service, canonical), Arc::clone(&entry));
         Ok(entry)
@@ -265,8 +279,21 @@ impl HostGeneralLog {
     }
 
     /// Makes this log's admitted rows durable; a failure is a Warn row, never
-    /// an error (logging never changes a result).
-    pub(crate) fn flush(&self) {
+    /// an error (logging never changes a result). Returns the number of rows
+    /// given up on since the last call (0 when none), after writing a Warn
+    /// row `general_log.rows_dropped` with that count, so a loss is never
+    /// silent.
+    pub(crate) fn flush(&self) -> u64 {
+        let dropped = self.entry.dropped.swap(0, Ordering::AcqRel);
+        if dropped > 0 {
+            GeneralEvent::warn(
+                "py.host_logger",
+                "general_log.rows_dropped",
+                "general-log rows were dropped because the queue stayed full",
+            )
+            .with_field("dropped", dropped)
+            .emit(self);
+        }
         if !self.entry.flush() {
             GeneralEvent::warn(
                 "py.host_logger",
@@ -275,17 +302,34 @@ impl HostGeneralLog {
             )
             .emit(self);
         }
+        dropped
     }
 }
 
 impl GeneralLog for HostGeneralLog {
+    /// Admits the row. A full queue is waited out for at most [`LOG_WAIT`]
+    /// (the caller holds no GIL: workers and detached calls), so a stream at
+    /// full rate keeps every row; a row refused after the bound is counted in
+    /// the entry and reported by [`HostGeneralLog::flush`].
     fn log(&self, event: GeneralEvent) -> Result<(), LogRejected> {
         let dto = event_dto(&event).map_err(LogRejected::new)?;
-        self.entry
-            .backend
-            .try_log(dto, ProducerOrigin::RustHost)
-            .map(|_| ())
-            .map_err(|failure| LogRejected::new(format!("{failure:?}")))
+        let started = std::time::Instant::now();
+        loop {
+            match self
+                .entry
+                .backend
+                .try_log(dto.clone(), ProducerOrigin::RustHost)
+            {
+                Ok(_) => return Ok(()),
+                Err(Failure::QueueFull { .. }) if started.elapsed() < LOG_WAIT => {
+                    std::thread::sleep(LOG_RETRY_PAUSE);
+                }
+                Err(failure) => {
+                    self.entry.dropped.fetch_add(1, Ordering::AcqRel);
+                    return Err(LogRejected::new(format!("{failure:?}")));
+                }
+            }
+        }
     }
 }
 

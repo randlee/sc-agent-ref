@@ -165,7 +165,7 @@ class DecisionStream:
     def finish(self) -> dict[str, Any]:
         """Close input, drop unread answers, wait for workers, flush the log.
 
-        Returns `{"answered", "failed", "exit_code", "log_flush_warning"}`.
+        Returns `{"answered", "failed", "exit_code", "log_flush_warning", "general_log_rows_dropped"}`.
         """
     def __enter__(self) -> DecisionStream: ...
     def __exit__(self, *exc: object) -> None: ...

@@ -374,3 +374,116 @@ def test_every_way_out_of_a_stream_leaves_its_rows_on_disk(
     assert actions.count("stream.end") == 1, actions[-5:]
     assert "session_log.flushed" in actions
     _read_rows(sc_jev_py.log_file(work / "log"))  # every session row is whole JSON
+
+
+_RATE_CHILD = r"""
+import json, sys, threading
+from pathlib import Path
+import sc_jev_py
+
+work = Path(sys.argv[1]); mode = sys.argv[2]; count = int(sys.argv[3]); py_rows = int(sys.argv[4])
+repo = work / "repo"; repo.mkdir()
+request = {"questions": [{"id": "q", "prompt": "p", "choices": ["a", "b"]}]}
+stream = sc_jev_py._testing.decision_stream_scripted(
+    scripted_answers={"q": "a"}, repo_root=repo, log_dir=work / "log",
+    session_dir=work / "sessions", concurrency=16)
+
+admitted = []
+def python_rows(k):
+    import time
+    import sc_observability as so
+    logger = so.get_host_logger().value
+    done = 0
+    for i in range(py_rows):
+        for _attempt in range(10000):   # bounded retry: a full queue is not an error
+            result = logger.log(so.LogEvent(level="info", target="py.rate", action="py.row",
+                                            message="m", fields={"k": k, "i": i}))
+            if isinstance(result, so.Ok):
+                done += 1
+                break
+            time.sleep(0.0005)
+    admitted.append(done)
+
+def feed():
+    for i in range(count):
+        stream.submit(f"r{i}", request)
+    stream.close_input()
+
+threads = [threading.Thread(target=feed)]
+threads += [threading.Thread(target=python_rows, args=(k,)) for k in range(2 if py_rows else 0)]
+for t in threads: t.start()
+summary = None
+if mode == "with":
+    with stream:
+        answered = sum(1 for _ in stream)
+else:
+    answered = sum(1 for _ in stream)
+    if mode == "finish":
+        summary = stream.finish()
+for t in threads: t.join()
+assert answered == count, answered
+print(json.dumps({"summary": summary, "admitted": admitted}))
+"""
+
+
+@pytest.mark.parametrize("mode", ["finish", "with", "iter"])
+def test_a_stream_at_full_rate_keeps_every_general_log_row(tmp_path: Path, mode: str) -> None:
+    """3,000 requests at concurrency 16 in a fresh process: no general-log row
+    is lost, however the stream is left. Every request's run has the same
+    number of rows, there is one run per request, and the stream's own start
+    and end rows are present. (A full runtime queue used to drop about 80% of
+    the rows with no warning.)"""
+    import json
+    import subprocess
+    import sys
+
+    count = 3000
+    done = subprocess.run(
+        [sys.executable, "-c", _RATE_CHILD, str(tmp_path), mode, str(count), "0"],
+        capture_output=True, text=True, timeout=300, check=False,
+    )
+    assert done.returncode == 0, done.stderr
+    if mode == "finish":
+        report = json.loads(done.stdout.strip().splitlines()[-1])["summary"]
+        assert report["general_log_rows_dropped"] == 0
+        assert report["log_flush_warning"] is None
+    rows = _read_rows(sc_jev_py.general_log_file(tmp_path / "log"))
+    actions = [row["action"] for row in rows]
+    assert actions.count("stream.start") == 1 and actions.count("stream.end") == 1
+    assert "general_log.rows_dropped" not in actions
+    by_run: dict[str, int] = {}
+    for row in rows:
+        run_id = row["fields"].get("run_id")
+        by_run[run_id] = by_run.get(run_id, 0) + 1
+    request_runs = {
+        row["fields"]["run_id"] for row in rows if row["action"] == "stream.request.start"
+    }
+    assert len(request_runs) == count
+    sizes = {by_run[run_id] for run_id in request_runs}
+    assert len(sizes) == 1, f"requests have different row counts: {sorted(sizes)}"
+    for action in ("stream.request.done", "run.start", "run.done", "send.done"):
+        assert actions.count(action) == count, action
+
+
+def test_python_rows_on_the_shared_logger_are_not_starved(tmp_path: Path) -> None:
+    """Two Python threads log through `get_host_logger()` into the file the
+    stream writes at full rate: every Python row is admitted (with bounded
+    retries) and every one is on disk, and no stream row is lost."""
+    import json
+    import subprocess
+    import sys
+
+    pytest.importorskip("sc_observability")
+    count, py_rows = 3000, 500
+    done = subprocess.run(
+        [sys.executable, "-c", _RATE_CHILD, str(tmp_path), "finish", str(count), str(py_rows)],
+        capture_output=True, text=True, timeout=300, check=False,
+    )
+    assert done.returncode == 0, done.stderr
+    report = json.loads(done.stdout.strip().splitlines()[-1])
+    assert report["admitted"] == [py_rows, py_rows]
+    rows = _read_rows(sc_jev_py.general_log_file(tmp_path / "log"))
+    actions = [row["action"] for row in rows]
+    assert actions.count("py.row") == 2 * py_rows
+    assert actions.count("stream.request.done") == count
+    assert actions.count("run.done") == count
