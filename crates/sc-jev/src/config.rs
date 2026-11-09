@@ -60,7 +60,7 @@ impl JevClientConfig {
     /// no such method.
     #[cfg(feature = "test-util")]
     #[must_use]
-    pub fn with_loopback_port(mut self, port: u16) -> Self {
+    pub(crate) fn with_loopback_port(mut self, port: u16) -> Self {
         self.endpoint = Endpoint::loopback_http(port, &self.path);
         self
     }

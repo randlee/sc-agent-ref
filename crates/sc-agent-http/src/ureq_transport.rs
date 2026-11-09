@@ -302,6 +302,8 @@ fn ureq_error_kind(error: &ureq::Error) -> NetworkErrorKind {
 /// read, `Connect` only for connection-class kinds (refused, reset, aborted,
 /// not connected, broken pipe, unreachable, address unavailable), and `Other`
 /// (not retryable) for anything else, which is not known to be transient.
+/// `UnexpectedEof` is `Other`: it happens when the peer closes mid-reply,
+/// after the request was sent, and resending could double-charge.
 fn io_error_kind(error: &std::io::Error) -> NetworkErrorKind {
     use std::io::ErrorKind as Kind;
     match error.kind() {
@@ -314,8 +316,7 @@ fn io_error_kind(error: &std::io::Error) -> NetworkErrorKind {
         | Kind::HostUnreachable
         | Kind::NetworkUnreachable
         | Kind::NetworkDown
-        | Kind::AddrNotAvailable
-        | Kind::UnexpectedEof => NetworkErrorKind::Connect,
+        | Kind::AddrNotAvailable => NetworkErrorKind::Connect,
         _ => NetworkErrorKind::Other,
     }
 }
@@ -378,6 +379,7 @@ mod tests {
             Kind::InvalidData,
             Kind::Other,
             Kind::OutOfMemory,
+            Kind::UnexpectedEof,
         ] {
             assert_eq!(
                 io_error_kind(&std::io::Error::from(kind)),

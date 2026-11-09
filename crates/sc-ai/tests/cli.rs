@@ -424,49 +424,89 @@ fn test_cli_exit_code_ignores_backend_order() {
     }
 }
 
-/// One-shot HTTP/1.1 server on loopback: answers the first request with
-/// `status`, `headers` and `body`, then closes. Returns its port and a handle.
-fn serve_once(
-    status: u16,
-    headers: &'static [(&'static str, &'static str)],
-    body: String,
-) -> (u16, std::thread::JoinHandle<()>) {
-    use std::io::{Read, Write};
-    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
-    let port = listener.local_addr().expect("addr").port();
-    let handle = std::thread::spawn(move || {
-        let (mut stream, _) = listener.accept().expect("accept");
-        let mut received = Vec::new();
-        let mut chunk = [0_u8; 4096];
-        loop {
-            let read = stream.read(&mut chunk).expect("read");
-            received.extend_from_slice(&chunk[..read]);
-            let text = String::from_utf8_lossy(&received).to_ascii_lowercase();
-            if let Some(end) = text.find("\r\n\r\n") {
-                let length = text
-                    .lines()
-                    .find_map(|line| line.strip_prefix("content-length:"))
-                    .and_then(|value| value.trim().parse::<usize>().ok())
-                    .unwrap_or(0);
-                if received.len() >= end + 4 + length {
-                    break;
+/// A one-shot HTTP/1.1 server on loopback. Nothing here sleeps or blocks
+/// without a bound: the connection has read and write timeouts, and
+/// [`LoopbackServer::finish`] wakes a server the CLI never reached and reports
+/// that with the CLI's own stderr.
+struct LoopbackServer {
+    port: u16,
+    result: std::sync::mpsc::Receiver<Result<(), String>>,
+}
+
+impl LoopbackServer {
+    /// Answers the first request with `status`, `headers` and `body`.
+    fn start(status: u16, headers: &'static [(&'static str, &'static str)], body: String) -> Self {
+        use std::io::{Read, Write};
+        use std::time::Duration;
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+        let port = listener.local_addr().expect("addr").port();
+        let (sender, result) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let outcome = (|| -> Result<(), String> {
+                let (mut stream, _) = listener.accept().map_err(|error| error.to_string())?;
+                let timeout = Some(Duration::from_secs(10));
+                stream
+                    .set_read_timeout(timeout)
+                    .and_then(|()| stream.set_write_timeout(timeout))
+                    .map_err(|error| error.to_string())?;
+                let mut received = Vec::new();
+                let mut chunk = [0_u8; 4096];
+                loop {
+                    let read = stream.read(&mut chunk).map_err(|error| error.to_string())?;
+                    received.extend_from_slice(&chunk[..read]);
+                    let text = String::from_utf8_lossy(&received).to_ascii_lowercase();
+                    if let Some(end) = text.find("\r\n\r\n") {
+                        let length = text
+                            .lines()
+                            .find_map(|line| line.strip_prefix("content-length:"))
+                            .and_then(|value| value.trim().parse::<usize>().ok())
+                            .unwrap_or(0);
+                        if received.len() >= end + 4 + length {
+                            break;
+                        }
+                    }
+                    if read == 0 {
+                        break;
+                    }
                 }
-            }
-            if read == 0 {
-                break;
-            }
+                if received.is_empty() {
+                    return Err("the CLI never connected".to_owned());
+                }
+                let mut reply = format!("HTTP/1.1 {status} X\r\n");
+                for (name, value) in headers {
+                    reply.push_str(&format!("{name}: {value}\r\n"));
+                }
+                reply.push_str(&format!(
+                    "Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                ));
+                stream
+                    .write_all(reply.as_bytes())
+                    .map_err(|error| error.to_string())
+            })();
+            let _ = sender.send(outcome);
+        });
+        Self { port, result }
+    }
+
+    /// Call after the child exited: wakes a server still waiting to accept
+    /// (the child never connected), then fails with the child's stderr unless
+    /// the server answered a request.
+    fn finish(self, output: &Output) {
+        // If the child connected, the listener is gone and this just fails.
+        let _ = std::net::TcpStream::connect(("127.0.0.1", self.port));
+        match self.result.recv_timeout(std::time::Duration::from_secs(20)) {
+            Ok(Ok(())) => {}
+            Ok(Err(reason)) => panic!(
+                "loopback server: {reason}; child stderr: {}",
+                String::from_utf8_lossy(&output.stderr)
+            ),
+            Err(_) => panic!(
+                "loopback server did not finish; child stderr: {}",
+                String::from_utf8_lossy(&output.stderr)
+            ),
         }
-        let mut reply = format!("HTTP/1.1 {status} X\r\n");
-        for (name, value) in headers {
-            reply.push_str(&format!("{name}: {value}\r\n"));
-        }
-        reply.push_str(&format!(
-            "Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
-            body.len()
-        ));
-        stream.write_all(reply.as_bytes()).expect("write");
-    });
-    (port, handle)
+    }
 }
 
 /// ERR-QA-18: the binary, over real HTTP to a loopback server (test builds
@@ -499,13 +539,13 @@ fn test_cli_real_http_failures_map_to_ids_and_exit_codes() {
     };
 
     // 401 whose body echoes the key.
-    let (port, server) = serve_once(
+    let server = LoopbackServer::start(
         401,
         &[("Content-Type", "application/json")],
         format!(r#"{{"detail":"invalid key {KEY} for this account"}}"#),
     );
-    let output = run(port);
-    server.join().expect("server");
+    let output = run(server.port);
+    server.finish(&output);
     let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
     assert!(!stderr.contains(KEY), "{stderr}");
     assert!(!stderr.contains("sk-loopback"), "{stderr}");
@@ -525,13 +565,13 @@ fn test_cli_real_http_failures_map_to_ids_and_exit_codes() {
     assert!(!String::from_utf8_lossy(&output.stdout).contains(KEY));
 
     // A busy reply with Retry-After: 0 (no sleep; one send).
-    let (port, server) = serve_once(
+    let server = LoopbackServer::start(
         529,
         &[("Retry-After", "0"), ("Content-Type", "application/json")],
         r#"{"detail":"overloaded"}"#.to_owned(),
     );
-    let output = run(port);
-    server.join().expect("server");
+    let output = run(server.port);
+    server.finish(&output);
     let error = stderr_json(&output);
     assert_eq!(error["error"], "PROVIDER_BUSY");
     assert_eq!(error["retryable"], true);
@@ -541,9 +581,9 @@ fn test_cli_real_http_failures_map_to_ids_and_exit_codes() {
     assert_eq!(output.status.code(), Some(3));
 
     // Quota: 402.
-    let (port, server) = serve_once(402, &[], r#"{"detail":"payment required"}"#.to_owned());
-    let output = run(port);
-    server.join().expect("server");
+    let server = LoopbackServer::start(402, &[], r#"{"detail":"payment required"}"#.to_owned());
+    let output = run(server.port);
+    server.finish(&output);
     let error = stderr_json(&output);
     assert_eq!(error["error"], "QUOTA_EXHAUSTED");
     assert_eq!(output.status.code(), Some(2));
@@ -1210,6 +1250,13 @@ fn cli_usage_errors_are_input_invalid_and_name_the_argument() {
     let action = error["suggested_action"].as_str().expect("action");
     assert!(action.len() < 2_000, "{action}");
     assert!(!action.contains("check.toml"), "{action}");
+    // RBP-F202: an empty value names its flag.
+    for flag in ["--check", "--repo-root", "--rev"] {
+        let output = run_cli(&["jev", "run", flag, ""]);
+        let error = stderr_json(&output);
+        assert_eq!(error["error"], "INPUT_INVALID", "{flag}");
+        assert_eq!(error["field"], flag, "{flag}");
+    }
     let output = run_cli(&["jev", "run", "--backend", "nope"]);
     let error = stderr_json(&output);
     assert_eq!(error["error"], "INPUT_INVALID");
