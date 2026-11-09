@@ -427,78 +427,148 @@ fn test_cli_exit_code_ignores_backend_order() {
     }
 }
 
-/// A one-shot HTTP/1.1 server on loopback. Nothing here sleeps or blocks
-/// without a bound: the connection has read and write timeouts, and
+/// An HTTP/1.1 server on loopback. Nothing here sleeps or blocks without a
+/// bound: every connection has read and write timeouts, and
 /// [`LoopbackServer::finish`] wakes a server the CLI never reached and reports
 /// that with the CLI's own stderr.
+///
+/// It answers `connections` connections, each on its own thread, and holds
+/// every reply until all of them have sent their request, so a reply can only
+/// arrive if that many requests were in flight together.
 struct LoopbackServer {
     port: u16,
+    done: std::sync::Arc<std::sync::atomic::AtomicBool>,
     result: std::sync::mpsc::Receiver<Result<(), String>>,
 }
 
 impl LoopbackServer {
     /// Answers the first request with `status`, `headers` and `body`.
     fn start(status: u16, headers: &'static [(&'static str, &'static str)], body: String) -> Self {
-        use std::io::{Read, Write};
-        use std::time::Duration;
+        Self::start_n(1, status, headers, body)
+    }
+
+    /// Answers `connections` concurrent requests, all with the same reply.
+    fn start_n(
+        connections: usize,
+        status: u16,
+        headers: &'static [(&'static str, &'static str)],
+        body: String,
+    ) -> Self {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::{Arc, Condvar, Mutex};
         let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
         let port = listener.local_addr().expect("addr").port();
+        let done = Arc::new(AtomicBool::new(false));
         let (sender, result) = std::sync::mpsc::channel();
+        let woken = Arc::clone(&done);
         std::thread::spawn(move || {
-            let outcome = (|| -> Result<(), String> {
-                let (mut stream, _) = listener.accept().map_err(|error| error.to_string())?;
-                let timeout = Some(Duration::from_secs(10));
-                stream
-                    .set_read_timeout(timeout)
-                    .and_then(|()| stream.set_write_timeout(timeout))
-                    .map_err(|error| error.to_string())?;
-                let mut received = Vec::new();
-                let mut chunk = [0_u8; 4096];
-                loop {
-                    let read = stream.read(&mut chunk).map_err(|error| error.to_string())?;
-                    received.extend_from_slice(&chunk[..read]);
-                    let text = String::from_utf8_lossy(&received).to_ascii_lowercase();
-                    if let Some(end) = text.find("\r\n\r\n") {
-                        let length = text
-                            .lines()
-                            .find_map(|line| line.strip_prefix("content-length:"))
-                            .and_then(|value| value.trim().parse::<usize>().ok())
-                            .unwrap_or(0);
-                        if received.len() >= end + 4 + length {
-                            break;
-                        }
-                    }
-                    if read == 0 {
+            let arrived = Arc::new((Mutex::new(0_usize), Condvar::new()));
+            let mut handlers = Vec::new();
+            let mut outcome = Ok(());
+            while handlers.len() < connections {
+                let stream = match listener.accept() {
+                    Ok((stream, _)) => stream,
+                    Err(error) => {
+                        outcome = Err(error.to_string());
                         break;
                     }
+                };
+                if woken.load(Ordering::Acquire) {
+                    break;
                 }
-                if received.is_empty() {
-                    return Err("the CLI never connected".to_owned());
-                }
-                let mut reply = format!("HTTP/1.1 {status} X\r\n");
-                for (name, value) in headers {
-                    reply.push_str(&format!("{name}: {value}\r\n"));
-                }
-                reply.push_str(&format!(
-                    "Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
-                    body.len()
-                ));
-                stream
-                    .write_all(reply.as_bytes())
-                    .map_err(|error| error.to_string())
-            })();
+                let arrived = Arc::clone(&arrived);
+                let body = body.clone();
+                handlers.push(std::thread::spawn(move || {
+                    Self::serve_one(stream, status, headers, &body, &arrived, connections)
+                }));
+            }
+            for handler in handlers {
+                let joined = handler
+                    .join()
+                    .unwrap_or_else(|_| Err("handler panicked".to_owned()));
+                outcome = outcome.and(joined);
+            }
+            if outcome.is_ok() && handlers_missing(connections, &arrived) {
+                outcome = Err("the CLI never connected".to_owned());
+            }
             let _ = sender.send(outcome);
         });
-        Self { port, result }
+        Self { port, done, result }
+    }
+
+    fn serve_one(
+        mut stream: std::net::TcpStream,
+        status: u16,
+        headers: &[(&str, &str)],
+        body: &str,
+        arrived: &std::sync::Arc<(std::sync::Mutex<usize>, std::sync::Condvar)>,
+        connections: usize,
+    ) -> Result<(), String> {
+        use std::io::{Read, Write};
+        use std::time::Duration;
+        let io = |error: std::io::Error| error.to_string();
+        let timeout = Some(Duration::from_secs(20));
+        stream
+            .set_read_timeout(timeout)
+            .and_then(|()| stream.set_write_timeout(timeout))
+            .map_err(io)?;
+        let mut received = Vec::new();
+        let mut chunk = [0_u8; 4096];
+        loop {
+            let read = stream.read(&mut chunk).map_err(io)?;
+            received.extend_from_slice(&chunk[..read]);
+            let text = String::from_utf8_lossy(&received).to_ascii_lowercase();
+            if let Some(end) = text.find("\r\n\r\n") {
+                let length = text
+                    .lines()
+                    .find_map(|line| line.strip_prefix("content-length:"))
+                    .and_then(|value| value.trim().parse::<usize>().ok())
+                    .unwrap_or(0);
+                if received.len() >= end + 4 + length {
+                    break;
+                }
+            }
+            if read == 0 {
+                break;
+            }
+        }
+        if received.is_empty() {
+            return Err("the CLI never connected".to_owned());
+        }
+        // Hold the reply until every connection has sent its request.
+        let (count, changed) = &**arrived;
+        let mut open = count.lock().map_err(|_| "poisoned".to_owned())?;
+        *open += 1;
+        changed.notify_all();
+        let (open, _) = changed
+            .wait_timeout_while(open, Duration::from_secs(30), |open| *open < connections)
+            .map_err(|_| "poisoned".to_owned())?;
+        if *open < connections {
+            return Err(format!(
+                "only {} of {connections} requests were in flight together",
+                *open
+            ));
+        }
+        drop(open);
+        let mut reply = format!("HTTP/1.1 {status} X\r\n");
+        for (name, value) in headers {
+            reply.push_str(&format!("{name}: {value}\r\n"));
+        }
+        reply.push_str(&format!(
+            "Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
+            body.len()
+        ));
+        stream.write_all(reply.as_bytes()).map_err(io)
     }
 
     /// Call after the child exited: wakes a server still waiting to accept
     /// (the child never connected), then fails with the child's stderr unless
-    /// the server answered a request.
+    /// the server answered every request.
     fn finish(self, output: &Output) {
+        self.done.store(true, std::sync::atomic::Ordering::Release);
         // If the child connected, the listener is gone and this just fails.
         let _ = std::net::TcpStream::connect(("127.0.0.1", self.port));
-        match self.result.recv_timeout(std::time::Duration::from_secs(20)) {
+        match self.result.recv_timeout(std::time::Duration::from_secs(30)) {
             Ok(Ok(())) => {}
             Ok(Err(reason)) => panic!(
                 "loopback server: {reason}; child stderr: {}",
@@ -510,6 +580,15 @@ impl LoopbackServer {
             ),
         }
     }
+}
+
+/// True when fewer than `connections` connections arrived (the child stopped
+/// early), so a woken server is reported rather than passing silently.
+fn handlers_missing(
+    connections: usize,
+    arrived: &std::sync::Arc<(std::sync::Mutex<usize>, std::sync::Condvar)>,
+) -> bool {
+    arrived.0.lock().map_or(true, |count| *count < connections)
 }
 
 /// ERR-QA-18: the binary, over real HTTP to a loopback server (test builds
@@ -1612,4 +1691,202 @@ fn test_cli_failures_before_the_run_leave_general_log_rows() {
     let general = logs.path().join("logs").join("sc-ai-general.log.jsonl");
     let text_ = std::fs::read_to_string(&general).expect("general log");
     assert!(text_.contains("cli.repo_root"), "{text_}");
+}
+
+// ---------------------------------------------------------------------------
+// `jev stream` (REQ-SAG-0720..REQ-SAG-0727, ADR-SAG-0032)
+// ---------------------------------------------------------------------------
+
+const STREAM_REQUEST: &str = r#"{"questions":[{"id":"q","prompt":"p","choices":["a","b"]}]}"#;
+
+fn stream_line(id: &str) -> String {
+    format!(r#"{{"id":"{id}","request":{STREAM_REQUEST}}}"#)
+}
+
+/// Parses every stdout line of a `jev stream` run.
+fn stream_lines(output: &Output) -> Vec<Value> {
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .map(|line| serde_json::from_str(line).expect("each stdout line is JSON"))
+        .collect()
+}
+
+fn by_id(lines: &[Value]) -> std::collections::BTreeMap<String, &Value> {
+    lines
+        .iter()
+        .filter_map(|line| Some((line["id"].as_str()?.to_owned(), line)))
+        .collect()
+}
+
+/// Many requests on stdin: one answer line each, ids echoed, a bad line fails
+/// alone and the stream continues; exit 2 (a non-retryable failure), stderr
+/// empty (per-request errors are on their lines).
+#[test]
+fn stream_answers_every_request_and_a_failure_does_not_stop_it() {
+    let repo = temp_dir("stream");
+    let answers = scripted(repo.path(), &json!({"q": "a"}));
+    let input = [
+        stream_line("one"),
+        "not json".to_owned(),
+        stream_line("two"),
+        r#"{"id":"empty","request":{"questions":[]}}"#.to_owned(),
+        stream_line("three"),
+    ]
+    .join("\n");
+    let output = spawn_with_deadline(
+        &mut cli(&[
+            "jev",
+            "stream",
+            "--repo-root",
+            text(repo.path()),
+            "--concurrency",
+            "3",
+            "--scripted-answers",
+            text(&answers),
+        ]),
+        Some(input.as_bytes()),
+    );
+    assert_eq!(output.status.code(), Some(2), "{output:?}");
+    assert!(output.stderr.is_empty(), "{:?}", output.stderr);
+    let lines = stream_lines(&output);
+    assert_eq!(lines.len(), 5);
+    let ids = by_id(&lines);
+    for ok in ["one", "two", "three"] {
+        assert_eq!(ids[ok]["ok"], true, "{ok}");
+        assert_eq!(ids[ok]["envelope"]["operation"], OP_RUN);
+        assert_eq!(ids[ok]["envelope"]["data"]["answers"]["q"]["choice"], "a");
+    }
+    assert_eq!(ids["empty"]["ok"], false);
+    assert_eq!(ids["empty"]["error"]["error"], "INPUT_INVALID");
+    assert_eq!(ids["empty"]["error"]["schema_version"], 1);
+    let anonymous: Vec<_> = lines.iter().filter(|line| line["id"].is_null()).collect();
+    assert_eq!(anonymous.len(), 1);
+    assert_eq!(anonymous[0]["error"]["error"], "INPUT_INVALID");
+}
+
+/// Success is exit 0; `--input FILE` reads a JSONL file (relative to the repo
+/// root).
+#[test]
+fn stream_reads_a_jsonl_file_and_exits_zero_on_success() {
+    let repo = temp_dir("stream-file");
+    let answers = scripted(repo.path(), &json!({"q": "a"}));
+    let jsonl: String = (0..20)
+        .map(|i| stream_line(&format!("f{i}")) + "\n")
+        .collect();
+    std::fs::write(repo.path().join("in.jsonl"), jsonl).expect("jsonl");
+    let output = run_cli(&[
+        "jev",
+        "stream",
+        "--repo-root",
+        text(repo.path()),
+        "--input",
+        "in.jsonl",
+        "--scripted-answers",
+        text(&answers),
+    ]);
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    assert!(output.stderr.is_empty());
+    let lines = stream_lines(&output);
+    assert_eq!(lines.len(), 20);
+    assert!(lines.iter().all(|line| line["ok"] == true));
+    assert_eq!(by_id(&lines).len(), 20, "all ids echoed, none repeated");
+    let missing = run_cli(&[
+        "jev",
+        "stream",
+        "--repo-root",
+        text(repo.path()),
+        "--input",
+        "absent.jsonl",
+        "--scripted-answers",
+        text(&answers),
+    ]);
+    assert_eq!(stderr_json(&missing)["error"], "INPUT_MISSING");
+    assert!(missing.stdout.is_empty());
+}
+
+/// Exit 3 only when every failure in the stream is retryable.
+#[test]
+fn stream_exit_code_follows_the_retryable_rule() {
+    let repo = temp_dir("stream-exit");
+    let answers = scripted(
+        repo.path(),
+        &json!({"backends": {"jev": {"failure": {"error": "PROVIDER_BUSY"}}}}),
+    );
+    let run = |lines: &[String]| {
+        spawn_with_deadline(
+            &mut cli(&[
+                "jev",
+                "stream",
+                "--repo-root",
+                text(repo.path()),
+                "--scripted-answers",
+                text(&answers),
+            ]),
+            Some(lines.join("\n").as_bytes()),
+        )
+    };
+    let busy = run(&[stream_line("a"), stream_line("b")]);
+    assert_eq!(busy.status.code(), Some(3), "{busy:?}");
+    let lines = stream_lines(&busy);
+    assert!(lines.iter().all(|line| line["error"]["retryable"] == true));
+    assert!(
+        lines
+            .iter()
+            .all(|line| line["error"]["error"] == "PROVIDER_BUSY")
+    );
+    let mixed = run(&[
+        stream_line("a"),
+        r#"{"id":"b","request":{"questions":[]}}"#.to_owned(),
+    ]);
+    assert_eq!(mixed.status.code(), Some(2), "{mixed:?}");
+}
+
+/// Real HTTP through the one shared `JevClient`: the loopback server holds
+/// every response until all four connections have sent their request, so the
+/// answers arrive only if four requests were in flight together over HTTP.
+/// This is the thread-safety check for the shared client.
+#[test]
+fn stream_runs_concurrent_requests_over_real_http_with_one_shared_client() {
+    const WORKERS: usize = 4;
+    const KEY: &str = "sk-stream-loopback-1234567890";
+    let repo = temp_dir("stream-http");
+    let body = r#"{"model":"jev-1.13.0","answers":{"q":{"type":"choice","choice":"a","confidence":1,"probabilities":{"a":1,"b":0}}},"usage":{}}"#;
+    let server = LoopbackServer::start_n(
+        WORKERS,
+        200,
+        &[("Content-Type", "application/json")],
+        body.to_owned(),
+    );
+    let port = server.port.to_string();
+    let input: String = (0..WORKERS)
+        .map(|i| stream_line(&format!("h{i}")) + "\n")
+        .collect();
+    let output = spawn_with_deadline(
+        cli(&[
+            "jev",
+            "stream",
+            "--repo-root",
+            text(repo.path()),
+            "--concurrency",
+            "4",
+            "--loopback-port",
+            &port,
+        ])
+        .env("TYPESAFE_API_KEY", KEY),
+        Some(input.as_bytes()),
+    );
+    // Assert on the child first, with its output in the failure message.
+    let shown = format!(
+        "status {:?}\nstdout: {}\nstderr: {}",
+        output.status,
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.status.code(), Some(0), "{shown}");
+    let lines = stream_lines(&output);
+    assert_eq!(lines.len(), WORKERS, "{shown}");
+    assert!(lines.iter().all(|line| line["ok"] == true), "{shown}");
+    assert!(!String::from_utf8_lossy(&output.stdout).contains(KEY));
+    assert!(!String::from_utf8_lossy(&output.stderr).contains(KEY));
+    server.finish(&output);
 }

@@ -25,7 +25,8 @@ sc-jev-check = { path = "../sc-jev-check", version = "0.1.0" }
 # Deliberate `=` lockstep (ADR-SAG-0023 list; ADR-SAG-0016). Only this crate
 # links sc-observability.
 sc-observability.workspace = true
-serde_json.workspace = true
+serde.workspace = true
+serde_json = { workspace = true, features = ["raw_value"] }
 
 [dev-dependencies]
 sc-decision-schema = { path = "../sc-decision-schema", version = "0.1.0", features = ["test-util"] }

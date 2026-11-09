@@ -32,6 +32,17 @@ ids are ULIDs since Phase A.1 and to start a new session with `sc-ai jev run`.
 (at most 256 bytes, no control characters) and reaches that call's log row
 through `ComposeInputs::project`; it is per call and not scrubbed (REQ-SAG-0615).
 
+## Streaming (REQ-SAG-0721..0725, ADR-SAG-0032)
+
+`jev stream` is the one command that is not one request per process. Argv
+becomes a `StreamCommand`; `sc_ai::serve_stream` builds `ComposeInputs` like
+`jev run`, opens `--input` (a path relative to the repo root, or stdin) and
+calls `sc_jev_host::stream::serve_jsonl`, which writes one answer line per
+request as it completes. `main` exits with `StreamSummary::exit_code`.
+Per-request errors are on their stdout lines; only a stream-level failure
+writes a stderr line. The wire format, finish rule and exit code are in
+`sc_jev_host::stream` and `docs/stability.md`.
+
 ## Partial failure (REQ-SAG-0604, ADR-SAG-0025)
 
 When `RunResponse::is_partial()`, stdout carries the envelope with the

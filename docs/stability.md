@@ -163,6 +163,22 @@ send only the backends that failed. Usage errors and every other
 caller mistake are `2`. A caller that only sees the exit status can tell
 "retry later" (3) from "fix something" (2); the id and `kind` say more.
 
+**`sc-ai jev stream`** (ADR-SAG-0032) prints one JSON line per request on
+stdout and no envelope of its own: `{"id","ok","envelope"?,"error"?}`, where
+`id` is the caller's string, `envelope` is the `jev run` envelope and `error`
+is the stderr body above, so the per-request error is the same shape as every
+other error. `ok` is false whenever `error` is present; a request in which only
+some backends failed has both `envelope` (the answers that succeeded: read it
+even when `ok` is false) and `error` (the first failure). `id` is echoed
+whenever a usable id could be read from the line, even if the rest is invalid,
+and is `null` only when none could. Lines come in
+completion order, not input order. A failed request does not stop the stream;
+the exit code applies the rule above across the whole stream: `0` when no
+request failed, `3` when every failure (a failed request, or a failed backend
+inside one) is retryable, otherwise `2`. Per-request errors are on stdout
+lines, not stderr; a stream-level failure (unreadable input, closed stdout) is
+one stderr line with the usual exit code. New keys on a line are additive.
+
 **Field names.** `field` is the argument as the caller wrote it: the `--flag`
 spelling (`--backend`, `--session-id`, `--rev`, `--project`) for a command-line
 argument, the parameter name (`follow_up`, `backends`) for a library or

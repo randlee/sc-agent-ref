@@ -16,6 +16,9 @@
 //! - [`compose`]: [`run_from`](compose::run_from) and
 //!   [`ask_from`](compose::ask_from) over
 //!   [`ComposeInputs`](compose::ComposeInputs).
+//! - [`stream`]: [`DecisionStream`](stream::DecisionStream), a bounded queue
+//!   and N worker threads around the same per-request work, so one process
+//!   answers many requests (ADR-SAG-0032).
 //!
 //! # Stability
 //!
@@ -44,3 +47,4 @@
 pub mod compose;
 pub mod obs;
 pub mod paths;
+pub mod stream;

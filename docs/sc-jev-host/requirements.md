@@ -23,3 +23,16 @@
 | REQ-SAG-0639 | A root-discovery failure leaves a row; a path with no known root is silent; a git failure is logged by its caller | agt-9eh | `--test general_log` (`a_root_discovery_failure_leaves_a_general_log_row`, `a_failure_with_no_known_log_root_is_silent`, `a_git_failure_is_logged_by_its_caller_and_the_run_still_succeeds`) |
 | REQ-SAG-0634 | The default general log holds no prompt text | agt-9eh | `--test general_log` (`the_general_log_never_holds_prompt_text`) |
 | REQ-SAG-0635 | A rejecting general log changes no result; a dry run opens no default log; a default general log that cannot start does not fail the call | agt-9eh | `--test general_log` (`a_rejecting_general_log_changes_nothing`, `a_dry_run_opens_no_default_log`) |
+
+## Streaming (agt-1aq, ADR-SAG-0032)
+
+| ID | Requirement | Proof |
+| --- | --- | --- |
+| REQ-SAG-0720 | Bounded job and answer queues, N `std` worker threads, engine unchanged | `stream::pool::tests` (`workers_run_jobs_in_parallel_not_in_turn`); `--test stream` `the_default_runs_eight_requests_in_parallel` (rendezvous of 8, not timing) |
+| REQ-SAG-0721 | Ids echoed; a bad line has `id: null` or its readable id | `--test stream` `answers_echo_ids_and_a_failure_does_not_stop_the_stream` |
+| REQ-SAG-0722 | `StreamSummary::exit_code` applies the stability rule across the stream | `--test stream` `exit_code_is_three_only_when_every_failure_is_retryable`, `a_partial_failure_line_has_both_envelope_and_error` |
+| REQ-SAG-0723 | Finished = input closed, queue empty, workers idle; follow-up requests on the same stream | `--test stream` `a_stream_is_finished_only_when_input_is_closed_and_everything_drained`, `early_answers_can_become_follow_up_requests_on_the_same_stream` |
+| REQ-SAG-0724 | `Concurrency` 1 to 64, default 8 | `stream::tests::concurrency_is_one_to_sixty_four_with_a_default_of_eight` |
+| REQ-SAG-0727 | Bounded memory under a slow consumer; cancel stops new work and sets the token | `--test stream` `a_slow_writer_stops_the_reader_and_memory_stays_bounded`, `cancel_stops_new_work_and_sets_the_streams_token, finish_closes_input_and_never_hangs_on_unread_answers, submitting_past_capacity_times_out_instead_of_deadlocking`; `stream::pool::tests::a_slow_consumer_stops_the_producer_at_capacity`, `a_panicking_skipped_function_still_gives_one_answer_per_job`, `a_dead_worker_still_lets_the_stream_finish` |
+| REQ-SAG-0728 | Stream and per-request `run_id` correlation in a real general log; injected logs replace the defaults | `--test stream` `a_parallel_stream_writes_a_whole_general_log_correlated_by_run_id`, `injected_logs_replace_the_defaults` |
+| REQ-SAG-0611 | Concurrent workers write whole session-log rows through the one shared adapter | `--test stream` `concurrent_workers_write_whole_session_log_rows` |

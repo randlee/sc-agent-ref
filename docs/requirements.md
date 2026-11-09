@@ -279,3 +279,17 @@ crate's requirements file.
 | REQ-SAG-0640 | Logs name an endpoint only as scheme, host and path (`Endpoint::log_form`); userinfo, port, query and fragment never reach a log — (Active, agt-9eh) |
 | REQ-SAG-0636 | The Python wheel links the `sc-observability` Python runtime in its own binary and registers it, so Rust writes general-log rows with no GIL (the default path takes no GIL; an injected callable takes it once per row; no queue) and `sc_observability.get_host_logger()` returns the same logger; Rust and Python rows land in one log — (Active, agt-9eh) |
 | REQ-SAG-0637 | `pyo3` is pinned `=0.29.2` and `sc-observability-py`, `sc-observability-binding-runtime` and `sc-observability-dto` `=1.5.0`, all on the ADR-SAG-0023 lockstep list — (Active, agt-9eh) |
+
+## Amendments: streaming decision calls (bead agt-1aq, ADR-SAG-0032)
+
+| ID | Requirement |
+| --- | --- |
+| REQ-SAG-0720 | A bounded queue with N worker threads (no async runtime) runs `prepare` then `run` per request around the unchanged engine, with one shared session logger and one shared backend client per backend selection — (Active, agt-1aq) |
+| REQ-SAG-0721 | `sc-ai jev stream` reads JSONL `{"id","request"}` lines (stdin or `--input`) and writes one `{"id","ok","envelope"?,"error"?}` line per request, in completion order; every answer echoes the caller's id — (Active, agt-1aq) |
+| REQ-SAG-0722 | A failed request is a typed `ScAgentErrorResponse` on that request's line and the stream continues; the exit code is 0, or 3 when every failure is retryable, else 2 (`docs/stability.md`) — (Active, agt-1aq) |
+| REQ-SAG-0723 | A stream is finished when its input is closed, the queue is empty and the workers are idle; requests may keep arriving while answers return — (Active, agt-1aq) |
+| REQ-SAG-0724 | Concurrency is one global setting (`--concurrency`, `concurrency=`), 1 to 64, default 8; the default was tested only against scripted and loopback backends — (Active, agt-1aq) |
+| REQ-SAG-0725 | `sc-ai --help` documents the stream wire format, ordering, failure and exit rules (pinned by `help_notes_describe_the_stream`) — (Active, agt-1aq) |
+| REQ-SAG-0726 | `sc_jev_py.run_many` and `sc_jev_py.DecisionStream` give Python the same capability plus per-request `submit`, timeouts and `cancel`, releasing the GIL while workers run — (Active, agt-1aq) |
+| REQ-SAG-0728 | A stream logs through the general log: its own `run_id` with worker and request counts at start and end, and one run, with its own `run_id`, per request (start, end with duration, failure by typed id, stage and backend); injected `session_log` and `general_log` are honoured; no prompt text, state or secret — (Active, agt-1aq) |
+| REQ-SAG-0727 | Memory is bounded (a slow consumer applies backpressure; lines over 1 MiB are refused) and `cancel` stops new work and honours the cancel token — (Active, agt-1aq) |
