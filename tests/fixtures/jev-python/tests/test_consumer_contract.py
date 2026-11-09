@@ -112,4 +112,4 @@ def test_chain_context_kwarg(tmp_path: Path) -> None:
     assert independent.equal_input["mode"] == "independent"
     chained = run_check_scripted("check.toml", chain_context=True, **kwargs)
     assert chained.equal_input["mode"] == "chain_context"
-    assert chained.prompt_sha256 == independent.prompt_sha256
+    assert chained.payload_sha256 == independent.payload_sha256

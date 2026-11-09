@@ -10,7 +10,7 @@
 //!
 //! The version lives outside the hashed bytes: it is never a key of
 //! `CanonicalJudgePayload` and never part of `PayloadBundle::bytes()`, so
-//! `prompt_sha256` is unchanged. It rides on the wrappers around the payload
+//! `payload_sha256` is unchanged. It rides on the wrappers around the payload
 //! (the session-log row) and is not sent to any provider.
 
 use std::fmt;

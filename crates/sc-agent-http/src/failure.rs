@@ -20,8 +20,8 @@
 //!
 //! # Documented body shapes
 //!
-//! The bodies below are the shapes the providers document; none was
-//! observed against a live endpoint in this repository.
+//! The bodies below are the shapes the providers document, not observed
+//! against a live endpoint here, except Jev's `detail` object, below.
 //!
 //! - **Anthropic** ([errors](https://platform.claude.com/docs/en/api/errors),
 //!   [rate limits](https://platform.claude.com/docs/en/api/rate-limits)):
@@ -45,7 +45,9 @@
 //!   429 and 529 are busy; 5xx is transient. Jev's own error JSON is not
 //!   documented here, so the reader also accepts `{"detail": "..."}`,
 //!   `{"detail": [{"loc": [...], "msg": "..."}]}` and `{"message": "..."}`,
-//!   and falls back to the bounded raw body.
+//!   and falls back to the bounded raw body. Live replies on 2026-11-08
+//!   showed `{"detail": {"error_type": "billing_error", "message": "..."}}`
+//!   on 402 and the same shape with `authentication_error` on 401.
 //!
 //! A body that is none of these stays what its status says: an unknown 429
 //! body is busy, never quota.
@@ -124,6 +126,14 @@ impl Body {
         if body.message.is_none() {
             match root.get("detail") {
                 Some(Value::String(text)) if !text.is_empty() => body.message = Some(text.clone()),
+                // Jev's billing and auth errors, observed live 2026-11-08:
+                // {"detail":{"error_type":"billing_error","message":"..."}}.
+                Some(Value::Object(detail)) => {
+                    if body.provider_type.is_none() {
+                        body.provider_type = detail.get("error_type").and_then(string_of);
+                    }
+                    body.message = detail.get("message").and_then(string_of);
+                }
                 Some(Value::Array(items)) => {
                     let first = items.first();
                     body.message = first.and_then(|item| item.get("msg")).and_then(string_of);
@@ -463,6 +473,41 @@ mod tests {
             api_failure("p", ReplyShape::Jev, &req(), &reply(401, "token exceeded")).code(),
             "AUTH_FAILED"
         );
+    }
+
+    /// The exact bodies Jev returned on live calls (2026-11-08): an unfunded
+    /// organization gets 402 `billing_error`, ahead of body validation.
+    #[test]
+    fn jev_out_of_credits_is_quota_exhausted_with_its_message() {
+        let message = "Your organization has no available TypeSafe API credits. \
+                       Please add more credits and/or set up auto-reload at \
+                       https://console.typesafe.ai/settings/billing";
+        let body =
+            format!(r#"{{"detail":{{"error_type":"billing_error","message":"{message}"}}}}"#);
+        assert!(is_quota_reply(402, body.as_bytes()));
+        let error = api_failure("Jev", ReplyShape::Jev, &req(), &reply(402, &body));
+        assert_eq!(error.code(), "QUOTA_EXHAUSTED");
+        assert!(!error.retryable());
+        assert!(
+            error
+                .message()
+                .contains("no available TypeSafe API credits")
+        );
+        assert!(!error.message().contains("error_type"));
+        let details = error.details().expect("details");
+        assert_eq!(details.provider_type.as_deref(), Some("billing_error"));
+
+        // The marker counts at any status: billing is never retried as busy.
+        let on_429 = r#"{"detail":{"error_type":"billing_error","message":"no credits"}}"#;
+        assert!(is_quota_reply(429, on_429.as_bytes()));
+        let rate = r#"{"detail":{"error_type":"rate_limit_error"}}"#;
+        assert!(!is_quota_reply(429, rate.as_bytes()));
+
+        let denied =
+            r#"{"detail":{"error_type":"authentication_error","message":"Cannot authenticate"}}"#;
+        let error = api_failure("Jev", ReplyShape::Jev, &req(), &reply(401, denied));
+        assert_eq!(error.code(), "AUTH_FAILED");
+        assert!(error.message().contains("Cannot authenticate"));
     }
 
     /// RBP-F002: for Haiku and Luna raw text never decides. A 400 that names

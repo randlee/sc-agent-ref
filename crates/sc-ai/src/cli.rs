@@ -32,7 +32,7 @@ is retryable (retry only the failed backends).
 --request-json is a caller-built questions document, or - for stdin.
 --backend is jev, anthropic_haiku, or openai_luna. The default is jev.
 --llm-system-prompt-file overrides the LLM system prompt. It changes the
-provider wire, not prompt_sha256.
+provider wire, not payload_sha256.
 --rev defaults to WORKTREE.
 --project labels this call's session-log rows (at most 256 bytes of UTF-8, no
 control characters). The text is stored as given and is not scrubbed, so put
@@ -47,7 +47,10 @@ Session files: <repo-root>/.sc-ai/sessions (override with --sessions-dir).
 
 data is the run response: the primary backend's answers at the top level (the
 verbatim Jev response when Jev answered), primary_backend, session_id,
-prompt_sha256, payload_bytes, results, and equal_input. Dry-run adds payload
+payload_sha256, questions_sha256 (SHA-256 of the question set alone),
+request_sha256 (per backend, the SHA-256 of the exact first request body,
+computed before sending, for cached-response substitution), payload_bytes,
+results, and equal_input. Dry-run adds payload
 and per-backend limits, and does not resolve API keys. Without --repo-root the
 repo root is the git toplevel of the current directory, or the current
 directory outside git.";

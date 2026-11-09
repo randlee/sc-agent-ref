@@ -2,11 +2,13 @@
 //!
 //! The body is the documented Jev object `{model, state, questions}`, built
 //! by serde from the canonical payload ([`CheckRequest`]); replies parse
-//! through [`CheckResponse`] (REQ-SAG-0143). `prompt_sha256` stays on the
+//! through [`CheckResponse`] (REQ-SAG-0143). `payload_sha256` stays on the
 //! canonical bytes (ADR-SAG-0002); `input_sha256` is recovered by inverting
 //! the final body back to canonical bytes (ADR-SAG-0025).
 
-use sc_agent_types::{BackendId, JevError, ResponseInvalidCause, Sha256Digest};
+use sc_agent_types::{
+    BackendId, JevError, ModelId, PayloadSha256, RequestSha256, ResponseInvalidCause,
+};
 use sc_decision_schema::jev::v1::{CheckRequest, CheckResponse};
 use sc_decision_schema::{CanonicalJudgePayload, JudgeOutcome, JudgeRequest, PayloadBundle};
 use serde_json::Value;
@@ -46,6 +48,25 @@ pub(crate) fn prepare(
     Ok(PreparedCheck { body, request })
 }
 
+/// The SHA-256 of the exact body `send` would post for `payload` and `model`,
+/// without a key or a send (the digest `SendTrace` records and the session-log
+/// `request_sha256` column holds).
+///
+/// The size limit is not applied, so a dry run can report the digest of an
+/// over-limit body next to its `over_limit` flag.
+///
+/// # Errors
+///
+/// As [`CheckRequest::from_canonical`].
+pub(crate) fn request_sha256(
+    model: &ModelId,
+    payload: &PayloadBundle,
+) -> Result<RequestSha256, JevError> {
+    let canonical = CanonicalJudgePayload::from_bytes(payload.bytes())?;
+    let request = CheckRequest::from_canonical(model.clone(), &canonical)?;
+    Ok(RequestSha256::of_text(&request.to_body()?))
+}
+
 /// The digest of the canonical blob recovered from a serialized Jev wire
 /// `body` (REQ-SAG-0606, ADR-SAG-0025).
 ///
@@ -53,14 +74,14 @@ pub(crate) fn prepare(
 /// question back to a canonical question, canonical-encodes and hashes. The
 /// recovery is attestation-only: it never feeds the wire body, and the digest
 /// is computed before the body is handed to `send_with_busy_retry`. For a
-/// body built by [`CheckRequest::from_canonical`] it equals `prompt_sha256`.
+/// body built by [`CheckRequest::from_canonical`] it equals `payload_sha256`.
 ///
 /// # Errors
 ///
 /// `INPUT_INVALID` when `body` is not a check request. The error names the
 /// failure category and position (or a repeated key), never body bytes
 /// (ADR-SAG-0020).
-pub(crate) fn recovered_digest(body: &str) -> Result<Sha256Digest, JevError> {
+pub(crate) fn recovered_digest(body: &str) -> Result<PayloadSha256, JevError> {
     Ok(CheckRequest::parse(body)?
         .recovered_bundle()?
         .sha256()
@@ -77,7 +98,7 @@ pub(crate) fn recovered_digest(body: &str) -> Result<Sha256Digest, JevError> {
 pub enum WireFault {
     /// Drops one letter of the first question's `instructions` value. The
     /// body stays a valid check request, so recovery succeeds and reports a digest that differs from the
-    /// request's `prompt_sha256`.
+    /// request's `payload_sha256`.
     DropEmbeddedByte,
     /// Cuts the serialized body in half, so digest recovery fails and the
     /// backend sends nothing.
@@ -298,7 +319,7 @@ mod refusals {
             (json!({"model": "jev-1.13.0"}).to_string(), "model or shape"),
             (
                 json!({"model": "jev-other", "answers": {}}).to_string(),
-                "model or shape",
+                "answer ids differ",
             ),
             (answer(json!(1)), "model or shape"),
             (good(json!({"choice": "maybe"})), "not one of its criteria"),

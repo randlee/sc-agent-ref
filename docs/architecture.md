@@ -170,7 +170,7 @@ CLI and PyO3 map variants to JSON / exceptions; no ad-hoc strings.
 
 The **canonical judge payload** is sorted-key compact JSON (UTF-8): the
 questions + state the backends must judge. SHA-256 of **those** bytes is
-`prompt_sha256` for equal-input and the cross-language fixture (sprint a-1).
+`payload_sha256` for equal-input and the cross-language fixture (sprint a-1).
 
 ### Amendment (Phase A.1, r-5)
 
@@ -183,7 +183,7 @@ questions + state the backends must judge. SHA-256 of **those** bytes is
   choice label). `choice` has 2 to 255 choices, `score` 2 to 10 in level
   order, `noul` none; any other shape is `INPUT_INVALID`, checked by one
   validating constructor that deserialization also runs. A payload without these fields
-  serializes byte-identically to the Phase A form, so `prompt_sha256` and
+  serializes byte-identically to the Phase A form, so `payload_sha256` and
   the cross-language fixture are unchanged and the schema version stays
   `canonical.v1`. There is one payload type (`CanonicalJudgePayload`).
 
@@ -221,7 +221,7 @@ errors happens before any backend call (ADR-SAG-0004).
 - (Active, r-5) `CanonicalJudgePayload` is the only payload schema. Both backend families
   validate by deserializing it. The Jev HTTP body is the documented flat
   object `{model, state, questions}` built by serde from the canonical
-  payload (no byte-splice); `prompt_sha256` stays on canonical bytes.
+  payload (no byte-splice); `payload_sha256` stays on canonical bytes.
   ADR-SAG-0019 is unchanged: the documented Jev body is the "API shape the
   evaluator expects" for Jev, and Haiku/Luna still embed the same canonical
   bytes.
@@ -495,7 +495,7 @@ expects (including model selection on the wire).
 body. They **must** embed the **same canonical payload bytes** in the user/judge
 message (per README parity). A **system prompt** (evaluator instructions, JSON
 schema hints) is allowed and **may change** over time without changing
-`prompt_sha256`, as long as the embedded canonical blob is unchanged.
+`payload_sha256`, as long as the embedded canonical blob is unchanged.
 
 **System prompt injection (not hardcoded in Rust):** production crates must not
 embed evaluator prose as string literals. Resolution **precedence** (first hit wins):
@@ -1170,7 +1170,7 @@ the module** and drop the types dependency if possible (bead:
 
 - (Active, r-6) `observability::v2::LogEvent` carries one row as a JSON
   object: `LogEvent::new(session_id, operation, fields)` with `fields()`; the
-  `backend()` / `prompt_sha256()` accessors are removed (the values are in
+  `backend()` / `payload_sha256()` accessors are removed (the values are in
   `fields`). The port does not name the row type (ADR-SAG-0031 "Wiring").
 
 - (Active, r-6) The adapter maps the row onto the v2 envelope: `request_id` is
@@ -1207,7 +1207,7 @@ Amended by ADR-SAG-0024 (Active, r-2).
   (question id → `{choice, confidence?, probabilities?}`), `backend`,
   `input_sha256` (null until r-2b backend hashing) and `provider_meta`. The
   Phase A `probabilities` field is removed (it was derived from `answers`).
-- (Active, r-1) `equal_input` is `{prompt_sha256, mode, backends: [{backend,
+- (Active, r-1) `equal_input` is `{payload_sha256, mode, backends: [{backend,
   attestation: {status}}], leak, equal, producer}`; `commands` is removed
   and `equal` is derived (ADR-SAG-0019 r-1 amendment). REQ-SAG-0710 holds
   with these shapes.
@@ -1227,7 +1227,7 @@ Amended by ADR-SAG-0024 (Active, r-2).
   that case); if it is an LLM backend (Jev failed or
   was not selected), its normalized `answers`, `model` and `usage` are at the
   top level and no Jev answer is. Then `session_id` (null unless
-  `session_saved`), `session_saved`, `prompt_sha256`, `payload_bytes`,
+  `session_saved`), `session_saved`, `payload_sha256`, `payload_bytes`,
   `results` (per backend: `ok` + outcome, or `failed` + the
   `ScAgentErrorResponse` derived from its error), `equal_input`, dry-run
   `payload`/`limits`, and last `warnings` (array of strings, omitted when
@@ -1235,7 +1235,7 @@ Amended by ADR-SAG-0024 (Active, r-2).
   composition crate adds the log-flush warning through
   `RunResponse::with_warning` (r-3b). The `ask` body is the follow-up's
   answer fields by the same primary rule, then `session_id`,
-  `prompt_sha256` and `warnings` (the CR-014 flush warning, through
+  `payload_sha256` and `warnings` (the CR-014 flush warning, through
   `AskResponse::with_warning`). The `{version, operation, data}`
   wrapper is `sc_jev_check::run::Envelope`; `readback` is the only key a
   consumer adds (`sc-ai`). REQ-SAG-0710 is amended to match.
@@ -1338,7 +1338,7 @@ r-3, ADR-SAG-0022 r-1 and r-2 (plan.md "Plan PR route").
 **Status:** Active
 
 - **Digest newtypes:** `Sha256Digest` (lowercase hex, 64 chars) for
-  `PayloadBundle.sha256`, `EqualInputRecord.prompt_sha256`, and log fields — not
+  `PayloadBundle.sha256`, `EqualInputRecord.payload_sha256`, and log fields — not
   unconstrained `String` (RBP-F002).
 - **Domain newtypes:** `RepoRoot`, `Rev`, `SessionId`, `BackendKeyId` in
   `sc-agent-types` (frozen in a-1); secrets APIs take `&RepoRoot` not raw paths
@@ -1480,7 +1480,7 @@ ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0014, ADR-SAG-0019, ADR-SAG-0022.
   contributes its answer fields at the top level, named by
   `primary_backend` (for Jev: its response fields except `answers`, then
   `answers` once from the typed answers), followed by `session_id` (null unless `session_saved`),
-  `session_saved`, `prompt_sha256`, `payload_bytes`, `results` (per backend
+  `session_saved`, `payload_sha256`, `payload_bytes`, `results` (per backend
   `ok` + outcome or `failed` + `ScAgentErrorResponse`), `equal_input` and
   `warnings` (omitted when empty; `RunResponse::with_warning` is how a
   composition root adds one). A `BackendFailure` stores only the `JevError`;
@@ -1529,7 +1529,7 @@ ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0014, ADR-SAG-0019, ADR-SAG-0022.
   not copied to the top level, so no key appears twice; the full
   `provider_meta` stays under `results[].outcome`. `Envelope::ask(&AskResponse)`
   carries the outcome's answer fields by the same primary rule, then
-  `session_id`, `prompt_sha256` and `warnings` (omitted when empty;
+  `session_id`, `payload_sha256` and `warnings` (omitted when empty;
   `AskResponse::with_warning` carries the CR-014 log-flush warning). The
   envelope is built infallibly from the typed body and written in the
   documented key order, then `readback`; the version (`1`) and operation
@@ -1547,6 +1547,36 @@ ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0014, ADR-SAG-0019, ADR-SAG-0022.
   `from_resolver(&BackendSet, Fn(BackendKeyId) -> Result<ResolvedApiKey,
   JevError>)`; `RunConfig::registry(Arc<BackendRegistry>)` is the
   no-secrets path (EXT-009).
+
+### Amendment (phase-end digests, 2026-11-08)
+
+**Status:** Active (phase-end digests).
+
+- (Active, phase-end digests) `PreparedRun::request_sha256()` returns, per
+  selected backend, the SHA-256 of the exact first request body that backend
+  is sent for the model it runs with, and `RunResponse::request_sha256()`
+  carries the same list (`data.request_sha256`, an object keyed by backend
+  id). It is computed by `prepare`/`run` before the first send, with no API
+  key and no send, through two key-free entry points:
+  `sc_jev::request_sha256(model, payload)` (the Jev body) and
+  `sc_jev_backends::request_sha256(id, model, request)` (the LLM backends'
+  first body, the token-count body, which holds the model, the payload and
+  the system prompt). It is the digest `SendTrace` records, so it equals the
+  session-log row's `request_sha256` for the same send (ADR-SAG-0031). The
+  per-backend request is the one the engine would build (`request_for`), so
+  an LLM backend's system prompt is included and Jev receives none.
+- (Active, phase-end digests) The digest is absent for a backend whose bytes
+  cannot be known before a send: an LLM backend after another backend in
+  `chain_context` mode (its system prompt carries the earlier answers), or an
+  LLM backend that refuses the questions (such as `noul`), where nothing would
+  be sent. The size limit is not applied, so a dry run reports an over-limit
+  body's digest next to its `over_limit` flag.
+- (Active, phase-end digests) `RunResponse::questions_sha256()` is the
+  digest of the question set alone (ADR-SAG-0031 and REQ-SAG-0621).
+  `payload_sha256` is the renamed `prompt_sha256`. `build_request()` and
+  `CheckResult` in Python carry the same three values, and Python accepts the
+  CLI's `--request-json` document as `request_json=` (REQ-SAG-0622). The keys
+  are additive in the `data` body.
 
 ## ADR-SAG-0025 — Multi-backend semantics and equal-input attestation
 
@@ -1585,6 +1615,17 @@ consumer-output bullet in r-3b.
   r-1 interim clause 'null until r-2b backend hashing' no longer holds
   (`input_sha256` is null only for a backend that was not sent, failed,
   or reported no digest — `Unattested`).
+- (Active, phase-end digests, 2026-11-08) The run's digest of the canonical
+  payload, questions and state, was named `prompt_sha256` when the bullet
+  above was accepted; it is `payload_sha256` now (renamed everywhere, no
+  alias; see ADR-SAG-0031 for the session-log columns). It is the
+  backend-neutral equal-input proof: every backend judged the same input. It
+  excludes the LLM system prompt and the model, so it cannot key a response
+  cache. Two other digests have other jobs and do not replace it:
+  `questions_sha256` identifies a question set (same questions, any state),
+  and per-backend `request_sha256` identifies an identical request (the exact
+  first body for that backend and model, computed before sending), for
+  cached-response substitution (REQ-SAG-0621).
 
 ### Amendment (agt-2a3, all-failed runs keep every error)
 
@@ -1719,7 +1760,8 @@ HTTP half of ADR-SAG-0026.
   success body, a request, or a Jev answer. The shapes it reads: the
   Anthropic and OpenAI `{"error": {type, code, message, param, details}}`
   and `request_id`; for Jev (undocumented here) `{"detail": "..."}`,
-  `{"detail": [{"loc", "msg"}]}`, `{"message": "..."}`, a top-level
+  `{"detail": [{"loc", "msg"}]}`, `{"detail": {"error_type", "message"}}`
+  (seen in live replies, 2026-11-08), `{"message": "..."}`, a top-level
   `code`, and, for any other body, the whole body, scrubbed then bounded, as raw text.
   For Haiku and Luna "the input is too long" is recognised only from
   structured markers, status 413 and Anthropic's "prompt is too long"
@@ -1951,7 +1993,11 @@ the (Active, r-1) bullets on `retryable()` and on the field rule, and the
   "enforced_spend_limit_reached"`, no `retry-after`), a customer spend limit
   (400 `invalid_request_error`, message starting `You have reached your
   specified`), 402 `billing_error`; OpenAI's `insufficient_quota` and
-  `credit_balance_exhausted` codes. An unknown 429 body stays busy. The
+  `credit_balance_exhausted` codes; Jev's 402 with `detail.error_type ==
+  "billing_error"` (seen in live replies, 2026-11-08, unfunded organization,
+  checked after authentication and before body validation). A marker in
+  `detail.error_type` counts the same at any status, so a Jev 429 saying
+  `billing_error` is quota too. An unknown 429 body stays busy. The
   hook is `sc_agent_http::failure` (`is_quota_reply`), called by the retry
   loop; retry timing is untouched.
 - (Active, agt-2a3) **Busy exhausted.** `PROVIDER_BUSY` carries
@@ -2072,7 +2118,7 @@ Owner decisions 2026-11-07.
   output). Additive optional fields keep the version; a removed, renamed or
   retyped field, or a changed meaning, bumps it. **The version lives outside
   the hashed bytes**: it is never a key of `CanonicalJudgePayload` or part of
-  `PayloadBundle::bytes()`, so `prompt_sha256` and the Rust/Python
+  `PayloadBundle::bytes()`, so `payload_sha256` and the Rust/Python
   cross-implementation fixture are byte-identical. It is carried by the
   sc-agent-owned wrappers (the session-log row, ADR-SAG-0031, and the session
   document, ADR-SAG-0008 r-6) and is not sent to a vendor whose schema does
@@ -2123,6 +2169,37 @@ Owner decisions 2026-11-07.
   REQ-SAG-0900/0901 define the API-direct agents; CLI wrappers are
   additional future agent kinds. No wrapper is built in A.1.
 
+### Amendment (phase-end digests, 2026-11-08)
+
+**Status:** Active (phase-end digests).
+
+- (Active, phase-end digests) **One mapping point for the wire model.**
+  `sc_decision_schema::jev::v1::wire_model` maps a `ModelId` to the string
+  sent to Jev; `CheckRequest::from_canonical` is the only caller. `jev` (the
+  latest) is sent as `jev-latest`, the value plan-anchor's `jev-api.md`
+  documents (decision D9: that document is the wire source of truth). This
+  mapping is **not yet tested against the live API**; nothing confirms the API
+  accepts the bare `jev`. A reply may name a different model than the request
+  (`jev` is answered by a concrete version such as `jev-1.13.0`): that is not
+  an error, `CheckResponse::into_answers` no longer compares the models, and
+  the answered model is read with `JudgeOutcome::answered_model()` (from the
+  reply's `model` in `provider_meta`) and printed as the output's `model`. A
+  reply with no model is still `RESPONSE_INVALID`.
+- (Active, phase-end digests) **`ModelId::Jev` is a floating variant with no
+  `MODELS` row.** It names the latest Jev model, not one release, so it has no
+  release date and must not become the `jev` alias default
+  (`ModelAliases::latest("jev")` stays the newest pinned row, `jev-1.13.0`);
+  `ModelId::family()` answers `TypeSafeJev` for it directly. It may break on
+  an API change this build does not know; that is expected and the remedy is
+  upgrading sc-agent. Cache keys made with `jev` can go stale when Jev moves
+  (docs/stability.md).
+- (Active, phase-end digests) **Sum tolerance.** `CheckResponse::into_answers`
+  accepts a `choice` or `score` answer whose probabilities sum to 1 within
+  0.01 per option (plan-anchor's `PROBABILITY_ROUNDING`), because Jev rounds
+  what it sends. The check validates only: values pass through unrounded
+  (`f64` throughout, sc-agent never rounds), and the range check (finite, in
+  `[0, 1]`) is unchanged. This supersedes the earlier 1e-6 bound.
+
 ## ADR-SAG-0031 — Session log storage schema
 
 **Status:** Active (r-7 storage schema, r-6 wiring). The wiring subsection
@@ -2146,6 +2223,37 @@ ADR-SAG-0027 (an r-6 subsection in each). Owner decisions 2026-11-07.
   to it); `schema_version` starts
   at 1. Adding, renaming or retyping a column, or changing its nullability,
   bumps `schema_version` with a migration note.
+  *(Superseded in part by the phase-end digests bullet below, schema_version
+  2: the table list (`questions` is now `question_sets` plus `payloads`), the
+  index on `(prompt_sha256, model_id)` (now two indexes on
+  `questions_sha256` and `payload_sha256`; the column is `payload_sha256`),
+  "the other two tables", and "`schema_version` starts at 1" (it is 2 now).
+  The rest stands.)*
+- (Active, phase-end digests; `schema_version` 2, 2026-11-08) **Three
+  digests and a question-set key.** Version 1 keyed `questions` by the
+  payload digest, which includes the state, so the same questions asked
+  against different state were unrelated rows. Version 2 has `sessions`,
+  `question_sets` (by `questions_sha256`: `first_seen_at`), `payloads` (by
+  `payload_sha256`: its `questions_sha256`, `question_ids` in payload order,
+  `first_seen_at`) and `answers` (with `questions_sha256` and
+  `payload_sha256`, referencing `payloads` by the composite
+  `(payload_sha256, questions_sha256)`, so a send cannot name a payload under
+  another question set), indexed by `(questions_sha256, model_id)`,
+  `(payload_sha256, model_id)`, `request_sha256` and `(repo, project)`; the
+  loader's `INSERT OR IGNORE` covers `sessions`, `question_sets` and
+  `payloads`. `question_ids` order lives on `payloads`, not `question_sets`,
+  because `questions_sha256` does not depend on question order, so the order
+  is not fixed by the question set; it is fixed by the payload digest.
+  Each digest has one job: `questions_sha256` identifies a question set (same
+  questions, any state; independent of question and `choice` option order,
+  dependent on `score` level order) so runs can be compared across states;
+  `payload_sha256` (renamed from `prompt_sha256`) identifies questions plus
+  state, is backend-neutral, is the equal-input proof, and excludes the LLM
+  system prompt and the model; `request_sha256` identifies the exact request
+  bytes of one send for one backend and model, for cached-response
+  substitution. Version 1 rows are refused (`INPUT_INVALID`); nothing was
+  released at version 1. The principle of the old key still holds: every
+  deduplicated table is keyed by the digest that fixes its other columns.
 - (Active, r-7) **Projection.** The MVP store is JSONL; the projection of
   one send is the `fields{}` object of one sc-observability v2 log line
   (ADR-SAG-0013). It has exactly the schema's column keys: nullable columns
@@ -2155,7 +2263,9 @@ ADR-SAG-0027 (an r-6 subsection in each). Owner decisions 2026-11-07.
   envelope `timestamp` is write time. A loader reads `fields{}` into the
   tables (`INSERT OR IGNORE` for `sessions` and `questions`), so the
   projection is lossless. This supersedes the r-6 draft's "flat top-level,
-  no nesting" wording, which never landed.
+  no nesting" wording, which never landed. *(Superseded in part: since
+  schema_version 2 the `INSERT OR IGNORE` tables are `sessions`,
+  `question_sets` and `payloads`, not `sessions` and `questions`.)*
 - (Active, r-7) **Nullability.** `request_sha256` is NULL when the send
   failed before a body was built; `model_id` is never NULL; `project` is NULL
   when absent; `error_code` is set iff `send_outcome = failed`;
@@ -2184,8 +2294,10 @@ ADR-SAG-0027 (an r-6 subsection in each). Owner decisions 2026-11-07.
   per-send `SendTrace` the engine passes to `judge` and the backend passes
   as the exchange's required `trace` argument (seam from r-7, ADR-SAG-0026
   r-7); one value per send, retries included; NULL when no body was
-  built. `prompt_sha256` stays the canonical-payload digest
-  (ADR-SAG-0002/0025).
+  built. `payload_sha256` stays the canonical-payload digest
+  (ADR-SAG-0002/0025). From the phase-end digests, `request_sha256` is also
+  computed before sending (no key, no send) for each backend whose first body
+  is known in advance, and equals the value the row records.
 - (Active, r-6) The row's `model_id` is `JudgeBackend::model_id()`
   (ADR-SAG-0009 r-7 amendment), never NULL.
 - (Active, r-6) `repo` is `sc_jev_check::discover_main_repo_root`, started from the explicit repo root when one is set, else from the working directory (a dry run skips git): a

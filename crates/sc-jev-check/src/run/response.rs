@@ -11,7 +11,8 @@ use serde::ser::{SerializeMap, Serializer};
 use serde_json::Value;
 
 use sc_agent_types::{
-    BackendFamily, BackendId, JevError, ScAgentErrorResponse, SessionId, Sha256Digest,
+    BackendFamily, BackendId, JevError, PayloadSha256, QuestionsSha256, RequestSha256,
+    ScAgentErrorResponse, SessionId,
 };
 use sc_decision_schema::{EqualInputRecord, JudgeOutcome};
 
@@ -38,7 +39,9 @@ const BODY_KEYS: &[&str] = &[
     "primary_backend",
     "session_id",
     "session_saved",
-    "prompt_sha256",
+    "payload_sha256",
+    "questions_sha256",
+    "request_sha256",
     "payload_bytes",
     "results",
     "equal_input",
@@ -61,7 +64,10 @@ const BODY_KEYS: &[&str] = &[
 /// 2. `primary_backend` (omitted when no backend returned `Ok`, as on a dry
 ///    run);
 /// 3. `session_id` (null unless `session_saved`), `session_saved`,
-///    `prompt_sha256`, `payload_bytes`, `results`, `equal_input`;
+///    `payload_sha256`, `questions_sha256` (the sc-sha digest of the question
+///    set alone, for a consumer's cache lookup; bytes in
+///    `tests/fixtures/README.md`), `payload_bytes`, `results`,
+///    `equal_input`;
 /// 4. on a dry run only, `payload` (the canonical payload object) and
 ///    `limits`;
 /// 5. `warnings`, omitted when empty.
@@ -80,14 +86,16 @@ const BODY_KEYS: &[&str] = &[
 /// let config = RunConfig::new(repo, Arc::new(NoopSessionLog)).dry_run(true);
 /// let response = run(prepare(source, config)?)?;
 /// let body = serde_json::to_string(&Envelope::run(&response))?;
-/// assert!(body.contains("\"prompt_sha256\""));
+/// assert!(body.contains("\"payload_sha256\""));
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 pub struct RunResponse {
     session_id: Option<SessionId>,
     session_saved: bool,
-    prompt_sha256: Sha256Digest,
+    payload_sha256: PayloadSha256,
+    questions_sha256: QuestionsSha256,
+    request_sha256: Vec<(BackendId, RequestSha256)>,
     payload_bytes: u64,
     dry_run: bool,
     equal_input: EqualInputRecord,
@@ -100,6 +108,8 @@ pub struct RunResponse {
 /// Run-level facts shared by a live and a dry response.
 pub(crate) struct ResponseParts {
     pub(crate) session_id: Option<SessionId>,
+    pub(crate) questions_sha256: QuestionsSha256,
+    pub(crate) request_sha256: Vec<(BackendId, RequestSha256)>,
     pub(crate) payload_bytes: u64,
     pub(crate) equal_input: EqualInputRecord,
     pub(crate) results: Vec<BackendResult>,
@@ -114,7 +124,9 @@ impl RunResponse {
         Self {
             session_saved: parts.session_id.is_some(),
             session_id: parts.session_id,
-            prompt_sha256: parts.equal_input.prompt_sha256().clone(),
+            payload_sha256: parts.equal_input.payload_sha256().clone(),
+            questions_sha256: parts.questions_sha256,
+            request_sha256: parts.request_sha256,
             payload_bytes: parts.payload_bytes,
             dry_run: parts.payload.is_some(),
             equal_input: parts.equal_input,
@@ -140,8 +152,27 @@ impl RunResponse {
 
     /// SHA-256 of the canonical payload every backend received.
     #[must_use]
-    pub fn prompt_sha256(&self) -> &Sha256Digest {
-        &self.prompt_sha256
+    pub fn payload_sha256(&self) -> &PayloadSha256 {
+        &self.payload_sha256
+    }
+
+    /// SHA-256 (sc-sha) of the question set alone, for a consumer's cache
+    /// lookup. Unlike [`Self::payload_sha256`] it does not cover the state, and
+    /// it covers the criteria descriptions. sc-agent builds no cache.
+    #[must_use]
+    pub fn questions_sha256(&self) -> &QuestionsSha256 {
+        &self.questions_sha256
+    }
+
+    /// Per backend, the SHA-256 of the first body it was (or would be) sent,
+    /// computed before sending, in `BackendSet` order. It identifies an
+    /// identical request, so a consumer can substitute a cached response; it
+    /// equals the session-log `request_sha256` of the same send. Absent for
+    /// a backend whose bytes depend on an earlier answer (an LLM backend after
+    /// another in `chain_context` mode) or that refuses the questions.
+    #[must_use]
+    pub fn request_sha256(&self) -> &[(BackendId, RequestSha256)] {
+        &self.request_sha256
     }
 
     /// Size of the canonical payload in bytes.
@@ -275,7 +306,9 @@ impl RunResponse {
         }
         map.serialize_entry("session_id", &self.session_id)?;
         map.serialize_entry("session_saved", &self.session_saved)?;
-        map.serialize_entry("prompt_sha256", &self.prompt_sha256)?;
+        map.serialize_entry("payload_sha256", &self.payload_sha256)?;
+        map.serialize_entry("questions_sha256", &self.questions_sha256)?;
+        map.serialize_entry("request_sha256", &RequestDigests(&self.request_sha256))?;
         map.serialize_entry("payload_bytes", &self.payload_bytes)?;
         map.serialize_entry("results", &self.results)?;
         map.serialize_entry("equal_input", &self.equal_input)?;
@@ -294,13 +327,13 @@ impl RunResponse {
 /// session facts the ask envelope prints.
 ///
 /// Serialized as the `ask` `data` body: the outcome's answer fields by the
-/// run body's primary-backend rule, then `session_id`, `prompt_sha256` (the
+/// run body's primary-backend rule, then `session_id`, `payload_sha256` (the
 /// session's payload digest), and `warnings` (omitted when empty).
 #[derive(Debug, Clone, PartialEq)]
 pub struct AskResponse {
     outcome: JudgeOutcome,
     session_id: SessionId,
-    prompt_sha256: Sha256Digest,
+    payload_sha256: PayloadSha256,
     warnings: Vec<String>,
 }
 
@@ -308,12 +341,12 @@ impl AskResponse {
     pub(crate) fn new(
         outcome: JudgeOutcome,
         session_id: SessionId,
-        prompt_sha256: Sha256Digest,
+        payload_sha256: PayloadSha256,
     ) -> Self {
         Self {
             outcome,
             session_id,
-            prompt_sha256,
+            payload_sha256,
             warnings: Vec::new(),
         }
     }
@@ -332,8 +365,8 @@ impl AskResponse {
 
     /// SHA-256 of the session's canonical payload.
     #[must_use]
-    pub fn prompt_sha256(&self) -> &Sha256Digest {
-        &self.prompt_sha256
+    pub fn payload_sha256(&self) -> &PayloadSha256 {
+        &self.payload_sha256
     }
 
     /// Warnings, in the order they were added.
@@ -353,7 +386,7 @@ impl AskResponse {
     fn write_entries<M: SerializeMap>(&self, map: &mut M) -> Result<(), M::Error> {
         write_answer_fields(map, &self.outcome)?;
         map.serialize_entry("session_id", &self.session_id)?;
-        map.serialize_entry("prompt_sha256", &self.prompt_sha256)?;
+        map.serialize_entry("payload_sha256", &self.payload_sha256)?;
         if !self.warnings.is_empty() {
             map.serialize_entry("warnings", &self.warnings)?;
         }
@@ -643,6 +676,19 @@ impl Serialize for Envelope {
         map.serialize_entry("version", ENVELOPE_VERSION)?;
         map.serialize_entry("operation", self.operation)?;
         map.serialize_entry("data", &Data(self))?;
+        map.end()
+    }
+}
+
+/// `request_sha256` as a JSON object keyed by backend id, in backend order.
+struct RequestDigests<'a>(&'a [(BackendId, RequestSha256)]);
+
+impl Serialize for RequestDigests<'_> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut map = serializer.serialize_map(Some(self.0.len()))?;
+        for (backend, digest) in self.0 {
+            map.serialize_entry(backend, digest)?;
+        }
         map.end()
     }
 }

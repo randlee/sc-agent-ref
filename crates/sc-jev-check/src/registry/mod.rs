@@ -61,7 +61,7 @@ static FACTORIES: &[(BackendId, Factory)] = &[
 ///
 /// `aliases` always holds the descriptor's alias (`ModelAliases` keeps its
 /// key set), so the catalog default is only a defensive answer.
-fn model_for(id: BackendId, aliases: &ModelAliases) -> ModelId {
+pub(crate) fn model_for(id: BackendId, aliases: &ModelAliases) -> ModelId {
     let descriptor = id.descriptor();
     aliases
         .latest(descriptor.default_model_alias())

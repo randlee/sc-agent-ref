@@ -36,7 +36,7 @@ reader accepts every id in `KNOWN` and refuses any other (`INPUT_INVALID` for
 input documents, `RESPONSE_INVALID` for backend output) with a hint naming the
 supported versions. Additive optional fields keep the version; a removed,
 renamed or retyped field, or a changed meaning, bumps it. The version never
-enters `PayloadBundle::bytes()`, so `prompt_sha256` is unchanged.
+enters `PayloadBundle::bytes()`, so `payload_sha256` is unchanged.
 
 ## Variant mechanism
 
@@ -54,7 +54,7 @@ choices, `score` 2 to 10 in level order, `noul` none; `descriptions`, when
 present, has one entry per choice, and entries equal to the labels are
 dropped. A choice question writes no `kind` and a question without
 descriptions writes none, so a Phase A payload keeps its bytes and
-`prompt_sha256`; the version stays `canonical.v1`. `Question::new_unchecked` (tests only: `cfg(test)` or feature `test-util`) skips the rules. `CanonicalJudgePayload::from_bytes` is the one
+`payload_sha256`; the version stays `canonical.v1`. `Question::new_unchecked` (tests only: `cfg(test)` or feature `test-util`) skips the rules. `CanonicalJudgePayload::from_bytes` is the one
 validator both backend families call. A `noul` question's bundle choice set is
 `{no, yes}`, so its derived answer (`yes` when `p >= 0.5`) passes
 `JudgeOutcome::new`.
@@ -71,7 +71,7 @@ The documented TypeSafe Jev check API (`POST /v1/systemone`) as data:
 | `OrderedMap` | a JSON object that keeps key order both ways and refuses a duplicate key |
 | `Probability` | (crate root, `sc_decision_schema::Probability`, shared with `QuestionAnswer`) a finite number in `[0, 1]` (private field, `new`/`get`/`complement`); checked in `new` and `Deserialize`, serialized as the plain number. Every `probabilities` value and every `confidence` of a `JevAnswer` is one (the reference states `confidence` in `[0, 1]`), so an out-of-range reply is `RESPONSE_INVALID` when parsed |
 | `NoulProbabilities` | the `noul` answer's `{yes}`; private field, `new`/`yes()` |
-| `CheckResponse`, `JevAnswer` | `{model, answers, usage}`; `into_answers` checks the reply against the request: same model, answer ids equal question ids, answer type equals question type, `choice` in criteria, probability keys equal criteria keys and sum to 1 within 1e-6, every value in `[0, 1]`; a `noul` answer has exactly `yes` and becomes `yes` or `no` with `{yes: p, no: 1 - p}` and no confidence |
+| `CheckResponse`, `JevAnswer` | `{model, answers, usage}`; `into_answers` checks the reply against the request: any answering model is accepted (kept as `model()`), answer ids equal question ids, answer type equals question type, `choice` in criteria, probability keys equal criteria keys and sum to 1 within 0.01 per option (Jev rounds; values pass through unchanged), every value in `[0, 1]`; a `noul` answer has exactly `yes` and becomes `yes` or `no` with `{yes: p, no: 1 - p}` and no confidence |
 
 Violations of request rules are `INPUT_INVALID`, of reply rules
 `RESPONSE_INVALID`. The module holds no HTTP, key or I/O; `sc-jev` sends the

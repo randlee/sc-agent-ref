@@ -87,7 +87,7 @@
 //!     .sessions_dir(".sc-ai/sessions");
 //! let source = CheckSource::check_file(&repo, std::path::Path::new("check.toml"))?;
 //! let prepared = prepare(source, config)?;
-//! println!("payload digest {}", prepared.prompt_sha256());
+//! println!("payload digest {}", prepared.payload_sha256());
 //! let response = run(prepared)?;
 //! assert!(!response.is_partial());
 //! # Ok::<(), sc_agent_types::JevError>(())
@@ -113,8 +113,8 @@ use sc_agent_types::observability::v2::{
 };
 use sc_agent_types::schema::subjects::SubjectsProducer;
 use sc_agent_types::{
-    BackendId, BackendSet, CancelToken, JevError, ModelAliases, Operation, RepoRelativePath,
-    RepoRoot, Rev, SessionId, Sha256Digest,
+    BackendId, BackendSet, CancelToken, JevError, ModelAliases, ModelId, Operation, PayloadSha256,
+    QuestionsSha256, RepoRelativePath, RepoRoot, RequestSha256, Rev, SessionId,
 };
 use sc_decision_schema::{
     Attestation, BackendAttestation, EqualInputRecord, JudgeBackend, JudgeOutcome, JudgeRequest,
@@ -125,7 +125,7 @@ use crate::config::{CheckSpec, load_check_at};
 use crate::equal_input::{RunAttestation, producer_from_extractions, record};
 use crate::payload::build_payload_logged;
 use crate::payload::caller::parse_caller_request;
-use crate::registry::BackendRegistry;
+use crate::registry::{BackendRegistry, model_for};
 use crate::session::{FileSessionStore, StoredSession, check_follow_up, contextual_prompt};
 use log::{SendLog, send};
 
@@ -442,8 +442,33 @@ pub struct PreparedRun {
 impl PreparedRun {
     /// SHA-256 of the canonical payload.
     #[must_use]
-    pub fn prompt_sha256(&self) -> &Sha256Digest {
+    pub fn payload_sha256(&self) -> &PayloadSha256 {
         self.request.payload().sha256()
+    }
+
+    /// SHA-256 of the question set alone (`questions_sha256`).
+    ///
+    /// # Errors
+    ///
+    /// `INPUT_INVALID` when a question breaks its criteria count.
+    pub fn questions_sha256(&self) -> Result<QuestionsSha256, JevError> {
+        self.request.payload().questions_sha256()
+    }
+
+    /// Per selected backend, the SHA-256 of the first body `send` would post
+    /// for it, computed now: no key, no send (`request_sha256`).
+    ///
+    /// It equals the session-log `request_sha256` of the same live run. The
+    /// model is the one the backend runs with. A backend is left out when its
+    /// bytes cannot be known before a send or nothing would be sent: an LLM
+    /// backend after another in `chain_context` mode (its system prompt
+    /// carries the earlier answers), or one that refuses the questions (such
+    /// as `noul`).
+    #[must_use]
+    pub fn request_sha256(&self) -> Vec<(BackendId, RequestSha256)> {
+        presend_request_sha256(&self.request, &self.backends, self.config.mode, |id| {
+            model_for(id, &self.models)
+        })
     }
 
     /// Size of the canonical payload in bytes.
@@ -486,7 +511,7 @@ impl std::fmt::Debug for PreparedRun {
         formatter
             .debug_struct("PreparedRun")
             .field("config", &self.config)
-            .field("prompt_sha256", self.prompt_sha256())
+            .field("payload_sha256", self.payload_sha256())
             .field("backends", &self.backends)
             .finish_non_exhaustive()
     }
@@ -519,7 +544,7 @@ pub fn prepare(source: CheckSource, config: RunConfig) -> Result<PreparedRun, Je
             .with_field("duration_ms", millis(started))
             .with_field("backends", backend_names(&prepared.backends))
             .with_field("payload_bytes", prepared.payload_bytes())
-            .with_field("payload_sha256", prepared.prompt_sha256().to_string())
+            .with_field("payload_sha256", prepared.payload_sha256().to_string())
             .with_field("has_llm_prompt", prepared.request.llm().is_some())
             .emit(config.general()),
         Err(error) => GeneralEvent::error(TARGET, "prepare.failed", "check preparation failed")
@@ -744,6 +769,8 @@ fn dry_run_response(prepared: &PreparedRun) -> Result<RunResponse, JevError> {
         prepared.producer.clone(),
     )?;
     Ok(RunResponse::from_parts(ResponseParts {
+        questions_sha256: bundle.questions_sha256()?,
+        request_sha256: prepared.request_sha256(),
         session_id: None,
         payload_bytes,
         equal_input,
@@ -791,6 +818,17 @@ fn live_run(prepared: PreparedRun, progress: &mut Progress) -> Result<RunRespons
 
     progress.backend = None;
     progress.stage = "send";
+    // Computed before the first send, from the models the backends run with.
+    let request_digests = presend_request_sha256(&request, &backends, config.mode, |id| {
+        judges
+            .iter()
+            .find(|(judge_id, _)| *judge_id == id)
+            .map_or_else(
+                || id.descriptor().default_model(),
+                |(_, judge)| judge.model_id(),
+            )
+    });
+
     let session_id = SessionId::new();
     progress.session_id = Some(session_id.to_string());
     // One creation time per session: the rows' `session_created_at` and the
@@ -898,6 +936,8 @@ fn live_run(prepared: PreparedRun, progress: &mut Progress) -> Result<RunRespons
         producer,
     )?;
     let response = RunResponse::from_parts(ResponseParts {
+        questions_sha256: request.payload().questions_sha256()?,
+        request_sha256: request_digests,
         session_id: saved.then_some(session_id),
         payload_bytes: payload_len(request.payload()),
         equal_input,
@@ -949,9 +989,9 @@ fn judge_one(
 }
 
 /// The attestation of an `Ok` outcome: its reported digest against the
-/// run's `prompt_sha256` (REQ-SAG-0606). The engine trusts the reported
+/// run's `payload_sha256` (REQ-SAG-0606). The engine trusts the reported
 /// digest; a backend that reports none is `Unattested`.
-fn attest(expected: &Sha256Digest, outcome: &JudgeOutcome) -> Attestation {
+fn attest(expected: &PayloadSha256, outcome: &JudgeOutcome) -> Attestation {
     match outcome.input_sha256() {
         Some(reported) if reported == expected => Attestation::Matched,
         Some(reported) => Attestation::Mismatched {
@@ -1016,6 +1056,38 @@ fn save_session(
         follow_ups: Vec::new(),
     })?;
     Ok(true)
+}
+
+/// The pre-send `request_sha256` of each backend in `backends` that has one
+/// (see [`PreparedRun::request_sha256`]).
+fn presend_request_sha256(
+    base: &JudgeRequest,
+    backends: &BackendSet,
+    mode: MultiBackendMode,
+    model: impl Fn(BackendId) -> ModelId,
+) -> Vec<(BackendId, RequestSha256)> {
+    let mut digests = Vec::new();
+    for (index, id) in backends.iter().enumerate() {
+        let llm = id.descriptor().requires_llm_context();
+        if llm && index > 0 && mode == MultiBackendMode::ChainContext {
+            continue;
+        }
+        let Ok(request) = request_for(id, base, &[]) else {
+            continue;
+        };
+        let model = model(id);
+        let digest = match id {
+            BackendId::Jev => sc_jev::request_sha256(&model, request.payload()),
+            BackendId::AnthropicHaiku | BackendId::OpenAiLuna => {
+                sc_jev_backends::request_sha256(id, &model, &request)
+            }
+            _ => continue,
+        };
+        if let Ok(digest) = digest {
+            digests.push((id, digest));
+        }
+    }
+    digests
 }
 
 /// The request `id` receives: the shared payload with no LLM context for a
