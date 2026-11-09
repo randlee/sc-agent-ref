@@ -37,7 +37,11 @@ model). The names `anthropic_haiku` and `openai_luna` and the aliases
 and are `INPUT_INVALID` as a backend today. Models added after a release go in
 `~/.sc-agent/models.toml` (`[[model]]` with `id`, `alias`, `released`; existing
 aliases only; a malformed file is `CONFIG_INVALID`); the newest `released`
-across crate and file wins, then `check.toml` `[models]`, then a pin.
+across crate and file wins, then `check.toml` `[models]`, then a pin. An
+alias takes only ids of its own family (`jev`/`jev-`, Claude lines/`claude-`,
+GPT lines/`gpt-`); another family is `CONFIG_INVALID`. `jev` still sends the
+latest (`jev-latest`); a `models.toml` row for `jev` only changes listing, and
+`jev-1.14.0` (a pin) is a different request from `jev`.
 `sc-ai jev models` and `sc_jev_py.models()` print the result with its source.
 
 sc-agent accepts `jev` or any supported version such as `jev-1.14.0`

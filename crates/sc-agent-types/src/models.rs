@@ -485,6 +485,8 @@ impl ModelAliases {
             JevError::config_invalid(format!("models file: model id {id:?}: {error}"))
         })?;
         check_date(released)?;
+        self.check_family(alias, &model)
+            .map_err(|error| error.map_detail(|detail| format!("models file: {detail}")))?;
         let valid = self.aliases().join(", ");
         let Some(entry) = self.0.get_mut(alias) else {
             return Err(JevError::config_invalid(format!(
@@ -506,9 +508,12 @@ impl ModelAliases {
     ///
     /// # Errors
     ///
-    /// `CONFIG_INVALID` for an unknown alias; the fix hint lists the valid
-    /// aliases.
+    /// `CONFIG_INVALID` for an unknown alias (the fix hint lists the valid
+    /// aliases) or a model of another family (`haiku` takes `claude-...`).
     pub fn with_override(mut self, alias: &str, model: ModelId) -> Result<Self, JevError> {
+        if self.0.contains_key(alias) {
+            self.check_family(alias, &model)?;
+        }
         match self.0.get_mut(alias) {
             Some(slot) => {
                 *slot = Entry {
@@ -537,6 +542,32 @@ impl ModelAliases {
             }
         }
         self
+    }
+
+    /// `CONFIG_INVALID` unless `model` belongs to the family of `alias`: by
+    /// prefix, `jev` takes `jev` or `jev-...`, the Claude lines take
+    /// `claude-...`, the GPT lines `gpt-...`. An unknown alias passes (the
+    /// caller reports it).
+    fn check_family(&self, alias: &str, model: &ModelId) -> Result<(), JevError> {
+        let Some(entry) = self.0.get(alias) else {
+            return Ok(());
+        };
+        let prefix = match entry.model.family() {
+            ModelFamily::TypeSafeJev => "jev",
+            ModelFamily::AnthropicClaude => "claude-",
+            ModelFamily::OpenAiGpt => "gpt-",
+            _ => return Ok(()),
+        };
+        let text = model.as_str();
+        let matches = text.starts_with(prefix)
+            && (prefix != "jev" || text == "jev" || text.starts_with("jev-"));
+        if matches {
+            Ok(())
+        } else {
+            Err(JevError::config_invalid(format!(
+                "model {text:?} does not belong to alias {alias:?}; its ids start with {prefix:?}"
+            )))
+        }
     }
 
     /// The valid aliases, sorted.
