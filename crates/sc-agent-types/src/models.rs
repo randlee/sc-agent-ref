@@ -62,7 +62,7 @@ pub enum ModelId {
     Jev,
     /// `jev-1.13.0`.
     Jev1_13_0,
-    /// `jev-1.14.0`: the version live replies answered (2026-11-08).
+    /// `jev-1.14.0`: the version live replies answered.
     Jev1_14_0,
     /// `claude-haiku-5-5`.
     ClaudeHaiku5_5,
@@ -253,7 +253,7 @@ impl ModelDescriptor {
 /// (randlee/sc-agent#48).
 pub static MODELS: &[ModelDescriptor] = &[
     row("jev-1.13.0", ModelFamily::TypeSafeJev, "jev", "2026-06-01"),
-    row("jev-1.14.0", ModelFamily::TypeSafeJev, "jev", "2026-11-08"),
+    row("jev-1.14.0", ModelFamily::TypeSafeJev, "jev", "2026-10-22"),
     row(
         "claude-haiku-5-5",
         ModelFamily::AnthropicClaude,

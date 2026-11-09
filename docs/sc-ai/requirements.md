@@ -13,7 +13,7 @@ acceptance root, when it differs, is shown as "root a-N"; the closure table in
 | REQ-SAG-0710 | Integration test: versioned sc-ai-cli envelope; Jev answer + `session_id` in `data` | a-7 |
 | REQ-SAG-0711 | `sc-ai` wires the logger through `sc_jev_host::obs` (the adapter and `sc-observability` live in `sc-jev-host`) | a-7, r-3b |
 | REQ-SAG-0604 | Partial or all-failed run: envelope on stdout (the successful answers, if any, and every backend's typed error), the first failure's `ScAgentErrorResponse` on stderr, exit 2, or 3 when every failed backend's error is retryable (agt-2a3) | r-3b, agt-2a3 |
-| REQ-SAG-0605 | `jev run --chain-context` selects chain context; independent is the default | r-3b |
+| REQ-SAG-0151 | `jev models` prints `{"version","operation":"models","data":{"models_file","models_file_present","models":[{"alias","model","source","released","backend"}]}}`; `--backend` takes a short name or a known model id; `--models-file` reads another file; `--help` pins all three (`test_help_pins_short_names_and_models`) | agt-akp || REQ-SAG-0605 | `jev run --chain-context` selects chain context; independent is the default | r-3b |
 | REQ-SAG-0712 | argv is parsed with clap derive behind the `cli` feature; error contract unchanged | r-3b |
 | NFR-SAG-0002 | No secrets in output | a-7 |
 | REQ-SAG-0615 | `jev run` / `jev ask` take `--project <TEXT>` (≤ 256 bytes, no control characters; stored as given, not scrubbed); `--session-id` is a ULID | r-6 |

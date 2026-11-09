@@ -14,8 +14,8 @@ use std::path::PathBuf;
 
 use clap::error::ErrorKind;
 use clap::{Args, Parser, Subcommand};
-use sc_agent_types::{BackendId, JevError, ProjectLabel, Rev, SessionId};
-use sc_ai::{AskCommand, Command, RunCommand, StreamCommand};
+use sc_agent_types::{BackendChoice, JevError, ProjectLabel, Rev, SessionId};
+use sc_ai::{AskCommand, Command, ModelsCommand, RunCommand, StreamCommand};
 use sc_jev_host::stream::Concurrency;
 
 /// Usage notes appended to `--help`.
@@ -31,7 +31,15 @@ is retryable (retry only the failed backends).
 
 --check is a repo-relative check.toml (default check.toml).
 --request-json is a caller-built questions document, or - for stdin.
---backend is jev, haiku, or luna. The default is jev.
+--backend is jev, haiku, or luna (each means the latest model of that line),
+or a known model id of one of them, such as claude-haiku-5-5 (that backend
+pinned to that model). The default is jev. Other models (sonnet, opus, fable,
+terra, sol, astra) are defined but not selectable yet.
+jev models lists the resolved models and where each came from (crate or file).
+New models are added without recompiling in ~/.sc-agent/models.toml, as
+[[model]] rows with id, alias and released (YYYY-MM-DD); a short name resolves
+to the most recent released. --models-file reads another file. check.toml
+[models] still wins over the file. A malformed file is CONFIG_INVALID.
 --llm-system-prompt-file overrides the LLM system prompt. It changes the
 provider wire, not payload_sha256.
 --rev defaults to WORKTREE.
@@ -101,6 +109,8 @@ enum Group {
 enum JevCmd {
     /// Run a check against the selected backends.
     Run(RunArgs),
+    /// List the resolved models and where each came from.
+    Models(ModelsArgs),
     /// Build the payload and report limits without sending.
     DryRun(RunArgs),
     /// Send a follow-up to a saved session.
@@ -109,16 +119,24 @@ enum JevCmd {
     Stream(StreamArgs),
 }
 
+/// Arguments of `jev models`.
+#[derive(Debug, Args)]
+struct ModelsArgs {
+    /// Models file (default: ~/.sc-agent/models.toml).
+    #[arg(long, value_name = "PATH", allow_hyphen_values = true, value_parser = non_empty_path)]
+    models_file: Option<PathBuf>,
+}
+
 /// Arguments of `jev stream`.
 #[derive(Debug, Args)]
 struct StreamArgs {
     /// Repository root (default: git toplevel of the current directory).
     #[arg(long, value_name = "PATH", allow_hyphen_values = true, value_parser = non_empty_path)]
     repo_root: Option<PathBuf>,
-    /// Backend id for every request; repeat for several. Wins over a
+    /// Backend (short name or known model id) for every request; repeat for several. Wins over a
     /// request's own `backends`, as in `jev run`.
     #[arg(long = "backend", value_name = "ID", allow_hyphen_values = true, value_parser = parse_backend)]
-    backends: Vec<BackendId>,
+    backends: Vec<BackendChoice>,
     /// JSONL requests: a path, or - for stdin (the default).
     #[arg(long, value_name = "PATH|-", allow_hyphen_values = true, value_parser = non_empty_text)]
     input: Option<String>,
@@ -134,6 +152,9 @@ struct StreamArgs {
     /// Log root (default: SC_LOG_ROOT, then <repo-root>/.sc-ai).
     #[arg(long, value_name = "PATH", allow_hyphen_values = true, value_parser = non_empty_path)]
     log_dir: Option<PathBuf>,
+    /// Models file (default: ~/.sc-agent/models.toml).
+    #[arg(long, value_name = "PATH", allow_hyphen_values = true, value_parser = non_empty_path)]
+    models_file: Option<PathBuf>,
     /// Let later backends see earlier answers (default: independent).
     #[arg(long)]
     chain_context: bool,
@@ -174,9 +195,10 @@ struct RunArgs {
         conflicts_with = "request_json"
     )]
     rev: Option<Rev>,
-    /// Backend id; repeat for several (jev, haiku, luna).
+    /// Backend: jev, haiku or luna (latest), or a known model id such as
+    /// claude-haiku-5-5; repeat for several.
     #[arg(long = "backend", value_name = "ID", allow_hyphen_values = true, value_parser = parse_backend)]
-    backends: Vec<BackendId>,
+    backends: Vec<BackendChoice>,
     /// Caller-built questions document: a path, or - for stdin.
     #[arg(long, value_name = "PATH|-", allow_hyphen_values = true, value_parser = non_empty_text)]
     request_json: Option<String>,
@@ -189,6 +211,9 @@ struct RunArgs {
     /// Log root (default: SC_LOG_ROOT, then <repo-root>/.sc-ai).
     #[arg(long, value_name = "PATH", allow_hyphen_values = true, value_parser = non_empty_path)]
     log_dir: Option<PathBuf>,
+    /// Models file (default: ~/.sc-agent/models.toml).
+    #[arg(long, value_name = "PATH", allow_hyphen_values = true, value_parser = non_empty_path)]
+    models_file: Option<PathBuf>,
     /// Let later backends see earlier answers (default: independent).
     #[arg(long)]
     chain_context: bool,
@@ -227,6 +252,9 @@ struct AskArgs {
     /// Log root (default: SC_LOG_ROOT, then <repo-root>/.sc-ai).
     #[arg(long, value_name = "PATH", allow_hyphen_values = true, value_parser = non_empty_path)]
     log_dir: Option<PathBuf>,
+    /// Models file (default: ~/.sc-agent/models.toml).
+    #[arg(long, value_name = "PATH", allow_hyphen_values = true, value_parser = non_empty_path)]
+    models_file: Option<PathBuf>,
     /// Scripted backend answers (test builds only).
     #[cfg(feature = "test-util")]
     #[arg(long, value_name = "FILE", hide = true, value_parser = non_empty_path)]
@@ -283,6 +311,9 @@ fn into_command(cli: Cli) -> Result<Command, JevError> {
     let Group::Jev(command) = cli.command;
     Ok(match command {
         JevCmd::Stream(_) => unreachable!("parse routes `jev stream` to stream_command"),
+        JevCmd::Models(args) => Command::Models(ModelsCommand {
+            models_file: args.models_file,
+        }),
         JevCmd::Run(args) => Command::Run(run_command(args, false)?),
         JevCmd::DryRun(args) => Command::Run(run_command(args, true)?),
         JevCmd::Ask(args) => Command::Ask(AskCommand {
@@ -292,6 +323,7 @@ fn into_command(cli: Cli) -> Result<Command, JevError> {
             project: args.project,
             sessions_dir: args.sessions_dir,
             log_dir: args.log_dir,
+            models_file: args.models_file,
             #[cfg(feature = "test-util")]
             registry: scripted_registry(args.scripted_answers.as_deref())?,
             #[cfg(not(feature = "test-util"))]
@@ -310,6 +342,7 @@ fn stream_command(args: StreamArgs) -> Result<StreamCommand, JevError> {
         prompt_file: args.llm_system_prompt_file,
         sessions_dir: args.sessions_dir,
         log_dir: args.log_dir,
+        models_file: args.models_file,
         chain_context: args.chain_context,
         project: args.project,
         concurrency: args.concurrency.unwrap_or_default(),
@@ -332,7 +365,7 @@ fn stream_registry(
         return Ok(None);
     };
     let ids = if args.backends.is_empty() {
-        vec![BackendId::Jev]
+        vec![sc_agent_types::BackendId::Jev.into()]
     } else {
         args.backends.clone()
     };
@@ -360,6 +393,7 @@ fn run_command(args: RunArgs, dry_run: bool) -> Result<RunCommand, JevError> {
         prompt_file: args.llm_system_prompt_file,
         sessions_dir: args.sessions_dir,
         log_dir: args.log_dir,
+        models_file: args.models_file,
         chain_context: args.chain_context,
         project: args.project,
         #[cfg(feature = "test-util")]
@@ -382,7 +416,7 @@ fn run_registry(
         return Ok(None);
     };
     let ids = if args.backends.is_empty() {
-        vec![BackendId::Jev]
+        vec![sc_agent_types::BackendId::Jev.into()]
     } else {
         args.backends.clone()
     };
@@ -419,7 +453,7 @@ fn scripted_registry(
     let answers: serde_json::Value = serde_json::from_str(&text).map_err(|error| {
         JevError::input_invalid(format!("scripted answers are not JSON: {error}"))
     })?;
-    let ids: Vec<BackendId> = match answers
+    let ids: Vec<sc_agent_types::BackendId> = match answers
         .as_object()
         .filter(|map| map.len() == 1)
         .and_then(|map| map.get("backends"))
@@ -427,7 +461,7 @@ fn scripted_registry(
     {
         Some(by_backend) => by_backend
             .keys()
-            .map(|name| name.parse::<BackendId>())
+            .map(|name| name.parse::<sc_agent_types::BackendId>())
             .collect::<Result<_, _>>()?,
         None => sc_agent_types::BACKENDS
             .iter()
@@ -519,7 +553,7 @@ fn parse_concurrency(value: &str) -> Result<Concurrency, JevError> {
     })
 }
 
-fn parse_backend(value: &str) -> Result<BackendId, JevError> {
+fn parse_backend(value: &str) -> Result<BackendChoice, JevError> {
     value
         .parse()
         .map_err(|error: JevError| error.with_field("--backend"))

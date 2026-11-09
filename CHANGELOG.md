@@ -11,11 +11,24 @@ First release. Channels once published: crates.io (ten crates), PyPI
 
 ### Added
 
+- Short backend names and a model catalog (bead agt-akp, closes agt-ho2).
+  `--backend`, `backends=` and `check.toml` `backends` take `jev`, `haiku`,
+  `luna` or a known model id of one of them; `anthropic_haiku`, `openai_luna`
+  and the `open_ai_luna` / `open_ai` aliases are gone. `MODELS` and `ModelId`
+  define `sonnet`, `opus`, `fable`, `terra`, `sol` and `astra` (not selectable
+  yet) and `jev-1.14.0`, now the `jev` default. `~/.sc-agent/models.toml`
+  adds models without recompiling; `sc-ai jev models` and
+  `sc_jev_py.models()` list the resolved models and their source;
+  `--models-file` reads another file. A local-only freshness test
+  (`sc-agent-types/tests/model_freshness.rs`) fails when a provider lists a
+  newer model than the crate table.
+
 - `sc-ai`, the JSON-first CLI for Jev check parity: `jev run`, `jev dry-run`
   and `jev ask` (`jev stream` is below). Success writes one `{"version","operation","data"}` envelope
   to stdout; failure writes one `{"schema_version","error","message"}` line to
-  stderr and exits 2. Backends: `jev` (default), `anthropic_haiku`,
-  `openai_luna`. Multi-backend runs report equal-input attestation.
+  stderr and exits 2. Backends: `jev` (default), `haiku`,
+  `luna` (each the latest model of its line, or a known model id such as
+  `claude-haiku-5-5` to pin it). Multi-backend runs report equal-input attestation.
 - `sc-ai jev stream` and Python `run_many` / `DecisionStream` (bead agt-1aq,
   ADR-SAG-0032): many decision requests through one process on a bounded queue
   with N worker threads (`--concurrency`, default 8, 1 to 64). JSONL
@@ -175,7 +188,6 @@ First release. Channels once published: crates.io (ten crates), PyPI
   an alias for each binary (bead `agt-sft`); `sc-treesitter` is in the
   package but has no alias yet.
 - The Luna live token count is unverified (bead `agt-luna-live-count`).
-- Backend ids are written `openai_luna` / `openai`; the old spellings
-  `open_ai_luna` / `open_ai` are still read in config and caller-request input.
+- Backend ids are written `jev`, `haiku` and `luna`; no other spelling is read.
   Removal is tracked by bead `agt-ho2`; no removal is
   scheduled and it would be announced here.
