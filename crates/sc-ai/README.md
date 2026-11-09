@@ -1,6 +1,6 @@
 # sc-ai
 
-The `sc-ai` command-line tool for Jev check parity: `run`, `dry-run`, and `ask`.
+The `sc-ai` command-line tool for Jev check parity: `run`, `dry-run`, `ask`, and `stream` (many requests through one process, JSONL in and out).
 
 Session logs and session files default to `<repo-root>/.sc-ai`; add `.sc-ai` to your project's `.gitignore`.
 

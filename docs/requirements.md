@@ -257,3 +257,16 @@ New requirements:
 | REQ-SAG-0164 | `RESPONSE_INVALID` has a `cause` (`truncated`, `too_large`, `not_json`, `schema`), a distinct `suggested_action` per cause, and `retryable` false for all, with no action that says to retry unchanged — (Active, agt-2a3) |
 | REQ-SAG-0165 | The Python `JevError` carries the same fields as the CLI body (`code` for `error`, `kind`, `message`, `suggested_action`, `retryable`, `retry_after_seconds`, `field`, `details`, `schema_version`), produced from the same serialization — (Active, agt-2a3) |
 | REQ-SAG-0166 | A session-log flush failure that happens as an error leaves is `details.log_flush_failure` on every variant, not text in the message — (Active, agt-2a3) |
+
+## Amendments: streaming decision calls (bead agt-1aq, ADR-SAG-0032)
+
+| ID | Requirement |
+| --- | --- |
+| REQ-SAG-0720 | A bounded queue with N worker threads (no async runtime) runs `prepare` then `run` per request around the unchanged engine, with one shared session logger and one shared backend client per backend selection — (Active, agt-1aq) |
+| REQ-SAG-0721 | `sc-ai jev stream` reads JSONL `{"id","request"}` lines (stdin or `--input`) and writes one `{"id","ok","envelope"?,"error"?}` line per request, in completion order; every answer echoes the caller's id — (Active, agt-1aq) |
+| REQ-SAG-0722 | A failed request is a typed `ScAgentErrorResponse` on that request's line and the stream continues; the exit code is 0, or 3 when every failure is retryable, else 2 (`docs/stability.md`) — (Active, agt-1aq) |
+| REQ-SAG-0723 | A stream is finished when its input is closed, the queue is empty and the workers are idle; requests may keep arriving while answers return — (Active, agt-1aq) |
+| REQ-SAG-0724 | Concurrency is one global setting (`--concurrency`, `concurrency=`), 1 to 64, default 8; the default was tested only against scripted and loopback backends — (Active, agt-1aq) |
+| REQ-SAG-0725 | `sc-ai --help` documents the stream wire format, ordering, failure and exit rules (pinned by `help_notes_describe_the_stream`) — (Active, agt-1aq) |
+| REQ-SAG-0726 | `sc_jev_py.run_many` and `sc_jev_py.DecisionStream` give Python the same capability plus per-request `submit`, timeouts and `cancel`, releasing the GIL while workers run — (Active, agt-1aq) |
+| REQ-SAG-0727 | Memory is bounded (a slow consumer applies backpressure; lines over 1 MiB are refused) and `cancel` stops new work and honours the cancel token — (Active, agt-1aq) |

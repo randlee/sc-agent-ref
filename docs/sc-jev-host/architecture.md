@@ -36,6 +36,15 @@ with `=` (ADR-SAG-0023) and `cargo tree -d` gates keep one version of
   `registry`, `project`). A new field is a new setter with a default (EXT-021).
   `resolve()` returns the repo root and the log and session paths a run uses,
   so a root builds its `CheckSource` and readback from the same values.
+- **`stream::DecisionStream`** (ADR-SAG-0032) is a bounded job queue and a
+  bounded answer queue (`2 x N` each) drained by N `std` threads
+  (`stream/pool.rs`, a `Mutex` and two `Condvar`s; no async runtime). A worker
+  does `prepare` then `run` for one `CallerRequest`, with the one session
+  logger the stream opened and one `BackendRegistry` (so one client) per
+  backend selection, shared by all workers. `serve_jsonl` is the JSONL
+  driver; `StreamSummary::exit_code` applies the stability exit rule across the
+  stream. Finished = input closed, queue empty, workers idle. Lifecycle log
+  events go through `stream/log.rs`, the only logging site.
 - **`compose::run_from` / `prepare_from` / `ask_from`** call
   `discover_repo_root` (unless a root is set), build `RunConfig`, then
   `sc_jev_check::run::{prepare, run, ask}`; they never build a payload

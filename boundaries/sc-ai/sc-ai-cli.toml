@@ -21,8 +21,8 @@ owner_crate_path = "sc_ai"
 name = "sc-ai-cli"
 
 [public]
-facade = "sc_ai::execute, sc_ai::Command, sc_ai::RunCommand, sc_ai::AskCommand, sc_ai::Output"
-notes = "Thin argv adapter: clap parses argv into a typed Command (bin-private src/cli.rs, behind the default cli feature), sc_ai::execute runs it through sc-jev-host (observability adapter, path policy, repo discovery, run/ask wiring) and prints the versioned envelope. A partial multi-backend failure prints the envelope on stdout, the first failure on stderr and exits 2. No HTTP client in this crate (ADR-SAG-0010). Feature test-util (= sc-jev-check/test-util) adds the hidden --scripted-answers flag to the binary only; the cli test target declares [[test]] required-features = [cli, test-util] and the argv target [cli] (no self dev-dependency, boundaries/README.md D0 outcome 4). The a-10 execute_with_overrides seam is gone."
+facade = "sc_ai::execute, sc_ai::Command, sc_ai::RunCommand, sc_ai::AskCommand, sc_ai::StreamCommand, sc_ai::serve_stream, sc_ai::Output"
+notes = "Thin argv adapter (jev stream serves JSONL requests through sc_jev_host::stream; ADR-SAG-0032): clap parses argv into a typed Command (bin-private src/cli.rs, behind the default cli feature), sc_ai::execute runs it through sc-jev-host (observability adapter, path policy, repo discovery, run/ask wiring) and prints the versioned envelope. A partial multi-backend failure prints the envelope on stdout, the first failure on stderr and exits 2. No HTTP client in this crate (ADR-SAG-0010). Feature test-util (= sc-jev-check/test-util) adds the hidden --scripted-answers flag to the binary only; the cli test target declares [[test]] required-features = [cli, test-util] and the argv target [cli] (no self dev-dependency, boundaries/README.md D0 outcome 4). The a-10 execute_with_overrides seam is gone."
 
 [implementation]
 type = "marker"

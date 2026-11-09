@@ -1,6 +1,6 @@
 # sc-agent
 
-`sc-ai` is the JSON-first CLI for Jev check parity (`run`, `dry-run`, and `ask`).
+`sc-ai` is the JSON-first CLI for Jev check parity (`run`, `dry-run`, `ask`, and `stream`).
 
 ## Install
 
@@ -57,9 +57,25 @@ not scrubbed, so put no secret in it.
 sc-ai jev run --repo-root . --check check.toml --backend jev
 sc-ai jev dry-run --repo-root . --check check.toml
 sc-ai jev ask --session-id <ULID> --text "why?" --project my-project
+sc-ai jev stream --repo-root . --concurrency 8 < requests.jsonl > answers.jsonl
 ```
 
-Success writes one JSON object to stdout:
+`jev run` answers one request per process. `jev stream` answers many through
+one process: JSONL in (stdin or `--input FILE`), one JSONL answer per request on
+stdout, in completion order, not input order. Each input line is
+`{"id":"q-1","request":{...}}` (the `--request-json` document) and its answer
+line echoes the id: `{"id":"q-1","ok":true,"envelope":{...}}`, or
+`{"id":"q-1","ok":false,"error":{...}}` with the stderr error body above. A
+failed request does not stop the stream. Requests may keep arriving while
+answers come back, so an early answer can become a follow-up request. The
+stream ends when the input is closed, the queue is empty and the workers are
+idle. `--concurrency N` (1 to 64, default 8) sets the worker threads; the queue
+is bounded, so a slow reader slows the input. The exit code is 0, or 3 when
+every failure is retryable, else 2. The default of 8 was tested only against
+scripted and loopback backends, not live providers. Python has the same
+capability: `sc_jev_py.run_many` and `sc_jev_py.DecisionStream`.
+
+For `run`, `dry-run` and `ask`, success writes one JSON object to stdout:
 
 ```json
 {"version":"1","operation":"jev.run","data":{}}

@@ -20,7 +20,7 @@ use sc_jev_host::stream::Concurrency;
 
 /// Usage notes appended to `--help`.
 const NOTES: &str = "\
-Success writes one JSON envelope to stdout: {\"version\",\"operation\",\"data\"}.
+For run, dry-run and ask, success writes one JSON envelope to stdout: {\"version\",\"operation\",\"data\"}.
 Failure writes one JSON line to stderr and exits 2, or 3 for a retryable error. Its keys are error (a stable
 id), kind, message (what failed), suggested_action, retryable (always present),
 retry_after_seconds, field and details (the last three only when the error has

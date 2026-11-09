@@ -15,3 +15,11 @@ acceptance root, when it differs, is shown as "root a-N"; the closure table in
 | REQ-SAG-0711 | Session log through `sc_jev_host::obs` | r-3b |
 | REQ-SAG-0615 | `run_check(project=...)` and `Session.ask(follow_up, project=...)` label that call's log row (≤ 256 bytes, no control characters, else `INPUT_INVALID`); session ids are ULIDs | r-6 |
 | REQ-SAG-0165 | The Python `JevError` carries the same fields as the CLI error body (`code` for `error`, `kind`, `message`, `suggested_action`, `retryable`, `retry_after_seconds`, `field`, `details`, `schema_version`) from the same serialization; never less than the CLI | agt-2a3 |
+
+## Streaming (agt-1aq, ADR-SAG-0032)
+
+| ID | Requirement | Proof |
+| --- | --- | --- |
+| REQ-SAG-0726 | `run_many` and `DecisionStream` (submit, next, iterate, close_input, cancel, finish); the GIL is released while workers run | pytest `test_stream.py` (`test_run_many_answers_every_id_and_a_bad_request_does_not_raise`, `test_early_answers_become_follow_up_requests`, `test_the_gil_is_released_while_waiting_for_an_answer`) |
+| REQ-SAG-0724 | `concurrency=` 1 to 64, default 8 | `test_concurrency_is_validated` |
+| REQ-SAG-0727 | A full queue applies backpressure; `cancel` stops new work | `test_a_full_queue_applies_backpressure`, `test_cancel_stops_new_work` |

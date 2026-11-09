@@ -16,3 +16,15 @@
 | REQ-SAG-0615 | `ComposeInputs::project(..)` labels one call's rows | r-6 | `--test log_context` (same test); `sc-ai` `test_cli_project_flag_reaches_log` |
 | ADR-SAG-0021 | `PathPolicy::cli()` and `python()` reproduce each root's precedence unchanged; a new consumer writes its own `PathPolicy` literal (EXT-031) | r-3b | `--test paths` (`test_cli_path_policy_precedence`, `test_python_path_policy_precedence`, `test_custom_path_policy_resolves`) |
 | NFR-SAG-0003 | Default and configured session and log roots; unchanged with ULID file names | r-3b, r-6 | `--test paths` (`test_default_and_configured_roots`); `--test log_context` (`test_log_and_session_paths_unchanged_with_ulid_names`) |
+
+## Streaming (agt-1aq, ADR-SAG-0032)
+
+| ID | Requirement | Proof |
+| --- | --- | --- |
+| REQ-SAG-0720 | Bounded job and answer queues, N `std` worker threads, engine unchanged | `stream::pool::tests` (`workers_run_jobs_in_parallel_not_in_turn`); `--test stream` `the_default_runs_eight_requests_in_parallel` (rendezvous of 8, not timing) |
+| REQ-SAG-0721 | Ids echoed; a bad line has `id: null` or its readable id | `--test stream` `answers_echo_ids_and_a_failure_does_not_stop_the_stream` |
+| REQ-SAG-0722 | `StreamSummary::exit_code` applies the stability rule across the stream | `--test stream` `exit_code_is_three_only_when_every_failure_is_retryable`, `a_partial_failure_line_has_both_envelope_and_error` |
+| REQ-SAG-0723 | Finished = input closed, queue empty, workers idle; follow-up requests on the same stream | `--test stream` `a_stream_is_finished_only_when_input_is_closed_and_everything_drained`, `early_answers_can_become_follow_up_requests_on_the_same_stream` |
+| REQ-SAG-0724 | `Concurrency` 1 to 64, default 8 | `stream::tests::concurrency_is_one_to_sixty_four_with_a_default_of_eight` |
+| REQ-SAG-0727 | Bounded memory under a slow consumer; cancel stops new work and sets the token | `--test stream` `a_slow_writer_stops_the_reader_and_memory_stays_bounded`, `cancel_stops_new_work_and_sets_the_engines_token`; `stream::pool::tests::a_slow_consumer_stops_the_producer_at_capacity` |
+| REQ-SAG-0611 | Concurrent workers write whole session-log rows through the one shared adapter | `--test stream` `concurrent_workers_write_whole_session_log_rows` |

@@ -12,6 +12,16 @@ in-process — no subprocess to `sc-ai` required.
 atm-bd `packages/jev-check` may remain a thin policy/typing wrapper over this
 extension; it is not the primary deliverable.
 
+## Streaming (REQ-SAG-0726, ADR-SAG-0032)
+
+`run_many(requests, concurrency=8, ...)` and `DecisionStream(...)` are thin
+adapters over `sc_jev_host::stream`. Answers are the CLI's output lines as
+dicts (`{"id", "ok", "envelope"?, "error"?}`). Every blocking call runs under
+`py.detach` in 50 ms slices with a signal check, so the GIL is released while
+workers run and `Ctrl-C` raises `KeyboardInterrupt`. A failed request is an
+answer, never an exception. The test-util entry points are
+`_testing.decision_stream_scripted` and `_testing.run_many_scripted`.
+
 ## Build and release
 
 - **maturin** builds the extension against workspace **`sc-jev-check`**.

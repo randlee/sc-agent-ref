@@ -21,3 +21,12 @@ acceptance root, when it differs, is shown as "root a-N"; the closure table in
 | NFR-SAG-0003 | Document default log root, session files and the one log row per send (README "Session logs") | a-7, r-6 |
 
 Phase A: `sc-ai jev` check parity only. Phase B: more Jev API + API-direct Claude/Codex (REQ-SAG-0900/0901); no vendor CLI wrappers in Phase A or B (a later agent kind, ADR-SAG-0030).
+
+## Streaming (agt-1aq, ADR-SAG-0032)
+
+| ID | Requirement | Proof |
+| --- | --- | --- |
+| REQ-SAG-0721 | `jev stream` JSONL in, one id-echoing JSONL answer per request, completion order | `cli` `stream_answers_every_request_and_a_failure_does_not_stop_it`, `stream_reads_a_jsonl_file_and_exits_zero_on_success` |
+| REQ-SAG-0722 | Per-request failures are error lines; exit 0 / 3 (all retryable) / 2 | `stream_exit_code_follows_the_retryable_rule` |
+| REQ-SAG-0724 | `--concurrency` 1 to 64, default 8 | `cli::tests::stream_concurrency_is_validated`; `stream_runs_concurrent_requests_over_real_http_with_one_shared_client` |
+| REQ-SAG-0725 | `--help` pins the stream contract | `cli::tests::help_notes_describe_the_stream` |
