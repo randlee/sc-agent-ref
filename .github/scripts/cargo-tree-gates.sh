@@ -68,6 +68,8 @@ rows=(
   "sc-ai|both|--depth 1|sc-observability ureq"
   "sc-jev-py|both|--depth 1|sc-observability ureq"
   "sc-jev-host|both|--depth 1|ureq pyo3 tree-sitter clap mimalloc"
+  "sc-ai|both||pyo3 sc-observability-py sc-observability-binding-runtime sc-observability-dto"
+  "sc-jev-host|both||pyo3 sc-observability-py sc-observability-binding-runtime sc-observability-dto"
   "sc-ai|dup||sc-jev-check sc-agent-types sc-jev-host"
   "sc-jev-py|dup||sc-jev-check sc-agent-types sc-jev-host"
   "sc-ai|present||mimalloc"

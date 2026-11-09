@@ -268,7 +268,7 @@ impl<T: Transport> JudgeBackend for JevClient<T> {
         let model = self.config.model().to_string();
         GeneralEvent::debug(TARGET, "judge.start", "Jev judge started")
             .with_field("model", model.as_str())
-            .with_field("endpoint", self.config.endpoint().as_str())
+            .with_field("endpoint", self.config.endpoint().log_form())
             .emit(self.log.as_ref());
         let result = self.judge_inner(req, trace);
         match &result {

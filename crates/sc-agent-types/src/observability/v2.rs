@@ -450,3 +450,74 @@ mod general_tests {
         assert_eq!(GeneralLevel::Error.to_string(), "error");
     }
 }
+
+/// A fresh per-run correlation id: a ULID in text form.
+///
+/// Every event of one run carries it as the `run_id` field (see
+/// [`CorrelatedGeneralLog`]), so runs that share a file can be told apart.
+#[must_use]
+pub fn new_run_id() -> String {
+    ulid::Ulid::new().to_string()
+}
+
+/// Adds one `run_id` field to every event it forwards.
+///
+/// Composition roots wrap the general log once per run, so every layer that
+/// receives the logger (registry, backends, HTTP) is correlated without
+/// knowing the id. An event that already has a `run_id` keeps it.
+///
+/// # Examples
+///
+/// ```
+/// use std::sync::Arc;
+/// use sc_agent_types::observability::v2::{
+///     CorrelatedGeneralLog, GeneralEvent, GeneralLog, RecordingGeneralLog,
+/// };
+///
+/// let inner = RecordingGeneralLog::new();
+/// let log = CorrelatedGeneralLog::new(Arc::new(inner.clone()), "RUN1");
+/// GeneralEvent::info("t", "a.b", "m").emit(&log);
+/// assert_eq!(inner.events()[0].fields()["run_id"], "RUN1");
+/// ```
+#[derive(Clone)]
+pub struct CorrelatedGeneralLog {
+    inner: SharedGeneralLog,
+    run_id: String,
+}
+
+impl fmt::Debug for CorrelatedGeneralLog {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("CorrelatedGeneralLog")
+            .field("run_id", &self.run_id)
+            .finish_non_exhaustive()
+    }
+}
+
+impl CorrelatedGeneralLog {
+    /// Wraps `inner`, stamping `run_id` on every event.
+    #[must_use]
+    pub fn new(inner: SharedGeneralLog, run_id: impl Into<String>) -> Self {
+        Self {
+            inner,
+            run_id: run_id.into(),
+        }
+    }
+
+    /// The correlation id.
+    #[must_use]
+    pub fn run_id(&self) -> &str {
+        &self.run_id
+    }
+}
+
+impl GeneralLog for CorrelatedGeneralLog {
+    fn log(&self, event: GeneralEvent) -> Result<(), LogRejected> {
+        let event = if event.fields().contains_key("run_id") {
+            event
+        } else {
+            event.with_field("run_id", self.run_id.as_str())
+        };
+        self.inner.log(event)
+    }
+}

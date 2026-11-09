@@ -1567,3 +1567,43 @@ fn cli_check_that_exists_only_at_rev_loads_with_rev() {
     assert_eq!(value["operation"], OP_DRY_RUN);
     assert!(value["data"]["payload"]["questions"].is_array());
 }
+
+/// A failure before the run (bad `--request-json`, bad `--repo-root`) leaves a
+/// general-log row by typed id, at the resolved or explicit root.
+#[test]
+fn test_cli_failures_before_the_run_leave_general_log_rows() {
+    let repo = temp_dir("early");
+    write_repo(repo.path());
+    let logs = temp_dir("early-logs");
+    let output = run_cli(&[
+        "jev",
+        "run",
+        "--repo-root",
+        text(repo.path()),
+        "--log-dir",
+        text(logs.path()),
+        "--request-json",
+        "missing-request.json",
+    ]);
+    assert_eq!(output.status.code(), Some(2));
+    let general = logs.path().join("logs").join("sc-ai-general.log.jsonl");
+    let text_ = std::fs::read_to_string(&general).expect("general log");
+    assert!(text_.contains("operation.failed"), "{text_}");
+    assert!(text_.contains("cli.request_json"), "{text_}");
+    assert!(text_.contains("INPUT_MISSING"), "{text_}");
+
+    let logs = temp_dir("early-logs-root");
+    let missing = repo.path().join("no-such-dir");
+    let output = run_cli(&[
+        "jev",
+        "run",
+        "--repo-root",
+        text(&missing),
+        "--log-dir",
+        text(logs.path()),
+    ]);
+    assert_eq!(output.status.code(), Some(2));
+    let general = logs.path().join("logs").join("sc-ai-general.log.jsonl");
+    let text_ = std::fs::read_to_string(&general).expect("general log");
+    assert!(text_.contains("cli.repo_root"), "{text_}");
+}

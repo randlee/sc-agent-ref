@@ -209,7 +209,7 @@ global `[build] build-dir` does not conflict.
 
 ## Python wheels
 
-`sc-jev-py` publishes six `abi3-py311` wheels: `manylinux_2_28` x86_64 and
+`sc-jev-py` publishes six `cp310-abi3` wheels (the `abi3-py310` floor comes from the embedded `sc-observability` runtime; `requires-python` stays `>=3.11`; the `wheel` CI job checks the tag): `manylinux_2_28` x86_64 and
 aarch64, macOS 11.0 arm64 and x86_64, and Windows x86_64 (`win_amd64`) and
 arm64 (`win_arm64`). The first five are explicit targets in
 `python_distributions[0].wheels`, copied from sc-lint. Windows arm64 is the

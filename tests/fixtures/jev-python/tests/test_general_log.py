@@ -80,7 +80,12 @@ def test_default_loggers_write_two_separate_files(tmp_path: Path) -> None:
     assert {"run.start", "run.done", "prepare.done", "send.done"} <= actions
     text = general_path.read_text(encoding="utf-8")
     assert PROMPT_TEXT not in text
-    assert KEY_TEXT not in text
+    # Every row of the run shares one run id, and the run reports its time.
+    run_ids = {row["fields"]["run_id"] for row in general}
+    assert len(run_ids) == 1
+    done = next(row for row in general if row["action"] == "run.done")
+    assert isinstance(done["fields"]["duration_ms"], int)
+    assert len(done["fields"]["session_id"]) == 26
 
 
 def test_injected_loggers_replace_the_defaults(tmp_path: Path) -> None:
@@ -144,3 +149,57 @@ def test_rust_and_python_rows_land_in_one_log(tmp_path: Path) -> None:
     assert installed == sc_jev_py.general_log_file(root)
     assert sc_jev_py.install_host_logger(tmp_path / "other") == installed
     assert PROMPT_TEXT not in installed.read_text(encoding="utf-8")
+
+
+def test_a_real_key_reaching_a_send_path_never_reaches_the_general_log(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The key is in the environment and is resolved for the backend; the
+    request is over the backend's byte cap, so the run fails in validation
+    before any send (no network). Neither the key nor the prompt text may be in
+    the log."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", KEY_TEXT)
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "questions.json").write_text(
+        json.dumps(
+            {
+                "schema": "plan-anchoring/questions/1",
+                "version": 1,
+                "questions": {
+                    "relevant": {
+                        "type": "choice",
+                        "instructions": PROMPT_TEXT + " {big}",
+                        "criteria": {"no": "No.", "yes": "Yes."},
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (repo / "big.txt").write_text("x" * 200_000, encoding="utf-8")
+    (repo / "check.toml").write_text(
+        '[questions]\npath = "questions.json"\n\n[inputs.big]\nkind = "file"\npath = "big.txt"\n',
+        encoding="utf-8",
+    )
+    logs = tmp_path / "log"
+    with pytest.raises(sc_jev_py.JevError) as caught:
+        sc_jev_py.run_check(
+            "check.toml",
+            backends=["anthropic_haiku"],
+            repo_root=repo,
+            log_dir=logs,
+            session_dir=logs / "sessions",
+        )
+    assert caught.value.code == "INPUT_TOO_LARGE"
+    path = sc_jev_py.general_log_file(logs)
+    text = path.read_text(encoding="utf-8")
+    rows = _rows(path)
+    credential = next(row for row in rows if row["action"] == "credential.resolved")
+    assert credential["fields"]["source"] == "env"
+    failed = next(row for row in rows if row["action"] == "run.failed")
+    assert failed["fields"]["stage"] == "validate"
+    assert failed["fields"]["backend"] == "anthropic_haiku"
+    assert failed["fields"]["error_code"] == "INPUT_TOO_LARGE"
+    assert KEY_TEXT not in text
+    assert PROMPT_TEXT not in text

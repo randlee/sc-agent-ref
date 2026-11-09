@@ -183,3 +183,117 @@ fn a_rejecting_general_log_changes_nothing() {
     assert_eq!(first.results().len(), second.results().len());
     assert!(second.warnings().is_empty());
 }
+
+fn general_rows(logs: &Path) -> Vec<serde_json::Value> {
+    lines(&logs.join("logs/sc-ai-general.log.jsonl"))
+}
+
+#[test]
+fn runs_in_one_file_are_told_apart_by_run_id_and_carry_durations() {
+    let repo = repo();
+    for _ in 0..3 {
+        run_from(source(repo.path()), inputs(repo.path())).expect("run");
+    }
+    let rows = general_rows(&repo.path().join(".sc-ai"));
+    let mut ids = std::collections::BTreeSet::new();
+    for row in &rows {
+        let id = row["fields"]["run_id"]
+            .as_str()
+            .unwrap_or_else(|| panic!("event without run_id: {row}"));
+        ids.insert(id.to_owned());
+    }
+    assert_eq!(ids.len(), 3, "three runs, three ids: {ids:?}");
+    let done: Vec<_> = rows.iter().filter(|r| r["action"] == "run.done").collect();
+    assert_eq!(done.len(), 3);
+    for row in done {
+        assert!(row["fields"]["duration_ms"].is_u64(), "{row}");
+        assert_eq!(row["fields"]["session_id"].as_str().map(str::len), Some(26));
+    }
+    let sends: Vec<_> = rows.iter().filter(|r| r["action"] == "send.done").collect();
+    assert_eq!(sends.len(), 3);
+    for row in sends {
+        assert!(row["fields"]["duration_ms"].is_u64(), "{row}");
+        assert_eq!(row["fields"]["session_id"].as_str().map(str::len), Some(26));
+        assert_eq!(row["fields"]["backend"], "anthropic_haiku");
+    }
+}
+
+#[test]
+fn a_failed_run_records_stage_backend_and_typed_id() {
+    let repo = repo();
+    // The selected backend is not in the injected registry.
+    let mut registry = BackendRegistry::new();
+    registry
+        .register(Arc::new(MockJudgeBackend::new(
+            BackendId::Jev,
+            serde_json::from_value(serde_json::json!({"relevant": {"choice": "yes"}}))
+                .expect("answers"),
+        )))
+        .expect("register");
+    let error = run_from(
+        source(repo.path()),
+        inputs(repo.path()).registry(Arc::new(registry)),
+    )
+    .expect_err("missing backend");
+    let rows = general_rows(&repo.path().join(".sc-ai"));
+    let failed = rows
+        .iter()
+        .find(|row| row["action"] == "run.failed")
+        .expect("run.failed row");
+    assert_eq!(failed["fields"]["error_code"], error.code().as_str());
+    assert_eq!(failed["fields"]["stage"], "registry");
+    assert!(failed["fields"]["duration_ms"].is_u64());
+    assert!(failed["fields"]["run_id"].is_string());
+}
+
+#[test]
+fn a_root_discovery_failure_leaves_a_general_log_row() {
+    let cwd = tempfile::tempdir().expect("temp");
+    // An empty `.git` makes git find no work tree while an ancestor holds a
+    // `.git` entry: root discovery fails with INPUT_INVALID.
+    std::fs::create_dir(cwd.path().join(".git")).expect("fake .git");
+    let logs = tempfile::tempdir().expect("logs");
+    let inputs =
+        ComposeInputs::new(cwd.path().to_path_buf(), PathPolicy::cli()).log_dir(logs.path());
+    let spec = sc_jev_check::config::CheckSpec::new(
+        sc_agent_types::RepoRelativePath::try_from("questions.json").expect("path"),
+    );
+    let error = run_from(CheckSource::Spec(spec), inputs).expect_err("no root");
+    let rows = general_rows(logs.path());
+    let failed = rows
+        .iter()
+        .find(|row| row["action"] == "operation.failed")
+        .unwrap_or_else(|| panic!("no operation.failed row (error was {error:?}): {rows:?}"));
+    assert_eq!(failed["fields"]["stage"], "resolve");
+    assert_eq!(failed["fields"]["error_code"], error.code().as_str());
+}
+
+#[test]
+fn a_failure_with_no_known_log_root_is_silent() {
+    // No explicit log root and a repo-relative default: nothing to open.
+    assert!(
+        PathPolicy::cli()
+            .log_root_if_known_with(None, &|_| None)
+            .is_none()
+    );
+    assert!(
+        PathPolicy::python()
+            .log_root_if_known_with(None, &|_| None)
+            .is_some()
+    );
+}
+
+#[test]
+fn a_git_failure_is_logged_by_its_caller_and_the_run_still_succeeds() {
+    let repo = repo();
+    // An explicit root with an empty `.git`: the main-repo lookup fails, the
+    // run falls back to the resolved root.
+    std::fs::create_dir(repo.path().join(".git")).expect("fake .git");
+    run_from(source(repo.path()), inputs(repo.path())).expect("run");
+    let rows = general_rows(&repo.path().join(".sc-ai"));
+    let git = rows
+        .iter()
+        .find(|row| row["action"] == "git.main_repo_failed")
+        .unwrap_or_else(|| panic!("no git failure row: {rows:?}"));
+    assert_eq!(git["fields"]["error_code"], "INPUT_INVALID");
+}

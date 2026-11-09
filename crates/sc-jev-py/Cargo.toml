@@ -34,8 +34,11 @@ test-util = ["sc-jev-check/test-util"]
 
 [dependencies]
 # Exact: sc-observability-py pins `=0.29.2`, and the two share one Python
-# runtime in this binary (ADR-SAG-0023 lockstep list).
-pyo3 = { version = "=0.29.2", features = ["abi3-py311"] }
+# runtime in this binary (ADR-SAG-0023 lockstep list). `abi3-py310` is the
+# real floor: the embedded runtime enables it, Cargo unions the features, and
+# the built wheel is tagged `cp310-abi3` (read from the wheel, REQ-SAG-0802).
+# `requires-python` stays >=3.11, the versions the tests cover.
+pyo3 = { version = "=0.29.2", features = ["abi3-py310"] }
 # The sc-observability Python runtime, linked as an rlib (lib name `_native`)
 # so this wheel registers it inside its own binary and Rust writes rows with
 # no GIL (sc-observability ADR-015; ADR-SAG-0013 amendment 2026-11-09).

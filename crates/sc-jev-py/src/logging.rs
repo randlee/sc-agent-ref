@@ -72,6 +72,9 @@ static NATIVE: OnceLock<Py<PyModule>> = OnceLock::new();
 /// Whether `NATIVE` is the module `sys.modules` serves under `NATIVE_NAME`.
 static SEEDED: AtomicBool = AtomicBool::new(false);
 
+/// Serializes check-and-install of the host logger.
+static INSTALL_LOCK: Mutex<()> = Mutex::new(());
+
 /// The entry installed as the host logger, once one is.
 static INSTALLED: OnceLock<Arc<HostEntry>> = OnceLock::new();
 
@@ -151,7 +154,18 @@ impl HostEntry {
 
     /// Installs this backend as the process host logger unless one is
     /// installed already.
+    ///
+    /// # Concurrency
+    ///
+    /// Installation is serialized by `INSTALL_LOCK`, so two Python threads
+    /// that make their first `run_check` together cannot both pass the
+    /// "not installed" check: the loser waits, sees the winner's entry, and
+    /// gets `Ok(false)`, never the runtime's "already installed" error. The
+    /// lock covers only this check-and-install; rows never take it. The
+    /// runtime's own once-only guard remains the backstop for another
+    /// embedder installing first.
     fn install_once(self: &Arc<Self>) -> Result<bool, JevError> {
+        let _serialized = INSTALL_LOCK.lock().unwrap_or_else(PoisonError::into_inner);
         if INSTALLED.get().is_some() {
             return Ok(false);
         }
@@ -205,8 +219,19 @@ impl HostGeneralLog {
         let entry = HostEntry::open(policy, log_root)?;
         // A host logger that cannot be installed (another wheel loaded the
         // runtime first) leaves Rust rows working; Python just cannot attach.
-        let _ = entry.install_once();
-        Ok(Self { entry })
+        let host = Self { entry };
+        if let Err(error) = host.entry.install_once() {
+            // Rust rows still reach the file; Python just cannot attach.
+            // Say so in the log, by typed id.
+            GeneralEvent::warn(
+                "py.host_logger",
+                "host_logger.install_skipped",
+                "the shared host logger was not installed; Python cannot attach to it",
+            )
+            .with_error_code(error.code().as_str())
+            .emit(&host);
+        }
+        Ok(host)
     }
 
     /// The port libraries take.

@@ -491,7 +491,7 @@ fn retry_loop(
         log.emit(
             GeneralEvent::debug(TARGET, "http.send", "sending request")
                 .with_field("method", request.method().as_str())
-                .with_field("endpoint", request.endpoint().as_str())
+                .with_field("endpoint", request.endpoint().log_form())
                 .with_field("attempt", sends)
                 .with_field("max_sends", policy.max_sends),
         );

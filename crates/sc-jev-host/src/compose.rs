@@ -42,7 +42,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use sc_agent_types::observability::v2::{
-    GeneralEvent, GeneralLog, NoopGeneralLog, NoopSessionLog, SharedGeneralLog, SharedSessionLog,
+    CorrelatedGeneralLog, GeneralEvent, GeneralLog, NoopGeneralLog, NoopSessionLog,
+    SharedGeneralLog, SharedSessionLog, new_run_id,
 };
 use sc_agent_types::{BackendSet, CancelToken, JevError, ProjectLabel, RepoRoot, Rev, SessionId};
 use sc_decision_schema::MultiBackendMode;
@@ -416,11 +417,14 @@ impl Logs {
             (None, true) => GeneralLogAdapter::open(&inputs.policy, &resolved.log_root).ok(),
             _ => None,
         };
-        let general: SharedGeneralLog = match (&inputs.general_log, &general_adapter) {
+        let base: SharedGeneralLog = match (&inputs.general_log, &general_adapter) {
             (Some(injected), _) => Arc::clone(injected),
             (None, Some(adapter)) => adapter.shared(),
             (None, None) => Arc::new(NoopGeneralLog),
         };
+        // One correlation id per run: every layer that receives this log
+        // stamps `run_id` on its events.
+        let general: SharedGeneralLog = Arc::new(CorrelatedGeneralLog::new(base, new_run_id()));
         GeneralEvent::debug(TARGET, "paths.resolved", "paths resolved")
             .with_field(
                 "repo_root",
@@ -575,7 +579,9 @@ impl HostRun {
 ///
 /// Any [`JevError`] from root discovery, session logger start or `prepare`.
 pub fn prepare_from(source: CheckSource, inputs: ComposeInputs) -> Result<HostRun, JevError> {
-    let resolved = inputs.resolve()?;
+    let resolved = inputs
+        .resolve()
+        .inspect_err(|error| log_failure(&inputs, None, "resolve", error))?;
     let logs = Logs::open(&inputs, &resolved, !inputs.dry_run)?;
     let config = inputs.run_config(
         &resolved,
@@ -626,7 +632,9 @@ pub fn ask_from(
     follow_up: &str,
     inputs: ComposeInputs,
 ) -> Result<AskResponse, JevError> {
-    let resolved = inputs.resolve()?;
+    let resolved = inputs
+        .resolve()
+        .inspect_err(|error| log_failure(&inputs, None, "resolve", error))?;
     let logs = Logs::open(&inputs, &resolved, true)?;
     let sessions = match FileSessionStore::new(&resolved.sessions_dir) {
         Ok(sessions) => sessions,
@@ -655,6 +663,50 @@ pub fn ask_from(
     };
     logs.finish_general();
     result
+}
+
+/// Logs a failure that happens before a run starts (root discovery, a bad
+/// request file, a check source) to the general log, by typed id.
+///
+/// The log is the injected one, else the default opened at the resolved log
+/// root (`resolved`) or, with none, at a root known without a repository
+/// ([`PathPolicy::log_root_if_known`]). When no root is known the failure is
+/// not logged: it is a silent path (ADR-SAG-0013 amendment 2026-11-09). A dry
+/// run opens no default log. Best effort; never changes the error.
+pub fn log_failure(
+    inputs: &ComposeInputs,
+    resolved: Option<&ResolvedPaths>,
+    stage: &'static str,
+    error: &JevError,
+) {
+    let event = GeneralEvent::error(
+        TARGET,
+        "operation.failed",
+        "the operation failed before the run",
+    )
+    .with_field("stage", stage)
+    .with_error_code(error.code().as_str())
+    .with_field("retryable", error.retryable());
+    if let Some(injected) = &inputs.general_log {
+        CorrelatedGeneralLog::new(Arc::clone(injected), new_run_id())
+            .log(event)
+            .ok();
+        return;
+    }
+    if inputs.dry_run {
+        return;
+    }
+    let root = match resolved {
+        Some(resolved) => Some(resolved.log_root.clone()),
+        None => inputs.policy.log_root_if_known(inputs.log_dir.as_deref()),
+    };
+    let Some(root) = root else { return };
+    if let Ok(adapter) = GeneralLogAdapter::open(&inputs.policy, &root) {
+        CorrelatedGeneralLog::new(adapter.shared(), new_run_id())
+            .log(event)
+            .ok();
+        flush_general(Some(&adapter));
+    }
 }
 
 /// Records a failed flush on `error` as its own field

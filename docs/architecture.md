@@ -46,7 +46,7 @@ shows each of those edges once, at the lowest node that carries it.
 Every workspace crate depends on `sc-agent-types`; `sc-decision-schema`
 sits directly above it (r-7). Since r-1 no crate depends on
 `sc-observability-types` (ADR-SAG-0016 r-1 amendment). **`sc-jev-host` is the
-only crate that links full `sc-observability`** (`crates/sc-jev-host/Cargo.toml`;
+only direct dependent of full `sc-observability`** (`crates/sc-jev-host/Cargo.toml`;
 ADR-SAG-0013 and ADR-SAG-0010 r-3b amendments). `sc-ai` and `sc-jev-py` are
 thin composition roots over `sc-jev-host` and have no direct `sc-observability`
 dependency. **`sc-jev-py` alone also links the `sc-observability` Python
@@ -89,7 +89,7 @@ sc-jev-py (PyO3) ─────────────────────
                                                  ├── sc-observability =1.5.0
                                                  └── sc-jev-check (prepare/run, RunResponse + Envelope, discover_repo_root, InputSpec)
                                                        ├── sc-jev ──────────┐
-                                                       ├── sc-jev-backends ─┴── sc-agent-http (ureq; sc-agent-types features = [secret])
+                                                       ├── sc-jev-backends ─┴── sc-agent-http (ureq; sc-agent-types features = [secret, obs])
                                                        ├── sc-agent-secrets
                                                        └── sc-agent-types (default secret/obs; git enabled by sc-jev-check; no observability dep)
 sc-treesitter (bin; feature cli: clap + mimalloc + sc-agent-types/git) → sc-agent-types (default-features = false)
@@ -99,7 +99,7 @@ crates/workspace-tests (publish = false; dev-deps only; drives built binaries; A
 The Phase A graph above is the starting point; r-3b moved the observability
 adapter, the path policy and the `run`/`ask` wiring out of `sc-ai` and
 `sc-jev-py` into `sc-jev-host` (ADR-SAG-0026 host half). `sc-jev-host` is the
-only crate that links `sc-observability`. `workspace-tests` links no
+only direct dependent of `sc-observability`. `workspace-tests` links no
 `pyo3` or `tree-sitter`; it runs `sc-ai` and `sc-treesitter` as built
 binaries. `sc-decision-schema` (r-7) sits directly above `sc-agent-types`
 and below `sc-jev`, `sc-jev-backends`, `sc-jev-check`, `sc-jev-host`, `sc-ai` and
@@ -150,7 +150,7 @@ own row's Status cell and its own marker text, and added or removed no entry).
 | ADR-SAG-0023 | Dependency pins, allocator, released binaries | Active (r-4; host pin r-3b; Windows CRT phase-end) | Amends ADR-SAG-0016, ADR-SAG-0017 |
 | ADR-SAG-0024 | Engine entry point and response contract | Active (r-2) | Amends ADR-SAG-0003, ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0014, ADR-SAG-0019, ADR-SAG-0022; supersedes the ADR-SAG-0014 A.1 r-1 interim subsection |
 | ADR-SAG-0025 | Multi-backend semantics and equal-input attestation | Active (r-2b) | Amends ADR-SAG-0004, ADR-SAG-0008, ADR-SAG-0019, ADR-SAG-0022; amended by agt-2a3 (all-failed runs keep every error) (Active) |
-| ADR-SAG-0026 | Shared HTTP crate and host crate | Active (HTTP half, r-3; host half, r-3b) | Amends ADR-SAG-0006, ADR-SAG-0007, ADR-SAG-0020, ADR-SAG-0017 (HTTP half); ADR-SAG-0010, ADR-SAG-0011, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0017 (host half); amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6); agt-2a3 provider failure classification (Active) |
+| ADR-SAG-0026 | Shared HTTP crate and host crate | Active (HTTP half, r-3, amended 2026-11-09 agt-9eh: `secret` and `obs`; host half, r-3b) | Amends ADR-SAG-0006, ADR-SAG-0007, ADR-SAG-0020, ADR-SAG-0017 (HTTP half); ADR-SAG-0010, ADR-SAG-0011, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0017 (host half); amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6); agt-2a3 provider failure classification (Active) |
 | ADR-SAG-0027 | Error taxonomy and extensibility | Active (r-1) | Amends ADR-SAG-0001, ADR-SAG-0009, ADR-SAG-0016; amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6); agt-2a3 error contract (Active) |
 | ADR-SAG-0028 | workspace-tests crate | Active (r-3b) | Amended by ADR-SAG-0030 (Active, r-7) |
 | ADR-SAG-0029 | Phase A hardening amendments | Active (a-10) | Amends ADR-SAG-0020 and ADR-SAG-0022; A.1 supersedes named sentences of (a) (Active, r-1), (Active, r-3) and of (b) (Active, r-1), (Active, r-2) |
@@ -1010,6 +1010,31 @@ needs to see what happened.
   steps, session store actions, flush failures, and failures by typed error id.
   Both are written with `sc-observability`; there is no bespoke writer and no
   `tracing` or `log` dependency.
+- (Active, 2026-11-09) **`sc-jev`.** The sentence "`sc-jev` does not log" above
+  is amended: `sc-jev` logs only through the injected `GeneralLog` port
+  (`JevClient::with_general_log`) and still has no observability dependency.
+- (Active, 2026-11-09) **Correlation and failure detail.** Every event of one
+  run carries the same `run_id` (a ULID; `CorrelatedGeneralLog`, applied once per
+  run by `sc-jev-host`), so runs sharing a file can be told apart. `send.done` and
+  `run.done` carry `duration_ms`; `run.done` and the send events carry the
+  `session_id`. A failure event (`run.failed`, `ask.failed`, `prepare.failed`,
+  `operation.failed`) carries the fixed `stage` name, the `backend` and
+  `session_id` when known, `duration_ms` and the typed `error_code`. A stage
+  is a fixed string, never provider or prompt text.
+- (Active, 2026-11-09) **Failures before the run.** Root discovery in
+  `prepare_from` and `ask_from`, and in `sc-ai` the repo root, `--request-json`
+  and the check source, log `operation.failed` by typed id
+  (`compose::log_failure`), at the resolved log root or, when none yet, at a root
+  known without a repository (`--log-dir`, `SC_LOG_ROOT`, or a home default).
+- (Active, 2026-11-09) **Silent paths.** These log nothing, on purpose:
+
+  | Path | Why |
+  | --- | --- |
+  | A failure before any log root is known (CLI default root is repo-relative, no `--log-dir`, repo root not found) | There is nowhere to write; opening one in an unknown directory would create files. The error still reaches stderr. |
+  | A dry run | ARCHE-019: a dry run opens no log or directory. Injected loggers still receive events. |
+  | `sc-treesitter` (library and binary) | A stdout-JSON producer with no operation an operator diagnoses; `sc-jev-check` logs the extraction that runs it. |
+  | `sc-agent-types::git` and `sc-decision-schema` | Pure helpers with no logger by design (core crates link no port consumer); the caller logs the git failure (`git.main_repo_failed`, test `a_git_failure_is_logged_by_its_caller_and_the_run_still_succeeds`). |
+  | A failure of the general log itself (open, rejection, flush) | There is no log left to report to, and logging never changes a result. |
 - (Active, 2026-11-09) **Port.** `sc_agent_types::observability::v2` gains the
   open `GeneralLog: Send + Sync` trait (`fn log(&self, GeneralEvent) ->
   Result<(), LogRejected>`), `SharedGeneralLog = Arc<dyn GeneralLog>` and
@@ -1042,12 +1067,18 @@ needs to see what happened.
   same queue and file from `sc_observability.get_host_logger()`. `run_check`
   also takes `session_log=` and `general_log=` callables (the GIL is taken per
   row for those only; one that raises is ignored). Python may be more flexible
-  than the CLI, never less. One process has one host logger, installed by the
+  than the CLI, never less. The default path takes no GIL; an injected
+  callable takes it once per row, which is the cost of an arbitrary Python
+  logger, and there is no queue. One process has one host logger, installed by the
   first default general log or by `install_host_logger(log_dir=None)`. `pyo3`
   is pinned `=0.29.2` (the version `sc-observability-py` pins), and the three
   `sc-observability-*` runtime crates join the lockstep list. The wheel's
-  stable-ABI floor follows the stricter dependency (`abi3-py310`) while
-  `requires-python` stays `>=3.11`.
+  stable-ABI floor is the lower of the two requests, `abi3-py310` (the
+  runtime asks for 310, this crate formerly asked for 311, and Cargo unions
+  the features), so the built wheel is tagged `cp310-abi3`, read from the
+  wheel. `Cargo.toml`, REQ-SAG-0802, `docs/development/sc-publish.md` and the
+  `wheel` CI job (which fails on any other tag) all state that floor.
+  `requires-python` stays `>=3.11`, the versions the tests cover.
 
 ## ADR-SAG-0021 — Log and session path precedence
 
@@ -1425,7 +1456,7 @@ comparison flows.
   acceptance check: they build the release-shape wheel, install it in a fresh
   virtual environment and import `sc_jev_py` without `_testing`. The wheel
   matrix is six wheels (Linux, macOS and Windows on x86_64 and arm64,
-  `abi3-py311`), declared in `release/sc-publish-consumer-input.json`
+  `cp310-abi3`; amended agt-9eh from `abi3-py311`), declared in `release/sc-publish-consumer-input.json`
   (REQ-SAG-0802). Operational notes: `docs/development/sc-publish.md`.
 
 ## ADR-SAG-0024 — Engine entry point and response contract
@@ -1601,6 +1632,15 @@ HTTP half amends ADR-SAG-0006, 0007,
 - (Active, r-3) ADR-SAG-0012 still holds: `sc-jev` owns every TypeSafe
   Jev API operation (endpoints, wire body, response parsing);
   `sc-agent-http` only carries bytes.
+
+- (Active, 2026-11-09, agt-9eh) The "`features = [\"secret\"]`" clause above is
+  amended: `sc-agent-http` takes `sc-agent-types` features `secret` **and
+  `obs`**. `obs` is for the `GeneralLog` port only (`BusyPolicy::with_general_log`,
+  `HttpClient::with_general_log`); it adds no third-party edge and no
+  `sc-observability*` dependency. The `cargo tree` gate that held the edge to
+  `secret` now holds it to `secret` and `obs` and still forbids `git`, `default`
+  and `test-util`. Logs name an endpoint only through `Endpoint::log_form`
+  (scheme, host and path; no userinfo, port, query or fragment).
 
 ### Host half
 

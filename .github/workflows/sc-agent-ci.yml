@@ -459,6 +459,15 @@ jobs:
           python -m venv "$venv"
           "$bindir/python" -m pip install --require-hashes -r tests/fixtures/jev-python/constraints.txt
           "$bindir/maturin" build --release -m crates/sc-jev-py/Cargo.toml -o "$wheels"
+          # The wheel tag is the real ABI floor: pyo3 features unify across
+          # the embedded sc-observability runtime (abi3-py310), so the tag is
+          # cp310-abi3 while requires-python stays >=3.11 (REQ-SAG-0802).
+          for wheel in "$wheels"/sc_jev_py-*.whl; do
+            case "$wheel" in
+              *-cp310-abi3-*) ;;
+              *) echo "unexpected wheel tag: $wheel (want cp310-abi3)" >&2; exit 1 ;;
+            esac
+          done
           "$bindir/python" -m pip install --force-reinstall --no-deps "$wheels"/sc_jev_py-*.whl
           "$bindir/python" -c 'import sc_jev_py, sys; sys.exit(1 if hasattr(sc_jev_py, "_testing") else 0)'
 
