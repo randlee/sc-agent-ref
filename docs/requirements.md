@@ -300,3 +300,13 @@ crate's requirements file.
 | REQ-SAG-0730 | A Python stream at full rate keeps every general-log row (a full runtime queue is waited out, bounded; a row dropped after the bound is counted in the summary and a Warn row; Python rows on `get_host_logger()` are not starved) — (Active, agt-1aq) |
 | REQ-SAG-0731 | `sc_jev_py.ask(session_id, follow_up, ...)` resumes a session stored by any earlier process, with the same options as `sc-ai jev ask` (`--project`, `--repo-root`, `--sessions-dir`, `--log-dir`, `--models-file`), through the same `ask_from`, so Python is never less capable than the CLI — (Active, phase-end) |
 | REQ-SAG-0727 | Memory is bounded (a slow consumer applies backpressure; lines over 1 MiB are refused) and `cancel` stops new work and honours the cancel token — (Active, agt-1aq) |
+
+## Amendments: log durability and privacy (production readiness, ADR-SAG-0013 amendment)
+
+| ID | Requirement |
+| --- | --- |
+| REQ-SAG-0641 | A session-log row the writer cannot write (read-only `logs/`, full disk) is never lost silently: the run keeps its answer and exit code, and the loss is a `data.warnings` entry (`session log rows lost: N session-log row(s) could not be written ...`), one stderr line from `sc-ai` (`{"warning","schema_version"}`, no `error` key) and a Python `RuntimeWarning`. Each lost row is reported once. Amends REQ-SAG-0617 and REQ-SAG-0635 — (Active) |
+| REQ-SAG-0642 | A default log writer runs one retention pass (rotate over `rotation_max_bytes`, prune by count and age) when it starts, so a short-lived process (one `sc-ai` call) rotates; `sc-observability` alone first runs it 60 s after start — (Active) |
+| REQ-SAG-0643 | Directories sc-agent creates for logs are `0700` and the log files it writes (active and rotated) are `0600` on Unix, like session files (REQ-SAG-0600). An existing directory is left as the user made it — (Active) |
+| REQ-SAG-0644 | When sc-agent creates the repo-local `.sc-ai/` it writes `.sc-ai/.gitignore` containing `*`, so session files holding prompts never show in `git status`. An existing `.sc-ai/` or `.gitignore` is never changed — (Active) |
+| REQ-SAG-0645 | The Python wheel survives `fork()` (gunicorn, Celery prefork, `multiprocessing`): a child starts its own log writer on the same root instead of crashing, and its rows are written — (Active) |

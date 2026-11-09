@@ -113,6 +113,16 @@ The producer/consumer document emitted by `sc-treesitter` and read by
 form) are in
 [`docs/sc-agent-types/subjects-schema.md`](sc-agent-types/subjects-schema.md).
 
+## Warning line
+
+A run that succeeded but could not do everything puts the same text in
+`data.warnings` and, from `sc-ai`, on stderr as one line
+`{"warning": "<text>", "schema_version": 1}`. It has no `error` key, so it is
+not an error and the exit code is unchanged. The cases are a session log that
+was not flushed and session-log rows the writer could not write (a read-only
+`logs/` directory, a full disk). After a partial failure the error line comes
+first. New keys on the line are additive.
+
 ## Error shape
 
 Every `sc-ai` stderr line is one JSON object (ADR-SAG-0027, amended by bead

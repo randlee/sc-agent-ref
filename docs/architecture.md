@@ -137,7 +137,7 @@ own row's Status cell and its own marker text, and added or removed no entry).
 | ADR-SAG-0010 | CLI thin adapter | Active | Amended by ADR-SAG-0026 (Active, r-3b) |
 | ADR-SAG-0011 | Python via sc-jev-py wheel | Active | Amended by ADR-SAG-0026 (Active, r-3b); phase-end amendment (Active) |
 | ADR-SAG-0012 | sc-jev owns Jev API | Active | Amended by ADR-SAG-0030 (Active, r-5) |
-| ADR-SAG-0013 | Session and general logs via sc-observability v2 | Active | Amended by ADR-SAG-0021; ADR-SAG-0026 (Active, r-3b); ADR-SAG-0031 (Active, r-6); general log (Active, 2026-11-09, agt-9eh); ADR-SAG-0032 (Active, agt-1aq: row admission waits, bounded) |
+| ADR-SAG-0013 | Session and general logs via sc-observability v2 | Active | Amended by ADR-SAG-0021; ADR-SAG-0026 (Active, r-3b); ADR-SAG-0031 (Active, r-6); general log (Active, 2026-11-09, agt-9eh); log durability and privacy (Active); ADR-SAG-0032 (Active, agt-1aq: row admission waits, bounded) |
 | ADR-SAG-0014 | CLI success body | Active | A.1 subsection (Active, r-1); amended by ADR-SAG-0024 (Active, r-2); ADR-SAG-0032 (Active, agt-1aq) |
 | ADR-SAG-0015 | Subjects artifact outside the judge | Active | — |
 | ADR-SAG-0016 | v2 shim in sc-agent-types; adapter in sc-jev-host | Active | Amended by ADR-SAG-0023 (Active, r-4); ADR-SAG-0027 (Active, r-1); ADR-SAG-0026 (Active, r-3b); ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6) |
@@ -1207,6 +1207,46 @@ the module** and drop the types dependency if possible (bead:
   full at stream rates; a row waits for room (bounded) instead of being
   dropped, and a row dropped after the bound is counted. See ADR-SAG-0032
   (older text above, "there is no queue", describes injected callables).
+
+### Amendment (production readiness: log durability and privacy)
+
+**Status:** Active.
+
+- (Active) **Lost rows are visible.** `sc-observability` counts a row its
+  writer fails to write (`health().dropped_events_total`) but `flush` still
+  succeeds, so a read-only `logs/` or a full disk lost audit rows with exit 0
+  and no output. After the flush, `ObservabilityAdapter::take_lost_rows`
+  reports the new count; `sc-jev-host` appends it to the response warnings
+  (`data.warnings`, REQ-SAG-0641), or to the error detail when the run failed.
+  `sc-ai` also prints one stderr line `{"warning": "...", "schema_version": 1}`
+  (a different shape from an error: no `error` key, exit code unchanged; the
+  `jev stream` flush warning uses it too) and `sc-jev-py` raises a
+  `RuntimeWarning`. The run keeps its answer. The general log stays best effort
+  (REQ-SAG-0635).
+- (Active) **Startup retention pass.** `sc-observability` exposes no
+  "maintain now" call on a running logger, but `JsonlFileSink::open` runs its
+  retention pass once (rotate, prune). `sc-jev-host` calls it before it starts
+  each default logger, including the Python general log (REQ-SAG-0642).
+- (Active) **Owner-only files.** `sc-observability` creates directories and
+  files under the process umask and has no mode setting. `sc-jev-host` creates
+  missing directories `0700`, creates the active file `0600` before the logger
+  starts, and sets `0600` on the active and rotated files at start and at each
+  flush (a rotation creates the new active file under the umask, so the window
+  is between a rotation and the next flush; the `logs/` directory is `0700`
+  when sc-agent created it). A directory that already existed is not changed
+  (REQ-SAG-0643).
+- (Active) **`.sc-ai/.gitignore`.** When a live run creates a policy default
+  under the repo root, it first creates it `0700` with a `.gitignore`
+  containing `*` (REQ-SAG-0644). The Python default is outside any repository.
+- (Active) **Fork.** The writer is a thread, so a forked child has no writer.
+  The Python general-log backend is a wrapper installed as the host logger
+  that rebuilds the core backend when the process id changes (so
+  `get_host_logger()` is covered), the session-log registry ignores a writer
+  started by another process, and a dead writer is leaked, never dropped. On
+  macOS `std` parks threads on a Mach semaphore that does not survive `fork`,
+  so in a forked child the flush wait runs on a fresh thread
+  (`obs::note_process`, called at import). Other blocking waits on the forking
+  thread in a child are not covered (REQ-SAG-0645).
 
 ## ADR-SAG-0014 — CLI success body
 

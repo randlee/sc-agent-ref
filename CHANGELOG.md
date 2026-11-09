@@ -205,7 +205,32 @@ describes an older shape, the `Added` section above is what 0.1.0 does.
 - Windows binaries link the C runtime statically (`.cargo/config.toml`), so
   they run without the Visual C++ redistributable.
 
+### Fixed
+
+- Session-log rows are no longer lost silently. With a read-only `logs/`
+  directory or a full disk, a run used to exit 0 with no row and no message.
+  The run keeps its answer; the loss is an entry in `data.warnings`, one
+  stderr line from `sc-ai` (`{"warning","schema_version"}`, exit code
+  unchanged; `jev stream` uses it for its flush warning too) and a Python
+  `RuntimeWarning`.
+- Logs rotate in short-lived processes: a retention pass runs when each log
+  writer starts, so an oversized log no longer grows on every one-shot
+  `sc-ai` call (`sc-observability` alone first rotates 60 s after start).
+- Log directories sc-agent creates are `0700` and log files, rotated ones
+  included, are `0600` (on Unix); existing directories are left alone.
+- When sc-agent creates `.sc-ai/` it writes `.sc-ai/.gitignore` (`*`), so
+  session files holding prompts no longer show in `git status`. An existing
+  directory or `.gitignore` is not touched.
+- `sc_jev_py` survives `fork()` (gunicorn, Celery prefork): a child started
+  after logging used to abort with SIGTRAP; it now starts its own writer and
+  its rows are written.
+
 ### Known limits
+
+- Log files `sc-observability` creates at a rotation are `0644` until the next
+  flush tightens them; a `logs/` directory that existed before is not changed.
+  `sc-observability` has no mode setting (draft issue in the maintainer
+  report).
 
 - WinGet exposes only `sc-ai` until the first manifest is hand-submitted with
   an alias for each binary (bead `agt-sft`); `sc-treesitter` is in the

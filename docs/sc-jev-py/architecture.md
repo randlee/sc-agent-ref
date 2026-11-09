@@ -146,3 +146,25 @@ log is the shared host logger (`logging.rs`):
   general log through its own backend, which `get_host_logger()` does not see.
 - Callables take the GIL once per row (`Python::attach`); an exception is
   swallowed as a rejection.
+
+### Fork (gunicorn, Celery prefork, `multiprocessing`)
+
+The writer is a thread and a forked child has none. The host-logger backend is
+a wrapper (`ForkSafeBackend`) that compares the process id on each call and, in
+a child, starts a backend of its own on the same log root and leaks the
+parent's. The same wrapper is what `get_host_logger()` reaches, and
+`sc_jev_host` skips a session-log writer started by another process. A child
+neither crashes (it used to abort with SIGTRAP) nor loses rows. `register_native`
+records the importing process (`obs::note_process`) so a child's flush wait
+runs on a fresh thread: on macOS a thread that parked before the fork aborts
+when it parks again. Import `sc_jev_py` before forking workers (a preload app
+does). Not covered: other blocking `std` waits on the forking thread of a
+child, and a `fork` while another thread holds one of the wheel's locks.
+`tests/fixtures/jev-python/tests/test_fork.py` skips where `os.fork` does not
+exist.
+
+### Lost rows and file modes
+
+A session-log row the writer cannot write is a `RuntimeWarning` and an entry in
+`result.data["warnings"]`; the run keeps its answer (REQ-SAG-0641). Log
+directories the wheel creates are `0700` and log files `0600` (REQ-SAG-0643).
