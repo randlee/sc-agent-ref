@@ -70,9 +70,19 @@ falling back to the default.
 ```bash
 sc-ai jev run --repo-root . --check check.toml --backend jev
 sc-ai jev dry-run --repo-root . --check check.toml
+sc-ai jev models
 sc-ai jev ask --session-id <ULID> --text "why?" --project my-project
 sc-ai jev stream --repo-root . --concurrency 8 < requests.jsonl > answers.jsonl
 ```
+
+`--backend` takes `jev`, `haiku` or `luna` (each the latest model) or a known
+model id of one of them such as `claude-haiku-5-5` (that backend pinned to that
+model); `backends=` in Python and `backends` in `check.toml` take the same.
+New models are added without recompiling in `~/.sc-agent/models.toml`
+(`[[model]]` rows with `id`, `alias`, `released`); `jev models` and
+`sc_jev_py.models()` list the resolved models and whether each came from the
+crate or the file. A local-only test fails when a provider lists a model newer
+than the crate table (`cargo test -p sc-agent-types --test model_freshness`).
 
 `jev run` answers one request per process. `jev stream` answers many through
 one process: JSONL in (stdin or `--input FILE`), one JSONL answer per request on

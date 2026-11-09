@@ -27,7 +27,7 @@ Later changes are additive: new enum variants (every public enum is
 
 | Feature | Default | Modules | Types |
 | --- | --- | --- | --- |
-| (core) | always | `error`, `envelope`, `ids`, `models`, `schema`, `cancel`, `trace` | `JevError`, `ErrorCode`, `ErrorCategory`, `NetworkErrorKind`, `BusyCause`, `ResponseInvalidCause`, `LimitUnit`, `ProviderFailure`; `ScAgentErrorResponse`, `ErrorDetails`; `BackendId`, `BackendKeyId`, `BackendFamily`, `BackendDescriptor`, `BACKENDS`, `BackendSet`, `SessionId`, `Rev` (built only by `Rev::parse` or `Rev::worktree()`; no unchecked constructor), `RepoRoot`, `RepoRelativePath`, `BlobSha`, `Sha256Digest` (`of_text`), `AnswerId`, `ProjectLabel`, `Operation`; `ModelId`, `UnknownModel`, `ModelFamily`, `ModelDescriptor`, `MODELS`, `ModelAliases`; `schema::subjects::*` (`SubjectsDocument`, `SubjectsBuilder`, `SubjectsSource` and `SubjectsProducer` with private fields, constructors and accessors, `GrammarRef` (the language, grammar crate and version a producer takes), `QueryMode`, `Span`, `Subject`); `CancelToken`, `SendTrace` |
+| (core) | always | `error`, `envelope`, `ids`, `models`, `schema`, `cancel`, `trace` | `JevError`, `ErrorCode`, `ErrorCategory`, `NetworkErrorKind`, `BusyCause`, `ResponseInvalidCause`, `LimitUnit`, `ProviderFailure`; `ScAgentErrorResponse`, `ErrorDetails`; `BackendId`, `BackendKeyId`, `BackendFamily`, `BackendDescriptor`, `BACKENDS`, `BackendChoice`, `BackendSet`, `SessionId`, `Rev` (built only by `Rev::parse` or `Rev::worktree()`; no unchecked constructor), `RepoRoot`, `RepoRelativePath`, `BlobSha`, `Sha256Digest` (`of_text`), `AnswerId`, `ProjectLabel`, `Operation`; `ModelId`, `UnknownModel`, `ModelFamily`, `ModelDescriptor`, `MODELS`, `ModelAliases`, `ModelSource`, `ResolvedModel`; `schema::subjects::*` (`SubjectsDocument`, `SubjectsBuilder`, `SubjectsSource` and `SubjectsProducer` with private fields, constructors and accessors, `GrammarRef` (the language, grammar crate and version a producer takes), `QueryMode`, `Span`, `Subject`); `CancelToken`, `SendTrace` |
 | `secret` | yes | `secret` | `ResolvedApiKey` |
 | `obs` | yes | `observability::v2` | `SessionLog`, `SharedSessionLog`, `LogEvent`, `LogRejected`, `NoopSessionLog`; `GeneralLog`, `SharedGeneralLog`, `GeneralEvent`, `GeneralLevel`, `NoopGeneralLog`, `RecordingGeneralLog`, `RejectingGeneralLog` |
 | `git` | no | `git` | `discover_toplevel`, `read_at_rev`, `GitBlob` |
@@ -84,11 +84,12 @@ body of every variant shape; `SC_UPDATE_GOLDEN=1` rewrites it.
 ## Backends
 
 `BACKENDS` holds one `BackendDescriptor` per built-in id: `name`, read
-`aliases`, `key_id`, `family`, `requires_llm_context`,
+`key_id`, `family`, `requires_llm_context`,
 `supports_session_ask`, `request_limit_bytes`. `BackendId::descriptor` is the
 one exhaustive `match`; `Display`, serde and `FromStr` read the descriptor,
-so `luna` / `openai` are the only written spellings and `open_ai_luna`
-/ `open_ai` are read aliases. `JudgeBackend::capabilities()` is provided from
+so `jev`, `haiku` and `luna` are the only spellings (no read aliases).
+`BackendChoice` also accepts a known model id (a pin), which `BackendSet`
+carries (`pin`). `JudgeBackend::capabilities()` is provided from
 the descriptor. Callers branch on descriptor facts, never on id equality.
 
 ## Judge contract

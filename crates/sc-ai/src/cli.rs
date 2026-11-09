@@ -14,7 +14,7 @@ use std::path::PathBuf;
 
 use clap::error::ErrorKind;
 use clap::{Args, Parser, Subcommand};
-use sc_agent_types::{BackendChoice, BackendId, JevError, ProjectLabel, Rev, SessionId};
+use sc_agent_types::{BackendChoice, JevError, ProjectLabel, Rev, SessionId};
 use sc_ai::{AskCommand, Command, ModelsCommand, RunCommand, StreamCommand};
 use sc_jev_host::stream::Concurrency;
 
@@ -365,7 +365,7 @@ fn stream_registry(
         return Ok(None);
     };
     let ids = if args.backends.is_empty() {
-        vec![BackendId::Jev.into()]
+        vec![sc_agent_types::BackendId::Jev.into()]
     } else {
         args.backends.clone()
     };
@@ -416,7 +416,7 @@ fn run_registry(
         return Ok(None);
     };
     let ids = if args.backends.is_empty() {
-        vec![BackendId::Jev.into()]
+        vec![sc_agent_types::BackendId::Jev.into()]
     } else {
         args.backends.clone()
     };
@@ -453,7 +453,7 @@ fn scripted_registry(
     let answers: serde_json::Value = serde_json::from_str(&text).map_err(|error| {
         JevError::input_invalid(format!("scripted answers are not JSON: {error}"))
     })?;
-    let ids: Vec<BackendId> = match answers
+    let ids: Vec<sc_agent_types::BackendId> = match answers
         .as_object()
         .filter(|map| map.len() == 1)
         .and_then(|map| map.get("backends"))
@@ -461,7 +461,7 @@ fn scripted_registry(
     {
         Some(by_backend) => by_backend
             .keys()
-            .map(|name| name.parse::<BackendId>())
+            .map(|name| name.parse::<sc_agent_types::BackendId>())
             .collect::<Result<_, _>>()?,
         None => sc_agent_types::BACKENDS
             .iter()
