@@ -1,0 +1,292 @@
+{
+ "pr": 35,
+ "qa_pass": "qa-r6-4",
+ "round": "QA-4 (merged tree)",
+ "sprint": "r-6",
+ "branch": "sprint/r-6-session-log-record",
+ "head": "b35a9c4",
+ "base": "integrate/phase-a",
+ "prior_round": {
+  "qa_pass": "qa-r6-3",
+  "pr_comment": "https://github.com/randlee/sc-agent/pull/35#issuecomment-6718516595"
+ },
+ "notes": "Reviewers ran at b35a9c4, the merge of integrate/phase-a (r-5, PR 34 PASS) into r-6, and focused on integration. flaky-test-qa was omitted: the merge brings only r-5 tests, which PR 34 QA already covered, and r-6 flaky passed at d106d03. CI at b35a9c4 is 13/13 green (run 42457497332).",
+ "manifest": [
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "a77e3a4e3c5870b06",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "b35a9c4"
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "aa77d59dd6118cd38",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "b35a9c4"
+  },
+  {
+   "agent": "req-qa",
+   "task_id": "a199618f9ab8f4d2f",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "b35a9c4"
+  }
+ ],
+ "reviewer_outputs": [
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "a77e3a4e3c5870b06",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-6-session-log-record",
+     "reviewed_commit": "b35a9c4",
+     "review_mode": "sprint_review",
+     "executed_checks": {
+      "fmt": {
+       "status": "pass",
+       "command": "cargo fmt --all --check"
+      },
+      "clippy": {
+       "status": "pass",
+       "command": "cargo clippy --locked --workspace --all-targets --exclude sc-jev-py -- -D warnings (1.94.1)"
+      },
+      "tests": {
+       "status": "pass",
+       "command": "cargo test --locked --workspace --exclude sc-jev-py; plus --features test-util for sc-jev-check, sc-jev, sc-jev-backends, sc-decision-schema, sc-ai (1.94.1), all green"
+      },
+      "coverage": {
+       "status": "not_run",
+       "line": 0.0,
+       "branch": 0.0,
+       "function": 0.0,
+       "adequate_for_risk": true
+      },
+      "artifacts": {
+       "status": "not_run",
+       "command": ""
+      }
+     },
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "notes": [
+      "HEAD verified as b35a9c4 on sprint/r-6-session-log-record. All gates were run with RUSTUP_TOOLCHAIN=1.94.1, because the default toolchain is 1.99.0. The 'cargo doc' run with RUSTDOCFLAGS=-D warnings (--workspace --exclude sc-jev-py --no-deps) finished clean.",
+      "Integration spot-check: both Jev clients (crates/sc-jev/src/client/mod.rs and crates/sc-jev-backends/src/backend.rs) recover the request digest from the final serialized body. They pass the same SendTrace through judge(). The session-log send step (crates/sc-jev-check/src/run/log.rs) creates a fresh SendTrace per send. The tests that cover these paths pass, including crates/sc-jev-check/tests/session_log.rs and the wire tests. I found no integration defect between r-5 and r-6. This was a targeted read of those call sites, not a line-by-line review."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "aa77d59dd6118cd38",
+   "fenced_json": {
+    "agent": "arch-qa",
+    "branch": "sprint/r-6-session-log-record",
+    "scope": {
+     "phase": "phase-a-refine",
+     "sprint": "r-6"
+    },
+    "commit": "b35a9c4",
+    "verdict": "PASS",
+    "blocking": 0,
+    "important": 0,
+    "findings": [],
+    "adr_checks": [
+     {
+      "adr": "ADR-SAG-0012",
+      "source": "docs/architecture.md:1037",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:122",
+       "crates/sc-jev/src/check.rs:40",
+       "crates/sc-agent-http/src/retry.rs:422"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0013",
+      "source": "docs/architecture.md:843",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:123",
+       "docs/architecture.md:866",
+       "crates/sc-jev-check/src/run/log.rs:131"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0030",
+      "source": "docs/architecture.md:1610",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:140",
+       "crates/sc-jev/src/check.rs:39",
+       "boundaries/sc-decision-schema/decision-schema.toml:22"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0031",
+      "source": "docs/architecture.md:1692",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:141",
+       "crates/sc-jev-check/src/run/log.rs:111",
+       "crates/sc-jev-check/src/run/log.rs:148"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0026",
+      "source": "docs/architecture.md:1344",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:1417",
+       "crates/sc-agent-http/src/retry.rs:420"
+      ]
+     }
+    ],
+    "gate_artifact_checks": [
+     {
+      "artifact": "docs/architecture.md (ADR index)",
+      "status": "closed",
+      "evidence_refs": [
+       "docs/architecture.md:122",
+       "docs/architecture.md:123",
+       "docs/architecture.md:140",
+       "docs/architecture.md:141"
+      ],
+      "notes": "Rows 0012, 0013, 0030 and 0031 each carry the Active markers of both sprints. 0012 is Active (r-5). 0013 is Active (r-6). 0030 is Active (r-7) with jev::v1 Active (r-5). 0031 is Active (r-7 storage schema, r-6 wiring). The only 'Proposed' text left is the generic marker rule at line 106. No conflict markers remain in the tree."
+     },
+     {
+      "artifact": "boundaries/*.toml",
+      "status": "closed",
+      "evidence_refs": [
+       "boundaries/sc-agent-http/agent-http.toml:36",
+       "boundaries/sc-jev-check/jev-check.toml:39",
+       "boundaries/sc-jev/jev.toml:38",
+       "boundaries/sc-jev-backends/jev-backends.toml:38"
+      ],
+      "notes": "I compared the allowed_dependencies lists against the Cargo.toml direct dependencies of sc-agent-http, sc-jev, sc-jev-backends, sc-jev-check, sc-decision-schema and sc-jev-host. They match. The hash is computed through sc-agent-types (Sha256Digest), so sc-agent-http gains no new edge and still has no edge to sc-decision-schema. Full boundary validation is left to ruthless-boundary-qa."
+     }
+    ],
+    "merge_ready": true,
+    "notes": "I checked that the worktree HEAD resolves to sprint/r-6-session-log-record at b35a9c4cac9be7a3359e7e2597699664c596245a. The combined r-5 and r-6 code is consistent. sc-jev builds the body with CheckRequest::from_canonical(...).to_body() (check.rs:39-41). send_with_busy_retry's retry_loop records Sha256Digest::of_text(request.body()) into the SendTrace once per send, before the first transport send (retry.rs:420-422). So request_sha256 is the hash of the documented Jev body, and prompt_sha256 stays the canonical-payload digest. The engine creates a fresh SendTrace per backend send and emits exactly one SessionLogRow (log.rs:148-150). request_sha256 comes from trace.request_sha256() and is None if no body was built. model_id is judge.model_id(). The row goes out through LogEvent and row.to_fields(), with no bespoke writer. I did not re-run the std Mutex-across-await rule on a diff, because I had no shell and no diff. Neither retry.rs nor log.rs shows a lock held across an await. No findings are caused by combining r-5 and r-6."
+   }
+  },
+  {
+   "agent": "req-qa",
+   "task_id": "a199618f9ab8f4d2f",
+   "fenced_json": {
+    "status": "PASS",
+    "reviewed_branch": "sprint/r-6-session-log-record",
+    "reviewed_commit": "b35a9c4",
+    "errors": [],
+    "scope": {
+     "phase": "phase-a-refine",
+     "sprint": "r-6"
+    },
+    "baselines_read": [
+     "docs/requirements.md",
+     "docs/sc-jev-check/requirements.md"
+    ],
+    "phase_or_sprint_docs_read": [
+     "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md"
+    ],
+    "requirement_checks": [
+     {
+      "id": "REQ-SAG-0612..0618",
+      "source": "docs/requirements.md:186-192",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/requirements.md:186-192"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0600 / REQ-SAG-0611 amendments",
+      "source": "docs/requirements.md:213-214",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/requirements.md:213-214",
+       "docs/sc-jev-check/requirements.md:17,22"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0610 / 0613 / 0614 / 0616 / 0617 (crate rows)",
+      "source": "docs/sc-jev-check/requirements.md:21-26",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/sc-jev-check/requirements.md:21-26"
+      ]
+     },
+     {
+      "id": "r-5 rows (REQ-SAG-0403, 0143, 0103, 0142)",
+      "source": "docs/requirements.md:170,180; docs/sc-jev/requirements.md:12-13; docs/sc-decision-schema/requirements.md:11,15",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/requirements.md:170",
+       "docs/requirements.md:180",
+       "docs/sc-jev-check/requirements.md:35-44"
+      ]
+     }
+    ],
+    "deliverable_checks": [
+     {
+      "item": "Both sprints' requirement rows survive the merge intact",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "docs/requirements.md:170-192",
+       "docs/sc-jev-check/requirements.md:17-44"
+      ],
+      "notes": "The r-6 rows (0600, 0610 to 0618) and the r-5 rows (0403, 0143, 0103, the question-kinds section) are all present. There are no conflict markers in docs/ and no duplicate ids."
+     },
+     {
+      "item": "r-6 acceptance rows hold against the merged docs",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:428-440",
+       "docs/requirements.md:186-192,213-214"
+      ],
+      "notes": "The requirement text for every acceptance root is intact. The test names in docs/sc-jev-check/requirements.md match the acceptance table. The parent's gates (clippy, workspace tests, test-util runs, just lint, test-python with 18 passed) ran on the merge and covered the code path. I did not re-run them."
+     },
+     {
+      "item": "No contradiction between r-5 and r-6 text",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "docs/requirements.md:130",
+       "docs/requirements.md:170"
+      ],
+      "notes": "r-5 changes the Jev body and question kinds. r-6 changes the session log, ULID ids and the request digest. Their subjects do not overlap. REQ-SAG-0130 mentions r-5 only as a publish gate and has no conflict with r-6."
+     }
+    ],
+    "findings": [],
+    "summary": {
+     "total_findings": 0,
+     "blocking_findings": 0,
+     "overall_compliance": "compliant",
+     "deliverables_total": 3,
+     "deliverables_complete": 3,
+     "deliverables_incomplete": 0,
+     "deliverable_completion_percent": 100.0
+    },
+    "gate_reason": "The worktree HEAD is refs/heads/sprint/r-6-session-log-record. I could not read the commit sha, because I had no shell. The merge of docs/requirements.md and docs/sc-jev-check/requirements.md left no conflict markers. Both sprints' rows are intact and consistent. I found no merge-caused finding. This was a document check only. I did not re-run any code or gate."
+   }
+  }
+ ]
+}

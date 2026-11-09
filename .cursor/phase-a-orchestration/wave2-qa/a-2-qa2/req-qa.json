@@ -1,0 +1,15 @@
+{
+  "scope": { "phase": "a", "sprint": "a-2" },
+  "phase_or_sprint_docs": ["docs/requirements.md", "docs/architecture.md", "docs/project-plan.md"],
+  "phase_sprint_documents": ["docs/requirements.md", "docs/architecture.md", "docs/project-plan.md"],
+  "authoritative_sprint_doc": "docs/plans/phase-a/sprint-a-2-agent-secrets.md",
+  "worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-2-agent-secrets",
+  "branch": "sprint/a-2-agent-secrets",
+  "commit": "85710a9074d6508362be8ef23f6343951b816041",
+  "review_targets": ["crates/sc-agent-secrets/", "boundaries/sc-agent-secrets/", "docs/plans/phase-a/sprint-a-2-agent-secrets.md"],
+  "round_limit": true,
+  "changed_files": ["Cargo.lock", "crates/sc-agent-secrets/", "crates/sc-agent-types/src/error.rs", "docs/architecture.md", "docs/plans/phase-a/sprint-a-2-agent-secrets.md", "docs/sc-agent-secrets/architecture.md"],
+  "triage_records": ["https://github.com/randlee/sc-agent/pull/6#issuecomment-6590312623"],
+  "carry_forward_findings": ["ARCH-001", "ARCH-002", "ARCH-003", "REQ-QA-001", "REQ-QA-002", "RBP-F001", "RBP-F002", "RBP-F003", "QA-001"],
+  "notes": "QA-2 PR #6 verify prior finding fixes"
+}

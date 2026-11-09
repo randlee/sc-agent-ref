@@ -1,0 +1,257 @@
+{
+  "scope": {
+    "phase": "A",
+    "sprint": null
+  },
+  "phase_or_sprint_docs": [
+    "docs/plans/phase-a/plan.md",
+    "docs/plans/phase-a/intent.md",
+    "docs/plans/phase-a/sprint-a-1-workspace-and-types.md",
+    "docs/plans/phase-a/sprint-a-2-agent-secrets.md",
+    "docs/plans/phase-a/sprint-a-3-check-build-and-payload.md",
+    "docs/plans/phase-a/sprint-a-4-backend-jev.md",
+    "docs/plans/phase-a/sprint-a-5-backend-llm.md",
+    "docs/plans/phase-a/sprint-a-6-sessions-and-orchestration.md",
+    "docs/plans/phase-a/sprint-a-7-sc-ai-cli.md",
+    "docs/plans/phase-a/sprint-a-8-pyo3-wrapper.md",
+    "docs/plans/phase-a/sprint-a-9-sc-publish-install.md",
+    "docs/plans/phase-a/sprint-a-10-release-preflight.md"
+  ],
+  "phase_sprint_documents": [
+    "docs/plans/phase-a/plan.md",
+    "docs/plans/phase-a/intent.md",
+    "docs/plans/phase-a/sprint-a-1-workspace-and-types.md",
+    "docs/plans/phase-a/sprint-a-2-agent-secrets.md",
+    "docs/plans/phase-a/sprint-a-3-check-build-and-payload.md",
+    "docs/plans/phase-a/sprint-a-4-backend-jev.md",
+    "docs/plans/phase-a/sprint-a-5-backend-llm.md",
+    "docs/plans/phase-a/sprint-a-6-sessions-and-orchestration.md",
+    "docs/plans/phase-a/sprint-a-7-sc-ai-cli.md",
+    "docs/plans/phase-a/sprint-a-8-pyo3-wrapper.md",
+    "docs/plans/phase-a/sprint-a-9-sc-publish-install.md",
+    "docs/plans/phase-a/sprint-a-10-release-preflight.md"
+  ],
+  "authoritative_sprint_doc": "docs/plans/phase-a/plan.md",
+  "worktree_path": "/Volumes/Extreme Pro/github/sc-agent",
+  "branch": "plan/phase-a",
+  "commit": "8a37136bdd49631f534b03913dcb7b254b0ec8e3",
+  "review_targets": [
+    "docs/architecture.md",
+    "docs/requirements.md",
+    "docs/sc-jev-check/extraction.md",
+    "tests/fixtures/jev/README-contract/errors.json"
+  ],
+  "round_limit": true,
+  "changed_files": [],
+  "triage_records": [
+    ".cursor/phase-a-orchestration/carry-forward-qa-plan-1.json"
+  ],
+  "carry_forward_findings": [
+    {
+      "id": "REQ-QA-001",
+      "severity": "Blocking",
+      "agent": "req-qa"
+    },
+    {
+      "id": "REQ-QA-002",
+      "severity": "Blocking",
+      "agent": "req-qa"
+    },
+    {
+      "id": "REQ-QA-003",
+      "severity": "Blocking",
+      "agent": "req-qa"
+    },
+    {
+      "id": "REQ-QA-004",
+      "severity": "Blocking",
+      "agent": "req-qa"
+    },
+    {
+      "id": "REQ-QA-005",
+      "severity": "Blocking",
+      "agent": "req-qa"
+    },
+    {
+      "id": "REQ-QA-006",
+      "severity": "Blocking",
+      "agent": "req-qa"
+    },
+    {
+      "id": "REQ-QA-007",
+      "severity": "Blocking",
+      "agent": "req-qa"
+    },
+    {
+      "id": "REQ-QA-008",
+      "severity": "Important",
+      "agent": "req-qa"
+    },
+    {
+      "id": "REQ-QA-009",
+      "severity": "Important",
+      "agent": "req-qa"
+    },
+    {
+      "id": "REQ-QA-010",
+      "severity": "Important",
+      "agent": "req-qa"
+    },
+    {
+      "id": "REQ-QA-011",
+      "severity": "Important",
+      "agent": "req-qa"
+    },
+    {
+      "id": "REQ-QA-012",
+      "severity": "Important",
+      "agent": "req-qa"
+    },
+    {
+      "id": "REQ-QA-013",
+      "severity": "Important",
+      "agent": "req-qa"
+    },
+    {
+      "id": "REQ-QA-014",
+      "severity": "Important",
+      "agent": "req-qa"
+    },
+    {
+      "id": "REQ-QA-015",
+      "severity": "Important",
+      "agent": "req-qa"
+    },
+    {
+      "id": "ARCH-001",
+      "severity": "Blocking",
+      "agent": "arch-qa"
+    },
+    {
+      "id": "ARCH-002",
+      "severity": "Blocking",
+      "agent": "arch-qa"
+    },
+    {
+      "id": "ARCH-003",
+      "severity": "Blocking",
+      "agent": "arch-qa"
+    },
+    {
+      "id": "ARCH-004",
+      "severity": "Blocking",
+      "agent": "arch-qa"
+    },
+    {
+      "id": "ARCH-005",
+      "severity": "Blocking",
+      "agent": "arch-qa"
+    },
+    {
+      "id": "ARCH-006",
+      "severity": "Blocking",
+      "agent": "arch-qa"
+    },
+    {
+      "id": "ARCH-007",
+      "severity": "Important",
+      "agent": "arch-qa"
+    },
+    {
+      "id": "ARCH-008",
+      "severity": "Important",
+      "agent": "arch-qa"
+    },
+    {
+      "id": "PLAN-CRIT-001",
+      "severity": "Blocking",
+      "agent": "critical-plan-reviewer"
+    },
+    {
+      "id": "PLAN-CRIT-002",
+      "severity": "Blocking",
+      "agent": "critical-plan-reviewer"
+    },
+    {
+      "id": "PLAN-CRIT-003",
+      "severity": "Blocking",
+      "agent": "critical-plan-reviewer"
+    },
+    {
+      "id": "PLAN-CRIT-004",
+      "severity": "Blocking",
+      "agent": "critical-plan-reviewer"
+    },
+    {
+      "id": "PLAN-CRIT-005",
+      "severity": "Blocking",
+      "agent": "critical-plan-reviewer"
+    },
+    {
+      "id": "PLAN-CRIT-006",
+      "severity": "Important",
+      "agent": "critical-plan-reviewer"
+    },
+    {
+      "id": "PLAN-CRIT-007",
+      "severity": "Important",
+      "agent": "critical-plan-reviewer"
+    },
+    {
+      "id": "PLAN-CRIT-008",
+      "severity": "Important",
+      "agent": "critical-plan-reviewer"
+    },
+    {
+      "id": "PLAN-CRIT-009",
+      "severity": "Important",
+      "agent": "critical-plan-reviewer"
+    },
+    {
+      "id": "PLAN-SCOPE-013",
+      "severity": "Important",
+      "agent": "plan-scope-reviewer"
+    },
+    {
+      "id": "PLAN-SCOPE-014",
+      "severity": "Important",
+      "agent": "plan-scope-reviewer"
+    },
+    {
+      "id": "PLAN-SCOPE-015",
+      "severity": "Important",
+      "agent": "plan-scope-reviewer"
+    },
+    {
+      "id": "RBP-F001",
+      "severity": "Important",
+      "agent": "rust-best-practices-agent"
+    },
+    {
+      "id": "RBP-F002",
+      "severity": "Important",
+      "agent": "rust-best-practices-agent"
+    },
+    {
+      "id": "RBP-F003",
+      "severity": "Minor",
+      "agent": "rust-best-practices-agent"
+    },
+    {
+      "id": "RBP-F004",
+      "severity": "Minor",
+      "agent": "rust-best-practices-agent"
+    },
+    {
+      "id": "RBP-F005",
+      "severity": "Minor",
+      "agent": "rust-best-practices-agent"
+    },
+    {
+      "id": "RSH-001",
+      "severity": "Important",
+      "agent": "rust-service-hardening-agent"
+    }
+  ],
+  "notes": "qa-plan-2: recheck ONLY carry_forward finding ids from qa-plan-1."
+}

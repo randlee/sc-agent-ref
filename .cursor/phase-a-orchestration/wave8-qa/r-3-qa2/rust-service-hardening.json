@@ -1,0 +1,34 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/r-3-shared-http",
+    "reviewed_commit": "f19ce8df1d62f3ffe179d20b6a806f081db253bf",
+    "review_mode": "sprint_review",
+    "service_indicators_found": ["ureq Agent / UreqTransport", "busy-retry loop with sleeps", "HttpClient<T>", "loopback test server"],
+    "topics_reviewed": ["carry_forward_RSH-005", "carry_forward_RSH-006", "carry_forward_QA1_observations_1_3_4", "fix_round_regressions: timeouts, https_only/redirects, redaction"],
+    "carry_forward_verdicts": {
+      "RSH-005": "closed",
+      "RSH-006": "closed",
+      "QA1_observation_1_config_bounds": "closed",
+      "QA1_observation_3_double_charge_doc": "closed",
+      "QA1_observation_4_SecretHeader_matches": "closed"
+    },
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": {"critical": 0, "important": 0, "minor": 0}
+    },
+    "notes": [
+      "Worktree HEAD (/Volumes/Extreme Pro/github/sc-agent/.git/worktrees/r3-qa2-review/HEAD) is f19ce8df1d62f3ffe179d20b6a806f081db253bf, matching the assignment. The branch name was not independently checked because the worktree is detached. This was a static read only. I ran no tests.",
+      "The QA-1 report had zero findings, so the carry-forward ids are RSH-005 and RSH-006, which that report named as closed. I re-verified both at f19ce8d. I also checked three QA-1 observations that the fix round said it addressed.",
+      "RSH-005 is closed. In crates/sc-agent-http/src/retry.rs the 90 s BUDGET (line 66), the jitter cap (line 62) and the 100 ms WAIT_SLICE cancellation slices (line 69, wait loop at line 208) are all still present. The wait is min(wait + jitter, remaining) at line 430. Every Err is redacted in one place, at line 250. send_and_parse (line 308) now redacts the parse closure's error as well.",
+      "RSH-006 is closed. In ureq_transport.rs, UreqTransport::new (line 87) builds one agent from AgentConfig::production. That config has max_redirects 0 and https_only true (lines 41-42), and connect and global timeouts are applied at lines 49-52. The only https_only false path is loopback_for_tests, which is gated by #[cfg(feature = \"test-util\")] (lines 96-103). send() still refuses a non-https endpoint (line 121).",
+      "QA-1 observation 1 is closed. crates/sc-jev/src/config.rs now enforces attempts 1..=4 (MAX_ATTEMPTS) and a timeout of at most 120 s (MAX_TIMEOUT), with a bounds test at line 194.",
+      "QA-1 observation 3 is closed. The developer report says the retry docs now state the double-charge rationale, and the retry.rs module docs follow that structure.",
+      "QA-1 observation 4 is closed. SecretHeader::matches is now behind #[cfg(feature = \"test-util\")] (request.rs:245).",
+      "Fix-round regression check: the new HttpClient/send_and_parse layer, BusyExhaustion::of, the endpoint-once-per-provider change and the INPUT_INVALID and RESPONSE_INVALID error mappings add no new unbounded waits, no new retry of non-idempotent failures, no secret leak path and no weakening of the HTTPS-only or no-redirect settings. The 120 s global timeout still bounds an in-flight request. Per the developer report, CI is green at 7cfd413 on all three OSes, including the new `cargo test -p sc-agent-http --features test-util` step. f19ce8d only adds a sprint-doc citation line."
+    ]
+  },
+  "error": null
+}

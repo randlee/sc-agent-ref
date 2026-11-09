@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "R7-QA1-FTQ-002",
+ "found_in": "A1-R7",
+ "found_at": "2026-11-08T02:30:00Z",
+ "title": "The test relies on a wall-clock margin for ordering. It assumes the 1 s client request dea",
+ "description": "The test relies on a wall-clock margin for ordering. It assumes the 1 s client request deadline (Timeouts::new(2 s connect, 1 s request)) will not expire before the client has finished connecting and writing the request. The comment says '1 s leaves ample time to connect and write the request first', and the test then asserts `server.finish().len() == 1`. On a starved CI host the client's request deadline can expire before the server thread has read the request. The server then records 0 requests, and the `seen.len()` assertion inside finish() fails. No handshake orders the server's receipt before the client's timeout, so the outcome depends on scheduling. The clock is real because ureq uses the system clock, so it cannot be injected here.",
+ "category": "timing_assertion",
+ "severity": "minor",
+ "pattern": "timing_assertion",
+ "file_filter": "crates/sc-agent-http/tests/ureq.rs",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "0d0ebc1983412ff750b775ed40c3261fe17383dd"
+  },
+  {
+   "branch": "sprint/r-7-decision-schema",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-7-decision-schema",
+   "order_index": 1,
+   "head_sha": "94972978d9e6321be71e884368721cf0f79d3d54"
+  }
+ ],
+ "worktree_paths": [
+  "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+  "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-7-decision-schema"
+ ]
+}

@@ -1,0 +1,32 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "plan/phase-a-decision-apis",
+    "reviewed_commit": "537a69d",
+    "review_mode": "doc_review",
+    "practice_mode": "selected",
+    "practices_reviewed": ["RBP-001", "RBP-003", "RBP-004", "RBP-007", "RBP-008"],
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": {
+        "critical": 0,
+        "important": 0,
+        "minor": 0
+      }
+    },
+    "notes": [
+      "Locked recheck of carry-forward RBP-F001 to RBP-F007. Input check: refs/heads/plan/phase-a-decision-apis = 537a69d1cfe4ed90c2d4ccab6ec36731b3cc41b2, matching the assigned commit.",
+      "RBP-F001 (RBP-001) closed: sprint-r-7 'API clarifications' (lines 203-206) makes try_from_fields refuse a schema_version other than SESSION_LOG_SCHEMA_VERSION with INPUT_INVALID, a hint, and coverage in test_unknown_or_missing_key_rejected.",
+      "RBP-F002 (RBP-003) closed by binding clarification (lines 207-210): JudgeBackend stays open, with the additive-default-body rule as its semver promise. Minor residual: the D1.4 README sentence at line 324 still reads 'no semver promise beyond the schema versions it names'. The binding clarification supersedes it and says the README states the additive rule, so this is not blocking. The sentence should be edited to match.",
+      "RBP-F003 (RBP-008) closed (lines 207-210): dyn-compatibility is stated (&self receivers, no generic methods, no Self in signatures) and required in the rustdoc and crate README.",
+      "RBP-F004 (RBP-004) justified: owner decision keeps repo as absolute path text, and the non-UTF-8 replacement and the answers_by_repo_project collision are documented on the field (lines 211-213). Accepted as an owner-justified deviation from the newtype recommendation.",
+      "RBP-F005 (RBP-007) justified: ModelDescriptor::model() uses expect under M-PANIC-ON-BUG, with the invariant proven by test_known_models_roundtrip (lines 214-215). This is an accepted alternative to the recommended variant-storage option.",
+      "RBP-F006 (RBP-001) closed: AnswerId::from_str and ModelId::from_str errors carry fix hints, and the acceptance rows assert them (lines 216-218).",
+      "RBP-F007 (RBP-004) closed: test_latest_alias_lookup asserts that every released value is a valid YYYY-MM-DD date (lines 219-220).",
+      "No regressions found in the new section. D9 also flips the ADR-SAG-0030 per-API bullet to (Active, r-7) (line 221), which addresses out-of-scope observation 1 from the prior review. Out-of-scope observation 2 (llm::v1 versus the one-module-per-API rule) remains unaddressed and is not a blocking item for this recheck."
+    ]
+  },
+  "error": null
+}

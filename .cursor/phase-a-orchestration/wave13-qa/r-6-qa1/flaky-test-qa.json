@@ -1,0 +1,61 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-6-session-log-record",
+    "reviewed_commit": "0408826",
+    "findings": [
+      {
+        "id": "FTQ-001",
+        "severity": "important",
+        "file": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-6-session-log-record/tests/fixtures/jev-python/tests/test_run_check_and_ask.py",
+        "line": 337,
+        "test": "test_dotenv_read_from_toplevel_in_subdir",
+        "mechanism": "env_leak",
+        "issue": "The fixture repository is created with subprocess.run(['git','init',...], env={**os.environ, 'GIT_CONFIG_GLOBAL': devnull, 'GIT_CONFIG_NOSYSTEM': '1'}). The ambient GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, GIT_OBJECT_DIRECTORY, GIT_COMMON_DIR and similar variables are inherited. Git hooks such as pre-commit export GIT_INDEX_FILE and sometimes GIT_DIR. When pytest is launched from such a context, 'git init' initialises or reinitialises the host repository instead of tmp_path/repo, and the later toplevel discovery from src/pkg resolves against the host. The test's CONFIG_INVALID and .env expectations then fail. Whether it fails depends on how the suite was launched, not on a random draw. The Rust side already strips these variables (crates/sc-agent-types/src/git.rs lines 98-102, and the git() helpers in crates/sc-jev-check/tests/repo.rs and crates/sc-jev-host/tests/log_context.rs), so this is the one fixture that does not.",
+        "recommendation": "Build the child environment from os.environ with GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, GIT_OBJECT_DIRECTORY, GIT_ALTERNATE_OBJECT_DIRECTORIES, GIT_COMMON_DIR, GIT_PREFIX, GIT_CONFIG_PARAMETERS, GIT_CONFIG_COUNT and GIT_DEFAULT_HASH removed. Set GIT_CONFIG_GLOBAL and GIT_CONFIG_SYSTEM to os.devnull, GIT_CONFIG_NOSYSTEM=1 and GIT_TERMINAL_PROMPT=0. Use one shared helper that mirrors the Rust git() helper, and pass a timeout (see FTQ-002).",
+        "evidence": "subprocess.run([\"git\", \"init\", \"-q\", str(repo)], check=True, env={**os.environ, \"GIT_CONFIG_GLOBAL\": os.devnull, \"GIT_CONFIG_NOSYSTEM\": \"1\"}) followed by monkeypatch.chdir(sub) and sc_jev_py.build_request(\"check.toml\"). The Rust production discovery strips GIT_DIR and GIT_INDEX_FILE in crates/sc-agent-types/src/git.rs:98-102."
+      },
+      {
+        "id": "FTQ-002",
+        "severity": "minor",
+        "file": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-6-session-log-record/tests/fixtures/jev-python/tests/test_run_check_and_ask.py",
+        "line": 334,
+        "test": "test_dotenv_read_from_toplevel_in_subdir",
+        "mechanism": "unbounded_wait",
+        "issue": "subprocess.run for 'git init' has no timeout. A stalled git process, for example one blocked on a lock or a stalled filesystem, blocks the whole pytest session with no failure. Every other subprocess in the workspace is bounded by the 60 s deadline runner (tests/support/deadline.rs), so this is the one unbounded spawn in the targeted set.",
+        "recommendation": "Pass timeout= to subprocess.run and let subprocess.TimeoutExpired fail the test with a clear message. Better, route the call through the same bounded helper as the Rust tests, combined with the environment fix in FTQ-001.",
+        "evidence": "subprocess.run([\"git\", \"init\", \"-q\", str(repo)], check=True, env=...) with no timeout argument."
+      },
+      {
+        "id": "FTQ-003",
+        "severity": "minor",
+        "file": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-6-session-log-record/tests/fixtures/jev-python/tests/test_run_check_and_ask.py",
+        "line": 403,
+        "test": "test_build_request_releases_the_gil",
+        "mechanism": "timing_assertion",
+        "issue": "Two independent 20 s wall-clock budgets govern the handshake. The worker thread's deadline starts before build_request spawns the extractor. The child's own 20 s poll starts only after it has written 'started'. On a loaded host where the interpreter start is slow, the worker gives up first, never writes 'ack', and the child exits 3. The test then reports EXTRACTION_FAILED with the message 'the GIL was held', although the GIL was never the cause. The failure is intermittent on loaded CI hosts and carries the wrong diagnosis.",
+        "recommendation": "Remove the worker's own deadline. Let it poll for 'started' until the stop event is set, and rely on the finally block (stop.set() plus a bounded join) for the bound. Assert started.exists() before the error-code assertion, so a child that never started is reported as such. Do not widen the 20 s budgets, because that would only pad the race.",
+        "evidence": "answer() computes deadline = time.monotonic() + 20 before the extractor is spawned, and the handshake script (_HANDSHAKE_SCRIPT, line 363) runs its own 20 s deadline. The assertion message reads 'EXTRACTION_FAILED means the worker never ran: the GIL was held'."
+      },
+      {
+        "id": "FTQ-004",
+        "severity": "minor",
+        "file": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-6-session-log-record/crates/sc-jev-host/tests/log_context.rs",
+        "line": 147,
+        "test": "test_log_context_repo_is_main_repo_paths_stay_on_worktree",
+        "mechanism": "timing_assertion",
+        "issue": "run_from and ask_from flush the file logger through a barrier with a 5 s default timeout (sc-observability 1.5.0, DEFAULT_WRITER_SHUTDOWN_TIMEOUT and flush_with_timeout in runtime.rs). If the writer stalls past 5 s, flush returns Err. compose.rs turns that into a response warning ('session log was not flushed'). The test discards response.warnings() from both calls and then reads the JSONL file, so a flush timeout appears only as an opaque row-count assertion (rows.len() == 1 or == 2). That is intermittent under load and does not name its cause.",
+        "recommendation": "Assert warnings().is_empty() on the run and ask responses before reading the file, so a flush failure is named in the failure. Keep the file-level checks for paths only, and check row contents through an injected SessionLog sink, as crates/sc-jev-check/tests/session_log.rs already does. The same pattern appears outside this target at crates/sc-jev-host/tests/obs.rs lines 114 and 150 (adapter.flush().expect), and should get the same treatment.",
+        "evidence": "let response = run_from(source, inputs(&linked).project(label)).expect(\"run\"); followed by let rows = rows(&linked.join(\".sc-ai/logs/sc-ai.log.jsonl\")); with no assertion on response.warnings(). compose.rs:428-435 converts a flush Err into a warning string. obs.rs:Drop and flush use the 5 s writer shutdown timeout."
+      }
+    ],
+    "summary": {
+      "total_findings": 4,
+      "critical": 0,
+      "important": 1,
+      "minor": 3
+    }
+  },
+  "error": null
+}

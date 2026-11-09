@@ -1,0 +1,103 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "plan/phase-a-decision-apis",
+    "reviewed_commit": "197c24f",
+    "review_mode": "doc_review",
+    "practice_mode": "all",
+    "practices_reviewed": ["RBP-001", "RBP-002", "RBP-003", "RBP-004", "RBP-005", "RBP-006", "RBP-007", "RBP-008", "RBP-009", "RBP-010"],
+    "findings": [
+      {
+        "id": "RBP-F001",
+        "practice_id": "RBP-001",
+        "severity": "important",
+        "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+        "line": 479,
+        "issue": "SessionLogRow::try_from_fields refuses only unknown, missing or wrong-typed keys (INPUT_INVALID). It defines no refusal for a row whose schema_version differs from SESSION_LOG_SCHEMA_VERSION (1), and no recovery text for that failure. A row written by a future schema with the same key set would be accepted silently. The schema_version column (line 497) and the code sample (line 838) do not close this.",
+        "recommendation": "State that try_from_fields refuses any schema_version other than SESSION_LOG_SCHEMA_VERSION with INPUT_INVALID and a fix hint naming the supported version and the 'written by a newer sc-agent' recovery, matching the session-document rule (architecture.md ADR-SAG-0008 r-1 and the DecisionSchemaId refusal rule at sprint lines 406-410). Extend the existing test_unknown_or_missing_key_rejected row to cover it; do not add a new gate.",
+        "evidence": "Sprint line 479: 'try_from_fields(&Map) (unknown key, missing key or wrong type is INPUT_INVALID)'. Line 497: 'schema_version INTEGER NOT NULL -- SESSION_LOG_SCHEMA_VERSION of the row'. The error-context pattern (Phase 2, error inventory) requires recovery steps for each failure mode; this one has none."
+      },
+      {
+        "id": "RBP-F002",
+        "practice_id": "RBP-003",
+        "severity": "minor",
+        "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+        "line": 324,
+        "issue": "The open/sealed decision for JudgeBackend is recorded (architecture.md line 297: 'intentionally open (not sealed)'), but the stability statement for the published crate contradicts it. D1.4 says the README states 'no semver promise beyond the schema versions it names', while the moved trait is a public, open extension point whose additive-evolution rule (architecture.md lines 297-298: new methods get default bodies) is itself a compatibility promise. Downstream implementors would depend on JudgeRequest, JudgeOutcome, SendTrace and ModelId, yet no downstream run path exists (BackendRegistry::register cannot add an id; factory table is private, per architecture.md lines 292-296).",
+        "recommendation": "Decide explicitly in the ADR-SAG-0009 r-7 amendment. Either keep the trait open and state its additive-evolution rule as a semver promise (and drop 'no semver promise' for that trait), or seal it with a private supertrait and a rustdoc '# Sealed' note, as sealed-traits-plan.md prescribes when the implementation set is fixed. Record which one in the crate README.",
+        "evidence": "Sprint line 324: 'README of the new crate states data-only; no semver promise beyond the schema versions it names'. Sprint line 765: 'pub trait JudgeBackend: Send + Sync'. Architecture line 297: 'JudgeBackend is intentionally open (not sealed); every method added after A.1 has a default body.'"
+      },
+      {
+        "id": "RBP-F003",
+        "practice_id": "RBP-008",
+        "severity": "minor",
+        "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+        "line": 765,
+        "issue": "JudgeBackend is designed for dynamic dispatch (Arc<dyn JudgeBackend> in the factory table at line 580, BackendRegistry::register(Arc<dyn JudgeBackend>), Vec<Arc<dyn JudgeBackend>> in architecture.md line 1124), and it is about to be published. No plan text states that it must remain dyn-compatible (&self receivers only, no generic methods, no Self in signatures), or whether downstream code is expected to box or store it. The additive rule (default-body methods) can add a generic method and silently break dyn use.",
+        "recommendation": "Add one sentence to the ADR-SAG-0009 r-7 amendment and to the trait rustdoc: JudgeBackend is dyn-compatible (&self receivers, no generic methods, no Self in signatures), and new methods must keep it so. The existing factory-table coercion already compile-checks this in-tree, so no new CI gate is needed.",
+        "evidence": "Sprint line 765-773 (trait sample: judge and model_id take &self and no generics, but no statement of the requirement); line 580 (Arc<dyn JudgeBackend> factory). Trait-object-safety pattern: 'require the design to state whether downstream consumers are expected to box/store trait objects.'"
+      },
+      {
+        "id": "RBP-F004",
+        "practice_id": "RBP-004",
+        "severity": "minor",
+        "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+        "line": 816,
+        "issue": "RowContext.repo is a public String holding an absolute repo path, and its invariant (absolute; main repo or calling folder) lives only in a comment. Non-UTF-8 bytes are replaced lossily, so two distinct repos can store the same value, and answers_by_repo_project (line 516) indexes on it. The sibling field project (line 817) is already a validated newtype (ProjectLabel), so the design is inconsistent.",
+        "recommendation": "Introduce a RepoRoot newtype with a fallible constructor (absolute path, else INPUT_INVALID with a fix hint) and use it as the field type. Decide non-UTF-8 handling explicitly: reject it, or keep the lossy encoding and state its collision consequence for the index.",
+        "evidence": "Sprint line 816: 'pub repo: String, // absolute path text; a non-UTF-8 byte is replaced (documented)'. Line 817: 'pub project: Option<ProjectLabel>'. Newtype pattern: 'validated values reused across boundaries with a distinct meaning' should be newtypes."
+      },
+      {
+        "id": "RBP-F005",
+        "practice_id": "RBP-007",
+        "severity": "minor",
+        "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+        "line": 681,
+        "issue": "ModelDescriptor::model(&self) -> ModelId is declared infallible, but the descriptor stores model as &'static str (line 678), and the only ModelId constructor is the fallible FromStr (line 669; UnknownModel has no public constructor). The signature therefore needs an unwrap or expect that the plan never names. The invariant (every MODELS string parses to a known variant) is held only by test_known_models_roundtrip, which is a convention rather than a type shape.",
+        "recommendation": "Either store the known ModelId variant in the descriptor (unit variants are const-constructible, so ModelDescriptor can drop Copy if needed), or state the expect in the signature's doc with the M-PANIC-ON-BUG rationale and point it at test_known_models_roundtrip. BackendDescriptor::default_model (line 697) is fine only if its row also stores a variant; say so.",
+        "evidence": "Sprint line 678: 'model: &'static str, family: ModelFamily, alias: &'static str, released: &'static str'. Line 681: 'pub fn model(&self) -> ModelId;'. Line 669: 'impl FromStr for ModelId ... empty or control char -> INPUT_INVALID'. Infallible pattern: 'unwrap() justified socially instead of structurally'."
+      },
+      {
+        "id": "RBP-F006",
+        "practice_id": "RBP-001",
+        "severity": "minor",
+        "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+        "line": 715,
+        "issue": "Two new failure modes name a stable code but no recovery text: AnswerId::from_str (not a ULID -> INPUT_INVALID, line 715) and ModelId::from_str for an empty or control-character string (line 669). ProjectLabel (line 626) and DecisionSchemaId (line 758) do specify hints. The acceptance rows (line 888) check the code only.",
+        "recommendation": "Specify a fix hint for each new error path, as ProjectLabel does. For example, AnswerId: use the answer_id value written in the session log row. ModelId: use a non-empty model string without control characters, or pick one from the ModelAliases catalog. Extend the existing acceptance rows to assert the hint.",
+        "evidence": "Sprint line 715: 'impl FromStr for AnswerId { ... /* not a ULID -> INPUT_INVALID */ }'. Line 669 gives the code only. Error-context pattern Phase 2: 'Does each inventory entry have recovery steps? Flag entries with empty recovery columns.'"
+      },
+      {
+        "id": "RBP-F007",
+        "practice_id": "RBP-004",
+        "severity": "minor",
+        "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+        "line": 678,
+        "issue": "The model release date is carried as a free-form &'static str ('YYYY-MM-DD' only in a trailing comment), and builtin() selects the 'newest MODELS row per alias' (line 691) by that string. No typed date or format check guards the ordering, so a malformed or mis-ordered entry silently changes which model every alias sends.",
+        "recommendation": "Type the release date (for example a small ReleaseDate with const construction and Ord), or add a format check to the catalog test (test_latest_alias_lookup) that asserts every released value is a valid date.",
+        "evidence": "Sprint line 678: 'released: &'static str, // \"YYYY-MM-DD\"'. Line 691: 'pub fn builtin() -> Self; // newest MODELS row per alias'."
+      }
+    ],
+    "summary": {
+      "total_findings": 7,
+      "by_severity": {
+        "critical": 0,
+        "important": 1,
+        "minor": 6
+      }
+    },
+    "notes": [
+      "Input check: worktree HEAD resolves to refs/heads/plan/phase-a-decision-apis = 197c24fbfc3b603026fd064f20b026bfb6459315, matching the assigned commit 197c24f.",
+      "Scope reviewed: docs/architecture.md (Crate naming convention lines 51-64; ADR-SAG-0009 r-1 lines 292-298; ADR-SAG-0030 lines 1562-1644, including the per-API bullet at 1616-1624; ADR-SAG-0031 storage schema lines 1653-1689); docs/plans/phase-a-refine/plan.md (layering item 2 at 610-613, owner item 12 at 663-670); docs/plans/phase-a-refine/sprint-r-7-decision-schema.md (layering 201-218, D1.4 at 324, D3-D8 and code samples 647-869, acceptance rows 880-895).",
+      "Consistent, no finding: owner item 12 agrees with the crate naming convention and the ADR-SAG-0030 per-API bullet on family names (sc-jev-*, sc-decider*, sc-laya*, sc-kev*, sc-decision-*), on decider-then-laya ordering with kev unscheduled, and on jev::v1 landing in r-5. The ADR-SAG-0030 Amends list matches its index row (architecture.md line 137).",
+      "Conforming, no finding: RBP-002 (SessionLogRow ok/failed constructors keep outcome shape private); RBP-006 (SendTrace OnceLock interior mutability has a stated rationale, sprint lines 611-613); RBP-010 (a required SendTrace parameter on the exchange functions makes 'no send without a trace' a type-shape rule, sprint lines 614-618). RBP-005 and RBP-009 are not triggered in this docs-only scope.",
+      "Owner-decided, not re-raised: ModelAliases::latest and with_override keep string aliases (sprint D7.2, owner 2026-11-07). This would otherwise be an RBP-004 candidate.",
+      "Out-of-scope observation 1 (no RBP id): architecture.md line 1616 marks the per-API bullet '(Recorded; binding as a reservation ... flips with this ADR in r-7)' instead of the (Proposed, r-N) form. Sprint D9 (lines 633-645) flips only (Proposed, r-7) markers, so this bullet would stay stale after r-7.",
+      "Out-of-scope observation 2 (no RBP id): module layout. The stated rule is one versioned module per decision API (architecture.md lines 63-64 and 1617-1621), but r-7 adds llm::v1 (Haiku and Luna I/O, which architecture.md lines 53-58 count as the Jev family) and variants. Architecture.md line 1030 names sc_decision_schema::jev while line 1598 names jev::v1. The plan should decide whether llm::v1 belongs under the Jev family.",
+      "Coverage limit: guidelines.txt was read only to line 1470 of 2428. Practice definitions came from practice-inventory.md and enforcement-strategy.md. Per-pattern references loaded: sealed-traits-plan, trait-object-safety-plan, newtype-zero-cost-plan, infallible-plan, error-context-recovery-plan.",
+      "Read-only review. No files were modified. Recommendations add no CI or quality gates, per the owner rule."
+    ]
+  },
+  "error": null
+}

@@ -1,0 +1,5 @@
+[
+  {"agent": "flaky-test-qa", "task_id": "ac7b84ac0548a2532", "spawn_actor": "parent-orchestrator", "scope_locked": ["FTQ-011","FTQ-012"]},
+  {"agent": "arch-qa", "task_id": "a1d3f14a890665ce8", "spawn_actor": "parent-orchestrator", "scope_locked": ["ARCH-005","ARCH-006"]},
+  {"agent": "rust-qa-agent", "task_id": "a87ba04c14d250237", "spawn_actor": "parent-orchestrator", "scope_locked": ["QA-009","QA-010","QA-011","QA-004"]}
+]

@@ -1,0 +1,45 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/r-2b-multi-backend-semantics",
+    "reviewed_commit": "3ef50f5f7118f5d136fe5442c0a2a39c2b58debd",
+    "review_mode": "sprint_review",
+    "practice_mode": "selected",
+    "practices_reviewed": ["RBP-004", "RBP-007"],
+    "findings": [],
+    "verdicts": [
+      {"id": "RBP-F001", "practice_id": "RBP-004", "disposition": "fixed", "evidence": "sc-jev-backends validate.rs no longer has ParsedQuestion or a byte re-parse. validate_questions(&PayloadBundle) returns bundle.question_choices() (validate.rs:77-95). wire::parse_answers (wire.rs:289) and backend::typed_answers (backend.rs:88) take &BTreeMap<QuestionId, BTreeSet<ChoiceId>> from request.payload().question_choices() (backend.rs:197-199). The QuestionId::try_from re-validation after the judge call is gone, so no id can pass pre-send and fail afterwards."},
+      {"id": "RBP-F002", "practice_id": "RBP-004", "disposition": "fixed", "evidence": "sc-jev check.rs: PreparedCheck.criteria is BTreeMap<QuestionId, BTreeSet<ChoiceId>> cloned from payload.question_choices() (check.rs:20-67). parse_outcome compares typed ids and has no string re-validation (check.rs:159-226). criteria_from_object and criteria_from_array are removed."},
+      {"id": "RBP-F003", "practice_id": "RBP-007", "disposition": "fixed", "evidence": "run/mod.rs:429 now uses BackendSet::default(). sc-agent-types ids.rs:438-450 provides an infallible Default of [Jev] with a doc test. The dead error path is gone."},
+      {"id": "RBP-F004", "practice_id": "RBP-007", "disposition": "fixed", "evidence": "wire.rs:245-252 parse_count uses value.get(\"input_tokens\").and_then(Value::as_u64) with no unwrap_or(0). The only unwrap_or(0) left in sc-jev* sources is in a test-pipe drain in extract/command.rs:337, unrelated to token counts."},
+      {"id": "RBP-F005", "practice_id": "RBP-007", "disposition": "fixed", "evidence": "The criteria_from_object expect(\"checked above\") is gone with the function. In parse_outcome the criteria.get(id).expect pattern is replaced by iterating (question, allowed) pairs directly, with ok_or_else for answer and choice lookup. No non-test expect remains in check.rs."}
+    ],
+    "regression_check": {
+      "result": "no lost validation",
+      "analysis": [
+        "Empty payload (no questions): still refused with INPUT_INVALID 'at least one question', in both validate_questions and check.rs prepare.",
+        "Question with fewer than two choices: still refused (INPUT_INVALID 'question X is not a choice question...'). The check now runs on the distinct-choice set, so ['a','a'] is also refused. The old code let it through, so this is stricter, not lost.",
+        "Missing, empty or control-character question id or choice label: ids.rs:773-788 rejects empty and control-character text in the typed ids, and Question deserialization uses QuestionId and ChoiceId. This is stricter than the old non-empty-string check.",
+        "Duplicate question id: PayloadBundle::encode (payload.rs:166-174) refuses it with INPUT_INVALID.",
+        "Non-string choices or a non-array choices field: Question.choices is Vec<ChoiceId>, so the payload cannot be constructed.",
+        "Missing or non-string prompt: Question.prompt is a required String, so a payload without one fails at deserialization. The old check also accepted an empty-string prompt, so no behaviour was lost.",
+        "Unknown question 'type': Question has #[serde(deny_unknown_fields)] and no type field. A payload carrying type is refused at deserialization, even type:'choice', which the old code tolerated. A PayloadBundle cannot carry it, so the developer's claim holds. The refusal now happens upstream of the backends.",
+        "The byte cap, token ceiling and the count and message limits in validate.rs are unchanged.",
+        "Reply-side checks are intact: id-set equality, choice membership, probability-key equality and numeric checks, in wire::parse_answers and check.rs parse_outcome.",
+        "Refusal tests for the three malformed-payload cases exist in validate.rs and check.rs, now built through PayloadBundle::encode."
+      ],
+      "assignment_deviation": "The developer dropped the 'type' and 'prompt' checks although the assignment said to keep them. I treat this as acceptable and not a regression, because the types make those invalid values unrepresentable in a bundle. If the project wants a payload with a stray 'type' key to get a specific error message, that would be an error-shape question for the layer that deserializes payloads. It is not an RBP regression."
+    },
+    "summary": {
+      "total_findings": 0,
+      "by_severity": {"critical": 0, "important": 0, "minor": 0}
+    },
+    "notes": [
+      "Findings were scope-locked to RBP-F001..F005. No unrelated or new Blocking finding was found.",
+      "I read the files in the review worktree directly and compared validate.rs with the QA-1 worktree copy. I did not run commands or tests, and I requested no new gates.",
+      "Minor observation, not filed: typed_answers (backend.rs:98-100) finds the QuestionId by a linear scan with as_str() == id. The question set is tiny, so there is no practical cost."
+    ]
+  },
+  "error": null
+}

@@ -1,0 +1,37 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/r-2-engine-shape",
+    "reviewed_commit": "3f66e7bbc09c66fdeca2146bfb436ededd4bf02f",
+    "review_mode": "sprint_review",
+    "service_indicators_found": [
+      "sc-jev-py pyo3 cdylib (long-lived host process)",
+      "HTTP judge backends via sc-agent-http (ureq transport, busy retry)",
+      "subprocess supervision in sc-jev-check extract/command.rs"
+    ],
+    "topics_reviewed": [
+      "config_validation",
+      "retries",
+      "backpressure_bounded_resources",
+      "timeouts",
+      "secret_handling_logging",
+      "input_size_limits"
+    ],
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": {"critical": 0, "important": 0, "minor": 0}
+    },
+    "notes": [
+      "Carry-forward: QA-1 reported zero findings (status pass), so there were no RSH ids to assign. I checked its four earlier carry-forward ids (RSH-001, 002, 004, 008) as closed in QA-1 and found no sign of regression in the files I read. Verdict: nothing is open and nothing has regressed.",
+      "Verification limits: I had no shell, so I could not run git. I did not confirm that worktree HEAD equals 3f66e7b, and I did not read the actual 0d643f2..3f66e7b diff. I reviewed the code at the worktree path directly, so the caller should confirm HEAD. No RSH id was newly raised.",
+      "discover_repo_root (sc-jev-check/src/run/mod.rs:748-805): The fallback to cwd is now narrow. classify_discovery returns cwd only when git ran and found no work tree and enclosing_git_entry finds no .git at or above start, or when git is not installed (IoFailed NotFound). If git finds no work tree but an ancestor holds .git, it returns INPUT_INVALID, so a subdirectory is never silently taken as the root. Every other discover_toplevel error is propagated as Err. This closes the QA-1 observation that any error was mapped silently to cwd. enclosing_git_entry honours GIT_CEILING_DIRECTORIES, walks upward and always terminates, using symlink_metadata with no reads and no unbounded work. There is no traversal exposure.",
+      "Bounded tmp retry (sc-jev-check/src/session/mod.rs:482-500): open_unique_tmp makes at most TMP_OPEN_ATTEMPTS = 8 tries, each with a fresh 64-bit random name and create_new. Only AlreadyExists is retried. Any other error returns at once, and the final error is surfaced. There is no tight unbounded loop. The write_private cleanup is correct: on any write or rename failure the tmp file is removed, and the mode is 0600. The directory sync is best effort and is not a save failure, which is a documented and acceptable tradeoff. Retry applies only to a local name collision and is not a side-effecting retry.",
+      "Ask path (sc-jev-check/src/run/mod.rs:689-730 and sc-jev-py/src/run.rs:268-287): ask reads the session read-only and never rewrites it. It validates the follow-up, rebuilds the registry for the stored backend only, via config.registry or BackendRegistry::from_env (keys via sc_agent_secrets), and runs validate_for_send before send. The cancel token is propagated. In the Python host, ask_with releases the GIL through py.detach and flushes the logger. No key is cached in LiveSession. The request is bounded by the backend byte cap, and the 8 MiB session read cap is unchanged.",
+      "Pipe-error mapping: sc-ai/src/main.rs:27-28 and sc-treesitter/src/main.rs:27-28 map a stdout write_all failure to JevError::io_failed('stdout', &error) and exit with code 2. The error type keeps only the ErrorKind, and the doc test at sc-agent-types/src/error.rs:476-483 asserts the raw cause text ('secret') is not leaked. So the mapping adds no leak and no hang. I found no BrokenPipe special-casing that could mask a real failure.",
+      "Observations carried from QA-1, none raised as findings: expired session files are never deleted, kill_and_reap kills only the direct child, git helpers have no wall-clock deadline, timeout_seconds has no upper bound, --request-json has no size cap, and sc-agent-secrets dotenv.rs reads .env with no size cap. They are all outside the fix-round regression scope. Per the owner rule I request no new gates, receipts or docs-consistency checks."
+    ]
+  },
+  "error": null
+}

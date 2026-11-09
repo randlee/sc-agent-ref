@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "R5-QA1-RBP-F001",
+ "found_in": "A1-R5",
+ "found_at": "2026-11-08T05:55:41Z",
+ "title": "CanonicalJudgePayload::from_bytes formats the raw serde_json error with `{error}` into an INPUT_INVALID detail",
+ "description": "CanonicalJudgePayload::from_bytes formats the raw serde_json error with `{error}` into an INPUT_INVALID detail. Serde Data errors can echo input values (for example `invalid type: string \"...\"`, `unknown field `x``). The doc promises 'never a payload byte outside a question id'. The sibling code in jev/v1.rs avoids this with `describe` and `JevError::encode_failed` (category and position only). The two code paths are inconsistent, and the doc claim does not hold.",
+ "category": "RBP-001",
+ "severity": "important",
+ "pattern": "RBP-001",
+ "file_filter": "crates/sc-decision-schema/src/payload.rs",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "77fffdbd89c5e927f9c6b51fc650fada72cfb400"
+  },
+  {
+   "branch": "sprint/r-5-jev-wire-envelope",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope",
+   "order_index": 1,
+   "head_sha": "14f85f129fda46e39bda90ae2a5333e69213312b"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a",
+  "sprint/r-5-jev-wire-envelope"
+ ]
+}

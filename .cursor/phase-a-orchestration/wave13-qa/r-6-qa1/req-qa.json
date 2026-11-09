@@ -1,0 +1,116 @@
+{
+  "status": "FAIL",
+  "reviewed_branch": "sprint/r-6-session-log-record",
+  "reviewed_commit": "0408826",
+  "errors": [],
+  "scope": {"phase": "phase-a-refine", "sprint": "r-6"},
+  "baselines_read": ["docs/requirements.md", "docs/architecture.md", "docs/project-plan.md (not opened; docs/plans/phase-a-refine/plan.md read at the relevant sections)", ".claude/project/quality-policy.md", "docs/sc-agent-types/requirements.md", "docs/sc-agent-http/requirements.md", "docs/sc-jev-check/requirements.md", "docs/sc-jev-host/requirements.md", "docs/sc-ai/requirements.md", "docs/sc-jev-py/requirements.md", "docs/sc-decision-schema/requirements.md"],
+  "phase_or_sprint_docs_read": ["docs/plans/phase-a-refine/plan.md", "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md"],
+  "input_verification": "Worktree .git points at worktrees/r-6-session-log-record; HEAD is refs/heads/sprint/r-6-session-log-record; that ref is 040882616616a60326510c22d5be38d02116ac06, which matches the assigned commit 0408826.",
+  "limits": "I had no shell. Nothing was compiled or run. Test presence and wiring were checked by reading code. Whether the tests pass, and whether the cargo tree, hack, lint and pin gates are green, rest on the parent's runs.",
+  "requirement_checks": [
+    {"id": "REQ-SAG-0612", "source": "docs/requirements.md:186", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-agent-types/tests/ids.rs:184", "crates/sc-jev-check/tests/session.rs:92", "crates/sc-ai/tests/cli.rs:656", "tests/fixtures/jev-python/tests/test_run_check_and_ask.py:185"], "note": "The Python UUID refusal is not exercised, see REQ-QA-002."},
+    {"id": "REQ-SAG-0613", "source": "docs/requirements.md:187", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-agent-http/src/retry.rs:420-423", "crates/sc-agent-http/tests/trace.rs:45,67,84", "crates/sc-jev-check/tests/session_log.rs:142,163,191", "crates/sc-jev-check/src/run/log.rs:148"]},
+    {"id": "REQ-SAG-0614", "source": "docs/requirements.md:188", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-agent-types/src/git.rs:229", "crates/sc-jev-check/src/run/mod.rs:926", "crates/sc-jev-check/tests/repo.rs:70,106,116", "crates/sc-jev-host/tests/log_context.rs:132"]},
+    {"id": "REQ-SAG-0615", "source": "docs/requirements.md:189", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-ai/tests/cli.rs:679,753", "tests/fixtures/jev-python/tests/test_run_check_and_ask.py:217,243"]},
+    {"id": "REQ-SAG-0616", "source": "docs/requirements.md:190", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/src/run/log.rs:124", "crates/sc-jev-check/tests/session_log.rs:226"]},
+    {"id": "REQ-SAG-0617", "source": "docs/requirements.md:191", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/src/run/log.rs:131-135", "crates/sc-jev-check/tests/session_log.rs:286,503", "crates/sc-jev-host/tests/obs.rs:107"]},
+    {"id": "REQ-SAG-0618", "source": "docs/requirements.md:192", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["Cargo.toml:36-37", "crates/sc-agent-types/Cargo.toml:34-36", "Cargo.lock:1565,2011", "crates/sc-agent-types/tests/ids.rs:213", "sc-lint.toml:73-84"], "note": "Manifests no longer list sha2 or uuid. Cargo.lock keeps sha2 0.10.9 only through sc-sha, as the sprint allows. The cargo tree gate was not run by me."},
+    {"id": "REQ-SAG-0600", "source": "docs/requirements.md:213", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/tests/sessions_exact.rs:215", "crates/sc-jev-check/src/session/mod.rs:90-94,196-202,385-397"]},
+    {"id": "REQ-SAG-0611", "source": "docs/requirements.md:214", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/tests/session_log.rs:392,465", "docs/sc-agent-types/requirements.md:42"]},
+    {"id": "REQ-SAG-0610", "source": "docs/requirements.md:102", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/src/run/mod.rs:629,648,721,729,867"]},
+    {"id": "NFR-SAG-0004", "source": "docs/requirements.md:165", "listed_in_sprint_doc": true, "result": "not-verifiable", "evidence_refs": ["Cargo.toml:36-37"], "note": "I did not run check-exact-pins.sh. The manifests show caret ranges, as required. The parent's run is the evidence."},
+    {"id": "REQ-SAG-0107", "source": "docs/sc-agent-types/requirements.md:34", "listed_in_sprint_doc": true, "result": "not-verifiable", "evidence_refs": ["crates/sc-agent-types/tests/fixtures/no-default-features-deps.txt:25,30,36"], "note": "The fixture lists sc-sha, ulid and sha2 (transitive) and no uuid. The feature-powerset run is the parent's."},
+    {"id": "NFR-SAG-0002", "source": "docs/requirements.md:114", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-agent-http/src/retry.rs:422", "crates/sc-jev-check/tests/session_log.rs:465"], "note": "Only the body is hashed, not headers."},
+    {"id": "REQ-SAG-0101/0103/0120/0121/0147/0148, REQ-SAG-0505, REQ-SAG-0300..0303/0305/0309/0311..0314/0503/0601..0603/0620, REQ-SAG-0604/0605/0702/0703/0710/0712/0900/0803, REQ-SAG-0140..0145 (crate-level ids of owned crates)", "source": "docs/<crate>/requirements.md", "listed_in_sprint_doc": false, "result": "not-verifiable", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:16-45"], "note": "These ids are absent from the sprint list, so the gate treats them as not verified. See REQ-QA-001."}
+  ],
+  "deliverable_checks": [
+    {"item": "D0 sc-sha behaviour pinned by test_sha256_reference_vectors", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-agent-types/tests/ids.rs:213", "Cargo.lock:1565"], "notes": "sc-sha is locked at 1.7.0."},
+    {"item": "D1 ULID session ids, document v3, UUID refused", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-agent-types/tests/ids.rs:184", "crates/sc-jev-check/src/session/mod.rs:196-202", "crates/sc-jev-check/tests/session.rs:92", "crates/sc-ai/tests/cli.rs:656"], "notes": "The Python hint wording is dropped, see REQ-QA-002."},
+    {"item": "D2 sc-sha digest, uuid/sha2 removed, lint ownership, no-default-features fixture", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["Cargo.toml:36-37", "sc-lint.toml:73-84", "crates/sc-agent-types/tests/fixtures/no-default-features-deps.txt", "crates/sc-ai/Cargo.toml"], "notes": "Not run by me: cargo tree gates, jev_cross_impl, sc-treesitter."},
+    {"item": "D3 request_sha256 recorded before the first send; fresh SendTrace per send; with_sent_body", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-agent-http/src/retry.rs:420-423", "crates/sc-jev-check/src/run/log.rs:148", "crates/sc-decision-schema/src/test_util.rs:111,174", "crates/sc-agent-http/Cargo.toml:43-45"], "notes": "The code guards the call with `if sends == 0`, where the doc says 'no branch'. The effect is the same, because it records once, before the first attempt. Informational."},
+    {"item": "D4 model_id from JudgeBackend::model_id()", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-jev-check/src/run/log.rs:124"], "notes": ""},
+    {"item": "D5 discover_common_dir, discover_main_repo_root, LogContext, RunConfig::log_context, ComposeInputs::project, --project, project=", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-agent-types/src/git.rs:229", "crates/sc-jev-check/src/run/mod.rs:926", "crates/sc-jev-check/src/run/log.rs:38-62", "crates/sc-jev-host/src/compose.rs:259-274", "crates/sc-jev-check/Cargo.toml:78-84"], "notes": "Compose starts discovery from the explicit repo root, where the doc says the working directory, see REQ-QA-004."},
+    {"item": "D6 row emission in fields{}, LogEvent::new(session_id, operation, fields), host adapter, goldens, fixtures, log-write policy", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-jev-check/src/run/log.rs:104-136", "crates/sc-jev-check/tests/session_log.rs:286,503", "crates/sc-jev-host/tests/obs.rs:107"], "notes": "The LogEvent change is documented in docs/sc-agent-types."},
+    {"item": "D7 stale UUID and sha2 doc text", "status": "partially-present", "closure_state": "not-applicable", "evidence_refs": ["README.md:25,38", "docs/sc-agent-types/architecture.md:99-104", "docs/sc-ai/requirements.md:10,20", "crates/sc-agent-types/tests/features.rs:8"], "notes": "A stale 'sha2 is a core dependency' comment remains in features.rs, see REQ-QA-005."},
+    {"item": "D8 ADR flips (0031 wiring, 0008/0013/0016/0026/0027 amendments and index markers)", "status": "present", "closure_state": "closed", "evidence_refs": ["docs/architecture.md:118,123,126,136,137,141,254-262,856-860,949-953,1394-1402,1524-1528,1719-1754"], "notes": "Every marker reads Active, r-6. The 0031 index row reads Active (r-7 storage schema, r-6 wiring)."},
+    {"item": "Acceptance rows: every named test function exists (24 Rust, 3 Python)", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["see grep results"], "notes": "Each exists at the cited path, and the [[test]] required-features entries are in place. I did not confirm '1 passed'."},
+    {"item": "Boundary and doc sync (boundaries/sc-agent-types/agent-types.toml, docs/sc-*/)", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["boundaries/sc-agent-types/agent-types.toml:25,38", "docs/sc-agent-http/architecture.md:114-124", "docs/sc-agent-http/requirements.md:12"], "notes": "allowed_dependencies reads sc-sha, serde, serde_json, thiserror, ulid."}
+  ],
+  "findings": [
+    {
+      "id": "REQ-QA-001",
+      "severity": "Blocking",
+      "category": "requirement-not-listed",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:16-45,75-127", "docs/plans/phase-a-refine/plan.md:590-592"],
+      "target_refs": ["docs/sc-agent-types/requirements.md:11-17,32-43", "docs/sc-agent-http/requirements.md:10-13", "docs/sc-jev-check/requirements.md:9-31", "docs/sc-jev-host/requirements.md", "docs/sc-ai/requirements.md:9-20", "docs/sc-jev-py/requirements.md:9-16", "docs/sc-decision-schema/requirements.md:8-14"],
+      "issue": "The sprint owns paths in sc-agent-types, sc-agent-http, sc-decision-schema, sc-jev-check, sc-jev-host, sc-ai and sc-jev-py. The `requirements` list names only some of each crate's ids. Missing: sc-agent-types REQ-SAG-0101, 0103, 0120, 0121, 0147, 0148 (NFR-SAG-0001 is listed). sc-agent-http REQ-SAG-0505. sc-decision-schema REQ-SAG-0140, 0141, 0142, 0144, 0145 (0146 and 0103 are covered). sc-jev-check REQ-SAG-0300, 0301, 0302, 0303, 0305, 0309, 0311, 0312, 0313, 0314, 0503, 0601, 0602, 0603, 0620. sc-jev-host REQ-SAG-0604, 0605 (plus any other ids in that file, which I only partly listed). sc-ai REQ-SAG-0702, 0703, 0710, 0712, 0900 (NFR-SAG-0001 and REQ-SAG-0604/0605 appear in that file's references). sc-jev-py REQ-SAG-0803, 0604, 0605. The plan states 'Every id a sprint's files touch is in its requirements: list', and the run loop, session store, compose and the whole sc-jev-check/src/** tree are in this sprint's owned paths. The ids that are not `req:` roots would also need a regression command in the boundary row.",
+      "required_correction": "Add every missing crate-level REQ/NFR id to the `requirements` list. Give each non-root id a regression command in the `boundary:session-log` row, or a one-line justification. If the plan means a narrower rule than 'every id of every crate with owned paths', amend plan.md:590 and record the rule so the list can be checked mechanically.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-002",
+      "severity": "Important",
+      "category": "acceptance-gap",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:171-175,380,425-431", "docs/requirements.md:186"],
+      "target_refs": ["tests/fixtures/jev-python/tests/test_run_check_and_ask.py:185-214", "docs/sc-jev-py/architecture.md:55"],
+      "issue": "D1 says a non-ULID id is INPUT_INVALID with the hint '... with `run_check`' (Python). REQ-SAG-0612 says a UUID id is INPUT_INVALID 'in CLI and Python'. The acceptance row names pytest `test_uuid_session_id_is_input_invalid`. The developer recorded that Python takes no session id (only `Session.ask` with the id the run returned), so the Python refusal path and its hint do not exist. The test of that name therefore asserts that ids are 26-character ULIDs and never feeds a UUID. The grep found no Python entry point that accepts a session id, so the choice looks sound. The defect is that the sprint doc still promises the Python hint and refusal, and the test name claims a refusal it does not run.",
+      "required_correction": "Amend D1 and the REQ-SAG-0612 wording to say Python receives ULID ids only and has no UUID input path. Alternatively, add a Python-reachable refusal. Rename the test, or reword the acceptance row, so it does not claim a UUID refusal.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-003",
+      "severity": "Minor",
+      "category": "cross-doc-conflict",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:9-11", "docs/plans/phase-a-refine/plan.md:675,1043"],
+      "target_refs": [],
+      "issue": "The sprint front matter gives branch and worktree `sprint/r-6-session-log-wiring`. The actual branch, worktree and the sprint doc's own file name use `sprint/r-6-session-log-record`. The quality policy's sprint-branch form is `sprint/<phase>-<n>-<slug>`.",
+      "required_correction": "Set `branch` and `worktree` in the front matter to `sprint/r-6-session-log-record`.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-004",
+      "severity": "Minor",
+      "category": "implementation-drift",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:255-258,446-450"],
+      "target_refs": ["crates/sc-jev-host/src/compose.rs:259-274"],
+      "issue": "D5 says compose resolves `repo` with `discover_main_repo_root(cwd)`. The implementation starts from the explicit repo root when one is set, else the working directory, and a dry run skips git. This is a sound choice because it keeps `--repo-root` and the logged `repo` in agreement. The implementation note admits the plan names only the working directory.",
+      "required_correction": "Amend D5 (and ADR-SAG-0031 and docs/sc-jev-host if they repeat 'cwd') to the explicit-root-else-cwd rule. Confirm a test covers the explicit `--repo-root` case.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-005",
+      "severity": "Minor",
+      "category": "cross-doc-conflict",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:182-194"],
+      "target_refs": ["crates/sc-agent-types/tests/features.rs:8-9"],
+      "issue": "The module doc still reads '`sha2` is a core dependency because `Sha256Digest::of_text` is in core `ids`'. Since r-6, `sc-sha` and `ulid` are the direct core dependencies. `sha2` is only transitive. D2 and D7 require stale sha2 text to be removed.",
+      "required_correction": "Reword the comment to say the core dependencies are `sc-sha` and `ulid` (`sha2` arrives through `sc-sha`).",
+      "compliance_result": "partially-compliant"
+    }
+  ],
+  "judgement_of_implementation_notes": [
+    "sc-sha pinned at 1.7.0 with a caret declaration: accepted. It matches D0, and the lock holds 1.7.0.",
+    "Strict canonical ULID parsing (uppercase only, round-trip equality): accepted. It is stricter than the plan text, consistent with r-7's AnswerId rule, and recorded in docs/sc-agent-types and the REQ-SAG-0612 row.",
+    "CLI value parser supplies the D1 hint: accepted.",
+    "Python hint dropped: see REQ-QA-002.",
+    "StoredSession without a decision_schema field, with the on-disk document struct writing CURRENT: accepted. The v3 document does carry decision_schema (session/mod.rs:575).",
+    "Recovery hint reworded to 'before Phase A.1': accepted.",
+    "session_created_at captured once per run: accepted. It matches D6.",
+    "Unset log_context resolved at the first send with a fallback to the given root: accepted, since logging must not fail a run.",
+    "Compose root choice: see REQ-QA-004.",
+    "--project on RunArgs, so dry-run accepts it: accepted, since the dry run logs nothing.",
+    "Scripted backends record a digest of a synthetic sent body: accepted, as ADR-SAG-0022 allows.",
+    "discover_main_repo_root uses the common dir's parent only when the dir is named `.git`: accepted. It is stricter than D5 and the separate-git-dir test covers it."
+  ],
+  "summary": {
+    "total_findings": 5,
+    "blocking_findings": 1,
+    "overall_compliance": "non-compliant",
+    "deliverables_total": 11,
+    "deliverables_complete": 10,
+    "deliverables_incomplete": 1,
+    "deliverable_completion_percent": 90.9
+  },
+  "gate_reason": "FAIL. The sprint `requirements` list omits many crate-level REQ/NFR ids for the seven crates it owns paths in (REQ-QA-001). Deliverables D0 to D6 and D8, and every named acceptance test, are present and wired by code reading, but I could not run any of them. D7 is partially present (REQ-QA-005). The Python UUID acceptance does not test a refusal (REQ-QA-002, Important). The branch name drift (REQ-QA-003) and the compose root choice (REQ-QA-004) are Minor."
+}

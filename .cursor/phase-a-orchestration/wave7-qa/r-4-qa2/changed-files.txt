@@ -1,0 +1,13 @@
+.github/scripts/cargo-tree-gates.sh
+.github/scripts/check-exact-pins.sh
+.github/workflows/sc-agent-ci.yml
+Cargo.lock
+Cargo.toml
+crates/sc-ai/Cargo.toml
+crates/sc-treesitter/Cargo.toml
+docs/architecture.md
+docs/development/sc-publish.md
+docs/plans/phase-a-refine/plan.md
+docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md
+docs/requirements.md
+sc-lint.toml

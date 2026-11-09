@@ -1,0 +1,6 @@
+[
+  {"agent": "req-qa", "task_id": "ad4f420209aa2c275", "spawn_actor": "parent-orchestrator"},
+  {"agent": "arch-qa", "task_id": "a6a04222c11401d4d", "spawn_actor": "parent-orchestrator"},
+  {"agent": "rust-qa-agent", "task_id": "a84a2474787659fb3", "spawn_actor": "parent-orchestrator"},
+  {"agent": "flaky-test-qa", "task_id": "a48020b8388f10180", "spawn_actor": "parent-orchestrator"}
+]

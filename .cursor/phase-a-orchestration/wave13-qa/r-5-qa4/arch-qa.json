@@ -1,0 +1,18 @@
+{
+  "agent": "arch-qa",
+  "branch": "sprint/r-5-jev-wire-envelope",
+  "scope": {"phase": "phase-a-refine", "sprint": "r-5"},
+  "commit": "5c85c6b",
+  "verdict": "PASS",
+  "blocking": 0,
+  "important": 0,
+  "findings": [],
+  "adr_checks": [
+    {"adr": "ADR-SAG-0029", "source": "docs/architecture.md:1043", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:54", "docs/architecture.md:1097", "crates/sc-decision-schema/src/payload.rs:104"]},
+    {"adr": "ADR-SAG-0012", "source": "docs/architecture.md:1023", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:1035-1041", "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:49", "crates/sc-decision-schema/src/jev/v1.rs:760"]},
+    {"adr": "ADR-SAG-0030", "source": "docs/architecture.md:1596", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:1632", "crates/sc-decision-schema/src/payload.rs:244"]}
+  ],
+  "gate_artifact_checks": [],
+  "merge_ready": true,
+  "notes": "I could not run git commands, so I confirmed the worktree branch from .git/worktrees/r-5-jev-wire-envelope/HEAD, which points at refs/heads/sprint/r-5-jev-wire-envelope. I did not resolve that ref to commit 5c85c6b. I read the files in the worktree as they are. ARCH-010 is closed: ADR-SAG-0029 is in the sprint doc adrs list at line 54. ARCH-011 and ARCH-012 are closed: the Active ADR-SAG-0012 r-5 subsection (docs/architecture.md:1035-1041) now names the pure CheckResponse::into_answers mapping in sc_decision_schema::jev::v1, with no HTTP or I/O, and keeps every Jev HTTP operation in sc-jev. The ADR-SAG-0030 index and header text match this. The code at jev/v1.rs:760 and the sprint sample at line 297 agree with the amended ADR. ARCH-013 is closed: Question::from_json (payload.rs:244) and PayloadBundle::decode (payload.rs:427 and 519) route through decode_failed (payload.rs:104). That helper returns INPUT_INVALID with only the serde category and line/column, which is the ADR-SAG-0029 (c) disposition. Two decode sites in sc-decision-schema do not use decode_failed (jev/v1.rs:602 and :722, and variants.rs:100 and llm/v1.rs:35 map errors themselves). I judged these as outside the ARCH-013 delta, and the ADR-SAG-0029 (c) row covers general serde failures. They are not raised as findings, but you may want a quick look. I found no std::sync::Mutex guards held across .await in the reviewed targets."
+}

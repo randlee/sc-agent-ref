@@ -1,0 +1,10 @@
+{"success":true,"data":{"status":"findings","reviewed_commit":"a1e3a52","review_mode":"doc_review",
+"findings":[{"id":"RSH-006","severity":"minor","file":"docs/plans/phase-a-refine/sprint-r-3-shared-http.md","line":93,"issue":"Agent-built-once fixed; but no named non-network unit test pins connect 10 s / global 120 s / no redirects / UA as Agent configuration (dispositions claim 'covered by a unit assertion' that r-3 does not name).","recommendation":"Add test_ureq_agent_config_values asserting the Timeouts defaults and redirect policy from the config struct; reference it in Required validation."}],
+"summary":{"total_findings":1,"by_severity":{"critical":0,"important":0,"minor":1}},
+"carry_forward":{"RSH-001":"fixed","RSH-002":"fixed","RSH-004":"fixed (ADR-0024 omits the 1 h sweep threshold — cosmetic)","RSH-005":"fixed","RSH-006":"open minor","OBS-A..F":"fixed"},
+"observations":[
+"(1) PROBABLE IMPORTANT: Endpoint::parse accepts http:// only under #[cfg(test)], which applies only to in-crate unit tests; the plan's loopback tests are listed as the integration target `cargo test -p sc-agent-http --test ureq`, where the library compiles without cfg(test) and http://127.0.0.1 is refused. Plan must state the loopback tests are in-crate #[cfg(test)] unit tests (or TLS loopback with a test-only trust root). A cargo feature opening http would be unsafe under feature unification.",
+"(2) minor: CancelToken checked only before attempts/during waits; cancel mid-request blocks up to 120 s — state in rustdoc + ADR-0007 amendment.",
+"(3) minor: Retry-After grammar unstated; f64 parse accepts inf/NaN/1e9/-1 and Duration::from_secs_f64 panics on NaN/negative/overflow — specify ASCII digits with optional fraction; everything else malformed; add to the test table.",
+"(4) minor: 'redaction once in send_with_busy_retry when it builds NetworkError' must cover every Err a third-party Transport returns — sanitize all transport Errs; test with a secret-bearing error; document that direct Transport::send callers bypass it.",
+"note: no cargo audit/deny step named in r-3 (CI rows assigned to r-3b/r-4)"]},"error":null}

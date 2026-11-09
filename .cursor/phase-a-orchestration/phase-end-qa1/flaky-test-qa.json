@@ -1,0 +1,16 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "integrate/phase-a",
+    "reviewed_commit": "91d36b3",
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "critical": 0,
+      "important": 0,
+      "minor": 0
+    }
+  },
+  "error": null
+}

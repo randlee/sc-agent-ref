@@ -1,0 +1,67 @@
+{
+  "status": "FAIL",
+  "reviewed_branch": "sprint/r-7-decision-schema",
+  "reviewed_commit": "9497297",
+  "errors": [],
+  "scope": {"phase": "phase-a-refine", "sprint": "r-7"},
+  "baselines_read": ["docs/requirements.md (REQ-SAG-0103/0107/0130/0140-0148 rows)", "docs/architecture.md (ADR-SAG-0030/0031 markers, Trait boundary sentence)"],
+  "phase_or_sprint_docs_read": ["docs/plans/phase-a-refine/sprint-r-7-decision-schema.md (all 984 lines)"],
+  "requirement_checks": [
+    {"id": "REQ-SAG-0140", "source": "docs/requirements.md:177", "listed_in_sprint_doc": true, "result": "not-verifiable", "evidence_refs": ["crates/sc-decision-schema/Cargo.toml:26-30", ".github/scripts/cargo-tree-gates.sh:95"]},
+    {"id": "REQ-SAG-0141", "source": "docs/requirements.md:178", "listed_in_sprint_doc": true, "result": "not-verifiable", "evidence_refs": ["crates/sc-decision-schema/src/judge.rs", "crates/sc-agent-types/src (judge.rs, payload.rs, test_util.rs absent)"]},
+    {"id": "REQ-SAG-0142", "source": "docs/requirements.md:179", "listed_in_sprint_doc": true, "result": "not-verifiable", "evidence_refs": ["crates/sc-decision-schema/tests/version.rs:10,58"]},
+    {"id": "REQ-SAG-0144", "source": "docs/requirements.md:181", "listed_in_sprint_doc": true, "result": "not-verifiable", "evidence_refs": ["crates/sc-decision-schema/tests/llm.rs:30"]},
+    {"id": "REQ-SAG-0145", "source": "docs/requirements.md:182", "listed_in_sprint_doc": true, "result": "not-verifiable", "evidence_refs": ["crates/sc-decision-schema/tests/variants.rs:10,26"]},
+    {"id": "REQ-SAG-0146", "source": "docs/requirements.md:183", "listed_in_sprint_doc": true, "result": "not-verifiable", "evidence_refs": ["crates/sc-decision-schema/tests/session_log.rs:53,106,184", "tests/fixtures/jev-python/tests/test_session_log_sqlite.py", "crates/sc-agent-types/tests/ids.rs:127"]},
+    {"id": "REQ-SAG-0147", "source": "docs/requirements.md:184", "listed_in_sprint_doc": true, "result": "not-verifiable", "evidence_refs": ["crates/sc-agent-types/tests/models.rs:8,34", "crates/sc-jev-backends/tests/llm.rs:718"]},
+    {"id": "REQ-SAG-0148", "source": "docs/requirements.md:185", "listed_in_sprint_doc": true, "result": "not-verifiable", "evidence_refs": ["crates/sc-agent-types/tests/models.rs:58,82", "crates/sc-jev-check/tests/models.rs:55,92", "crates/sc-jev/tests/catalog.rs:15", "crates/sc-jev-backends/tests/llm.rs:755", "crates/sc-decision-schema/tests/mock.rs:121"]},
+    {"id": "REQ-SAG-0103/0107/0130 amendments", "source": "docs/requirements.md:210-212", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/requirements.md:210-212", "docs/sc-decision-schema/requirements.md:14", "crates/sc-agent-types/Cargo.toml:23-29", "release/sc-publish-consumer-input.json:51-55"]},
+    {"id": "REQ-SAG-0613 (seam)", "source": "sprint r-7 boundary:send-trace", "listed_in_sprint_doc": true, "result": "not-verifiable", "evidence_refs": ["crates/sc-agent-http/src/retry.rs:253,314,392", "crates/sc-agent-types/tests/trace.rs:6"]},
+    {"id": "REQ-SAG-0102/0104/0105/0106/0109/0131/0132/0143/0301/0400/0500/0501/0602/0603/0606/0607/0610/0611/0620/0700/0701/0710/0800-0802, NFR-SAG-0001/0002/0004", "source": "docs/requirements.md", "listed_in_sprint_doc": true, "result": "not-verifiable", "evidence_refs": []}
+  ],
+  "deliverable_checks": [
+    {"item": "D1 crate, workspace member/dependency, boundary manifest, docs, README, consumer input (publish_order 2), CI rows, cargo-tree gate row", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-decision-schema/Cargo.toml", "Cargo.toml:5,40", "boundaries/sc-decision-schema/decision-schema.toml", "docs/sc-decision-schema/{requirements,architecture,session-log-schema}.md", ".github/workflows/sc-agent-ci.yml:278-280,330", ".github/scripts/cargo-tree-gates.sh:95", "release/publish-artifacts.toml"], "notes": "Static presence confirmed. Behaviour not run. release/publish-artifacts.toml already mentions sc-decision-schema, so the kit install appears to have been run."},
+    {"item": "D2 move of decision types (no re-export, features deleted, no remaining sc_agent_types imports of moved items, no Sha256Digest::of call sites)", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-agent-types/Cargo.toml:20-29", "grep: no sc_agent_types import of moved types in crates/", "grep: no Sha256Digest::of( outside the sprint doc"]},
+    {"item": "D3 versioning", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-decision-schema/src/version.rs", "crates/sc-decision-schema/tests/version.rs"]},
+    {"item": "D4 llm::v1 wired in wire.rs", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-decision-schema/src/llm/v1.rs", "grep: parse_answers, HAIKU_MODEL and LUNA_MODEL are absent from crates/"]},
+    {"item": "D5 variants", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-decision-schema/src/variants.rs"]},
+    {"item": "D6 session-log schema, DDL, fixture, python test, schema_version refusal", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-decision-schema/src/session_log/schema.sql", "crates/sc-decision-schema/src/session_log/mod.rs:280", "tests/fixtures/decision-schema/session-log/fields.jsonl", "crates/sc-decision-schema/tests/session_log.rs:208"]},
+    {"item": "D7 model catalog, ModelAliases, check.toml [models], model_id on every backend, jev.toml header and sc-jev architecture row", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-agent-types/src/models.rs:117,173,266-274", "crates/sc-jev/src/client/mod.rs:243", "crates/sc-jev-backends/src/backend.rs:361", "crates/sc-jev-check/assets/jev.toml:4", "docs/sc-jev/architecture.md:20"]},
+    {"item": "D8 SendTrace, required trace parameter on the exchange fns, HttpRequest body as Arc<str>, ProjectLabel, AnswerId", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-agent-types/src/trace.rs", "crates/sc-agent-http/src/retry.rs:253,314,392", "crates/sc-agent-http/src/request.rs:308,364", "crates/sc-agent-types/tests/ids.rs:127,159"]},
+    {"item": "D9 ADR flips, no '(Proposed, r-7)' marker, Trait boundary sentence, jev::v1 bullet left Proposed r-5, Scope context left Recorded", "status": "present", "closure_state": "closed", "evidence_refs": ["docs/architecture.md:93-95,1567,1601,1619,1639", "grep: 0 matches for 'Proposed, r-7'"]},
+    {"item": "API clarifications: schema_version refusal and hint, JudgeBackend dyn-compat and additive rule in rustdoc and README, ModelDescriptor::model expect, AnswerId and ModelId hints, released-date check", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-decision-schema/src/judge.rs:387-389", "crates/sc-decision-schema/README.md:13-16", "crates/sc-agent-types/src/models.rs:117,173", "crates/sc-agent-types/tests/models.rs:51,65", "crates/sc-agent-types/tests/ids.rs:174"]},
+    {"item": "Acceptance table and Required validation commands (just lint, just test, cargo hack, cargo tree, uv pytest, sc-publish-dry-run.sh, each named test printing '1 passed')", "status": "not-verifiable", "closure_state": "open", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:905-936"], "notes": "This QA session had read-only file tools (Read, Glob, Grep). It had no shell, so it could not run any command. The test targets named in the table exist at the cited lines."}
+  ],
+  "findings": [
+    {
+      "id": "REQ-QA-001",
+      "severity": "Blocking",
+      "category": "acceptance-gap",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:905-936"],
+      "target_refs": ["worktree HEAD 9497297"],
+      "issue": "Every acceptance criterion and requirement check is a command (cargo test --exact, cargo tree, cargo hack, just lint/test, uv pytest, sc-publish-dry-run.sh). I confirmed the worktree is on branch sprint/r-7-decision-schema at 9497297 and that every named test, file and wiring point exists. I could not run any command. The criteria are therefore not-verifiable, and the gate policy fails not-verifiable items. I found no static defect.",
+      "required_correction": "Re-run req-qa with a shell, or attach the command output (each named test showing '1 passed', plus cargo tree, cargo hack, just lint, just test, check-exact-pins.sh and sc-publish-dry-run.sh results) for commit 9497297.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-002",
+      "severity": "Minor",
+      "category": "cross-doc-conflict",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:126,964-965"],
+      "target_refs": ["crates/sc-jev/src/client/mod.rs:243"],
+      "issue": "owned_paths names crates/sc-jev/src/check.rs#fn model_id, and D2.4 lists check.rs as an anchor. The implementation puts the trait impl, and so model_id, in client/mod.rs. The sprint's Implementation notes disclose this, but the frontmatter and the D2.4 anchor text were not corrected.",
+      "required_correction": "Change the owned_paths entry and the D2.4 anchor to client/mod.rs, or add a one-line note beside them.",
+      "compliance_result": "partially-compliant"
+    }
+  ],
+  "summary": {
+    "total_findings": 2,
+    "blocking_findings": 1,
+    "overall_compliance": "non-compliant",
+    "deliverables_total": 11,
+    "deliverables_complete": 10,
+    "deliverables_incomplete": 1,
+    "deliverable_completion_percent": 90.9
+  },
+  "gate_reason": "FAIL on a verification gap, not on a defect. The acceptance commands and per-requirement behaviour checks are not-verifiable without a shell, so the PASS conditions are not met. Static evidence is clean: every deliverable D1-D9 and every API-clarification item is present in the files, and the sprint doc has a complete requirements list. The moved modules are gone from sc-agent-types, and nothing in the workspace still imports them from there. The old HAIKU_MODEL, LUNA_MODEL and parse_answers are gone. The exchange fns take a required SendTrace. The architecture markers are flipped, with the jev::v1 bullet left Proposed (r-5) and the Scope context bullet left Recorded. The consumer input and rendered release manifest carry sc-decision-schema at publish_order 2."
+}

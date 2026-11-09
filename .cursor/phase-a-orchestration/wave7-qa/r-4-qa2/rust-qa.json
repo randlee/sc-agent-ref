@@ -1,0 +1,39 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/r-4-adrs-and-manifests",
+    "reviewed_commit": "8bdfc83b43bcbc54c4b7a022d5b2a120b8d10d27",
+    "review_mode": "sprint_review",
+    "executed_checks": {
+      "fmt": {"status": "pass", "command": "cargo fmt --all --check"},
+      "clippy": {"status": "pass", "command": "cargo clippy --workspace --all-targets --all-features -- -D warnings"},
+      "tests": {"status": "pass", "command": "cargo test --workspace; cargo test -p sc-agent-types --features git,test-util (30 passed); cargo fetch --locked then cargo test -p sc-agent-types --test features (5 passed)"},
+      "coverage": {"status": "pass", "line": 91.19, "branch": 0.0, "function": 86.11, "region": 91.17, "adequate_for_risk": true, "note": "line 91.19% equals the 91.19 baseline; no regression"},
+      "artifacts": {"status": "pass", "command": "bash scripts/sc-publish-dry-run.sh (passed, all)"}
+    },
+    "other_execution_facts": {
+      "head_and_branch_verified": true,
+      "check-exact-pins.sh": "pass (4 pins, all on the lockstep list)",
+      "check-exact-pins.sh --self-test": "pass",
+      "cargo-tree-gates.sh": "pass (2 absent rows for mimalloc under --no-default-features, 2 present rows under default features)",
+      "cargo build --locked --no-default-features --lib (sc-ai and sc-treesitter)": "pass",
+      "cargo hack --each-feature test -p sc-treesitter": "pass",
+      "cargo hack check --feature-powerset --no-dev-deps": "pass for sc-treesitter (9/9) and sc-agent-types (28/28)",
+      "just lint": "pass",
+      "RUSTDOCFLAGS=-D warnings cargo doc --workspace --no-deps": "pass",
+      "just test-python": "pass (9 passed)"
+    },
+    "carry_forward_verification": {
+      "QA-001": "resolved. sc-observability-types no longer appears in Cargo.toml, any crates/*/Cargo.toml or sc-lint.toml. The dependency is gone, so deleting the sc-lint ownership rule is the correct end state.",
+      "QA-002": "resolved. The `sc-agent CI` run for 8bdfc83 completed with success, and its `dependency gates (allocator, pins)` job passed. The earlier failing run was at 17c65e3. A newer run for 39ed835 is still in progress.",
+      "QA-003": "resolved. check-exact-pins.sh now checks that python3 exists (line 34) and that it is 3.11 or newer (line 43). The header notes the script is POSIX-only and runs on ubuntu-24.04 (lines 26-27)."
+    },
+    "findings": [],
+    "summary": {"total_findings": 0, "by_severity": {"critical": 0, "important": 0, "minor": 0}},
+    "notes": [
+      "A newer CI run exists for head 39ed835, which differs from the reviewed commit 8bdfc83. I did not review it."
+    ]
+  },
+  "error": null
+}

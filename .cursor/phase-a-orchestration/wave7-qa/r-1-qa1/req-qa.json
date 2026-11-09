@@ -1,0 +1,91 @@
+{
+  "status": "FAIL",
+  "reviewed_branch": "sprint/r-1-types-break",
+  "reviewed_commit": "22ef27317d6b608b451ac56f7f1de48731020b6e",
+  "errors": [],
+  "scope": {"phase": "a.1", "sprint": "r-1"},
+  "notes": "HEAD check: the worktree .git points at .git/worktrees/r-1-types-break, HEAD is refs/heads/sprint/r-1-types-break, and that ref is 22ef273. This agent had no shell, so it could not run cargo, just, rg, maturin or pytest, and it reviewed statically with Read/Grep/Glob. It could not reproduce the developer's 57/57 claim. The sprint doc's Required validation block has about 53 command lines, so the count also does not match the doc.",
+  "baselines_read": ["docs/requirements.md", "docs/sc-agent-types/requirements.md", "docs/architecture.md (ADR-0022, ADR-0027 amendments)", "docs/plans/phase-a-refine/plan.md (grep only)", "boundaries/README.md", "boundaries/sc-agent-types/agent-types.toml (grep only)"],
+  "phase_or_sprint_docs_read": ["docs/plans/phase-a-refine/sprint-r-1-types-break.md"],
+  "requirement_checks": [
+    {"id": "REQ-SAG-0105/0106/0107/0108", "source": "docs/requirements.md:157-160", "listed_in_sprint_doc": true, "result": "not-verifiable", "evidence_refs": ["crates/sc-agent-types/Cargo.toml:20-34", "crates/sc-jev-check/src/registry/mod.rs:192", "crates/sc-ai/src/command.rs:682", "crates/sc-agent-types/tests/errors.rs:129", "crates/sc-agent-types/tests/subjects.rs:20,41"]},
+    {"id": "REQ-SAG-0101/0103/0120/0121, NFR-SAG-0001, REQ-SAG-0701 (amended rows)", "source": "docs/requirements.md:182-187; docs/sc-agent-types/requirements.md:32-36", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/requirements.md:182-187", "docs/sc-agent-types/requirements.md:27-36"]},
+    {"id": "REQ-SAG-0600/0610/0700/0711/0200/0300/0310/0311/0400/0500-0502/0800", "source": "docs/requirements.md", "listed_in_sprint_doc": true, "result": "not-verifiable", "evidence_refs": ["crates/sc-jev-check/tests/session.rs:41,70", "crates/sc-agent-types/tests/obs.rs:20"]},
+    {"id": "REQ-SAG-0710", "source": "docs/requirements.md:113", "listed_in_sprint_doc": false, "result": "not-verifiable", "evidence_refs": ["crates/sc-ai/src/command.rs", "crates/sc-agent-types/tests/judge.rs:53"]},
+    {"id": "NFR-SAG-0002", "source": "docs/requirements.md:114", "listed_in_sprint_doc": true, "result": "not-verifiable", "evidence_refs": ["crates/sc-agent-types/src/secret.rs"]},
+    {"id": "NFR-SAG-0003", "source": "docs/requirements.md:115", "listed_in_sprint_doc": false, "result": "not-verifiable", "evidence_refs": ["crates/sc-jev-check/src/session/mod.rs"]}
+  ],
+  "deliverable_checks": [
+    {"item": "D0 spike recorded in boundaries/README.md, outcome 4", "status": "present", "closure_state": "closed", "evidence_refs": ["boundaries/README.md:59-112", "crates/sc-agent-types/Cargo.toml:46-55", "docs/architecture.md:1117-1129"], "notes": "Outcome 4 (dev edges counted, self edge flagged, self entry rejected) matches the sprint doc's fourth bullet. The README lists the rule ids for cases 1, 1b, 2, 2b, 2c, 3, 3b and the empty facade, and lists the later-sprint lines. The sprint doc body was not updated to say so (see REQ-QA-R1-002)."},
+    {"item": "D1 BACKENDS/descriptor/factory table/tripwires", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-jev-check/src/registry/mod.rs:192", "crates/sc-ai/src/command.rs:682"], "notes": "Grep gates found no ResolvedApiKey::new, ScriptedJudge, RequestLog, #[allow(, wildcard_enum_match_arm, DETAIL_PREFIX or sc-observability-types in the manifests. Runtime tests were not executed."},
+    {"item": "D6 error taxonomy tests (errors target, error::tests::test_error_code_all_is_complete)", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-agent-types/tests/errors.rs:129,152,182,207,228,251", "crates/sc-agent-types/src/error.rs:886"], "notes": "All six named tests and the in-crate completeness test exist; none was run."},
+    {"item": "D10-break tests (judge, mock, ids)", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-agent-types/tests/judge.rs:53,85,111,130,154", "crates/sc-agent-types/tests/mock.rs:28", "crates/sc-agent-types/tests/ids.rs:12,49,69"], "notes": "All the named tests exist; none was run."},
+    {"item": "D7 features, git helper, session v2 tests", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-agent-types/tests/features.rs:46", "crates/sc-agent-types/tests/git.rs:41-91", "crates/sc-jev-check/tests/session.rs:41,70"], "notes": "The named tests exist; none was run."},
+    {"item": "ADR-SAG-0027, ADR-0009/0016/0020/0022 r-1 amendments Active", "status": "present", "closure_state": "closed", "evidence_refs": ["docs/architecture.md:104,188-190,264-266,422-424,700-702,1046-1048"], "notes": "The r-1 amendments are marked Active."},
+    {"item": "re-frozen at r-1 merge text (3 locations)", "status": "present", "closure_state": "closed", "evidence_refs": ["docs/requirements.md:183", "docs/sc-agent-types/requirements.md:33", "docs/sc-agent-types/architecture.md"], "notes": "Each of the three files has one occurrence."},
+    {"item": "Sprint doc Implementation notes (deviations)", "status": "absent", "closure_state": "open", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-1-types-break.md"], "notes": "There is no Implementation notes section in this doc at 22ef273 (see REQ-QA-R1-002)."},
+    {"item": "Runtime acceptance (every Required validation line)", "status": "not-verifiable", "closure_state": "open", "evidence_refs": [], "notes": "No execution capability in this review."}
+  ],
+  "findings": [
+    {
+      "id": "REQ-QA-R1-001",
+      "severity": "Blocking",
+      "category": "requirement-not-listed",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-1-types-break.md:17-45", "docs/requirements.md:113,115"],
+      "target_refs": ["docs/requirements.md:36,48-50,68-74,80-81,87-92,98-103,109-116,122-124"],
+      "issue": "The frontmatter `requirements` list is not the full set for the owned crates. It omits REQ-SAG-0710 and NFR-SAG-0003, both of which you named. REQ-SAG-0710 covers the sc-ai CLI `data`/answers output, and r-1 reshapes `answers` and `equal_input` and edits crates/sc-ai/src. NFR-SAG-0003 covers session retention, and r-1 bumps the session document to v2. It also omits other ids for crates in owned_paths: REQ-SAG-0100, 0201, 0202, 0301-0303, 0309, 0401, 0503-0505, 0601, 0603, 0611, 0702, 0703, 0801, 0802. NFR-SAG-0002 is listed, so that part holds.",
+      "required_correction": "Add the missing ids to the frontmatter, or add a recorded per-id exclusion naming why each is untouched. For REQ-SAG-0710 and NFR-SAG-0003, add acceptance evidence: the answers and equal_input JSON shape and the equal=false-on-live change, and the session v2 retention behaviour.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-R1-002",
+      "severity": "Blocking",
+      "category": "deliverable-missing",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-1-types-break.md:101-723", "boundaries/README.md:96-104"],
+      "target_refs": ["crates/sc-jev/src/config.rs:193", "crates/sc-agent-types/src/payload.rs:194"],
+      "issue": "The sprint doc has no 'Implementation notes' section, so the deviations cannot be judged against it. These deviations are visible in code: `max_request_bytes` removed (config.rs:193 now expects it to be rejected), `PayloadBundle::decode` made public (payload.rs:194), and `provider_meta`/`probabilities` shape. The D0 result is also not reflected in the sprint body. D10.11 (line 507) still says `self dev-dependency` and the Validation block still has plain `--test mock` and `--test git` lines. D0 branch 4 requires every validation line for such targets to pass `--features`, and requires the PR to state the later-sprint doc lines it changes. Only boundaries/README.md:96-104 does that. The lines in docs/architecture.md:297 (ADR-0022 r-2) and :1158 (ADR-0028), and plan.md:132/444, sprint r-2:230, r-3:172 and r-3b:232/289, still describe a self dev-dependency.",
+      "required_correction": "Add the Implementation notes section. For each deviation, give the requirement it touches: max_request_bytes against REQ-SAG-0400, decode against REQ-SAG-0103 and ADR-0027 (explain why it is public), and the provider_meta/probabilities shape against REQ-SAG-0710 and the frozen contracts. Also add the D0 outcome-4 statement and the changed later-sprint lines to the sprint doc. Fix D10.11 and the Validation lines for `--test mock`, `--test git` and the other required-features targets by adding `--features test-util` or `--features git`. Without that, plain `cargo test --test mock` errors on required-features.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-R1-003",
+      "severity": "Important",
+      "category": "plan",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-1-types-break.md:69-98", "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:45,102"],
+      "target_refs": ["sc-lint.toml", "crates/sc-agent-secrets/Cargo.toml:36-38"],
+      "issue": "Two files outside owned_paths were edited. (1) sc-lint.toml appears in changed-files.txt and is not an r-1 owned path. Grep on the current tree finds no sc-observability-types record, so r-1 apparently deleted it, but sprint text (line 535) and r-4 (line 102) assign that deletion to r-4, which is now a no-op step. (2) crates/sc-agent-secrets/Cargo.toml: only src/** and tests/** are owned. Its [dev-dependencies] repeats the same `sc-agent-types` path and version already in [dependencies], with no features, so it adds nothing. I did not find the dev-dependency comment you mentioned. Cargo.lock, the sc-jev-check line and sc-jev/src/jev.toml are covered or generated.",
+      "required_correction": "Either add the two paths to owned_paths in the sprint doc, or revert the sc-agent-secrets dev-dependency (it is redundant) and move the sc-lint.toml change into the Implementation notes, updating r-4's wording. Reaching 'acceptable' needs a plan note in either case.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-R1-004",
+      "severity": "Blocking",
+      "category": "acceptance-gap",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-1-types-break.md:637-713"],
+      "target_refs": [],
+      "issue": "Runtime acceptance is not-verifiable here. This review had no execution capability, so none of the validation commands was run (cargo test/hack/tree/doc/publish, sc-lint, maturin, pytest). The 57/57 claim is not reproducible from the doc, which has about 53 lines.",
+      "required_correction": "Attach the command log (or CI run) for the exact commit 22ef273 so the claim can be matched to the doc's list, and re-run with the `--features` flags once REQ-QA-R1-002 is fixed.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-R1-005",
+      "severity": "Minor",
+      "category": "cross-doc-conflict",
+      "source_refs": ["docs/architecture.md:1117-1129", "docs/architecture.md:297", "docs/architecture.md:1158"],
+      "target_refs": ["docs/plans/phase-a-refine/plan.md:132,444"],
+      "issue": "The Active ADR-0027 'Test seams' bullet now says no self dev-dependency, while Proposed ADR-0022 r-2 and ADR-0028 text and plan.md 'Test seams' still say self dev-dependency. These get fixed in r-2, r-3b and r-4, but they conflict until then.",
+      "required_correction": "Update plan.md 'Test seams' now, and add a note at the stale Proposed text pointing to boundaries/README.md.",
+      "compliance_result": "partially-compliant"
+    }
+  ],
+  "summary": {
+    "total_findings": 5,
+    "blocking_findings": 3,
+    "overall_compliance": "non-compliant",
+    "deliverables_total": 9,
+    "deliverables_complete": 6,
+    "deliverables_incomplete": 3,
+    "deliverable_completion_percent": 66.7
+  },
+  "gate_reason": "FAIL. Three Blocking findings: the frontmatter requirements list is incomplete (REQ-SAG-0710, NFR-SAG-0003 and others, REQ-QA-R1-001); the sprint doc has no Implementation notes and still contradicts the D0 outcome (REQ-QA-R1-002); and runtime acceptance could not be verified (REQ-QA-R1-004). Static checks pass: the named tests exist, the grep tripwires are clean, the Active amendment rows match exactly what r-1 owns (root and crate), the ADR r-1 amendments are Active, and D0 outcome 4 is consistent with the sprint doc's fourth written outcome. The deviations cannot be cleared until they are recorded. The owned_paths overrun is not acceptable without a plan note (REQ-QA-R1-003). The percentage is 6 of 9 checklist groups, with the runtime group counted as incomplete."
+}

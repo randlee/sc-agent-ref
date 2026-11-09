@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "found_in": "A1-R7",
+ "found_at": "2026-11-08T04:45:00Z",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "d958938eaec8894b5fd37431925ffab28863387c"
+  },
+  {
+   "branch": "sprint/r-7-decision-schema",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-7-decision-schema",
+   "order_index": 1,
+   "head_sha": "a6a13879c59b176b6f8ceed32b9830ec6ad33754"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a",
+  "sprint/r-7-decision-schema"
+ ],
+ "finding_id": "R7-QA3-FTQ-001",
+ "title": "cargo build via bin_path is not serialized with the TREE_LOCK cargo tree calls in test_util_off.rs",
+ "description": "The delta's stated premise (7660d24) is that concurrent cargo invocations queue on Cargo's file locks, so TREE_LOCK serializes only the cargo tree calls. The same test binary also runs a cargo build from a parallel test thread (bin_path, via test_release_binary_rejects_scripted_answers). That build is guarded only by bin_path's own BUILD_LOCK, which TREE_LOCK does not share. The default parallel test runner can therefore run a cold release build (up to 20 min deadline, mimalloc and tree-sitter C builds) concurrently with a cargo tree call. If that cargo tree blocks on a Cargo file lock held by the build for longer than CARGO_TREE_DEADLINE (60 s), the call fails by deadline. Which timing triggers it depends on how Cargo's package-cache and build locks interact, and I could not confirm that from this environment. The gap in the serialization itself is confirmed by the code. The result is an intermittent failure that appears only when the build is cold and slow, which is the CI first-run case.",
+ "category": "flaky-test",
+ "severity": "important",
+ "pattern": "TREE_LOCK",
+ "file_filter": "crates/workspace-tests/tests/test_util_off.rs"
+}

@@ -1,0 +1,73 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/r-2-engine-shape",
+    "reviewed_commit": "3f66e7bbc09c66fdeca2146bfb436ededd4bf02f",
+    "review_mode": "sprint_review",
+    "findings": [
+      {
+        "id": "RBQA-F001",
+        "verdict": "closed",
+        "severity": "important",
+        "class": "boundary_tightening",
+        "file": "crates/sc-jev-check/src/run/mod.rs",
+        "line": 689,
+        "issue": "Second public send path (FileSessionStore::ask).",
+        "recommendation": "None.",
+        "evidence": "session/mod.rs no longer has an ask method. Its pub fns are the constructor, accessors and test-util-gated save/load. The send logic is now run::ask (mod.rs:689). It calls validate_for_send (717), then the shared private `send` (651, called at 718) with Operation::Ask. The `send` fn does judge plus one log event. session::contextual_prompt (322) is the single prompt-assembly function and is used by both request_for (641) and ask (707). run::ask reads the session with read_session and never rewrites it. I did not read live_run's body (lines 460-560), so whether it calls `send` is unconfirmed. The line 533/543 validate_for_send calls are consistent with it. The duplicated prompt assembly named in the finding is gone.",
+        "justification_check": "justified and retained",
+        "related_artifacts": ["crates/sc-jev-check/src/session/mod.rs", "boundaries/sc-jev-check/jev-check.toml"]
+      },
+      {
+        "id": "RBQA-F002",
+        "verdict": "closed",
+        "severity": "important",
+        "class": "boundary_tightening",
+        "file": "crates/sc-jev-check/src/lib.rs",
+        "line": 14,
+        "issue": "payload, extract and equal_input were public modules.",
+        "recommendation": "None.",
+        "evidence": "lib.rs:14-16 now declares `pub(crate) mod equal_input`, `extract` and `payload`. The remaining `pub mod` entries are config, registry, run and session. contextual_prompt, render_session_context, check_follow_up, emit_log, read_session and write_session are pub(crate). StoredSession save/load are `#[cfg(any(test, feature = \"test-util\"))]`.",
+        "justification_check": "justified and retained",
+        "related_artifacts": ["boundaries/sc-jev-check/jev-check.toml"]
+      },
+      {
+        "id": "RBQA-F003",
+        "verdict": "closed",
+        "severity": "important",
+        "class": "lint_gap",
+        "file": "boundaries/sc-jev-check/jev-check.toml",
+        "line": 24,
+        "issue": "The facade string had no mechanical tie to the pub surface.",
+        "recommendation": "None. The ceremony screen closes this by narrowing, with no new gate, and the owner rule forbids requesting gates.",
+        "evidence": "The pub surface was narrowed (F002), so the drift that motivated the finding is gone. The manifest still carries the production facade and test-util groupings.",
+        "justification_check": "justified and retained",
+        "related_artifacts": ["boundaries/sc-jev-check/jev-check.toml"]
+      },
+      {
+        "id": "RBQA-F004",
+        "verdict": "closed",
+        "severity": "minor",
+        "class": "doc_gap",
+        "file": "crates/sc-ai/src/lib.rs",
+        "line": 20,
+        "issue": "The facade list mixed production and test-util items, and sc-ai re-exported the Envelope constants as a second path.",
+        "recommendation": "None.",
+        "evidence": "A grep of crates/ shows ENVELOPE_VERSION and OP_* defined only in sc-jev-check/src/run/response.rs:19-28. sc-ai consumes them only by path `sc_jev_check::run::` (lib.rs doc test, tests/cli.rs:27). No sc-ai re-export remains. The manifest facade lines 24-26 now describe a production-then-test-util split. The lines were too long to read in full, so I did not verify their exact wording.",
+        "justification_check": "justified and retained",
+        "related_artifacts": ["boundaries/sc-jev-check/jev-check.toml"]
+      }
+    ],
+    "summary": {
+      "total_findings": 4,
+      "by_severity": {"critical": 0, "important": 3, "minor": 1}
+    },
+    "notes": [
+      "All four carry-forward ids are closed. There are no new Blocking findings and no regressions from the fix-round diff in the areas I checked.",
+      "I did not run cargo, sc-lint or any validator, and none was supplied. I verified by reading source in the review worktree.",
+      "Unsolicited observation (outside this round's scope): the QA-1 observation about sc-ai's ungated `#[doc(hidden)]` test seam (ExecuteOverrides and related items) was not part of the carry-forward set. I did not re-check it."
+    ]
+  },
+  "error": null
+}

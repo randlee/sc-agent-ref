@@ -1,0 +1,43 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-2-engine-shape",
+    "reviewed_commit": "0d643f2271997d73c8fbd3e98768dbf246ddfcbe",
+    "review_mode": "sprint_review",
+    "practice_mode": "all",
+    "practices_reviewed": ["RBP-001","RBP-002","RBP-003","RBP-004","RBP-005","RBP-006","RBP-007","RBP-008","RBP-009","RBP-010"],
+    "findings": [
+      {
+        "id": "RBP-F004",
+        "practice_id": "RBP-004",
+        "severity": "important",
+        "file": "crates/sc-jev-check/src/run/mod.rs",
+        "line": 105,
+        "issue": "The repo-relative check path is still carried as a raw primitive on the new run facade, so the RBP-F003 half-adoption survives at the facade boundary. CheckSource::CheckFile holds a PathBuf (run/mod.rs:105). prepare() converts it with check_path_text(), which has a lossy to_str and its own UTF-8 error (run/mod.rs:326, 379-383). It then passes &str to load_check_at (config/mod.rs:178-183), which finally calls repo_path() to build a RepoRelativePath. Each consumer repeats the string handling before that. sc-ai's relative_to_repo (sc-ai/src/command.rs:640-666) hand-normalises to a String, wraps it in a PathBuf (command.rs:462), and the engine turns it back into a String. sc-jev-py does PathBuf to String (sc-jev-py/src/run.rs:242-249, 185) and then back to PathBuf (run.rs:152, 185). Lexical normalisation also exists in extract/read.rs:157-182 and sc-treesitter git_io.rs normalize().",
+        "recommendation": "Make the check path a RepoRelativePath on the facade. Change CheckSource::CheckFile to take RepoRelativePath and load_check_at to take &RepoRelativePath. Give sc-agent-types one lexical-normalisation constructor (strip './', map '\\' to '/', reject '..' and empty) that sc-ai and sc-jev-py both call. Delete the PathBuf, String and PathBuf round-trips and the per-crate normalisers, so the UTF-8 and validation failure happens once at the consumer edge and cannot occur inside prepare().",
+        "evidence": "RBP-F003 asked for InputSpec and CheckSpec to hold RepoRelativePath, and that part is done (config/mod.rs:33-59, 98-102, 213-219; extract/* take &RepoRelativePath). The check.toml path itself, which is the only path entering through the new prepare() API, is still PathBuf or &str and is revalidated in three places."
+      }
+    ],
+    "summary": {
+      "total_findings": 1,
+      "by_severity": { "critical": 0, "important": 1, "minor": 0 }
+    },
+    "notes": [
+      "RBP-F003 disposition: closed for its stated scope. InputSpec (File, TableColumn, Subjects, Command.path), CheckSpec (questions_path, state_path, system_prompt_file), RawCheck, the extract readers, validate_input_path and build_payload all use RepoRelativePath, validated at serde parse time. A residual of the same pattern at the CheckSource and load_check_at boundary is filed as new RBP-F004. Do not treat RBP-F003 as fully clean until RBP-F004 is fixed.",
+      "Verified OK, no finding. RBP-006: no Mutex, RwLock or RefCell remains in session/, run/, registry/ or the commands in scope. FileSessionStore is {dir, ttl, clock fn pointer} with an injected clock. The only Mutex is in a registry test. Module docs justify the lock-free atomic-rename model.",
+      "Verified OK, no finding. BackendFailure stores only the JevError. response() derives ScAgentErrorResponse on demand, and BackendResult's Serialize uses it, so the two cannot diverge. RunResponseBuilder and test_builder are gated by cfg(any(test, feature = \"test-util\")), and from_parts is pub(crate).",
+      "Verified OK, no finding. Error constructors: no hand-built JevError struct literals in the scoped files. Every site uses constructors (input_invalid, config_invalid, operational_config, encode_failed, io_failed, session_store_io, and so on). #[expect] carries a reason in sc-jev-py/src/run.rs:499, 565 and 622, and there is no #[allow] in scope. Envelope constants are defined once in run/response.rs and re-exported by sc-ai. payload::build_payload replaces PayloadBuilder. prepare consumes RunConfig into PreparedRun, so run sees only that config. BackendSet is used in the consumers.",
+      "Minor (not blocking). The crate-boundary surface is wider than the 'only public way to run a check' claim in run/mod.rs. extract::extract_input, extract::Extracted, payload::build_payload and BuiltPayload, payload::parse_question_set, equal_input::producer_from_extractions, config::load_check_str, config::ResolvedPromptPath and PromptOrigin, and session::StoredSession with its pub fields are all public. jev-check.toml admits some of them are 'still pub because crate tests import them', and omits the others (BuiltPayload, Extracted, ResolvedPromptPath, PromptOrigin, DEFAULT_SESSION_TTL). Consider pub(crate) or test-util gating, or #[doc(hidden)], and list the rest in the facade. build_payload is a public bypass of ADR-SAG-0005's single-assembly path.",
+      "Minor. run() with an ask-capable backend and no sessions_dir is only detected in run() (run/mod.rs:524-528) although prepare() already knows the backend set and dry_run. Failing in prepare() would give an earlier, cheaper error and a tighter prepare/run contract.",
+      "Minor. Envelope.operation and the OP_* values are &'static str constants, so an operation could be passed that is not one of the three. A small non-exhaustive enum with as_str() would be stricter, but the constants are consistent today.",
+      "Minor. BackendResult stores `backend` redundantly beside the outcome in BackendStatus::Ok. BackendResult::failed and BackendFailure::new are public and ungated, which is harmless because a RunResponse cannot be assembled without the gated builder.",
+      "Minor. emit_log (session/mod.rs:372-374) discards the log emit result with `let _ =`. Add a one-line rationale (best-effort per CR-014), as sc-ai's finish_log has.",
+      "Minor. FileSessionStore::new sweeps with SystemTime::now() directly instead of the injected clock (session/mod.rs:147). It is harmless because the sweep is best effort. Also, load_check_str wraps the toml::de::Error Display (config/mod.rs:152), which can echo source lines of check.toml. It is a config file, so low risk.",
+      "Minor (RBP-009, not a hot path). FileSessionStore::save clones payload, system_prompt, outcomes and follow_ups into an owned SessionDocument (session/mod.rs:198-208). A borrowed serialisation view would avoid the copies.",
+      "RBP-002, RBP-003, RBP-005, RBP-008, RBP-010: no new pub trait, wrapper, state machine or capability token in the scoped files. prepare() to PreparedRun to run() is already a correct typestate-style flow. dyn JudgeBackend lives in sc-agent-types, which was out of scope.",
+      "Commit check: the worktree HEAD ref is refs/heads/sprint/r-2-engine-shape. I could not resolve the ref's SHA with the tools available (the branch ref is not a loose file or in packed-refs), so exact-commit equality with 0d643f2 was not independently confirmed."
+    ]
+  },
+  "error": null
+}

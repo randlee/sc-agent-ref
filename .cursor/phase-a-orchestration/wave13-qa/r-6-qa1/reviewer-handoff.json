@@ -1,0 +1,867 @@
+{
+ "pr": 35,
+ "qa_pass": "qa-r6-1",
+ "round": "QA-1",
+ "sprint": "r-6",
+ "branch": "sprint/r-6-session-log-record",
+ "head": "0408826",
+ "base": "integrate/phase-a",
+ "notes": "CI test (windows-2022) failed at 0408826 in test_log_context_repo_is_main_repo_paths_stay_on_worktree (a path canonicalization mismatch in the test). The parent fixed it in f6ddc71 under Auto-fix authorization. That is a test-only change and is covered by the QA-2 round.",
+ "manifest": [
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "a5695e3090ce19689",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "0408826"
+  },
+  {
+   "agent": "rust-best-practices-agent",
+   "task_id": "af06deea9e89628b3",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "0408826"
+  },
+  {
+   "agent": "rust-service-hardening-agent",
+   "task_id": "a875a394afb55ead7",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "0408826"
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "a9ffd7790164dfa5f",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "0408826"
+  },
+  {
+   "agent": "req-qa",
+   "task_id": "a81fe918769870cbb",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "0408826"
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "ac323b0b60158249a",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "0408826"
+  }
+ ],
+ "reviewer_outputs": [
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "a5695e3090ce19689",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-6-session-log-record",
+     "reviewed_commit": "0408826",
+     "review_mode": "sprint_review",
+     "executed_checks": {
+      "fmt": {
+       "status": "pass",
+       "command": "cargo fmt --all --check"
+      },
+      "clippy": {
+       "status": "pass",
+       "command": "cargo clippy --all-targets --all-features --workspace --exclude sc-jev-py -- -D warnings; plus cargo clippy --all-targets -p sc-jev-py -- -D warnings (default features)"
+      },
+      "tests": {
+       "status": "pass",
+       "command": "cargo test --workspace --exclude sc-jev-py --all-features (exit 0, 73 test binaries ok, 0 failures); cargo test (default, exit 0, 71 binaries ok, 0 failures)"
+      },
+      "coverage": {
+       "status": "not_run"
+      },
+      "artifacts": {
+       "status": "not_run"
+      }
+     },
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "notes": [
+      "HEAD verified as 0408826 on sprint/r-6-session-log-record.",
+      "Clippy with --all-features could not cover sc-jev-py because of the pre-existing pyo3 extension-module link issue. It was linted separately with default features and passed.",
+      "Dependencies: ulid = \"1\" and sc-sha = \"1.7.0\" are declared in the workspace Cargo.toml. rand 0.9.5 is not declared directly. It appears only as a transitive dependency of ulid in Cargo.lock. sha2 and uuid were removed from the workspace.",
+      "Portability: grep for hardcoded \"/tmp/\" in crates/ found nothing. The new cfg(unix) tests are gated. The Windows path-separator handling in crates/sc-jev-check/src/run/mod.rs:180 splits on both '/' and '\\\\'. No set_var or HOME env hacks were found in the changed Rust files. I did not run a Windows build, so Windows portability is by inspection only.",
+      "New [[test]] entries with required-features (trace, session_log) are consistent with the --all-features runs, which passed."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "rust-best-practices-agent",
+   "task_id": "af06deea9e89628b3",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-6-session-log-record",
+     "reviewed_commit": "0408826",
+     "review_mode": "sprint_review",
+     "practice_mode": "all",
+     "practices_reviewed": [
+      "RBP-001",
+      "RBP-002",
+      "RBP-003",
+      "RBP-004",
+      "RBP-005",
+      "RBP-006",
+      "RBP-007",
+      "RBP-008",
+      "RBP-009",
+      "RBP-010"
+     ],
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "notes": [
+      "I have no shell or git tool, so I could not produce the 77fffdb..0408826 diff. I identified the delta from the sprint plan (docs/plans/phase-a-refine/sprint-r-6-session-log-record.md) and read the touched files in full or in the relevant regions. Those were ids.rs (SessionId, AnswerId, Sha256Digest::of_text), observability/v2.rs (LogEvent), git.rs (discover_common_dir), run/log.rs (new), run/mod.rs, session/mod.rs, host compose.rs and obs.rs, and the sc-jev-py project plumbing. Untouched r-7 code was not reviewed.",
+      "HEAD check: the worktree HEAD is refs/heads/sprint/r-6-session-log-record, and that ref resolves to 040882616616a60326510c22d5be38d02116ac06, which matches the assigned commit 0408826.",
+      "RBP-001: the new failure paths are structured JevError constructors with fix hints. These are non-ULID or UUID session ids (INPUT_INVALID), a v2 session document (session_document_invalid), and an over-long or control-character project label (INPUT_INVALID). The silent fallbacks, `unwrap_or_else(|_| config.repo_root.clone())` in SendLog::new and the `Ok(Some(..))` guard in discover_main_repo_root, are documented best-effort log paths and do not lose a user-visible error.",
+      "RBP-004: SessionId, AnswerId, ProjectLabel and Operation are validated newtypes, and parse_ulid is the one strict parser, so no validation is repeated. RepoRoot is now used for both the worktree toplevel and the logged main-repo root. The plan binds discover_main_repo_root to return RepoRoot, so I did not raise it.",
+      "RBP-006: no new Cell or RefCell. The Mutex in obs.rs is the process-wide logger registry, documented in the module docs and poison-tolerant.",
+      "RBP-007: the unreachable! arm in Sha256Digest::of_text is a `&str`-guarded bug path, as D0 specifies. discover_main_repo_root returns Result only because its fallback to discover_repo_root can fail.",
+      "RBP-003 and RBP-008: SessionLog is documented as an intentionally open, object-safe port. LogEvent stays a concrete struct with private fields. No new pub trait was added.",
+      "RBP-009: the per-send clones (repo String, question ids, digest) are small and not on a hot path, so no Cow change is warranted.",
+      "Unsolicited and not a finding: `FileSessionStore::path`, `load` and `read_document` take `&SessionId` although SessionId is now Copy, and `LogEvent::session_id()` returns a reference. This is API style only, and changing it would break existing signatures."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "rust-service-hardening-agent",
+   "task_id": "a875a394afb55ead7",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "findings",
+     "reviewed_branch": "sprint/r-6-session-log-record",
+     "reviewed_commit": "0408826",
+     "review_mode": "sprint_review",
+     "service_indicators_found": [
+      "ureq = \"3.5.1\" (workspace Cargo.toml:39, consumed by crates/sc-agent-http/Cargo.toml:31)",
+      "ureq::Agent::config_builder() client setup (crates/sc-agent-http/src/ureq_transport.rs:47-56)",
+      "sc-agent-http UreqTransport: blocking HTTP client with busy retry, timeouts, response caps (crates/sc-agent-http/src/retry.rs, ureq_transport.rs)"
+     ],
+     "topics_reviewed": [
+      "timeouts",
+      "input_size_limits",
+      "retries_busy_bounds",
+      "graceful_shutdown_flush",
+      "structured_logging_tracing",
+      "request_id_correlation",
+      "bounded_resources_retention"
+     ],
+     "findings": [
+      {
+       "id": "RSH-001",
+       "topic": "bounded_resources_retention",
+       "severity": "minor",
+       "file": "crates/sc-jev-check/src/session/mod.rs",
+       "line": 508,
+       "issue": "Expired session documents are never deleted. Each live run that selects an ask-capable backend writes one <id>.json (up to about 96 KB) into the sessions directory. Expiry (is_expired, lines 244-248; read_session, lines 238-240) only refuses to load the file. The only cleanup, sweep_stale_tmp (lines 508-528, called from FileSessionStore::new at line 137), removes *.tmp.* files, so the directory grows without bound. Session versions 1 and 2 are also refused on read but are never removed.",
+       "recommendation": "Extend the sweep in FileSessionStore::new to remove <id>.json files whose created_at (or mtime) is older than the TTL, using the same cutoff logic as is_expired. Alternatively, document the retention policy and provide an explicit prune command. The sweep already runs once per live run, so the added cost is one metadata read per json file.",
+       "evidence": "sweep_stale_tmp filters on name.contains(TMP_MARKER) and returns before touching any non-tmp file (lines 516-518). The doc comment at lines 42-47 states the sweep covers temporary files only. A grep of crates/sc-jev-check/src for remove_file shows only tmp-file removals (lines 470, 525)."
+      },
+      {
+       "id": "RSH-002",
+       "topic": "graceful_shutdown_flush",
+       "severity": "minor",
+       "file": "crates/sc-jev-host/src/compose.rs",
+       "line": 344,
+       "issue": "The session-log flush is skipped on the error path. HostRun::run calls run(self.prepared)? (line 344), so when every backend fails and run returns Err, the flush warning is never produced. The adapter is then dropped, and LoggerInner::drop discards flush and shutdown errors (crates/sc-jev-host/src/obs.rs:45-52). A flush failure on the path where failed send rows matter most is therefore silent. ask_from has the same shape: ask(...)? at compose.rs:419 returns before finish_log at line 420.",
+       "recommendation": "Flush before propagating the error, for example by splitting run into a match that always calls finish_log and then returns the error. When the run fails, surface the flush failure through the error's detail or the stderr channel, so the loss is observable. Keep the drop-time flush as the last resort.",
+       "evidence": "compose.rs:343-349 (HostRun::run) and compose.rs:418-423 (ask_from). Warning only on the success path: finish_log is reached only after the ? operator has succeeded. obs.rs:45-52 uses let _ = for both flush and shutdown in Drop."
+      },
+      {
+       "id": "RSH-003",
+       "topic": "request_id_correlation",
+       "severity": "minor",
+       "file": "crates/sc-jev-host/src/obs.rs",
+       "line": 196,
+       "issue": "The sc-observability envelope leaves request_id and correlation_id as None, while the row carries session_id and answer_id as ULIDs in fields{} only. Generic log tooling that correlates on envelope fields cannot join rows to a session or to a send.",
+       "recommendation": "Populate the envelope correlation field with the session id (and request_id with the answer id, if the envelope type accepts ULIDs). Keep fields{} unchanged, so the row contract does not change.",
+       "evidence": "ObservabilityAdapter::log_event sets request_id: None (line 196) and correlation_id: None (line 197) for every event, while event.fields() carries session_id and answer_id."
+      },
+      {
+       "id": "RSH-004",
+       "topic": "structured_logging_tracing",
+       "severity": "minor",
+       "file": "crates/sc-jev-host/src/obs.rs",
+       "line": 188,
+       "issue": "Every session-log event is emitted at Level::Info, whether the send succeeded or failed. A failed send (send_outcome = \"failed\", with error_code set) is indistinguishable by level from a successful one, so level-based filtering or alerting at WARN or ERROR cannot see failed sends.",
+       "recommendation": "Derive the level from the row's send_outcome: Level::Warn for failed sends and Level::Info for ok sends. Level::Warn and Level::Error both exist in sc-observability 1.5.0.",
+       "evidence": "log_event hard-codes level: Level::Info (line 188). The event's fields carry send_outcome, which SessionLogRow::to_fields sets to \"failed\" for failed sends (crates/sc-decision-schema/src/session_log/mod.rs:244-247)."
+      }
+     ],
+     "summary": {
+      "total_findings": 4,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 4
+      }
+     },
+     "notes": [
+      "Input validation: review_mode, worktree_path (absolute) and branch/commit were present. HEAD in the worktree is ref sprint/r-6-session-log-record, and that branch resolves to 040882616616a60326510c22d5be38d02116ac06, which matches the assigned commit 0408826. Verified by reading .git and refs/heads files, because the Bash tool was not available to this agent.",
+      "Delta identification limitation: git diff 77fffdb..0408826 could not be run (no Bash or git tool). The review read the full target files and mapped the session-log, ULID, request-digest, repo and project code paths. Findings are therefore not confirmed as delta-introduced. RSH-001 and RSH-002 touch code that may predate the delta. Per the zero-tolerance rule, they are reported with the pre-existing status unverified rather than dismissed. The orchestrator should confirm against the baseline if the delta-only scope must be enforced strictly.",
+      "Excluded per the caller's triage list and not re-raised: the 502 retry (owner decision), the judge-call deadline (documented bound), the CI advisory scan (deferred bead), and the HTTP error body snippet (being fixed in r-5).",
+      "Service-indicator scope: tokio, axum, hyper, tonic, warp, actix-web and reqwest are absent from every in-scope Cargo.toml and source file. ureq is the only HTTP runtime dependency, and it is used as a client, so the review applied the service-hardening topics to the sc-agent-http client layer. No server or listener is in scope.",
+      "Verified as sound, no finding: request timeouts (connect 10 s, global 120 s, ureq_transport.rs:47-56, :61-66); https-only enforced in both agent config and send (ureq_transport.rs:121-126); response body capped while streaming at 8 MiB (ureq_transport.rs:181-196); prompt file read capped at 1 MiB (run/prompt.rs:115-125); session read capped at 8 MiB (session/mod.rs:262-270); session writes atomic with fsync and rename, mode 0600 (session/mod.rs:458-477); ProjectLabel bounded to 256 bytes with no control characters (sc-agent-types/src/ids.rs:813-830); request digest recorded once before the first transport send and redacted on error (retry.rs:417-424, 258); git subprocesses bounded by GIT_DEADLINE (sc-agent-types/src/git.rs:331-335); JSONL log rotation and retention provided by sc-observability 1.5.0 sinks; scripted backend gated behind test-util (registry/mod.rs:30-43); session files and temporary-file sweep correct (session/mod.rs:137).",
+      "Observation, not a finding: Timeouts::new (sc-agent-http/src/transport.rs:77) is a const fn with no range validation, so a caller could pass Duration::MAX and remove the bound. Defaults are bounded, so no finding was raised.",
+      "Not performed (per instructions): tests, coverage, clippy and structural best-practices review."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "a9ffd7790164dfa5f",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "findings",
+     "reviewed_branch": "sprint/r-6-session-log-record",
+     "reviewed_commit": "0408826",
+     "findings": [
+      {
+       "id": "FTQ-001",
+       "severity": "important",
+       "file": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-6-session-log-record/tests/fixtures/jev-python/tests/test_run_check_and_ask.py",
+       "line": 337,
+       "test": "test_dotenv_read_from_toplevel_in_subdir",
+       "mechanism": "env_leak",
+       "issue": "The fixture repository is created with subprocess.run(['git','init',...], env={**os.environ, 'GIT_CONFIG_GLOBAL': devnull, 'GIT_CONFIG_NOSYSTEM': '1'}). The ambient GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, GIT_OBJECT_DIRECTORY, GIT_COMMON_DIR and similar variables are inherited. Git hooks such as pre-commit export GIT_INDEX_FILE and sometimes GIT_DIR. When pytest is launched from such a context, 'git init' initialises or reinitialises the host repository instead of tmp_path/repo, and the later toplevel discovery from src/pkg resolves against the host. The test's CONFIG_INVALID and .env expectations then fail. Whether it fails depends on how the suite was launched, not on a random draw. The Rust side already strips these variables (crates/sc-agent-types/src/git.rs lines 98-102, and the git() helpers in crates/sc-jev-check/tests/repo.rs and crates/sc-jev-host/tests/log_context.rs), so this is the one fixture that does not.",
+       "recommendation": "Build the child environment from os.environ with GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, GIT_OBJECT_DIRECTORY, GIT_ALTERNATE_OBJECT_DIRECTORIES, GIT_COMMON_DIR, GIT_PREFIX, GIT_CONFIG_PARAMETERS, GIT_CONFIG_COUNT and GIT_DEFAULT_HASH removed. Set GIT_CONFIG_GLOBAL and GIT_CONFIG_SYSTEM to os.devnull, GIT_CONFIG_NOSYSTEM=1 and GIT_TERMINAL_PROMPT=0. Use one shared helper that mirrors the Rust git() helper, and pass a timeout (see FTQ-002).",
+       "evidence": "subprocess.run([\"git\", \"init\", \"-q\", str(repo)], check=True, env={**os.environ, \"GIT_CONFIG_GLOBAL\": os.devnull, \"GIT_CONFIG_NOSYSTEM\": \"1\"}) followed by monkeypatch.chdir(sub) and sc_jev_py.build_request(\"check.toml\"). The Rust production discovery strips GIT_DIR and GIT_INDEX_FILE in crates/sc-agent-types/src/git.rs:98-102."
+      },
+      {
+       "id": "FTQ-002",
+       "severity": "minor",
+       "file": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-6-session-log-record/tests/fixtures/jev-python/tests/test_run_check_and_ask.py",
+       "line": 334,
+       "test": "test_dotenv_read_from_toplevel_in_subdir",
+       "mechanism": "unbounded_wait",
+       "issue": "subprocess.run for 'git init' has no timeout. A stalled git process, for example one blocked on a lock or a stalled filesystem, blocks the whole pytest session with no failure. Every other subprocess in the workspace is bounded by the 60 s deadline runner (tests/support/deadline.rs), so this is the one unbounded spawn in the targeted set.",
+       "recommendation": "Pass timeout= to subprocess.run and let subprocess.TimeoutExpired fail the test with a clear message. Better, route the call through the same bounded helper as the Rust tests, combined with the environment fix in FTQ-001.",
+       "evidence": "subprocess.run([\"git\", \"init\", \"-q\", str(repo)], check=True, env=...) with no timeout argument."
+      },
+      {
+       "id": "FTQ-003",
+       "severity": "minor",
+       "file": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-6-session-log-record/tests/fixtures/jev-python/tests/test_run_check_and_ask.py",
+       "line": 403,
+       "test": "test_build_request_releases_the_gil",
+       "mechanism": "timing_assertion",
+       "issue": "Two independent 20 s wall-clock budgets govern the handshake. The worker thread's deadline starts before build_request spawns the extractor. The child's own 20 s poll starts only after it has written 'started'. On a loaded host where the interpreter start is slow, the worker gives up first, never writes 'ack', and the child exits 3. The test then reports EXTRACTION_FAILED with the message 'the GIL was held', although the GIL was never the cause. The failure is intermittent on loaded CI hosts and carries the wrong diagnosis.",
+       "recommendation": "Remove the worker's own deadline. Let it poll for 'started' until the stop event is set, and rely on the finally block (stop.set() plus a bounded join) for the bound. Assert started.exists() before the error-code assertion, so a child that never started is reported as such. Do not widen the 20 s budgets, because that would only pad the race.",
+       "evidence": "answer() computes deadline = time.monotonic() + 20 before the extractor is spawned, and the handshake script (_HANDSHAKE_SCRIPT, line 363) runs its own 20 s deadline. The assertion message reads 'EXTRACTION_FAILED means the worker never ran: the GIL was held'."
+      },
+      {
+       "id": "FTQ-004",
+       "severity": "minor",
+       "file": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-6-session-log-record/crates/sc-jev-host/tests/log_context.rs",
+       "line": 147,
+       "test": "test_log_context_repo_is_main_repo_paths_stay_on_worktree",
+       "mechanism": "timing_assertion",
+       "issue": "run_from and ask_from flush the file logger through a barrier with a 5 s default timeout (sc-observability 1.5.0, DEFAULT_WRITER_SHUTDOWN_TIMEOUT and flush_with_timeout in runtime.rs). If the writer stalls past 5 s, flush returns Err. compose.rs turns that into a response warning ('session log was not flushed'). The test discards response.warnings() from both calls and then reads the JSONL file, so a flush timeout appears only as an opaque row-count assertion (rows.len() == 1 or == 2). That is intermittent under load and does not name its cause.",
+       "recommendation": "Assert warnings().is_empty() on the run and ask responses before reading the file, so a flush failure is named in the failure. Keep the file-level checks for paths only, and check row contents through an injected SessionLog sink, as crates/sc-jev-check/tests/session_log.rs already does. The same pattern appears outside this target at crates/sc-jev-host/tests/obs.rs lines 114 and 150 (adapter.flush().expect), and should get the same treatment.",
+       "evidence": "let response = run_from(source, inputs(&linked).project(label)).expect(\"run\"); followed by let rows = rows(&linked.join(\".sc-ai/logs/sc-ai.log.jsonl\")); with no assertion on response.warnings(). compose.rs:428-435 converts a flush Err into a warning string. obs.rs:Drop and flush use the 5 s writer shutdown timeout."
+      }
+     ],
+     "summary": {
+      "total_findings": 4,
+      "critical": 0,
+      "important": 1,
+      "minor": 3
+     }
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "req-qa",
+   "task_id": "a81fe918769870cbb",
+   "fenced_json": {
+    "status": "FAIL",
+    "reviewed_branch": "sprint/r-6-session-log-record",
+    "reviewed_commit": "0408826",
+    "errors": [],
+    "scope": {
+     "phase": "phase-a-refine",
+     "sprint": "r-6"
+    },
+    "baselines_read": [
+     "docs/requirements.md",
+     "docs/architecture.md",
+     "docs/project-plan.md (not opened; docs/plans/phase-a-refine/plan.md read at the relevant sections)",
+     ".claude/project/quality-policy.md",
+     "docs/sc-agent-types/requirements.md",
+     "docs/sc-agent-http/requirements.md",
+     "docs/sc-jev-check/requirements.md",
+     "docs/sc-jev-host/requirements.md",
+     "docs/sc-ai/requirements.md",
+     "docs/sc-jev-py/requirements.md",
+     "docs/sc-decision-schema/requirements.md"
+    ],
+    "phase_or_sprint_docs_read": [
+     "docs/plans/phase-a-refine/plan.md",
+     "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md"
+    ],
+    "input_verification": "Worktree .git points at worktrees/r-6-session-log-record; HEAD is refs/heads/sprint/r-6-session-log-record; that ref is 040882616616a60326510c22d5be38d02116ac06, which matches the assigned commit 0408826.",
+    "limits": "I had no shell. Nothing was compiled or run. Test presence and wiring were checked by reading code. Whether the tests pass, and whether the cargo tree, hack, lint and pin gates are green, rest on the parent's runs.",
+    "requirement_checks": [
+     {
+      "id": "REQ-SAG-0612",
+      "source": "docs/requirements.md:186",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-agent-types/tests/ids.rs:184",
+       "crates/sc-jev-check/tests/session.rs:92",
+       "crates/sc-ai/tests/cli.rs:656",
+       "tests/fixtures/jev-python/tests/test_run_check_and_ask.py:185"
+      ],
+      "note": "The Python UUID refusal is not exercised, see REQ-QA-002."
+     },
+     {
+      "id": "REQ-SAG-0613",
+      "source": "docs/requirements.md:187",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-agent-http/src/retry.rs:420-423",
+       "crates/sc-agent-http/tests/trace.rs:45,67,84",
+       "crates/sc-jev-check/tests/session_log.rs:142,163,191",
+       "crates/sc-jev-check/src/run/log.rs:148"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0614",
+      "source": "docs/requirements.md:188",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-agent-types/src/git.rs:229",
+       "crates/sc-jev-check/src/run/mod.rs:926",
+       "crates/sc-jev-check/tests/repo.rs:70,106,116",
+       "crates/sc-jev-host/tests/log_context.rs:132"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0615",
+      "source": "docs/requirements.md:189",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-ai/tests/cli.rs:679,753",
+       "tests/fixtures/jev-python/tests/test_run_check_and_ask.py:217,243"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0616",
+      "source": "docs/requirements.md:190",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/run/log.rs:124",
+       "crates/sc-jev-check/tests/session_log.rs:226"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0617",
+      "source": "docs/requirements.md:191",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/run/log.rs:131-135",
+       "crates/sc-jev-check/tests/session_log.rs:286,503",
+       "crates/sc-jev-host/tests/obs.rs:107"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0618",
+      "source": "docs/requirements.md:192",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "Cargo.toml:36-37",
+       "crates/sc-agent-types/Cargo.toml:34-36",
+       "Cargo.lock:1565,2011",
+       "crates/sc-agent-types/tests/ids.rs:213",
+       "sc-lint.toml:73-84"
+      ],
+      "note": "Manifests no longer list sha2 or uuid. Cargo.lock keeps sha2 0.10.9 only through sc-sha, as the sprint allows. The cargo tree gate was not run by me."
+     },
+     {
+      "id": "REQ-SAG-0600",
+      "source": "docs/requirements.md:213",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-check/tests/sessions_exact.rs:215",
+       "crates/sc-jev-check/src/session/mod.rs:90-94,196-202,385-397"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0611",
+      "source": "docs/requirements.md:214",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-check/tests/session_log.rs:392,465",
+       "docs/sc-agent-types/requirements.md:42"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0610",
+      "source": "docs/requirements.md:102",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/run/mod.rs:629,648,721,729,867"
+      ]
+     },
+     {
+      "id": "NFR-SAG-0004",
+      "source": "docs/requirements.md:165",
+      "listed_in_sprint_doc": true,
+      "result": "not-verifiable",
+      "evidence_refs": [
+       "Cargo.toml:36-37"
+      ],
+      "note": "I did not run check-exact-pins.sh. The manifests show caret ranges, as required. The parent's run is the evidence."
+     },
+     {
+      "id": "REQ-SAG-0107",
+      "source": "docs/sc-agent-types/requirements.md:34",
+      "listed_in_sprint_doc": true,
+      "result": "not-verifiable",
+      "evidence_refs": [
+       "crates/sc-agent-types/tests/fixtures/no-default-features-deps.txt:25,30,36"
+      ],
+      "note": "The fixture lists sc-sha, ulid and sha2 (transitive) and no uuid. The feature-powerset run is the parent's."
+     },
+     {
+      "id": "NFR-SAG-0002",
+      "source": "docs/requirements.md:114",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-agent-http/src/retry.rs:422",
+       "crates/sc-jev-check/tests/session_log.rs:465"
+      ],
+      "note": "Only the body is hashed, not headers."
+     },
+     {
+      "id": "REQ-SAG-0101/0103/0120/0121/0147/0148, REQ-SAG-0505, REQ-SAG-0300..0303/0305/0309/0311..0314/0503/0601..0603/0620, REQ-SAG-0604/0605/0702/0703/0710/0712/0900/0803, REQ-SAG-0140..0145 (crate-level ids of owned crates)",
+      "source": "docs/<crate>/requirements.md",
+      "listed_in_sprint_doc": false,
+      "result": "not-verifiable",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:16-45"
+      ],
+      "note": "These ids are absent from the sprint list, so the gate treats them as not verified. See REQ-QA-001."
+     }
+    ],
+    "deliverable_checks": [
+     {
+      "item": "D0 sc-sha behaviour pinned by test_sha256_reference_vectors",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-agent-types/tests/ids.rs:213",
+       "Cargo.lock:1565"
+      ],
+      "notes": "sc-sha is locked at 1.7.0."
+     },
+     {
+      "item": "D1 ULID session ids, document v3, UUID refused",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-agent-types/tests/ids.rs:184",
+       "crates/sc-jev-check/src/session/mod.rs:196-202",
+       "crates/sc-jev-check/tests/session.rs:92",
+       "crates/sc-ai/tests/cli.rs:656"
+      ],
+      "notes": "The Python hint wording is dropped, see REQ-QA-002."
+     },
+     {
+      "item": "D2 sc-sha digest, uuid/sha2 removed, lint ownership, no-default-features fixture",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "Cargo.toml:36-37",
+       "sc-lint.toml:73-84",
+       "crates/sc-agent-types/tests/fixtures/no-default-features-deps.txt",
+       "crates/sc-ai/Cargo.toml"
+      ],
+      "notes": "Not run by me: cargo tree gates, jev_cross_impl, sc-treesitter."
+     },
+     {
+      "item": "D3 request_sha256 recorded before the first send; fresh SendTrace per send; with_sent_body",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-agent-http/src/retry.rs:420-423",
+       "crates/sc-jev-check/src/run/log.rs:148",
+       "crates/sc-decision-schema/src/test_util.rs:111,174",
+       "crates/sc-agent-http/Cargo.toml:43-45"
+      ],
+      "notes": "The code guards the call with `if sends == 0`, where the doc says 'no branch'. The effect is the same, because it records once, before the first attempt. Informational."
+     },
+     {
+      "item": "D4 model_id from JudgeBackend::model_id()",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/run/log.rs:124"
+      ],
+      "notes": ""
+     },
+     {
+      "item": "D5 discover_common_dir, discover_main_repo_root, LogContext, RunConfig::log_context, ComposeInputs::project, --project, project=",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-agent-types/src/git.rs:229",
+       "crates/sc-jev-check/src/run/mod.rs:926",
+       "crates/sc-jev-check/src/run/log.rs:38-62",
+       "crates/sc-jev-host/src/compose.rs:259-274",
+       "crates/sc-jev-check/Cargo.toml:78-84"
+      ],
+      "notes": "Compose starts discovery from the explicit repo root, where the doc says the working directory, see REQ-QA-004."
+     },
+     {
+      "item": "D6 row emission in fields{}, LogEvent::new(session_id, operation, fields), host adapter, goldens, fixtures, log-write policy",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/run/log.rs:104-136",
+       "crates/sc-jev-check/tests/session_log.rs:286,503",
+       "crates/sc-jev-host/tests/obs.rs:107"
+      ],
+      "notes": "The LogEvent change is documented in docs/sc-agent-types."
+     },
+     {
+      "item": "D7 stale UUID and sha2 doc text",
+      "status": "partially-present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "README.md:25,38",
+       "docs/sc-agent-types/architecture.md:99-104",
+       "docs/sc-ai/requirements.md:10,20",
+       "crates/sc-agent-types/tests/features.rs:8"
+      ],
+      "notes": "A stale 'sha2 is a core dependency' comment remains in features.rs, see REQ-QA-005."
+     },
+     {
+      "item": "D8 ADR flips (0031 wiring, 0008/0013/0016/0026/0027 amendments and index markers)",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "docs/architecture.md:118,123,126,136,137,141,254-262,856-860,949-953,1394-1402,1524-1528,1719-1754"
+      ],
+      "notes": "Every marker reads Active, r-6. The 0031 index row reads Active (r-7 storage schema, r-6 wiring)."
+     },
+     {
+      "item": "Acceptance rows: every named test function exists (24 Rust, 3 Python)",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "see grep results"
+      ],
+      "notes": "Each exists at the cited path, and the [[test]] required-features entries are in place. I did not confirm '1 passed'."
+     },
+     {
+      "item": "Boundary and doc sync (boundaries/sc-agent-types/agent-types.toml, docs/sc-*/)",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "boundaries/sc-agent-types/agent-types.toml:25,38",
+       "docs/sc-agent-http/architecture.md:114-124",
+       "docs/sc-agent-http/requirements.md:12"
+      ],
+      "notes": "allowed_dependencies reads sc-sha, serde, serde_json, thiserror, ulid."
+     }
+    ],
+    "findings": [
+     {
+      "id": "REQ-QA-001",
+      "severity": "Blocking",
+      "category": "requirement-not-listed",
+      "source_refs": [
+       "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:16-45,75-127",
+       "docs/plans/phase-a-refine/plan.md:590-592"
+      ],
+      "target_refs": [
+       "docs/sc-agent-types/requirements.md:11-17,32-43",
+       "docs/sc-agent-http/requirements.md:10-13",
+       "docs/sc-jev-check/requirements.md:9-31",
+       "docs/sc-jev-host/requirements.md",
+       "docs/sc-ai/requirements.md:9-20",
+       "docs/sc-jev-py/requirements.md:9-16",
+       "docs/sc-decision-schema/requirements.md:8-14"
+      ],
+      "issue": "The sprint owns paths in sc-agent-types, sc-agent-http, sc-decision-schema, sc-jev-check, sc-jev-host, sc-ai and sc-jev-py. The `requirements` list names only some of each crate's ids. Missing: sc-agent-types REQ-SAG-0101, 0103, 0120, 0121, 0147, 0148 (NFR-SAG-0001 is listed). sc-agent-http REQ-SAG-0505. sc-decision-schema REQ-SAG-0140, 0141, 0142, 0144, 0145 (0146 and 0103 are covered). sc-jev-check REQ-SAG-0300, 0301, 0302, 0303, 0305, 0309, 0311, 0312, 0313, 0314, 0503, 0601, 0602, 0603, 0620. sc-jev-host REQ-SAG-0604, 0605 (plus any other ids in that file, which I only partly listed). sc-ai REQ-SAG-0702, 0703, 0710, 0712, 0900 (NFR-SAG-0001 and REQ-SAG-0604/0605 appear in that file's references). sc-jev-py REQ-SAG-0803, 0604, 0605. The plan states 'Every id a sprint's files touch is in its requirements: list', and the run loop, session store, compose and the whole sc-jev-check/src/** tree are in this sprint's owned paths. The ids that are not `req:` roots would also need a regression command in the boundary row.",
+      "required_correction": "Add every missing crate-level REQ/NFR id to the `requirements` list. Give each non-root id a regression command in the `boundary:session-log` row, or a one-line justification. If the plan means a narrower rule than 'every id of every crate with owned paths', amend plan.md:590 and record the rule so the list can be checked mechanically.",
+      "compliance_result": "partially-compliant"
+     },
+     {
+      "id": "REQ-QA-002",
+      "severity": "Important",
+      "category": "acceptance-gap",
+      "source_refs": [
+       "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:171-175,380,425-431",
+       "docs/requirements.md:186"
+      ],
+      "target_refs": [
+       "tests/fixtures/jev-python/tests/test_run_check_and_ask.py:185-214",
+       "docs/sc-jev-py/architecture.md:55"
+      ],
+      "issue": "D1 says a non-ULID id is INPUT_INVALID with the hint '... with `run_check`' (Python). REQ-SAG-0612 says a UUID id is INPUT_INVALID 'in CLI and Python'. The acceptance row names pytest `test_uuid_session_id_is_input_invalid`. The developer recorded that Python takes no session id (only `Session.ask` with the id the run returned), so the Python refusal path and its hint do not exist. The test of that name therefore asserts that ids are 26-character ULIDs and never feeds a UUID. The grep found no Python entry point that accepts a session id, so the choice looks sound. The defect is that the sprint doc still promises the Python hint and refusal, and the test name claims a refusal it does not run.",
+      "required_correction": "Amend D1 and the REQ-SAG-0612 wording to say Python receives ULID ids only and has no UUID input path. Alternatively, add a Python-reachable refusal. Rename the test, or reword the acceptance row, so it does not claim a UUID refusal.",
+      "compliance_result": "partially-compliant"
+     },
+     {
+      "id": "REQ-QA-003",
+      "severity": "Minor",
+      "category": "cross-doc-conflict",
+      "source_refs": [
+       "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:9-11",
+       "docs/plans/phase-a-refine/plan.md:675,1043"
+      ],
+      "target_refs": [],
+      "issue": "The sprint front matter gives branch and worktree `sprint/r-6-session-log-wiring`. The actual branch, worktree and the sprint doc's own file name use `sprint/r-6-session-log-record`. The quality policy's sprint-branch form is `sprint/<phase>-<n>-<slug>`.",
+      "required_correction": "Set `branch` and `worktree` in the front matter to `sprint/r-6-session-log-record`.",
+      "compliance_result": "partially-compliant"
+     },
+     {
+      "id": "REQ-QA-004",
+      "severity": "Minor",
+      "category": "implementation-drift",
+      "source_refs": [
+       "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:255-258,446-450"
+      ],
+      "target_refs": [
+       "crates/sc-jev-host/src/compose.rs:259-274"
+      ],
+      "issue": "D5 says compose resolves `repo` with `discover_main_repo_root(cwd)`. The implementation starts from the explicit repo root when one is set, else the working directory, and a dry run skips git. This is a sound choice because it keeps `--repo-root` and the logged `repo` in agreement. The implementation note admits the plan names only the working directory.",
+      "required_correction": "Amend D5 (and ADR-SAG-0031 and docs/sc-jev-host if they repeat 'cwd') to the explicit-root-else-cwd rule. Confirm a test covers the explicit `--repo-root` case.",
+      "compliance_result": "partially-compliant"
+     },
+     {
+      "id": "REQ-QA-005",
+      "severity": "Minor",
+      "category": "cross-doc-conflict",
+      "source_refs": [
+       "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:182-194"
+      ],
+      "target_refs": [
+       "crates/sc-agent-types/tests/features.rs:8-9"
+      ],
+      "issue": "The module doc still reads '`sha2` is a core dependency because `Sha256Digest::of_text` is in core `ids`'. Since r-6, `sc-sha` and `ulid` are the direct core dependencies. `sha2` is only transitive. D2 and D7 require stale sha2 text to be removed.",
+      "required_correction": "Reword the comment to say the core dependencies are `sc-sha` and `ulid` (`sha2` arrives through `sc-sha`).",
+      "compliance_result": "partially-compliant"
+     }
+    ],
+    "judgement_of_implementation_notes": [
+     "sc-sha pinned at 1.7.0 with a caret declaration: accepted. It matches D0, and the lock holds 1.7.0.",
+     "Strict canonical ULID parsing (uppercase only, round-trip equality): accepted. It is stricter than the plan text, consistent with r-7's AnswerId rule, and recorded in docs/sc-agent-types and the REQ-SAG-0612 row.",
+     "CLI value parser supplies the D1 hint: accepted.",
+     "Python hint dropped: see REQ-QA-002.",
+     "StoredSession without a decision_schema field, with the on-disk document struct writing CURRENT: accepted. The v3 document does carry decision_schema (session/mod.rs:575).",
+     "Recovery hint reworded to 'before Phase A.1': accepted.",
+     "session_created_at captured once per run: accepted. It matches D6.",
+     "Unset log_context resolved at the first send with a fallback to the given root: accepted, since logging must not fail a run.",
+     "Compose root choice: see REQ-QA-004.",
+     "--project on RunArgs, so dry-run accepts it: accepted, since the dry run logs nothing.",
+     "Scripted backends record a digest of a synthetic sent body: accepted, as ADR-SAG-0022 allows.",
+     "discover_main_repo_root uses the common dir's parent only when the dir is named `.git`: accepted. It is stricter than D5 and the separate-git-dir test covers it."
+    ],
+    "summary": {
+     "total_findings": 5,
+     "blocking_findings": 1,
+     "overall_compliance": "non-compliant",
+     "deliverables_total": 11,
+     "deliverables_complete": 10,
+     "deliverables_incomplete": 1,
+     "deliverable_completion_percent": 90.9
+    },
+    "gate_reason": "FAIL. The sprint `requirements` list omits many crate-level REQ/NFR ids for the seven crates it owns paths in (REQ-QA-001). Deliverables D0 to D6 and D8, and every named acceptance test, are present and wired by code reading, but I could not run any of them. D7 is partially present (REQ-QA-005). The Python UUID acceptance does not test a refusal (REQ-QA-002, Important). The branch name drift (REQ-QA-003) and the compose root choice (REQ-QA-004) are Minor."
+   }
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "ac323b0b60158249a",
+   "fenced_json": {
+    "agent": "arch-qa",
+    "branch": "sprint/r-6-session-log-record",
+    "scope": {
+     "phase": "phase-a-refine",
+     "sprint": "r-6"
+    },
+    "commit": "0408826",
+    "verdict": "PASS",
+    "blocking": 0,
+    "important": 0,
+    "findings": [],
+    "adr_checks": [
+     {
+      "adr": "ADR-SAG-0031",
+      "source": "docs/architecture.md:1673",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:1675",
+       "docs/architecture.md:1719",
+       "docs/architecture.md:141",
+       "docs/architecture.md:1721-1756"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0008",
+      "source": "docs/architecture.md:254",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:118",
+       "docs/architecture.md:256-262"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0013",
+      "source": "docs/architecture.md:856",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:123",
+       "docs/architecture.md:858-860"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0016",
+      "source": "docs/architecture.md:949",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:126",
+       "docs/architecture.md:951-953"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0026",
+      "source": "docs/architecture.md:1394",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:136",
+       "docs/architecture.md:1396-1402",
+       "crates/sc-agent-http/src/retry.rs:420-423"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0027",
+      "source": "docs/architecture.md:1524",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:137",
+       "docs/architecture.md:1526-1528",
+       "crates/sc-agent-types/Cargo.toml:31-36"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0023",
+      "source": "docs/architecture.md:1159",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "Cargo.toml:36-37",
+       "crates/sc-agent-types/Cargo.toml:34-36"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0028",
+      "source": "docs/architecture.md",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-agent-types/src/git.rs:84-88",
+       "crates/sc-agent-types/src/git.rs:229-243"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0021",
+      "source": "docs/architecture.md",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/run/mod.rs:926-936"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0001, 0002, 0003, 0004, 0005, 0006, 0007, 0009, 0010, 0011, 0012, 0014, 0019, 0020, 0022, 0024, 0025, 0029, 0030",
+      "source": "docs/architecture.md",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "No violating change found in the review targets; the code spot checks and the doc, README and boundary comparisons show no conflict."
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0015, 0017, 0018",
+      "source": "docs/architecture.md:125-128",
+      "listed_in_sprint_doc": false,
+      "result": "not-applicable",
+      "evidence_refs": [
+       "Not named in the architecture docs of the touched crates. The sprint changes no subjects artifact, release surface or sc-publish input (see the notes about release/)."
+      ]
+     }
+    ],
+    "gate_artifact_checks": [
+     {
+      "artifact": "docs/architecture.md (ADR-SAG-0031 wiring subsection, index rows, r-6 amendment subsections)",
+      "status": "closed",
+      "evidence_refs": [
+       "docs/architecture.md:141",
+       "docs/architecture.md:1675",
+       "docs/architecture.md:1719"
+      ],
+      "notes": "Every (Proposed, r-6) marker is flipped to Active. The index row reads `Active (r-7 storage schema, r-6 wiring)`. The r-6 subsections in 0008, 0013, 0016, 0026 and 0027, with their index markers, are Active. The remaining Proposed markers all belong to r-5 and are not r-6 dependencies. The only leftover `Proposed (r-6)` text is in historical plan docs (sprint-r-7 and plan-review-6-dispositions)."
+     },
+     {
+      "artifact": "boundaries/sc-agent-types/agent-types.toml and sc-lint.toml",
+      "status": "closed",
+      "evidence_refs": [
+       "boundaries/sc-agent-types/agent-types.toml:25",
+       "boundaries/sc-agent-types/agent-types.toml:38",
+       "sc-lint.toml:73-84",
+       "crates/sc-agent-types/tests/fixtures/no-default-features-deps.txt"
+      ],
+      "notes": "allowed_dependencies and the notes agree with Cargo.toml. ulid and sc-sha are owned by sc-agent-types only. The ulid dependency is caret `\"1\"` and sc-sha is caret `\"1.7.0\"`, both off the exact-pin list. uuid is gone from every manifest. sha2 remains only as a transitive dependency of sc-sha, as the sprint doc states."
+     }
+    ],
+    "merge_ready": true,
+    "notes": "Verified by reading files only, because this session had no shell. The worktree .git file points at /Volumes/Extreme Pro/github/sc-agent/.git/worktrees/r-6-session-log-record. I did not resolve HEAD to commit 0408826, and I did not run any cargo or script gate. Verify HEAD == 0408826 on the caller side.\n\nADR coverage: every ADR id named in the architecture docs of sc-agent-types, sc-agent-http, sc-decision-schema, sc-jev-check, sc-jev-host, sc-ai and sc-jev-py is in the sprint `adrs` list. The sprint also lists 0031.\n\nCode checks:\n- The git spawn is still the single `#[expect(clippy::disallowed_methods)]` site at crates/sc-agent-types/src/git.rs:84. The new `discover_common_dir` reuses it, so no new spawn site was added.\n- RULE-ADR-AWAIT-MUTEX is not applicable. The crates contain no `async fn` and no `.await`.\n- The request digest is recorded once, before the first send, at crates/sc-agent-http/src/retry.rs:420-423. The `sends == 0` guard gives the same result as the sprint's \"no branch\" wording. This is a nit and not an ADR matter.\n- README.md:25, the sc-ai help text and the docs for sc-agent-types, sc-ai and sc-jev-py all say ULID and match the code. The remaining UUID mentions are statements that a UUID is refused.\n\nThe sprint doc's implementation notes say `Cargo.lock` gained `rand` 0.9 through ulid, and that the parent should run `install.py` if the release kit input needs a refresh. That is a process item, not an ADR finding."
+   }
+  }
+ ]
+}

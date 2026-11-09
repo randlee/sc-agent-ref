@@ -1,0 +1,683 @@
+{
+ "manifest": [
+  {
+   "agent": "req-qa",
+   "task_id": "ad777ef64be7d414b",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "a3735a1c4675dfb94",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "ruthless-boundary-qa",
+   "task_id": "afa3a5dfb0cddd444",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "rust-best-practices-agent",
+   "task_id": "a34a209cb1c9dca67",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "rust-service-hardening-agent",
+   "task_id": "af0fcd53beabaca7b",
+   "spawn_actor": "parent-orchestrator"
+  }
+ ],
+ "reviewer_outputs": [
+  {
+   "agent": "req-qa",
+   "task_id": "ad777ef64be7d414b",
+   "fenced_json": {
+    "status": "PASS",
+    "reviewed_branch": "plan/phase-a-refine-r6",
+    "reviewed_commit": "5836f1befb9550ff4f5125f928cbce0c74e5ef1c",
+    "errors": [],
+    "scope": {
+     "phase": "r (Phase A.1)",
+     "sprint": "r-5, r-6, r-7"
+    },
+    "baselines_read": [
+     "docs/requirements.md (REQ-SAG-0618 row, line 192)",
+     "docs/architecture.md (lines 1645-1651)",
+     "docs/plans/phase-a-refine/plan.md"
+    ],
+    "phase_or_sprint_docs_read": [
+     "docs/plans/phase-a-refine/plan.md",
+     "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md",
+     "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md",
+     "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md"
+    ],
+    "worktree_check": "The worktree gitdir HEAD file is exactly 5836f1befb9550ff4f5125f928cbce0c74e5ef1c. I read it from the file only. I did not run git, so the branch name is not independently confirmed.",
+    "requirement_checks": [
+     {
+      "id": "NFR-SAG-0004",
+      "source": "docs/requirements.md:165",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "sprint-r-6-session-log-record.md:44",
+       "sprint-r-6-session-log-record.md:387",
+       "sprint-r-6-session-log-record.md:397"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0107",
+      "source": "docs/requirements.md:159",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "sprint-r-6-session-log-record.md:45",
+       "sprint-r-6-session-log-record.md:387"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0140",
+      "source": "docs/requirements.md:177",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "sprint-r-5-jev-wire-envelope.md:28",
+       "sprint-r-7-decision-schema.md:834"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0141",
+      "source": "docs/requirements.md:178",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "sprint-r-5-jev-wire-envelope.md:29",
+       "sprint-r-7-decision-schema.md:835"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0103",
+      "source": "docs/requirements.md",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "sprint-r-5-jev-wire-envelope.md:21",
+       "sprint-r-5-jev-wire-envelope.md:265"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0618",
+      "source": "docs/requirements.md:192",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "sprint-r-6-session-log-record.md:183-187",
+       "sprint-r-6-session-log-record.md:383",
+       "docs/architecture.md:1650-1651"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0613",
+      "source": "docs/requirements.md:187",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "sprint-r-7-decision-schema.md:26",
+       "sprint-r-7-decision-schema.md:842",
+       "sprint-r-6-session-log-record.md:18"
+      ]
+     }
+    ],
+    "deliverable_checks": [
+     {
+      "item": "Carry-forward REQ-QA-001 to 006 closure",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "see carry_forward_verdicts"
+      ],
+      "notes": "All six are closed. The two owner gates (r-5 D9 question shape, r-6 D0 sc-sha raw bytes) are unchanged. I did not re-open or decide them."
+     }
+    ],
+    "carry_forward_verdicts": [
+     {
+      "id": "REQ-QA-001",
+      "verdict": "closed",
+      "evidence": "sprint-r-6-session-log-record.md:44-45 now list NFR-SAG-0004 and REQ-SAG-0107 as regressions. The boundary:session-log row (line 387) names the existing commands check-exact-pins.sh and cargo hack check -p sc-agent-types --feature-powerset --no-dev-deps. No new gate was added."
+     },
+     {
+      "id": "REQ-QA-002",
+      "verdict": "closed",
+      "evidence": "sprint-r-5-jev-wire-envelope.md:21, 28 and 29 list REQ-SAG-0103, REQ-SAG-0140 and REQ-SAG-0141. Line 265 has a REQ-SAG-0103 acceptance row. The REQ-SAG-0140 and REQ-SAG-0141 commands exist in r-7 (lines 834-835)."
+     },
+     {
+      "id": "REQ-QA-003",
+      "verdict": "closed",
+      "evidence": "sprint-r-6-session-log-record.md:383 now uses cargo tree --depth 1. D2 (lines 185-186), REQ-SAG-0618 (requirements.md:192) and architecture.md:1650-1651 all say 'no workspace manifest lists sha2 or uuid', and Cargo.lock may keep them transitively. plan.md:658 states that the --depth 1 checks allow this. The sc-sha gate is untouched."
+     },
+     {
+      "id": "REQ-QA-004",
+      "verdict": "closed",
+      "evidence": "plan.md:522 is now headed 'Why r-3b follows r-2b'. The '4' is gone."
+     },
+     {
+      "id": "REQ-QA-005",
+      "verdict": "closed",
+      "evidence": "sprint-r-7-decision-schema.md:26 and 842 relabel the REQ-SAG-0613 check as a seam-only boundary:send-trace row. The text says the requirement closes in r-6, so r-6 is the only sprint that owns it."
+     },
+     {
+      "id": "REQ-QA-006",
+      "verdict": "closed",
+      "evidence": "plan.md:474 lists r-7 as 'items 1-3, 5, 6, 7', and sprint-r-7-decision-schema.md:176-177 matches. r-6 keeps items 5, 6, 8, 9 (plan.md:476; sprint-r-6-session-log-record.md:139)."
+     }
+    ],
+    "findings": [],
+    "summary": {
+     "total_findings": 0,
+     "blocking_findings": 0,
+     "overall_compliance": "compliant",
+     "deliverables_total": 6,
+     "deliverables_complete": 6,
+     "deliverables_incomplete": 0,
+     "deliverable_completion_percent": 100.0
+    },
+    "gate_reason": "PASS. All six QA-1 findings (REQ-QA-001 to 006) are closed. I found no new Blocking finding and none introduced by the fix commits. I did not re-read the full text of the fix commits, so any other edit they made was checked only where it touched these findings. The fixes are list entries, one command-scope change and wording changes. They add no gates, receipts or inventories, so they follow the 2026-11-07 owner rule."
+   }
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "a3735a1c4675dfb94",
+   "fenced_json": {
+    "agent": "arch-qa",
+    "branch": "plan/phase-a-refine-r6",
+    "scope": {
+     "phase": "r",
+     "sprint": "phase-a.1 (r-5, r-6, r-7)"
+    },
+    "commit": "5836f1befb9550ff4f5125f928cbce0c74e5ef1c",
+    "verdict": "PASS",
+    "blocking": 0,
+    "important": 0,
+    "findings": [],
+    "carry_forward_closure": [
+     {
+      "id": "ARCH-001",
+      "status": "closed",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:62"
+      ],
+      "notes": "r-6 adrs now lists ADR-SAG-0019 with the wire-body versus canonical-payload digest reason."
+     },
+     {
+      "id": "ARCH-002",
+      "status": "closed",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:58"
+      ],
+      "notes": "r-6 adrs now lists ADR-SAG-0012."
+     },
+     {
+      "id": "ARCH-003",
+      "status": "closed",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:74"
+      ],
+      "notes": "r-7 adrs now lists ADR-SAG-0024 (RunConfig::models)."
+     },
+     {
+      "id": "ARCH-004",
+      "status": "closed",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:65"
+      ],
+      "notes": "r-7 adrs now lists ADR-SAG-0012."
+     },
+     {
+      "id": "ARCH-005",
+      "status": "closed",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:61"
+      ],
+      "notes": "r-7 adrs now lists ADR-SAG-0006."
+     }
+    ],
+    "adr_checks": [
+     {
+      "adr": "ADR-SAG-0002 (r-5 amendment, Proposed)",
+      "source": "docs/architecture.md:116-135",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:78",
+       "docs/architecture.md:124-135",
+       "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:32",
+       "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:125-136",
+       "docs/plans/phase-a-refine/plan.md:669"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0005 (r-5 amendment)",
+      "source": "docs/architecture.md:164",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:34",
+       "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:173"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0006",
+      "source": "docs/architecture.md:590",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:61"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0012",
+      "source": "docs/architecture.md:954",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:58",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:65",
+       "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:37"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0019",
+      "source": "docs/architecture.md:381",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:62",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:70",
+       "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:38"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0024",
+      "source": "docs/architecture.md:1136",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:74",
+       "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:67"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0030",
+      "source": "docs/architecture.md:1427",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:43"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0031",
+      "source": "docs/architecture.md:1501",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:44"
+      ]
+     }
+    ],
+    "gate_artifact_checks": [
+     {
+      "artifact": "docs/plans/phase-a-refine/plan.md (owner items)",
+      "status": "closed",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/plan.md:642",
+       "docs/plans/phase-a-refine/plan.md:660"
+      ],
+      "notes": "plan.md states no owner questions remain open. Log-write policy is best-effort (item 9). The r-5 sprint doc treats D9 as resolved and a live-reply mismatch as a jev::v1 defect, not a gate (sprint-r-5:109-113)."
+     }
+    ],
+    "merge_ready": true,
+    "notes": "All five QA-1 findings are closed. ADR-SAG-0002 r-5 amendment (Proposed, lands in r-5) is consistent with the r-5 sprint doc. Both put optional kind and descriptions on a question, set choice at 2-255, score at 2-10 and noul at none, keep payloads without the new fields byte-identical, and keep the version at canonical.v1. The index row at architecture.md:78 carries the A.1 subsection marker, and r-5 owns the amendment and lists ADR-SAG-0002. Being Proposed it is not yet binding, and no other sprint depends on it. Only r-5 uses it. r-5 follows r-7, which owns the ADR-SAG-0030 payload types. No new findings and no gates recommended."
+   }
+  },
+  {
+   "agent": "ruthless-boundary-qa",
+   "task_id": "afa3a5dfb0cddd444",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "plan/phase-a-refine-r6",
+     "reviewed_commit": "5836f1befb9550ff4f5125f928cbce0c74e5ef1c",
+     "review_mode": "doc_review",
+     "findings": [
+      {
+       "id": "RBQA-F001",
+       "disposition": "closed",
+       "evidence": "r-7 D8.2 and the sc-agent-http sample (lines 595, 802-820) make `trace: SendTrace` a required parameter of send_with_busy_retry, send_and_parse and HttpClient::send_and_parse. The Option builder is gone. The backends pass `req.send_trace().clone()` (r-7 lines 120, 125, 820). The r-7 test table says the compiler enforces it at every caller (line 842). r-6 lines 197-200 build on the required parameter. No new gate was added."
+      },
+      {
+       "id": "RBQA-F002",
+       "disposition": "closed",
+       "evidence": "ProjectLabel moved into r-7. It is core, in ids.rs (r-7 line 99). RowContext.project is now `Option<ProjectLabel>` (line 770), validated by ProjectLabel::new, so try_from_fields uses the same validator (D8.4, line 605). r-6 line 243 consumes r-7's ProjectLabel, and LogContext in r-6 takes Option<ProjectLabel>. There is one owner of project validity."
+      },
+      {
+       "id": "RBQA-F003",
+       "disposition": "closed",
+       "evidence": "r-7 line 553 says ModelFamily is the only family schema_for consumes and is never derived from BackendFamily (the catalog's how-we-call family). Line 315 puts the rule in the architecture doc amendment. The fix is the one sentence I asked for, with no gate."
+      }
+     ],
+     "summary": {
+      "total_findings": 3,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "notes": [
+      "All three carry-forward ids are closed. I found no new Blocking issue and no problem introduced by the fix commits. I did not check the boundary-validator report. I reviewed the manifests and sources named in the plan documents.",
+      "r-6 line 342 still shows `with_sent_body` recording into `req.send_trace()`, which matches the required-parameter design. No conflict."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "rust-best-practices-agent",
+   "task_id": "a34a209cb1c9dca67",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "findings",
+     "reviewed_branch": "not independently verified (read-only tooling had no git command; the worktree HEAD file reads exactly the assigned commit)",
+     "reviewed_commit": "5836f1befb9550ff4f5125f928cbce0c74e5ef1c",
+     "review_mode": "design_review",
+     "practice_mode": "all",
+     "practices_reviewed": [
+      "RBP-001",
+      "RBP-002",
+      "RBP-003",
+      "RBP-004",
+      "RBP-005",
+      "RBP-006",
+      "RBP-007",
+      "RBP-008",
+      "RBP-009",
+      "RBP-010"
+     ],
+     "findings": [
+      {
+       "id": "RBP-F001",
+       "practice_id": "RBP-010",
+       "severity": "important",
+       "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+       "line": 684,
+       "issue": "SendTrace is a shared first-write-wins cell (Arc<OnceLock>), and JudgeRequest carries it and is cloned. Any clone of a request shares one trace. If a second backend send reuses a cloned request, its record() is silently dropped, and the second row logs the first backend's request_sha256 with no error. r-6 D3 prevents this only by 'the engine creates a fresh SendTrace per send', which is a convention.",
+       "recommendation": "Make single-use ownership a property of the type, not engine discipline. Options: (a) implement Clone for JudgeRequest by hand so the clone gets a fresh SendTrace; or (b) make the trace belong to one send, with the engine creating it and backends receiving it per judge call rather than on the cloneable request; or (c) have record() return a bool or debug-assert on a second write so reuse is visible. Add a rustdoc comment on the OnceLock saying why shared interior mutation is needed here (RBP-006 justification).",
+       "evidence": "D8.1/D8.2 (l.590-593) and the sample (l.684-690, 721-725): derive(Clone) on SendTrace, 'later writes ignored', default 'fresh, empty trace' on JudgeRequest. r-6 D3 l.207-213 says 'never shared through a cloned JudgeRequest', which is enforced only by engine code."
+      },
+      {
+       "id": "RBP-F002",
+       "practice_id": "RBP-004",
+       "severity": "important",
+       "file": "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md",
+       "line": 125,
+       "issue": "The question-kind invariants (choice 2..=255, score 2..=10, noul has no choices or descriptions, descriptions has one entry per choice) are not held by the type. with_kind/with_descriptions are infallible, Deserialize is derived, and the rules run later in a separate 'then the question-kind rules' step. That step is repeated by both sc-jev and sc-jev-backends. Invalid Questions are therefore constructible and the invariant is re-checked per call site.",
+       "recommendation": "Validate once in sc-decision-schema: a fallible Question or CanonicalJudgePayload constructor, or #[serde(try_from)] on deserialize, or a single CanonicalJudgePayload::validate() that both crates call. Do not keep two copies of the rules. Also model kind as a three-variant QuestionKind { Choice, Score, Noul } with skip_serializing_if = is_choice, so None is not an implicit 'choice' sentinel. This keeps the bytes of existing payloads identical.",
+       "evidence": "r-5 D1/D2 (l.119-136) and sample l.186-197: Option<QuestionKind> with None meaning choice, builders without validation. The same rules are restated for jev::v1 in comments only (l.208-210)."
+      },
+      {
+       "id": "RBP-F003",
+       "practice_id": "RBP-004",
+       "severity": "important",
+       "file": "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md",
+       "line": 203,
+       "issue": "OrderedMap<K,V>(Vec<(K,V)>) is deserialized 'in document order' with no stated duplicate-key rule, so a body with repeated question or criteria keys is representable and ambiguous. JevQuestion has public variant fields and derived Deserialize, so the '2..=255' and '2..=10' limits in comments are not enforced on that path. CheckRequest derives Deserialize, so to_canonical (used by input_sha256 recovery) can run on an unvalidated body. JevState::Object and the response usage/extra maps are serde_json::Map; the plan says 'no serde_json feature', so these are key-sorted. The 'key order is document order' and 'extra verbatim' claims and the state-object roundtrip are not true for unsorted keys. The key-ordering test uses already-sorted keys (context, inputs, metadata), so it cannot detect this.",
+       "recommendation": "Have the OrderedMap visitor reject duplicate keys (INPUT_INVALID or RESPONSE_INVALID, with a fix hint). Enforce criteria counts in a validating constructor or try_from used by both from_canonical and Deserialize. Use OrderedMap<String, Value> for JevState::Object. Either state that nested Value objects are key-sorted and the claim is limited accordingly, or drop the 'verbatim' wording. Use an unsorted-key case in test_state_forms_roundtrip and the key-ordering test.",
+       "evidence": "r-5 sample l.203-223, 231-246; D3 l.139-141 and D5 l.158-164 ('order-preserving maps'); l.170-172 test keys are alphabetical."
+      },
+      {
+       "id": "RBP-F004",
+       "practice_id": "RBP-004",
+       "severity": "important",
+       "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+       "line": 765,
+       "issue": "RowContext holds SystemTime for session_created_at and ts, but the projection truncates to ms. A row built from a real clock does not equal try_from_fields(to_fields(row)), because SessionLogRow derives PartialEq. The plan's 'test_fields_roundtrip (every fixture line)' passes only because fixtures are ms-aligned. answer_id is a raw String ('r-7 checks non-empty only') beside the typed session_id, and repo is raw String. The ok()/failed() constructors are infallible, so the only check, on answer_id, can run only on the parse path. to_fields can emit an empty answer_id.",
+       "recommendation": "Introduce a ms-precision timestamp newtype whose constructor truncates, so the type holds what the column stores. Introduce an AnswerId newtype next to SessionId (a validated 26-char Crockford ULID in r-7; r-6 swaps in Ulid). Keep repo text, but document the lossy-path rule on RowContext. Alternatively make ok()/failed() fallible.",
+       "evidence": "D6.1 and RowContext sample l.762-779: 'answer_id: String // ULID text from r-6; r-7 checks non-empty only'; 'SystemTime ... written RFC 3339 UTC, ms'. r-6 l.368-369 builds answer_id with Ulid::new().to_string()."
+      },
+      {
+       "id": "RBP-F005",
+       "practice_id": "RBP-008",
+       "severity": "important",
+       "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+       "line": 743,
+       "issue": "The variant seam cannot deliver the claim 'a future local model adds a variant, a module and one schema_for arm; no caller signature changes'. schema_for(ModelFamily) returns only a DecisionSchemaId. DecisionSchema has an associated const and associated types and no receiver, so it is not object-safe and has no runtime lookup from DecisionSchemaId or ModelFamily to an implementation. Backends choose at runtime by the model's family. Each new family therefore needs a hand-written match in every consumer (llm::v1::parse_output hard-wires Canonical). The static-vs-dynamic dispatch intent is not stated.",
+       "recommendation": "State that dispatch is static and keyed by SchemaFamily. Add one object-safe dispatch function in sc-decision-schema, e.g. llm::parse_output(id: DecisionSchemaId, text, payload), that is the only match on SchemaFamily. New families then edit that crate only. Alternatively drop the trait until a second variant exists and keep Canonical as plain functions.",
+       "evidence": "D5 (l.437-449) and sample l.742-751. D4.2 has parse_output call variants::Canonical::answers directly."
+      },
+      {
+       "id": "RBP-F006",
+       "practice_id": "RBP-007",
+       "severity": "important",
+       "file": "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md",
+       "line": 335,
+       "issue": "Two binding signatures disagree and one fake failure path loses data. (1) Sha256Digest::of takes &str (r-7 D2.5, r-6 l.318), but MockJudgeBackend::with_sent_body(body: impl Into<Vec<u8>>) is documented as 'records Sha256Digest::of(body)' (l.340-343, 214-216), which does not type-check. (2) send_with_busy_retry hashes only 'if let Ok(text) = from_utf8(request.body())', and the comment calls the Err arm 'unreachable in practice'. A non-UTF-8 body silently leaves request_sha256 null, contradicting 'SHA-256 of exactly the bytes sent'.",
+       "recommendation": "Give HttpRequest a text-typed body (String) or a validated body accessor, so UTF-8 is guaranteed by construction and no Result or Option arm is needed. Make with_sent_body take impl Into<String>. If a non-UTF-8 body is truly possible, fail with a typed JevError rather than record nothing.",
+       "evidence": "r-6 sample l.333-343 and D3 l.202-203, 214-216; sc-sha strict-UTF-8 note l.145-153."
+      },
+      {
+       "id": "RBP-F007",
+       "practice_id": "RBP-004",
+       "severity": "minor",
+       "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+       "line": 664,
+       "issue": "Model aliases are stringly typed: ModelAliases::latest(&str) -> Option<ModelId>, with_override(&str, ..), default_model_alias() -> &'static str, and ModelDescriptor::released is a &'static str date. Because lookup is fallible for a built-in backend, the plan adds a provided model_id() whose unwrap_or_else(ModelId::fallback_for(self.id())) builds an Other(UnknownModel) holding a backend id string. That is not a model string, yet it would be logged as model_id. The only guard is test_backend_catalog_roundtrip. A non-catalog backend that does not override model_id() silently logs the catalog's model, which can be wrong after a [models] override.",
+       "recommendation": "Use a non_exhaustive ModelAlias enum {Jev, Haiku, Luna} with FromStr (CONFIG_INVALID listing valid aliases). Then default_model_alias() and builtin().latest(alias) are infallible, and fallback_for and the unwrap_or_else path can be removed. Consider requiring model_id() on non-built-in backends. A typed release date or an ordering by table position avoids string-date comparison for 'newest'.",
+       "evidence": "D7.2/D7.5 (l.555-560, 577-586), sample l.664-673, 726-733."
+      },
+      {
+       "id": "RBP-F008",
+       "practice_id": "RBP-004",
+       "severity": "minor",
+       "file": "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md",
+       "line": 233,
+       "issue": "Wire answers carry invariants as raw primitives. JevAnswer::Noul { probabilities: BTreeMap<String, f64> } must be 'exactly {yes: p}'. confidence and probabilities are bare f64 in [0,1], checked only in into_answers. CheckResponse::model is String while CheckRequest::model is ModelId. A stray 'confidence' on a noul answer is accepted because deny_unknown_fields is absent.",
+       "recommendation": "Use a NoulProbabilities { yes } struct with deny_unknown_fields. Use a validated Probability newtype for new jev::v1 and llm::v1 fields where this does not change moved types. Type the response model as ModelId.",
+       "evidence": "r-5 sample l.231-246 and the response rules l.102-108."
+      },
+      {
+       "id": "RBP-F009",
+       "practice_id": "RBP-005",
+       "severity": "minor",
+       "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+       "line": 676,
+       "issue": "ProjectLabel(Arc<str>) is specified with only new() and as_str(). It has no Display, FromStr, AsRef<str>, Serialize/Deserialize or Hash. The plan relies on CLI (--project), Python and try_from_fields all using one validator, which in practice needs FromStr (clap) and serde. ModelId in the same sprint gets the full set. The raw-String path is therefore the easy one.",
+       "recommendation": "Specify Display, FromStr (same validator), AsRef<str>, Hash, and serde via FromStr/as_str, matching ModelId. State that the Debug output is safe, since the text is caller text and not scrubbed.",
+       "evidence": "D8.4 and sample l.675-681 vs ModelId sample l.644-646."
+      },
+      {
+       "id": "RBP-F010",
+       "practice_id": "RBP-001",
+       "severity": "minor",
+       "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+       "line": 669,
+       "issue": "Several new error paths define a code but no recovery hint. Only DecisionSchemaId names its remedy ('hint lists KNOWN'). Not specified: ModelAliases::with_override unknown alias (should list valid aliases), ProjectLabel::new (limits), and try_from_fields (should name the offending key). The [models] path remaps a ModelId::from_str INPUT_INVALID to CONFIG_INVALID by inspecting the code, so the original message and hint must survive the remap.",
+       "recommendation": "State in the sample doc comments that each of these returns a JevError with a fix hint (valid aliases, the limits, the key name), and that the CONFIG_INVALID remap preserves the hint and adds the check.toml key.",
+       "evidence": "Sample l.645, 669, 679, 791 and l.693-694."
+      },
+      {
+       "id": "RBP-F011",
+       "practice_id": "RBP-003",
+       "severity": "minor",
+       "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+       "line": 743,
+       "issue": "DecisionSchema is a new public trait in a published crate with no explicit open-or-sealed decision. D5 says new variants are added inside this crate (a SchemaFamily variant, a module and a schema_for arm), so the implementor set is crate-controlled. External implementations would be unusable anyway, since schema_for cannot reach them.",
+       "recommendation": "Seal it with the private supertrait pattern, or make it pub(crate) until a second variant exists, and document the decision. JudgeBackend stays intentionally open (ADR-SAG-0009); say so in its doc.",
+       "evidence": "Sample l.743-751, D5.2."
+      },
+      {
+       "id": "RBP-F012",
+       "practice_id": "RBP-007",
+       "severity": "minor",
+       "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+       "line": 747,
+       "issue": "DecisionSchema::input returns Result<Self::Input, JevError>, but the only implementation (Canonical) returns the payload unchanged and cannot fail. D4.1 says input_bytes does not call it, so it is a fake-fallible method with no production caller.",
+       "recommendation": "Return Self::Input directly, or drop the method until a variant needs it.",
+       "evidence": "D5.2 l.442-446, D4.1 l.414-417, sample l.747."
+      },
+      {
+       "id": "RBP-F013",
+       "practice_id": "RBP-002",
+       "severity": "minor",
+       "file": "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md",
+       "line": 354,
+       "issue": "RunConfig::log_context is optional ('unset: repo = RunConfig's repo_root, project = None'). The default silently yields the worktree root where the log field means the main repository (ADR-SAG-0031), so a caller that skips the setter writes a wrong repo into every row. Correct use depends on compose always remembering to set it.",
+       "recommendation": "Make the context required at the point the engine emits rows (a constructor argument or a type-level 'configured' state), or have the default call discover_main_repo_root so unset still gives the documented meaning.",
+       "evidence": "Sample l.345-357 and D5 l.250-253."
+      },
+      {
+       "id": "RBP-F014",
+       "practice_id": "RBP-004",
+       "severity": "minor",
+       "file": "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md",
+       "line": 318,
+       "issue": "Sha256Digest::of(&str) will normalize CRLF and bare CR to LF under sc-sha, but the name and the 'request_sha256 = digest of exactly the bytes sent' contract read as a raw digest. A caller hashing CR-bearing text gets a digest that is not SHA-256 of its bytes. The safety rests on 'compact JSON has no raw CR', which the type does not express.",
+       "recommendation": "Rename to of_text or document the normalization on the method itself (not only in the sprint doc), so a later caller with CR-bearing input is not surprised.",
+       "evidence": "D0 l.145-153 and sample l.318."
+      }
+     ],
+     "summary": {
+      "total_findings": 14,
+      "by_severity": {
+       "critical": 0,
+       "important": 6,
+       "minor": 8
+      }
+     },
+     "notes": [
+      "No gates, receipts or docs-consistency checks are recommended. Every recommendation changes a Rust type or signature shape only. Owner decisions in plan.md were not reopened.",
+      "Reviewed the sample signatures and deliverables of sprint-r-7, sprint-r-6 and sprint-r-5, plus ADR-SAG-0030 and ADR-SAG-0031 in docs/architecture.md (l.1496-1650).",
+      "The ADR text matches the sprint docs on the points reviewed, so no separate ADR finding is raised. F003 and F005 also affect the ADR-SAG-0030 'Jev API structs' and 'Model-family variants' bullets. If F005 is accepted, that bullet should say dispatch is static and keyed by SchemaFamily.",
+      "Looks fine as designed: the data-only layering, UnknownModel having no public constructor, the DDL with its outcome CHECKs, private SessionLogRow fields with one constructor per outcome, llm::v1::input_bytes borrowing &[u8] (no Cow needed), and OnceLock being a justified use of interior mutability once F001 is addressed.",
+      "Branch name was not independently verified because the tooling had no git command; the worktree HEAD file equals the assigned commit."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "rust-service-hardening-agent",
+   "task_id": "af0fcd53beabaca7b",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "findings",
+     "reviewed_branch": "plan/phase-a-refine-r6",
+     "reviewed_commit": "5836f1befb9550ff4f5125f928cbce0c74e5ef1c",
+     "review_mode": "doc_review",
+     "service_indicators_found": [
+      "ureq 3.5.1 (workspace dependency, used by crates/sc-agent-http)",
+      "outbound HTTPS client with busy-retry (send_with_busy_retry, send_and_parse)"
+     ],
+     "topics_reviewed": [
+      "HTTP send path and SendTrace hashing",
+      "session-log writes",
+      "Jev request/response validation",
+      "input size limits"
+     ],
+     "findings": [
+      {
+       "id": "RSH-001",
+       "topic": "Jev request/response validation",
+       "severity": "important",
+       "file": "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md",
+       "line": 103,
+       "issue": "r-5 replaces parse_outcome with CheckResponse::into_answers. Its stated rule list (lines 103-108, 144-145, and the test_response_rules_rejected cases at line 263) drops two checks the current code enforces. One is response `model` equals the request model. The other is that a choice/score answer's probability keys equal the question's criteria keys. The planned rules only say the choice is a criteria option and the probabilities sum to 1. A reply can therefore carry arbitrary probability labels, or labels that are a subset or superset of the options, and still pass. Those labels then flow into DecisionAnswers, the session document and the r-6 answers_json log column. The noul rule (line 236, `exactly {\"yes\": p}`) is stated in prose but has no rejection case in the acceptance list (wrong key set, extra `no` key, p outside [0,1]).",
+       "recommendation": "State in r-5 that into_answers keeps the existing checks: response model equals the request model, and probability keys for choice/score equal the criteria keys. Add the noul key-set and range cases to the existing test_response_rules_rejected list. This carries current behaviour over and adds no new gate. All failures stay RESPONSE_INVALID.",
+       "evidence": "crates/sc-jev/src/check.rs:94 checks body.model == model, and the parse_outcome doc at lines 80-82 lists answer ids, choice and probability keys matching the request. The r-5 plan rule list at line 103-108 has neither the model check nor the probability-key check."
+      },
+      {
+       "id": "RSH-002",
+       "topic": "input size limits",
+       "severity": "important",
+       "file": "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md",
+       "line": 119,
+       "issue": "The request-size limit is enforced today on the final wire body, after the splice. `prepare` compares body.len() to the descriptor's request_limit_bytes and returns InputTooLarge (check.rs:62-66). r-5 deletes splice_model and `prepare`'s path, and deliverables 1 and 3 say no other schema check remains. They never say where the limit is checked against the new CheckRequest::to_body output. The documented Jev body is larger than the canonical bytes (criteria maps, descriptions, model, instructions). A check on the canonical payload would pass bodies that exceed the Jev limit. Dropping the check would send an unbounded body and rely on the server to reject it.",
+       "recommendation": "State in deliverable 3 that sc-jev compares the length of to_body() output to the Jev descriptor's request_limit_bytes before send. It should return InputTooLarge with the same limit and actual-byte fields as today. This is the existing check moved onto the new builder, not a new gate. Haiku and Luna keep enforce_count_and_message_limits unchanged.",
+       "evidence": "crates/sc-jev/src/check.rs:62-66 (`let body = splice_model(..); if actual_bytes > limit_bytes { return Err(JevError::input_too_large(..)) }`). r-5 item 1 and item 3 name no replacement site for this check."
+      },
+      {
+       "id": "RSH-003",
+       "topic": "Jev request/response validation",
+       "severity": "minor",
+       "file": "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md",
+       "line": 199,
+       "issue": "Duplicate-key behaviour is unspecified. OrderedMap is a custom order-preserving visitor, and the input_sha256 recovery (item 5) parses the sent body with it. A duplicate question id or criteria key in a recovered body could silently collapse or shadow an entry, giving a digest that differs from prompt_sha256 with no error. Response `answers` is a BTreeMap, where serde keeps the last duplicate id silently.",
+       "recommendation": "Specify that the OrderedMap visitor and the answers map reject a duplicate key (INPUT_INVALID on request recovery, RESPONSE_INVALID on a reply). Cover it with a case in the existing test_response_rules_rejected and recovery tests rather than a new check.",
+       "evidence": "r-5 lines 199-203 define OrderedMap with a 'custom visitor' and no duplicate rule. Line 239 and following define `answers: BTreeMap<QuestionId, JevAnswer>`."
+      },
+      {
+       "id": "RSH-004",
+       "topic": "HTTP send path and SendTrace hashing",
+       "severity": "minor",
+       "file": "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md",
+       "line": 318,
+       "issue": "Sha256Digest::of(&str) is declared infallible, but sc-sha's calculate_hash returns a Result (D0, line 145-146 says ShaError::InvalidUtf8 'cannot occur'). The plan does not say what `of` does on an Err. Panicking on the send path (record before every Transport::send) would violate M-PANIC-ON-BUG for a non-bug. Separately, sc-sha normalizes CR and CRLF to LF, so for any text that is not compact serde_json the digest is not SHA-256 of the bytes. The plan covers the committed queries as LF-only. The query text hashed at extract.rs:231 is `input.query`, which can be user-supplied and contain CRLF. Its query_sha256 would then no longer match the bytes it claims to identify.",
+       "recommendation": "Say that `of` handles the unreachable Err arm without panicking. For example, treat it as a documented unreachable with a deterministic fallback, or keep `of` returning Result at the one send-site call. Note that query_sha256 identifies LF-normalized query text, and keep the 'digest equals SHA-256 of the sent bytes' claim to request bodies only. This is a wording and behaviour clarification, not a new gate.",
+       "evidence": "r-6 D0 lines 145-159 and the `of` signature at line 318. The `if let Ok(text) = std::str::from_utf8(request.body())` sample at lines 333-337 degrades to a null digest silently, which is acceptable, but `of` itself has no stated error path. crates/sc-treesitter/src/extract.rs:231 hashes input.query."
+      }
+     ],
+     "summary": {
+      "total_findings": 4,
+      "by_severity": {
+       "critical": 0,
+       "important": 2,
+       "minor": 2
+      }
+     },
+     "notes": [
+      "Worktree HEAD (.git/worktrees/plan-qa2-review/HEAD) is exactly 5836f1befb9550ff4f5125f928cbce0c74e5ef1c. The worktree is detached, as the caller stated, so the branch name could not be verified from it and is echoed from the input.",
+      "Service applicability: this is a synchronous ureq-based HTTPS client and CLI. There is no tokio, axum or server listener. Graceful shutdown, health endpoints and backpressure were not reviewed, and nothing was invented for them.",
+      "Existing runtime hardening confirmed and unchanged by the plans. ureq_transport.rs sets a 10s connect timeout and a 120s whole-request timeout, HTTPS-only, no redirects. Response bodies are capped at 8 MiB through take(MAX_RESPONSE_BYTES+1). Busy retry is bounded and does not retry errors. The session file read is capped at 8 MiB.",
+      "Deliberately not flagged, per the owner rule: the best-effort log-write policy (r-6 D6, test_rejected_log_row_keeps_run_ok), the unscrubbed `project` text, and the repo path column. Log row size is bounded in practice. Answers are tied to the request's criteria keys, which RSH-001 asks to keep, and project is capped at 256 bytes. The rows are written per send with no new lock or shared state.",
+      "r-6 record-before-first-send, one SendTrace per backend send, the null request_sha256 when no body is built, and the retry-resends-same-bytes rule are sound as planned. The cancel-before-send case is covered by an acceptance test.",
+      "No new gates, receipts or docs-consistency checks are recommended. RSH-001 to RSH-004 are all spec clarifications that carry existing behaviour onto the new code paths."
+     ]
+    },
+    "error": null
+   }
+  }
+ ],
+ "prior_round": {
+  "qa_pass": "qa-plan-r67-1",
+  "commit": "debbf1d",
+  "verdict": "FAIL 6B/3I/5M",
+  "manifest": [
+   {
+    "agent": "req-qa",
+    "task_id": "a596ad6d1cbd44e79",
+    "spawn_actor": "parent-orchestrator",
+    "reviewed_commit": "debbf1d"
+   },
+   {
+    "agent": "arch-qa",
+    "task_id": "a7f1ba4f5877bcce1",
+    "spawn_actor": "parent-orchestrator",
+    "reviewed_commit": "debbf1d"
+   },
+   {
+    "agent": "ruthless-boundary-qa",
+    "task_id": "a988cdc49f60cd2d0",
+    "spawn_actor": "parent-orchestrator",
+    "reviewed_commit": "debbf1d"
+   }
+  ],
+  "outputs": [
+   "/Volumes/Extreme Pro/github/sc-agent/.cursor/phase-a-orchestration/refine-plan/plan-qa-r6r7/req-qa.json",
+   "/Volumes/Extreme Pro/github/sc-agent/.cursor/phase-a-orchestration/refine-plan/plan-qa-r6r7/arch-qa.json",
+   "/Volumes/Extreme Pro/github/sc-agent/.cursor/phase-a-orchestration/refine-plan/plan-qa-r6r7/ruthless-boundary-qa.json"
+  ],
+  "fix_assignment": "/Volumes/Extreme Pro/github/sc-agent/.cursor/phase-a-orchestration/refine-plan/plan-qa-r6r7/fix-round-1.md",
+  "note": "QA-1 had no enforcer report (parent process violation); fixes at 31c88ab, owner closures at 94e35b9, merge 5836f1b"
+ }
+}

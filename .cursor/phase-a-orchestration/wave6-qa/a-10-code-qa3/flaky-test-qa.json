@@ -1,0 +1,17 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/a-10-phase-end-hardening",
+    "reviewed_commit": "391df484994afa14e37c870457050e8bba15fbd5",
+    "findings": [],
+    "summary": {"total_findings": 0, "critical": 0, "important": 0, "minor": 0},
+    "verification": {
+      "head_check": "Worktree HEAD is refs/heads/sprint/a-10-phase-end-hardening and that ref resolves to 391df484994afa14e37c870457050e8bba15fbd5.",
+      "FTQ-011": "closed. Static review of tests/support/deadline.rs only; I did not run the tests. Every wait is bounded. (1) The child poll loop breaks at the deadline. (2) After a kill, child.wait() returns once SIGKILL lands. (3) Each pipe wait is recv_timeout(PIPE_GRACE), which is 5 s in production, so the normal-exit path is at most 10 s. The deadline path waits on stderr only (5 s) and leaves stdout's reader detached. (4) Stdin is written on a detached thread. A child that never reads it cannot block the runner, and the write ends with EPIPE or a closed pipe once the child or its group is killed. Rust ignores SIGPIPE, so a child that exits early does not kill the test binary. (5) On Unix the child leads its own process group (process_group(0)) and kill -KILL -- -pgid takes down the group. A grandchild that holds the pipe cannot outlive the runner, and the pgid cannot be recycled while a group member is alive. (6) The Windows path is bounded: the child-only kill is followed by a bounded wait, and the 5 s pipe grace stops the runner joining a reader that a grandchild keeps open. Reader and writer threads are detached and cannot hold up process exit. (7) The three unix tests cannot hang and leak no processes. The grandchild and hung-child cases kill the group. The 4 MiB stdin case has nothing left running. Their time assertions are generous: 5 s slack on top of 0.5 s limits. Their only wait is the runner's own bounded waits.",
+      "FTQ-012": "closed. The content key in scripts/sc-publish-dry-run.sh hashes the HEAD tree, the git diff HEAD --binary output, and every untracked non-ignored file (sorted, NUL-delimited, path plus contents). Target and the kit dirs are gitignored, so ls-files --others cannot list directories or build output. These are target, .sc-publish-kit/ and .sc-publish-venv/. An unreadable untracked entry makes the python step fail loudly under set -e instead of silently producing a weak key. The workflow cache path now carries !target/sc-publish-dry-run, with the explanatory comment lines inside the block. Those lines start with # and are treated as comments by the glob. A stale unpack under ~/.cargo/registry/src can no longer be reused for different sources.",
+      "session_event_golden": "tests/fixtures/observability/session-event.json is deterministic. The test strips timestamp, service and identity. The session id is the nil UUID, the backend is fixed, and the prompt hash is the SHA-256 of b\"payload\". The comparison is serde_json::Value equality, which ignores key order. A missing operation key would fail the test the same way every time. Ask and Judge are covered by iterating LogOperation::ALL."
+    }
+  },
+  "error": null
+}

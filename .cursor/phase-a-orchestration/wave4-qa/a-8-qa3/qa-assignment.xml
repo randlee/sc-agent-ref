@@ -1,0 +1,45 @@
+<cursor-qa-task id="qa-a-8-3" sprint="a-8" assignee="cursor-quality-mgr">
+  <description>QA-3 recheck for PR #15 (merged) — PyO3 wrapper as landed on integrate/phase-a after post-merge conflict resolution a924e78; verifies merge commit 0417aef</description>
+  <review-mode>sprint_review</review-mode>
+  <authoritative-sprint-doc>docs/plans/phase-a/sprint-a-8-pyo3-wrapper.md</authoritative-sprint-doc>
+  <pr-number>15</pr-number>
+  <branch>integrate/phase-a</branch>
+  <worktree>/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a</worktree>
+  <commits>0417aef60b6eba1fb4bf95fdfe8af0a1fa7d146b</commits>
+  <prior-rounds>qa-a-8-2 PASS at bfd36cb (https://github.com/randlee/sc-agent/pull/15#issuecomment-6598894697)</prior-rounds>
+  <enforcer-binding>cursor-quality-mgr only; spawn gate from parent handoff; no Task spawns</enforcer-binding>
+  <parent-reviewer-handoff required="true">
+    <manifest>[
+  {"agent": "req-qa", "task_id": "a69a76dc1153dc391", "spawn_actor": "parent-orchestrator"},
+  {"agent": "arch-qa", "task_id": "a7371edabd8e0c883", "spawn_actor": "parent-orchestrator"},
+  {"agent": "rust-qa-agent", "task_id": "a1cf3aab68d7bf67b", "spawn_actor": "parent-orchestrator"},
+  {"agent": "flaky-test-qa", "task_id": "a08fea2181d8c1972", "spawn_actor": "parent-orchestrator"}
+]</manifest>
+    <reviewer-outputs>
+```json
+{"status":"PASS","reviewed_branch":"integrate/phase-a","reviewed_commit":"0417aef60b6eba1fb4bf95fdfe8af0a1fa7d146b","errors":[],"scope":{"phase":"a","sprint":"a-8"},
+ "requirement_checks":[{"id":"REQ-SAG-0800","result":"upheld"},{"id":"REQ-SAG-0801","result":"upheld"},{"id":"REQ-SAG-0802","result":"upheld"}],
+ "deliverable_checks":[{"item":"Merge-fix footprint: union of boundary allowed_dependents for sc-ai and sc-jev-py","status":"present"},{"item":"Boundary files consistent with Cargo.lock dependency edges","status":"present"},{"item":"Both build_request and prepare_caller_request tests kept in run/mod.rs","status":"present"},{"item":"No unresolved merge conflict markers","status":"present"},{"item":"Worktree HEAD matches assigned branch and commit","status":"present"}],
+ "findings":[],"summary":{"total_findings":0,"blocking_findings":0,"overall_compliance":"compliant","deliverables_total":5,"deliverables_complete":5,"deliverables_incomplete":0,"deliverable_completion_percent":100.0},
+ "gate_reason":"Scoped quick recheck of the merge-fix footprint. No regression: boundary dependents unioned correctly, requirements list intact, Cargo.lock matches boundary allowlists, both tests survive, no conflict markers. Test suite and wheel build not run by req-qa."}
+```
+```json
+{"agent":"arch-qa","branch":"integrate/phase-a","scope":{"phase":"a","sprint":"a-8"},"commit":"0417aef60b6eba1fb4bf95fdfe8af0a1fa7d146b","verdict":"PASS","blocking":0,"important":0,"findings":[],
+ "adr_checks_summary":"ADR-SAG-0001/0002/0003/0004/0005/0009/0011/0012/0013/0016/0019/0020/0021/0022 upheld; 0008/0015/0017 not applicable",
+ "gate_artifact_checks":["boundaries/sc-jev-py/jev-py.toml closed","boundaries/sc-jev-check/jev-check.toml closed (dependents sc-ai + sc-jev-py)","boundaries/sc-agent-types/agent-types.toml closed","boundaries/sc-ai/sc-ai-cli.toml closed"],
+ "merge_ready":true,
+ "notes":"Merge-fix footprint only. Union boundary dependents present; both payload tests present in run/mod.rs; test-util cfg gating intact; sc-jev-py has no sc-jev edge; sc-observability pinned =1.5.0. cargo tree not run; edge check rests on Cargo.lock/Cargo.toml."}
+```
+```json
+{"success":true,"data":{"status":"pass","reviewed_branch":"integrate/phase-a","reviewed_commit":"0417aef60b6eba1fb4bf95fdfe8af0a1fa7d146b","review_mode":"sprint_review",
+ "executed_checks":{"fmt":{"status":"pass","command":"cargo fmt --all --check"},"clippy":{"status":"pass","command":"cargo clippy --all-targets --all-features -- -D warnings"},"tests":{"status":"pass","command":"cargo test"},"just_lint":{"status":"pass","command":"just lint"},"coverage":{"status":"not_run"}},
+ "findings":[],"summary":{"total_findings":0,"by_severity":{"critical":0,"important":0,"minor":0}},
+ "notes":["HEAD verified 0417aef; worktree clean","all cargo test lines 0 failed incl. sc-jev-check run/registry and sc-ai; both build_request and prepare_caller_request tests retained","sc-jev-py built with pyo3 0.26.0","python fixture tests not run (Rust-only checks)"]},"error":null}
+```
+```json
+{"success":true,"data":{"status":"pass","reviewed_branch":"integrate/phase-a","reviewed_commit":"0417aef60b6eba1fb4bf95fdfe8af0a1fa7d146b","findings":[],"summary":{"total_findings":0,"critical":0,"important":0,"minor":0},
+ "notes":"Payload tests distinct and order-independent; temp paths use pid+atomic counter; env mutation scoped via monkeypatch; no sleeps/threads/timing assertions. Tests not executed (read-only tools)."},"error":null}
+```
+    </reviewer-outputs>
+  </parent-reviewer-handoff>
+</cursor-qa-task>

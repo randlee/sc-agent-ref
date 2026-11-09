@@ -1,0 +1,61 @@
+<cursor-fix-task id="fix-a-10-code-qa1" phase="a" sprint="a-10-code" assignee="rust-developer">
+  <description>QA-1 fix round for PR 20 (sprint/a-10-phase-end-hardening, reviewed at 1899319). Six reviewers: req-qa FAIL, arch-qa FAIL, rust-qa (see rust-qa.json), RBP 4 minor, RSH 2 minor, flaky 3 important + 2 minor, plus CI-001 (Windows). Everything below is routine; D1–D13 remain out of scope (the Phase A.1 plan owns them). Reserve ADR ids: ADR-SAG-0023..0028 belong to the Phase A.1 plan (PR 19); your amending ADR is ADR-SAG-0029.</description>
+  <worktree>/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-10-phase-end-hardening</worktree>
+  <branch>sprint/a-10-phase-end-hardening</branch>
+  <base-commit>1899319d1ca643696868c1c69c8d49437ba9f1ae</base-commit>
+  <reviewer-json>/Volumes/Extreme Pro/github/sc-agent/.cursor/phase-a-orchestration/wave6-qa/a-10-code-qa1/{req-qa,arch-qa,rust-qa,rust-best-practices,rust-service-hardening,flaky-test-qa,ci-finding}.json — full text; ids below.</reviewer-json>
+  <wave-assignments>/Volumes/Extreme Pro/github/sc-agent/.cursor/phase-a-orchestration/wave6-dev/fix-a-10-code-wave{1,2,3}.xml (source of the ~90 routine ids for the disposition table)</wave-assignments>
+
+  <items>
+    <group name="A. CI-001 — Windows SHA-256 repo test (blocking, CI red)">
+      - crates/sc-treesitter tests `cli_sha256_repository_is_accepted` fails on windows-2022: "git hash-object failed for hook.py" inside a SHA-256 object-format repo. Reproduce by reading the test + git_io.rs; likely causes: `git hash-object` invoked without `--object-format`/repo context on Windows, or the fixture's `git init --object-format=sha256` differing in path handling. Fix in git_io.rs (and take RSH's observation: hash the in-memory bytes via `hash-object --stdin --no-filters -- ` or pass `--no-filters`, so the sha matches the returned bytes; update the doc comment). Verify with the run log: `gh run view --repo randlee/sc-agent --job <id> --log` for PR 20's failing windows job.
+    </group>
+    <group name="B. ADR amendment + stale docs (arch-qa ARCH-001/002/003, req-qa 001/002/003/004/006/009)">
+      - Write ADR-SAG-0029 "Phase A hardening amendments" (status Active) in docs/architecture.md amending ADR-SAG-0020 and ADR-SAG-0022: (a) sc-agent-secrets has no test-util feature; MapEnv/MapKeyring are cfg(test)-private; ResolvedApiKey::try_new is the single construction rule set; clippy.toml disallowed-methods confines as_str to the two sending transports; (b) sc-jev-py: run_check has one signature, scripted injection is `sc_jev_py._testing.run_check_scripted` under feature test-util; ScriptedJudge/RequestLog are pub under sc-jev-check test-util; shorthand normalisation inside register_scripted_backends. Add both "amended-by ADR-SAG-0029" rows to the ADR index and mark the old sentences as superseded with a pointer (do not delete original ADR text). Note ADR-SAG-0016 version-form drift (ARCH-004) as deferred to D8.
+      - docs/architecture.md:155-163, docs/sc-jev-py/architecture.md:26-29, docs/plans/phase-a/sprint-a-8*.md:70,120 — reword to match (REQ-QA-001/002).
+      - docs/plans/phase-a/plan.md:406,408,423-425 — doc gate no longer continue-on-error; feature matrix runs `cargo hack --each-feature test`; keep run ids as historical evidence; cross-check docs/development/ci.md against .github/workflows/sc-agent-ci.yml (REQ-QA-003).
+      - boundaries/sc-jev-py/jev-py.toml facade → the Python module surface (sc_jev_py.run_check, Session, …, _testing.run_check_scripted under test-util); boundaries/sc-agent-secrets/agent-secrets.toml facade drop MapEnv/MapKeyring, fix notes (REQ-QA-004, ARCH-003). `just lint` must pass.
+      - REQ-QA-009: ADR-SAG-0020 test-util mention is covered by ADR-SAG-0029; sprint-a-4 `src/api/**` → `src/config/**`; verify boundaries/sc-jev/jev.toml no longer lists sc_jev::client public.
+      - REQ-QA-006: record sc-treesitter API changes (languages() iterator, queries() Result<Vec>, leading-dash rev rejection) in docs/sc-treesitter/architecture.md.
+    </group>
+    <group name="C. Evidence docs (req-qa REQ-QA-005/007/008)">
+      - New docs/plans/phase-a/a-10-hardening-dispositions.md: per-id table for EVERY id in the three wave XMLs and this fix round (id, wave, status implemented/deferred, reason if deferred, file:line evidence). Include a D1–D13 section stating per item that no code changed, and for the three D-adjacent code changes cite the routine id that authorised them (FromStr → RBP-F004/ARCHE-010; try_new → ARCHC-014/RBP-F010; serde spelling unchanged — RBP note: open_ai_luna vs openai_luna divergence stays pinned by test, fix deferred to D6 wire decision).
+      - Error-code remaps (Python unknown/kebab backend CONFIG_INVALID→INPUT_INVALID; encode_failed/io_failed→INPUT_INVALID; sc-treesitter failure codes→INPUT_INVALID): confirm every code exists in tests/fixtures/jev/README-contract/errors.json and ADR-SAG-0001 (no new ids), then record the remaps in a short "Error-code dispositions" section of ADR-SAG-0029 so REQ-SAG-0800/0101 can be marked upheld.
+    </group>
+    <group name="D. Test determinism (flaky FTQ-006/007/008/009/010)">
+      - FTQ-006: LoopbackServer gets hard deadlines — listener accept loop bounded (nonblocking + Instant, or set_read_timeout), serve_one sets stream read timeout, finish() signals shutdown and uses recv_timeout, panicking "server expected N connections, saw M". Apply to both copies; add a test asserting `include_str!` equality of the two test_server.rs copies (and the two retry_policy.rs copies — RBP note) so the "cannot drift" claim becomes true.
+      - FTQ-007: replace the tick-count GIL test (Rust + Python twin) with the sentinel-file handshake described in the finding; drop-guard/try-finally the worker.
+      - FTQ-008: bound the three raw `.output()` waits (sc-jev-check test git helper, env re-exec test, cross-impl python run) with a spawn_with_deadline runner shared from one dev-support location (a `tests/support` module included via #[path] is acceptable); add GIT_CONFIG_NOSYSTEM=1 to sc-jev-check's git_command.
+      - FTQ-009: closed_port_url keeps a bound listener alive (never accepts) and returns a guard; redirect target uses `http://invalid.test/`.
+      - FTQ-010: Reply::Stall blocks on a release signal fired after the client returns, bounded by recv_timeout.
+    </group>
+    <group name="E. Residual hardening (RSH-007/008, RBP-F010/F011/F015/F002)">
+      - RSH-007: sc-treesitter git_io read_worktree uses take(MAX+1) with metadata length check; read_at_rev runs `cat-file -s` on the object id before `cat-file blob`; same 8 MiB constant; InputTooLarge.
+      - RSH-008: sc-jev-check read_git_show resolves `<rev>:./<path>` once via `rev-parse --verify --end-of-options`, then -t/-s/blob on the object id.
+      - RBP-F010: gate `ResolvedApiKey::new` behind `#[cfg(any(test, feature = "test-util"))]`; fix the callers (sc-jev-check registry/mod.rs:218 — confirm test-only or route via try_new).
+      - RBP-F011: add `enum LogOperation { Judge, Ask }` with Display/FromStr for LogEvent.operation IF it does not alter JSON output (serialize as the same strings); add BlobSha newtype reusing the 40/64-hex validator if the change stays inside crates and the wire JSON is unchanged; otherwise record the decision in a doc line and defer to r-1 (D6) in the disposition table. QuestionId newtype → defer to r-1 with reason.
+      - RBP-F015: session/mod.rs:500/513/516 route via session_store_io / operational_* constructors so fix_hint matches the fault.
+      - RBP-F002: to_py_err — comment why setattr cannot fail or fold failure into the message; read.rs:60 include valid_up_to() in the detail.
+      - RBP observations to do now (small): command.rs substitute_placeholders → reuse payload::expand_placeholders single-pass (+ test); AnthropicHaikuBackend::new / OpenAiLunaBackend::new placeholder Result — keep the Result but add a one-line doc + pinning test OR return Self (your call; record in table); run.rs payload_text from_utf8_lossy → expect with message.
+      - RBP observations to DEFER to Phase A.1 (record in table, do not touch): Rev deserialize validation (r-1), ExtractInput required-field constructor (r-3c), retry_policy duplication (r-2b/D5), serde spelling (D6), encode_failed INPUT_INVALID semantics (F001/r-1), logging.rs raw {error} interpolation (r-2).
+    </group>
+    <group name="F. rust-qa findings">
+      - rust-qa: all gates PASS (fmt, clippy -D warnings, tests x2, cargo hack, pytest, doc -D warnings, dry-run, coverage 90.75% line, every crate >= 80%). Two minor carry-overs: QA-004 — SessionEvent→LogEvent adapter duplicated (sc-jev-py logging.rs:263 vs sc-ai observe.rs:142): move next to LogEvent in sc-agent-types::observability::v2 and call from both. QA-007 — `git rev-parse --show-toplevel` implemented twice (sc-treesitter git_io.rs:247, sc-ai command.rs:770): share or document why the error mappings differ. Note from rust-qa: symlink-escape tests are cfg(unix); add a Windows equivalent or a documented limitation line in docs/sc-jev-check/.
+    </group>
+  </items>
+
+  <acceptance-criteria>
+    - `just lint`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`, `cargo test --workspace`, `RUSTDOCFLAGS=-D warnings cargo doc --workspace --no-deps`, pytest (via `just test-python` or the ci.md recipe) all green locally.
+    - After push, PR 20 CI green on all three OSes (parent will check; you report the run id when visible via `gh pr checks 20 --repo randlee/sc-agent`).
+    - Every id above appears in docs/plans/phase-a/a-10-hardening-dispositions.md with status + evidence.
+    - No ADR text deleted; ADR-SAG-0029 only adds. No D1–D13 implementation.
+    - Commit per group (A–F), push `sprint/a-10-phase-end-hardening`, report pushed SHA + table summary. Commit trailer: `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`. No PR, no merge, no agents.
+  </acceptance-criteria>
+
+  <workflow>
+    <step id="a">ACK. Work only in the worktree; never touch develop/integrate or other worktrees; never edit kit-written release files (install.py-managed). zsh: never use a variable named `status`.</step>
+    <step id="b">Read the seven reviewer JSON files, the three wave XMLs, PHASE-A-REVIEW.md §3.</step>
+    <step id="c">A first (CI red), then B–F; run `cargo test --workspace` after each group.</step>
+    <step id="d">Commit per group, push, report. If anything looks like an architectural decision in disguise, list it as deferred instead of doing it.</step>
+  </workflow>
+</cursor-fix-task>

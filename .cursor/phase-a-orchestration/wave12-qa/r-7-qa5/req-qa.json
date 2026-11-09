@@ -1,0 +1,27 @@
+{
+  "status": "PASS",
+  "reviewed_branch": "sprint/r-7-decision-schema",
+  "reviewed_commit": "90c5ab1",
+  "errors": [],
+  "scope": {"phase": "phase-a-refine", "sprint": "r-7"},
+  "baselines_read": ["docs/plans/phase-a-refine/plan.md", "docs/architecture.md (line 1488 only)"],
+  "phase_or_sprint_docs_read": ["docs/plans/phase-a-refine/plan.md", "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md (grep only)", "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md (grep only)"],
+  "requirement_checks": [],
+  "deliverable_checks": [
+    {"item": "REQ-QA-005: r-3b doc lines 261, 317, 420, 594, 613", "status": "present", "closure_state": "closed",
+     "evidence_refs": ["sprint-r-3b-compose-and-workspace-tests.md:261", ":317", ":420-422", ":596", ":614-615"],
+     "notes": "The doc now names test_util_off_binary at 261, 317, 420-422, 596, and 615. Line 614 runs test_util_off for the graph test only. test_release_binary_rejects_scripted_answers appears only under test_util_off_binary. The line numbers have shifted by 1 to 3 since the finding was raised."},
+    {"item": "REQ-QA-006: plan.md 150-153, 229, and the new test_util_off_binary command", "status": "present", "closure_state": "closed",
+     "evidence_refs": ["plan.md:150-153", "plan.md:229", "plan.md:918"],
+     "notes": "Lines 151-153 split the gate into the test_util_off graph query and the test_util_off_binary release-binary test. Line 229 lists both targets. Line 918 adds `cargo test -p workspace-tests --test test_util_off_binary`."},
+    {"item": "REQ-QA-007: docs/sc-ai/architecture.md:46", "status": "present", "closure_state": "closed",
+     "evidence_refs": ["docs/sc-ai/architecture.md:46"],
+     "notes": "Line 46 now reads `workspace-tests --test test_util_off_binary`."},
+    {"item": "Grep of test_util_off across docs/ and crates/", "status": "present", "closure_state": "closed",
+     "evidence_refs": ["crates/workspace-tests/tests/test_util_off_binary.rs:28", "crates/workspace-tests/README.md:51", "crates/sc-ai/Cargo.toml:29", "docs/architecture.md:1488"],
+     "notes": "Every reference to test_release_binary_rejects_scripted_answers names test_util_off_binary. The test fn is defined in tests/test_util_off_binary.rs. The remaining bare test_util_off references (docs/architecture.md:1488, boundaries/README.md:93, the dispositions docs, sprint r-1) all refer to the graph half or to the unchanged gate, so none is stale. The two dispositions docs are historical records."}
+  ],
+  "findings": [],
+  "summary": {"total_findings": 0, "blocking_findings": 0, "overall_compliance": "compliant", "deliverables_total": 4, "deliverables_complete": 4, "deliverables_incomplete": 0, "deliverable_completion_percent": 100.0},
+  "gate_reason": "Worktree HEAD is refs/heads/sprint/r-7-decision-schema, which resolves to 90c5ab1f39d7b1967155d15b30a6e306ba507610, so it matches the assigned commit. REQ-QA-005, REQ-QA-006 and REQ-QA-007 are all closed. No new findings. I read files directly and did not run git diff, so I could not compute the 20a46a8..90c5ab1 delta. That does not change the result, because the grep covered the whole tree."
+}

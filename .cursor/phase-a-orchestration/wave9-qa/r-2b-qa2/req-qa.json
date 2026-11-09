@@ -1,0 +1,32 @@
+{
+  "status": "PASS",
+  "reviewed_branch": "sprint/r-2b-multi-backend-semantics",
+  "reviewed_commit": "3ef50f5f7118f5d136fe5442c0a2a39c2b58debd",
+  "errors": [],
+  "scope": {"phase": "a.1", "sprint": "r-2b"},
+  "baselines_read": ["docs/requirements.md (QA-1 reading carried forward; not re-read)", "docs/architecture.md (QA-1 reading carried forward; not re-read)", "docs/project-plan.md (not re-read; locked recheck)"],
+  "phase_or_sprint_docs_read": ["docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md"],
+  "requirement_checks": [
+    {"id": "REQ-SAG-0606", "source": "docs/requirements.md:173", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev/src/check.rs:81", "crates/sc-jev-backends/src/validate.rs:77"]},
+    {"id": "REQ-SAG-0604", "source": "docs/requirements.md:171", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-backends/src/backend.rs:218"]},
+    {"id": "REQ-SAG-0605", "source": "docs/requirements.md:172", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-backends/src/backend.rs:197"]}
+  ],
+  "deliverable_checks": [
+    {"item": "REQ-QA-001 fix: two consumer test files in owned_paths; Outcome reworded to 'no consumer source file'", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md:62", "docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md:63", "docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md:95", "docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md:411"], "notes": "Both paths are listed in owned_paths. The Outcome now says 'changes no consumer source file (the sc-ai and sc-jev-py sources)' and states the two tests are owned here."},
+    {"item": "Regression focus: refusal coverage after the typed question_choices() rewrite", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-agent-types/src/payload.rs:36", "crates/sc-agent-types/src/payload.rs:96", "crates/sc-agent-types/src/payload.rs:162", "crates/sc-jev/src/check.rs:44", "crates/sc-jev-backends/src/validate.rs:77", "crates/sc-jev/src/check.rs:309", "crates/sc-jev-backends/src/validate.rs:112"], "notes": "See the regression analysis in gate_reason."}
+  ],
+  "findings": [],
+  "carry_forward_verdicts": [
+    {"id": "REQ-QA-001", "verdict": "closed", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md:62-63", "docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md:95-97"]}
+  ],
+  "summary": {
+    "total_findings": 0,
+    "blocking_findings": 0,
+    "overall_compliance": "compliant",
+    "deliverables_total": 2,
+    "deliverables_complete": 2,
+    "deliverables_incomplete": 0,
+    "deliverable_completion_percent": 100.0
+  },
+  "gate_reason": "The worktree gitdir HEAD (.git/worktrees/r2b-qa2-review/HEAD) is exactly 3ef50f5. The carry-forward file holds one req-qa finding, REQ-QA-001, and it is closed: the doc now matches the diff. Regression check: dropping the question 'type' and 'prompt' checks loses no refusal. Question is a struct with private fields {id, prompt: String, choices: Vec<ChoiceId>}, and Question and CanonicalJudgePayload both use deny_unknown_fields (payload.rs:36-37, 96-98). A 'type' key cannot deserialize, and a missing prompt fails deserialization. The type system therefore rules out both cases the old byte-level checks guarded. The one remaining case, an empty-string prompt, is not required to be refused by anything under docs/ (grep found no such rule). The cases a canonical payload can still trigger all stay covered. No question, and fewer than two distinct choices (including duplicate choices that collapse in the set), are refused in sc-jev check.rs:44-57 and sc-jev-backends validate.rs:77-95. Duplicate question ids are refused at PayloadBundle::encode (payload.rs:166-174). Ids and choices come from the typed map, so malformed ids cannot occur. parse_outcome still refuses a wrong model, wrong shape, answer-id mismatch, a choice outside the criteria, non-numeric confidence or probability, and inexact probability keys (check.rs:159-226). Unit tests exercise each refusal (check.rs:309-387, validate.rs:111-132). The grep for ParsedQuestion|unwrap_or(0)|checked above finds none in the sc-jev and sc-jev-backends sources. The only unwrap_or(0) hits are in sc-agent-http test support, sc-ai cli tests and sc-jev-check extract/command.rs, none of them in the files the assignment named. The developer's claim holds, and I found no lost validation and no regression. I read the code statically and did not run cargo; CI green at 3ef50f5 is taken from the input. I did not re-read wire.rs, backend.rs typed_answers or the BackendSet changes in depth, because they are outside the locked req-qa carry-forward scope. No Blocking findings and no new gates requested."
+}

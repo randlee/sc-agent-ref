@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "R6-QA2-FTQ-005",
+ "found_in": "A1-R6",
+ "found_at": "2026-11-08T06:39:59Z",
+ "title": "The concurrent-writer helper joins eight std threads with no deadline",
+ "description": "The concurrent-writer helper joins eight std threads with no deadline. If any writer thread wedges inside save() or load(), the test blocks forever instead of failing, and the CI job only ends at its own timeout. Today the store takes no lock (session/mod.rs:21 states there is no lock), so no blocking path is reachable and this is not a current flake. It still violates the Fix Standard: a join with no hard deadline is a path on which the test can block forever.",
+ "category": "qa",
+ "severity": "minor",
+ "pattern": "unbounded_wait",
+ "file_filter": "crates/sc-jev-check/tests/session.rs",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "48c4d1cf5a0972351bc146721db41888fbc5cfa3"
+  },
+  {
+   "branch": "sprint/r-6-session-log-record",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-6-session-log-record",
+   "order_index": 1,
+   "head_sha": "34655a4465760a9e31860b5eea8b78960674714c"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a",
+  "sprint/r-6-session-log-record"
+ ]
+}

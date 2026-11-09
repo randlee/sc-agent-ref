@@ -1,0 +1,105 @@
+{
+  "status": "FAIL",
+  "reviewed_branch": "plan/phase-a-refine-r6",
+  "reviewed_commit": "debbf1d9cc8c8230f435d22088085909608f666d",
+  "errors": [],
+  "scope": {"phase": "r (Phase A.1)", "sprint": "r-5, r-6, r-7"},
+  "baselines_read": ["docs/requirements.md", "docs/architecture.md (ADR-SAG-0030/0031 region, lines ~1490-1578; ADR index counts)", "docs/plans/phase-a-refine/plan.md (all 1046 lines)", ".cursor/phase-a-orchestration.json key owner_decisions_2026_11_07"],
+  "phase_or_sprint_docs_read": [
+    "docs/plans/phase-a-refine/plan.md",
+    "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+    "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md",
+    "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md"
+  ],
+  "requirement_checks": [
+    {"id": "REQ-SAG-0140..0142, 0144..0148", "source": "docs/requirements.md:177-185", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["sprint-r-7-decision-schema.md:18-25", "sprint-r-7-decision-schema.md:781-788"]},
+    {"id": "REQ-SAG-0613", "source": "docs/requirements.md:187", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["sprint-r-6-session-log-record.md:375", "sprint-r-7-decision-schema.md:789"]},
+    {"id": "REQ-SAG-0612, 0614..0618", "source": "docs/requirements.md:186-192", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["sprint-r-6-session-log-record.md:374-380"]},
+    {"id": "REQ-SAG-0600 / 0611 (amended)", "source": "docs/requirements.md:213-214", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["sprint-r-6-session-log-record.md:381-382"]},
+    {"id": "REQ-SAG-0610", "source": "docs/requirements.md:102", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["sprint-r-6-session-log-record.md:379 (covered under the 0617 test, no own row)"]},
+    {"id": "REQ-SAG-0403, 0143", "source": "docs/requirements.md:170, 180", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["sprint-r-5-jev-wire-envelope.md:228-229"]},
+    {"id": "REQ-SAG-0107", "source": "docs/requirements.md:159, 211", "listed_in_sprint_doc": false, "result": "violated", "evidence_refs": ["sprint-r-6-session-log-record.md:16-43 (not listed)", "sprint-r-6-session-log-record.md:75,182-184 (r-6 edits sc-agent-types observability/** and adds always-on core deps ulid, sc-sha)"]},
+    {"id": "NFR-SAG-0004", "source": "docs/requirements.md:165", "listed_in_sprint_doc": false, "result": "violated", "evidence_refs": ["sprint-r-6-session-log-record.md:16-43 (not listed)", "sprint-r-6-session-log-record.md:112,394 (adds caret workspace deps ulid and sc-sha, runs check-exact-pins.sh)"]},
+    {"id": "REQ-SAG-0140, 0141", "source": "docs/requirements.md:177-178", "listed_in_sprint_doc": false, "result": "not-verifiable", "evidence_refs": ["sprint-r-5-jev-wire-envelope.md:17-26 (r-5 adds jev/**, payload.rs and a manifest edit inside sc-decision-schema; no r-5 command re-checks the data-only dependency set)"]},
+    {"id": "REQ-SAG-0617 log-write policy (owner item 9)", "source": "docs/requirements.md:191", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["plan.md:646-650", "architecture.md:1576-1578", "sprint-r-6-session-log-record.md:273-276,379"]}
+  ],
+  "deliverable_checks": [
+    {"item": "r-7 D1-D9 (crate, move, versioning, llm::v1, variants, session-log DDL, model catalog, SendTrace seam, ADR flips)", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["sprint-r-7-decision-schema.md:223-594", "sprint-r-7-decision-schema.md:779-794"], "notes": "Every deliverable maps to a req: row with a named --exact command. The D6 key count (17) and the fixture line count (6) match."},
+    {"item": "r-6 D0 sc-sha raw-bytes gate", "status": "present", "closure_state": "open", "evidence_refs": ["sprint-r-6-session-log-record.md:143-153", "plan.md:656"], "notes": "Left open as the owner gate: stop-and-report, with no assumed outcome."},
+    {"item": "r-6 D1-D8", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["sprint-r-6-session-log-record.md:159-300", "sprint-r-6-session-log-record.md:372-384"], "notes": "Each of REQ-SAG-0612 to 0618, 0600 and 0611 has a command. The REQ-SAG-0618 tree check is a risk (see REQ-QA-003)."},
+    {"item": "r-5 deliverables 1-5 and Branch A/B", "status": "present", "closure_state": "open", "evidence_refs": ["sprint-r-5-jev-wire-envelope.md:67-88,222-235"], "notes": "Blocked on the D9 question shape. Left open as the owner gate. Every branch has its own command rows."},
+    {"item": "Acceptance command per claimed req: root, r-5/r-6/r-7", "status": "partially-present", "closure_state": "not-applicable", "evidence_refs": ["sprint-r-6-session-log-record.md:372-384", "sprint-r-5-jev-wire-envelope.md:226-235"], "notes": "Regression-only ids are covered by the boundary: row (just test plus required-features runs), which is the plan convention. REQ-SAG-0610 has no row of its own and is covered by the 0617 test."}
+  ],
+  "findings": [
+    {
+      "id": "REQ-QA-001",
+      "severity": "Blocking",
+      "category": "requirement-not-listed",
+      "source_refs": ["docs/requirements.md:165", "docs/requirements.md:159", "docs/plans/phase-a-refine/plan.md:588-590"],
+      "target_refs": ["docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:16-43"],
+      "issue": "r-6's requirements list omits NFR-SAG-0004 and REQ-SAG-0107. r-6 adds the caret workspace dependencies ulid and sc-sha, removes uuid and sha2, and runs check-exact-pins.sh in its Required validation; NFR-SAG-0004 governs that. r-6 also rewrites sc-agent-types observability/** (the LogEvent port) and adds always-on core dependencies; REQ-SAG-0107 governs the port, the features and the 'every combination builds' rule. r-7 lists both ids. plan.md says every id a sprint's files touch is in its requirements list.",
+      "required_correction": "Add NFR-SAG-0004 and REQ-SAG-0107 to the r-6 requirements list. Name the existing commands as their regression coverage (check-exact-pins.sh; cargo hack check -p sc-agent-types --feature-powerset --no-dev-deps, which r-4 and r-7 already run) in the boundary:session-log row. Add no new gate.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-002",
+      "severity": "Important",
+      "category": "requirement-not-listed",
+      "source_refs": ["docs/requirements.md:177-178", "docs/plans/phase-a-refine/plan.md:572"],
+      "target_refs": ["docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:17-26", "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:42-62"],
+      "issue": "r-5 edits inside sc-decision-schema (payload.rs, jev/**, lib.rs, the boundary manifest) but lists neither REQ-SAG-0140 (data-only, fixed dependency set) nor REQ-SAG-0141 (single home for the decision types). The jev module must stay inside the REQ-SAG-0140 dependency set. Branch B also changes the REQ-SAG-0103 payload contract, which is unlisted.",
+      "required_correction": "List REQ-SAG-0140 and REQ-SAG-0141 as regressions in r-5, and REQ-SAG-0103 for Branch B, using r-7's existing cargo tree / just lint commands. Add nothing new.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-003",
+      "severity": "Important",
+      "category": "acceptance-gap",
+      "source_refs": ["docs/requirements.md:192", "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:380", "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:179-181"],
+      "target_refs": ["docs/architecture.md:1574-1575"],
+      "issue": "The REQ-SAG-0618 command `! cargo tree -p sc-agent-types -e normal | grep -qE '...(sha2|uuid) v[0-9]'` scans the transitive tree. If sc-sha itself depends on sha2, that check cannot pass even when the plan is followed. This depends on the owner-gated D0 outcome, so it is a risk, not a proven failure. REQ-SAG-0618 and architecture.md:1575 also say sha2/uuid are removed from the workspace unconditionally, while D2 says 'when nothing else uses them' (the Cargo.lock part). Today sha2 and uuid are used only by sc-agent-types and sc-ai (Cargo.toml grep).",
+      "required_correction": "Make the command check direct dependencies (`cargo tree -p sc-agent-types -e normal --depth 1`) and match 'removed from the workspace' to 'no workspace manifest lists them'. Do not decide the sc-sha gate.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-004",
+      "severity": "Important",
+      "category": "cross-doc-conflict",
+      "source_refs": ["docs/plans/phase-a-refine/plan.md:502-505", "docs/plans/phase-a-refine/plan.md:523"],
+      "target_refs": ["docs/plans/phase-a-refine/plan.md:523-530"],
+      "issue": "plan.md states the critical path is 6 sprints (r-1, r-2, r-2b, r-3b, r-7, r-6) at line 502 but headlines the explanatory paragraph 'Why the critical path is 4 (recorded reason)' at line 523. The paragraph's content (r-3b after r-2b) still holds, but the number contradicts the plan's own count.",
+      "required_correction": "Retitle the paragraph, e.g. 'Why r-3b follows r-2b', and drop the '4'.",
+      "compliance_result": "non-compliant"
+    },
+    {
+      "id": "REQ-QA-005",
+      "severity": "Minor",
+      "category": "plan",
+      "source_refs": ["docs/plans/phase-a-refine/plan.md:564-574", "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:16", "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:789"],
+      "target_refs": ["docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:375"],
+      "issue": "REQ-SAG-0613 has a req: row in r-7 ('seam') and in r-6. plan.md's REQ closure table gives it only to r-6 and says each req: root has one owning sprint. r-7's vertical_rationale calls it 'its own req: row'. The risk is two sprints both claiming the root.",
+      "required_correction": "Relabel r-7's row as a regression or seam check (boundary:), not a req: root. The command can stay as is.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-006",
+      "severity": "Minor",
+      "category": "cross-doc-conflict",
+      "source_refs": ["docs/plans/phase-a-refine/plan.md:474", "docs/plans/phase-a-refine/plan.md:476", "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:168", "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:435"],
+      "target_refs": ["docs/plans/phase-a-refine/plan.md:623-628"],
+      "issue": "The sprint table and r-7's intro assign owner items 1-3, 6, 7 to r-7 and 5, 6, 8, 9 to r-6. r-7 D6 implements item 5 (storage schema and fields{} projection) and cites it. Item 6 is split across both sprints. The mapping is inexact, not contradictory in substance.",
+      "required_correction": "Add item 5 to r-7's item list in the sprint table and in the r-7 doc intro.",
+      "compliance_result": "partially-compliant"
+    }
+  ],
+  "summary": {
+    "total_findings": 6,
+    "blocking_findings": 1,
+    "overall_compliance": "non-compliant",
+    "deliverables_total": 5,
+    "deliverables_complete": 3,
+    "deliverables_incomplete": 2,
+    "deliverable_completion_percent": 60.0
+  },
+  "gate_reason": "FAIL: REQ-QA-001 is Blocking because r-6's requirements list omits NFR-SAG-0004 and REQ-SAG-0107, which its files and commands touch. The two owner gates (D9 question shape for r-5, sc-sha raw bytes at r-6 D0) are correctly left open; I did not resolve either, and the open deliverable_checks reflect those gates only. The log-write failure policy is best-effort, and plan.md item 9, REQ-SAG-0617, ADR-SAG-0031 (architecture.md:1576) and r-6 D6 all state it. Every claimed req: root in r-5, r-6 and r-7 has a named acceptance command. None of the plan text I read contradicts the owner decisions. The changes I propose are list edits, one command-scope fix and wording fixes; I propose no new gates, receipts or checks."
+}

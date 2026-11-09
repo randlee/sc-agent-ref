@@ -1,0 +1,17 @@
+{
+  "review_mode": "sprint_review",
+  "worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-2-agent-secrets",
+  "branch": "sprint/a-2-agent-secrets",
+  "commit": "e174dbe090e05258a88ad81fecdef5851c1b87a9",
+  "review_targets": ["crates/sc-agent-secrets/", "boundaries/sc-agent-secrets/", "docs/sc-agent-secrets/"],
+  "topics":     ["config_validation", "timeouts", "graceful_shutdown", "spawn_blocking", "input_limits"]
+,
+  "service_indicator_dependencies": ["tokio", "axum", "hyper", "tonic", "warp", "actix-web", "reqwest"],
+  "service_indicators_extra": [],
+  "round_limit": false,
+  "changed_files": ["Cargo.lock", "boundaries/sc-agent-secrets/agent-secrets.toml", "boundaries/sc-agent-types/agent-types.toml", "crates/sc-agent-secrets/Cargo.toml", "crates/sc-agent-secrets/src/dotenv.rs", "crates/sc-agent-secrets/src/lib.rs", "crates/sc-agent-secrets/src/platform.rs", "crates/sc-agent-secrets/src/resolve.rs", "docs/plans/phase-a/sprint-a-2-agent-secrets.md", "docs/plans/project-plan.md", "docs/sc-agent-secrets/architecture.md"],
+  "triage_records": [],
+  "carry_forward_findings": [],
+  "findings_scope_locked": false,
+  "notes": "QA-1 PR #6 sprint a-2"
+}

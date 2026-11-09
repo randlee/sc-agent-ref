@@ -1,0 +1,13 @@
+.github/workflows/sc-publish-dry-run.yml
+Cargo.toml
+boundaries/sc-agent-secrets/agent-secrets.toml
+boundaries/sc-jev-py/jev-py.toml
+crates/sc-ai/src/observe.rs
+crates/sc-jev-py/src/logging.rs
+docs/development/ci.md
+docs/plans/phase-a/a-10-hardening-dispositions.md
+docs/plans/phase-a/plan.md
+docs/plans/phase-a/sprint-a-2-agent-secrets.md
+scripts/sc-publish-dry-run.sh
+tests/fixtures/observability/session-event.json
+tests/support/deadline.rs

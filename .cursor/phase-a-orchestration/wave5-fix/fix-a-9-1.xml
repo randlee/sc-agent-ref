@@ -1,0 +1,75 @@
+<cursor-fix-task id="fix-a-9-1" phase="a" sprint="a-9" assignee="rust-developer">
+  <description>Fix every QA-1 finding on PR #17 (sprint a-9 sc-publish install) — 2 Blocking, 4 Important, 14 Minor across req-qa, arch-qa, rust-qa, rust-best-practices, flaky-test-qa.</description>
+  <worktree>/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-9-sc-publish-install</worktree>
+  <branch>sprint/a-9-sc-publish-install</branch>
+  <pr-number>17</pr-number>
+  <pr-target>integrate/phase-a</pr-target>
+  <base-commit>d2738c8f535c28cedc87fc4693f2d78e2bc0d47c</base-commit>
+  <authoritative-sprint-doc>docs/plans/phase-a/sprint-a-9-sc-publish-install.md</authoritative-sprint-doc>
+  <requirement-ids>REQ-SAG-0130, REQ-SAG-0131, REQ-SAG-0132, REQ-SAG-0803, REQ-SAG-0802, NFR-SAG-0002</requirement-ids>
+  <adr-ids>ADR-SAG-0011, ADR-SAG-0017, ADR-SAG-0018, ADR-SAG-0022</adr-ids>
+  <triage-records>none — triage tooling unavailable this session; findings are single-branch (only sprint/a-9 is open) so cross-worktree correlation is moot. Duplicates clustered below.</triage-records>
+  <reviewer-json-dir>/Volumes/Extreme Pro/github/sc-agent/.cursor/phase-a-orchestration/wave5-qa/a-9-qa1/ (read req-qa.json, arch-qa.json, rust-qa-agent.json, rust-best-practices-agent.json, flaky-test-qa.json for full finding text)</reviewer-json-dir>
+
+  <finding-clusters>
+    <cluster name="A — preflight requirement vs dispatch-only kit workflow" ids="REQ-QA-001 (Blocking)">
+      Kit release-preflight.yml at the pin is workflow_dispatch-only, so REQ-SAG-0132 / sprint acceptance row 'Release preflight workflow green' / deliverable 3 cannot be met as written. Required: planned doc amendment, not code.
+      - docs/requirements.md REQ-SAG-0132: reword to require the consumer-owned 'sc-publish dry-run' workflow green on every PR (install dry-run drift check, manifest validation, version lockstep, consumer preflight, cargo publish --dry-run, maturin build), and state that the kit's Release Preflight is dispatch-only and is run by the publisher at release time. Keep the REQ id. Do not change any other requirement.
+      - sprint doc deliverable 3 and acceptance row for REQ-SAG-0132: same rewording; cite the green run on PR #17 (GitHub Actions run 42339767937, check 'sc-publish dry-run / dry-run') as the exercised evidence.
+      - docs/development/sc-publish.md already explains this; make sure wording matches the amended REQ.
+    </cluster>
+    <cluster name="B — sprint doc completeness" ids="ARCH-001 (Blocking), ARCH-002 (Important), REQ-QA-002 (Important), REQ-QA-003 (Minor), REQ-QA-004 (Minor)">
+      In docs/plans/phase-a/sprint-a-9-sc-publish-install.md:
+      - adrs: add ADR-SAG-0011 and ADR-SAG-0022.
+      - requirements: add REQ-SAG-0802 and NFR-SAG-0002.
+      - owned_paths: add scripts/sc-publish-dry-run.sh, .github/workflows/sc-publish-dry-run.yml, crates/sc-jev-py/Cargo.toml, crates/sc-jev-py/pyproject.toml.
+      - Deliverables: one short paragraph recording the consumer-owned dry-run gate decision and the sc-jev-py PyPI-only decision (publish = false, static version required by the kit).
+      - Required validation block: replace the hard-coded /tmp/sc-agent-wheels with SC_AGENT_WHEEL_DIR (or call scripts/sc-publish-dry-run.sh) so the doc matches the implementation.
+      - frontmatter status: set to in-review (QA will set complete at merge).
+    </cluster>
+    <cluster name="C — CI determinism and workflow hardening" ids="FTQ-001 (Important), QA-003 (Minor), QA-002 (Minor), FTQ-003 (Minor)">
+      .github/workflows/sc-publish-dry-run.yml and scripts/sc-publish-dry-run.sh (sc-agent-owned; kit workflows are NOT to be touched):
+      - Pin every third-party action to a full commit SHA with a trailing `# vX.Y.Z` comment (actions/checkout, actions/setup-python, actions/cache, dtolnay/rust-toolchain). Resolve SHAs with `gh api repos/<owner>/<repo>/git/ref/tags/<tag>` (dereference annotated tags to the commit).
+      - runs-on: ubuntu-24.04 (not ubuntu-latest). Keep toolchain 1.94.1 and python 3.11 explicit.
+      - Pin maturin exactly (maturin==<current 1.x>, pick the latest 1.x on PyPI today) in the workflow pip install.
+      - Cache: include the toolchain version in the key and add restore-keys; or switch to Swatinem/rust-cache pinned by SHA.
+      - Per-step timeout-minutes on the clone/bootstrap, cargo publish --dry-run, and maturin steps; in the script wrap git clone/fetch in `timeout` with a step-named failure message, and set CARGO_HTTP_TIMEOUT / CARGO_NET_RETRY and pip --timeout explicitly. No retry loops.
+    </cluster>
+    <cluster name="D — dry-run script safety" ids="FTQ-002 (Minor), QA-004 (Minor)">
+      scripts/sc-publish-dry-run.sh:
+      - Default wheel dir to `mktemp -d` with a trap cleanup when SC_AGENT_WHEEL_DIR is unset; when it is set, refuse to rm -rf unless the path is non-empty, not '/', not the repo root, and its basename is 'sc-agent-wheels' or the dir is empty/nonexistent.
+      - After checking out the pinned kit revision run `git -C "$kit_dir" reset --hard --quiet && git -C "$kit_dir" clean -fdxq` so a reused .sc-publish-kit cannot carry local edits.
+      - Parse release/sc-publish-pin.toml with `python3 -c 'import tomllib...'` instead of sed; validate repository is a non-empty https URL and revision is 40 hex.
+    </cluster>
+    <cluster name="E — crate publish-readiness metadata" ids="RBP-F002 (Minor), RBP-F003 (Minor), QA-001 (Minor), RBP-F004 (Minor), RBP-F006 (Minor)">
+      All seven publishable crates (sc-agent-types, sc-agent-secrets, sc-jev, sc-jev-backends, sc-jev-check, sc-treesitter, sc-ai) plus sc-jev-py metadata:
+      - Add a short per-crate README.md (3-10 lines: what it is, which workspace it belongs to, link to repo docs) and `readme = "README.md"`; add `keywords` (<=5) and `categories` (valid crates.io slugs; command-line-utilities for sc-ai and sc-treesitter, parsing for sc-treesitter, development-tools for the libraries) — put shared values in [workspace.package] where common.
+      - Add an explicit `include` allowlist per crate (Cargo.toml, README.md, LICENSE, src/**, plus sc-treesitter assets/queries/** and any build.rs). Add a LICENSE file per crate (copy the workspace MIT text; add a root LICENSE if none exists).
+      - sc-agent-types [[test]] jev_cross_impl escapes the crate root and is silently dropped from the package: keep the test running from the workspace but stop the cargo publish warning — simplest is to move the test entry so it is excluded from the package (the include allowlist already drops it; verify the warning disappears) and add a one-line comment explaining it is workspace-only.
+      - Hoist `toml`, `ureq`, and the sc-observability* pins into [workspace.dependencies] and reference them with `.workspace = true`; unify toml on one major (prefer the newer major already used by sc-jev; adjust sc-jev-check call sites if the API differs and keep tests green).
+      - crates/sc-jev-py/pyproject.toml: add readme, authors, project.urls (Homepage, Repository), and classifiers; keep the static version with the existing comment about the kit's sync check.
+      - cargo publish --dry-run --locked must still pass for all seven crates with zero warnings after these changes; Cargo.lock may change only via the workspace-dependency hoist.
+    </cluster>
+    <cluster name="F — closed by documentation (architectural change deferred to Phase A review)" ids="RBP-F001 (Important), RBP-F005 (Minor)">
+      Both findings explicitly allow closure by documenting the deliberate choice. Do NOT change dependency pins or feature gating in this sprint; the parent is taking the alternative (caret ranges in library crates; feature-gating mimalloc behind a bin feature) to the Phase A architectural review.
+      - RBP-F001: next to every `=`-pinned sc-observability* dependency (sc-agent-types, sc-ai, sc-jev-py) add a one-line comment stating the pin is deliberate lockstep with the sc-observability release train and is revisited at phase review; in sc-treesitter/Cargo.toml add the same style comment for the `=` pins on mimalloc and tree-sitter*. Add a short "Dependency pinning policy" subsection to docs/development/sc-publish.md stating the current policy and that caret relaxation for library crates is under review.
+      - RBP-F005: add a comment on the mimalloc dependency in sc-treesitter noting it is unconditional for the library target by current choice (cost accepted; feature-gating under review), remove the redundant explicit [[bin]] stanza ONLY if the binary name and path are the auto-detected defaults (src/main.rs → bin sc-treesitter); otherwise keep it. Document `cargo install sc-treesitter --locked` in docs/development/sc-publish.md.
+    </cluster>
+  </finding-clusters>
+
+  <acceptance-criteria>
+    - Every finding id above is addressed: REQ-QA-001..005, ARCH-001, ARCH-002, FTQ-001..003, QA-001..004, RBP-F001..F006.
+    - just lint, just test green; scripts/sc-publish-dry-run.sh end to end exit 0 locally; install.py --dry-run reports assets in sync (you must NOT hand-edit any kit-written file; if a kit file needs to change, change the consumer input and re-run install).
+    - cargo publish --dry-run --locked for all seven crates passes with no warnings.
+    - docs/requirements.md edit is limited to REQ-SAG-0132 wording.
+    - Commit (one or a few well-scoped commits) and push sprint/a-9-sc-publish-install; report the pushed SHA and the GitHub 'sc-publish dry-run' check result once it finishes (gh pr checks 17 --watch is acceptable, background it if long).
+  </acceptance-criteria>
+
+  <workflow>
+    <step id="a">ACK, then work only inside the worktree above. Never touch the primary checkout, the integrate worktree, develop, or kit-written files.</step>
+    <step id="b">Read the five reviewer JSON files for exact finding text, then the sprint doc, then docs/requirements.md around REQ-SAG-0130..0132 and docs/architecture.md ADR-SAG-0011/0017/0018/0022.</step>
+    <step id="c">Implement clusters A–F. For cluster E verify each category slug against https://crates.io/category_slugs (gh api is fine, or the static list in cargo's docs).</step>
+    <step id="d">Run the full validation; fix until green. zsh: never use a shell variable named status.</step>
+    <step id="e">Commit, push, report: pushed SHA, files changed grouped by cluster, validation table, anything you could not close and why. Do not open PRs, do not merge, do not spawn agents.</step>
+  </workflow>
+</cursor-fix-task>

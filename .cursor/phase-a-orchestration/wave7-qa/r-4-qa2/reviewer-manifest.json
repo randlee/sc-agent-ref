@@ -1,0 +1,6 @@
+[
+  {"agent": "req-qa", "task_id": "a083a869ccc67cfa1", "spawn_actor": "parent-orchestrator", "scope_locked": "REQ-QA-R4-001..005"},
+  {"agent": "arch-qa", "task_id": "a773afa17a63cc175", "spawn_actor": "parent-orchestrator", "scope_locked": "merge coherence + ARCH-001"},
+  {"agent": "rust-qa-agent", "task_id": "a21dcf0ab71d5b57b", "spawn_actor": "parent-orchestrator", "scope_locked": "QA-001..003 + gates"},
+  {"agent": "flaky-test-qa", "task_id": "a495666e9d95793cd", "spawn_actor": "parent-orchestrator", "scope_locked": "FTQ-001..003 + cargo fetch step"}
+]

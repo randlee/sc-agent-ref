@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "R6-QA1-RSH-004",
+ "found_in": "A1-R6",
+ "found_at": "2026-11-08T06:07:39Z",
+ "title": "Every session-log event is emitted at Level::Info, whether the send succeeded or failed",
+ "description": "Every session-log event is emitted at Level::Info, whether the send succeeded or failed. A failed send (send_outcome = \"failed\", with error_code set) is indistinguishable by level from a successful one, so level-based filtering or alerting at WARN or ERROR cannot see failed sends.",
+ "category": "structured_logging_tracing",
+ "severity": "minor",
+ "pattern": "structured_logging_tracing",
+ "file_filter": "crates/sc-jev-host/src/obs.rs",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "714d2845c48cd0b4fa40bcd2017c248049f3662a"
+  },
+  {
+   "branch": "sprint/r-6-session-log-record",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-6-session-log-record",
+   "order_index": 1,
+   "head_sha": "f6ddc71c5fc8e0ea9a9e4d100529457784039873"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a",
+  "sprint/r-6-session-log-record"
+ ]
+}

@@ -1,0 +1,29 @@
+<!-- req-qa task 5caf9d03-15cf-4fee-931b-76ceb1a30c5e -->
+```json
+{"status":"FAIL","reviewed_branch":"sprint/a-2-agent-secrets","reviewed_commit":"e174dbe090e05258a88ad81fecdef5851c1b87a9","findings":[{"id":"REQ-QA-001","severity":"Important","category":"cross-doc-conflict","issue":"owned_paths lists boundaries/agent-secrets/** but repo uses boundaries/sc-agent-secrets/","required_correction":"Update sprint frontmatter owned_paths"},{"id":"REQ-QA-002","severity":"Minor","category":"cross-doc-conflict","issue":"ADR-SAG-0003 vs NFR-SAG-0002/ADR-SAG-0013 for no-secrets-in-logs traceability","required_correction":"Align sprint deliverable ADR references"}],"summary":{"deliverables_total":8,"deliverables_complete":8,"deliverable_completion_percent":100.0,"total_findings":2}}
+```
+
+<!-- arch-qa task 6bf6881e-1b55-4bfc-ad9c-fa503df30132 -->
+```json
+{"agent":"arch-qa","branch":"sprint/a-2-agent-secrets","commit":"e174dbe090e05258a88ad81fecdef5851c1b87a9","verdict":"FAIL","blocking":3,"important":0,"findings":[{"id":"ARCH-001","severity":"BLOCKING","description":"Missing ADR-SAG-0001 in sprint adrs list","remediation":"Add ADR-SAG-0001 to sprint adrs"},{"id":"ARCH-002","severity":"BLOCKING","description":"Public EnvSource/KeyringSource traits without Active ADR","remediation":"Activate or amend ADR for injection boundary"},{"id":"ARCH-003","severity":"BLOCKING","description":"test-util feature exposes MapEnv/MapKeyring without ADR","remediation":"Record feature gate in ADR or keep doubles private"}],"merge_ready":false}
+```
+
+<!-- rust-qa-agent task b1b38068-d812-4a75-a472-547488962ce4 -->
+```json
+{"success":true,"data":{"status":"findings","reviewed_commit":"e174dbe090e05258a88ad81fecdef5851c1b87a9","findings":[{"id":"QA-001","severity":"minor","issue":"Tests use manual temp_dir instead of tempfile::TempDir"}],"summary":{"total_findings":1,"by_severity":{"minor":1}}}}
+```
+
+<!-- rust-best-practices-agent task bcfdf2c4-d5c1-41b9-a3c9-728a0baf5954 -->
+```json
+{"success":true,"data":{"status":"findings","findings":[{"id":"RBP-F001","severity":"important","practice_id":"RBP-001"},{"id":"RBP-F002","severity":"important","practice_id":"RBP-001"},{"id":"RBP-F003","severity":"important","practice_id":"RBP-004"}],"summary":{"total_findings":3,"by_severity":{"important":3}}}}
+```
+
+<!-- rust-service-hardening-agent task d23efd8e-8790-4c77-b453-d029f6ac89cf -->
+```json
+{"success":true,"data":{"status":"skipped","findings":[],"summary":{"total_findings":0}}}
+```
+
+<!-- flaky-test-qa task 10c640ba-d941-4c5b-91db-fc1c161160ba -->
+```json
+{"success":true,"data":{"status":"pass","findings":[],"summary":{"total_findings":0}}}
+```

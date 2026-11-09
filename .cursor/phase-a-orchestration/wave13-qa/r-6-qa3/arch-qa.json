@@ -1,0 +1,19 @@
+{
+  "agent": "arch-qa",
+  "branch": "sprint/r-6-session-log-record",
+  "scope": {"phase": "phase-a-refine", "sprint": "r-6"},
+  "commit": "d106d03",
+  "verdict": "PASS",
+  "blocking": 0,
+  "important": 0,
+  "findings": [],
+  "adr_checks": [
+    {"adr": "ADR-SAG-0008", "source": "docs/architecture.md:254", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:268-271"]},
+    {"adr": "ADR-SAG-0013", "source": "docs/architecture.md:861", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:871-873", "crates/sc-jev-host/src/obs.rs:216-221", "crates/sc-jev-host/src/obs.rs:239-245"]},
+    {"adr": "ADR-SAG-0016", "source": "docs/architecture.md:958", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:967-970", "crates/sc-jev-host/src/obs.rs:41-53"]},
+    {"adr": "ADR-SAG-0031", "source": "docs/architecture.md:1731", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:1768-1774"]}
+  ],
+  "gate_artifact_checks": [],
+  "merge_ready": true,
+  "notes": "ARCH-001 is closed. Every r-6 amendment now has (Active, r-6) bullets for the points you named. ADR-SAG-0013 (line 871) records the envelope ids (correlation_id is the session id, request_id is the answer id) and the Warn level on send_outcome=failed. These match obs.rs:216-221 and 239-245. ADR-SAG-0016 (line 967) records the same mapping and notes that ids are built through serde. ADR-SAG-0008 (line 268) records the sweep grace, which is TTL plus one TTL. ADR-SAG-0031 Wiring (lines 1771-1774) records the error-path flush note: the log is still flushed on error, and a flush failure is appended once to the error detail with the code unchanged. I did not check the sweep grace or the error-path flush against the code, since your request limited the code check to obs.rs. The envelope_id! debug_assert macro is a local helper. It changes no contract, adds no dependency, and holds no mutex across an await, so it creates no ADR delta."
+}

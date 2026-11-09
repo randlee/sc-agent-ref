@@ -1,0 +1,41 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-3c-treesitter-cli",
+    "reviewed_commit": "39661a6d651223d7a15d514226f83f473f2337cb",
+    "review_mode": "sprint_review",
+    "executed_checks": {
+      "fmt": {"status": "pass", "command": "cargo fmt --all --check"},
+      "clippy": {"status": "pass", "command": "cargo clippy --all-targets --all-features -- -D warnings (exit 0); cargo clippy -p sc-treesitter (exit 0, 1 config warning)"},
+      "tests": {"status": "pass", "command": "cargo test --workspace (384 passed, 0 failed); sc-agent-types --features git,test-util pass; sc-treesitter --test cli 17/17 with --features cli (target is required-features=cli, so it is skipped without the feature); --test argv --features cli 11/11; cargo hack test -p sc-treesitter --each-feature pass"},
+      "coverage": {"status": "pass", "line": 91.48, "branch": 0.0, "function": 0.0, "adequate_for_risk": true},
+      "artifacts": {"status": "pass", "command": "check-exact-pins.sh (4 pins ok); cargo-tree-gates.sh (all rows pass; no mimalloc or clap in the sc-treesitter --no-default-features tree); cargo build -p sc-treesitter --lib --no-default-features; cargo hack check --feature-powerset --no-dev-deps (9/9); cargo fetch --locked; just lint; RUSTDOCFLAGS=-D warnings cargo doc --workspace --no-deps --all-features; just test-python (9 passed); scripts/sc-publish-dry-run.sh passed"}
+    },
+    "findings": [
+      {
+        "id": "QA-001",
+        "category": "guideline",
+        "severity": "minor",
+        "file": "clippy.toml",
+        "line": 7,
+        "issue": "Plain `cargo clippy -p sc-treesitter` exits 0 but prints the config warning 'sc_agent_types::ResolvedApiKey::as_str does not refer to a reachable function'. sc-treesitter builds sc-agent-types with default-features=false, so the `secret` module is absent and the disallowed-methods path cannot resolve. The warning is also printed on the `--all-targets --all-features` run, where it does not fail the build. clippy.toml is byte-identical to origin/integrate/phase-a, so this sprint did not introduce it. It is a real consequence of the sprint's default-features=false dependency.",
+        "recommendation": "Add `allow-invalid = true` to that disallowed-methods entry. It is warranted: the entry is only valid when the feature is on, and the all-features workspace clippy still enforces it. Alternatively, accept the warning explicitly in the sprint doc.",
+        "evidence": "clippy exit 0 in both modes. The warning appears in the -p sc-treesitter lib and bin."
+      }
+    ],
+    "summary": {"total_findings": 1, "by_severity": {"critical": 0, "important": 0, "minor": 1}},
+    "notes": [
+      "COMMIT DRIFT: HEAD was 39661a6 when the review started. The branch advanced to 0749f65 ('fix(r-3c CI-R3C-001): usage text names sc-treesitter, not argv[0]') at 07:25 while the gates were running. The diff is small: `bin_name` on the clap command, a new `usage_ignores_argv0` unit test, and 2 assertions in tests/argv.rs `test_help_prints_usage_and_exits_zero`. The workspace gates, coverage, tree gates, python and publish gates ran mostly or wholly against 39661a6 and may have picked up 0749f65 partway through. After the move I re-ran fmt, clippy -D warnings --all-targets --all-features and `cargo test -p sc-treesitter --all-features` on 0749f65, and all passed. A strictly pinned QA of 39661a6 should be re-run if exact-commit evidence is required.",
+      "Coverage: workspace lines 91.48% against the 91.19 baseline. sc-treesitter is 90.68% per-crate against 87.74 (cli/mod.rs 100, extract.rs 95.4, git_io.rs 82.7, main.rs 85.3, grammar.rs 73.9, query.rs 70.6, render.rs 55.6). Branch and function coverage were not collected.",
+      "clap definitions (cli/mod.rs): `allow_hyphen_values` is set on --language, --query, --captures and --rev. Duplicate flags (--rev, --captures, --language) are rejected as INPUT_INVALID, tested in argv.rs. The `parse_rev` value parser calls `Rev::parse` unchanged, and `parse_captures` returns its own JevError. `value_parser_error` downcasts the clap error source back to JevError, so the messages reach stderr unwrapped. Help and version exit 0 on stdout. Every other parse error is INPUT_INVALID with exit 2, covering a missing PATH and 'a command is required'. All as intended.",
+      "Injection coverage (tests/argv.rs): `--rev=--output=<file>`, `--rev --output=<file>`, `--rev=-p` and `--rev -p` are all INPUT_INVALID, and a check confirms no file starting with 'pwned' is created. `--` allows a hyphen path.",
+      "git_io.rs hash-object: the environment policy matches sc_agent_types::git (LC_ALL=C, GIT_TERMINAL_PROMPT=0, the same five env_remove calls, --no-pager, -C). It differs only in setting stdin to a pipe, which is needed here. Input is bounded to 8 MiB + 1 before hashing. Writing stdin and then calling wait_with_output is safe: hash-object consumes all of stdin before it prints the 40- or 64-hex id, so stdout cannot fill first. stderr is null and stdin is dropped before the wait. A write error combined with a failed exit maps to extraction_failed. There is no wall-clock timeout on this call, which matches the shared git module's stated policy of leaving timeouts to the callers, so I am not raising it as a finding.",
+      "RepoRelativePath normalizer: the shared validation rejects '', '..', 'a/../b', backslash, drive prefixes, NUL, '.' and './', verified by the unit test. normalize() keeps only Component::Normal parts and rejects non-UTF-8 parts. Absolute paths are canonicalized (leniently, so a missing tail is kept) and must strip_prefix the canonical toplevel. In worktree reads the canonicalized full path is re-checked with starts_with(repo), so symlink escapes are caught. BlobSha is used for the sha through git::read_at_rev and a hash-object parse, which accepts 40 or 64 hex.",
+      "Panics: no unwrap, expect or panic in library paths. The only runtime expect is main.rs:46 `ScAgentErrorResponse` serialize, a documented-infallible fallback. The panic! calls are in cli/mod.rs #[cfg(test)] only.",
+      "ADR-SAG-0029 (c) in tests/cli.rs: the version and help tests moved to argv.rs, and cli.rs keeps the error-code assertions such as cli_missing_positional_is_input_invalid. The 'late --help is INPUT_INVALID' assertion was removed along with the argv-slot behavior. Under clap a late --help prints help with exit 0, and argv.rs covers `extract --help` as exit 0.",
+      "The `argv` and `cli` test targets are skipped under --no-default-features. This is by design (required-features=cli), so 'with and without --features cli' gives a skip, not a run, for the second case."
+    ]
+  },
+  "error": null
+}

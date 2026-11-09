@@ -1,0 +1,44 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/r-3-shared-http",
+    "reviewed_commit": "8f969ff",
+    "review_mode": "sprint_review",
+    "service_indicators_found": ["ureq (workspace dep 3.5.1)", "ureq::Agent", "Transport trait / UreqTransport", "busy-retry loop with sleeps", "loopback TcpListener test server"],
+    "topics_reviewed": ["timeouts", "retries_idempotency_backoff_jitter", "input_size_limits_streaming", "cancellation_boundaries", "secret_redaction_logging", "tls_https_only_redirects", "config_validation", "test_server_bounded_waits", "carry_forward_RSH-005", "carry_forward_RSH-006"],
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": { "critical": 0, "important": 0, "minor": 0 }
+    },
+    "notes": [
+      "Worktree check: HEAD is refs/heads/sprint/r-3-shared-http, which resolves to 8f969ff85e09091da65dc5153425e36cef3e9de8. This matches the assigned commit. I only had read tools (no shell), so no tests were run. The ureq redirect behaviour below was checked against the vendored ureq 3.5.1 source.",
+      "RSH-005 stays CLOSED. crates/sc-agent-http/src/retry.rs now has the 90 s budget (BUDGET), jitter up to 250 ms on every wait, and cancellation checked before every send and between wait slices of at most 100 ms (WAIT_SLICE). Evidence: retry.rs:62, 59, 65, 259, 201.",
+      "RSH-006 stays CLOSED. UreqTransport::new builds one ureq Agent via AgentConfig::build, and clones share it (ureq_transport.rs:47-57, 105-110). The agent sets connect timeout 10 s, global timeout 120 s, max_redirects 0, https_only and a versioned User-Agent. The unit test test_ureq_agent_config_values and the loopback test test_agent_is_reused_across_sends (one keep-alive connection for three sends, including a clone) cover it.",
+      "Owner decisions encoded exactly, from the code:",
+      "- Busy statuses are exactly 429, 502 and 529 (BUSY_STATUSES, unit test busy_set_is_exactly_three_statuses). The default is 4 sends, and the same Arc<[u8]> body is resent.",
+      "- Retry-After uses a strict grammar. It must be 1-32 bytes matching ^[0-9]+(\\.[0-9]+)?$. The integer part is parsed with saturating arithmetic, so no float, sign, exponent, inf or NaN is possible. A 32-digit value saturates to the 30 s clamp and a 33-digit value is malformed. Tests cover both cases. A valid value is clamped to 0-30 s.",
+      "- An absent or malformed header backs off 1, 2, 4 s (cap 30 s). The wait is min(base + jitter, budget remaining). When no budget remains no further attempt starts.",
+      "- The two exhaustion errors are distinguishable. Both are NETWORK_ERROR kind Busy and retryable, but the details read \"N sends exhausted\" and \"retry budget exhausted\" (tests/retry.rs test_exhaustion_reason_distinguishable).",
+      "- A transport error is returned immediately with no retry. That covers connect, DNS, timeout, a failure after the body was sent, and an oversize body. There is no connectivity probing and no indefinite wait.",
+      "- An in-flight request is bounded by the 120 s global timeout, which includes the body read. A cancel during a wait is seen within 100 ms; a cancel during an in-flight request is seen when that request returns. Both are documented.",
+      "Transport and secret handling checks:",
+      "- HTTPS-only holds in every build. Endpoint::parse accepts only https, UreqTransport::send refuses a non-https endpoint, and the agent has https_only(true). The loopback constructors exist only under the test-util feature, and Endpoint::loopback_http can only build http://127.0.0.1:port.",
+      "- Redirects are not followed. In ureq 3.5.1, max_redirects_do_error() is `max_redirects > 0 && will_error`, so with 0 redirects a 3xx is returned as a response and not an error. This agrees with test_redirects_are_not_followed.",
+      "- The response cap is 8 MiB. The body is read through take(cap + 1) and refused if it exceeds the cap. This applies to success and error statuses (tests at ureq.rs:155).",
+      "- Every Err from send_with_busy_retry is redacted in one place (retry.rs:246) through ResolvedApiKey::redact_error. That covers errors from third-party Transport impls and all JevError text variants. tests/retry.rs test_transport_error_with_secret_is_redacted checks it.",
+      "- SecretHeader Debug shows ResolvedApiKey([redacted]), and HttpRequest Debug shows only the body length. I found no tracing, println! or dbg! in the HTTP code. The panics I saw (expect and assert messages) contain no secret.",
+      "- The backends and Jev client redact their own error paths as well: http_failure (a 300-byte body snippet) and the parse errors. Jev's non-200 error carries only the status.",
+      "- The loopback test server (tests/support/mod.rs) has no unbounded waits. The accept loop is nonblocking with a 30 s deadline, each stream has 10 s read and write timeouts, a stalled reply releases on finish() or at 30 s, and finish() waits at most 10 s.",
+      "Observations (below Important, not findings):",
+      "(1) JevClientConfig::new accepts attempts 1..=8 and timeout up to 3600 s (crates/sc-jev/src/config.rs:105-109). The packaged jev.toml uses 4 sends and 60 s, so the defaults are compliant. But the public JevClient::with_config path lets a caller exceed the owner decisions of at most 4 sends and 120 s in flight. Consider tightening to 1..=4 and <=120 s. The haiku and luna backends are unaffected because they use BusyPolicy::default and Timeouts::default.",
+      "(2) The wait is capped to the remaining budget, so the last attempt can start at exactly t = 90 s. The test test_retry_sleep_capped_by_budget asserts this deliberately. The budget is checked only after a busy reply, so a slow first send can still run to 120 s. This is consistent with the owner wording \"budget on starting attempts\".",
+      "(3) The \"double-charge\" rationale is not stated in the docs. retry.rs and the tests say that an error after the body was sent is not retried, but nothing mentions the double-billing reason. A one-line doc note would match the owner intent.",
+      "(4) SecretHeader::matches is public in all builds, not only under test-util. It is an equality oracle that needs a candidate key, so it is not a leak. The module docs say it is intended for test transports.",
+      "(5) A busy reply with an oversize body (over 8 MiB) surfaces as RESPONSE_INVALID and is not retried. That is acceptable.",
+      "(6) test_util's RecordingTransport and ScriptedTransport Debug output prints recorded requests. The secret is redacted through the HttpRequest Debug, so there is no leak."
+    ]
+  },
+  "error": null
+}

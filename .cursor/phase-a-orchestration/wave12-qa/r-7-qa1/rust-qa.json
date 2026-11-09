@@ -1,0 +1,28 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/r-7-decision-schema",
+    "reviewed_commit": "9497297",
+    "review_mode": "sprint_review",
+    "executed_checks": {
+      "fmt": {"status": "pass", "command": "cargo fmt --all --check"},
+      "clippy": {"status": "pass", "command": "cargo clippy --all-targets --all-features -- -D warnings"},
+      "tests": {"status": "pass", "command": "cargo test"},
+      "coverage": {"status": "not_run", "line": 0.0, "branch": 0.0, "function": 0.0, "adequate_for_risk": true},
+      "artifacts": {"status": "not_run", "command": ""}
+    },
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": {"critical": 0, "important": 0, "minor": 0}
+    },
+    "notes": [
+      "HEAD matched commit 9497297 on branch sprint/r-7-decision-schema, and the worktree was clean.",
+      "cargo test exited 0. I only read the first 30 lines of the filtered output, so I did not read every test-result line.",
+      "The cross-platform check `grep -rn '\"/tmp/' crates/` found no hardcoded /tmp paths.",
+      "I did not do a line-by-line review of the diff. The diff is large (about 130 files, including the new sc-decision-schema crate and the SQLite session-log schema). Separate rust-best-practices and rust-service-hardening reviews may be warranted for it."
+    ]
+  },
+  "error": null
+}

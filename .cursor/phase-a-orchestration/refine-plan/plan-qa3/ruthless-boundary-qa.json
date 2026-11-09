@@ -1,0 +1,138 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "plan/phase-a-refine",
+    "reviewed_commit": "c7c6f232d0cb08d8105d1e0a016e75748e81cc84",
+    "review_mode": "doc_review",
+    "findings": [
+      {
+        "id": "RBQA-F101",
+        "severity": "important",
+        "class": "boundary_tightening",
+        "file": "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md",
+        "line": 209,
+        "issue": "The sc-boundary dev-edge spike runs in wave 4 (r-3b D7.0). The self-referencing test-util dev-dependency lands earlier: sc-agent-types (r-1, wave 1), sc-jev-check (r-2) and sc-agent-http (r-3, wave 2), then sc-jev and sc-jev-backends (r-2b, wave 3). The spike tests 'a throwaway dev-only workspace edge', not a self edge. Neither written outcome says what happens to self edges.",
+        "recommendation": "Run the spike as a first step of r-1, or as an r-4 deliverable, because both are wave 1. Cover three cases: a dev-only edge between two different workspace crates, a self edge (`crate = { path = \".\", features = [...] }`), and `allowed_dependencies`/`allowed_dependents` entries that have no normal edge. Record the result in boundaries/README.md before wave 2 starts. If dev edges count, add the crate itself to `allowed_dependencies` and `allowed_dependents` in every manifest that gets a self dev-dependency. Alternatively, drop the self dev-dependency for crates that can use `--lib` unit tests.",
+        "evidence": "The baseline boundaries/README.md says 'allowed_dependencies lists every direct normal dependency ... dev-dependencies excluded'. SCB-DEPENDENCY-001/002/004 are described as 'direct workspace-to-workspace edge' checks. The baseline has no dev-only workspace edge and no self edge, so there is no precedent. The plan's own sc-agent-http manifest has `allowed_dependents = [sc-jev, sc-jev-backends]` and no self entry. If dev edges count, r-1's `just lint` fails on its own self edge. r-3 attaches the `just lint` boundary output to its QA input. Both branches of the plan therefore depend on an answer that arrives three waves late.",
+        "justification_check": "collapsible path (one early spike replaces four sprints guessing)",
+        "related_artifacts": [
+          "docs/plans/phase-a-refine/plan.md (Test seams; New boundary manifests)",
+          "boundaries/README.md",
+          "boundaries/sc-agent-http/agent-http.toml"
+        ]
+      },
+      {
+        "id": "RBQA-F102",
+        "severity": "important",
+        "class": "lint_gap",
+        "file": "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md",
+        "line": 255,
+        "issue": "The source_scans targets are text matches with escape routes, and they pin the scan inputs only partly. (a) `test_no_allow_attributes` and the `! rg '#!?\\[allow\\('` gate miss `#[cfg_attr(.., allow(..))]`, `#[ allow(` with whitespace, multi-line attributes, and `#[expect(clippy::all|restriction, reason)]` or `#[expect(warnings)]`. Any of these silences `disallowed_methods`. The secret scan only looks for the literal `disallowed_methods`. (b) Nothing asserts that the mechanism itself exists: the `ResolvedApiKey::as_str` entry in clippy.toml, the `[workspace.lints.clippy] allow_attributes = deny` and `allow_attributes_without_reason = deny` keys, or that `just lint` runs `cargo clippy --workspace --all-targets -D warnings`. Deleting the clippy.toml entry passes every scan. (c) Crates outside `crates/*` evade every scan, and nothing asserts that the root `members` all sit under `crates/`. (d) `test_git_spawn_only_in_types_git` matches the literal `Command::new(\"git\")`. It misses `Command::new(GIT)`, an absolute path, `git.exe`, a `use ... as` alias, and `tokio::process`.",
+        "recommendation": "Prefer type-aware enforcement over text matching. Add `std::process::Command::new` to clippy.toml `disallowed-methods`, with `#[expect(.., reason)]` only in sc-agent-types/src/git.rs and the command extractor. Make the source scan check that the expect sites are exactly those two. Extend the allow scan to `cfg_attr`, to whitespace/multi-line forms, and to expect/allow of `clippy::all|restriction|warnings|disallowed_methods`. Add scans for: clippy.toml contains `ResolvedApiKey::as_str`; the root `[workspace.lints]` keys exist; root `members` are all `crates/*`; the justfile lint recipe uses `--all-targets`.",
+        "evidence": "The r-3 D4 secret-read mechanism is 'lint-enforced convention'. The plan's single proof that no second `as_str` site exists is clippy under workspace lints. The scans guard only attribute spelling, not the lint configuration.",
+        "justification_check": "justified and retained, but the gate is narrower than the leak pattern",
+        "related_artifacts": [
+          "docs/plans/phase-a-refine/sprint-r-3-shared-http.md (D4)",
+          "docs/plans/phase-a-refine/plan.md (Lint hygiene)",
+          "clippy.toml"
+        ]
+      },
+      {
+        "id": "RBQA-F103",
+        "severity": "important",
+        "class": "boundary_tightening",
+        "file": "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md",
+        "line": 199,
+        "issue": "The release-off proof for test-util covers the cargo graph but not the shipped binary. (a) `test_util_off` only runs `cargo tree --workspace -e normal,features`. D3 claims 'the published binary has no such flag (test_util_off)', but nothing runs a release-shaped sc-ai and checks that `--scripted-answers` is rejected. (b) The sc-ai self dev-dependency turns test-util on for the binary behind `CARGO_BIN_EXE_sc-ai` in `cargo test`. workspace-tests then builds sc-ai with a nested `cargo build -p sc-ai --features cli` and reads the artifact path. If both builds share the same target dir, both uplift to the same `target/debug/sc-ai` path, and the last build wins. The consumer-parity golden may run against the test-util binary. sc-ai's `--scripted-answers` tests may run against a binary without it. The result depends on test order. (c) The whole mechanism depends on root `resolver = \"2\"`, which holds on the baseline Cargo.toml but is not asserted anywhere. Under resolver 1, the dev-dependency would turn test-util on in plain `cargo build`.",
+        "recommendation": "In `test_util_off`, build sc-ai with `cargo build --release -p sc-ai --features cli` into its own `CARGO_TARGET_DIR` under a tempdir. Run it with `--scripted-answers x` and assert it fails as an unknown argument. Have the bin_path helper always pass that isolated `--target-dir`, so test_util_off and consumer_parity use the release-shaped binary and never share an uplift path with `cargo test`. Add a source scan or `cargo metadata` check that the root declares `resolver = \"2\"`. Add the same run-the-artifact check for the sc-jev-py wheel built by the default `maturin build` (the scripted-registration pyfunction is absent).",
+        "evidence": "The Phase A 'test-util wheel + pytest' layer already shows the project builds two variants of the same artifact. The plan adds a third, a feature-gated CLI flag on a published binary crate. Its off-state is asserted only through the dependency graph.",
+        "justification_check": "justified and retained; proof is weaker than the claim",
+        "related_artifacts": [
+          "docs/plans/phase-a-refine/plan.md (Test seams)",
+          "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md (D3.3, D7.2, D7.3)"
+        ]
+      },
+      {
+        "id": "RBQA-F104",
+        "severity": "minor",
+        "class": "doc_gap",
+        "file": "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md",
+        "line": 294,
+        "issue": "Both spike branches are not written out completely. (a) The sc-agent-compose manifest text in plan.md hard-codes `allowed_dependents = [..., \"workspace-tests\"]`. In the 'dev edges ignored' branch that is a stale permission (SCB-DEPENDENCY-004), and the text says no dependent gains workspace-tests. 'Edits to existing manifests' and r-3b 'Manifests' list `+workspace-tests` for sc-agent-types and sc-jev-check unconditionally, while the boundary map and D7.0 make it conditional. (b) The workspace-tests text lists only the differing fields. The sc-agent-compose text omits `[implementation]` (`module`, `type`, `visibility`, `constructor`), though 'same schema' implies one. For workspace-tests, `[composition]`, `[testing]`, `[references]`, `[enforcement]` and `[status]` are missing. `facade = \"\"` is never checked against the sc-lint 0.8.0 schema, which requires `[references]`, `[testing]` and `[enforcement]`. (c) The ignored-branch gate `cargo tree -p workspace-tests -e dev --depth 1` is said to 'list exactly these three workspace crates', but the output also lists serde_json and tempfile. The row must filter to workspace crates, or compare against the exact five-name set.",
+        "recommendation": "Mark `workspace-tests` in the compose `allowed_dependents` as 'only if dev edges count', so the 'ignored' branch text is complete. Write out the full workspace-tests TOML for both branches, or state that `[implementation]` and `[composition]` are copied from the agent-http block. Have the spike also load the new manifest through `sc-lint` with `facade = \"\"` to confirm the empty value is accepted. Define the dev-set gate as an exact comparison.",
+        "evidence": "plan.md lines 301, 326-332, 361-367; r-3b lines 209-221, 296-303.",
+        "justification_check": "justified and retained",
+        "related_artifacts": [
+          "docs/plans/phase-a-refine/plan.md (New boundary manifests)",
+          "boundaries/README.md"
+        ]
+      },
+      {
+        "id": "RBQA-F105",
+        "severity": "minor",
+        "class": "doc_gap",
+        "file": "docs/architecture.md",
+        "line": 97,
+        "issue": "The ADR index is not fully backed by its stated ownership convention. (a) The plan says it writes 'every ADR-level Amended by cell that A.1 changes', and that a landing sprint owns 'only its row's Status and Amends cells'. Yet the Amends cell of ADR-SAG-0023 is '—' even though it amends 0005, 0016 and 0017. The Amends cell of ADR-SAG-0026 is '—' even though it amends 0006, 0007, 0010, 0011, 0013, 0016, 0017 and 0020. Row 0005 lists only 0024, not 0023 (r-4). (b) Each landing sprint is told to edit the Amends cell that the plan PR already wrote. That is two owners for one cell. (c) Row 0026's Status cell is edited by r-3 (HTTP half) and r-3b (compose half), sequentially and consistently.",
+        "recommendation": "Either fill the Amends and Amended-by cells in this plan PR to match the ADR ownership table, or state that only new ADRs (0024, 0025, 0027) get cross-links and amendments to old ADRs live in-section. Then narrow the sprint rule to 'flips Status and marker text only'. Add a check to the plan-QA gate that every ADR in the ownership table appears in the index cells.",
+        "evidence": "docs/architecture.md index rows 75-102 against the plan.md ADR ownership table.",
+        "justification_check": "duplicated decision (the plan PR and the sprint both own the cell)",
+        "related_artifacts": [
+          "docs/plans/phase-a-refine/plan.md (ADR index table; ADR ownership)"
+        ]
+      },
+      {
+        "id": "RBQA-F106",
+        "severity": "minor",
+        "class": "lint_gap",
+        "file": "docs/plans/phase-a-refine/plan.md",
+        "line": 217,
+        "issue": "The gate table has holes in four places. (a) The r-3 local assertion that sc-agent-http reaches sc-agent-types with feature `secret` only (`cargo tree -e features -i sc-agent-types`) is not a row in the central table. It is not scripted by r-3b, so CI will not guard RBQA-F009. (b) The decline to re-export from compose is judged below as acceptable. It leaves sc-ai and sc-jev-py holding sc-jev-check types through two edges: a direct edge, and compose's public signatures. sc-jev-check and sc-agent-types are caret-pinned and not in the lockstep list, while compose is `=` pinned. A split version resolves to two incompatible `RunResponse` types, caught only as a compile error. (c) The sc-agent-compose, sc-jev and sc-jev-backends rows do not list `sc-agent-http` or `clap` as absent where relevant. The manifests already cover this as workspace edges, so this part is cosmetic. (d) The ADR-SAG-0026 environment-reading ownership rule ('key reading only in sc-jev-check; path env only in PathPolicy') is applied as text only, with no scan for `std::env::var` or `var_os` outside those owners.",
+        "recommendation": "(a) Add the sc-agent-http features row to the table and the script. (b) Add `cargo tree -d` (duplicates) for the sc-ai and sc-jev-py graphs, which must show one version each of sc-jev-check, sc-agent-types and sc-agent-compose. (d) Add a `source_scans` target, `test_env_reads_only_in_owners`, with an allowlist of sc-agent-secrets, sc-jev-check registry, the compose paths module, and tests.",
+        "evidence": "plan.md gate table lines 217-228 against r-3 validation lines 293-295; r-3b D2.2 environment ownership; dispositions 'obs (env-reading owner) applied'.",
+        "justification_check": "justified and retained; guard missing",
+        "related_artifacts": [
+          "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md",
+          "docs/architecture.md (ADR-SAG-0026)"
+        ]
+      },
+      {
+        "id": "RBQA-F107",
+        "severity": "minor",
+        "class": "lint_gap",
+        "file": "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md",
+        "line": 255,
+        "issue": "`source_scans.rs` contains the literals it hunts: `#[allow(`, `#![allow(`, `Command::new(\"git\")` and `disallowed_methods`. The phase-wide gate `! rg -n '#!?\\[allow\\(' crates/`, which every sprint from r-3b onward and the phase acceptance run, will match the scan source itself and fail. Two fixes are plausible and both leak: an ad-hoc exclusion of crates/workspace-tests from the gate, or a scan that skips its own file. The plan names no exclusion mechanism.",
+        "recommendation": "State the rule now: patterns are built from fragments (for example `concat!(\"#[al\", \"low(\")`), or the scans read patterns from a data file outside `*.rs`. The `rg` gate should keep covering `crates/workspace-tests` with no exclusion.",
+        "evidence": "r-3b D7.3 target list; plan acceptance command `! rg -n '#!?\\[allow\\(' crates/`.",
+        "justification_check": "justified and retained",
+        "related_artifacts": [
+          "docs/plans/phase-a-refine/plan.md (Phase acceptance)"
+        ]
+      }
+    ],
+    "summary": {
+      "total_findings": 7,
+      "by_severity": {
+        "critical": 0,
+        "important": 3,
+        "minor": 4
+      }
+    },
+    "notes": [
+      "Input: this is the resubmission in contract shape. The earlier `plan`-mode, `worktree`-keyed input was rejected as invalid_input.",
+      "Input limits: no boundary-validator report was supplied, so I judged the manifests against source and Cargo.toml directly. I did not run cargo or sc-lint. The sc-boundary treatment of dev-only and self edges is unknown, which is why F101 and F104 stay important and minor rather than critical.",
+      "Carry-forward RBQA-F003 is closed on placement: the scan moved to workspace-tests, covers all targets, and every crate asserts `[lints] workspace = true`. The scan's weaknesses are F102 and F107.",
+      "Carry-forward RBQA-F005 is closed for (b) (the unused sc-agent-http dev-dependency and the workspace-tests dependent permission are dropped) and (c) (gate rows run twice; the sc-observability-types root line goes in r-1 and its record in r-4, so no stale compose owner remains). (a) is open: the spike exists and both outcomes are written, but F101 (timing and self edges) and F104 (incomplete manifest text) remain.",
+      "Carry-forward RBQA-F006 is closed. `git` is non-default, and only sc-jev-check and sc-treesitter's `cli` feature enable it. The `test_git_spawn_only_in_types_git` scan and the isolated per-library builds are in the plan. The scan's text-match weakness is covered by F102(d).",
+      "Carry-forward RBQA-F009 is closed. `CancelToken` is always-on core, sc-agent-http takes `features = [secret]`, r-1 owns the agent-types.toml edit, and allowed_dependencies is `[sc-agent-types, ureq]`. The CI-script row for the secret-only feature check is missing (F106a).",
+      "Round-2 observations: the unanchored-pattern fix is verified. The `(^|[^[:alnum:]_-])name v[0-9]` form is correct and is applied in the table and the sprint lines. The env-owner observation is closed in text but has no guard (F106d). The compose re-export suggestion was declined on r-1's one-public-path rule, and I judge that decline sound. Re-exports would create a second public path for `CheckSource`, `Envelope` and `RunResponse`. They would also couple compose's `=`-pinned, no-semver surface to those types' stability. The direct edge is already permitted in both consumer manifests. The only real cost is type-identity coupling, which F106b covers cheaply with a duplicates gate.",
+      "Owned_paths disjointness holds. Wave 1: r-1 owns the source and test trees of sc-treesitter and sc-ai plus one root Cargo.toml line, and r-4 owns Cargo.toml files only. The shared root Cargo.toml is split by line and ordered by the r-1-before-r-4 merge rule, which is acceptable. Cargo.lock is in neither owned_paths and relies on the regenerate-on-rebase convention. Wave 2: r-2 (sc-jev-check, selected sc-ai and sc-jev-py files, boundaries/sc-jev-check), r-3 (sc-agent-http, sc-jev, sc-jev-backends, root Cargo.toml, release files) and r-3c (sc-treesitter Cargo.toml, main.rs, cli/, git_io.rs, tests) do not overlap. Docs sections are disjoint by section. The only wave-1 textual overlap is two amendment subsections inside ADR-SAG-0016 (r-1 and r-4), covered by the adjacent-rows convention.",
+      "Forbidden edges: the sc-agent-http, sc-agent-compose and workspace-tests manifests are tight. Closed allowed_dependencies lists make the forbidden lists largely redundant for workspace edges, and sc-lint ownership records cover the third-party names (sc-boundary does not check third-party names). Window gap: the sc-observability record allows sc-ai and sc-jev-py until r-3b, so sc-agent-http's forbidden `sc-observability` is unenforced in waves 2 and 3. r-3's local cargo-tree line covers it in the meantime.",
+      "The ADR-SAG-0028 manifest's workspace-tests `allowed_dependencies` lists third-party dev-deps in prose only. That is correct, since sc-boundary does not check them.",
+      "Verdict for the final round: no active leak would ship, so there are no critical findings. Fix F101, F102 and F103 in the plan text before wave 1 starts. F101 in particular decides how r-1 writes its self dev-dependency."
+    ]
+  },
+  "error": null
+}

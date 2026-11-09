@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "R5-QA1-RBP-F002",
+ "found_in": "A1-R5",
+ "found_at": "2026-11-08T05:55:41Z",
+ "title": "Error provenance is carried by string sniffing",
+ "description": "Error provenance is carried by string sniffing. Own-rule errors are tagged with the literal prefix `jev::v1: ` (OWN_MESSAGE) inside a serde error message, and `describe` recovers them with `strip_prefix`. `TryFrom<RawJevQuestion>` and `TryFrom<RawQuestion>` use `type Error = String`, which flattens the structured JevError (via `detail()`) back into text. Any serde message that happens to start with the prefix is treated as safe to show, and the error structure is lost across layers.",
+ "category": "RBP-001",
+ "severity": "important",
+ "pattern": "RBP-001",
+ "file_filter": "crates/sc-decision-schema/src/jev/v1.rs",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "77fffdbd89c5e927f9c6b51fc650fada72cfb400"
+  },
+  {
+   "branch": "sprint/r-5-jev-wire-envelope",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope",
+   "order_index": 1,
+   "head_sha": "14f85f129fda46e39bda90ae2a5333e69213312b"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a",
+  "sprint/r-5-jev-wire-envelope"
+ ]
+}

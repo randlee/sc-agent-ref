@@ -1,0 +1,29 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "integrate/phase-a",
+    "reviewed_commit": "91d36b3",
+    "review_mode": "phase_end",
+    "practice_mode": "all",
+    "practices_reviewed": ["RBP-001","RBP-002","RBP-003","RBP-004","RBP-005","RBP-006","RBP-007","RBP-008","RBP-009","RBP-010"],
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": {"critical": 0, "important": 0, "minor": 0}
+    },
+    "notes": [
+      "I could not run git, so I checked the commit by reading refs. The worktree HEAD is refs/heads/integrate/phase-a, and that ref resolves to 91d36b3ad309deb3350434acaecee0ab2938b13f. This matches the assigned branch and commit.",
+      "This was a targeted review, not a full line-by-line read of all 147 files under crates/. I used pattern searches (pub trait, Mutex/RefCell/Cell/RwLock, Cow, PhantomData, Deref, Infallible, Result<_, String>, map_err with format!, unwrap) plus direct reads of the key trait and shared-state sites. Only the first 100 of 147 .rs paths were listed, though the searches covered every file.",
+      "RBP-003 and RBP-008: JudgeBackend, EnvSource, KeyringSource, Transport and SessionLog are public traits. Each is documented as intentionally open, which is an explicit seal/open decision. Each is dyn-compatible: &self receivers, no generic methods, no Self in signatures. Transport also has blanket impls for &T and Arc<T>.",
+      "RBP-004: semantic ids use validated newtypes (Rev, SessionId, BackendId, RepoRelativePath, Sha256Digest, QuestionId, ChoiceId, ResolvedApiKey). I saw no raw-String id leaks.",
+      "RBP-006: the only shared mutation in non-test code is the process-global logger registry (Mutex in OnceLock) in sc-jev-host/src/obs.rs:71-75. It is a correct primitive for the threaded model and the type alias is documented. Other Mutex uses are in test utilities (sc-agent-http test_util, sc-decision-schema test_util, test modules), where Arc<Mutex> is documented as needed because Transport is Send + Sync. No RefCell or Cell appears anywhere.",
+      "RBP-007: no Result<_, String> and no map_err(|e| format!) found in src. The unwrap() calls are in doc examples and tests only. No fake-error infallible paths found.",
+      "RBP-009: Cow is used in sc-jev-backends/src/backend.rs:116 and :124 (embedded_text), where borrow-first is the right model.",
+      "RBP-010: PhantomData appears only in a serde visitor (sc-decision-schema/src/jev/v1.rs:158). No capability-token design is implied elsewhere.",
+      "RBP-001: errors use the structured JevError / ErrorCode / ScAgentErrorResponse model, with stable codes and recovery hints. For example, JevError::credential_store_invalid carries a sanitized cause.",
+      "RBP-002, RBP-005: no runtime state-machine or wrapper-ergonomics issues surfaced."
+    ]
+  },
+  "error": null
+}

@@ -1,0 +1,29 @@
+{
+  "agent": "arch-qa",
+  "branch": "sprint/r-6-session-log-record",
+  "scope": {"phase": "phase-a-refine", "sprint": "r-6"},
+  "commit": "0408826",
+  "verdict": "PASS",
+  "blocking": 0,
+  "important": 0,
+  "findings": [],
+  "adr_checks": [
+    {"adr": "ADR-SAG-0031", "source": "docs/architecture.md:1673", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:1675", "docs/architecture.md:1719", "docs/architecture.md:141", "docs/architecture.md:1721-1756"]},
+    {"adr": "ADR-SAG-0008", "source": "docs/architecture.md:254", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:118", "docs/architecture.md:256-262"]},
+    {"adr": "ADR-SAG-0013", "source": "docs/architecture.md:856", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:123", "docs/architecture.md:858-860"]},
+    {"adr": "ADR-SAG-0016", "source": "docs/architecture.md:949", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:126", "docs/architecture.md:951-953"]},
+    {"adr": "ADR-SAG-0026", "source": "docs/architecture.md:1394", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:136", "docs/architecture.md:1396-1402", "crates/sc-agent-http/src/retry.rs:420-423"]},
+    {"adr": "ADR-SAG-0027", "source": "docs/architecture.md:1524", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:137", "docs/architecture.md:1526-1528", "crates/sc-agent-types/Cargo.toml:31-36"]},
+    {"adr": "ADR-SAG-0023", "source": "docs/architecture.md:1159", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["Cargo.toml:36-37", "crates/sc-agent-types/Cargo.toml:34-36"]},
+    {"adr": "ADR-SAG-0028", "source": "docs/architecture.md", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-agent-types/src/git.rs:84-88", "crates/sc-agent-types/src/git.rs:229-243"]},
+    {"adr": "ADR-SAG-0021", "source": "docs/architecture.md", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/src/run/mod.rs:926-936"]},
+    {"adr": "ADR-SAG-0001, 0002, 0003, 0004, 0005, 0006, 0007, 0009, 0010, 0011, 0012, 0014, 0019, 0020, 0022, 0024, 0025, 0029, 0030", "source": "docs/architecture.md", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["No violating change found in the review targets; the code spot checks and the doc, README and boundary comparisons show no conflict."]},
+    {"adr": "ADR-SAG-0015, 0017, 0018", "source": "docs/architecture.md:125-128", "listed_in_sprint_doc": false, "result": "not-applicable", "evidence_refs": ["Not named in the architecture docs of the touched crates. The sprint changes no subjects artifact, release surface or sc-publish input (see the notes about release/)."]}
+  ],
+  "gate_artifact_checks": [
+    {"artifact": "docs/architecture.md (ADR-SAG-0031 wiring subsection, index rows, r-6 amendment subsections)", "status": "closed", "evidence_refs": ["docs/architecture.md:141", "docs/architecture.md:1675", "docs/architecture.md:1719"], "notes": "Every (Proposed, r-6) marker is flipped to Active. The index row reads `Active (r-7 storage schema, r-6 wiring)`. The r-6 subsections in 0008, 0013, 0016, 0026 and 0027, with their index markers, are Active. The remaining Proposed markers all belong to r-5 and are not r-6 dependencies. The only leftover `Proposed (r-6)` text is in historical plan docs (sprint-r-7 and plan-review-6-dispositions)."},
+    {"artifact": "boundaries/sc-agent-types/agent-types.toml and sc-lint.toml", "status": "closed", "evidence_refs": ["boundaries/sc-agent-types/agent-types.toml:25", "boundaries/sc-agent-types/agent-types.toml:38", "sc-lint.toml:73-84", "crates/sc-agent-types/tests/fixtures/no-default-features-deps.txt"], "notes": "allowed_dependencies and the notes agree with Cargo.toml. ulid and sc-sha are owned by sc-agent-types only. The ulid dependency is caret `\"1\"` and sc-sha is caret `\"1.7.0\"`, both off the exact-pin list. uuid is gone from every manifest. sha2 remains only as a transitive dependency of sc-sha, as the sprint doc states."}
+  ],
+  "merge_ready": true,
+  "notes": "Verified by reading files only, because this session had no shell. The worktree .git file points at /Volumes/Extreme Pro/github/sc-agent/.git/worktrees/r-6-session-log-record. I did not resolve HEAD to commit 0408826, and I did not run any cargo or script gate. Verify HEAD == 0408826 on the caller side.\n\nADR coverage: every ADR id named in the architecture docs of sc-agent-types, sc-agent-http, sc-decision-schema, sc-jev-check, sc-jev-host, sc-ai and sc-jev-py is in the sprint `adrs` list. The sprint also lists 0031.\n\nCode checks:\n- The git spawn is still the single `#[expect(clippy::disallowed_methods)]` site at crates/sc-agent-types/src/git.rs:84. The new `discover_common_dir` reuses it, so no new spawn site was added.\n- RULE-ADR-AWAIT-MUTEX is not applicable. The crates contain no `async fn` and no `.await`.\n- The request digest is recorded once, before the first send, at crates/sc-agent-http/src/retry.rs:420-423. The `sends == 0` guard gives the same result as the sprint's \"no branch\" wording. This is a nit and not an ADR matter.\n- README.md:25, the sc-ai help text and the docs for sc-agent-types, sc-ai and sc-jev-py all say ULID and match the code. The remaining UUID mentions are statements that a UUID is refused.\n\nThe sprint doc's implementation notes say `Cargo.lock` gained `rand` 0.9 through ulid, and that the parent should run `install.py` if the release kit input needs a refresh. That is a process item, not an ADR finding."
+}

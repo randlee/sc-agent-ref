@@ -1,0 +1,45 @@
+{
+  "agent": "arch-qa",
+  "branch": "sprint/r-4-adrs-and-manifests",
+  "scope": {"phase": "a.1", "sprint": "r-4"},
+  "commit": "8bdfc83",
+  "verdict": "PASS",
+  "blocking": 0,
+  "important": 0,
+  "findings": [
+    {
+      "id": "ARCH-001",
+      "rule": "RULE-ADR-CODE",
+      "adr": "ADR-SAG-0016",
+      "severity": "MINOR",
+      "file": "docs/architecture.md",
+      "line": 905,
+      "description": "The ADR-SAG-0029 'Deferred' note is still present and stale. It says ADR-SAG-0016 still names \"1.5.0\" and that the text is left to the D8 amendment. That amendment is Active (r-4). This is the same minor finding as in round 1, not fixed. The note is outside r-4's owned sections.",
+      "remediation": "Delete the note or reword it to point at the ADR-SAG-0016 r-4 amendment."
+    }
+  ],
+  "adr_checks": [
+    {"adr": "ADR-SAG-0023", "source": "docs/architecture.md:~960", "listed_in_sprint_doc": true, "result": "upheld",
+     "evidence_refs": ["docs/architecture.md:99 (row Active (r-4; compose pin r-3b))", "docs/architecture.md:975-976 (r-1 removed sc-observability-types)", "docs/architecture.md:980-986"]},
+    {"adr": "ADR-SAG-0016", "source": "docs/architecture.md:~695", "listed_in_sprint_doc": true, "result": "upheld",
+     "evidence_refs": ["docs/architecture.md:92 (ADR-SAG-0023 (Active, r-4) and ADR-SAG-0027 (Active, r-1), each once)"]},
+    {"adr": "ADR-SAG-0017", "source": "docs/architecture.md", "listed_in_sprint_doc": true, "result": "upheld",
+     "evidence_refs": ["docs/architecture.md:93"]},
+    {"adr": "ADR-SAG-0005", "source": "docs/architecture.md", "listed_in_sprint_doc": true, "result": "upheld",
+     "evidence_refs": ["docs/architecture.md:81"]},
+    {"adr": "ADR-SAG-0027", "source": "docs/architecture.md:103", "listed_in_sprint_doc": false, "result": "upheld",
+     "evidence_refs": ["docs/architecture.md:103 (Active (r-1))"]},
+    {"adr": "ADR-SAG-0008/0014/0019 (r-1 interim cells)", "source": "docs/architecture.md:84,90,95", "listed_in_sprint_doc": false, "result": "upheld",
+     "evidence_refs": ["docs/architecture.md:84", "docs/architecture.md:90", "docs/architecture.md:95 (each 'A.1 subsection (Active, r-1)' intact, with later Proposed entries preserved)"]}
+  ],
+  "gate_artifact_checks": [
+    {"artifact": ".github/workflows/sc-agent-ci.yml", "status": "closed",
+     "evidence_refs": [".github/workflows/sc-agent-ci.yml:106", ".github/workflows/sc-agent-ci.yml:130-132", ".github/workflows/sc-agent-ci.yml:240-292", ".github/workflows/sc-agent-ci.yml:374"],
+     "notes": "It has r-1's `cargo test -p sc-agent-types --features git,test-util` step, r-4's deps job (dependency gates, check-exact-pins and --self-test), and `cargo fetch --locked` steps at lines 106 and 374. I did not inspect any further fetch steps."},
+    {"artifact": "sc-lint.toml and Cargo.toml", "status": "closed",
+     "evidence_refs": ["sc-lint.toml:87-98", "Cargo.toml:35-41"],
+     "notes": "sc-lint.toml has no sc-observability-types record and no stray comment. Root Cargo.toml has mimalloc = \"0.1.52\" and clap 4 with derive, and no sc-observability-types line."}
+  ],
+  "merge_ready": true,
+  "notes": "Checked with Grep and Read only. I could not run git or cargo, so I did not verify the merge commits or diffs.\n- Lockstep list: the coordinator expected 4 pins. The markers hold 5 lines: sc-observability, tree-sitter, tree-sitter-python, tree-sitter-rust, sc-agent-compose. The first four are the pins present today. sc-agent-compose is the planned entry in force from r-3b, per the sprint doc and plan.md, and is not a transitional or leftover entry. Nothing is listed for sc-observability-types.\n- Index markers: the r-1 and r-4 markers in rows 0016 and 0017 appear once each.\n- sc-jev-py/Cargo.toml:39 still has the comment 'revisited at Phase A review' on the sc-observability pin. It is cosmetic, outside r-4's owned paths, and not a finding."
+}

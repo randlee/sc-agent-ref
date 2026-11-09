@@ -1,0 +1,66 @@
+{
+  "status": "PASS",
+  "reviewed_branch": "plan/phase-a-decision-apis",
+  "reviewed_commit": "197c24f",
+  "errors": [],
+  "scope": {
+    "phase": "phase-a-refine",
+    "sprint": "r-7 (QA-3 locked recheck)"
+  },
+  "baselines_read": [
+    "docs/requirements.md",
+    "docs/architecture.md",
+    "docs/project-plan.md"
+  ],
+  "phase_or_sprint_docs_read": [
+    "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+    "docs/plans/phase-a-refine/plan.md"
+  ],
+  "requirement_checks": [
+    {
+      "id": "REQ-SAG-0143",
+      "source": "docs/requirements.md:180",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:27"
+      ]
+    }
+  ],
+  "deliverable_checks": [
+    {
+      "item": "REQ-QA-005 carry-forward: REQ-SAG-0143 present in r-7 front-matter requirements list",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:27"
+      ],
+      "notes": "Line 27 lists REQ-SAG-0143 as a regression entry inside the requirements list (lines 17-57). The id resolves to docs/requirements.md:180."
+    },
+    {
+      "item": "Commit 197c24f regression check: r-7 requirements line change, and 'jev::v1 today' replaced by 'jev::v1 from r-5' in docs/architecture.md and plan.md",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+        "docs/architecture.md:63",
+        "docs/architecture.md:137",
+        "docs/architecture.md:1598",
+        "docs/plans/phase-a-refine/plan.md:669",
+        "docs/plans/phase-a-refine/plan.md:838",
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:27"
+      ],
+      "notes": "No 'jev::v1` today' wording remains under docs/. Both edited docs now read 'jev::v1 from r-5' (architecture.md:63, plan.md:669). Architecture.md:1598 keeps the '(Proposed, r-5)' Jev API structs bullet, consistent with the r-5 ownership. No cross-document conflict or regression was found in the touched lines."
+    }
+  ],
+  "findings": [],
+  "summary": {
+    "total_findings": 0,
+    "blocking_findings": 0,
+    "overall_compliance": "compliant",
+    "deliverables_total": 2,
+    "deliverables_complete": 2,
+    "deliverables_incomplete": 0,
+    "deliverable_completion_percent": 100.0
+  },
+  "gate_reason": "HEAD of the worktree resolves to refs/heads/plan/phase-a-decision-apis at 197c24fbfc3b603026fd064f20b026bfb6459315, matching the assigned branch and commit. REQ-QA-005 is closed: REQ-SAG-0143 is listed at sprint-r-7-decision-schema.md:27 and resolves to docs/requirements.md:180. The 197c24f wording change is present and shows no regression. Limitation: no Bash or git tool was available, so the commit diff was not run. The regression check relied on content greps of the touched files, not a diff of 197c24f, so changes outside the greps were not inspected. No Blocking findings, and deliverable completion is 100%, so PASS."
+}

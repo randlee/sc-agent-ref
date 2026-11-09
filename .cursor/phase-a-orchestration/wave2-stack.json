@@ -1,0 +1,11 @@
+{
+  "trunk": "integrate/phase-a",
+  "stack_bottom_to_top": [
+    {"sprint": "a-11", "pr": 8, "branch": "sprint/a-11-sc-treesitter"},
+    {"sprint": "a-3", "pr": 10, "branch": "sprint/a-3-check-build-and-payload"},
+    {"sprint": "a-4", "pr": 9, "branch": "sprint/a-4-backend-jev"},
+    {"sprint": "a-5", "pr": 7, "branch": "sprint/a-5-backend-llm"},
+    {"sprint": "qa-top", "branch": "sprint/wave-2-stack-qa-top", "role": "qa_fixes"}
+  ],
+  "qa_policy": "QA-1 per layer at layer commit; all fixes on qa-top"
+}

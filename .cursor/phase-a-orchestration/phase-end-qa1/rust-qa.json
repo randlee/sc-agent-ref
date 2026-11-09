@@ -1,0 +1,37 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "integrate/phase-a",
+    "reviewed_commit": "91d36b3",
+    "review_mode": "phase_end",
+    "executed_checks": {
+      "fmt": {"status": "pass", "command": "cargo +1.94.1 fmt --all --check"},
+      "clippy": {"status": "pass", "command": "cargo +1.94.1 clippy --locked --workspace --all-targets [--all-features] --exclude sc-jev-py -- -D warnings (both the default-feature and --all-features runs are clean)"},
+      "tests": {"status": "pass", "command": "cargo +1.94.1 test --locked --workspace --exclude sc-jev-py; per-crate runs matching CI: sc-agent-types --features git, and test-util on sc-decision-schema, sc-jev-check, sc-jev, sc-jev-backends, sc-agent-http, sc-ai; test -p workspace-tests; cargo doc -D warnings; just lint; just test-python (18 pytest passed). All passed, no failures."},
+      "coverage": {"status": "pass", "line": 54.09, "branch": 0.0, "function": 58.0, "adequate_for_risk": false},
+      "artifacts": {"status": "not_run", "command": ""}
+    },
+    "findings": [
+      {
+        "id": "QA-001",
+        "category": "coverage",
+        "severity": "minor",
+        "file": "crates/sc-ai/src/command.rs",
+        "line": 1,
+        "issue": "Workspace line coverage from the CI-equivalent default-feature run (cargo llvm-cov --workspace, sc-jev-py excluded) is 54.1% lines, 58.0% functions. The branch figure is 0 because llvm-cov reports no branch data on this toolchain. Several risk-bearing src files show very low or zero coverage in that run.",
+        "recommendation": "Confirm that the files below are exercised only by test-util or cli feature-gated suites, or by subprocess tests that llvm-cov does not instrument. If so, run llvm-cov with those features, or record the gap as accepted. Otherwise add tests.",
+        "evidence": "Low-coverage files: sc-ai/src/command.rs 14% of 738 lines; sc-ai/src/observe.rs 0%; sc-treesitter/src/main.rs 20%; sc-jev-check/src/registry/scripted.rs 17%; sc-jev-check/src/session/mod.rs 34%; sc-jev-check/src/run/mod.rs 36%; sc-jev-check/src/run/builder.rs 0%; sc-jev-backends/src/transport.rs 0%; sc-jev-backends/src/retry.rs 0%; sc-jev/src/client/https.rs 0%; sc-jev/src/api/config.rs 0%; sc-agent-types/src/subjects.rs 0%."
+      }
+    ],
+    "summary": {"total_findings": 1, "by_severity": {"critical": 0, "important": 0, "minor": 1}},
+    "notes": [
+      "Worktree HEAD is 91d36b3 on integrate/phase-a, matching the input. git status is clean after the checks.",
+      "The first cargo doc run hit a rustdoc ICE (search_index.rs:180 assertion). The cause was a stale target/doc search index, probably from an earlier stable-toolchain doc build. After rm -rf target/doc, cargo +1.94.1 doc -D warnings --no-deps passed. This is a local build-dir artifact, not a code finding.",
+      "The sc-jev-py --all-features link failure was not run, as instructed. The sc-jev-py maturin build with extension-module,test-util is covered by just test-python and passes.",
+      "Not run: cargo hack feature-powerset checks, deps gate scripts, and the release wheel build. The input did not request them.",
+      "No portability issues surfaced by the executed checks. I did not do a manual cross-platform grep beyond the checks."
+    ]
+  },
+  "error": null
+}

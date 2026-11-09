@@ -1,0 +1,31 @@
+{
+  "status": "PASS",
+  "reviewed_branch": "sprint/r-6-session-log-record",
+  "reviewed_commit": "b35a9c4",
+  "errors": [],
+  "scope": {"phase": "phase-a-refine", "sprint": "r-6"},
+  "baselines_read": ["docs/requirements.md", "docs/sc-jev-check/requirements.md"],
+  "phase_or_sprint_docs_read": ["docs/plans/phase-a-refine/sprint-r-6-session-log-record.md"],
+  "requirement_checks": [
+    {"id": "REQ-SAG-0612..0618", "source": "docs/requirements.md:186-192", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/requirements.md:186-192"]},
+    {"id": "REQ-SAG-0600 / REQ-SAG-0611 amendments", "source": "docs/requirements.md:213-214", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/requirements.md:213-214", "docs/sc-jev-check/requirements.md:17,22"]},
+    {"id": "REQ-SAG-0610 / 0613 / 0614 / 0616 / 0617 (crate rows)", "source": "docs/sc-jev-check/requirements.md:21-26", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/sc-jev-check/requirements.md:21-26"]},
+    {"id": "r-5 rows (REQ-SAG-0403, 0143, 0103, 0142)", "source": "docs/requirements.md:170,180; docs/sc-jev/requirements.md:12-13; docs/sc-decision-schema/requirements.md:11,15", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/requirements.md:170", "docs/requirements.md:180", "docs/sc-jev-check/requirements.md:35-44"]}
+  ],
+  "deliverable_checks": [
+    {"item": "Both sprints' requirement rows survive the merge intact", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["docs/requirements.md:170-192", "docs/sc-jev-check/requirements.md:17-44"], "notes": "The r-6 rows (0600, 0610 to 0618) and the r-5 rows (0403, 0143, 0103, the question-kinds section) are all present. There are no conflict markers in docs/ and no duplicate ids."},
+    {"item": "r-6 acceptance rows hold against the merged docs", "status": "present", "closure_state": "closed", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:428-440", "docs/requirements.md:186-192,213-214"], "notes": "The requirement text for every acceptance root is intact. The test names in docs/sc-jev-check/requirements.md match the acceptance table. The parent's gates (clippy, workspace tests, test-util runs, just lint, test-python with 18 passed) ran on the merge and covered the code path. I did not re-run them."},
+    {"item": "No contradiction between r-5 and r-6 text", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["docs/requirements.md:130", "docs/requirements.md:170"], "notes": "r-5 changes the Jev body and question kinds. r-6 changes the session log, ULID ids and the request digest. Their subjects do not overlap. REQ-SAG-0130 mentions r-5 only as a publish gate and has no conflict with r-6."}
+  ],
+  "findings": [],
+  "summary": {
+    "total_findings": 0,
+    "blocking_findings": 0,
+    "overall_compliance": "compliant",
+    "deliverables_total": 3,
+    "deliverables_complete": 3,
+    "deliverables_incomplete": 0,
+    "deliverable_completion_percent": 100.0
+  },
+  "gate_reason": "The worktree HEAD is refs/heads/sprint/r-6-session-log-record. I could not read the commit sha, because I had no shell. The merge of docs/requirements.md and docs/sc-jev-check/requirements.md left no conflict markers. Both sprints' rows are intact and consistent. I found no merge-caused finding. This was a document check only. I did not re-run any code or gate."
+}

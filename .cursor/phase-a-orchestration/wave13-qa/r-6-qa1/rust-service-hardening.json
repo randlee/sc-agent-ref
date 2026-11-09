@@ -1,0 +1,83 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-6-session-log-record",
+    "reviewed_commit": "0408826",
+    "review_mode": "sprint_review",
+    "service_indicators_found": [
+      "ureq = \"3.5.1\" (workspace Cargo.toml:39, consumed by crates/sc-agent-http/Cargo.toml:31)",
+      "ureq::Agent::config_builder() client setup (crates/sc-agent-http/src/ureq_transport.rs:47-56)",
+      "sc-agent-http UreqTransport: blocking HTTP client with busy retry, timeouts, response caps (crates/sc-agent-http/src/retry.rs, ureq_transport.rs)"
+    ],
+    "topics_reviewed": [
+      "timeouts",
+      "input_size_limits",
+      "retries_busy_bounds",
+      "graceful_shutdown_flush",
+      "structured_logging_tracing",
+      "request_id_correlation",
+      "bounded_resources_retention"
+    ],
+    "findings": [
+      {
+        "id": "RSH-001",
+        "topic": "bounded_resources_retention",
+        "severity": "minor",
+        "file": "crates/sc-jev-check/src/session/mod.rs",
+        "line": 508,
+        "issue": "Expired session documents are never deleted. Each live run that selects an ask-capable backend writes one <id>.json (up to about 96 KB) into the sessions directory. Expiry (is_expired, lines 244-248; read_session, lines 238-240) only refuses to load the file. The only cleanup, sweep_stale_tmp (lines 508-528, called from FileSessionStore::new at line 137), removes *.tmp.* files, so the directory grows without bound. Session versions 1 and 2 are also refused on read but are never removed.",
+        "recommendation": "Extend the sweep in FileSessionStore::new to remove <id>.json files whose created_at (or mtime) is older than the TTL, using the same cutoff logic as is_expired. Alternatively, document the retention policy and provide an explicit prune command. The sweep already runs once per live run, so the added cost is one metadata read per json file.",
+        "evidence": "sweep_stale_tmp filters on name.contains(TMP_MARKER) and returns before touching any non-tmp file (lines 516-518). The doc comment at lines 42-47 states the sweep covers temporary files only. A grep of crates/sc-jev-check/src for remove_file shows only tmp-file removals (lines 470, 525)."
+      },
+      {
+        "id": "RSH-002",
+        "topic": "graceful_shutdown_flush",
+        "severity": "minor",
+        "file": "crates/sc-jev-host/src/compose.rs",
+        "line": 344,
+        "issue": "The session-log flush is skipped on the error path. HostRun::run calls run(self.prepared)? (line 344), so when every backend fails and run returns Err, the flush warning is never produced. The adapter is then dropped, and LoggerInner::drop discards flush and shutdown errors (crates/sc-jev-host/src/obs.rs:45-52). A flush failure on the path where failed send rows matter most is therefore silent. ask_from has the same shape: ask(...)? at compose.rs:419 returns before finish_log at line 420.",
+        "recommendation": "Flush before propagating the error, for example by splitting run into a match that always calls finish_log and then returns the error. When the run fails, surface the flush failure through the error's detail or the stderr channel, so the loss is observable. Keep the drop-time flush as the last resort.",
+        "evidence": "compose.rs:343-349 (HostRun::run) and compose.rs:418-423 (ask_from). Warning only on the success path: finish_log is reached only after the ? operator has succeeded. obs.rs:45-52 uses let _ = for both flush and shutdown in Drop."
+      },
+      {
+        "id": "RSH-003",
+        "topic": "request_id_correlation",
+        "severity": "minor",
+        "file": "crates/sc-jev-host/src/obs.rs",
+        "line": 196,
+        "issue": "The sc-observability envelope leaves request_id and correlation_id as None, while the row carries session_id and answer_id as ULIDs in fields{} only. Generic log tooling that correlates on envelope fields cannot join rows to a session or to a send.",
+        "recommendation": "Populate the envelope correlation field with the session id (and request_id with the answer id, if the envelope type accepts ULIDs). Keep fields{} unchanged, so the row contract does not change.",
+        "evidence": "ObservabilityAdapter::log_event sets request_id: None (line 196) and correlation_id: None (line 197) for every event, while event.fields() carries session_id and answer_id."
+      },
+      {
+        "id": "RSH-004",
+        "topic": "structured_logging_tracing",
+        "severity": "minor",
+        "file": "crates/sc-jev-host/src/obs.rs",
+        "line": 188,
+        "issue": "Every session-log event is emitted at Level::Info, whether the send succeeded or failed. A failed send (send_outcome = \"failed\", with error_code set) is indistinguishable by level from a successful one, so level-based filtering or alerting at WARN or ERROR cannot see failed sends.",
+        "recommendation": "Derive the level from the row's send_outcome: Level::Warn for failed sends and Level::Info for ok sends. Level::Warn and Level::Error both exist in sc-observability 1.5.0.",
+        "evidence": "log_event hard-codes level: Level::Info (line 188). The event's fields carry send_outcome, which SessionLogRow::to_fields sets to \"failed\" for failed sends (crates/sc-decision-schema/src/session_log/mod.rs:244-247)."
+      }
+    ],
+    "summary": {
+      "total_findings": 4,
+      "by_severity": {
+        "critical": 0,
+        "important": 0,
+        "minor": 4
+      }
+    },
+    "notes": [
+      "Input validation: review_mode, worktree_path (absolute) and branch/commit were present. HEAD in the worktree is ref sprint/r-6-session-log-record, and that branch resolves to 040882616616a60326510c22d5be38d02116ac06, which matches the assigned commit 0408826. Verified by reading .git and refs/heads files, because the Bash tool was not available to this agent.",
+      "Delta identification limitation: git diff 77fffdb..0408826 could not be run (no Bash or git tool). The review read the full target files and mapped the session-log, ULID, request-digest, repo and project code paths. Findings are therefore not confirmed as delta-introduced. RSH-001 and RSH-002 touch code that may predate the delta. Per the zero-tolerance rule, they are reported with the pre-existing status unverified rather than dismissed. The orchestrator should confirm against the baseline if the delta-only scope must be enforced strictly.",
+      "Excluded per the caller's triage list and not re-raised: the 502 retry (owner decision), the judge-call deadline (documented bound), the CI advisory scan (deferred bead), and the HTTP error body snippet (being fixed in r-5).",
+      "Service-indicator scope: tokio, axum, hyper, tonic, warp, actix-web and reqwest are absent from every in-scope Cargo.toml and source file. ureq is the only HTTP runtime dependency, and it is used as a client, so the review applied the service-hardening topics to the sc-agent-http client layer. No server or listener is in scope.",
+      "Verified as sound, no finding: request timeouts (connect 10 s, global 120 s, ureq_transport.rs:47-56, :61-66); https-only enforced in both agent config and send (ureq_transport.rs:121-126); response body capped while streaming at 8 MiB (ureq_transport.rs:181-196); prompt file read capped at 1 MiB (run/prompt.rs:115-125); session read capped at 8 MiB (session/mod.rs:262-270); session writes atomic with fsync and rename, mode 0600 (session/mod.rs:458-477); ProjectLabel bounded to 256 bytes with no control characters (sc-agent-types/src/ids.rs:813-830); request digest recorded once before the first transport send and redacted on error (retry.rs:417-424, 258); git subprocesses bounded by GIT_DEADLINE (sc-agent-types/src/git.rs:331-335); JSONL log rotation and retention provided by sc-observability 1.5.0 sinks; scripted backend gated behind test-util (registry/mod.rs:30-43); session files and temporary-file sweep correct (session/mod.rs:137).",
+      "Observation, not a finding: Timeouts::new (sc-agent-http/src/transport.rs:77) is a const fn with no range validation, so a caller could pass Duration::MAX and remove the bound. Defaults are bounded, so no finding was raised.",
+      "Not performed (per instructions): tests, coverage, clippy and structural best-practices review."
+    ]
+  },
+  "error": null
+}

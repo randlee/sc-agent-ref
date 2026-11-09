@@ -1,0 +1,5 @@
+[
+  {"agent": "req-qa", "task_id": "a596ad6d1cbd44e79", "spawn_actor": "parent-orchestrator", "reviewed_commit": "debbf1d"},
+  {"agent": "arch-qa", "task_id": "a7f1ba4f5877bcce1", "spawn_actor": "parent-orchestrator", "reviewed_commit": "debbf1d"},
+  {"agent": "ruthless-boundary-qa", "task_id": "a988cdc49f60cd2d0", "spawn_actor": "parent-orchestrator", "reviewed_commit": "debbf1d"}
+]

@@ -1,0 +1,73 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "plan/phase-a-refine-r6",
+    "reviewed_commit": "debbf1d9cc8c8230f435d22088085909608f666d",
+    "review_mode": "doc_review",
+    "findings": [
+      {
+        "id": "RBQA-F001",
+        "severity": "minor",
+        "class": "boundary_tightening",
+        "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+        "line": 569,
+        "issue": "D8 makes the SendTrace seam through sc-agent-http opt-in. HttpRequest::with_trace is a builder, trace() returns Option, and r-6's recording is `if let Some(t) = request.trace()`. A backend that forgets to attach a trace silently produces request_sha256 = null. The same call-site wiring is written twice (sc-jev client/mod.rs, sc-jev-backends backend.rs). A cloned JudgeRequest also shares the first-write-wins trace silently, and r-6 D3 has to forbid that in prose.",
+        "recommendation": "Have the one exchange function (send_and_parse / send_with_busy_retry) take the SendTrace as a required parameter instead of an optional builder field on HttpRequest. A third backend then cannot omit it, because the compiler enforces it, and the Option branch in r-6 disappears. sc-agent-http cannot name JudgeRequest (forbidden edge), so each backend passes `request.send_trace().clone()`. Add no new gate.",
+        "evidence": "r-7 D8.2-3 and the sc-agent-http code sample (`trace(&self) -> Option<&SendTrace>`), r-6 D3 sample (`if let Some(t) = ...`). The r-7 `--test send_trace` cases cover only the two existing backends, so a future backend (the ADR-SAG-0027 add-a-backend checklist) has no mechanical check. The `Option` makes the silent null possible.",
+        "justification_check": "collapsible path",
+        "related_artifacts": [
+          "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md",
+          "boundaries/sc-agent-http/",
+          "docs/sc-agent-http/architecture.md"
+        ]
+      },
+      {
+        "id": "RBQA-F002",
+        "severity": "minor",
+        "class": "boundary_tightening",
+        "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+        "line": 736,
+        "issue": "RowContext.project is Option<String>, while ProjectLabel (UTF-8, at most 256 bytes, no control characters) is created later in r-6 in sc-agent-types. The sc-decision-schema row type and its loader try_from_fields therefore accept project text that the one validator would refuse. That is two owners of project validity. Because the row is the storage contract, a hand-written fields{} line is accepted by the loader but not by the CLI.",
+        "recommendation": "Move ProjectLabel (core, no new dependency) into r-7 and type RowContext.project as Option<ProjectLabel>. try_from_fields then reuses the one validator. r-6 keeps the CLI/Python/compose wiring. This removes the String-to-ProjectLabel hand-off from r-6. If that is too large, state in the schema doc that the loader does not validate project.",
+        "evidence": "r-7 RowContext sample comment 'ProjectLabel text from r-6; None -> null'. r-6 owned_paths puts ProjectLabel in ids.rs. Core sc-agent-types is already below sc-decision-schema, so the layering permits the move.",
+        "justification_check": "duplicated decision logic (validation)",
+        "related_artifacts": [
+          "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md",
+          "docs/architecture.md (ADR-SAG-0031)"
+        ]
+      },
+      {
+        "id": "RBQA-F003",
+        "severity": "minor",
+        "class": "boundary_tightening",
+        "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+        "line": 624,
+        "issue": "The new ModelFamily { TypeSafeJev, AnthropicClaude, OpenAiGpt, Local, Unknown } runs parallel to the existing BackendFamily { TypeSafeJev, Llm, Local } in catalog.rs. Two family enums now describe overlapping facts, and the plan gives no rule for how they relate.",
+        "recommendation": "Either state in D7 that ModelFamily is the only family consumed by schema_for and is never derived from BackendFamily, or drop the overlapping variants. Do not add a gate; one sentence in docs/sc-agent-types/architecture.md is enough.",
+        "evidence": "catalog.rs BackendFamily at line 12. r-7 D7.1 and D5 (schema_for(ModelFamily)). A reader cannot tell which one a new backend must edit.",
+        "justification_check": "duplicated implementation (overlapping classification)",
+        "related_artifacts": [
+          "docs/sc-agent-types/architecture.md"
+        ]
+      }
+    ],
+    "summary": {
+      "total_findings": 3,
+      "by_severity": {
+        "critical": 0,
+        "important": 0,
+        "minor": 3
+      }
+    },
+    "notes": [
+      "Layering sc-agent-types (below) to sc-decision-schema (above) holds. Everything the moved types and RowContext name (SessionId, Sha256Digest, Operation, BackendId, ErrorCode, ModelId, ModelAliases, SendTrace, schema::subjects) is core in sc-agent-types, so default-features = false suffices. The only open edge is the JudgeBackend trait, which moves with its signatures, as the plan says.",
+      "Data-only rule: the boundary manifest (allowed_dependencies, forbidden_edges, SCB-DEPENDENCY rules) catches crate edges. The one new cargo-tree row (sc-agent-types features secret/obs/git/default must not appear) catches the feature leak the manifest cannot see. That row is justified under the owner's no-new-gates rule, and I do not recommend removing it. The new per-library cargo hack and build rows follow the existing r-1 pattern. I propose nothing further.",
+      "Facade: the decision-schema [public].facade lists modules (llm, variants, session_log, test_util) rather than their types, and omits CANONICAL_V1. That is consistent with the r-1 pattern and not a leak. test_util in the facade is feature-gated, which the notes field states.",
+      "sc-agent-http forbidden edge to sc-decision-schema is present, and SendTrace lives in core, so the seam does not pull the decision types into the HTTP crate. Good.",
+      "Open owner gates (D9 question shape in r-5, sc-sha raw bytes in r-6 D0) were not resolved or assumed. Log-write failure policy is read as best-effort per the decision.",
+      "Unsolicited observation, not a finding: JudgeRequest default constructs a fresh SendTrace (Arc allocation) per request. Harmless, but it is part of why F001's required-parameter shape is cleaner."
+    ]
+  },
+  "error": null
+}

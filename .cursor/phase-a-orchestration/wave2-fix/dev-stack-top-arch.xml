@@ -1,0 +1,35 @@
+<cursor-dev-task id="fix-wave2-stack-top-arch" sprint="stack-qa-top" assignee="rust-developer">
+  <description>Fix remaining layer QA-1 ARCH code blockers on PR #11 stack head only</description>
+  <pr-number>11</pr-number>
+  <branch>sprint/wave-2-stack-qa-top</branch>
+  <worktree>/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-5-backend-llm</worktree>
+  <base-commit>3f504683b</base-commit>
+
+  <blocking-findings>
+    <finding id="ARCH-008" layer="a-4" adr="ADR-SAG-0005" file="crates/sc-jev/src/check.rs">
+      arch-qa: prepare() calls canonical_json_bytes — clarify/fix so backend validates canonical payload without violating "must not re-canonicalize" (wire body must still splice model onto original payload bytes).
+    </finding>
+    <finding id="ARCH-009" layer="a-4" adr="ADR-SAG-0020" file="crates/sc-jev/src/client/mod.rs">
+      JevClient::new/with_config take impl AsRef&lt;str&gt;; align with ADR-SAG-0020 (only sending transport reads secret). sc-jev must NOT depend on sc-agent-secrets; use sc-agent-types patterns / transport-owned credential if needed.
+    </finding>
+    <finding id="ARCH-002" layer="a-5" adr="ADR-SAG-0004" file="crates/sc-jev-backends/src/backend.rs">
+      validate_for_send must enforce token/size limits before judge sends (count + message path); judge() currently counts during send.
+    </finding>
+    <finding id="ARCH-003" layer="a-5" adr="ADR-SAG-0020" file="crates/sc-jev-backends/src/backend.rs">
+      Same secret-handoff pattern as ARCH-009 for Haiku/Luna constructors (no sc-agent-secrets dep).
+    </finding>
+  </blocking-findings>
+
+  <constraints>
+    - Edit only on sprint/wave-2-stack-qa-top; do not touch frozen layer branch tips.
+    - Keep boundary deps: sc-jev and sc-jev-backends depend only on sc-agent-types (+ existing deps).
+    - Run: just lint, cargo test -p sc-jev, cargo test -p sc-jev-backends --test llm
+    - Commit on qa-top branch with message explaining ADR alignment.
+  </constraints>
+
+  <references>
+    docs/architecture.md ADR-SAG-0004, ADR-SAG-0005, ADR-SAG-0020, ADR-SAG-0003
+    docs/sc-jev-backends/requirements.md
+    .cursor/orchestration-agent-models.yaml rust-developer: grok-4.7-high-fast
+  </references>
+</cursor-dev-task>

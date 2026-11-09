@@ -1,0 +1,83 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-5-jev-wire-envelope",
+    "reviewed_commit": "14f85f1",
+    "review_mode": "sprint_review",
+    "practice_mode": "all",
+    "practices_reviewed": ["RBP-001","RBP-002","RBP-003","RBP-004","RBP-005","RBP-006","RBP-007","RBP-008","RBP-009","RBP-010"],
+    "findings": [
+      {
+        "id": "RBP-F001",
+        "practice_id": "RBP-001",
+        "severity": "important",
+        "file": "crates/sc-decision-schema/src/payload.rs",
+        "line": 339,
+        "issue": "CanonicalJudgePayload::from_bytes formats the raw serde_json error with `{error}` into an INPUT_INVALID detail. Serde Data errors can echo input values (for example `invalid type: string \"...\"`, `unknown field `x``). The doc promises 'never a payload byte outside a question id'. The sibling code in jev/v1.rs avoids this with `describe` and `JevError::encode_failed` (category and position only). The two code paths are inconsistent, and the doc claim does not hold.",
+        "recommendation": "Route Data errors through the same category/position-only mapper used in jev::v1, and use a structured sentinel for the module's own rule messages. Keep the doc claim and the behaviour aligned.",
+        "evidence": "payload.rs:342 `format!(\"canonical payload is invalid: {error}\")` versus v1.rs:72-81 `describe`."
+      },
+      {
+        "id": "RBP-F002",
+        "practice_id": "RBP-001",
+        "severity": "important",
+        "file": "crates/sc-decision-schema/src/jev/v1.rs",
+        "line": 60,
+        "issue": "Error provenance is carried by string sniffing. Own-rule errors are tagged with the literal prefix `jev::v1: ` (OWN_MESSAGE) inside a serde error message, and `describe` recovers them with `strip_prefix`. `TryFrom<RawJevQuestion>` and `TryFrom<RawQuestion>` use `type Error = String`, which flattens the structured JevError (via `detail()`) back into text. Any serde message that happens to start with the prefix is treated as safe to show, and the error structure is lost across layers.",
+        "recommendation": "Use a small private error enum, for example `RuleViolation(String)`, as the TryFrom::Error type and implement Display. Distinguish own errors by downcast or custom serde error data rather than by message prefix. Alternatively, validate after deserialization instead of inside serde.",
+        "evidence": "v1.rs:62, 72-81, 258, 272; payload.rs:102."
+      },
+      {
+        "id": "RBP-F003",
+        "practice_id": "RBP-001",
+        "severity": "minor",
+        "file": "crates/sc-decision-schema/src/jev/v1.rs",
+        "line": 517,
+        "issue": "CheckRequest::parse documents 'INPUT_INVALID when body is not a check request', but every non-own serde failure, including Data shape errors, returns ENCODE_FAILED. CanonicalJudgePayload::from_bytes does the same for Data versus other categories, so the two parsers split codes differently. In `parse`, the text computed by `describe` is discarded in the non-own branch and the error is rebuilt with `encode_failed`.",
+        "recommendation": "Make the documented codes match the behaviour, or map Data and shape errors to INPUT_INVALID consistently. Drop the redundant computation in the `describe`/`encode_failed` branch.",
+        "evidence": "v1.rs:517-526 against the `# Errors` doc at 511-516."
+      },
+      {
+        "id": "RBP-F004",
+        "practice_id": "RBP-004",
+        "severity": "minor",
+        "file": "crates/sc-decision-schema/src/payload.rs",
+        "line": 116,
+        "issue": "`Question::new` and `CanonicalJudgePayload::new` are public, infallible constructors that bypass the kind rules (2 to 255 choices, distinct choices, and so on). The type doc says the kind rules hold for every question, but a Question that breaks them can be built safely and passed to `PayloadBundle::encode`. The rules are re-checked later by deserializing the bytes in `prepare` and `validate_questions`. Tests construct invalid values on purpose (check.rs:243, validate.rs:118).",
+        "recommendation": "Make `Question::new` fallible or `pub(crate)`/`#[cfg(test)]`, so that only `try_new` produces a Question. If the infallible form must stay, document it as unchecked and mark it clearly.",
+        "evidence": "payload.rs:109-124; unchecked_bundle helpers in sc-jev/src/check.rs:243 and sc-jev-backends/src/validate.rs:118."
+      },
+      {
+        "id": "RBP-F005",
+        "practice_id": "RBP-007",
+        "severity": "minor",
+        "file": "crates/sc-decision-schema/src/payload.rs",
+        "line": 224,
+        "issue": "The constant labels `yes` and `no` are built repeatedly through fallible `ChoiceId::try_from`. In `answer_labels` the failure is swallowed with `filter_map(...ok())`, so a future tightening of ChoiceId validation would give noul questions an empty label set with no error. In `map_answer` (v1.rs:757-760) the same constants propagate a Result that cannot fail.",
+        "recommendation": "Provide `ChoiceId::yes()` and `ChoiceId::no()` constants, or a `LazyLock` pair of infallible values. This removes the dead error path and the silent swallow.",
+        "evidence": "payload.rs:224-227; jev/v1.rs:757-760."
+      },
+      {
+        "id": "RBP-F006",
+        "practice_id": "RBP-007",
+        "severity": "minor",
+        "file": "crates/sc-decision-schema/src/jev/v1.rs",
+        "line": 713,
+        "issue": "In `into_answers`, `request.questions.get(id).ok_or_else(...)` returns an error that cannot occur. The preceding BTreeSet equality check already guarantees the id is present. The lookup is also O(n) per answer, so the loop is O(n^2).",
+        "recommendation": "Zip the two ordered maps or iterate the request questions and look up answers once. Alternatively, remove the pre-check and let the lookup carry the single error.",
+        "evidence": "v1.rs:704-717."
+      }
+    ],
+    "summary": {
+      "total_findings": 6,
+      "by_severity": { "critical": 0, "important": 2, "minor": 4 }
+    },
+    "notes": [
+      "Worktree HEAD verified: the worktree .git points at the r-5-jev-wire-envelope gitdir, whose HEAD ref is refs/heads/sprint/r-5-jev-wire-envelope, and that ref is 14f85f129fda46e39bda90ae2a5333e69213312b. This matches the assigned commit.",
+      "RBP-002, 003, 005, 006, 008, 009 and 010: no violations in scope. There is no Mutex/RefCell, no public trait introduced here (JudgeBackend is pre-existing and out of scope), and no runtime state-machine or capability-token design. The `Cow` use in sc-jev-backends is already borrow-first. A double parse in sc-jev check.rs `parse_outcome` is not a hot path, so I did not report it.",
+      "Review stayed within the assigned targets: sc-decision-schema jev/ and payload.rs, sc-jev, and sc-jev-backends (src and read-only look at test helpers). I did not run tests, coverage, or service-hardening checks."
+    ]
+  },
+  "error": null
+}

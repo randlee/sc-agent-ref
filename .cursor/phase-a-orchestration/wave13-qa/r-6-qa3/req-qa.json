@@ -1,0 +1,24 @@
+{
+  "status": "PASS",
+  "reviewed_branch": "sprint/r-6-session-log-record",
+  "reviewed_commit": "d106d03",
+  "errors": [],
+  "scope": {"phase": "phase-a-refine", "sprint": "r-6"},
+  "baselines_read": ["docs/architecture.md", "docs/requirements.md", "docs/sc-jev-host/architecture.md", "docs/sc-jev-check/architecture.md"],
+  "phase_or_sprint_docs_read": ["docs/plans/phase-a-refine/sprint-r-6-session-log-record.md"],
+  "requirement_checks": [
+    {"id": "REQ-SAG-0617", "source": "docs/requirements.md:191", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:1768", "docs/architecture.md:1771"]},
+    {"id": "REQ-SAG-0600", "source": "docs/requirements.md", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:258"]},
+    {"id": "REQ-SAG-0607", "source": "docs/requirements.md", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:268", "docs/sc-jev-check/architecture.md:20"]},
+    {"id": "REQ-SAG-0711", "source": "docs/sc-jev-host/requirements.md:11", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/sc-jev-host/architecture.md:59"]}
+  ],
+  "deliverable_checks": [
+    {"item": "D8 ADR text flips (0031 Wiring Active r-6, index row, r-6 subsections in 0008/0013/0016/0026/0027, index markers)", "status": "present", "closure_state": "closed", "evidence_refs": ["docs/architecture.md:118", "docs/architecture.md:123", "docs/architecture.md:126", "docs/architecture.md:136", "docs/architecture.md:137", "docs/architecture.md:141", "docs/architecture.md:1689", "docs/architecture.md:1733"], "notes": "Statuses and markers match the adr:ADR-SAG-0031 acceptance row."},
+    {"item": "New delta bullets (0008 retention, 0013 envelope, 0016 adapter mapping, 0031 error-path flush) agree with sprint implementation notes and crate docs", "status": "present", "closure_state": "closed", "evidence_refs": ["docs/architecture.md:268", "docs/architecture.md:871", "docs/architecture.md:967", "docs/architecture.md:1771", "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:526", "docs/sc-jev-host/architecture.md:59", "docs/sc-jev-check/architecture.md:20"], "notes": "Grace TTL, correlation_id = session id, request_id = answer id, Warn level for failed sends, and error-path flush all match across the sprint doc, ADRs and crate docs."},
+    {"item": "Sprint status complete with closeout note", "status": "present", "closure_state": "closed", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:4", "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:541"], "notes": "The note says closure is recorded by the quality-mgr report, which is posted after this round. Per the notes it is not required to exist yet."},
+    {"item": "Acceptance rows and the requirements list", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:16", "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:428"], "notes": "The delta changes no requirement or acceptance row. I could not run commands (no shell), so test hardening was not re-executed and the test files were not read. I only checked that no doc claim in the delta conflicts with the sprint doc."}
+  ],
+  "findings": [],
+  "summary": {"total_findings": 0, "blocking_findings": 0, "overall_compliance": "compliant", "deliverables_total": 4, "deliverables_complete": 4, "deliverables_incomplete": 0, "deliverable_completion_percent": 100.0},
+  "gate_reason": "No delta findings. Worktree HEAD is on branch sprint/r-6-session-log-record. I could not read the commit hash through the .git pointer, so the exact-commit match to d106d03 was not independently confirmed. The ADR amendments, index markers, crate docs and the sprint doc's status and implementation notes agree. No requirement or acceptance row is broken. quality-mgr closure is deferred per the stated closure rules."
+}

@@ -1,0 +1,6 @@
+ docs/plans/phase-a-refine/sprint-r-1-types-break.md        | 2 +-
+ docs/plans/phase-a-refine/sprint-r-2-engine-shape.md       | 2 +-
+ docs/plans/phase-a-refine/sprint-r-3-shared-http.md        | 2 +-
+ docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md    | 2 +-
+ docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md | 2 +-
+ 5 files changed, 5 insertions(+), 5 deletions(-)

@@ -1,0 +1,38 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-3c-treesitter-cli",
+    "reviewed_commit": "39661a6d651223d7a15d514226f83f473f2337cb",
+    "findings": [
+      {
+        "id": "FTQ-001",
+        "severity": "important",
+        "file": "crates/sc-treesitter/tests/support/mod.rs",
+        "line": 20,
+        "test": "all git-fixture tests in tests/cli.rs and tests/argv.rs (via isolate_git, git, commit_all)",
+        "mechanism": "env_leak",
+        "issue": "isolate_git sets GIT_CONFIG_GLOBAL, GIT_CONFIG_NOSYSTEM and GIT_TERMINAL_PROMPT but never env_removes the repository-selecting variables GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, GIT_OBJECT_DIRECTORY, GIT_ALTERNATE_OBJECT_DIRECTORIES, GIT_COMMON_DIR or GIT_PREFIX. When the suite runs inside a git hook (pre-commit or pre-push running cargo test, or a rebase exec step), git exports GIT_DIR and GIT_INDEX_FILE. The fixture's `git init`, `git add -A` and `git commit` then act on the outer repository instead of the per-test TempDir. The result is a spurious failure, or a stray commit or index change in the developer's real repo, and it happens only when run from a hook. The same variables reach the sc-treesitter binary through run(). The binary's own hash-object call and the shared git module strip some of them, but the test helper does not, so fixture setup and binary under test can disagree about which repository they use. The r-1 final helper strips these variables; this one does not. GIT_CONFIG_COUNT and GIT_CONFIG_PARAMETERS are also inherited. A caller's `git -c` or `GIT_CONFIG_COUNT` override, for example commit.gpgsign=true, would bypass the config isolation.",
+        "recommendation": "Make isolate_git the single scrubbing point. env_remove GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, GIT_OBJECT_DIRECTORY, GIT_ALTERNATE_OBJECT_DIRECTORIES, GIT_COMMON_DIR, GIT_PREFIX, GIT_CONFIG_PARAMETERS and GIT_CONFIG_COUNT. Also pin GIT_CONFIG_SYSTEM to the null device. Use the same list as r-1's helper and as git_io::git_command so the three stay in step. This removes the leak; no retries or conditionals are needed.",
+        "evidence": "support/mod.rs:20-25 `command.env(\"GIT_CONFIG_GLOBAL\", null_device()).env(\"GIT_CONFIG_NOSYSTEM\", \"1\").env(\"GIT_TERMINAL_PROMPT\", \"0\")`, with no env_remove anywhere. support/mod.rs:33-49 `git()` and `commit_all()` build on it. src/git_io.rs:251-255 strips GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, GIT_OBJECT_DIRECTORY and GIT_ALTERNATE_OBJECT_DIRECTORIES for production, so the omission in the test helper is inconsistent."
+      },
+      {
+        "id": "FTQ-002",
+        "severity": "minor",
+        "file": "tests/support/deadline.rs",
+        "line": 185,
+        "test": "grandchild_holding_the_pipe_is_bounded_by_the_grace; deadline_kill_returns_despite_a_grandchild",
+        "mechanism": "timing_assertion",
+        "issue": "These two unit tests of the shared deadline runner assert wall-clock upper bounds: `elapsed < 0.5s*2 + 5s` and `elapsed < 0.5s + 0.5s + 5s`. The runner is included with #[path] through support/mod.rs. So the tests compile into and run in every integration binary that includes support, namely cli and argv here, in parallel with the heavy git and cargo fixture tests. On a heavily loaded CI host, spawning `sh`, the `kill` helper and the 20 ms poll loop can exceed the 5 s slack, which gives an intermittent failure unrelated to product behaviour. Each copy also leaves `sleep 30` grandchildren in flight until the group kill. The correctness property (the run is bounded and returns the early output) is already enforced by the runner's own deadline and by the panic. The elapsed-time assertion adds only flake risk.",
+        "recommendation": "Remove the elapsed-time assertions. The bound is already enforced by the runner: a hang would panic at the deadline or hang CI visibly. If the property must stay asserted, observe it with events instead of a clock: have the grandchild write a marker and assert the runner returned while that process was still alive. Better, run these runner self-tests once, in a single binary (a dedicated test target or the workspace crate that owns the file), not in every includer.",
+        "evidence": "deadline.rs:195-196 `let elapsed = started.elapsed(); assert!(elapsed < TEST_GRACE * 2 + SLACK, ...)` and deadline.rs:213-214 `assert!(elapsed < TEST_DEADLINE + TEST_GRACE + SLACK, ...)`. The file is included by support/mod.rs:8-9 via `#[path = \"../../../../tests/support/deadline.rs\"] mod deadline;`, and `#[cfg(all(test, unix))] mod tests` compiles in every including test binary."
+      }
+    ],
+    "summary": {
+      "total_findings": 2,
+      "critical": 0,
+      "important": 1,
+      "minor": 1
+    }
+  }
+}

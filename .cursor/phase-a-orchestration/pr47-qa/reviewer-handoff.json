@@ -1,0 +1,152 @@
+{
+ "pr": 47,
+ "qa_pass": "qa-pr47-final-2",
+ "round": "PR 47 fix/pe-errors on integrate/phase-a",
+ "branch": "fix/pe-errors",
+ "head": "a5bab66",
+ "base": "integrate/phase-a",
+ "notes": "Second report. qa-pr47-final failed only on ERR-QA-6. Now closed: owner supplied live traces (POST /v1/systemone, unfunded organization: HTTP 402, {\"detail\":{\"error_type\":\"billing_error\",\"message\":...}}; bogus key 401 authentication_error; funded key with {} 422). a5bab66 reads the detail object, tests the exact body, and removes the known-limit text; bead agt-285 closed. req-qa and best-practices re-ran at a5bab66, on this change. 3da9128 to a5bab66 touches crates/sc-agent-http/src/failure.rs and docs/stability.md and docs/requirements.md; verify with git diff. Orchestrator ran cargo test --workspace (673 passed, 0 failed), doc and just lint at that commit. Owner rule: Minor findings from every reviewer go to beads for the remaining phase A rounds; Blocking and Important must be fixed before merge. This overrides the deferral rule in your gate text for Minors; beads agt-4ru, agt-gsp. rust-qa at acdf9ea covers everything but this commit; CI runs at a5bab66. Error-contract audit at a4c79b5: PASS, Minor only. Known limits: no real Haiku or Luna error body seen; real locked Keychain not tested; the coverage failure on #39 has no proven cause. Windows covered only by CI. Two audit probes made unintended live Jev calls, disclosed on the PR.",
+ "manifest": [
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "aaf6b329b8f50d802",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "acdf9ea"
+  },
+  {
+   "agent": "rust-best-practices-agent",
+   "task_id": "aa81e3a1edfe062a0",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "a5bab66"
+  },
+  {
+   "agent": "rust-service-hardening-agent",
+   "task_id": "a67852e30ef9fe5c4",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "a4c79b5"
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "a171134f0d675c2ec",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "acdf9ea"
+  },
+  {
+   "agent": "req-qa",
+   "task_id": "a31e65c810bb509a6",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "a5bab66"
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "ae65c3755aa48b8cc",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "acdf9ea"
+  }
+ ],
+ "reviewer_outputs": [
+  {
+   "agent": "rust-qa-agent",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_commit": "acdf9ea",
+     "findings": [],
+     "summary": {
+      "total_findings": 0
+     },
+     "notes": [
+      "Ran via general-purpose agent following rust-qa-agent.md, because reviewers must work from a clean copy. fmt, clippy, workspace and feature tests, workspace-tests, just test-python 28 passed, coverage 93.27% lines. No LLVM Profile lines."
+     ]
+    }
+   }
+  },
+  {
+   "agent": "rust-best-practices-agent",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_commit": "a5bab66",
+     "findings": [],
+     "summary": {
+      "total_findings": 0
+     },
+     "notes": [
+      "failure.rs only. Minors in agt-4ru."
+     ]
+    }
+   }
+  },
+  {
+   "agent": "rust-service-hardening-agent",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "skipped",
+     "reviewed_commit": "a4c79b5",
+     "findings": [],
+     "summary": {
+      "total_findings": 0
+     },
+     "notes": [
+      "No service indicators; a blocking client library."
+     ]
+    }
+   }
+  },
+  {
+   "agent": "flaky-test-qa",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_commit": "acdf9ea",
+     "findings": [],
+     "summary": {
+      "total_findings": 0
+     }
+    }
+   }
+  },
+  {
+   "agent": "req-qa",
+   "fenced_json": {
+    "status": "PASS",
+    "reviewed_commit": "a5bab66",
+    "findings": [
+     {
+      "id": "REQ-QA-001",
+      "severity": "Minor",
+      "state": "misplaced test doc comment, bead agt-4ru"
+     }
+    ],
+    "summary": {
+     "total_findings": 1,
+     "blocking_findings": 0,
+     "overall_compliance": "compliant",
+     "deliverable_completion_percent": 100.0
+    }
+   }
+  },
+  {
+   "agent": "arch-qa",
+   "fenced_json": {
+    "agent": "arch-qa",
+    "commit": "acdf9ea",
+    "verdict": "PASS",
+    "blocking": 0,
+    "important": 0,
+    "merge_ready": true,
+    "findings": [
+     {
+      "id": "ARCH-106",
+      "severity": "MINOR",
+      "state": "deferred to bead agt-4ru"
+     }
+    ]
+   }
+  }
+ ]
+}

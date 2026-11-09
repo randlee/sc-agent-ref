@@ -1,0 +1,31 @@
+{
+  "status": "FAIL",
+  "reviewed_branch": "sprint/r-4-adrs-and-manifests",
+  "reviewed_commit": "8bdfc83b43bcbc54c4b7a022d5b2a120b8d10d27",
+  "scope": {"phase": "a.1", "sprint": "r-4", "round": "QA-2"},
+  "errors": [],
+  "prior_findings_status": {
+    "REQ-QA-R4-001": "closed. Root Cargo.toml no longer has sc-observability-types, and nothing under crates/*/Cargo.toml or sc-lint.toml names it. The ADR-SAG-0023 lockstep list is the four listed names plus sc-agent-compose, with no transitional entry. The implementation notes (sprint doc:220-226) claim 4 pins. I could not run check-exact-pins.sh or the main.rs merge-base diff; I rely on your CI 11/11 run for that. The branch ref resolves to 8bdfc83.",
+    "REQ-QA-R4-002": "still open. See the finding below.",
+    "REQ-QA-R4-003": "closed. REQ-SAG-0135 is under constrained_by (sprint doc:27-28).",
+    "REQ-QA-R4-004": "closed. Cargo.lock is listed in owned_paths as derived (sprint doc:39).",
+    "REQ-QA-R4-005": "closed for the sprint-doc part. Implementation notes (sprint doc:218-269) now state the clap deferral and CI evidence. CI 11/11 at 8bdfc83 is your claim; I did not check it. I did not check the PR body."
+  },
+  "findings": [
+    {
+      "id": "REQ-QA-R4-002",
+      "severity": "Blocking",
+      "category": "deliverable-missing",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:~182 (req:REQ-SAG-0133 row), 265-269"],
+      "target_refs": ["docs/architecture.md:643", "docs/development/sc-publish.md:57-58"],
+      "issue": "The upstream sc-publish issue is still not filed. Both docs say 'not yet filed' / 'Neither is filed yet', so the acceptance row 'bead + upstream issue URL recorded' is unmet and REQ-SAG-0133 is PARTIAL. The sprint doc is honest about it and is status: in-review, with the row named at sprint doc:265-269. The remaining open row is exactly this one. The sprint-doc frontmatter does not name the open row.",
+      "required_correction": "Preferred: the owner files the issue and the URL is recorded in docs/architecture.md:643 and docs/development/sc-publish.md:57-68; then set status: complete. If the sprint merges first: record an explicit owner waiver or deferral for the row, and open a tracking bead for filing the issue. This is a reviewed plan change, not a silent defer. Name the open row in the PR body.",
+      "compliance_result": "partially-compliant"
+    }
+  ],
+  "merge_judgment": "I could not confirm the plan rule you cited. A grep of docs finds 'in-review' only in the r-4 and r-1 sprint docs, and none of plan.md's text mentions it. Rule: the gate policy fails a review with an open acceptance row, and an in-review status does not waive it. I would not accept 'REQ-SAG-0133 PARTIAL, in-review merge' as compliant on its own. It is mergeable only if the owner explicitly waives or defers the URL row in writing (PR comment or plan edit) and the Active flip of REQ-SAG-0133 in docs/requirements.md (:162) is reconciled with that. The simpler path is for the owner to file the issue (a two-minute action) and record the URL.",
+  "deliverable_completion_percent": 88.9,
+  "summary": {"total_findings": 1, "blocking_findings": 1, "overall_compliance": "non-compliant", "deliverables_total": 9, "deliverables_complete": 8, "deliverables_incomplete": 1},
+  "notes": "All other QA-1 findings are closed and no regressions found in the files I read. Unrun: all command gates. I rely on your CI evidence for those.",
+  "gate_reason": "FAIL: one Blocking item remains open, the upstream issue URL for REQ-SAG-0133. It becomes PASS when the URL is recorded, or when the owner's written waiver is recorded and REQ-SAG-0133's status line is reconciled."
+}

@@ -1,0 +1,85 @@
+<cursor-qa-task id="qa-a-8-2" sprint="a-8" assignee="cursor-quality-mgr">
+  <description>QA-2 closeout for PR #15 — PyO3 wrapper</description>
+  <review-mode>sprint_review</review-mode>
+  <authoritative-sprint-doc>docs/plans/phase-a/sprint-a-8-pyo3-wrapper.md</authoritative-sprint-doc>
+  <pr-number>15</pr-number>
+  <branch>sprint/a-8-pyo3-wrapper</branch>
+  <worktree>/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-8-pyo3-wrapper</worktree>
+  <commits>bfd36cb93a52c627e6cb04f24c5c6111243e8c00</commits>
+  <enforcer-binding>cursor-quality-mgr only; spawn gate from parent handoff</enforcer-binding>
+  <parent-reviewer-handoff required="true">
+    <manifest>[
+  {"agent": "req-qa", "task_id": "20921eed-0901-43f5-8768-6866f0b438bc", "spawn_actor": "parent-orchestrator"},
+  {"agent": "arch-qa", "task_id": "ee3b1768-7c09-4696-9597-bd0c480ff88e", "spawn_actor": "parent-orchestrator"},
+  {"agent": "rust-qa-agent", "task_id": "17c52fe9-ea67-4f51-866d-849d838f5e07", "spawn_actor": "parent-orchestrator"},
+  {"agent": "flaky-test-qa", "task_id": "875480a4-c1e7-4479-9ad6-fdead164c3c2", "spawn_actor": "parent-orchestrator"}
+]</manifest>
+    <reviewer-outputs>
+```json
+{
+  "status": "PASS",
+  "reviewed_branch": "sprint/a-8-pyo3-wrapper",
+  "reviewed_commit": "bfd36cb93a52c627e6cb04f24c5c6111243e8c00",
+  "scope": {"phase": "a", "sprint": "a-8"},
+  "findings": [],
+  "summary": {
+    "total_findings": 0,
+    "blocking_findings": 0,
+    "overall_compliance": "compliant",
+    "deliverables_total": 16,
+    "deliverables_complete": 16,
+    "deliverables_incomplete": 0,
+    "deliverable_completion_percent": 100.0
+  },
+  "gate_reason": "All REQ/NFR upheld; ARCH-005 cleared via ADR-SAG-0022 at bfd36cb."
+}
+```
+```json
+{
+  "agent": "arch-qa",
+  "branch": "sprint/a-8-pyo3-wrapper",
+  "scope": {"phase": "a", "sprint": "a-8"},
+  "commit": "bfd36cb93a52c627e6cb04f24c5c6111243e8c00",
+  "verdict": "PASS",
+  "blocking": 0,
+  "important": 0,
+  "findings": [],
+  "merge_ready": true,
+  "notes": "ARCH-005 and ADR-SAG-0022 test-util contract verified at bfd36cb."
+}
+```
+```json
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/a-8-pyo3-wrapper",
+    "reviewed_commit": "bfd36cb93a52c627e6cb04f24c5c6111243e8c00",
+    "review_mode": "sprint_review",
+    "executed_checks": {
+      "fmt": {"status": "pass", "command": "cargo fmt --all --check"},
+      "clippy": {"status": "pass", "command": "cargo clippy --all-targets --all-features -- -D warnings"},
+      "tests": {"status": "pass", "command": "cargo test"}
+    },
+    "findings": [],
+    "summary": {"total_findings": 0, "by_severity": {"critical": 0, "important": 0, "minor": 0}}
+  },
+  "error": null
+}
+```
+```json
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/a-8-pyo3-wrapper",
+    "reviewed_commit": "bfd36cb93a52c627e6cb04f24c5c6111243e8c00",
+    "findings": [],
+    "summary": {"total_findings": 0, "critical": 0, "important": 0, "minor": 0}
+  },
+  "error": null
+}
+```
+    </reviewer-outputs>
+  </parent-reviewer-handoff>
+</cursor-qa-task>

@@ -1,0 +1,8 @@
+[
+  {"agent": "extensibility-qa", "task_id": "a64459f88fb148d0b", "spawn_actor": "parent-orchestrator"},
+  {"agent": "ruthless-boundary-qa", "task_id": "a6547cc6d7d54edb5", "spawn_actor": "parent-orchestrator"},
+  {"agent": "rust-code-reviewer", "task_id": "a3a2d1207bfd42b74", "spawn_actor": "parent-orchestrator", "model": "opus"},
+  {"agent": "rust-architect (core: types/secrets/jev/jev-backends)", "task_id": "abf7185fed1a91a9d", "spawn_actor": "parent-orchestrator", "model": "opus"},
+  {"agent": "rust-architect (engine+cli: jev-check/sc-ai)", "task_id": "a923d3343fdefe0b6", "spawn_actor": "parent-orchestrator", "model": "opus"},
+  {"agent": "rust-architect (producer+binding: treesitter/jev-py)", "task_id": "ab21a461e89a5f7c6", "spawn_actor": "parent-orchestrator", "model": "opus"}
+]

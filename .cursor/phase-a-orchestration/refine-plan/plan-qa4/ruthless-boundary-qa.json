@@ -1,0 +1,28 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "plan/phase-a-refine",
+    "reviewed_commit": "4f778fe",
+    "review_mode": "doc_review",
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": {"critical": 0, "important": 0, "minor": 0}
+    },
+    "notes": [
+      "Verification-locked round 4 (carry_forward RBQA-F101..F107). Every assigned id is fixed in the plan text, with no regressions. `findings` is empty because none of the seven is still open. I did not run cargo or sc-lint. No boundary-validator report was supplied. I checked the worktree HEAD through the gitdir reflog: it is 4f778fe on plan/phase-a-refine.",
+      "RBQA-F101 FIXED. The spike is now r-1 D0 (wave 1), before any self dev-dependency lands. It covers a cross-crate dev-only edge, a self edge, and a stale allowed_* entry. Its three outcomes (ignored / counted with self entries accepted / counted with self entries rejected, using [[test]] required-features=test-util) are written, each naming the sprints affected. The result is recorded in boundaries/README.md in r-1's PR. plan.md lines 137, 217, 374 and 518 and the r-3 and r-3b D7.0 text point to it.",
+      "RBQA-F102 FIXED on all four sub-points. (a) test_no_allow_attributes reads whole attributes across lines with whitespace removed, covers cfg_attr, and bans expect of warnings, clippy::all and clippy::restriction. (b) test_lint_mechanism_present asserts the clippy.toml entries, the workspace lint keys, resolver 2, members under crates/*, and --workspace, --all-targets, -D, warnings in the sc-lint clippy command. (c) The members check covers crates outside crates/*. (d) std::process::Command::new is a clippy disallowed-method. This is type-aware and replaces the literal-text git scan.",
+      "RBQA-F103 FIXED. The release-built sc-ai goes into the fixed $CARGO_TARGET_DIR/workspace-tests-bin, never the cargo-test uplift path. test_release_binary_rejects_scripted_answers runs the artifact. resolver=2 is asserted. The release-wheel hasattr(_testing) check is in the validation list and in the CI gate list.",
+      "RBQA-F104 FIXED. The workspace-tests TOML is complete. The compose TOML states which blocks are copied from agent-http and lists the fields that differ. The compose allowed_dependents comment says workspace-tests is conditional. The dev-set gate is an exact set comparison, filtered to workspace crates. D0 loads the facade=\"\" manifest and gives the \"workspace_tests\" fallback.",
+      "RBQA-F105 FIXED. The ADR index in docs/architecture.md has the Amends and Amended-by cells filled for 0023..0027, and every older row I checked matches the ADR ownership table. The plan rule now says a landing sprint flips only its Status cell and marker text. The sprint owned_paths use matching Status-cell and marker wording. r-4 says the Amends cells are already filled.",
+      "RBQA-F106 FIXED on (a), (b) and (d). The gate table has the sc-agent-http features row (r-3 local, r-3b script). It also has the sc-ai and sc-jev-py duplicate-version rows, which are in the r-3b validation commands. test_env_reads_only_in_owners exists. (c) was declined as cosmetic, and I accept that.",
+      "RBQA-F107 FIXED. The scan needles are built from fragments, so the rg gate needs no exclusion. Rustdoc prose avoids the literals.",
+      "Unsolicited observation 1, outside this round's assigned scope. In test_disallowed_methods_expect_sites, the test-file exception is a crate-level #![expect(clippy::disallowed_methods)] with a reason naming a process spawn. The only guard is that the file must not contain the token `ResolvedApiKey`. A crate-level expect also silences a ResolvedApiKey::as_str read made through an inferred type, for example a value returned from a function, because the file never names the type. Tightening: require item-level expects on the spawning helper in test files, or a named test-support module, so a crate-level expect cannot cover a secret read. Class would be boundary_tightening, minor.",
+      "Unsolicited observation 2, outside this round's assigned scope. The D0 outcome \"counted, self entries rejected\" bans every self dev-dependency. It conflates two cases. If cross-crate dev edges are counted but the self edge is ignored, self entries are stale and rejected, yet the self dev-dependency needs no entry. In that mixed case the branch forces the [[test]] required-features rework unnecessarily. Add a fourth line for \"self edge ignored\", or word the third branch as \"self edge flagged and entry rejected\". Class would be doc_gap, minor.",
+      "Unsolicited observation 3, outside this round's assigned scope. r-5 is blocked and not yet scheduled in the waves I read. If it adds test files that spawn processes after r-3b adds the Command::new disallowed-method, it must carry its own crate-level expect line. clippy -D warnings would catch the omission, so this is self-enforcing."
+    ]
+  },
+  "error": null
+}

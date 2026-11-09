@@ -1,0 +1,99 @@
+{
+  "status": "FAIL",
+  "reviewed_branch": "sprint/r-3c-treesitter-cli",
+  "reviewed_commit": "39661a6d651223d7a15d514226f83f473f2337cb",
+  "errors": [],
+  "scope": {"phase": "a.1", "sprint": "r-3c"},
+  "baselines_read": ["docs/requirements.md", "docs/sc-treesitter/requirements.md", "docs/sc-treesitter/architecture.md"],
+  "phase_or_sprint_docs_read": ["docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md", "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md (clippy/hash-object section only)"],
+  "requirement_checks": [
+    {"id": "REQ-SAG-0310", "source": "docs/requirements.md:62; docs/sc-treesitter/requirements.md:9", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-treesitter/src/cli/mod.rs:124", "crates/sc-treesitter/tests/argv.rs:133", "crates/sc-treesitter/tests/cli.rs"]},
+    {"id": "REQ-SAG-0712", "source": "docs/requirements.md:176", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-treesitter/src/cli/mod.rs:34", "crates/sc-treesitter/Cargo.toml:27"]},
+    {"id": "REQ-SAG-0135", "source": "docs/requirements.md:164", "listed_in_sprint_doc": true, "result": "not-verifiable", "evidence_refs": ["crates/sc-treesitter/Cargo.toml:27-32"]},
+    {"id": "REQ-SAG-0134", "source": "docs/requirements.md:163", "listed_in_sprint_doc": true, "result": "not-verifiable", "evidence_refs": ["crates/sc-treesitter/Cargo.toml:21-32"]},
+    {"id": "REQ-SAG-0104", "source": "docs/requirements.md:56", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-treesitter/src/main.rs:85-92"]},
+    {"id": "REQ-SAG-0305", "source": "docs/requirements.md:70", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-treesitter/src/main.rs:51-76"]},
+    {"id": "NFR-SAG-0001", "source": "docs/requirements.md:40,186", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-treesitter/src/main.rs:40-49", "crates/sc-treesitter/tests/argv.rs:21-29"]},
+    {"id": "NFR-SAG-0004", "source": "docs/requirements.md:165", "listed_in_sprint_doc": true, "result": "not-verifiable", "evidence_refs": ["crates/sc-treesitter/Cargo.toml:41-43"]}
+  ],
+  "deliverable_checks": [
+    {"item": "D1 Cargo.toml (default-features=false, cli feature extension, lints)", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-treesitter/Cargo.toml:21-37"], "notes": "Matches the text. The [[test]] argv entry is declared with required-features (D2)."},
+    {"item": "D2 clap derive parser, hand-rolled tables deleted, argv.rs ported with [[test]] argv", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-treesitter/src/cli/mod.rs", "crates/sc-treesitter/tests/argv.rs", "crates/sc-treesitter/Cargo.toml:60-64"], "notes": "Help and version exit 0. All other errors are INPUT_INVALID, exit 2. allow_hyphen_values is set on every value flag."},
+    {"item": "D3 git read: repo_root, hash_object and the git show path replaced by sc_agent_types::git", "status": "partially-present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-treesitter/src/git_io.rs:64,230 (shared calls)", "crates/sc-treesitter/src/git_io.rs:112-141,243-257 (local hash-object spawn)"], "notes": "repo_root and the rev read moved. hash_object and a local Command::new('git') remain. crates/sc-agent-types/src/git.rs has no hash helper."},
+    {"item": "D4 manifest allowed_dependencies += clap, mimalloc, with notes", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["boundaries/sc-treesitter/treesitter.toml:25,40"], "notes": "CPR-M212 closed for sc-treesitter. The sc-ai half is r-3b's."},
+    {"item": "Acceptance rows (argv tests, version, rev injection, lib --no-default-features, cargo-tree gates, cargo hack, exact pins, cli regression)", "status": "not-verifiable", "closure_state": "open", "evidence_refs": ["crates/sc-treesitter/tests/argv.rs:64,75", "docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md:119-127"], "notes": "The tests exist and look correct on reading. I have no shell here and could not run any Required validation line. The only evidence is the developer's claim in the sprint doc. PR 25 CI is pending, so no green CI can be cited yet."},
+    {"item": "Deviations mapped to requirements (extract --help exit 0; no-arg INPUT_INVALID exit 2; tests moved cli.rs to argv.rs; local hash-object; ExtractInput constructor; CPR-M212)", "status": "partially-present", "closure_state": "not-applicable", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md:129-154"], "notes": "Every deviation is documented. The help, no-arg and test-move rows cite ARCHP-011, CR-016 and ADR-SAG-0029 (c). They do not cite REQ-SAG-0310 or NFR-SAG-0001. The code and tests match D2 and 0029 (c). The hash-object and ExtractInput rows are not requirement-backed (see findings)."}
+  ],
+  "findings": [
+    {
+      "id": "REQ-QA-R3C-001",
+      "severity": "Blocking",
+      "category": "deliverable-missing",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md:82-85,133,146-154"],
+      "target_refs": ["crates/sc-treesitter/src/git_io.rs:104-141,243-257"],
+      "issue": "D3 says `git_io.rs` hash_object and the git paths are replaced by sc_agent_types::git. The WORKTREE read still hashes through a local `git hash-object` spawn and a local `git_command` helper. RBQA-F006 is only half closed. Not owning crates/sc-agent-types/** does not make the deliverable optional, and the sprint doc did not plan this exception.",
+      "required_correction": "Choose one route and record it in the plan. (a) Add a blob-hash helper to sc_agent_types::git and call it from git_io.rs, either in this sprint with owned_paths amended or in a sprint that owns git.rs. (b) Amend D3 and the RBQA-F006 closure through the planning process so the local spawn is a planned, owned exception. Do not leave the deliverable silently unmet.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-R3C-002",
+      "severity": "Blocking",
+      "category": "cross-doc-conflict",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md:133,150-154", "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md:358-365"],
+      "target_refs": ["docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md"],
+      "issue": "The r-3c notes say the decision on the leftover `Command::new` is routed to r-3b. The r-3b doc adds the `Command::new` disallowed-methods entry 'once r-2 and r-3c have moved every git caller to sc_agent_types::git'. It names item-level expects only for git.rs, command.rs, extract/mod.rs and test helpers. It does not mention crates/sc-treesitter/src/git_io.rs (`git_command`). With the current tree, r-3b's workspace clippy would fail, or r-3b would have to edit a file it does not own. Nothing in r-3b carries the routing.",
+      "required_correction": "Update r-3b (its owned_paths and its expect list), or add the blob-hash helper in an owning sprint before r-3b, so exactly one sprint owns the git_io.rs spawn. Make r-3c's note point at that concrete item.",
+      "compliance_result": "non-compliant"
+    },
+    {
+      "id": "REQ-QA-R3C-003",
+      "severity": "Blocking",
+      "category": "acceptance-gap",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md:92-96,98-115,121-123"],
+      "target_refs": ["docs/requirements.md:163-165"],
+      "issue": "The acceptance rows, including the REQ-SAG-0134 mimalloc cargo-tree assertion, the REQ-SAG-0135 clap-absent check, the NFR-SAG-0004 exact-pins script, the cargo hack runs and the lib --no-default-features build, cannot be satisfied from repository evidence at this point. I could not execute commands. PR 25 CI is pending. The sprint doc itself says CI evidence is 'added by QA'. The manifests read as correct, but the REQ-SAG-0134, REQ-SAG-0135 and NFR-SAG-0004 checks are therefore not-verifiable.",
+      "required_correction": "Re-run QA after PR 25 CI is green, and cite the run. Add the CI evidence to the sprint Implementation notes. Re-verify the 0134, 0135 and 0004 checks from that run.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-R3C-004",
+      "severity": "Important",
+      "category": "requirements",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md:134-137"],
+      "target_refs": ["docs/requirements.md:62,186"],
+      "issue": "The deviation table maps the extract --help exit 0, the no-argument INPUT_INVALID exit 2 and the test-move rows to ARCHP-011, CR-016 and ADR-SAG-0029 (c). It does not map them to a governing REQ or NFR (REQ-SAG-0310, NFR-SAG-0001 / REQ-SAG-0701 exit-2 stderr contract). The no-argument change from help (exit 0) to error (exit 2) is a behaviour change with no requirement text behind it, and it is not stated in the REQ-SAG-0310 or ADR text I read. The requirement mapping is therefore not traceable.",
+      "required_correction": "Add the requirement ids to those rows (REQ-SAG-0310, NFR-SAG-0001, REQ-SAG-0701). Cite the ADR-SAG-0029 (c) wording that makes bare invocation an error. If no such text exists, record the decision explicitly in the architecture doc or ADR.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-R3C-005",
+      "severity": "Minor",
+      "category": "plan",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md:146-149"],
+      "target_refs": ["crates/sc-treesitter/src/extract.rs"],
+      "issue": "The a-10 'ExtractInput required-field constructor' item deferred to r-3c is not done because extract.rs is not in owned_paths. The note says ExtractInput::new already takes the required fields, but gives no owner or sprint for any remaining work. Lacking an owner, the deferral can be lost.",
+      "required_correction": "Name the owning sprint for the item, or close it as already satisfied by `ExtractInput::new(language, query, source)`, with a citation.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-R3C-006",
+      "severity": "Minor",
+      "category": "plan",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md:32-40"],
+      "target_refs": ["docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md"],
+      "issue": "The changed files are the nine in the list. All are within owned_paths except the sprint doc, whose notes edit I judge acceptable (it is the sprint's own record). The two cross-doc items (a clippy.toml per-package warning and the tree-sitter pin inline form) were left untouched and are recorded as deviations with a rationale.",
+      "required_correction": "Informational. No change is needed beyond the other findings.",
+      "compliance_result": "partially-compliant"
+    }
+  ],
+  "summary": {
+    "total_findings": 6,
+    "blocking_findings": 3,
+    "overall_compliance": "non-compliant",
+    "deliverables_total": 6,
+    "deliverables_complete": 3,
+    "deliverables_incomplete": 3,
+    "deliverable_completion_percent": 50.0
+  },
+  "gate_reason": "FAIL. D3 is only partially delivered: the local hash-object spawn remains, and RBQA-F006 is half closed. The r-3b hand-off for that spawn is not present in the r-3b doc. Acceptance and REQ-SAG-0134/0135/NFR-SAG-0004 cannot be verified without command execution or green CI (PR 25 pending). Positives from reading the code: every listed id resolves, the sprint requirements list is complete (the crate file has only REQ-SAG-0310), the clap parser, argv.rs, Cargo.toml and manifest match D1, D2 and D4, and CPR-M212 is closed for sc-treesitter."
+}

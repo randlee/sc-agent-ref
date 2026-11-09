@@ -1,0 +1,346 @@
+{
+ "manifest": [
+  {
+   "agent": "req-qa",
+   "task_id": "a32663faae5cb5724",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "a5c4e3b09bac16dc2",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "a53ac95cf75e6f658",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "ac3ac8cceb7b86fbe",
+   "spawn_actor": "parent-orchestrator"
+  }
+ ],
+ "reviewer_outputs": [
+  {
+   "agent": "req-qa",
+   "task_id": "a32663faae5cb5724",
+   "fenced_json": {
+    "status": "PASS",
+    "reviewed_branch": "sprint/r-3b-compose-and-workspace-tests",
+    "reviewed_commit": "a7b68f6",
+    "errors": [],
+    "scope": {
+     "phase": "a.1",
+     "sprint": "r-3b"
+    },
+    "baselines_read": [
+     "QA-1 req-qa.json (carry-forward)",
+     "fix-assignment.xml",
+     "sprint-r-3b doc",
+     "docs/architecture.md (ADR-SAG-0026 region)"
+    ],
+    "phase_or_sprint_docs_read": [
+     "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md"
+    ],
+    "requirement_checks": [
+     {
+      "id": "REQ-SAG-0703",
+      "source": "docs/sc-ai/requirements.md:12",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "sprint doc:41",
+       "sprint doc:779-781"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0803",
+      "source": "docs/sc-jev-py/requirements.md:12",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "sprint doc:42",
+       "sprint doc:781-783"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0134",
+      "source": "docs/requirements.md",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "sprint doc:43",
+       "sprint doc:783-785"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0620",
+      "source": "docs/requirements.md",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "sprint doc:44",
+       "sprint doc:785-786"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0135",
+      "source": "docs/requirements.md:164",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "PR 31 CI 13/13 green at a7b68f6, run 42433144889 (from the assignment)",
+       "sprint doc:794-796"
+      ]
+     }
+    ],
+    "deliverable_checks": [
+     {
+      "item": "Carry-forward fixes 1 to 8",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "crates/workspace-tests/tests/support/bin_path.rs:27,38-53,78,88-93",
+       "crates/sc-jev-host/src/obs.rs:71",
+       "docs/architecture.md:1346-1355",
+       "crates/workspace-tests/tests/source_scans.rs:23-43,318",
+       "sprint doc:41-44,125-129,209-211,411,778-796"
+      ],
+      "notes": "All verified by reading the files. I ran no commands."
+     }
+    ],
+    "carry_forward_verdicts": {
+     "REQ-QA-001": "closed. REQ-SAG-0703, 0803, 0134 and 0620 are in the requirements list (sprint doc:41-44). Evidence is in Implementation notes (sprint doc:779-786).",
+     "REQ-QA-002": "closed. The assignment gives PR 31 CI as 13/13 green at a7b68f6 (run 42433144889). The sprint doc cites green runs 42432703158 and 42432703189 at f3ceaae (sprint doc:794-796). I could not independently check the run at a7b68f6. The doc cites f3ceaae because the doc cannot name its own commit's run. Not a finding.",
+     "CI-R3B-001": "closed. bin_path.rs no longer canonicalizes: the workspace root comes from CARGO_MANIFEST_DIR ancestors (bin_path.rs:38-53). CI is green including windows-2022 per the assignment.",
+     "FTQ-001": "closed. The build runs through spawn_with_limit with BIN_BUILD_DEADLINE of 20 min and --locked (bin_path.rs:27,78,88). The panic includes stderr and names the file-lock case (bin_path.rs:91-92).",
+     "QA-001": "closed. obs.rs:71 uses std::env::temp_dir(), and no \"/tmp/ literal remains under crates/.",
+     "REQ-QA-004": "closed. docs/architecture.md:1346-1347 and sprint D2.2 (sprint doc:209-211) say ask_from returns AskResponse, whose outcome() is the JudgeOutcome.",
+     "REQ-QA-005": "closed. The GIT_CEILING_DIRECTORIES exception for sc-jev-check run/mod.rs is documented in ADR-SAG-0026 (architecture.md:1355) and in the D7 bullet (sprint doc:411).",
+     "REQ-QA-006": "closed. owned_paths covers tests/support/deadline.rs and git_env.rs, sc-publish.md, agent-http.toml and Cargo.lock (sprint doc:125-129). source_scans rust_files() walks tests/support (source_scans.rs:43), and the test-file rule covers it (source_scans.rs:318)."
+    },
+    "findings": [],
+    "summary": {
+     "total_findings": 0,
+     "blocking_findings": 0,
+     "overall_compliance": "compliant",
+     "deliverables_total": 1,
+     "deliverables_complete": 1,
+     "deliverables_incomplete": 0,
+     "deliverable_completion_percent": 100.0
+    },
+    "gate_reason": "PASS. The worktree HEAD is exactly a7b68f6 (read from the worktree gitdir HEAD file). All carry-forward ids are closed with file evidence. The assignment reports green CI at a7b68f6, including test (windows-2022). I found no new Blocking findings and no regressions. I read files only and ran no cargo, test or CI command."
+   }
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "a5c4e3b09bac16dc2",
+   "fenced_json": {
+    "agent": "arch-qa",
+    "branch": "sprint/r-3b-compose-and-workspace-tests",
+    "scope": {
+     "phase": "a.1",
+     "sprint": "r-3b"
+    },
+    "commit": "a7b68f6",
+    "verdict": "PASS",
+    "blocking": 0,
+    "important": 0,
+    "findings": [],
+    "carry_forward_verdicts": [
+     {
+      "id": "arch-qa QA-1 (no findings, PASS at 90004d7)",
+      "verdict": "stays closed",
+      "note": "I found no regression in the fix range."
+     },
+     {
+      "id": "CI-R3B-001",
+      "verdict": "closed from the architecture side",
+      "note": "bin_path.rs no longer canonicalizes. workspace_root() is built from CARGO_MANIFEST_DIR ancestors, so the target dir is absolute and not verbatim (lines 38-53). I did not re-check CI myself. I rely on the caller's statement that PR 31 CI is 13/13 green at a7b68f6, run 42433144889."
+     }
+    ],
+    "adr_checks": [
+     {
+      "adr": "ADR-SAG-0028",
+      "source": "docs/architecture.md:1500",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/workspace-tests/Cargo.toml:21-26",
+       "crates/workspace-tests/tests/support/bin_path.rs:88"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0026",
+      "source": "docs/architecture.md:1306",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:1347",
+       "docs/architecture.md:1355"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0020",
+      "source": "docs/architecture.md:528",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/workspace-tests/tests/support/bin_path.rs:55-61"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0011",
+      "source": "docs/architecture.md:714",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/workspace-tests/Cargo.toml:17-20"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0010, 0003, 0005, 0009, 0013, 0016, 0017, 0021, 0022, 0023, 0025, 0029 and the other repo-level ADRs",
+      "source": "docs/architecture.md",
+      "listed_in_sprint_doc": true,
+      "result": "not-applicable",
+      "evidence_refs": [
+       "The fix range only touches the bin_path.rs build runner, the obs.rs doc example and doc text."
+      ]
+     }
+    ],
+    "gate_artifact_checks": [
+     {
+      "artifact": "docs/architecture.md (ADR-SAG-0026 text)",
+      "status": "closed",
+      "evidence_refs": [
+       "docs/architecture.md:1347",
+       "docs/architecture.md:1355"
+      ],
+      "notes": "REQ-QA-004 is in place: ask_from returns AskResponse, whose outcome() is the JudgeOutcome. REQ-QA-005 is in place: the GIT_CEILING_DIRECTORIES exception is documented in the environment-ownership bullet."
+     }
+    ],
+    "merge_ready": true,
+    "notes": "I made two checks that go beyond the fix range. First, RULE-ADR-AWAIT-MUTEX is not applicable. The workspace-tests crate has no async fn and no .await. BUILD_LOCK is a std Mutex guard held across a synchronous bounded spawn only. Second, bin_path.rs still takes only the five dev-dependencies that ADR-SAG-0028 lists. sc-ai is built as a binary and never linked. The cargo build now runs through the deadline runner with the BIN_BUILD_DEADLINE constant and --locked, and its panic message names the file-lock case. I did not request any new gate. Limitation: no Bash tool was available. I did not run git rev-parse, and I did not diff 90004d7..a7b68f6. I read the worktree files directly and did not confirm that HEAD is a7b68f6. I did not read the obs.rs doc example, the sprint doc, or the source_scans change, so those parts of the fix range are not checked."
+   }
+  },
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "a53ac95cf75e6f658",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-3b-compose-and-workspace-tests",
+     "reviewed_commit": "a7b68f6",
+     "review_mode": "sprint_review",
+     "executed_checks": {
+      "fmt": {
+       "status": "pass",
+       "command": "cargo fmt --all --check"
+      },
+      "clippy": {
+       "status": "pass",
+       "command": "cargo clippy --all-targets --all-features -- -D warnings"
+      },
+      "tests": {
+       "status": "pass",
+       "command": "cargo test --workspace; cargo test -p workspace-tests; cargo test -p sc-agent-types --features git,test-util; cargo test -p sc-agent-http --features test-util; cargo test -p sc-ai --features test-util; cargo test -p sc-ai --test cli --features cli,test-util"
+      },
+      "coverage": {
+       "status": "not_run",
+       "line": 0.0,
+       "branch": 0.0,
+       "function": 0.0,
+       "adequate_for_risk": true
+      },
+      "artifacts": {
+       "status": "not_run",
+       "command": ""
+      }
+     },
+     "carry_forward_verdicts": [
+      {
+       "id": "QA-001",
+       "verdict": "closed",
+       "evidence": "crates/sc-jev-host/src/obs.rs:71 now uses std::env::temp_dir().join(\"example-log\"), and the example is marked no_run. grep -rn '\"/tmp/' crates/ tests/ returns no matches."
+      },
+      {
+       "id": "CI-R3B-001",
+       "verdict": "closed",
+       "evidence": "The orchestrator reports PR 31 CI green at a7b68f6 (run 42433144889, 13/13, including test (windows-2022)). I did not check this myself. Locally, clippy --all-targets --all-features -D warnings passes on macOS with the a6cd399 large_enum_variant box fix, and the workspace tests pass."
+      }
+     ],
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "notes": [
+      "The review worktree HEAD is exactly a7b68f6cda24dc0d86b900a828d0de3e70501e6d. It is a detached HEAD, so the branch name could not be confirmed with git. The commit matches the assignment.",
+      "I ran every check in the review worktree with the CARGO_TARGET_DIR from the input. All test targets passed with 0 failures.",
+      "I did not run the publish dry-run or just test-python, as instructed. No new gates were requested.",
+      "The Windows-only bin_path verbatim target-dir failure cannot be reproduced on macOS. The CI result is the evidence for that part of CI-R3B-001."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "ac3ac8cceb7b86fbe",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-3b-compose-and-workspace-tests",
+     "reviewed_commit": "a7b68f6",
+     "findings": [],
+     "carry_forward_verdicts": [
+      {
+       "id": "FTQ-001",
+       "verdict": "closed",
+       "rationale": "In crates/workspace-tests/tests/support/bin_path.rs, bin_path now runs the cargo build through crate::deadline::spawn_with_limit(&mut build, None, BIN_BUILD_DEADLINE). BIN_BUILD_DEADLINE is a separate named 20-minute constant, so the shared 60s SUBPROCESS_DEADLINE is unchanged. The runner in tests/support/deadline.rs bounds every wait. The try_wait loop is capped by the deadline. On expiry it kills the process group on Unix and panics with the captured stderr. Each stdout/stderr drain waits at most PIPE_GRACE (5s) through recv_timeout and never joins the reader thread. A cargo process stuck on a file lock, a network stall or a wedged rustc therefore fails the test instead of hanging. The assert message names the 'Blocking waiting for file lock' case and includes stderr. `--locked` is added. The retained BUILD_LOCK mutex only serialises threads in one process. A thread blocked on it waits at most one bounded build per queued caller, so no unbounded path remains. This is redesign, not masking: there is no retry, sleep or padded shared timeout. Every target that includes support (consumer_parity, git_read_parity, e2e_treesitter_producer, test_util_off) also declares `mod deadline;`, so the crate::deadline reference resolves in each. I could not run the tests, because I had read-only tools and no shell. The review rests on reading the code."
+      },
+      {
+       "id": "CI-R3B-001",
+       "verdict": "closed",
+       "rationale": "The bin_path verbatim target-dir cause is fixed in code. workspace_root() is built from CARGO_MANIFEST_DIR and never canonicalized, so no \\\\?\\ path reaches mimalloc's cl.exe build. The clippy large_enum_variant half is covered by the a6cd399 box commit. I did not inspect that commit or check CI myself. This verdict rests on the supplied evidence that PR 31 CI is 13/13 green at a7b68f6 (run 42433144889), including test (windows-2022)."
+      }
+     ],
+     "summary": {
+      "total_findings": 0,
+      "critical": 0,
+      "important": 0,
+      "minor": 0
+     }
+    },
+    "error": null
+   }
+  }
+ ],
+ "triage": {
+  "commit": "8449610 on integrate/phase-a",
+  "ttl_paths": [
+   ".triage/phase-a-refine/findings/R3B-REQ-QA-001.ttl",
+   ".triage/phase-a-refine/findings/R3B-REQ-QA-002.ttl",
+   ".triage/phase-a-refine/findings/R3B-CI-R3B-001.ttl",
+   ".triage/phase-a-refine/findings/R3B-FTQ-001.ttl",
+   ".triage/phase-a-refine/findings/R3B-REQ-QA-004.ttl",
+   ".triage/phase-a-refine/findings/R3B-REQ-QA-005.ttl",
+   ".triage/phase-a-refine/findings/R3B-REQ-QA-006.ttl",
+   ".triage/phase-a-refine/findings/R3B-QA-001.ttl"
+  ]
+ },
+ "fix_assignment": ".cursor/phase-a-orchestration/wave10-qa/r-3b-qa1/fix-assignment.xml",
+ "fix_commits": "a6cd399, f3ceaae, a7b68f6",
+ "prior_round": {
+  "qa_pass": "qa-r-3b-1",
+  "verdict": "FAIL 2B/2I/4M",
+  "pr_comment": "https://github.com/randlee/sc-agent/pull/31#issuecomment-6714709670"
+ }
+}

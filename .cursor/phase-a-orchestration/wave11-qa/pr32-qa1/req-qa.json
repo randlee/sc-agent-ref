@@ -1,0 +1,237 @@
+{
+  "status": "FAIL",
+  "reviewed_branch": "plan/phase-a-decision-apis",
+  "reviewed_commit": "2a44320",
+  "errors": [
+    {
+      "code": "ANALYSIS.ERROR",
+      "message": "Bash is not available in this run, so `git diff origin/integrate/phase-a...2a44320` could not be executed. The 27-line owner-decision diff was not isolated; the three named review targets were reviewed in their current state at the verified commit. The duplicate REQ-SAG-0130 row at docs/requirements.md:212 is the likely r-7 addition but is unconfirmed."
+    },
+    {
+      "code": "ANALYSIS.ERROR",
+      "message": "docs/project-plan.md and .claude/project/quality-policy.md were not read. Sequencing and repository-layout checks against those baselines are not covered by this review."
+    }
+  ],
+  "scope": {
+    "phase": "A.1 (phase-a-refine)",
+    "sprint": "r-7"
+  },
+  "baselines_read": [
+    "docs/architecture.md (lines 1-892, 1557-1636, ADR index lines 91-133, and all '### Amendment (Phase A.1, r-7)' and r-5 subsection headings)",
+    "docs/requirements.md (grep of REQ-SAG-0007 to REQ-SAG-0014 and REQ-SAG-0090x rows, plus sc-jev naming references)",
+    "docs/plans/phase-a-refine/plan.md (lines 600-680)"
+  ],
+  "phase_or_sprint_docs_read": [
+    "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md (front matter lines 1-40; Layering lines 196-230; requirement-coverage grep)"
+  ],
+  "requirement_checks": [
+    {
+      "id": "REQ-SAG-0130",
+      "source": "docs/requirements.md:130, :207, :208, :212",
+      "listed_in_sprint_doc": true,
+      "result": "not-verifiable",
+      "evidence_refs": [
+        "docs/requirements.md:130",
+        "docs/requirements.md:207",
+        "docs/requirements.md:208",
+        "docs/requirements.md:212",
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:29",
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:891"
+      ]
+    },
+    {
+      "id": "REQ-SAG-0140",
+      "source": "docs/requirements.md:177",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+        "docs/architecture.md:1566-1572",
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:18",
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:880"
+      ]
+    },
+    {
+      "id": "REQ-SAG-0143",
+      "source": "docs/requirements.md:180",
+      "listed_in_sprint_doc": false,
+      "result": "upheld",
+      "evidence_refs": [
+        "docs/architecture.md:1593-1600",
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:197",
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:202-203 (wording conflict, see REQ-QA-004)"
+      ]
+    },
+    {
+      "id": "REQ-SAG-0900",
+      "source": "docs/requirements.md:139",
+      "listed_in_sprint_doc": false,
+      "result": "upheld",
+      "evidence_refs": [
+        "docs/architecture.md:1628-1634",
+        "docs/plans/phase-a-refine/plan.md:618-622"
+      ]
+    }
+  ],
+  "deliverable_checks": [
+    {
+      "item": "Sprint r-7 front-matter requirements list present and populated",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:17-40"],
+      "notes": "List is present. REQ-SAG-0130 is listed, but the id is not unique (see REQ-QA-001)."
+    },
+    {
+      "item": "Every amended ADR has an r-7 (or r-5 for ADR-SAG-0012) amendment subsection as ADR-SAG-0030 claims",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+        "docs/architecture.md:201 (ADR-0005)",
+        "docs/architecture.md:304 (ADR-0009)",
+        "docs/architecture.md:418 (ADR-0022)",
+        "docs/architecture.md:504 (ADR-0019)",
+        "docs/architecture.md:801 (ADR-0017)",
+        "docs/architecture.md:932 (ADR-0016)",
+        "docs/architecture.md:1020 (ADR-0012, r-5)",
+        "docs/architecture.md:1370 (ADR-0026)",
+        "docs/architecture.md:1486 (ADR-0027)"
+      ],
+      "notes": "All nine amended ADRs have the claimed subsection. ADR index rows at architecture.md:103-133 match the ADR-SAG-0030 amends list at architecture.md:1561-1563."
+    },
+    {
+      "item": "ADR-SAG-0030 last bullet (scope context, API-direct vs CLI wrappers)",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+        "docs/architecture.md:1628-1634",
+        "docs/requirements.md:139-140",
+        "docs/plans/phase-a-refine/plan.md:618-622"
+      ],
+      "notes": "Consistent with REQ-SAG-0900 and REQ-SAG-0901 (API-direct agents). No wrapper is built in A.1. No conflict."
+    },
+    {
+      "item": "plan.md owner item 12 and post-MVP line (decider/laya order, kev unscheduled)",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+        "docs/plans/phase-a-refine/plan.md:663-668",
+        "docs/plans/phase-a-refine/plan.md:478",
+        "docs/architecture.md:1611-1615"
+      ],
+      "notes": "Order (decider first, then laya; kev unscheduled) is identical in all three places. Owner-decision wording is consistent. Item 12 is subject to REQ-QA-002 and REQ-QA-003 for the naming rule it cites."
+    },
+    {
+      "item": "Crate naming convention section (architecture.md 'Crate naming convention')",
+      "status": "partially-present",
+      "closure_state": "open",
+      "evidence_refs": [
+        "docs/architecture.md:53-59",
+        "crates/sc-jev-py/Cargo.toml",
+        "docs/architecture.md:1593-1600"
+      ],
+      "notes": "Omits sc-jev-py from the 'Today' list and says 'sc-decision-*' is API-agnostic while jev::v1 Jev-specific structs sit in sc-decision-schema. See REQ-QA-002 and REQ-QA-003."
+    },
+    {
+      "item": "Sprint r-7 Layering layout note ('only jev:: is built in r-7')",
+      "status": "partially-present",
+      "closure_state": "open",
+      "evidence_refs": [
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:202-203",
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:197",
+        "docs/architecture.md:1593"
+      ],
+      "notes": "Contradicts sprint line 197 and ADR-SAG-0030 (jev::v1 lands in r-5). See REQ-QA-004."
+    },
+    {
+      "item": "Unique requirement id for each requirements row (REQ-SAG-0130)",
+      "status": "partially-present",
+      "closure_state": "open",
+      "evidence_refs": [
+        "docs/requirements.md:130",
+        "docs/requirements.md:207",
+        "docs/requirements.md:208",
+        "docs/requirements.md:212"
+      ],
+      "notes": "One id names four different requirement subjects. See REQ-QA-001."
+    }
+  ],
+  "findings": [
+    {
+      "id": "REQ-QA-001",
+      "severity": "Blocking",
+      "category": "requirements",
+      "source_refs": [
+        "docs/requirements.md:130",
+        "docs/requirements.md:207",
+        "docs/requirements.md:208",
+        "docs/requirements.md:212"
+      ],
+      "target_refs": [
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:29",
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:891"
+      ],
+      "issue": "REQ-SAG-0130 is used as the id of four rows with different subjects (crates.io and channel enablement, sc-agent-http publish, sc-jev-host publish, and the r-7 sc-decision-schema publish). The r-7 row at line 212 duplicates an existing id. Sprint r-7 cites REQ-SAG-0130 for its amendment, so its traceability and acceptance row at line 891 cannot resolve to a unique requirement.",
+      "required_correction": "Through a planned, reviewed edit to docs/requirements.md, give each REQ-SAG-0130 row its own unique id (or merge the amendment into the existing active row and keep one id). Then update sprint r-7 front matter line 29 and acceptance row line 891 to the resolved id. Do not reuse the id in other rows.",
+      "compliance_result": "non-compliant"
+    },
+    {
+      "id": "REQ-QA-002",
+      "severity": "Important",
+      "category": "cross-doc-conflict",
+      "source_refs": [
+        "docs/architecture.md:56-59",
+        "docs/architecture.md:1593-1600",
+        "docs/architecture.md:1611-1615",
+        "docs/plans/phase-a-refine/plan.md:663-668",
+        "docs/requirements.md:180"
+      ],
+      "target_refs": [
+        "docs/architecture.md:53-55"
+      ],
+      "issue": "The naming convention defines 'sc-jev-*' as anything that speaks the TypeSafe Jev API and 'sc-decision-*' as the API-agnostic layer across all decision APIs. ADR-SAG-0030 and REQ-SAG-0143 place the Jev-specific wire structs (sc_decision_schema::jev::v1, CheckRequest and CheckResponse) inside sc-decision-schema. Jev-API-speaking code therefore lives outside the sc-jev-* family while the layer is described as API-agnostic.",
+      "required_correction": "Through a planned, reviewed edit, amend the Crate naming convention text (architecture.md:56-59) and plan.md item 12 to state that sc-decision-schema hosts versioned per-API modules (jev::v1 now, decider::, laya:: reserved), and that the API-agnostic claim covers the shared types only. Or move jev::v1 to a sc-jev-* crate and amend REQ-SAG-0143 and ADR-SAG-0030 to match. Either choice must be recorded in both docs.",
+      "compliance_result": "non-compliant"
+    },
+    {
+      "id": "REQ-QA-003",
+      "severity": "Important",
+      "category": "cross-doc-conflict",
+      "source_refs": [
+        "docs/architecture.md:53-55",
+        "docs/architecture.md:31",
+        "docs/plans/phase-a-refine/plan.md:663-668"
+      ],
+      "target_refs": [
+        "crates/sc-jev-py/Cargo.toml"
+      ],
+      "issue": "crates/sc-jev-py exists and is a PyO3 composition crate in the Phase A crate graph (architecture.md:31). The 'Today:' list in the naming convention (sc-jev, sc-jev-backends, sc-jev-check, sc-jev-host) omits it, and the rule's definition ('anything that speaks the TypeSafe Jev API') does not clearly cover a PyO3 wrapper that does not speak the Jev API itself. The naming rule is therefore incomplete for an existing crate.",
+      "required_correction": "Through a planned, reviewed edit, either list sc-jev-py in the 'Today' list with an explicit rationale (wrapper of sc-jev-host, does not speak the Jev API directly) or narrow the rule's definition so it covers the existing crate. Mirror the change in plan.md item 12.",
+      "compliance_result": "non-compliant"
+    },
+    {
+      "id": "REQ-QA-004",
+      "severity": "Minor",
+      "category": "cross-doc-conflict",
+      "source_refs": [
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:197",
+        "docs/architecture.md:1593",
+        "docs/plans/phase-a-refine/plan.md:609"
+      ],
+      "target_refs": [
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:202-203"
+      ],
+      "issue": "The layout note says 'only jev:: is built in r-7'. Sprint line 197, ADR-SAG-0030 (architecture.md:1593) and plan.md:609 place the jev::v1 structs in r-5, and r-7 carries them unchanged. The layout note's wording conflicts with the landing sprint.",
+      "required_correction": "Through a planned, reviewed edit, reword sprint r-7 lines 202-203 to read that jev:: exists from r-5 and is carried unchanged in r-7, and that no per-API module is added in r-7.",
+      "compliance_result": "partially-compliant"
+    }
+  ],
+  "summary": {
+    "total_findings": 4,
+    "blocking_findings": 1,
+    "overall_compliance": "non-compliant",
+    "deliverables_total": 8,
+    "deliverables_complete": 5,
+    "deliverables_incomplete": 3,
+    "deliverable_completion_percent": 62.5
+  },
+  "gate_reason": "FAIL. Blocking finding REQ-QA-001: the id REQ-SAG-0130 names four different requirement rows in docs/requirements.md, and the sprint cites it, so the requirement check is not-verifiable. Three deliverables are partially present and open (crate naming section, r-7 layout note, unique id for REQ-SAG-0130). Completion is 62.5 percent, not 100 percent. Two Important or Minor cross-document conflicts remain unresolved. Requirement-coverage, ADR amendment subsections, the ADR index, the owner-decision bullets and plan item 12 are otherwise consistent. The 27-line diff could not be isolated without git and project-plan.md was not read, so this result covers the three named targets only."
+}

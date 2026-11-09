@@ -1,0 +1,12 @@
+{
+  "agent": "arch-qa",
+  "branch": "sprint/a-8-pyo3-wrapper",
+  "scope": {"phase": "a", "sprint": "a-8"},
+  "commit": "bfd36cb93a52c627e6cb04f24c5c6111243e8c00",
+  "verdict": "PASS",
+  "blocking": 0,
+  "important": 0,
+  "findings": [],
+  "merge_ready": true,
+  "notes": "ARCH-005 and ADR-SAG-0022 test-util contract verified at bfd36cb."
+}

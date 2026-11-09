@@ -1,0 +1,43 @@
+{
+  "status": "PASS",
+  "reviewed_branch": "sprint/r-7-decision-schema",
+  "reviewed_commit": "57c66e2",
+  "errors": [],
+  "scope": {"phase": "phase-a-refine", "sprint": "r-7"},
+  "baselines_read": [],
+  "phase_or_sprint_docs_read": ["docs/plans/phase-a-refine/sprint-r-7-decision-schema.md"],
+  "requirement_checks": [],
+  "deliverable_checks": [
+    {
+      "item": "REQ-QA-002: frontmatter status and closeout text agree",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:4",
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:1003-1004"
+      ],
+      "notes": "Frontmatter says status: complete. The closeout bullet says status stayed in-review through QA and the coordinator flipped it to complete after follow-up QA left no open finding. The two agree."
+    },
+    {
+      "item": "REQ-QA-001: the flip is attributed to the coordinator and the doc claims no closure it cannot support",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:1003-1006",
+        ".claude/skills/triaging-findings/SKILL.md:306-324"
+      ],
+      "notes": "The doc credits the status flip to the coordinator. It puts finding closure with the quality-mgr report on PR 33 and says the triage records do not close findings. That matches Closure Rules: qa-triage records evidence, quality-mgr owns closure, and team-lead routes work. The doc does not claim the quality-mgr PASS already exists, so nothing here is unsupported."
+    }
+  ],
+  "findings": [],
+  "summary": {
+    "total_findings": 0,
+    "blocking_findings": 0,
+    "overall_compliance": "compliant",
+    "deliverables_total": 2,
+    "deliverables_complete": 2,
+    "deliverables_incomplete": 0,
+    "deliverable_completion_percent": 100.0
+  },
+  "gate_reason": "The worktree is on the assigned branch and its ref points at 57c66e2e27d9ee6e76a5a71f65de70039b6f56c2. I read the ref files directly because this run had no shell. The two locked items, REQ-QA-001 and REQ-QA-002, are resolved. No new findings were raised, as instructed. I did not re-check the other delta items (the boundaries/README.md sentence and the owned_paths entry), and I did not do a full requirements review. The quality-mgr PASS on PR 33 is posted after this round and was not required."
+}

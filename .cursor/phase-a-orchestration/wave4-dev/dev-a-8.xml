@@ -1,0 +1,14 @@
+<cursor-task id="dev-a-8" sprint="a-8" assignee="rust-developer">
+  <description>Sprint a-8 sc-jev-py PyO3 wrapper over sc-jev-check</description>
+  <worktree>/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-8-pyo3-wrapper</worktree>
+  <branch>sprint/a-8-pyo3-wrapper</branch>
+  <pr-target>integrate/phase-a</pr-target>
+  <integrate-head>53644e2d4a4eb01dffe86ae5581b0b5d2e4859c6</integrate-head>
+  <authoritative-sprint-doc>docs/plans/phase-a/sprint-a-8-pyo3-wrapper.md</authoritative-sprint-doc>
+  <deliverables>Implement all deliverables and acceptance in sprint doc.</deliverables>
+  <workflow>
+    <step>Read sprint doc fully; implement crates/sc-jev-py, pyproject/maturin, tests/fixtures/jev-python.</step>
+    <step>Run all Required validation commands; fix until pass.</step>
+    <step>Commit and push branch; report SHA. Do not merge or spawn QA.</step>
+  </workflow>
+</cursor-task>

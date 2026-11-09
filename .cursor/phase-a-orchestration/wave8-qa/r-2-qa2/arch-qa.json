@@ -1,0 +1,27 @@
+{
+  "agent": "arch-qa",
+  "branch": "sprint/r-2-engine-shape",
+  "scope": {"phase": "a.1", "sprint": "r-2"},
+  "commit": "3f66e7bbc09c66fdeca2146bfb436ededd4bf02f",
+  "verdict": "PASS",
+  "blocking": 0,
+  "important": 0,
+  "findings": [],
+  "carry_forward": [
+    {"id": "ARCH-R2-001", "status": "closed", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:68", "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:578"], "notes": "ADR-SAG-0016 is now in the sprint `adrs` list with an upheld note. A grep of crates/ found no sc-observability edge in sc-jev-check. sc-observability appears only in sc-ai and sc-jev-py, which are the composition roots."},
+    {"id": "ARCH-R2-002", "status": "closed", "evidence_refs": [], "notes": "This was MINOR and optional. The developer left it as won't-fix. That is acceptable and not a finding."},
+    {"id": "ADR-SAG-0017 not-verifiable", "status": "closed", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:489-511"], "notes": "The evidence is the PR 27 sc-publish dry-run, run 42419966426, which is green at f7994d5 (cited in the sprint doc and the dev report). 3f66e7b changes only the sprint doc. I did not re-run it myself because this pass has no shell."},
+    {"id": "ADR-SAG-0023 not-verifiable", "status": "closed", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:489-511"], "notes": "The evidence is the `dependency gates (allocator, pins)` job in CI run 42419966414, which is green at f7994d5. I did not re-run it myself."}
+  ],
+  "adr_checks": [
+    {"adr": "ADR-SAG-0016", "source": "docs/architecture.md:92", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:68", "crates/sc-jev-check (no sc-observability edge)"]},
+    {"adr": "ADR-SAG-0017", "source": "docs/architecture.md:93", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:495"]},
+    {"adr": "ADR-SAG-0023", "source": "docs/architecture.md:99", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:494"]},
+    {"adr": "ADR-SAG-0024", "source": "docs/architecture.md:1007", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["QA-1 upheld result; the fix-round range 0d643f2..3f66e7b adds no structural change that contradicts it. The fix round narrows the public surface with pub(crate) and adds run::ask. Both are recorded in the ADR-0024 bullets, per the dev report."]}
+  ],
+  "gate_artifact_checks": [
+    {"artifact": "boundaries/sc-jev-check/jev-check.toml", "status": "closed", "evidence_refs": [], "notes": "The dev report says the facade was narrowed and the boundary check passes. This was not changed by an arch-qa finding. Boundary validation belongs to ruthless-boundary-qa."}
+  ],
+  "merge_ready": true,
+  "notes": "The detached review worktree's gitdir HEAD resolves to 3f66e7bbc09c66fdeca2146bfb436ededd4bf02f, which matches the assignment. The `.await`, `#[allow(`, and std::sync::Mutex sweep of crates/ found no new hits. The only Mutex is the existing test-only one at registry/mod.rs:285, with no `.await`, so RULE-ADR-AWAIT-MUTEX is not triggered. I found no regressions from the fix round at the structural level. The fix round's changes (the shared git test helper, the RepoRelativePath-based CheckSource, and run::ask over FileSessionStore) introduce no new crate, dependency edge, feature gate, or wire contract. This pass had no shell, so I did not re-run any command. The CI evidence is cited from the sprint doc and the dev report."
+}

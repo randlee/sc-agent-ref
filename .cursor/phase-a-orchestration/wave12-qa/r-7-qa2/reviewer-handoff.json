@@ -1,0 +1,477 @@
+{
+ "pr": 33,
+ "qa_pass": "qa-r7-2",
+ "round": "QA-2",
+ "sprint": "r-7",
+ "branch": "sprint/r-7-decision-schema",
+ "head": "4eb8265",
+ "base": "integrate/phase-a",
+ "prior_round": {
+  "qa_pass": "qa-r7-1",
+  "pr_comment": "https://github.com/randlee/sc-agent/pull/33#issuecomment-6716224250",
+  "dispositions": "../r-7-qa1/fix-assignment.xml"
+ },
+ "manifest": [
+  {
+   "agent": "req-qa",
+   "task_id": "a7e71440cea34884a",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "4eb8265"
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "addafbd840ceb9e80",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "4eb8265"
+  },
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "a54b9258d4ede5c82",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "4eb8265"
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "af470d85db0bcc580",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "4eb8265"
+  }
+ ],
+ "reviewer_outputs": [
+  {
+   "agent": "req-qa",
+   "task_id": "a7e71440cea34884a",
+   "fenced_json": {
+    "status": "PASS",
+    "reviewed_branch": "sprint/r-7-decision-schema",
+    "reviewed_commit": "4eb8265",
+    "errors": [],
+    "scope": {
+     "phase": "phase-a-refine",
+     "sprint": "r-7"
+    },
+    "baselines_read": [
+     "docs/requirements.md (via QA-1 record)",
+     "docs/architecture.md (via QA-1 record)",
+     "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md lines 1-761 plus targeted greps",
+     ".cursor/phase-a-orchestration/wave12-qa/r-7-qa1/req-qa.json",
+     ".cursor/phase-a-orchestration/wave12-qa/r-7-qa1/fix-assignment.xml",
+     ".cursor/phase-a-orchestration/wave12-qa/r-7-qa1/acceptance-9497297.log"
+    ],
+    "phase_or_sprint_docs_read": [
+     "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md"
+    ],
+    "requirement_checks": [
+     {
+      "id": "REQ-SAG-0140..0148, REQ-SAG-0613 seam, 0102-0109, 0130-0132, 0143, 0301, 0400, 0500-0501, 0602-0611, 0620, 0700-0710, 0800-0802, NFR-SAG-0001/0002/0004",
+      "source": "docs/requirements.md; sprint doc frontmatter lines 17-57",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "acceptance-9497297.log: 51 command sections, 50 'rc=0' lines, 0 non-zero rc; the one section without an rc line (log line 184) is the grep for 'Proposed, r-7', which printed 0",
+       "sprint doc lines 17-57"
+      ]
+     }
+    ],
+    "deliverable_checks": [
+     {
+      "item": "Acceptance table and required-validation commands (REQ-QA-001)",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "/Volumes/Extreme Pro/github/sc-agent/.cursor/phase-a-orchestration/wave12-qa/r-7-qa1/acceptance-9497297.log:1-258"
+      ],
+      "notes": "The log header is 'HEAD 9497297'. It ends with DONE, and includes cargo-tree-gates, cargo hack/test targets, check-exact-pins.sh and sc-publish-dry-run.sh ('passed (all)'). These are the commands QA-1 could not run. I have no shell either, so I accepted the log as the execution evidence you named."
+     },
+     {
+      "item": "REQ-QA-002: sprint doc names client/mod.rs, not check.rs, for model_id",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:126",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:407-409",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:627",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:964"
+      ],
+      "notes": "The only remaining 'check.rs' in the doc is the line-964 implementation note, and it only says model_id is in client/mod.rs rather than check.rs. That is consistent."
+     },
+     {
+      "item": "QA-1 fixes break no requirement (static check)",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-agent-types/src/git.rs:18-23,43,94,108,167,304,324,404",
+       "crates/sc-jev-check/src/run/mod.rs:42,806-814",
+       ".github/workflows/sc-agent-ci.yml (24 --locked occurrences)"
+      ],
+      "notes": "RSH-002: git.rs has the 60 s GIT_DEADLINE, try_wait polling, GIT_TERMINAL_PROMPT=0 kept, and a typed extraction_timeout error. RSH-004: run/mod.rs skips the judge log event when the call was cancelled at entry, matching the module doc at line 42. RSH-006: --locked is present in the CI workflow. I only did a static spot check. Environment-sensitive and doc-only fixes (FTQ-001..003, RSH-003) were not diffed. No change contradicts a requirement, and the fixes do not touch wire bytes, digests or the moved types."
+     }
+    ],
+    "findings": [
+     {
+      "id": "REQ-QA-003",
+      "severity": "Minor",
+      "category": "plan",
+      "source_refs": [
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:88-179",
+       ".cursor/phase-a-orchestration/wave12-qa/r-7-qa1/fix-assignment.xml:6"
+      ],
+      "target_refs": [
+       "crates/sc-agent-types/src/git.rs"
+      ],
+      "issue": "The QA-1 fix R7-QA1-RSH-002 edits crates/sc-agent-types/src/git.rs. I found no owned_paths entry for that file (sc-agent-types entries are lib.rs, Cargo.toml, ids.rs, catalog.rs, models.rs, trace.rs and tests). I could not check whether another sprint owns it. This is informational and not a requirement violation.",
+      "required_correction": "Add 'crates/sc-agent-types/src/git.rs#subprocess deadline (QA-1 RSH-002)' to the sprint doc's owned_paths, with the same for any other QA-1 fix files outside the list.",
+      "compliance_result": "partially-compliant"
+     }
+    ],
+    "summary": {
+     "total_findings": 1,
+     "blocking_findings": 0,
+     "overall_compliance": "compliant",
+     "deliverables_total": 3,
+     "deliverables_complete": 3,
+     "deliverables_incomplete": 0,
+     "deliverable_completion_percent": 100.0
+    },
+    "gate_reason": "Worktree identity: the worktree's HEAD file is 'ref: refs/heads/sprint/r-7-decision-schema', and that ref file contains 4eb8265e0b5e2d3d27478945c30b08a9d4a2125c, so it matches the assigned commit. REQ-QA-001 is closed by the acceptance log: all 50 commands exit 0 at 9497297. REQ-QA-002 is fixed at the three named lines in the sprint doc. The QA-1 fixes I inspected break no requirement. Remaining: one Minor housekeeping finding (owned_paths for git.rs). Caveat: I had only read tools, so the log is parent-attested evidence for 9497297 and the post-9497297 gates (fmt, clippy, tests, just lint, PR 33 CI at 4eb8265) rest on the parent's report."
+   }
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "addafbd840ceb9e80",
+   "fenced_json": {
+    "agent": "arch-qa",
+    "branch": "sprint/r-7-decision-schema",
+    "scope": {
+     "phase": "phase-a-refine",
+     "sprint": "r-7"
+    },
+    "commit": "4eb8265",
+    "verdict": "FAIL",
+    "blocking": 3,
+    "important": 0,
+    "findings": [
+     {
+      "id": "ARCH-001",
+      "rule": "RULE-ADR-CODE",
+      "adr": "ADR-SAG-0013",
+      "severity": "BLOCKING",
+      "file": "crates/sc-jev-check/src/run/mod.rs",
+      "line": 806,
+      "description": "The engine's send() suppresses the LogEvent when the request token was already cancelled at entry and the backend returns NETWORK_ERROR kind Cancelled (lines 806-820). The engine still records that backend as Step::Failed with Attestation::Failed (lines 618-625, 681-682), so the result and the log disagree. The only no-log case the engine defines is NotSent (refused before a send). The binding requirement REQ-SAG-0610 (docs/requirements.md:102) says every Jev/LLM prompt send emits a LogEvent, and the ADR-SAG-0013 expectation recorded in the r-2b sprint and the plan-review-5 disposition (ARCH-R2B-002) is 'every judge call emits one LogEvent, a Failed backend included, NotSent emits none'. The new test crates/sc-jev-check/src/run/tests.rs:643-679 (cancelled_before_send_emits_no_log_event) codifies the suppression. The ADR-SAG-0013 body text is general, so the binding basis is REQ-SAG-0610 read with ADR-SAG-0013.",
+      "remediation": "Remove the cancelled_at_entry suppression in send() so every judge call that reaches judge() emits exactly one LogEvent, Failed included. Change cancelled_before_send_emits_no_log_event to assert one event. If the owner wants a pre-send cancel to count as NotSent, first land an Active amendment to ADR-SAG-0013 that says so, then classify it as Attestation::NotSent in the engine and update the module doc (lines 40-44) to match. Do not keep the Failed attestation with no log line."
+     },
+     {
+      "id": "ARCH-002",
+      "rule": "RULE-ADR-CODE",
+      "adr": "ADR-SAG-0028",
+      "severity": "BLOCKING",
+      "file": "crates/workspace-tests/Cargo.toml",
+      "line": 24,
+      "description": "workspace-tests gains a dev-dependency on sc-decision-schema (also boundaries/workspace-tests/workspace-tests.toml:31 allowed_dependencies). ADR-SAG-0028 (docs/architecture.md:1537-1546) states the dev-dependencies are 'exactly' sc-agent-types, sc-jev-check, sc-jev-host, serde_json, tempfile. The ADR-SAG-0028 section (docs/architecture.md:1522-1564) has no r-7 amendment, and the sprint's owned_paths amendment list (sprint doc line 172) names only ADR-SAG-0005, 0009, 0016, 0017, 0019, 0022, 0026 and 0027. The sprint doc still names ADR-SAG-0028 in its adrs list (line 84) as 'workspace-tests gains a dev edge on sc-decision-schema'. A sprint deliverable cannot relax a binding ADR, so this contradiction is Blocking under RULE-ADR-PLAN as well as RULE-ADR-CODE.",
+      "remediation": "Either (a) plan and land an Active ADR-SAG-0028 r-7 amendment that names the sc-decision-schema dev edge, replaces the 'exactly' list, and adds ADR-SAG-0028 to the sprint's amendment owned_paths, then flip it in the same sprint; or (b) remove the dev edge by moving the test-util-dependent proofs into sc-decision-schema or sc-jev-check's own tests. The current state (edge present, ADR unamended) is not acceptable."
+     },
+     {
+      "id": "ARCH-003",
+      "rule": "RULE-ADR-CODE",
+      "adr": null,
+      "severity": "BLOCKING",
+      "file": "crates/sc-agent-types/src/git.rs",
+      "line": 43,
+      "description": "The QA-1 fix adds a wall-clock deadline on every git subprocess (pub const GIT_DEADLINE = 60 s, fixed and not configurable, lines 18-23 and 43; enforced at lines 171, 308 and 383). A timeout now surfaces as JevError::ExtractionTimeout, so the code is EXTRACTION_TIMEOUT with timeout_seconds 60. The git module is public (crates/sc-agent-types/src/lib.rs:61 'pub mod git;'), and ADR-SAG-0027 lists it as stable surface. No ADR or crate doc records this process contract, the fixed value, the new public constant, or the new failure mode for git reads (grep of docs/ finds no git deadline text; docs/sc-agent-types/architecture.md has none). ADR-SAG-0027 does allow several variants to map to one existing id, so reusing the id is not itself an ADR-SAG-0027 violation. However, the variant's rustdoc (crates/sc-agent-types/src/error.rs:160 'The extractor exceeded its time limit') and docs/sc-jev-check/extraction.md:37 describe EXTRACTION_TIMEOUT as an extractor-only code, so consumers reading it will misattribute git timeouts. The new process and error contract is therefore a structural decision with no ADR.",
+      "remediation": "Record the decision in an Active ADR-SAG-0027 amendment, or a new ADR, that states: every git subprocess has the fixed deadline; git timeouts surface as EXTRACTION_TIMEOUT with timeout_seconds; and whether GIT_DEADLINE is stable surface. Alternatively add a git-scoped JevError variant that maps to EXTRACTION_TIMEOUT (permitted by ADR-SAG-0027) with its own rustdoc. Narrow GIT_DEADLINE to pub(crate) unless the amendment makes it stable surface. Fix the error.rs:160 and extraction.md:37 wording to cover git reads."
+     }
+    ],
+    "adr_checks": [
+     {
+      "adr": "ADR-SAG-0013",
+      "source": "docs/architecture.md:835",
+      "listed_in_sprint_doc": true,
+      "result": "violated",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/run/mod.rs:806",
+       "crates/sc-jev-check/src/run/mod.rs:821",
+       "crates/sc-jev-check/src/run/mod.rs:681",
+       "crates/sc-jev-check/src/run/tests.rs:643",
+       "docs/requirements.md:102"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0025",
+      "source": "docs/architecture.md:1289",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/run/mod.rs:618",
+       "crates/sc-jev-check/src/run/mod.rs:624",
+       "crates/sc-jev-check/src/run/mod.rs:632"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0027",
+      "source": "docs/architecture.md:1406",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-agent-types/src/git.rs:171",
+       "crates/sc-agent-types/src/git.rs:308",
+       "crates/sc-agent-types/src/git.rs:383",
+       "crates/sc-agent-types/src/error.rs:543",
+       "crates/sc-agent-types/src/code.rs:39"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0028",
+      "source": "docs/architecture.md:1522",
+      "listed_in_sprint_doc": true,
+      "result": "violated",
+      "evidence_refs": [
+       "crates/workspace-tests/Cargo.toml:24",
+       "boundaries/workspace-tests/workspace-tests.toml:31",
+       "docs/architecture.md:1537",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:84",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:172"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0001",
+      "source": "docs/architecture.md:143",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-agent-types/src/git.rs:32",
+       "crates/sc-agent-types/src/error.rs:543"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0024",
+      "source": "docs/architecture.md:1201",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/run/mod.rs:533",
+       "crates/sc-jev-check/src/run/mod.rs:456"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0006",
+      "source": "docs/architecture.md:653",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-agent-http/src/retry.rs:248",
+       "crates/sc-agent-http/src/retry.rs:416"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0007",
+      "source": "docs/architecture.md:670",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-agent-http/src/retry.rs:406",
+       "crates/sc-agent-http/src/retry.rs:420"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0018",
+      "source": "docs/architecture.md:749",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "release/sc-publish-consumer-input.json:51",
+       "release/publish-artifacts.toml"
+      ]
+     }
+    ],
+    "gate_artifact_checks": [
+     {
+      "artifact": "boundaries/sc-decision-schema/decision-schema.toml",
+      "status": "closed",
+      "evidence_refs": [
+       "boundaries/sc-decision-schema/decision-schema.toml:21",
+       "boundaries/sc-decision-schema/decision-schema.toml:46",
+       "boundaries/sc-decision-schema/decision-schema.toml:49"
+      ],
+      "notes": "Matches the D1.3 text. It has no internal gate beyond review_gates = [] and state = concrete_landed, and its rows are complete."
+     },
+     {
+      "artifact": "release/sc-publish-consumer-input.json",
+      "status": "closed",
+      "evidence_refs": [
+       "release/sc-publish-consumer-input.json:51",
+       "release/sc-publish-consumer-input.json:55"
+      ],
+      "notes": "sc-decision-schema is present at publish_order 2. The rendered release/publish-artifacts.toml also lists it. install.py is a parent-run step, so only presence was checked."
+     },
+     {
+      "artifact": "scripts/sc-publish-dry-run.sh",
+      "status": "closed",
+      "evidence_refs": [
+       "scripts/sc-publish-dry-run.sh:37",
+       "scripts/sc-publish-dry-run.sh:133"
+      ],
+      "notes": "The package list is derived from release/sc-publish-consumer-input.json by the kit install and preflight, so no hard-coded list needs editing."
+     },
+     {
+      "artifact": "docs/architecture.md (D9 ADR flips)",
+      "status": "closed",
+      "evidence_refs": [
+       "docs/architecture.md:1567",
+       "docs/architecture.md:1649"
+      ],
+      "notes": "No (Proposed, r-7) marker remains. ADR-SAG-0030 and ADR-SAG-0031 are flipped to Active (r-7). The ADR-SAG-0028 amendment is missing, which is ARCH-002."
+     },
+     {
+      "artifact": "boundaries/workspace-tests/workspace-tests.toml",
+      "status": "closed",
+      "evidence_refs": [
+       "boundaries/workspace-tests/workspace-tests.toml:31",
+       "boundaries/workspace-tests/workspace-tests.toml:56"
+      ],
+      "notes": "The manifest is internally complete (state concrete_landed). Its allowed_dependencies conflicts with ADR-SAG-0028, which is reported as ARCH-002."
+     }
+    ],
+    "merge_ready": false,
+    "notes": "Review basis and limits. The worktree /Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-7-decision-schema resolves to refs/heads/sprint/r-7-decision-schema, and that ref points to 4eb8265e0b5e2d3d27478945c30b08a9d4a2125c, which matches the input commit. The reflog confirms base 94972978d9e6321be71e884368721cf0f79d3d54 (9497297) and the fix commits e92c8bc, 04584aa, 6dbb524, bc5993f/f3e25c9 (amend), f4eb939, 5cace43 and 4eb8265. This agent has no shell, so git diff 9497297..4eb8265 could not be run. The review therefore covers the HEAD content of the named targets, which includes every fix commit, and the findings apply to that content. The worktree's working-tree cleanliness was not verified. Targets checked: git.rs and run/mod.rs in full; sc-agent-http tests and retry.rs (test-only changes, cancel checked before every attempt); workspace-tests test_util_off.rs; sc-agent-ci.yml (--locked additions, no ADR concern); Cargo and boundary manifests. Not read in full: crates/sc-jev-backends/src (no fix commit in the reflog touches it). RULE-ADR-AWAIT-MUTEX: a sweep of crates/ found no .await and no async fn, so no std Mutex guard can be held across an await. The std Mutex sites (sc-jev-host/src/obs.rs:53,127; sc-agent-http/src/test_util.rs; sc-jev-check run/tests.rs:634) are synchronous and not findings. Answers to the reviewer's two questions. (1) git.rs EXTRACTION_TIMEOUT reuse: ADR-SAG-0027 permits several variants to share one id and adds no new code, so the reuse is upheld. The unrecorded deadline contract and its public constant are ARCH-003. (2) run/mod.rs log change: violates ADR-SAG-0013 via REQ-SAG-0610 (ARCH-001). Not findings: the CI --locked additions and the sc-agent-http test changes."
+   }
+  },
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "a54b9258d4ede5c82",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "findings",
+     "reviewed_branch": "sprint/r-7-decision-schema",
+     "reviewed_commit": "4eb8265",
+     "review_mode": "sprint_review",
+     "executed_checks": {
+      "fmt": {
+       "status": "pass",
+       "command": "cargo fmt --all --check"
+      },
+      "clippy": {
+       "status": "pass",
+       "command": "cargo clippy --all-targets --all-features -- -D warnings"
+      },
+      "tests": {
+       "status": "pass",
+       "command": "cargo test"
+      },
+      "coverage": {
+       "status": "not_run"
+      },
+      "artifacts": {
+       "status": "not_run"
+      }
+     },
+     "findings": [
+      {
+       "id": "QA-001",
+       "category": "correctness",
+       "severity": "important",
+       "file": "crates/sc-agent-types/src/error.rs",
+       "line": 841,
+       "issue": "A git timeout is reported as EXTRACTION_TIMEOUT, whose fix hint says 'Raise timeout_seconds above N or reduce the input so extraction finishes in time.' This misleads the user. The git deadline (GIT_DEADLINE, 60 s, git.rs) is a fixed constant and the doc says it is 'not configurable'. No timeout_seconds setting exists for it, so the user cannot act on the first half of the hint. The git call may also be a rev read, a repo-root discovery or hash-object. 'Reduce the input' does not describe a hung or slow git (a stuck lock, a network filesystem, a huge repo). The Display text 'extraction timed out after 60s' also names the wrong stage.",
+       "recommendation": "Do not reuse the extractor timeout recovery text for git. Either (a) add a dedicated git-timeout variant or code with a hint such as 'git did not finish within 60s; check for a stalled git process, a lock file or a slow filesystem and retry', or (b) make the hint depend on the source, for example by carrying a field that says whether the deadline is configurable. If a new code is too heavy for r-7, at least change the git path to return EXTRACTION_FAILED with a detail like 'git timed out after 60s', since that code has no 'raise timeout_seconds' hint. Update the git.rs module doc and the test at git.rs:487 to match.",
+       "evidence": "git.rs:171, 308 and 383 call JevError::extraction_timeout(GIT_DEADLINE.as_secs()). The hint at error.rs:841-842 is unconditional. The only configurable timeout_seconds is the extractor command's (sc-jev-check/src/extract/command.rs:213)."
+      },
+      {
+       "id": "QA-002",
+       "category": "artifacts",
+       "severity": "minor",
+       "file": ".github/workflows/sc-agent-ci.yml",
+       "line": 256,
+       "issue": "RSH-006 as scoped (main clippy, test and doc steps) is closed. Other cargo steps in the same file still lack --locked, so CI can still resolve versions other than Cargo.lock there. The unlocked steps are cargo hack --each-feature test (256), cargo hack check --feature-powerset (276, 280), cargo build --lib --no-default-features (316, 320) and cargo llvm-cov (535, 542-543). I did not check every run line (the test -p sc-treesitter/sc-ai steps at 262-270 and workspace-tests at 445 were not looked at).",
+       "recommendation": "Add --locked to the remaining cargo steps, or set CARGO_LOCKED or --locked globally, so every step uses the committed Cargo.lock.",
+       "evidence": "Run lines at the cited line numbers have no --locked."
+      },
+      {
+       "id": "QA-003",
+       "category": "guideline",
+       "severity": "minor",
+       "file": "crates/sc-jev-check/src/run/mod.rs",
+       "line": 50,
+       "issue": "The worst-case doc says 'about 17 minutes' for both LLM backends plus Jev. By the doc's own arithmetic that is 2x420 s + Jev. If Jev also gets the 90 s busy-retry budget, it is 2x420 + 210 = 1050 s, about 17.5 minutes. If it does not, the doc should say 960 s (16 minutes). The doc does not say which.",
+       "recommendation": "State the Jev bound explicitly, with or without busy retry, and give the total in seconds so the figure is checkable.",
+       "evidence": "Doc text at run/mod.rs:50-61."
+      }
+     ],
+     "summary": {
+      "total_findings": 3,
+      "by_severity": {
+       "critical": 0,
+       "important": 1,
+       "minor": 2
+      }
+     },
+     "notes": [
+      "Gates: fmt, clippy (--all-targets --all-features -D warnings, also run with --locked) and cargo test all passed on 4eb8265. HEAD matched the assigned branch and commit. The worktree was clean.",
+      "RSH-002 (git deadline, f3e25c9): closed. Every git subprocess (run, read_at_rev, hash_blob) now has a 60 s wall-clock deadline. The child is killed and reaped, the pipes are drained on their own threads, and cleanup is bounded to 2 s. Unit tests cover a hung child and a fast child. They are unix-only (cfg(all(test, unix)) with sleep and true), so the Windows path has no deadline test. This is acceptable but unproven there. A hung grandchild holding a pipe is bounded by the cleanup budget. The drain threads may outlive the call, which is harmless.",
+      "RSH-003 (judge worst-case docs, 4eb8265): closed apart from the QA-003 wording nit. The docs are in backend.rs (module and judge) and run/mod.rs, and the 420 s per-judge-call figure follows from 2 x (90 + 120) = 420. The docs state that cancel does not interrupt an in-flight request.",
+      "RSH-004 (no log on a cancelled-before-send call, f4eb939): closed. send() snapshots is_cancelled() at entry. When the token was already cancelled and the result is NetworkError::Cancelled, it returns before emit_log. Cancellation mid-send still logs. The test cancelled_before_send_emits_no_log_event covers both the cancelled case (0 events) and the live failing case (1 event). The module docs were updated.",
+      "RSH-006 (CI --locked, 5cace43): closed for clippy, test and doc. See QA-002 for the steps that were left out.",
+      "Timeout mapping verdict: yes, it misleads (QA-001).",
+      "Local gates were not run on Windows or Linux. Portability follows from the code review: the new git code uses std::process and threads only, with no hardcoded paths."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "af470d85db0bcc580",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "findings",
+     "reviewed_branch": "sprint/r-7-decision-schema",
+     "reviewed_commit": "4eb8265",
+     "findings": [
+      {
+       "id": "FTQ-004",
+       "severity": "important",
+       "file": "crates/workspace-tests/tests/test_util_off.rs",
+       "line": 28,
+       "test": "test_test_util_absent_from_normal_graph (and test_release_binary_rejects_scripted_answers via bin_path)",
+       "mechanism": "masking_fix",
+       "issue": "The FTQ-001 fix (04584aa) closes the unbounded wait, but it does so by widening the cargo tree deadline from the 60 s runner default to 5 minutes (CARGO_TREE_DEADLINE). The stated cause is a held Cargo file lock, which is contention with other cargo processes. The nondeterminism is not removed. tree() in this file is not serialized with bin_path()'s BUILD_LOCK (bin_path.rs:70), so cargo tree and cargo build run concurrently as threads of one test binary. Under cargo nextest or parallel CI jobs in the same workspace, separate processes contend for the same package-cache and build locks. The test passes only when the competing cargo process releases the lock within 5 minutes, and tree() is called twice per test (lines 81 and 97). The same widening pattern appears in features.rs:24 (CARGO_TREE_DEADLINE, four calls per test) and bin_path.rs:27 (BIN_BUILD_DEADLINE 20 min). A wider bound converts a fast failure into a slow one and hides the lock race rather than removing it. Under the fix standard this is timeout widening around a race.",
+       "recommendation": "Keep a hard bound but stop using it as the cure. (1) Route every cargo invocation in these test binaries through one serialization point (the existing BUILD_LOCK pattern, or a single OnceLock that computes the tree once per process). (2) Isolate the query from concurrent cargo: use a private CARGO_HOME or CARGO_TARGET_DIR seeded from the warm registry, or move the graph check into a CI step that runs before cargo test. The Rust test would then read a pinned fixture, as features.rs already does for the no-default-features set. (3) Restore a deadline near the 60 s default for the graph query, with a failure message that names lock contention so a timeout is diagnosable.",
+       "evidence": "test_util_off.rs:28 `const CARGO_TREE_DEADLINE: Duration = Duration::from_secs(5 * 60);` with the doc comment 'a held Cargo file lock can exceed the 60 s runner default'; test_util_off.rs:47 `spawn_with_limit(&mut cargo, None, CARGO_TREE_DEADLINE)` inside tree(), which does not take BUILD_LOCK; bin_path.rs:70 `let _guard = BUILD_LOCK.lock()` is the only serialization and covers only bin_path builds; features.rs:24 `Duration::from_secs(5 * 60)`; bin_path.rs:27 `BIN_BUILD_DEADLINE: Duration = Duration::from_secs(20 * 60)`."
+      },
+      {
+       "id": "FTQ-005",
+       "severity": "minor",
+       "file": "tests/support/deadline.rs",
+       "line": 98,
+       "test": "run_with_limits (shared runner included by every deadline-bounded test target)",
+       "mechanism": "unbounded_wait",
+       "issue": "After the deadline fires, the runner calls kill_tree and then child.wait() with no bound. kill_tree also runs an external `kill` process via Command::status() with no bound. The module doc (line 9) states 'Every wait is bounded', which is false for these two waits. A child that SIGKILL cannot end promptly (for example, a process in uninterruptible I/O sleep on a hung filesystem or network mount) would leave the test blocked forever instead of failing with the captured stderr. Likelihood is low, but the path exists and contradicts the stated contract.",
+       "recommendation": "After kill, poll child.try_wait() against a fixed budget, as kill_and_reap does in crates/sc-agent-types/src/git.rs:183, and panic with the captured stderr and a note that the child could not be reaped if the budget expires. Replace the `kill` subprocess with a direct signal (for example libc::kill with a negated pgid, or nix::sys::signal) so the cleanup path has no unbounded child-process wait. Alternatively, bound the `kill` status call by polling its own try_wait.",
+       "evidence": "deadline.rs:96-103: `let Some(exit) = exit else { kill_tree(&mut child); let _ = child.wait(); let captured = stderr.finish(...); panic!(...) };` and deadline.rs:180-187: `Command::new(\"kill\")...status();` followed by `let _ = child.kill();`. Module doc deadline.rs:9: 'Every wait is bounded:'."
+      },
+      {
+       "id": "FTQ-006",
+       "severity": "minor",
+       "file": "crates/sc-agent-types/src/git.rs",
+       "line": 488,
+       "test": "test_hung_git_is_killed_at_the_deadline",
+       "mechanism": "timing_assertion",
+       "issue": "The test asserts `started.elapsed() < Duration::from_secs(10)` in addition to the typed EXTRACTION_TIMEOUT. The wall-clock check is redundant: run_with_deadline can only return Err here through the deadline (spawn of `sleep` cannot fail, and try_wait on a live child does not error), so the error assertion already proves the deadline fired. If the deadline did not fire, `sleep 30` would return Ok after 30 s and expect_err would fail. The 10 s check adds only flake exposure: a host stall of more than 10 s, or a suspended CI VM, fails the test even though the behaviour is correct. It also contradicts the FTQ-002 convention stated in the runner (deadline.rs:201-202, 'No wall-clock asserts (FTQ-002)').",
+       "recommendation": "Delete the elapsed assertion and keep the EXTRACTION_TIMEOUT check. If a reap or kill guarantee is wanted, assert it through an observable effect, such as a child that writes a marker file before sleeping and a check that the process is no longer alive (kill -0 on a recorded pid after the call), rather than a time bound.",
+       "evidence": "git.rs:483-493: `let started = Instant::now(); let error = run_with_deadline(hung_child(), Duration::from_millis(200)).expect_err(\"deadline\"); assert_eq!(error.code(), \"EXTRACTION_TIMEOUT\"); assert!(started.elapsed() < Duration::from_secs(10), ...)`. deadline.rs:201-202: '// No wall-clock asserts (FTQ-002): each property is shown by what the runner returns'."
+      }
+     ],
+     "summary": {
+      "total_findings": 3,
+      "critical": 0,
+      "important": 1,
+      "minor": 2
+     }
+    },
+    "error": null
+   }
+  }
+ ]
+}

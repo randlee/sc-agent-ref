@@ -1,0 +1,301 @@
+{
+ "pr": 35,
+ "qa_pass": "qa-r6-3",
+ "round": "QA-3 (final)",
+ "sprint": "r-6",
+ "branch": "sprint/r-6-session-log-record",
+ "head": "d106d03",
+ "base": "integrate/phase-a",
+ "notes": "All four reviewers PASS with 0 findings. The coordinator flipped the status to complete in d106d03, which is the reviewed head.",
+ "manifest": [
+  {
+   "agent": "req-qa",
+   "task_id": "a1a46076a336fbf84",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "d106d03"
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "a2fc9aeaf72329950",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "d106d03"
+  },
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "ad3d5af45b5d541ff",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "d106d03"
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "a7274eb0718c62fb3",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "d106d03"
+  }
+ ],
+ "reviewer_outputs": [
+  {
+   "agent": "req-qa",
+   "task_id": "a1a46076a336fbf84",
+   "fenced_json": {
+    "status": "PASS",
+    "reviewed_branch": "sprint/r-6-session-log-record",
+    "reviewed_commit": "d106d03",
+    "errors": [],
+    "scope": {
+     "phase": "phase-a-refine",
+     "sprint": "r-6"
+    },
+    "baselines_read": [
+     "docs/architecture.md",
+     "docs/requirements.md",
+     "docs/sc-jev-host/architecture.md",
+     "docs/sc-jev-check/architecture.md"
+    ],
+    "phase_or_sprint_docs_read": [
+     "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md"
+    ],
+    "requirement_checks": [
+     {
+      "id": "REQ-SAG-0617",
+      "source": "docs/requirements.md:191",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:1768",
+       "docs/architecture.md:1771"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0600",
+      "source": "docs/requirements.md",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:258"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0607",
+      "source": "docs/requirements.md",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:268",
+       "docs/sc-jev-check/architecture.md:20"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0711",
+      "source": "docs/sc-jev-host/requirements.md:11",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/sc-jev-host/architecture.md:59"
+      ]
+     }
+    ],
+    "deliverable_checks": [
+     {
+      "item": "D8 ADR text flips (0031 Wiring Active r-6, index row, r-6 subsections in 0008/0013/0016/0026/0027, index markers)",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "docs/architecture.md:118",
+       "docs/architecture.md:123",
+       "docs/architecture.md:126",
+       "docs/architecture.md:136",
+       "docs/architecture.md:137",
+       "docs/architecture.md:141",
+       "docs/architecture.md:1689",
+       "docs/architecture.md:1733"
+      ],
+      "notes": "Statuses and markers match the adr:ADR-SAG-0031 acceptance row."
+     },
+     {
+      "item": "New delta bullets (0008 retention, 0013 envelope, 0016 adapter mapping, 0031 error-path flush) agree with sprint implementation notes and crate docs",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "docs/architecture.md:268",
+       "docs/architecture.md:871",
+       "docs/architecture.md:967",
+       "docs/architecture.md:1771",
+       "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:526",
+       "docs/sc-jev-host/architecture.md:59",
+       "docs/sc-jev-check/architecture.md:20"
+      ],
+      "notes": "Grace TTL, correlation_id = session id, request_id = answer id, Warn level for failed sends, and error-path flush all match across the sprint doc, ADRs and crate docs."
+     },
+     {
+      "item": "Sprint status complete with closeout note",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:4",
+       "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:541"
+      ],
+      "notes": "The note says closure is recorded by the quality-mgr report, which is posted after this round. Per the notes it is not required to exist yet."
+     },
+     {
+      "item": "Acceptance rows and the requirements list",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:16",
+       "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:428"
+      ],
+      "notes": "The delta changes no requirement or acceptance row. I could not run commands (no shell), so test hardening was not re-executed and the test files were not read. I only checked that no doc claim in the delta conflicts with the sprint doc."
+     }
+    ],
+    "findings": [],
+    "summary": {
+     "total_findings": 0,
+     "blocking_findings": 0,
+     "overall_compliance": "compliant",
+     "deliverables_total": 4,
+     "deliverables_complete": 4,
+     "deliverables_incomplete": 0,
+     "deliverable_completion_percent": 100.0
+    },
+    "gate_reason": "No delta findings. Worktree HEAD is on branch sprint/r-6-session-log-record. I could not read the commit hash through the .git pointer, so the exact-commit match to d106d03 was not independently confirmed. The ADR amendments, index markers, crate docs and the sprint doc's status and implementation notes agree. No requirement or acceptance row is broken. quality-mgr closure is deferred per the stated closure rules."
+   }
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "a2fc9aeaf72329950",
+   "fenced_json": {
+    "agent": "arch-qa",
+    "branch": "sprint/r-6-session-log-record",
+    "scope": {
+     "phase": "phase-a-refine",
+     "sprint": "r-6"
+    },
+    "commit": "d106d03",
+    "verdict": "PASS",
+    "blocking": 0,
+    "important": 0,
+    "findings": [],
+    "adr_checks": [
+     {
+      "adr": "ADR-SAG-0008",
+      "source": "docs/architecture.md:254",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:268-271"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0013",
+      "source": "docs/architecture.md:861",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:871-873",
+       "crates/sc-jev-host/src/obs.rs:216-221",
+       "crates/sc-jev-host/src/obs.rs:239-245"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0016",
+      "source": "docs/architecture.md:958",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:967-970",
+       "crates/sc-jev-host/src/obs.rs:41-53"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0031",
+      "source": "docs/architecture.md:1731",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:1768-1774"
+      ]
+     }
+    ],
+    "gate_artifact_checks": [],
+    "merge_ready": true,
+    "notes": "ARCH-001 is closed. Every r-6 amendment now has (Active, r-6) bullets for the points you named. ADR-SAG-0013 (line 871) records the envelope ids (correlation_id is the session id, request_id is the answer id) and the Warn level on send_outcome=failed. These match obs.rs:216-221 and 239-245. ADR-SAG-0016 (line 967) records the same mapping and notes that ids are built through serde. ADR-SAG-0008 (line 268) records the sweep grace, which is TTL plus one TTL. ADR-SAG-0031 Wiring (lines 1771-1774) records the error-path flush note: the log is still flushed on error, and a flush failure is appended once to the error detail with the code unchanged. I did not check the sweep grace or the error-path flush against the code, since your request limited the code check to obs.rs. The envelope_id! debug_assert macro is a local helper. It changes no contract, adds no dependency, and holds no mutex across an await, so it creates no ADR delta."
+   }
+  },
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "ad3d5af45b5d541ff",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-6-session-log-record",
+     "reviewed_commit": "d106d03",
+     "review_mode": "sprint_review",
+     "executed_checks": {
+      "fmt": {
+       "status": "pass",
+       "command": "cargo +1.94.1 fmt --all --check"
+      },
+      "clippy": {
+       "status": "pass",
+       "command": "cargo +1.94.1 clippy --locked --workspace --all-targets --exclude sc-jev-py -- -D warnings (also re-run with --features test-util: pass)"
+      },
+      "tests": {
+       "status": "pass",
+       "command": "cargo +1.94.1 test --locked --workspace --exclude sc-jev-py (also re-run with --features test-util: pass; 0 failures in both runs)"
+      },
+      "coverage": {
+       "status": "not_run",
+       "line": 0.0,
+       "branch": 0.0,
+       "function": 0.0,
+       "adequate_for_risk": true
+      },
+      "artifacts": {
+       "status": "not_run",
+       "command": ""
+      }
+     },
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "notes": [
+      "HEAD verified as d106d03 on sprint/r-6-session-log-record. The default toolchain is 1.99.0, so every gate was run with RUSTUP_TOOLCHAIN=1.94.1 (cargo 1.94.1).",
+      "Docs: RUSTDOCFLAGS=-D warnings cargo doc --locked --workspace --exclude sc-jev-py --no-deps passed.",
+      "The --features test-util runs were workspace-wide (clippy and test), not the per-package invocations in .github/workflows/sc-agent-ci.yml. Both passed.",
+      "QA-001 is closed. In crates/sc-jev-host/tests/log_context.rs the new assert_envelope helper asserts the envelope level, that correlation_id equals fields.session_id, that request_id equals fields.answer_id, and that both ids are strings. It is called with level Info in test_log_context_repo_is_main_repo_paths_stay_on_worktree and with level Warn in test_error_path_flushes_the_failed_row. The Info test also asserts correlation_id equals the session id.",
+      "Delta review of crates/sc-jev-host/src/obs.rs: the new envelope_id! macro uses debug_assert and falls back to None in release builds. I found no correctness issue. request_id now parses only string answer_id values, which the test covers."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "a7274eb0718c62fb3",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-6-session-log-record",
+     "reviewed_commit": "d106d03",
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "critical": 0,
+      "important": 0,
+      "minor": 0
+     }
+    },
+    "error": null
+   }
+  }
+ ]
+}

@@ -1,0 +1,31 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "PE-QA1-REQ-QA-003",
+ "found_in": "A1-R6",
+ "found_at": "2026-11-08T17:15:25Z",
+ "title": "Crate tables do not carry every root id for the crate that owns the subject. REQ-SAG-0105, 0106 and 0108 are r-1 rows about sc-agent-types (",
+ "description": "Crate tables do not carry every root id for the crate that owns the subject. REQ-SAG-0105, 0106 and 0108 are r-1 rows about sc-agent-types (backend descriptor, JevError variants, SubjectsDocument) and are absent from docs/sc-agent-types/requirements.md. The plan required only 0101, 0103, 0120, 0121 and NFR-0001 there, so this is a gap against the review brief, not against plan text. REQ-SAG-0606 (r-2b, equal from backend-reported digests) is absent from docs/sc-jev-check/requirements.md and from every other crate requirements doc. The same grep found 0606 only in the root table, architecture docs, sprint docs, code and boundary manifests. Add crate-level rows with an owning sprint and test reference: 0105, 0106 and 0108 in docs/sc-agent-types/requirements.md, and 0606 in docs/sc-jev-check/requirements.md. Alternatively record in each crate doc that the root table is authoritative for these ids. partially-compliant",
+ "category": "cross-doc-conflict",
+ "severity": "important",
+ "pattern": "cross-doc-conflict",
+ "file_filter": "docs/requirements.md",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "91d36b3ad309deb3350434acaecee0ab2938b13f"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a"
+ ]
+}

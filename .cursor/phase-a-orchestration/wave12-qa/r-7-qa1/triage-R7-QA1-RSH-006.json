@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "R7-QA1-RSH-006",
+ "found_in": "A1-R7",
+ "found_at": "2026-11-08T02:30:00Z",
+ "title": "The main clippy and test steps do not pass --locked, so CI can resolve dependency versions",
+ "description": "The main clippy and test steps do not pass --locked, so CI can resolve dependency versions that differ from the committed Cargo.lock. Only some later steps (treesitter, sc-ai cli, workspace-tests) use --locked.",
+ "category": "ci_release_checklist",
+ "severity": "minor",
+ "pattern": "ci_release_checklist",
+ "file_filter": ".github/workflows/sc-agent-ci.yml",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "0d0ebc1983412ff750b775ed40c3261fe17383dd"
+  },
+  {
+   "branch": "sprint/r-7-decision-schema",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-7-decision-schema",
+   "order_index": 1,
+   "head_sha": "94972978d9e6321be71e884368721cf0f79d3d54"
+  }
+ ],
+ "worktree_paths": [
+  "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+  "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-7-decision-schema"
+ ]
+}

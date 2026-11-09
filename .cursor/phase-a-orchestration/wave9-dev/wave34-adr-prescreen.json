@@ -1,0 +1,243 @@
+{
+  "agent": "arch-qa",
+  "mode": "pre-screen",
+  "branch": "integrate/phase-a",
+  "commit": "97db748",
+  "head_verified": "worktree HEAD ref refs/heads/integrate/phase-a resolves to 97db7485790654a8c2567189cfcac67372195c26 (read from .git/worktrees/phase-a/HEAD and refs/heads/integrate/phase-a)",
+  "scope_note": "Docs-only (doc_review semantics). Paths are relative to the integrate worktree docs/plans/phase-a-refine/ unless prefixed 'arch:' (= docs/architecture.md). RULE-ADR-AWAIT-MUTEX not applicable (no code). No crate-level docs/<crate>/architecture.md contains ADR sections, so the governing set is the repo-level ADRs only.",
+  "per_sprint": {
+    "r-2b": {
+      "check_1_reliance_on_other_sprints_proposed_text": {
+        "result": "clean",
+        "evidence": [
+          "RunConfig::mode is added in r-2b D1 (sprint-r-2b:94-101) and r-2 no longer promises it (sprint-r-2:159, :367-368 'RunConfig has no mode setter until r-2b'). Its governing text is ADR-0025 bullet 1 and the ADR-0008 r-2b subsection, both flipped by r-2b (D7, :189-196).",
+          "session_save_failed.json, BackendFailure, warnings and with_warning are r-2 deliverables (sprint-r-2:182-190, :234-243) under ADR-0024 (Active after wave 2). r-2b supplies the runtime semantics.",
+          "MockJudgeBackend::with_reported_digest, with_failure, refusing and with_input_sha256 are r-1 (sprint-r-1:428, :494; arch:282-291, ADR-0022 r-1 Active).",
+          "ADR-0026 is named for the HTTP half only (sprint-r-2b:43). Nothing in r-2b cites a compose-half bullet (arch:1097-1119 stays Proposed). ADR-0006/0007 busy-retry text (arch:524-531, :543-569) is r-3 and Active at wave 3.",
+          "r-2b D6 relies on sc-agent-http's test-util test transport (a dev-dependency) and on r-3 keeping client/mod.rs (sprint-r-3:227 deletes only client/{transport,retry,https}.rs). Both consistent.",
+          "No reliance on r-3b or r-5 text. The ADR-0025 consumer-output clause is split out and left Proposed for r-3b (sprint-r-2b:198-215)."
+        ]
+      },
+      "check_2_adrs_list": {
+        "names_proposed_adr_it_does_not_flip": "none. ADR-0024 is Active after r-2. ADR-0026 is the HTTP half only (Active after r-3). ADR-0025, 0004, 0008, 0019 and 0022 are flipped by r-2b.",
+        "missing_active_governing_adrs": [
+          {
+            "id": "ARCH-R2B-001",
+            "rule": "RULE-ADR-PLAN",
+            "severity": "BLOCKING",
+            "adr": "ADR-SAG-0020",
+            "file": "sprint-r-2b-multi-backend-semantics.md",
+            "line": 28,
+            "description": "r-2b owns crates/sc-jev/src/client/**, sc-jev/src/check.rs and sc-jev-backends/src/{wire,backend}.rs (:53-61). It rewrites the code that builds HttpRequest/SecretHeader and parses the final serialized body for the digest. The ADR-0020 r-3 amendment (single secret-read site, redaction in send_with_busy_retry, arch:471-497) governs these files, and the digest-recovery error paths must not leak secrets (NFR-SAG-0002). ADR-0020 is absent from the adrs list.",
+            "remediation": "Add ADR-SAG-0020 to adrs, with an acceptance row (for example, recovery errors never carry body or key bytes; no new as_str call site)."
+          },
+          {
+            "id": "ARCH-R2B-002",
+            "rule": "RULE-ADR-PLAN",
+            "severity": "BLOCKING",
+            "adr": "ADR-SAG-0013",
+            "file": "sprint-r-2b-multi-backend-semantics.md",
+            "line": 28,
+            "description": "r-2b changes run/** and session/** (per-backend results, partial failure, session-save failure). The acceptance table carries REQ-SAG-0610 as a regression (`run::tests::`, :228), which is the emission contract governed by ADR-0013 (arch:679-699, SessionLog via sc-observability v2). ADR-0013 is not listed.",
+            "remediation": "Add ADR-SAG-0013 to adrs and name the log-event expectation for a Failed backend and for a session-save failure in an acceptance row."
+          },
+          {
+            "adr": "ADR-SAG-0003, ADR-SAG-0023",
+            "severity": "MINOR",
+            "file": "sprint-r-2b-multi-backend-semantics.md",
+            "line": 28,
+            "description": "Advisory. run/** and registry/** sit beside the ADR-0003 r-2 repo-root and .env logic, and r-2b edits three crate Cargo.toml files to add test-util features (the ADR-0023 gates and `=`-pin script apply). Neither is changed in substance.",
+            "remediation": "Add both for completeness, or state in the doc that they are untouched."
+          }
+        ],
+        "r1_interim_supersession": {
+          "ADR-0008_and_ADR-0019": "The forward pointer is written in the Active r-1 subsections: 'Superseded by ADR-SAG-0025 (r-2b) when that lands' (arch:169-170 and arch:372-373). Index rows carry the (Proposed, r-2b) markers (arch:84, :95). The r-2b D7 text (:189-196) flips the new r-2b subsections only.",
+          "ADR-0014": "The r-1 interim (arch:787-806) says 'Superseded by ADR-SAG-0024 (r-2) when that lands'. Its bullet 2 says input_sha256 is 'null until r-2b backend hashing' (arch:801), which r-2b makes false. r-2's ADR-text list (sprint-r-2:338-352) does not say which interim bullets it supersedes.",
+          "finding": {
+            "id": "ARCH-R2B-003",
+            "rule": "RULE-ADR-PLAN",
+            "severity": "IMPORTANT",
+            "adr": "ADR-SAG-0008 / ADR-SAG-0019 / ADR-SAG-0014",
+            "file": "sprint-r-2b-multi-backend-semantics.md",
+            "line": 189,
+            "description": "The pointer 'Superseded ... when that lands' covers each r-1 interim subsection as a whole. Parts of them are NOT superseded and stay in force: ADR-0008 interim bullet 2 (session document v2, arch:176-180) and ADR-0019 interim bullet 2 (Arc<PayloadBundle>, CancelToken, arch:383-384). The superseded parts are ADR-0008 interim bullet 1 (arch:172-175, ChainContext as the actual behaviour) and ADR-0019 interim bullet 1 ('Until r-2b ... Unattested ... live run reports equal=false', arch:375-382, plus the 'r-1 records ChainContext' sentence, arch:385-386). r-2b's owned_paths (:66-72) lists no interim subsection, so r-2b is not authorized to edit them, and after the flip an Active ADR still states the old behaviour with an ambiguous scope. The ADR-0014 'null until r-2b' wording (arch:801) is stale in the same way.",
+            "remediation": "In D7, add owned_paths entries for the ADR-0008 and ADR-0019 r-1 interim subsections. Have each r-2b amendment state sentence by sentence what it supersedes (ADR-0008 interim bullet 1; ADR-0019 interim bullet 1 and the mode-recording sentence) and what remains in force (the two bullets named above). For ADR-0014, either confirm that r-2's wholesale supersession drops the 'null until r-2b' clause or add a one-line pointer in the ADR-0025 text."
+          }
+        },
+        "ADR-0014_interim_for_0014_by_ADR-0024": "ADR-0024 (r-2) is the superseding ADR and r-2 writes the ADR-0014 r-2 amendment (sprint-r-2:339-343). So the 0014 supersession wording is written by r-2, but only at the whole-subsection granularity noted in ARCH-R2B-003."
+      },
+      "check_3_flip_scope": {
+        "result": "correct, with one gap",
+        "evidence": [
+          "ADR-0025 mixed status: D7 (:198-215) splits bullet 2 and leaves the r-3b-owned consumer-output bullet Proposed. The Status line reads 'Active (Phase A.1, r-2b); the REQ-SAG-0604 consumer-output bullet is Proposed (r-3b)'. The index cell reads 'Active (r-2b); consumer-output bullet Proposed (r-3b)'. This matches plan.md:612-613 and r-3b:487-491. The acceptance row (:222) checks it.",
+          "The r-2b subsections of 0004 (arch:506-514), 0008 (arch:182-190), 0019 (arch:395-402) and 0022 (arch:316-331) are owned (:66-72). The index markers at arch:80, :84, :95 and :98 are owned.",
+          "Bullet 1 of ADR-0025 (arch:1052-1053) matches RunConfig::mode as added in D1."
+        ],
+        "gap": {
+          "id": "ARCH-R2B-004",
+          "rule": "RULE-GATE",
+          "severity": "IMPORTANT",
+          "adr": "ADR-SAG-0025",
+          "file": "sprint-r-2b-multi-backend-semantics.md",
+          "line": 66,
+          "description": "The ADR-0025 header/Status line and index row are owned only as 'docs/architecture.md#ADR-SAG-0025' and the index row (:70-71). The Amends line of the index row is not named, and the index row for ADR-0026 (Status cell 'HTTP half r-3; compose half r-3b') is not owned, correctly. Nothing wrong yet, but the r-2b doc must not touch the 0026 cell. Add a 'does not touch' sentence, as r-3b does (:499-507).",
+          "remediation": "Add a markers-r-2b-must-not-touch sentence listing the ADR-0026 row and the r-3b markers in rows 0010, 0011, 0013, 0016, 0017, 0020, 0023 and 0028."
+        }
+      },
+      "check_4_self_dev_dependency": {
+        "result": "fully replaced",
+        "evidence": [
+          "sprint-r-2b:172-178 uses [[test]] required-features = [\"test-util\"] with --features test-util on every validation line (:245-252 for wire; :249-252 for scripted; :235-244 multi_backend). It explicitly says there is no self dev-dependency.",
+          "No remaining self dev-dependency text in r-2b. The only remaining text in the architecture is arch:311 (ADR-0022 r-2 'Correction', reworded by r-2 per sprint-r-2:370-378) and arch:1236 (ADR-0028, reworded by r-3b)."
+        ],
+        "note": "Test-seam public types (WireFault, with_wire_fault) behind a non-default test-util feature are governed by the ADR-0027 Test seams bullet (Active, r-1; arch:1195-1207). No new ADR is needed, but the ADR-0022 r-2b subsection could cite the digest seam. Optional."
+      },
+      "check_5_reliance_on_dropped_promises": {
+        "result": "none",
+        "evidence": "test_release_build_refuses_http is not referenced in r-2b or r-3b. r-3 keeps it with --features test-util (sprint-r-3:129, :354). r-2b depends on r-2 only for RunResponse::warnings, BackendFailure and the pinned sample bytes, all still promised (sprint-r-2:182-190, :234-243)."
+      }
+    },
+    "r-3b": {
+      "check_1_reliance_on_other_sprints_proposed_text": {
+        "result": "clean",
+        "evidence": [
+          "At wave 4, r-2, r-3, r-3c and r-2b are merged, so ADR-0024, ADR-0025 (engine part), ADR-0026 (HTTP half), the ADR-0020 r-3 amendment and ADR-0008/0004/0019/0022 r-2b are Active.",
+          "r-3b relies on r-2b's RunConfig::mode (via ComposeInputs::mode, :176-185), the scripted-answers schema (r-2b D5, referenced at :244 and :259) and RunResponse::is_partial/first_failure/with_warning (r-2). All are promised by those docs.",
+          "No reliance on r-5 text. r-3b lists no ADR-0005 and cites no D9 shape."
+        ]
+      },
+      "check_2_adrs_list": {
+        "names_proposed_adr_it_does_not_flip": "none. ADR-0023 (r-3b subsection), 0025 (consumer bullet), 0026 (compose half), 0028 and the r-3b amendments of 0010/0011/0013/0016/0017/0020 are all flipped by r-3b.",
+        "findings": [
+          {
+            "id": "ARCH-R3B-001",
+            "rule": "RULE-ADR-PLAN",
+            "severity": "BLOCKING",
+            "adr": "ADR-SAG-0008",
+            "file": "sprint-r-3b-compose-and-workspace-tests.md",
+            "line": 45,
+            "description": "r-3b implements REQ-SAG-0605 in both consumers (D3.1, :225-227) and in ComposeInputs::mode (:176-185). The governing text is ADR-0008 (Independent default, ChainContext explicit; r-2b amendment, arch:182-190). It is not in the adrs list; only ADR-0025 is.",
+            "remediation": "Add ADR-SAG-0008 to adrs. ADR-0004 does not need to be added, because r-3b does no validation."
+          },
+          {
+            "id": "ARCH-R3B-002",
+            "rule": "RULE-ADR-PLAN",
+            "severity": "BLOCKING",
+            "adr": "ADR-SAG-0019",
+            "file": "sprint-r-3b-compose-and-workspace-tests.md",
+            "line": 45,
+            "description": "ComposeInputs::system_prompt_override (:178-179) and the D12.1 clap port of sc-ai's flags implement the ADR-0019 prompt-precedence rule (arch:349-355, which names `sc-ai jev --llm-system-prompt-file`). ADR-0019 is not listed.",
+            "remediation": "Add ADR-SAG-0019 to adrs. Optionally add ADR-SAG-0005, because compose calls prepare/run and must not call PayloadBuilder (arch:129-130)."
+          },
+          {
+            "id": "ARCH-R3B-003",
+            "rule": "RULE-ADR-PLAN",
+            "severity": "IMPORTANT",
+            "adr": "ADR-SAG-0028",
+            "file": "sprint-r-3b-compose-and-workspace-tests.md",
+            "line": 455,
+            "description": "The D0 spike outcome is known (outcome 4, dev edges counted; boundaries/README.md:107-110). r-3b still carries the unresolved alternatives: D7.0 (:267-277, 'ignored -> no dependent change'), D12.2 (:428, 'workspace-tests dev-set row in the \"ignored\" branch') and the manifests paragraph (:441-450, '+workspace-tests only in the dev edges counted branch'). The ADR text to be activated (arch:1224-1229, 'Whether sc-boundary checks dev edges is settled in wave 1 ... if it does not, cargo-tree-gates.sh polices ...') is a conditional. The ADR-0028 text deliverable (:492-497) rewords only the self dev-dependency sentence. An Active ADR would therefore keep an unresolved conditional, although the acceptance row (:531) promises that 'text matches the manifest and the spike outcome'.",
+            "remediation": "Replace the conditional in the ADR-0028 'Dev-only edges' bullet with the recorded outcome (dev edges counted; +workspace-tests in allowed_dependents of sc-agent-types, sc-jev-check and sc-agent-compose; the dev-edge entries go in allowed_dev_dependencies per boundaries/README.md:68). Delete the 'ignored' branch text in D7.0, D12.2 and the manifests paragraph."
+          },
+          {
+            "id": "ARCH-R3B-004",
+            "rule": "RULE-GATE",
+            "severity": "MINOR",
+            "adr": "ADR-SAG-0023",
+            "file": "sprint-r-3b-compose-and-workspace-tests.md",
+            "line": 108,
+            "description": "ADR-0023's Status line (arch:964-965: 'Its r-3b subsection stays Proposed and lands in r-3b') must change when the r-3b subsection flips, and the heading line is not in owned_paths. Only the subsection (:108) and the index Status cell (:112) are. ADR-0028's own Status line is likewise implicit.",
+            "remediation": "Add 'ADR-SAG-0023 Status line' to owned_paths and to the 'flips' list in the ADR text section."
+          }
+        ],
+        "supersession_wording": "r-3b supersedes none of the r-1 interim amendments (0008/0014/0019). They are superseded by ADR-0025 and ADR-0024 respectively. r-3b's ADR-0016 amendment supersedes 'do not publish a separate observability crate' (:461-462), and the r-3b ADR-0016 amendment text exists as a Proposed subsection (arch:760-770)."
+      },
+      "check_3_flip_scope": {
+        "result": "correct",
+        "evidence": [
+          "ADR-0025: r-3b flips only the Proposed consumer-output bullet, the Status line and the index cell to 'Active' (:487-491). This matches r-2b:212-215.",
+          "ADR-0023: the r-3b subsection (arch:997-1003) and the compose-pin Status cell (arch:99).",
+          "ADR-0026: compose half and ADR-level Status (:457); arch:1073-1076 says r-3b sets it to Active; r-3b flips only compose-half cells (:502-503).",
+          "ADR-0020: r-3b flips the Proposed 'Amendment (Phase A.1, r-3b)' subsection that r-3 inserts, plus the bullet label and the index marker (:469-485). Dependency: r-3 must have actually inserted the subsection and the marker. The current index row, arch:96, has no r-3b marker. Verify at the wave-4 pre-flight that r-3 landed it; otherwise r-3b has nothing to flip and ADR-0028's source_scans proof has no ADR text.",
+          "ADR-0028 and its row: arch:1209-1243 (Proposed r-3b). ADR-0017: the last '(Proposed, r-3b)' marker only; the r-4 and r-3 markers are left alone (:503-507). Row 0016 retitle is owned (:104, :111)."
+        ]
+      },
+      "check_4_self_dev_dependency": {
+        "result": "fully replaced",
+        "evidence": [
+          "D3.3 (:236-241) declares sc-ai test-util = [\"sc-jev-check/test-util\"] and `[[test]] name = \"cli\" required-features = [\"test-util\"]`, with --features test-util on every cli validation line (:571-573). It says there is no self dev-dependency.",
+          "The ADR-0028 'Built-binary contract' sentence at arch:1236 is replaced by the exact text in :492-497. The ADR-0022 sentence (arch:311) is r-2's.",
+          "D12.1 declares `[[test]] name = \"argv\" required-features = [\"cli\"]` (:418-420) and validation line :570 `cargo test -p sc-ai --test argv`. Consistent."
+        ]
+      },
+      "check_5_reliance_on_dropped_promises": {
+        "result": "none",
+        "evidence": [
+          "test_release_build_refuses_http is not cited. r-3b's own release-shape proof is test_release_binary_rejects_scripted_answers (:401-406), built through bin_path.",
+          "RunConfig::mode is now r-2b's, and r-3b's ComposeInputs::mode matches it.",
+          "The 'source_scans clause moved out of ADR-0020 r-3' hand-off (r-3 -> r-3b) is consistent with sprint-r-3:94-98."
+        ]
+      }
+    },
+    "r-5": {
+      "status": "blocked (D9); reviewed for completeness only",
+      "check_1_reliance_on_other_sprints_proposed_text": {
+        "result": "clean",
+        "evidence": "It is wave 5, after r-2b, r-3 and r-3b, so ADR-0025, 0026 and 0028 (the workspace-tests jev_cross_impl target) are Active. The ADR-0005 r-5 subsection (arch:149-156) is r-5's own."
+      },
+      "check_2_adrs_list": {
+        "findings": [
+          {
+            "id": "ARCH-R5-001",
+            "rule": "RULE-ADR-PLAN",
+            "severity": "BLOCKING",
+            "adr": "ADR-SAG-0001, ADR-SAG-0020, ADR-SAG-0026, ADR-SAG-0027",
+            "file": "sprint-r-5-jev-wire-envelope.md",
+            "line": 24,
+            "description": "The adrs list is 0002, 0004, 0005, 0006, 0007, 0012, 0019, 0025. r-5 owns crates/sc-jev/src/** (client, HttpRequest/SecretHeader construction: ADR-0020 r-3, ADR-0026 HTTP half), crates/sc-agent-types/src/judge.rs (ADR-0027: private judge module, INPUT_INVALID via ErrorCode) and rewrites validation errors (ADR-0001, ADR-0027). None of these is listed.",
+            "remediation": "Add ADR-SAG-0001, 0020, 0026 and 0027. Add ADR-0008/0014 only if the envelope changes their text."
+          },
+          {
+            "id": "ARCH-R5-002",
+            "rule": "RULE-ADR-PLAN",
+            "severity": "BLOCKING",
+            "adr": "ADR-SAG-0002",
+            "file": "sprint-r-5-jev-wire-envelope.md",
+            "line": 95,
+            "description": "Branch B (:93-103) adds `criteria: Option<CriteriaSpec>` to the canonical payload, a new public type family and a second accepted canonical schema (exactly one of questions or criteria). ADR-0002 (canonical judge payload bytes) is listed, but the only planned ADR text is an ADR-0005 amendment (:85, :40-41; arch:149-156), which says 'CanonicalJudgePayload is the only payload schema' and does not mention criteria. A structural decision with no ADR text.",
+            "remediation": "Plan an ADR-0002 amendment (Branch B and 'both') that records the optional criteria field, the exactly-one validation, the byte-identity of array payloads and the CriteriaSpec type. Add the ADR-0002 subsection and its index marker to owned_paths. Branch A needs no ADR-0002 text, but its ADR-0005 text should state that the object-shape acceptance path is deleted."
+          },
+          {
+            "id": "ARCH-R5-003",
+            "rule": "RULE-ADR-PLAN",
+            "severity": "IMPORTANT",
+            "adr": "ADR-SAG-0019",
+            "file": "sprint-r-5-jev-wire-envelope.md",
+            "line": 79,
+            "description": "D2 says r-2b's recovery method (remove model or take payload, re-encode, hash) is 'adapted to the new body'. The ADR-0019/0025 r-2b amendments say only 'recovered from its final serialized wire body' (arch:399-402, :1066-1069), so no ADR text is contradicted. But ADR-0019's Jev line ('canonical payload in the API shape the evaluator expects', arch:337-338) is amended by nothing in r-5, and owned_paths has no ADR-0019 entry.",
+            "remediation": "Either state in the ADR-0005 r-5 text that the ADR-0019 wording is unchanged, or add an ADR-0019 r-5 note to owned_paths."
+          }
+        ]
+      },
+      "check_3_flip_scope": "r-5 flips only the ADR-0005 r-5 subsection and its index marker (arch:81). That is correct and nothing else is claimed.",
+      "check_4_self_dev_dependency": "No self dev-dependency text. It reuses r-2b's `--features test-util` convention implicitly: validation lines :118-120 run `cargo test -p sc-jev --test wire` WITHOUT --features test-util, although test_digest_detects_faulty_wire_builder and test_real_wire_builder_reports_prompt_digest require it (r-2b:172-173, :245-248). Fix when unblocking (ARCH-R5-004, IMPORTANT, RULE-ADR-PLAN/convention: ADR-0027 Test seams, arch:1198-1200).",
+      "check_5_reliance_on_dropped_promises": "Relies on r-2b's test_digest_detects_faulty_wire_builder / test_real_wire_builder_reports_prompt_digest (promised) and on r-3b's workspace-tests jev_cross_impl target (promised, r-3b:306-308). Its `cargo test -p sc-jev-backends --test wire` (:127 region, acceptance :111) also needs --features test-util."
+    }
+  },
+  "adr_checks": [
+    {"adr": "ADR-SAG-0025", "source": "docs/architecture.md:1047", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["sprint-r-2b:198-215", "sprint-r-3b:487-491", "plan.md:612-613"], "note": "Split-bullet flip is consistent across r-2b and r-3b."},
+    {"adr": "ADR-SAG-0008", "source": "docs/architecture.md:158", "listed_in_sprint_doc": "r-2b yes; r-3b NO", "result": "not-verifiable", "evidence_refs": ["sprint-r-3b:45-67", "arch:167-190"], "note": "r-3b omission is ARCH-R3B-001. The r-1 interim supersession scope is ARCH-R2B-003."},
+    {"adr": "ADR-SAG-0019", "source": "docs/architecture.md:333", "listed_in_sprint_doc": "r-2b yes; r-3b NO; r-5 yes", "result": "not-verifiable", "evidence_refs": ["arch:370-386", "sprint-r-3b:45-67"], "note": "ARCH-R3B-002, ARCH-R2B-003"},
+    {"adr": "ADR-SAG-0020", "source": "docs/architecture.md:425", "listed_in_sprint_doc": "r-3b yes; r-2b NO; r-5 NO", "result": "not-verifiable", "evidence_refs": ["sprint-r-2b:53-61", "sprint-r-5:33-34"], "note": "ARCH-R2B-001, ARCH-R5-001"},
+    {"adr": "ADR-SAG-0013", "source": "docs/architecture.md:679", "listed_in_sprint_doc": "r-3b yes; r-2b NO", "result": "not-verifiable", "evidence_refs": ["sprint-r-2b:228"], "note": "ARCH-R2B-002"},
+    {"adr": "ADR-SAG-0028", "source": "docs/architecture.md:1209", "listed_in_sprint_doc": true, "result": "not-verifiable", "evidence_refs": ["arch:1224-1229", "boundaries/README.md:107-110", "sprint-r-3b:267-277"], "note": "Unresolved conditional in the ADR text; ARCH-R3B-003."},
+    {"adr": "ADR-SAG-0002", "source": "docs/architecture.md:114", "listed_in_sprint_doc": "r-5 yes", "result": "not-verifiable", "evidence_refs": ["sprint-r-5:93-103"], "note": "Branch B has no ADR text; ARCH-R5-002."},
+    {"adr": "ADR-SAG-0004, 0022, 0024, 0026 (HTTP half), 0027, 0029", "source": "docs/architecture.md", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["sprint-r-2b:94-216", "sprint-r-3b:225-263"], "note": "No contradiction found in the r-2b or r-3b deliverables or code samples."}
+  ],
+  "gate_artifact_checks": [
+    {"artifact": "boundaries/README.md (Dev-dependency and self edges)", "status": "closed", "evidence_refs": ["boundaries/README.md:59-72", "boundaries/README.md:107-111"], "notes": "The D0 spike is recorded as outcome 4 (dev edges counted, self edge flagged). r-3b must apply the 'counted' branch (ARCH-R3B-003)."},
+    {"artifact": "docs/architecture.md ADR index (rows 0004, 0008, 0019, 0022, 0025, 0026, 0028)", "status": "open", "evidence_refs": ["arch:80", "arch:84", "arch:95", "arch:98", "arch:101", "arch:102", "arch:104"], "notes": "All r-2b/r-3b markers are still '(Proposed, r-2b/r-3b)', as expected before those sprints merge. The index-row rule at arch:68-73 is followed."}
+  ],
+  "verdict_if_unfixed": "FAIL for all three sprints. r-2b: 2 BLOCKING (ADR-0020 and ADR-0013 missing from adrs) + 2 IMPORTANT (interim supersession scope; 'must not touch' list). r-3b: 2 BLOCKING (ADR-0008 and ADR-0019 missing) + 1 IMPORTANT (ADR-0028 conditional / 'ignored'-branch text) + 1 MINOR. r-5 (blocked): 2 BLOCKING (missing ADR-0001/0020/0026/0027 and Branch B has no ADR-0002 amendment) + 2 IMPORTANT. All are doc edits (adrs lists, owned_paths entries, a few sentences of ADR text); no code-shape contradiction with a binding ADR was found in r-2b or r-3b, and neither relies on another sprint's Proposed text at its merge wave. Recheck r-3b item (3): confirm r-3 landed the ADR-0020 'Amendment (Phase A.1, r-3b)' Proposed subsection and the index marker before wave 4 starts.",
+  "merge_ready": false
+}

@@ -1,0 +1,4 @@
+{"success":true,"data":{"status":"pass","reviewed_branch":"integrate/phase-a","reviewed_commit":"0417aef60b6eba1fb4bf95fdfe8af0a1fa7d146b","review_mode":"sprint_review",
+ "executed_checks":{"fmt":{"status":"pass","command":"cargo fmt --all --check"},"clippy":{"status":"pass","command":"cargo clippy --all-targets --all-features -- -D warnings"},"tests":{"status":"pass","command":"cargo test"},"just_lint":{"status":"pass","command":"just lint"},"coverage":{"status":"not_run"}},
+ "findings":[],"summary":{"total_findings":0,"by_severity":{"critical":0,"important":0,"minor":0}},
+ "notes":["HEAD verified 0417aef; worktree clean","all cargo test lines 0 failed incl. sc-jev-check run/registry and sc-ai; both build_request and prepare_caller_request tests retained","sc-jev-py built with pyo3 0.26.0","python fixture tests not run (Rust-only checks)"]},"error":null}

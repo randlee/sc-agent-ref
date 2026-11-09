@@ -1,0 +1,28 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-3b-compose-and-workspace-tests",
+    "reviewed_commit": "90004d7",
+    "findings": [
+      {
+        "id": "FTQ-001",
+        "severity": "important",
+        "file": "crates/workspace-tests/tests/support/bin_path.rs",
+        "line": 57,
+        "test": "bin_path (used by consumer_parity, git_read_parity, e2e_treesitter_producer, test_util_off)",
+        "mechanism": "unbounded_wait",
+        "issue": "bin_path runs `cargo build --release -p <pkg> ...` with `Command::output()`. That call has no deadline, no kill and no process-group cleanup. Every other subprocess in workspace-tests goes through spawn_with_deadline, which is bounded. The build uses a fixed shared directory, `$CARGO_TARGET_DIR/workspace-tests-bin` or `target/workspace-tests-bin`. Cargo takes a cross-process file lock on that directory. If another cargo process (a parallel `cargo test` invocation, an IDE or rust-analyzer build, or a stale CI process) holds the lock, the child prints 'Blocking waiting for file lock' and waits indefinitely. A network stall while fetching or a wedged rustc has the same effect. The BUILD_LOCK mutex only serialises threads in one process, so it does not guard against this. The test then blocks forever instead of failing with a message, and CI only stops it at the job-level timeout.",
+        "recommendation": "Run the build through the bounded runner with a build-specific hard deadline. Take run_with_limits or spawn_with_deadline from tests/support/deadline.rs and give it its own explicit cold-build limit. The 60s SUBPROCESS_DEADLINE is too short for a cold release build, so use a separate named constant rather than quietly widening the shared one. The build must fail with a clear panic that includes the captured stderr and names the file-lock case. Optionally pass `--locked`, and consider a per-process target directory (for example a tempdir) if sharing the directory is not required.",
+        "evidence": "let output = cargo().current_dir(workspace_root()).args([\"build\", \"--release\", \"-p\", package, \"--features\", \"cli\"]).arg(\"--target-dir\").arg(isolated_target_dir()).arg(\"--message-format=json\").stdin(Stdio::null()).stderr(Stdio::inherit()).output().expect(\"spawn cargo build\"); The module doc says the directory is fixed, 'rather than a tempdir per test', so binaries are not rebuilt each time. The deadline.rs header says 'Every wait is bounded', which this call is not."
+      }
+    ],
+    "summary": {
+      "total_findings": 1,
+      "critical": 0,
+      "important": 1,
+      "minor": 0
+    }
+  },
+  "error": null
+}

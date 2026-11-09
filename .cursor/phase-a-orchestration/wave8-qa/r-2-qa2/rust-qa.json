@@ -1,0 +1,36 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/r-2-engine-shape",
+    "reviewed_commit": "3f66e7bbc09c66fdeca2146bfb436ededd4bf02f",
+    "review_mode": "sprint_review",
+    "executed_checks": {
+      "fmt": {"status": "pass", "command": "cargo fmt --all --check"},
+      "clippy": {"status": "pass", "command": "cargo clippy --all-targets --all-features -- -D warnings"},
+      "tests": {"status": "pass", "command": "cargo test --workspace --features test-util (441 passed, 0 failed); cargo test --workspace without the feature (441 passed, 0 failed); RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps (exit 0, also with --features test-util); just lint (exit 0); .github/scripts/cargo-tree-gates.sh (exit 0); .github/scripts/check-exact-pins.sh (exit 0)"},
+      "coverage": {"status": "not_run", "line": 0.0, "branch": 0.0, "function": 0.0, "adequate_for_risk": true},
+      "artifacts": {"status": "not_run", "command": "Local multi-crate cargo publish dry-run skipped as instructed (stale local registry cache). CI evidence: run 42419966426 is green at f7994d5, and 3f66e7b changes only the sprint doc."}
+    },
+    "findings": [],
+    "carry_forward_verdicts": [
+      {"id": "QA-001", "verdict": "closed", "evidence": "Fail-fast session save is documented in the run module docs (crates/sc-jev-check/src/run/mod.rs:34-42). The docs say session_save_failed.json is produced only by RunResponse::test_builder until r-2b."},
+      {"id": "QA-002", "verdict": "closed", "evidence": "No panic! or expect remains in the non-test code of src/run/response.rs. The Envelope keeps the typed body and serializes it only on write, per the dev report. I did not read that serialization code directly."},
+      {"id": "QA-003", "verdict": "closed", "evidence": "The remaining expect and panic calls in extract/command.rs are all at line 402 or later, in test code. The production paths in src/run/mod.rs have no expect or unwrap (checked by grep; the default_backends change is taken from the dev report)."},
+      {"id": "QA-004", "verdict": "closed", "evidence": "TMP_OPEN_ATTEMPTS = 8 bounds the tmp-open retry loop (src/session/mod.rs:487-491). The module docs at line 42 state that the parent-directory fsync after rename is best effort."},
+      {"id": "QA-005", "verdict": "closed", "evidence": "Informational only, with no action required. The unix-gated tests are unchanged, and the cross-platform grep for hardcoded /tmp/ in crates/ is clean."}
+    ],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": {"critical": 0, "important": 0, "minor": 0}
+    },
+    "notes": [
+      "All requested checks pass at 3f66e7b. The merge of integrate/phase-a (89a01e5) causes no regression in fmt, clippy, tests, rustdoc or the dependency gates.",
+      "The fix-round visibility narrowing holds up. equal_input, extract and payload are pub(crate) in crates/sc-jev-check/src/lib.rs:14-16. Three test targets declare required-features = [\"test-util\"] in crates/sc-jev-check/Cargo.toml (lines 47, 54, 58). The plain and --features test-util workspace runs both pass with the same 441 count.",
+      "The sprint doc cites CI run 42419966414 (docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:491), so REQ-QA-R2-002 is satisfied. I did not independently verify the REQ, ARCH or RBQA ids that the dev report lists. Those are doc and architecture items outside this Rust QA scope.",
+      "Coverage was not re-run. The round is locked, and QA-1 coverage was 91.64% line for sc-jev-check. The fix round only narrowed visibility and moved code.",
+      "No rust-best-practices or rust-service-hardening review was performed, as out of scope."
+    ]
+  },
+  "error": null
+}

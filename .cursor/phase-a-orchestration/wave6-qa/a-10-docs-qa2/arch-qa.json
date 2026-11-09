@@ -1,0 +1,1 @@
+{"agent":"arch-qa","reviewed_commit":"f24d91e0e86b8515c4674730f2d8332c76bf7a6d","verdict":"PASS","blocking":0,"important":0,"findings":[],"carry_forward_closure":{"ARCH-007":"closed","ARCH-008":"closed"},"merge_ready":true,"notes":"All 22 ADR bodies word-for-word unchanged vs integrate; only status line, crate graph, ADR index differ. CI restructure has no ADR bearing."}

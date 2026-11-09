@@ -1,0 +1,177 @@
+{
+  "status": "FAIL",
+  "reviewed_branch": "plan/phase-a-decision-apis",
+  "reviewed_commit": "ff15bc8889e042b5ffce1db458579e293581d3a3",
+  "errors": [
+    {
+      "code": "ANALYSIS.ERROR",
+      "message": "Bash is not available in this run, so git diff 1ad3294..ff15bc8 and a dirty-tree check could not be executed. Commit identity was verified without git: worktree gitdir /Volumes/Extreme Pro/github/sc-agent/.git/worktrees/phase-a-decision-apis/HEAD is 'ref: refs/heads/plan/phase-a-decision-apis', and refs/heads/plan/phase-a-decision-apis = ff15bc8889e042b5ffce1db458579e293581d3a3. The fix-commit delta was therefore reviewed by re-reading the current state of each carry-forward target, not by diff."
+    },
+    {
+      "code": "ANALYSIS.ERROR",
+      "message": "docs/project-plan.md was read by grep only (no A.1 or r-7 entries found). Sequencing for r-7 was checked against docs/plans/phase-a-refine/plan.md. .claude/project/quality-policy.md was not reviewed in this round."
+    }
+  ],
+  "scope": {
+    "phase": "A.1 (phase-a-refine)",
+    "sprint": "r-7"
+  },
+  "baselines_read": [
+    "docs/requirements.md (lines 95-215)",
+    "docs/architecture.md (lines 25-64 naming convention, 1555-1640 ADR-SAG-0030)",
+    "docs/plans/phase-a-refine/plan.md (lines 600-680)",
+    "docs/project-plan.md (grep only)"
+  ],
+  "phase_or_sprint_docs_read": [
+    "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md (lines 1-45, 190-233, 870-895)"
+  ],
+  "requirement_checks": [
+    {
+      "id": "REQ-SAG-0130",
+      "source": "docs/requirements.md:130, :207, :208, :212",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+        "docs/requirements.md:150-153 (amendment rows keep verbatim, same-id convention)",
+        "docs/requirements.md:194-196 (amendments table is keyed by existing ids)",
+        "docs/requirements.md:212 (Proposed, r-7 row)",
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:29",
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:891 (qualified as 'amended, r-7 bullet')"
+      ]
+    },
+    {
+      "id": "REQ-SAG-0143",
+      "source": "docs/requirements.md:180",
+      "listed_in_sprint_doc": false,
+      "result": "upheld",
+      "evidence_refs": [
+        "docs/requirements.md:180 (Proposed, r-5)",
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:121 (sc-jev client judge: 'body built as String', r-7 owned path)",
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:126 (sc-jev-backends backend.rs: body built as String)",
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:197 (jev::v1 is r-5's, carried unchanged)",
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:17-45 (front-matter list, 0143 absent)"
+      ]
+    },
+    {
+      "id": "REQ-SAG-0140",
+      "source": "docs/requirements.md:177",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:18"]
+    },
+    {
+      "id": "REQ-SAG-0900",
+      "source": "docs/requirements.md:139",
+      "listed_in_sprint_doc": false,
+      "result": "not-applicable",
+      "evidence_refs": ["docs/plans/phase-a-refine/plan.md:618-622 (owner 2026-11-07: API-direct agents are Phase B, not touched by r-7)"]
+    }
+  ],
+  "deliverable_checks": [
+    {
+      "item": "CF REQ-QA-001: REQ-SAG-0130 unique id per row (carry-forward)",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+        "docs/requirements.md:150-153",
+        "docs/requirements.md:130, :207, :208, :212",
+        "docs/requirements.md:199 and :210 (REQ-SAG-0103 reused in the same table)",
+        "docs/requirements.md:159 and :211 (REQ-SAG-0107 reused)",
+        "docs/requirements.md:99 and :204 (REQ-SAG-0601 reused)",
+        "docs/requirements.md:116 and :209 (REQ-SAG-0711 reused)"
+      ],
+      "notes": "JUSTIFIED, closed. The repo convention for the Phase A.1 amendments table reuses the id of the amended row. The same reuse appears for 0103, 0107, 0601 and 0711. The sprint disambiguates each use by its bullet text (line 29) and its acceptance qualifier (line 891). Parent ruling accepted. Not a Blocking finding."
+    },
+    {
+      "item": "CF REQ-QA-002: crate naming convention covers per-API modules in sc-decision-schema",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+        "docs/architecture.md:53-64",
+        "docs/architecture.md:1617-1624",
+        "docs/plans/phase-a-refine/plan.md:663-670"
+      ],
+      "notes": "CLOSED. sc-decision-* is API-agnostic for shared types and hosts one versioned module per API (jev::v1 today). Architecture and plan item 12 match. The fix is a wording change, not a rename."
+    },
+    {
+      "item": "CF REQ-QA-003: sc-jev-py listed in naming convention with rationale",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+        "docs/architecture.md:57-58 ('sc-jev-py (the PyO3 consumer of sc-jev-host)')",
+        "docs/architecture.md:31",
+        "docs/plans/phase-a-refine/plan.md:665-667 ('consumers built only on it, such as sc-jev-py')"
+      ],
+      "notes": "CLOSED. sc-jev-py is in the Today list with rationale, and plan item 12 mirrors it."
+    },
+    {
+      "item": "CF REQ-QA-004: r-7 Layering note no longer claims 'only jev:: is built in r-7'",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:202-204",
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:197",
+        "docs/architecture.md:1598-1600",
+        "docs/plans/phase-a-refine/plan.md:609"
+      ],
+      "notes": "CLOSED. The note reads 'jev::v1 lands in r-5 and is carried unchanged; r-7 adds no per-API module', consistent with ADR-SAG-0030 and plan.md."
+    },
+    {
+      "item": "ADR amendment subsections exist for each amended ADR (ADR-SAG-0030 claim)",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": ["docs/architecture.md:1562-1568"],
+      "notes": "Carry-forward state unchanged; no regression seen in the re-read targets."
+    },
+    {
+      "item": "Plan item 12 and post-MVP order (decider first, then laya; kev unscheduled)",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": ["docs/plans/phase-a-refine/plan.md:663-670", "docs/plans/phase-a-refine/plan.md:478", "docs/architecture.md:1617-1624"],
+      "notes": "Order is identical in all three places."
+    },
+    {
+      "item": "Sprint r-7 front-matter requirements list present and populated",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:17-45"],
+      "notes": "Present and populated. Completeness is covered by the next item."
+    },
+    {
+      "item": "Sprint r-7 requirements list complete for every touched id (REQ-SAG-0143)",
+      "status": "absent",
+      "closure_state": "not-applicable",
+      "evidence_refs": ["docs/requirements.md:180", "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:17-45", "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:121-126"],
+      "notes": "New in this round. The sprint's owned sc-jev and sc-jev-backends body-building paths are touched and carried. REQ-SAG-0143 is not listed."
+    }
+  ],
+  "findings": [
+    {
+      "id": "REQ-QA-005",
+      "severity": "Blocking",
+      "category": "requirement-not-listed",
+      "source_refs": [
+        "docs/requirements.md:180 (REQ-SAG-0143)",
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:197"
+      ],
+      "target_refs": [
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:17-45",
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:121",
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:126"
+      ],
+      "issue": "Sprint r-7 touches the REQ-SAG-0143 subject. It has owned paths in sc-jev (client/mod.rs:121 'body built as String') and sc-jev-backends (backend.rs:126). It also carries jev::v1 in sc-decision-schema unchanged. REQ-SAG-0143 defines the CheckRequest/CheckResponse body path that these owned paths touch. The id is absent from the front-matter requirements list. This is not a carry-forward item. It is raised under the Blocking rule for a missing listed id, and the parent may treat it as a new finding in this locked round.",
+      "required_correction": "Add '- REQ-SAG-0143   # regression: jev::v1 carried unchanged; sc-jev body still built as String until r-5' to the sprint r-7 front-matter requirements list (after line 25). Add a matching acceptance or regression row if the sprint claims it. Make no change to requirements.md.",
+      "compliance_result": "non-compliant"
+    }
+  ],
+  "summary": {
+    "total_findings": 1,
+    "blocking_findings": 1,
+    "overall_compliance": "non-compliant",
+    "deliverables_total": 8,
+    "deliverables_complete": 7,
+    "deliverables_incomplete": 1,
+    "deliverable_completion_percent": 87.5
+  },
+  "gate_reason": "FAIL on one Blocking finding, REQ-QA-005: REQ-SAG-0143 is touched by r-7 owned paths but is not in the front-matter requirements list. All four carry-forward findings are closed or justified. REQ-QA-001 (duplicate REQ-SAG-0130) is justified by the repo's same-id amendment convention, with the same reuse for 0103, 0107, 0601 and 0711, and the sprint disambiguates each use. REQ-QA-002 and REQ-QA-003 are closed by the architecture and plan item 12 wording, which now lists sc-jev-py with rationale and hosts per-API modules in sc-decision-schema. REQ-QA-004 is closed by sprint lines 202-204. No regression was found in the re-read targets. Completion is 7 of 8 (87.5%), not 100%. If the parent rules that 0143 is outside r-7's touched subjects, REQ-QA-005 can be withdrawn and the gate would PASS, but that ruling is not mine to make."
+}

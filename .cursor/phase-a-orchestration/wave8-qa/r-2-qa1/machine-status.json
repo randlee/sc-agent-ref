@@ -1,0 +1,89 @@
+{
+  "reviewer_spawn_gate": "pass",
+  "reviewer_manifest": [
+    {
+      "agent": "req-qa",
+      "task_id": "ad035543bd7599545",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "FAIL",
+      "findings": {
+        "blocking": 1,
+        "important": 3,
+        "minor": 5
+      }
+    },
+    {
+      "agent": "arch-qa",
+      "task_id": "a0222dd9e21bf2e36",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "FAIL",
+      "findings": {
+        "blocking": 1,
+        "important": 0,
+        "minor": 1
+      }
+    },
+    {
+      "agent": "rust-qa-agent",
+      "task_id": "aa15713c904b52a38",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "FINDINGS",
+      "findings": {
+        "blocking": 0,
+        "important": 0,
+        "minor": 5
+      }
+    },
+    {
+      "agent": "rust-best-practices-agent",
+      "task_id": "abc46bb48f35fa38e",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "FINDINGS",
+      "findings": {
+        "blocking": 0,
+        "important": 1,
+        "minor": 0
+      }
+    },
+    {
+      "agent": "rust-service-hardening-agent",
+      "task_id": "ac5e71583932d8db0",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "PASS",
+      "findings": {
+        "blocking": 0,
+        "important": 0,
+        "minor": 0
+      }
+    },
+    {
+      "agent": "flaky-test-qa",
+      "task_id": "a9643281a38a5c316",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "FINDINGS",
+      "findings": {
+        "blocking": 0,
+        "important": 2,
+        "minor": 3
+      }
+    },
+    {
+      "agent": "ruthless-boundary-qa",
+      "task_id": "a1471f4822163a06d",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "FINDINGS",
+      "findings": {
+        "blocking": 0,
+        "important": 3,
+        "minor": 1
+      }
+    }
+  ]
+}

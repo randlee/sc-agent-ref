@@ -1,0 +1,3 @@
+- QA-1 fix round: 0749f65 CI-R3C-001, 0c61453 hash_blob, 91b0744 tree gate, 678a26f FTQ-001, 2d023d8 FTQ-002, 1d59c99 clippy allow-invalid, 92b3d05 docs
+- Remaining: full gates (validate2.log), CI run id into sprint doc (CI-RUN-PENDING placeholder), gh pr checks 25
+- fix round done; head 641856f; CI runs 42387849824 / 42387849809 green

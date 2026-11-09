@@ -1,0 +1,168 @@
+{
+ "worktree_path": "/private/tmp/claude-501/-Users-randlee--claude-spares-spare-ZVG33J/84ad1f90-7f83-4b6e-b4fc-63121d353959/scratchpad/plan-qa2-review",
+ "sprint_doc": "docs/plans/phase-a-refine/plan.md",
+ "findings": [
+  {
+   "id": "RBP-F001",
+   "reviewer": "rust-best-practices-agent",
+   "severity": "important",
+   "issue": "SendTrace is a shared first-write-wins cell (Arc<OnceLock>), and JudgeRequest carries it and is cloned. Any clone of a request shares one trace. If a second backend send reuses a cloned request, its record() is silently dropped, and the second row logs the first backend's request_sha256 with no error. r-6 D3 prevents this only by 'the engine creates a fresh SendTrace per send', which is a convention.",
+   "recommendation": "Make single-use ownership a property of the type, not engine discipline. Options: (a) implement Clone for JudgeRequest by hand so the clone gets a fresh SendTrace; or (b) make the trace belong to one send, with the engine creating it and backends receiving it per judge call rather than on the cloneable request; or (c) have record() return a bool or debug-assert on a second write so reuse is visible. Add a rustdoc comment on the OnceLock saying why shared interior mutation is needed here (RBP-006 justification).",
+   "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+   "line": 684
+  },
+  {
+   "id": "RBP-F002",
+   "reviewer": "rust-best-practices-agent",
+   "severity": "important",
+   "issue": "The question-kind invariants (choice 2..=255, score 2..=10, noul has no choices or descriptions, descriptions has one entry per choice) are not held by the type. with_kind/with_descriptions are infallible, Deserialize is derived, and the rules run later in a separate 'then the question-kind rules' step. That step is repeated by both sc-jev and sc-jev-backends. Invalid Questions are therefore constructible and the invariant is re-checked per call site.",
+   "recommendation": "Validate once in sc-decision-schema: a fallible Question or CanonicalJudgePayload constructor, or #[serde(try_from)] on deserialize, or a single CanonicalJudgePayload::validate() that both crates call. Do not keep two copies of the rules. Also model kind as a three-variant QuestionKind { Choice, Score, Noul } with skip_serializing_if = is_choice, so None is not an implicit 'choice' sentinel. This keeps the bytes of existing payloads identical.",
+   "file": "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md",
+   "line": 125
+  },
+  {
+   "id": "RBP-F003",
+   "reviewer": "rust-best-practices-agent",
+   "severity": "important",
+   "issue": "OrderedMap<K,V>(Vec<(K,V)>) is deserialized 'in document order' with no stated duplicate-key rule, so a body with repeated question or criteria keys is representable and ambiguous. JevQuestion has public variant fields and derived Deserialize, so the '2..=255' and '2..=10' limits in comments are not enforced on that path. CheckRequest derives Deserialize, so to_canonical (used by input_sha256 recovery) can run on an unvalidated body. JevState::Object and the response usage/extra maps are serde_json::Map; the plan says 'no serde_json feature', so these are key-sorted. The 'key order is document order' and 'extra verbatim' claims and the state-object roundtrip are not true for unsorted keys. The key-ordering test uses already-sorted keys (context, inputs, metadata), so it cannot detect this.",
+   "recommendation": "Have the OrderedMap visitor reject duplicate keys (INPUT_INVALID or RESPONSE_INVALID, with a fix hint). Enforce criteria counts in a validating constructor or try_from used by both from_canonical and Deserialize. Use OrderedMap<String, Value> for JevState::Object. Either state that nested Value objects are key-sorted and the claim is limited accordingly, or drop the 'verbatim' wording. Use an unsorted-key case in test_state_forms_roundtrip and the key-ordering test.",
+   "file": "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md",
+   "line": 203
+  },
+  {
+   "id": "RBP-F004",
+   "reviewer": "rust-best-practices-agent",
+   "severity": "important",
+   "issue": "RowContext holds SystemTime for session_created_at and ts, but the projection truncates to ms. A row built from a real clock does not equal try_from_fields(to_fields(row)), because SessionLogRow derives PartialEq. The plan's 'test_fields_roundtrip (every fixture line)' passes only because fixtures are ms-aligned. answer_id is a raw String ('r-7 checks non-empty only') beside the typed session_id, and repo is raw String. The ok()/failed() constructors are infallible, so the only check, on answer_id, can run only on the parse path. to_fields can emit an empty answer_id.",
+   "recommendation": "Introduce a ms-precision timestamp newtype whose constructor truncates, so the type holds what the column stores. Introduce an AnswerId newtype next to SessionId (a validated 26-char Crockford ULID in r-7; r-6 swaps in Ulid). Keep repo text, but document the lossy-path rule on RowContext. Alternatively make ok()/failed() fallible.",
+   "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+   "line": 765
+  },
+  {
+   "id": "RBP-F005",
+   "reviewer": "rust-best-practices-agent",
+   "severity": "important",
+   "issue": "The variant seam cannot deliver the claim 'a future local model adds a variant, a module and one schema_for arm; no caller signature changes'. schema_for(ModelFamily) returns only a DecisionSchemaId. DecisionSchema has an associated const and associated types and no receiver, so it is not object-safe and has no runtime lookup from DecisionSchemaId or ModelFamily to an implementation. Backends choose at runtime by the model's family. Each new family therefore needs a hand-written match in every consumer (llm::v1::parse_output hard-wires Canonical). The static-vs-dynamic dispatch intent is not stated.",
+   "recommendation": "State that dispatch is static and keyed by SchemaFamily. Add one object-safe dispatch function in sc-decision-schema, e.g. llm::parse_output(id: DecisionSchemaId, text, payload), that is the only match on SchemaFamily. New families then edit that crate only. Alternatively drop the trait until a second variant exists and keep Canonical as plain functions.",
+   "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+   "line": 743
+  },
+  {
+   "id": "RBP-F006",
+   "reviewer": "rust-best-practices-agent",
+   "severity": "important",
+   "issue": "Two binding signatures disagree and one fake failure path loses data. (1) Sha256Digest::of takes &str (r-7 D2.5, r-6 l.318), but MockJudgeBackend::with_sent_body(body: impl Into<Vec<u8>>) is documented as 'records Sha256Digest::of(body)' (l.340-343, 214-216), which does not type-check. (2) send_with_busy_retry hashes only 'if let Ok(text) = from_utf8(request.body())', and the comment calls the Err arm 'unreachable in practice'. A non-UTF-8 body silently leaves request_sha256 null, contradicting 'SHA-256 of exactly the bytes sent'.",
+   "recommendation": "Give HttpRequest a text-typed body (String) or a validated body accessor, so UTF-8 is guaranteed by construction and no Result or Option arm is needed. Make with_sent_body take impl Into<String>. If a non-UTF-8 body is truly possible, fail with a typed JevError rather than record nothing.",
+   "file": "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md",
+   "line": 335
+  },
+  {
+   "id": "RBP-F007",
+   "reviewer": "rust-best-practices-agent",
+   "severity": "minor",
+   "issue": "Model aliases are stringly typed: ModelAliases::latest(&str) -> Option<ModelId>, with_override(&str, ..), default_model_alias() -> &'static str, and ModelDescriptor::released is a &'static str date. Because lookup is fallible for a built-in backend, the plan adds a provided model_id() whose unwrap_or_else(ModelId::fallback_for(self.id())) builds an Other(UnknownModel) holding a backend id string. That is not a model string, yet it would be logged as model_id. The only guard is test_backend_catalog_roundtrip. A non-catalog backend that does not override model_id() silently logs the catalog's model, which can be wrong after a [models] override.",
+   "recommendation": "Use a non_exhaustive ModelAlias enum {Jev, Haiku, Luna} with FromStr (CONFIG_INVALID listing valid aliases). Then default_model_alias() and builtin().latest(alias) are infallible, and fallback_for and the unwrap_or_else path can be removed. Consider requiring model_id() on non-built-in backends. A typed release date or an ordering by table position avoids string-date comparison for 'newest'.",
+   "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+   "line": 664
+  },
+  {
+   "id": "RBP-F008",
+   "reviewer": "rust-best-practices-agent",
+   "severity": "minor",
+   "issue": "Wire answers carry invariants as raw primitives. JevAnswer::Noul { probabilities: BTreeMap<String, f64> } must be 'exactly {yes: p}'. confidence and probabilities are bare f64 in [0,1], checked only in into_answers. CheckResponse::model is String while CheckRequest::model is ModelId. A stray 'confidence' on a noul answer is accepted because deny_unknown_fields is absent.",
+   "recommendation": "Use a NoulProbabilities { yes } struct with deny_unknown_fields. Use a validated Probability newtype for new jev::v1 and llm::v1 fields where this does not change moved types. Type the response model as ModelId.",
+   "file": "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md",
+   "line": 233
+  },
+  {
+   "id": "RBP-F009",
+   "reviewer": "rust-best-practices-agent",
+   "severity": "minor",
+   "issue": "ProjectLabel(Arc<str>) is specified with only new() and as_str(). It has no Display, FromStr, AsRef<str>, Serialize/Deserialize or Hash. The plan relies on CLI (--project), Python and try_from_fields all using one validator, which in practice needs FromStr (clap) and serde. ModelId in the same sprint gets the full set. The raw-String path is therefore the easy one.",
+   "recommendation": "Specify Display, FromStr (same validator), AsRef<str>, Hash, and serde via FromStr/as_str, matching ModelId. State that the Debug output is safe, since the text is caller text and not scrubbed.",
+   "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+   "line": 676
+  },
+  {
+   "id": "RBP-F010",
+   "reviewer": "rust-best-practices-agent",
+   "severity": "minor",
+   "issue": "Several new error paths define a code but no recovery hint. Only DecisionSchemaId names its remedy ('hint lists KNOWN'). Not specified: ModelAliases::with_override unknown alias (should list valid aliases), ProjectLabel::new (limits), and try_from_fields (should name the offending key). The [models] path remaps a ModelId::from_str INPUT_INVALID to CONFIG_INVALID by inspecting the code, so the original message and hint must survive the remap.",
+   "recommendation": "State in the sample doc comments that each of these returns a JevError with a fix hint (valid aliases, the limits, the key name), and that the CONFIG_INVALID remap preserves the hint and adds the check.toml key.",
+   "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+   "line": 669
+  },
+  {
+   "id": "RBP-F011",
+   "reviewer": "rust-best-practices-agent",
+   "severity": "minor",
+   "issue": "DecisionSchema is a new public trait in a published crate with no explicit open-or-sealed decision. D5 says new variants are added inside this crate (a SchemaFamily variant, a module and a schema_for arm), so the implementor set is crate-controlled. External implementations would be unusable anyway, since schema_for cannot reach them.",
+   "recommendation": "Seal it with the private supertrait pattern, or make it pub(crate) until a second variant exists, and document the decision. JudgeBackend stays intentionally open (ADR-SAG-0009); say so in its doc.",
+   "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+   "line": 743
+  },
+  {
+   "id": "RBP-F012",
+   "reviewer": "rust-best-practices-agent",
+   "severity": "minor",
+   "issue": "DecisionSchema::input returns Result<Self::Input, JevError>, but the only implementation (Canonical) returns the payload unchanged and cannot fail. D4.1 says input_bytes does not call it, so it is a fake-fallible method with no production caller.",
+   "recommendation": "Return Self::Input directly, or drop the method until a variant needs it.",
+   "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+   "line": 747
+  },
+  {
+   "id": "RBP-F013",
+   "reviewer": "rust-best-practices-agent",
+   "severity": "minor",
+   "issue": "RunConfig::log_context is optional ('unset: repo = RunConfig's repo_root, project = None'). The default silently yields the worktree root where the log field means the main repository (ADR-SAG-0031), so a caller that skips the setter writes a wrong repo into every row. Correct use depends on compose always remembering to set it.",
+   "recommendation": "Make the context required at the point the engine emits rows (a constructor argument or a type-level 'configured' state), or have the default call discover_main_repo_root so unset still gives the documented meaning.",
+   "file": "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md",
+   "line": 354
+  },
+  {
+   "id": "RBP-F014",
+   "reviewer": "rust-best-practices-agent",
+   "severity": "minor",
+   "issue": "Sha256Digest::of(&str) will normalize CRLF and bare CR to LF under sc-sha, but the name and the 'request_sha256 = digest of exactly the bytes sent' contract read as a raw digest. A caller hashing CR-bearing text gets a digest that is not SHA-256 of its bytes. The safety rests on 'compact JSON has no raw CR', which the type does not express.",
+   "recommendation": "Rename to of_text or document the normalization on the method itself (not only in the sprint doc), so a later caller with CR-bearing input is not surprised.",
+   "file": "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md",
+   "line": 318
+  },
+  {
+   "id": "RSH-001",
+   "reviewer": "rust-service-hardening-agent",
+   "severity": "important",
+   "issue": "r-5 replaces parse_outcome with CheckResponse::into_answers. Its stated rule list (lines 103-108, 144-145, and the test_response_rules_rejected cases at line 263) drops two checks the current code enforces. One is response `model` equals the request model. The other is that a choice/score answer's probability keys equal the question's criteria keys. The planned rules only say the choice is a criteria option and the probabilities sum to 1. A reply can therefore carry arbitrary probability labels, or labels that are a subset or superset of the options, and still pass. Those labels then flow into DecisionAnswers, the session document and the r-6 answers_json log column. The noul rule (line 236, `exactly {\"yes\": p}`) is stated in prose but has no rejection case in the acceptance list (wrong key set, extra `no` key, p outside [0,1]).",
+   "recommendation": "State in r-5 that into_answers keeps the existing checks: response model equals the request model, and probability keys for choice/score equal the criteria keys. Add the noul key-set and range cases to the existing test_response_rules_rejected list. This carries current behaviour over and adds no new gate. All failures stay RESPONSE_INVALID.",
+   "file": "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md",
+   "line": 103
+  },
+  {
+   "id": "RSH-002",
+   "reviewer": "rust-service-hardening-agent",
+   "severity": "important",
+   "issue": "The request-size limit is enforced today on the final wire body, after the splice. `prepare` compares body.len() to the descriptor's request_limit_bytes and returns InputTooLarge (check.rs:62-66). r-5 deletes splice_model and `prepare`'s path, and deliverables 1 and 3 say no other schema check remains. They never say where the limit is checked against the new CheckRequest::to_body output. The documented Jev body is larger than the canonical bytes (criteria maps, descriptions, model, instructions). A check on the canonical payload would pass bodies that exceed the Jev limit. Dropping the check would send an unbounded body and rely on the server to reject it.",
+   "recommendation": "State in deliverable 3 that sc-jev compares the length of to_body() output to the Jev descriptor's request_limit_bytes before send. It should return InputTooLarge with the same limit and actual-byte fields as today. This is the existing check moved onto the new builder, not a new gate. Haiku and Luna keep enforce_count_and_message_limits unchanged.",
+   "file": "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md",
+   "line": 119
+  },
+  {
+   "id": "RSH-003",
+   "reviewer": "rust-service-hardening-agent",
+   "severity": "minor",
+   "issue": "Duplicate-key behaviour is unspecified. OrderedMap is a custom order-preserving visitor, and the input_sha256 recovery (item 5) parses the sent body with it. A duplicate question id or criteria key in a recovered body could silently collapse or shadow an entry, giving a digest that differs from prompt_sha256 with no error. Response `answers` is a BTreeMap, where serde keeps the last duplicate id silently.",
+   "recommendation": "Specify that the OrderedMap visitor and the answers map reject a duplicate key (INPUT_INVALID on request recovery, RESPONSE_INVALID on a reply). Cover it with a case in the existing test_response_rules_rejected and recovery tests rather than a new check.",
+   "file": "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md",
+   "line": 199
+  },
+  {
+   "id": "RSH-004",
+   "reviewer": "rust-service-hardening-agent",
+   "severity": "minor",
+   "issue": "Sha256Digest::of(&str) is declared infallible, but sc-sha's calculate_hash returns a Result (D0, line 145-146 says ShaError::InvalidUtf8 'cannot occur'). The plan does not say what `of` does on an Err. Panicking on the send path (record before every Transport::send) would violate M-PANIC-ON-BUG for a non-bug. Separately, sc-sha normalizes CR and CRLF to LF, so for any text that is not compact serde_json the digest is not SHA-256 of the bytes. The plan covers the committed queries as LF-only. The query text hashed at extract.rs:231 is `input.query`, which can be user-supplied and contain CRLF. Its query_sha256 would then no longer match the bytes it claims to identify.",
+   "recommendation": "Say that `of` handles the unreachable Err arm without panicking. For example, treat it as a documented unreachable with a deterministic fallback, or keep `of` returning Result at the one send-site call. Note that query_sha256 identifies LF-normalized query text, and keep the 'digest equals SHA-256 of the sent bytes' claim to request bodies only. This is a wording and behaviour clarification, not a new gate.",
+   "file": "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md",
+   "line": 318
+  }
+ ]
+}

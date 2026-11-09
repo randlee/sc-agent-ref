@@ -1,0 +1,46 @@
+{
+  "agent": "arch-qa",
+  "round": "QA-2",
+  "branch": "sprint/r-1-types-break",
+  "scope": {"phase": "a.1", "sprint": "r-1"},
+  "commit": "64c0e85",
+  "verdict": "PASS",
+  "blocking": 0,
+  "important": 0,
+  "findings": [
+    {
+      "id": "ARCH-R1-F01",
+      "rule": "RULE-ADR-PLAN",
+      "adr": null,
+      "severity": "MINOR",
+      "file": "docs/plans/phase-a-refine/plan.md",
+      "line": 566,
+      "description": "Follow-up for r-2/r-2b, not an r-1 blocker. The 'ADR ownership' table has no rows for the three new r-1 'interim shapes' subsections on ADR-SAG-0008, 0014 and 0019. Its 0008/0014/0019 rows list only r-2/r-2b landings. The plan-QA rule says every subsection has exactly one landing sprint. The Amends cells of ADR-SAG-0024/0025 (index lines 100-101) were intentionally not edited and still name 0014/0019/0008.",
+      "remediation": "Add rows 'ADR-SAG-0008 / 0014 / 0019 | r-1 interim shapes (superseded when 0025 / 0024 land) | r-1'. Have r-2 and r-2b reconcile the Amends cells and mark the interim subsections superseded when they land."
+    }
+  ],
+  "verification": {
+    "ARCH-R1-001": "Closed. ADR-SAG-0019 has an Active 'r-1 interim shapes' amendment (docs/architecture.md:370-386). It says equal is derived, every backend is Unattested, and a live run reports equal=false until r-2b. It matches crates/sc-jev-check/src/run/mod.rs:340-352. A body-sentence pointer sits at lines 367-368.",
+    "ARCH-R1-002": "Closed. Active interim subsections exist on ADR-SAG-0008 (lines 167-180), 0014 (772-791) and 0019. Session v2 and 'stored outcomes checked on load' match session/mod.rs:649-655 and JudgeOutcome::check_against (judge.rs:252, shared check_answers). The typed answers written once and extra keys kept only in provider_meta match command.rs merge_jev_response. The outcome shape (answers, backend, input_sha256, provider_meta) matches judge.rs:213-222. The equal_input shape matches the EqualInputRecord serializer. Each subsection says it is superseded by ADR-0024/0025 when they land. Index rows 84/90/95 carry 'A.1 subsection (Active, r-1)'.",
+    "ARCH-R1-003": "Closed. ADR-SAG-0025 is no longer in the sprint adrs list. Sprint doc lines 770-777 record why.",
+    "ARCH-R1-004": "Closed. ADR-SAG-0014 and ADR-SAG-0021 are in the sprint adrs list. ADR-SAG-0017 is omitted with a stated reason (no release channel change), which is acceptable.",
+    "ARCH-R1-005": "Closed. The crate graph edge is gone and docs/architecture.md:38 now says no crate depends on sc-observability-types. The ADR-SAG-0016 body (lines 720-722) carries a 'superseded by the r-1 amendment' pointer. The only remaining mentions are the amendment itself and Proposed text.",
+    "ARCH-R1-006": "Closed. ADR-SAG-0027 (lines 1159-1167) says the catalog and code modules are private and reached only through crate-root re-exports. The public modules are schema, observability::v2, git and test_util. This matches lib.rs and the catalog.rs:3 / code.rs:3 docs. ERROR_RESPONSE_SCHEMA_VERSION is pub(crate) (envelope.rs:11), lib.rs:71 re-exports only ScAgentErrorResponse, and no manifest facade or doc names the const.",
+    "ARCH-R1-007": "Closed. The sprint doc owned_paths now include the sc-lint.toml record deletion (line 117, 'r-4 drops its deletion step'). The record is absent from sc-lint.toml. The clippy.toml comment was fixed. I did not re-check the secrets dev-dep owned_paths claim.",
+    "code_text_agreement": "Rev deserializes via try_from String -> Rev::parse (ids.rs:52-56, 106-109, rejects a leading '-'). PayloadBundle::as_str and into_text exist (payload.rs:217, 223). The ureq mapping Tls/TlsRequired/RequireHttpsOnly/Pem/Rustls -> Tls and BodyExceedsLimit -> BodyTooLarge is in sc-jev/src/client/https.rs:147-152, and the transport.rs doc mirrors it.",
+    "merge_coherence": "After the merge with integrate (PR 23, 554b8f6), docs/architecture.md and plan.md have no conflict markers. Each interim-shapes subsection appears exactly once. The Proposed r-2/r-2b/r-3/r-4 subsections are intact. The r-1 index cells are consistent."
+  },
+  "adr_checks": [
+    {"adr": "ADR-SAG-0008", "source": "docs/architecture.md:158-180", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/src/session/mod.rs:649-655"]},
+    {"adr": "ADR-SAG-0014", "source": "docs/architecture.md:759-791", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-ai/src/command.rs:680-689", "crates/sc-agent-types/src/judge.rs:213-222"]},
+    {"adr": "ADR-SAG-0019", "source": "docs/architecture.md:333-386", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/src/run/mod.rs:340-352"]},
+    {"adr": "ADR-SAG-0016", "source": "docs/architecture.md:714-743", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:38"]},
+    {"adr": "ADR-SAG-0027", "source": "docs/architecture.md:1159-1167", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-agent-types/src/lib.rs:44-75"]},
+    {"adr": "ADR-SAG-0021", "source": "docs/architecture.md (Log and session path precedence)", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-ai/src/lib.rs:40"]}
+  ],
+  "gate_artifact_checks": [
+    {"artifact": "docs/architecture.md ADR index", "status": "closed", "evidence_refs": ["docs/architecture.md:84", "docs/architecture.md:90", "docs/architecture.md:95", "docs/architecture.md:100", "docs/architecture.md:101"], "notes": "The r-1 cells carry '(Active, r-1)'. The 0024/0025 Amends cells are intentionally unchanged (r-2/r-2b own them)."}
+  ],
+  "merge_ready": true,
+  "notes": "QA-1 findings ARCH-R1-001 to 007 are all closed. The only open item is the MINOR plan.md ADR-ownership follow-up above. I did not run cargo, sc-lint or tests. This was a read-only review."
+}

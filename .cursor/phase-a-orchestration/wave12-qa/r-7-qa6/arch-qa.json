@@ -1,0 +1,27 @@
+{
+  "agent": "arch-qa",
+  "branch": "sprint/r-7-decision-schema",
+  "scope": {"phase": "phase-a-refine", "sprint": "r-7"},
+  "commit": "45b2b07",
+  "verdict": "PASS",
+  "blocking": 0,
+  "important": 0,
+  "findings": [],
+  "adr_checks": [
+    {
+      "adr": "ADR-SAG-0028",
+      "source": "docs/architecture.md:1576-1589 (Amendment (Phase A.1, r-7), Status Active (Phase A.1, r-7))",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+        "boundaries/README.md:112-114",
+        "crates/workspace-tests/Cargo.toml:24",
+        "boundaries/workspace-tests/workspace-tests.toml:31",
+        "boundaries/sc-decision-schema/decision-schema.toml:21"
+      ]
+    }
+  ],
+  "gate_artifact_checks": [],
+  "merge_ready": true,
+  "notes": "ARCH-003 is closed. boundaries/README.md:112-114 now states that r-7 adds sc-decision-schema (features = [\"test-util\"]) as a fourth counted dev edge whose manifest lists workspace-tests in allowed_dependents, citing ADR-SAG-0028 r-7 amendment. The sentence matches the ADR-SAG-0028 r-7 amendment (docs/architecture.md:1580-1589), crates/workspace-tests/Cargo.toml:24 (dev-dependency with features = [\"test-util\"]), boundaries/workspace-tests/workspace-tests.toml:31 (allowed_dependencies includes sc-decision-schema) and boundaries/sc-decision-schema/decision-schema.toml:21 (allowed_dependents includes workspace-tests). The four counted dev edges (sc-agent-types, sc-jev-check, sc-jev-host, sc-decision-schema) are consistent with the README paragraph. Worktree verification: the worktree gitdir HEAD is refs/heads/sprint/r-7-decision-schema, the branch ref at /Volumes/Extreme Pro/github/sc-agent/.git/refs/heads/sprint/r-7-decision-schema resolves to 45b2b07d04c5ec2cabbbf71bfc4cd454f603ce87, and the worktree reflog shows b6f9ef6 -> 45b2b07 as the final step. Limitation: this session had no shell tool, so I could not run git diff b6f9ef6..45b2b07 to confirm the delta is doc-only. I relied on the reflog commit message (\"docs(r-7): sprint status complete\") and on the current content of the README. The delta raises no findings beyond the ARCH-003 check. Out of scope and not re-reviewed: the rest of the README and the full sprint doc, which were covered by earlier QA rounds."
+}

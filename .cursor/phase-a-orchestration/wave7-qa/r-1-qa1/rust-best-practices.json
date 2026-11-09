@@ -1,0 +1,67 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-1-types-break",
+    "reviewed_commit": "22ef273",
+    "review_mode": "sprint_review",
+    "practice_mode": "all",
+    "practices_reviewed": ["RBP-001","RBP-002","RBP-003","RBP-004","RBP-005","RBP-006","RBP-007","RBP-008","RBP-009","RBP-010"],
+    "findings": [
+      {
+        "id": "RBP-F003",
+        "practice_id": "RBP-004",
+        "severity": "important",
+        "file": "crates/sc-jev-check/src/extract/read.rs",
+        "line": 69,
+        "issue": "Carry-forward RBP-F003 (repo-relative path newtype) is only half applied. RepoRelativePath is adopted for SubjectsSource.path, push_subject, the git helper and sc-treesitter extract. Its rustdoc calls it 'the one validator for repo-relative paths', but a second hand-written validator, validate_relative, still guards every file read in sc-jev-check. InputSpec::{File,TableColumn,Subjects}.path and CheckSpec.questions_path, state_path and system_prompt_file are still raw String. The subjects extractor compares path == \"-\" on a raw String. The two validators already disagree: validate_relative accepts \".\" and \"./\", which RepoRelativePath rejects because it requires a Normal component.",
+        "recommendation": "Make read_repo_bytes and read_repo_text take &RepoRelativePath and delete validate_relative. Give InputSpec paths and CheckSpec paths the RepoRelativePath type, with deserialization through the validator so a bad check.toml fails at load. Handle the '-' stdin sentinel explicitly before conversion. Cover InputSpec::Command.path in r-2 as the plan says. If the config move is deliberately deferred to r-2, the r-1 plan and dispositions (plan-review-1 line 129) must say 'half applied', and the 'one validator' wording must be dropped until then.",
+        "evidence": "crates/sc-jev-check/src/extract/read.rs:69-91 repeats the rule set from crates/sc-agent-types/src/ids.rs:613-624. crates/sc-jev-check/src/config/mod.rs:30,35,42,98-102 keep String. crates/sc-jev-check/src/extract/subjects.rs:44-53 and 49 use a raw string. The plan itself keeps InputSpec unchanged in r-1 (sprint-r-1 line 585), which contradicts the disposition row that claims InputSpec::{File,Command}.path."
+      },
+      {
+        "id": "RBP-F201",
+        "practice_id": "RBP-004",
+        "severity": "important",
+        "file": "crates/sc-agent-types/src/judge.rs",
+        "line": 210,
+        "issue": "JudgeOutcome::new enforces the invariants: the key set equals the question ids, every choice and probability key is offered, and probabilities are finite. JudgeOutcome also derives Deserialize on private fields. Any deserialized outcome therefore skips all of those checks. The type doc claims 'every outcome has exactly the request's question ids and only offered choices', which is false for values read back from disk.",
+        "recommendation": "Split the check out of new into a shared function, for example JudgeOutcome::check_against(&PayloadBundle). Then either drop Deserialize from JudgeOutcome and read stored outcomes through a StoredOutcome wire type, or keep Deserialize and call check_against in StoredSession::from_document once the payload is decoded. Either way, a stored outcome that does not match its payload becomes SESSION_DOCUMENT_INVALID. Narrow the type doc to say what is guaranteed.",
+        "evidence": "crates/sc-jev-check/src/session/mod.rs:650-662 (SessionDocument.outcomes: Vec<JudgeOutcome>) and 664-677 (from_document passes outcomes through unchecked). render_session_context (441-454) then feeds those answers into the next LLM prompt. QuestionAnswer is validated on deserialize (try_from), but the question-level invariants are not."
+      },
+      {
+        "id": "RBP-F202",
+        "practice_id": "RBP-007",
+        "severity": "important",
+        "file": "crates/sc-jev-check/src/session/mod.rs",
+        "line": 211,
+        "issue": "PayloadBundle bytes are UTF-8 by construction: they come from serde_json::to_vec, and decode only accepts bytes equal to the re-encoding. The crate still exposes only bytes() and into_parts(), so four call sites re-prove UTF-8 with a fake failure path or a panic. Session open returns a documented INPUT_INVALID 'payload is not UTF-8' that cannot occur, and a unit test pins it. The session read path calls utf8_payload on document.payload_utf8.as_bytes(), which is already a String. The LLM backend prepare maps from_utf8 to InputInvalid. sc-jev-py payload_text uses expect().",
+        "recommendation": "Add PayloadBundle::as_str() -> &str and into_text() -> (String, Sha256Digest). Store a validated String (or keep the bytes and use str::from_utf8_unchecked behind a private invariant). Delete utf8_payload, the error branches and the expect, and update the open() rustdoc and its test.",
+        "evidence": "crates/sc-jev-check/src/session/mod.rs:195,211,341 and session/tests.rs:172. crates/sc-jev-backends/src/backend.rs:160-161. crates/sc-jev-py/src/run.rs:88-93, whose own doc admits this is a broken-invariant case."
+      },
+      {
+        "id": "RBP-F104",
+        "practice_id": "RBP-004",
+        "severity": "minor",
+        "file": "crates/sc-agent-types/src/schema/subjects.rs",
+        "line": 22,
+        "issue": "Carry-forward RBP-F104 (#[non_exhaustive] triage) is mostly applied; some types are still outside the written rule. The rule is: a type another crate constructs gets private fields and a constructor, and is not non_exhaustive. The enums, descriptor, outcome types, Question, CanonicalJudgePayload, Span and Subject follow it, and every #[expect] carries a reason. Still outside the rule and missing from the triage table are SubjectsSource and SubjectsProducer, which have pub fields and no constructor and are built literally in sc-treesitter. LlmWireContext has a constructor but also a pub field. ChoiceAnswer has pub fields. sc-treesitter's ExtractInput is #[non_exhaustive] and has pub fields plus a builder, which is the combination the rule rejects.",
+        "recommendation": "Add these types to the triage table with an explicit decision. Either give them private fields plus constructors and accessors (SubjectsSource::new, SubjectsProducer::new, LlmWireContext::system_prompt(), ChoiceAnswer::new), or record that they are frozen wire types whose fields are fixed by the schema version. For ExtractInput, drop #[non_exhaustive] or make the fields private.",
+        "evidence": "subjects.rs:22-49, judge.rs:26-29, payload.rs:88-93, crates/sc-treesitter/src/extract.rs:28-49 and the literals at 220-234."
+      }
+    ],
+    "summary": {
+      "total_findings": 4,
+      "by_severity": { "critical": 0, "important": 3, "minor": 1 }
+    },
+    "notes": [
+      "Process: findings_scope_locked was false but carry_forward_findings was non-empty, and the contract treats those as equivalent. I ran an open review and also gave a disposition for each carry-forward id. I had no shell tool, so I could not run `git rev-parse HEAD` to confirm the worktree is at 22ef273 on sprint/r-1-types-break. The caller should confirm that, and I did not run any tests.",
+      "Carry-forward dispositions: RBP-F003 is half applied (open, see finding). RBP-F011 is fixed: Operation enum, QuestionId and ChoiceId, BlobSha, and the leak/dry-run bool pair as a struct in equal_input/mod.rs:30-66. RBP-F006 (parallel HTTP layers in sc-jev and sc-jev-backends) is not an r-1 deliverable; plan.md:802 assigns it to r-3, and the duplication is still present. RBP-F104 is mostly applied (see finding).",
+      "Judged sound, no finding. Newtypes ChoiceId, QuestionId, BlobSha, RepoRelativePath, Sha256Digest and BackendSet have private inners and validated TryFrom/FromStr, and serde goes through the validator (try_from/into String). Derived Hash and Ord agree with Borrow<str> (ids.rs:764). The single-spelling rule holds for BackendId (Deserialize via FromStr plus descriptor aliases only, no serde alias), ErrorCode and NetworkErrorKind (snake_case on all three paths). BackendDescriptor has private fields, const fn accessors and one exhaustive match in BackendId::descriptor. FACTORIES is a typed (BackendId, fn) table checked against BACKENDS by test_every_backend_has_factory. JudgeBackend is object safe, with its open status stated (RBP-003/008). SessionLog and SessionStore are documented open ports. The hand-written Serialize for EqualInputRecord is justified: equal is derived, the Deserialize wire struct rejects a mismatch, and the field list is tied together by a wire struct. QuestionAnswer is validated on deserialize. ScAgentErrorResponse rejects unknown schema versions and keys. Error text and redaction go through map_detail, which is an exhaustive match. #[expect] always carries a reason.",
+      "MockJudgeBackend matches its contract: Arc sharing instead of Clone, interior Mutex and AtomicUsize with the rationale stated, builder methods, and the outcome built through JudgeOutcome::new. Minor: failure and refusal are two independent Option fields, so setting both leaves failure unreachable; a single enum would remove that. judge_outcome_field_names() is a hard-coded list that can drift from JudgeOutcome and is guarded only by contract tests. RBP-006 is satisfied (Mutex<()> file lock documented). The RwLock<BackendRegistry> behind install_registry(&self) and the Arc<dyn Fn> clock in FileSessionStore have no stated reason; the clock is the plan's RBP-F106 item.",
+      "Retryable: JevError::retryable() is derived from NetworkErrorKind, not stored. ScAgentErrorResponse stores a bool because it is a wire shape and is skipped when false, which is acceptable. A ProducerError keeps its producer's code and can report a NETWORK_ERROR code with retryable() false.",
+      "PartialEq<&str> and PartialEq<str> on ErrorCode, QuestionId, ChoiceId and RepoRelativePath, plus PartialEq<ErrorCode> for &str, are coherent and harmless. They exist mainly for tests and could be left out of production-facing docs. Module seams: catalog and code are private with root re-exports, and the error module re-exports code's items only privately, so there is one public path each. The doc comments are stale: code.rs says 'Re-exported through error', catalog.rs says 'through ids', the ids.rs header still says 'and the static backend catalog', and the plan's type-home table puts the catalog in ids.",
+      "Other minor items. (1) Rev derives serde(transparent) Deserialize and has a public unvalidated Rev::new, so SubjectsSource.rev read from extractor stdout bypasses Rev::parse (ids.rs:49-66); route Deserialize through parse. (2) BackendKeyId::as_str uses a KEY_NAMES table with a map_or(\"unknown\") fallback, where BackendId uses an exhaustive const match (ids.rs:178-195); a missing row silently becomes 'unknown'. (3) sc-jev check.rs re-derives question criteria as BTreeMap<String,BTreeSet<String>> from raw bytes. That duplicates PayloadBundle::question_choices(), and the object-shaped questions branch (criteria_from_object, line 177) is never produced by PayloadBundle::encode. Pass &PayloadBundle and keep only the Jev-specific rule that probabilities equal the choices. (4) sc-treesitter passes Rev, path and blob sha as &str: main.rs:96-100 calls rev.as_str() and extract.rs:140-145 re-parses it, and git_io Blob.sha is a String although BlobSha and the sc-agent-types::git helper exist. (5) BackendSet is defined and tested but unused. sc-ai (command.rs:487-491, 734) and sc-jev-py (run.rs:158) still build raw Vec<BackendId> with a hand-written default and no duplicate check; adoption belongs to r-2 and must not slip. (6) SessionId has no FromStr, so sc-ai hand-parses a UUID (command.rs:738-745). (7) sc-ai merge_jev_response (command.rs:681) swallows serialization failure with unwrap_or(Null); that cannot fail now that probabilities are finite, so make it infallible. (8) check_unit reports the answer's choice rather than the offending probability key (judge.rs:196-204). (9) BackendCapabilities is a field-for-field copy of BackendDescriptor and the trait method can be overridden despite the doc; returning &'static BackendDescriptor would remove the copy. (10) JudgeOutcome::new takes &JudgeRequest but only reads the payload. (11) EqualInputRecord::new accepts duplicate backends and an empty list unvalidated."
+    ]
+  },
+  "error": null
+}

@@ -1,0 +1,96 @@
+{
+  "reviewer_spawn_gate": "pass",
+  "reviewer_manifest": [
+    {
+      "agent": "req-qa",
+      "task_id": "a083a869ccc67cfa1",
+      "spawn_actor": "parent-orchestrator",
+      "scope_locked": "REQ-QA-R4-001..005",
+      "fenced_json_received": true,
+      "verdict": "FAIL\u2192deferral recorded (REQ-QA-R4-002 owner item; written deferral 39ed835)",
+      "findings": {
+        "blocking": 0,
+        "important": 0,
+        "minor": 0
+      }
+    },
+    {
+      "agent": "arch-qa",
+      "task_id": "a773afa17a63cc175",
+      "spawn_actor": "parent-orchestrator",
+      "scope_locked": "merge coherence + ARCH-001",
+      "fenced_json_received": true,
+      "verdict": "PASS (ARCH-001 minor stale 0029 note \u2192 next docs pass)",
+      "findings": {
+        "blocking": 0,
+        "important": 0,
+        "minor": 1
+      }
+    },
+    {
+      "agent": "rust-qa-agent",
+      "task_id": "a21dcf0ab71d5b57b",
+      "spawn_actor": "parent-orchestrator",
+      "scope_locked": "QA-001..003 + gates",
+      "fenced_json_received": true,
+      "verdict": "PASS",
+      "findings": {
+        "blocking": 0,
+        "important": 0,
+        "minor": 0
+      }
+    },
+    {
+      "agent": "flaky-test-qa",
+      "task_id": "a495666e9d95793cd",
+      "spawn_actor": "parent-orchestrator",
+      "scope_locked": "FTQ-001..003 + cargo fetch step",
+      "fenced_json_received": true,
+      "verdict": "PASS",
+      "findings": {
+        "blocking": 0,
+        "important": 0,
+        "minor": 0
+      }
+    }
+  ],
+  "verdict": "PASS_WITH_OWNER_DEFERRAL",
+  "findings": {
+    "blocking": 0,
+    "important": 0,
+    "minor": 1
+  },
+  "evidence_chain": {
+    "qa_pass": "qa-r-4-2",
+    "commit": "39ed835",
+    "reviewed_commit": "8bdfc83 (+ deferral docs 39ed835)",
+    "pr_number": 21,
+    "pr_comment_url": "https://github.com/randlee/sc-agent/pull/21#issuecomment-6708597239",
+    "coordinator_task_id": "cursor-quality-mgr-fallback",
+    "reviewer_tasks": {
+      "req-qa": "a083a869ccc67cfa1",
+      "arch-qa": "a773afa17a63cc175",
+      "rust-qa-agent": "a21dcf0ab71d5b57b",
+      "flaky-test-qa": "a495666e9d95793cd"
+    },
+    "ci": {
+      "8bdfc83": "11/11 pass",
+      "39ed835": "in progress (docs-only)"
+    },
+    "prior_rounds": [
+      {
+        "qa_pass": "qa-r-4-1",
+        "commit": "59ec838",
+        "findings": "2B/4I/9m"
+      }
+    ],
+    "owner_deferral": "REQ-SAG-0133 upstream sc-publish issue URL \u2014 permission-blocked for agents; recorded in sprint doc + requirements row",
+    "triage": {
+      "phase_id": "phase-a.1",
+      "ttl_paths": [],
+      "qa_triage_task_ids": []
+    },
+    "parent_correlation_required": true
+  },
+  "next_action": "merge after CI"
+}

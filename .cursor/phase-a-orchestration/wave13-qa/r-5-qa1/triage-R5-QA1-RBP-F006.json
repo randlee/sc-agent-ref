@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "R5-QA1-RBP-F006",
+ "found_in": "A1-R5",
+ "found_at": "2026-11-08T05:55:41Z",
+ "title": "In `into_answers`, `request.questions.get(id).ok_or_else(...)` returns an error that cannot occur",
+ "description": "In `into_answers`, `request.questions.get(id).ok_or_else(...)` returns an error that cannot occur. The preceding BTreeSet equality check already guarantees the id is present. The lookup is also O(n) per answer, so the loop is O(n^2).",
+ "category": "RBP-007",
+ "severity": "minor",
+ "pattern": "RBP-007",
+ "file_filter": "crates/sc-decision-schema/src/jev/v1.rs",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "77fffdbd89c5e927f9c6b51fc650fada72cfb400"
+  },
+  {
+   "branch": "sprint/r-5-jev-wire-envelope",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope",
+   "order_index": 1,
+   "head_sha": "14f85f129fda46e39bda90ae2a5333e69213312b"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a",
+  "sprint/r-5-jev-wire-envelope"
+ ]
+}

@@ -1,0 +1,34 @@
+{
+  "success": true,
+  "data": {
+    "screened": [
+      {"id": "REQ-QA-R2-001", "verdict": "keep", "missing": [], "existing_coverage": "", "reason": "The sprint owns paths in sc-jev-check, sc-ai and sc-jev-py, so the requirements frontmatter must list those crates' ids. Requirement-check evidence consumes that list, and the gap is a concrete traceability omission."},
+      {"id": "REQ-QA-R2-002", "verdict": "concern_valid_remedy_ceremony", "missing": ["observed_defect"], "existing_coverage": "PR 27 CI runs the same validation list. The sprint doc's validation commands (--exact lines, cargo-tree gates, publish dry-run script) are the repeatable evidence.", "reason": "Only a developer-log evidence trail is thin. Citing CI job results at closure is enough, and no new evidence artifact is needed."},
+      {"id": "REQ-QA-R2-003", "verdict": "concern_valid_remedy_ceremony", "missing": ["observed_defect", "retirement_condition"], "existing_coverage": "The sprint doc's 'Files outside owned_paths edited' section already records the two doc-only edits. Git history shows them.", "reason": "The edits are doc-only and already disclosed, so adding owned_paths entries or an authorization record is more process than the defect warrants."},
+      {"id": "REQ-QA-R2-004", "verdict": "not_applicable", "missing": [], "existing_coverage": "", "reason": "The remedy is a code behavior fix, not a process artifact."},
+      {"id": "REQ-QA-R2-005", "verdict": "not_applicable", "missing": [], "existing_coverage": "", "reason": "The remedy is a narrowed fallback plus a test."},
+      {"id": "REQ-QA-R2-006", "verdict": "not_applicable", "missing": [], "existing_coverage": "", "reason": "The remedy changes item visibility in code."},
+      {"id": "REQ-QA-R2-007", "verdict": "not_applicable", "missing": [], "existing_coverage": "", "reason": "The remedy is a code or documentation behavior change."},
+      {"id": "REQ-QA-R2-008", "verdict": "not_applicable", "missing": [], "existing_coverage": "", "reason": "The remedy is a one-phrase wording fix to requirement text."},
+      {"id": "REQ-QA-R2-009", "verdict": "not_applicable", "missing": [], "existing_coverage": "", "reason": "The remedy is a code or test change."},
+      {"id": "ARCH-R2-001", "verdict": "keep", "missing": [], "existing_coverage": "", "reason": "The sprint touches ADR-SAG-0016's subject (SharedSessionLog in RunConfig, composition roots). The adrs frontmatter is consumed by RULE-ADR-PLAN, and adding the id is a one-line fix."},
+      {"id": "ARCH-R2-002", "verdict": "not_applicable", "missing": [], "existing_coverage": "", "reason": "The reviewer marks the wording change as optional and deferred, so no artifact is being added."},
+      {"id": "QA-001", "verdict": "not_applicable", "missing": [], "existing_coverage": "", "reason": "The remedy is a code behavior fix. The docs alternative is a doc-comment clarification, not a process artifact."},
+      {"id": "QA-002", "verdict": "not_applicable", "missing": [], "existing_coverage": "", "reason": "The remedy is a code or unit-test change."},
+      {"id": "QA-003", "verdict": "not_applicable", "missing": [], "existing_coverage": "", "reason": "The remedy is a code change."},
+      {"id": "QA-004", "verdict": "not_applicable", "missing": [], "existing_coverage": "", "reason": "The remedy is a code change."},
+      {"id": "QA-005", "verdict": "not_applicable", "missing": [], "existing_coverage": "", "reason": "The finding is informational and requires no action."},
+      {"id": "RBP-F004", "verdict": "not_applicable", "missing": [], "existing_coverage": "", "reason": "The remedy is a type-level refactor in code."},
+      {"id": "FTQ-001", "verdict": "not_applicable", "missing": [], "existing_coverage": "", "reason": "The remedy is hardening of test code."},
+      {"id": "FTQ-002", "verdict": "not_applicable", "missing": [], "existing_coverage": "", "reason": "The remedy is hardening of test code."},
+      {"id": "FTQ-003", "verdict": "not_applicable", "missing": [], "existing_coverage": "", "reason": "The remedy is a test determinism fix."},
+      {"id": "FTQ-004", "verdict": "not_applicable", "missing": [], "existing_coverage": "", "reason": "The remedy is to use the existing deadline helper in tests."},
+      {"id": "FTQ-005", "verdict": "not_applicable", "missing": [], "existing_coverage": "", "reason": "The remedy is a test gating change."},
+      {"id": "RBQA-F001", "verdict": "not_applicable", "missing": [], "existing_coverage": "", "reason": "The primary remedy is a code routing change. The alternative is a note, not a new artifact."},
+      {"id": "RBQA-F002", "verdict": "not_applicable", "missing": [], "existing_coverage": "", "reason": "The remedy is a visibility change in code."},
+      {"id": "RBQA-F003", "verdict": "concern_valid_remedy_ceremony", "missing": ["observed_defect", "retirement_condition"], "existing_coverage": "The sc-lint facade check, the sprint's cargo-tree gates, and visibility fixes under REQ-QA-R2-006 / RBQA-F002 (which shrink the surface). The no-test-util cargo-tree gate is already in the validation list.", "reason": "The surface drift is real, but a new public-API snapshot CI gate is heavier than the defect. Narrowing the public surface fixes the drift, and no incident shows drift the existing checks miss."},
+      {"id": "RBQA-F004", "verdict": "not_applicable", "missing": [], "existing_coverage": "", "reason": "The remedy is a facade list edit and a code decision on a re-export, not a new process artifact."}
+    ]
+  },
+  "error": null
+}

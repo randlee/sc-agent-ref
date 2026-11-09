@@ -1,0 +1,742 @@
+{
+ "manifest": [
+  {
+   "agent": "req-qa",
+   "task_id": "ae01cc59ca6997545",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "a045c423a18aad8d3",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "a833db227b1d34af5",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "rust-best-practices-agent",
+   "task_id": "ab2cabed1272d8f7d",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "rust-service-hardening-agent",
+   "task_id": "a5280d2ff0b506676",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "aa5573a1e6f3c14c3",
+   "spawn_actor": "parent-orchestrator"
+  }
+ ],
+ "reviewer_outputs": [
+  {
+   "agent": "req-qa",
+   "task_id": "ae01cc59ca6997545",
+   "fenced_json": {
+    "status": "PASS",
+    "reviewed_branch": "sprint/r-2b-multi-backend-semantics",
+    "reviewed_commit": "330986f574914ada17e79d074227527cce4eb9ba",
+    "errors": [],
+    "scope": {
+     "phase": "a.1",
+     "sprint": "r-2b"
+    },
+    "baselines_read": [
+     "docs/requirements.md",
+     "docs/architecture.md",
+     "docs/project-plan.md (not re-read; sprint doc sequencing taken as given)"
+    ],
+    "phase_or_sprint_docs_read": [
+     "docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md"
+    ],
+    "requirement_checks": [
+     {
+      "id": "REQ-SAG-0606",
+      "source": "docs/requirements.md:173",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev/src/check.rs:83",
+       "crates/sc-jev/src/client/mod.rs:237",
+       "crates/sc-jev-backends/src/wire.rs:77",
+       "crates/sc-jev-backends/src/backend.rs:176",
+       "crates/sc-jev-check/src/run/mod.rs:674",
+       "crates/sc-jev-check/tests/multi_backend.rs:404"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0604",
+      "source": "docs/requirements.md:171",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/run/mod.rs:576",
+       "crates/sc-jev-check/src/run/mod.rs:590",
+       "crates/sc-jev-check/src/run/mod.rs:597",
+       "crates/sc-jev-check/tests/multi_backend.rs:172"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0605",
+      "source": "docs/requirements.md:172",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/run/mod.rs:280",
+       "crates/sc-jev-check/src/run/mod.rs:564",
+       "crates/sc-jev-check/tests/multi_backend.rs:252",
+       "crates/sc-jev-check/tests/multi_backend.rs:272"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0602/0603/0610/0710, NFR-SAG-0001/0002/0003",
+      "source": "sprint requirements list",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-check/tests/run_response.rs:292",
+       "crates/sc-jev-check/tests/sessions_exact.rs",
+       "crates/sc-jev-backends/tests/llm.rs"
+      ]
+     },
+     {
+      "id": "ADR-SAG-0020 (no new read site)",
+      "source": "docs/architecture.md",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev/src/check.rs:84",
+       "crates/sc-jev/tests/wire.rs:79",
+       "crates/sc-jev-backends/tests/wire.rs:107"
+      ]
+     }
+    ],
+    "deliverable_checks": [
+     {
+      "item": "D1 RunConfig::mode, Independent default, ChainContext recorded",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/run/mod.rs:280",
+       "crates/sc-jev-check/src/run/mod.rs:564"
+      ],
+      "notes": "Dry run also records the configured mode."
+     },
+     {
+      "item": "D2 base validation of all backends then per-send re-validation in ChainContext",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/run/mod.rs:553",
+       "crates/sc-jev-check/src/run/mod.rs:659"
+      ],
+      "notes": "A re-validation refusal is NotSent with no LogEvent."
+     },
+     {
+      "item": "D3 per-backend results, all-failed Err, leak=any Failed",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/run/mod.rs:590",
+       "crates/sc-jev-check/src/run/mod.rs:597"
+      ],
+      "notes": ""
+     },
+     {
+      "item": "D4 paid-call rules and session-save failure keeps answers",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/run/mod.rs:603",
+       "crates/sc-jev-check/tests/multi_backend.rs:340",
+       "crates/sc-jev-check/tests/multi_backend.rs:368"
+      ],
+      "notes": "Deviation: the pinned session_save_failed.json bytes are not matched exactly; the test asserts the fixture's warnings entry and the kept answers. The deviation is disclosed in the Implementation notes."
+     },
+     {
+      "item": "D5 equal-input digest recovery, scripted per-backend form, tests",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/registry/scripted.rs:30",
+       "crates/sc-jev-check/tests/scripted.rs:28",
+       "crates/sc-jev-check/tests/scripted.rs:102"
+      ],
+      "notes": "same_bytes and RunAttestation::uniform have no matches in crates/."
+     },
+     {
+      "item": "D6 wire-level digest tests and test-util seam (WireFault, with_wire_fault, [[test]] required-features)",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-jev/Cargo.toml:27",
+       "crates/sc-jev-backends/Cargo.toml:28",
+       "crates/sc-jev/tests/wire.rs:58",
+       "crates/sc-jev-backends/tests/wire.rs:79"
+      ],
+      "notes": "Both boundary manifests name test-util."
+     },
+     {
+      "item": "D7 ADR text flips (0025 split, 0004/0008/0019/0022 subsections, index rows, interim Status lines)",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "docs/architecture.md:101",
+       "docs/architecture.md:169",
+       "docs/architecture.md:377",
+       "docs/architecture.md:1133",
+       "docs/requirements.md:173"
+      ],
+      "notes": "The ADR-SAG-0025 consumer-output bullet stays Proposed (r-3b), as required."
+     },
+     {
+      "item": "Acceptance rows and Required validation list (named tests exist)",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-jev-check/tests/multi_backend.rs",
+       "crates/sc-jev-check/tests/scripted.rs"
+      ],
+      "notes": "All named tests exist. I could not run cargo (no shell in this review), so test results rest on the developer report and static reading."
+     }
+    ],
+    "findings": [
+     {
+      "id": "REQ-QA-001",
+      "severity": "Important",
+      "category": "cross-doc-conflict",
+      "source_refs": [
+       "docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md:91-93",
+       "docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md:50-81"
+      ],
+      "target_refs": [
+       "crates/sc-ai/tests/cli.rs",
+       "tests/fixtures/jev-python/tests/test_run_check_and_ask.py",
+       "docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md:395-401"
+      ],
+      "issue": "The sprint Outcome says r-2b changes no file in sc-ai or sc-jev-py, and neither edited file is in owned_paths. The branch edits crates/sc-ai/tests/cli.rs and the sc-jev-py test fixture. The Implementation notes disclose this as test-only and forced by the new behaviour, but the Outcome sentence and owned_paths still conflict with the diff.",
+      "required_correction": "Make the doc match the diff. Either add the two test files to owned_paths and reword the Outcome to 'no consumer source file', or record them as an accepted out-of-owned-paths edit. No code change is needed.",
+      "compliance_result": "partially-compliant"
+     }
+    ],
+    "summary": {
+     "total_findings": 1,
+     "blocking_findings": 0,
+     "overall_compliance": "compliant",
+     "deliverables_total": 8,
+     "deliverables_complete": 8,
+     "deliverables_incomplete": 0,
+     "deliverable_completion_percent": 100.0
+    },
+    "gate_reason": "The worktree HEAD is exactly 330986f. The sprint doc has a complete requirements list, every deliverable traces to implementation and a named test, and the ADR-SAG-0025 split and the r-1 interim Status lines match D7. The ADR-SAG-0020 greps for new disallowed_methods and allow( are clean in the owned source paths. I found one Important doc/diff conflict (REQ-QA-001) and no Blocking findings. I read the code and docs statically and did not run cargo, so test results rely on the developer report."
+   }
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "a045c423a18aad8d3",
+   "fenced_json": {
+    "agent": "arch-qa",
+    "branch": "sprint/r-2b-multi-backend-semantics",
+    "scope": {
+     "phase": "a.1",
+     "sprint": "r-2b"
+    },
+    "commit": "330986f574914ada17e79d074227527cce4eb9ba",
+    "verdict": "PASS",
+    "blocking": 0,
+    "important": 0,
+    "findings": [],
+    "adr_checks": [
+     {
+      "adr": "ADR-SAG-0001",
+      "source": "docs/architecture.md:107",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev/src/check.rs:83",
+       "crates/sc-jev-backends/src/wire.rs:77"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0002",
+      "source": "docs/architecture.md:114",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/run/mod.rs:578"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0003",
+      "source": "docs/architecture.md:414",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/run/mod.rs:543"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0004",
+      "source": "docs/architecture.md:528",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/run/mod.rs:553",
+       "crates/sc-jev-check/src/run/mod.rs:659",
+       "docs/architecture.md:535"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0005",
+      "source": "docs/architecture.md:122",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev/src/check.rs:63",
+       "crates/sc-jev/src/check.rs:83",
+       "crates/sc-jev-backends/src/wire.rs:77"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0006",
+      "source": "docs/architecture.md:545",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-backends/src/backend.rs:109"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0007",
+      "source": "docs/architecture.md:562",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-backends/src/backend.rs:171",
+       "crates/sc-jev-check/src/run/mod.rs:665"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0008",
+      "source": "docs/architecture.md:158",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:169",
+       "docs/architecture.md:173",
+       "docs/architecture.md:184",
+       "crates/sc-jev-check/src/run/mod.rs:564"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0009",
+      "source": "docs/architecture.md:194",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:328"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0012",
+      "source": "docs/architecture.md:873",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev/src/client/mod.rs:233"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0013",
+      "source": "docs/architecture.md:716",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/run/mod.rs:754",
+       "crates/sc-jev-check/src/run/mod.rs:653"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0014",
+      "source": "docs/architecture.md:811",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/run/mod.rs:603",
+       "docs/architecture.md:1163"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0019",
+      "source": "docs/architecture.md:337",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:371",
+       "docs/architecture.md:377",
+       "docs/architecture.md:405"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0020",
+      "source": "docs/architecture.md:438",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-backends/src/wire.rs:79",
+       "crates/sc-jev/src/check.rs:85",
+       "crates/sc-agent-types/src/error.rs:451"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0022",
+      "source": "docs/architecture.md:238",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:320",
+       "crates/sc-jev-check/src/registry/scripted.rs"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0023",
+      "source": "docs/architecture.md:1002",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev/Cargo.toml:27",
+       "crates/sc-jev-backends/Cargo.toml:28",
+       "crates/sc-jev-check/Cargo.toml:26"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0024",
+      "source": "docs/architecture.md:1045",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/run/mod.rs:280",
+       "crates/sc-jev-check/src/run/mod.rs:496"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0025",
+      "source": "docs/architecture.md:1133",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:1135",
+       "docs/architecture.md:1151",
+       "docs/architecture.md:101",
+       "crates/sc-jev-check/src/run/mod.rs:535"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0026",
+      "source": "docs/architecture.md:1168",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-backends/src/backend.rs:109",
+       "crates/sc-jev/src/client/mod.rs:233"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0027",
+      "source": "docs/architecture.md:1218",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/run/mod.rs:591"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0029",
+      "source": "docs/architecture.md:881",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:328"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0010",
+      "source": "docs/architecture.md:608",
+      "listed_in_sprint_doc": false,
+      "result": "not-applicable",
+      "evidence_refs": [
+       "No sc-ai source changed; only crates/sc-ai/tests/cli.rs. ADR is Proposed (r-3b)."
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0011",
+      "source": "docs/architecture.md:624",
+      "listed_in_sprint_doc": false,
+      "result": "not-applicable",
+      "evidence_refs": [
+       "No sc-jev-py source changed; ADR is Proposed (r-3b)."
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0021",
+      "source": "docs/architecture.md:737",
+      "listed_in_sprint_doc": false,
+      "result": "not-applicable",
+      "evidence_refs": [
+       "Session path precedence is not changed; run/mod.rs only reads RunConfig::sessions_dir as before."
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0015",
+      "source": "docs/architecture.md:701",
+      "listed_in_sprint_doc": false,
+      "result": "not-applicable",
+      "evidence_refs": [
+       "The subjects producer is passed through unchanged (run/mod.rs:617)."
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0016/0017/0018/0028",
+      "source": "docs/architecture.md:765,650,641,1306",
+      "listed_in_sprint_doc": false,
+      "result": "not-applicable",
+      "evidence_refs": [
+       "No shim, release-surface or workspace-tests change in the changed-file list. 0028 is Proposed and so not binding."
+      ]
+     }
+    ],
+    "gate_artifact_checks": [
+     {
+      "artifact": "docs/architecture.md (ADR index rows 0004, 0008, 0019, 0022, 0025; r-1 interim Status lines)",
+      "status": "closed",
+      "evidence_refs": [
+       "docs/architecture.md:80",
+       "docs/architecture.md:84",
+       "docs/architecture.md:95",
+       "docs/architecture.md:98",
+       "docs/architecture.md:101",
+       "docs/architecture.md:169",
+       "docs/architecture.md:377"
+      ],
+      "notes": "The ADR-SAG-0025 Status line and index cell read Active (r-2b) with the consumer-output bullet Proposed (r-3b). The bullet 2 split and the r-1 interim supersession wording match D7. The ADR-SAG-0026, r-3b and r-2 markers are untouched."
+     },
+     {
+      "artifact": "boundaries/sc-jev/jev.toml and boundaries/sc-jev-backends/jev-backends.toml",
+      "status": "not-applicable",
+      "evidence_refs": [],
+      "notes": "Boundary manifests are checked by ruthless-boundary-qa and are out of arch-qa scope."
+     }
+    ],
+    "merge_ready": true,
+    "notes": "Method: static read only. The review tools allowed no git or cargo runs, so I did not execute tests, clippy or the dry-run publish. The worktree's gitdir HEAD file reads 330986f574914ada17e79d074227527cce4eb9ba (matches the input commit). The branch name was not independently confirmed, because HEAD there is detached.\n\nRULE-ADR-PLAN: the sprint doc's adrs list covers every binding repo-level ADR the sprint touches. There are no per-crate ADRs: docs/sc-jev-check/architecture.md holds no ADR sections. ADR-SAG-0025 and the four r-2b amendments are deliverables, and every listed id resolves to an Active ADR.\n\nRULE-ADR-CODE: judge is called once per backend (run/mod.rs:568). Base validation happens before the first send (run/mod.rs:553). ChainContext requests are re-validated before their own send (run/mod.rs:659) and a refusal becomes a Failed backend with NotSent attestation and no log event. All-failed returns Err and leak is any Failed. A session-save failure keeps the answers and adds one warning with the code only. Digest recovery runs before send_with_busy_retry on the serialized body. It is attestation-only and never feeds the wire body. Its errors carry only a category and position (JevError::encode_failed) or fixed strings. There is no new disallowed_methods or allow(...) in the crates, no new ResolvedApiKey::as_str call, and test-util is non-default.\n\nRULE-ADR-AWAIT-MUTEX: not applicable. The three owned crates (sc-jev, sc-jev-backends, sc-jev-check) contain no .await, and the Mutex uses in changed test files are synchronous.\n\nObservations, not findings: the test-util WireFault public type family is recorded in the sprint doc and boundary notes but has no ADR of its own. It is feature-gated and covered by the ADR-SAG-0022 and ADR-SAG-0023 test-util convention, so I did not raise it. The ADR-SAG-0024 text ('RunConfig has no mode setter until r-2b') is time-qualified and still accurate."
+   }
+  },
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "a833db227b1d34af5",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-2b-multi-backend-semantics",
+     "reviewed_commit": "330986f574914ada17e79d074227527cce4eb9ba",
+     "review_mode": "sprint_review",
+     "executed_checks": {
+      "fmt": {
+       "status": "pass",
+       "command": "cargo fmt --all --check"
+      },
+      "clippy": {
+       "status": "pass",
+       "command": "cargo clippy --all-targets --all-features -- -D warnings"
+      },
+      "tests": {
+       "status": "pass",
+       "command": "cargo test (workspace); cargo test -p sc-jev -p sc-jev-backends -p sc-jev-check --features test-util"
+      },
+      "coverage": {
+       "status": "not_run",
+       "line": 0.0,
+       "branch": 0.0,
+       "function": 0.0,
+       "adequate_for_risk": true
+      },
+      "artifacts": {
+       "status": "not_run",
+       "command": ""
+      }
+     },
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "notes": [
+      "The worktree is a detached HEAD, as the input describes. HEAD equals the assigned commit 330986f. The branch name could not be verified against HEAD.",
+      "I did not run `cargo test --all-features` for the whole workspace. It fails to link sc-jev-py's lib test because the all-features build turns on the sc-jev-py `extension-module` feature, whose symbols are left undefined for the Python interpreter. The Cargo.toml comment on that feature says `cargo test` leaves it off, so this is a limit of the feature, not a regression in r-2b. Clippy with --all-features and plain `cargo test` both pass.",
+      "Cross-platform grep for hardcoded \"/tmp/\" under crates/ found nothing.",
+      "Coverage was not requested. The multi-crate publish dry-run was skipped, as the input instructed."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "rust-best-practices-agent",
+   "task_id": "ab2cabed1272d8f7d",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "findings",
+     "reviewed_branch": "sprint/r-2b-multi-backend-semantics",
+     "reviewed_commit": "330986f574914ada17e79d074227527cce4eb9ba",
+     "review_mode": "sprint_review",
+     "practice_mode": "all",
+     "practices_reviewed": [
+      "RBP-001",
+      "RBP-002",
+      "RBP-003",
+      "RBP-004",
+      "RBP-005",
+      "RBP-006",
+      "RBP-007",
+      "RBP-008",
+      "RBP-009",
+      "RBP-010"
+     ],
+     "findings": [
+      {
+       "id": "RBP-F001",
+       "practice_id": "RBP-004",
+       "severity": "important",
+       "file": "crates/sc-jev-backends/src/validate.rs",
+       "line": 14,
+       "issue": "Semantic question ids and choice labels are carried as raw String/Vec<String> (ParsedQuestion { id: String, choices: Vec<String> }). validate_questions re-parses the canonical bytes and re-runs the id-present, duplicate-id and choices-are-strings checks. wire::parse_answers (wire.rs:292-353) compares reply keys and labels as &str sets. backend::typed_answers (backend.rs:89-106) then validates each id a third time with QuestionId::try_from, after the paid judge call. PayloadBundle already holds the validated typed form (payload.rs:134, 235: question_choices(): BTreeMap<QuestionId, BTreeSet<ChoiceId>>).",
+       "recommendation": "Drop ParsedQuestion and the byte re-parse for ids and choices. Use request.payload().question_choices() (QuestionId/ChoiceId) in parse_answers and typed_answers, and keep only the 'type' and 'prompt' checks that the bundle does not cover. Id validity is then decided once, at PayloadBundle::encode. This also removes the case where an id passes pre-send validation and fails QuestionId::try_from as RESPONSE_INVALID after the call.",
+       "evidence": "validate.rs:14-17 and 110-150 build String ids. wire.rs:299-303 and 330-331 compare them as &str. backend.rs:97 calls QuestionId::try_from(id.as_str()) on reply ids that were just matched against those strings."
+      },
+      {
+       "id": "RBP-F002",
+       "practice_id": "RBP-004",
+       "severity": "minor",
+       "file": "crates/sc-jev/src/check.rs",
+       "line": 22,
+       "issue": "PreparedCheck.criteria is BTreeMap<String, BTreeSet<String>>, so question ids and choice labels are raw strings. question_criteria, criteria_from_object and criteria_from_array (check.rs:245-329) re-validate and re-derive them from the payload bytes. parse_outcome (check.rs:226, 228) later converts them to QuestionId and ChoiceId via try_from and response_label. The typed map already exists on PayloadBundle::question_choices().",
+       "recommendation": "Build the expected-answer map from request.payload().question_choices() (QuestionId/ChoiceId) and have parse_outcome compare typed ids. Keep only the Jev-specific shape checks (object or array questions, at least 2 criteria) that the bundle does not cover.",
+       "evidence": "check.rs:22 and 245-329 build string maps. check.rs:226-232 and 240-243 re-validate through the newtypes."
+      },
+      {
+       "id": "RBP-F003",
+       "practice_id": "RBP-007",
+       "severity": "minor",
+       "file": "crates/sc-jev-check/src/run/mod.rs",
+       "line": 473,
+       "issue": "default_backends() returns Result<BackendSet, JevError> for BackendSet::try_from(vec![BackendId::Jev]), a one-element list that cannot fail. The doc comment concedes this ('cannot fail'). The dead error path is propagated with ? from prepare (line 429) instead of being expressed in the type.",
+       "recommendation": "Add an infallible constructor on BackendSet (for example BackendSet::single(id) or Default) and return BackendSet directly. Otherwise make the invariant explicit with a single documented expect so the 'never fails' claim is auditable.",
+       "evidence": "run/mod.rs:469-475 and 429."
+      },
+      {
+       "id": "RBP-F004",
+       "practice_id": "RBP-007",
+       "severity": "minor",
+       "file": "crates/sc-jev-backends/src/wire.rs",
+       "line": 250,
+       "issue": "parse_count checks tokens >= 0 and then converts with u64::try_from(tokens).unwrap_or(0). The unwrap_or(0) fallback is unreachable and would silently turn an impossible conversion into a zero token count, which the later token-limit check would accept.",
+       "recommendation": "Use value.get(\"input_tokens\").and_then(Value::as_u64), which rejects negatives and non-integers in one step with no dead fallback. This matches how nonneg() is handled elsewhere in the file.",
+       "evidence": "wire.rs:248-254."
+      },
+      {
+       "id": "RBP-F005",
+       "practice_id": "RBP-007",
+       "severity": "minor",
+       "file": "crates/sc-jev/src/check.rs",
+       "line": 280,
+       "issue": "criteria_from_object tests fields.is_none_or(..) and then calls fields.expect(\"checked above\"). The expect is safe only because of the earlier branch (unwrap-safe by convention), and the same pattern recurs at line 200 (criteria.get(id).expect(..)).",
+       "recommendation": "Use let Some(fields) = fields.filter(|f| f.len() >= 2) with a single let-else early return, so no expect is needed.",
+       "evidence": "check.rs:273-281."
+      }
+     ],
+     "summary": {
+      "total_findings": 5,
+      "by_severity": {
+       "critical": 0,
+       "important": 1,
+       "minor": 4
+      }
+     },
+     "notes": [
+      "I could not run commands (no shell tool). I verified the worktree HEAD by reading the gitdir HEAD file, /Volumes/Extreme Pro/github/sc-agent/.git/worktrees/r2b-qa1-review/HEAD, which holds 330986f574914ada17e79d074227527cce4eb9ba and matches the assignment. I did not read changed-files.txt or dev-report.json, and I did not open the tests, Cargo.toml files or docs in the target list. The review covered the Rust sources: sc-jev-backends backend.rs/wire.rs/lib.rs/validate.rs, sc-jev-check run/mod.rs, run/response.rs, registry/scripted.rs and equal_input/mod.rs, and sc-jev check.rs/client/mod.rs/lib.rs.",
+      "RBP-006: no Mutex, RwLock, RefCell or Cell in non-test code in scope. Mutex appears only in test sinks.",
+      "RBP-003 and RBP-008: JudgeBackend is used as Arc<dyn JudgeBackend> and its methods are object-safe. The trait is defined in sc-agent-types, outside this diff. The sprint adds no new pub trait.",
+      "RBP-001: errors use typed JevError constructors with stable codes. Session-save failure is surfaced as 'session not saved: <code>', which is spec'd behaviour, so I filed nothing.",
+      "RBP-002 and RBP-010: no new typestate or capability-token surface. PreparedRun consumed by run() already gives a one-shot guarantee.",
+      "RBP-005: no wrapper ergonomics regressions in scope.",
+      "RBP-009: backend embedded_text uses Cow correctly. Envelope::run and Envelope::ask clone the whole RunResponse or AskResponse into a Box (response.rs:559, 569). That is not a hot path, so I did not file it. Phase-end review may want a borrowed Envelope<'a>.",
+      "Out of practice scope, for the orchestrator: WireFault, droppable_byte and the fault-application logic are duplicated near-verbatim between sc-jev/src/check.rs and sc-jev-backends/src/wire.rs. This is DRY drift risk, not an RBP id, so I filed nothing.",
+      "Owner decisions were treated as settled and I requested no new gates."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "rust-service-hardening-agent",
+   "task_id": "a5280d2ff0b506676",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "skipped",
+     "reviewed_branch": "sprint/r-2b-multi-backend-semantics",
+     "reviewed_commit": "330986f574914ada17e79d074227527cce4eb9ba",
+     "review_mode": "sprint_review",
+     "service_indicators_found": [],
+     "topics_reviewed": [],
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "notes": [
+      "No service indicators were detected in Cargo manifests or obvious entrypoints.",
+      "The worktree HEAD is detached at 330986f574914ada17e79d074227527cce4eb9ba, which matches the assigned commit. The input says the worktree is a detached review copy, so I did not check the branch name. I read HEAD from the worktree's gitdir because I had no shell.",
+      "I searched every Cargo.toml and .rs file in the worktree for tokio, axum, hyper, tonic, warp, actix-web and reqwest. There were no dependency matches. The only substring hits were 'monotonic' (contains 'tonic') in comments in sc-agent-http/src/retry.rs and test_util.rs, and in an embedded Python string in sc-jev-py/src/run.rs. None of these is a service indicator.",
+      "I found no #[tokio::main], server or listener startup, or async worker loops. The sc-jev, sc-jev-check and sc-jev-backends crates are library and CLI code.",
+      "The required reference files were not read, because the skip path comes before that step."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "aa5573a1e6f3c14c3",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-2b-multi-backend-semantics",
+     "reviewed_commit": "330986f574914ada17e79d074227527cce4eb9ba",
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "critical": 0,
+      "important": 0,
+      "minor": 0
+     }
+    },
+    "error": null
+   }
+  }
+ ]
+}

@@ -1,0 +1,850 @@
+{
+ "pr": 33,
+ "qa_pass": "qa-r7-1",
+ "round": "QA-1",
+ "sprint": "r-7",
+ "branch": "sprint/r-7-decision-schema",
+ "head": "9497297",
+ "base": "integrate/phase-a",
+ "manifest": [
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "a72e7ff5f47f776d4",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "9497297"
+  },
+  {
+   "agent": "rust-best-practices-agent",
+   "task_id": "a8763192970988ad8",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "9497297"
+  },
+  {
+   "agent": "rust-service-hardening-agent",
+   "task_id": "a677ae57aa7f0e5e6",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "9497297"
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "aa6550573bd214313",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "9497297"
+  },
+  {
+   "agent": "req-qa",
+   "task_id": "a267b8c746c1f77c5",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "9497297"
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "a878b459ee9d9270c",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "9497297"
+  }
+ ],
+ "reviewer_outputs": [
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "a72e7ff5f47f776d4",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-7-decision-schema",
+     "reviewed_commit": "9497297",
+     "review_mode": "sprint_review",
+     "executed_checks": {
+      "fmt": {
+       "status": "pass",
+       "command": "cargo fmt --all --check"
+      },
+      "clippy": {
+       "status": "pass",
+       "command": "cargo clippy --all-targets --all-features -- -D warnings"
+      },
+      "tests": {
+       "status": "pass",
+       "command": "cargo test"
+      },
+      "coverage": {
+       "status": "not_run",
+       "line": 0.0,
+       "branch": 0.0,
+       "function": 0.0,
+       "adequate_for_risk": true
+      },
+      "artifacts": {
+       "status": "not_run",
+       "command": ""
+      }
+     },
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "notes": [
+      "HEAD matched commit 9497297 on branch sprint/r-7-decision-schema, and the worktree was clean.",
+      "cargo test exited 0. I only read the first 30 lines of the filtered output, so I did not read every test-result line.",
+      "The cross-platform check `grep -rn '\"/tmp/' crates/` found no hardcoded /tmp paths.",
+      "I did not do a line-by-line review of the diff. The diff is large (about 130 files, including the new sc-decision-schema crate and the SQLite session-log schema). Separate rust-best-practices and rust-service-hardening reviews may be warranted for it."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "rust-best-practices-agent",
+   "task_id": "a8763192970988ad8",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-7-decision-schema",
+     "reviewed_commit": "9497297",
+     "review_mode": "sprint_review",
+     "practice_mode": "all",
+     "practices_reviewed": [
+      "RBP-001",
+      "RBP-002",
+      "RBP-003",
+      "RBP-004",
+      "RBP-005",
+      "RBP-006",
+      "RBP-007",
+      "RBP-008",
+      "RBP-009",
+      "RBP-010"
+     ],
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "notes": [
+      "HEAD check was done by reading git files, because this agent has no shell. The worktree HEAD points at sprint/r-7-decision-schema, and that ref is 94972978d9e6..., which matches 9497297.",
+      "Review was targeted rather than line-by-line. I read the required inventory and enforcement docs, grepped all six crates' src/ trees for interior mutability, pub traits, dyn usage, Cow, Infallible, PhantomData, unwrap and String-error Results, and read the key trait and newtype files. I did not read each per-pattern plan doc. I did not read the bodies of every file (for example sc-jev-check run/ and extract/, or sc-jev-backends wire.rs).",
+      "RBP-003 and RBP-008: JudgeBackend, Transport and SessionLog are the only pub traits in the reviewed src/ trees. Each has an explicit open-vs-sealed decision in its doc comment. All three are dyn-compatible (&self receivers, no generics, no Self in signatures) and are used as Arc<dyn _> or &dyn _. JudgeBackend also documents its additive-defaults semver rule.",
+      "RBP-004: semantic ids are newtypes (QuestionId, ChoiceId, Rev, SessionId, BackendId, Sha256Digest, RepoRelativePath, TimestampMs, ProjectLabel, ResolvedApiKey). QuestionAnswer::new validates confidence and probabilities in one place (check_unit), and the raw fields are private. A Probability newtype is optional and is not a finding. RowContext.repo stays a lossy String on purpose, and the field doc explains why.",
+      "RBP-006: Mutex appears only in test_util.rs (sc-decision-schema, sc-agent-http) and in a registry test. In sc-agent-http the Arc<Mutex> use is justified in the module doc, because Transport is Send + Sync. No RefCell or Cell.",
+      "RBP-007: no fake Result<_, String> or Infallible candidates found. Every unwrap hit is in a doctest, a unit test or a test body.",
+      "RBP-009: backend.rs already uses Cow<'a, str> in embedded_text. I found no eager-clone hot paths in the files I read.",
+      "RBP-001: errors go through the structured JevError and ErrorCode types with stable codes, such as RESPONSE_INVALID.",
+      "RBP-002, RBP-005 and RBP-010: nothing applicable or missing."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "rust-service-hardening-agent",
+   "task_id": "a677ae57aa7f0e5e6",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "findings",
+     "reviewed_branch": "sprint/r-7-decision-schema",
+     "reviewed_commit": "9497297",
+     "review_mode": "sprint_review",
+     "service_indicators_found": [
+      "ureq (workspace dep ureq = \"3.5.1\", crates/sc-agent-http/Cargo.toml:31)",
+      "ureq::Agent outbound HTTP client (crates/sc-agent-http/src/ureq_transport.rs:47-57)",
+      "send_with_busy_retry outbound retry loop (crates/sc-agent-http/src/retry.rs:248-258, 406-451)",
+      "git subprocess helper (crates/sc-agent-types/src/git.rs:71-94)"
+     ],
+     "topics_reviewed": [
+      "config_validation",
+      "timeouts",
+      "graceful_shutdown",
+      "structured_logging_tracing",
+      "request_id",
+      "retries",
+      "bounded_queues_backpressure",
+      "spawn_blocking",
+      "input_limits",
+      "dependency_hygiene",
+      "ci_release_checklist"
+     ],
+     "findings": [
+      {
+       "id": "RSH-001",
+       "topic": "retries",
+       "severity": "important",
+       "file": "crates/sc-agent-http/src/retry.rs",
+       "line": 45,
+       "issue": "Busy retry resends non-idempotent POST bodies on status 502 as well as 429 and 529. For LLM provider calls (judge message and count requests) a 502 can come from a gateway after the provider already processed and billed the request, so a resend can double-charge or double-process.",
+       "recommendation": "Limit the resend set to statuses that assert the request was not processed (429, 529), or record an explicit owner sign-off in ADR-SAG-0007 that accepts the double-charge risk for 502. Keep the 90 s budget and 4-send bound either way. The sprint doc should state the accepted risk beside the constant.",
+       "evidence": "BUSY_STATUSES = [429, 502, 529] is applied to every POST through retry_loop. The module doc (retry.rs:23-28) acknowledges that a 502 can double-charge a provider that processed the request, but the code still resends it. This is a documented decision, reported here under the zero-tolerance rule."
+      },
+      {
+       "id": "RSH-002",
+       "topic": "timeouts",
+       "severity": "important",
+       "file": "crates/sc-agent-types/src/git.rs",
+       "line": 92,
+       "issue": "Git subprocesses used for revision reads (rev-parse, cat-file -t, cat-file -s, cat-file blob) have no wall-clock deadline. A command that blocks, for example on a partial clone that lazily fetches a missing blob from a promisor remote, a stalled network filesystem, or a hung lock, can pin the calling thread indefinitely. The sc-jev-check command extractor enforces a deadline for its own subprocess, so this is inconsistent.",
+       "recommendation": "Wrap git invocations in a deadline, such as a spawn plus try_wait poll with kill_and_reap, similar to the command extractor in crates/sc-jev-check/src/extract/command.rs. Pass the deadline in from the caller, or set a fixed default. Keep GIT_TERMINAL_PROMPT=0. Note that the doc at git.rs:16-18 defers this to r-2 / r-3c, so it should be tracked as an open item rather than left implicit.",
+       "evidence": "run() calls command.output() with no timeout (git.rs:90-93). read_at_rev calls child.wait() unbounded at git.rs:207-209. The module doc states 'There is no wall-clock deadline ... callers ... own any timeout policy.'"
+      },
+      {
+       "id": "RSH-003",
+       "topic": "timeouts",
+       "severity": "minor",
+       "file": "crates/sc-jev-backends/src/backend.rs",
+       "line": 154,
+       "issue": "There is no end-to-end deadline for one judge call. Each Haiku or Luna judge makes two busy-retry exchanges (count, then message), and each exchange gets its own 90 s start budget and up to 4 sends. Backends in a run are judged sequentially, each with its own budget. Worst-case wall time is about 210 s per exchange, about 420 s per backend, and more than 20 minutes for a three-backend run.",
+       "recommendation": "Add a run-level or judge-level deadline that the busy-retry budget and the in-flight request timeout both respect, for example a deadline carried on the CancelToken or on JudgeRequest. Alternatively, document the worst-case bound in the run API docs.",
+       "evidence": "judge() calls exchange() for count (backend.rs:154-159) and then message (backend.rs:161-174). retry_loop computes started = hooks.start() per send_with_busy_retry call (crates/sc-agent-http/src/retry.rs:412-413). live_run iterates backends sequentially with no overall budget (crates/sc-jev-check/src/run/mod.rs:592-616)."
+      },
+      {
+       "id": "RSH-004",
+       "topic": "structured_logging_tracing",
+       "severity": "minor",
+       "file": "crates/sc-jev-check/src/run/mod.rs",
+       "line": 794,
+       "issue": "The judge log event is emitted unconditionally after judge() returns, even when the send never reached the transport. A cancelled backend is logged as a judge send, and its failure has no distinct event.",
+       "recommendation": "Emit the log only after a transport send actually occurred, or add an outcome or sent field to LogEvent so cancelled-before-send is distinguishable from a sent request. Update the module doc at run/mod.rs:40-41 so it matches the behaviour.",
+       "evidence": "send() calls judge.judge at run/mod.rs:793 and then emit_log at :794 on every path. retry_loop returns cancelled('before a send') without a transport call (crates/sc-agent-http/src/retry.rs:416-417). The module doc says a backend refused before its send emits none."
+      },
+      {
+       "id": "RSH-005",
+       "topic": "dependency_hygiene",
+       "severity": "minor",
+       "file": ".github/actions/setup-lint-toolchain/action.yml",
+       "line": 19,
+       "issue": "No dependency advisory scan runs in CI. cargo-deny is installed by the lint toolchain action, but no cargo deny check or cargo audit step exists in sc-agent-ci.yml, and there is no deny.toml at the repo root. The advisory scan is deferred to a bead (agt-ci-advisory-scan).",
+       "recommendation": "Add a cargo deny check advisories step (or cargo audit) to the CI workflow, with a committed deny.toml that sets the advisory policy. Until then, record the deferral in the sprint doc as an open risk with its tracking id.",
+       "evidence": "The action installs cargo-deny (action.yml:19-22). A repo-wide search found no invocation of cargo deny or cargo audit in .github/workflows or crates. The deferral is recorded at docs/plans/phase-a-refine/sprint-r-3-shared-http.md:407-408."
+      },
+      {
+       "id": "RSH-006",
+       "topic": "ci_release_checklist",
+       "severity": "minor",
+       "file": ".github/workflows/sc-agent-ci.yml",
+       "line": 132,
+       "issue": "The main clippy and test steps do not pass --locked, so CI can resolve dependency versions that differ from the committed Cargo.lock. Only some later steps (treesitter, sc-ai cli, workspace-tests) use --locked.",
+       "recommendation": "Add --locked to the cargo clippy (line 128) and cargo test --workspace (line 132) steps, and to the other cargo test -p ... steps that lack it, so every CI build uses the committed lockfile.",
+       "evidence": "Line 128 runs 'cargo clippy --workspace --all-targets --all-features -- -D warnings' and line 132 runs 'cargo test --workspace', with no --locked. Lines 264, 268, 272 and 447 do use --locked. Cargo.lock is present."
+      }
+     ],
+     "summary": {
+      "total_findings": 6,
+      "by_severity": {
+       "critical": 0,
+       "important": 2,
+       "minor": 4
+      }
+     },
+     "notes": [
+      "Service-hardening review applied. The default service_indicator_dependencies list (tokio, axum, hyper, tonic, warp, actix-web, reqwest) has no hits in the in-scope crates: no tokio, no #[tokio::main], no listeners or request handlers, and no signal handlers. ureq is not in the default list, but it is the blocking HTTP client behind every backend and the list is introduced with 'such as', so it was treated as a service indicator. The crates are a blocking library and CLI surface, not a long-running server.",
+      "The input omitted 'topics', so the default topic set was used. Topics that do not apply were treated as N/A and not reported: health_endpoints_metrics (no server or daemon), spawn_blocking (no async executor, so there is nothing to block), bounded_queues_backpressure (sequential blocking calls with no queues, so no finding). Graceful shutdown is N/A for the in-scope library: CancelToken is checked between attempts and during busy waits (retry.rs:205-206, 416-417) but is not tied to process signals. Signal wiring, if any, belongs to the sc-ai CLI, which is outside review_targets. A Ctrl-C during a paid run therefore has no coordinated stop, though session writes are atomic.",
+      "request_id: no per-send request id exists. SendTrace is a placeholder that r-6 will fill (retry.rs:255-257). The session_id generated per run (run/mod.rs:586) is used as the correlation id on every LogEvent, which is an adequate correlation key for now.",
+      "Controls verified in code (no finding): config is parsed and range-checked once at startup, with deny_unknown_fields and try_new validation (crates/sc-jev/src/config.rs:37, 83-122); connect timeout 10 s and whole-request timeout 120 s with HTTPS-only and zero redirects (crates/sc-agent-http/src/ureq_transport.rs:37-57, 41-42); streamed response cap of 8 MiB, enforced for error statuses too (ureq_transport.rs:19-20, 181-196); error-body snippet bounded to 300 bytes (crates/sc-jev-backends/src/backend.rs:246); session files capped at 8 MiB and written atomically with fsync and rename (crates/sc-jev-check/src/session/mod.rs:87, 458-477); command extractor enforces a timeout, kills the child, bounds stdout to 8 MiB, and keeps a 4 KiB stderr tail (crates/sc-jev-check/src/extract/command.rs:38-55); per-backend request byte and token ceilings applied before send (crates/sc-jev-backends/src/validate.rs:21, 56-66); retry is limited to busy statuses with a 90 s budget, sends capped at 4, and jitter, with wait slices of at most 100 ms checking cancel (retry.rs:44-69, 198-217); errors are redacted (secret Debug prints [redacted], crates/sc-agent-types/src/secret.rs:102-104); test-util hooks are dev-dependency only, so loopback_for_tests and with_test_hooks do not reach release builds (crates/sc-agent-http/Cargo.toml:26, crates/sc-jev/Cargo.toml:37-41, crates/sc-jev-backends/Cargo.toml:36-39).",
+      "Verification: the Bash tool was unavailable, so HEAD was verified by reading the worktree gitdir (/Volumes/Extreme Pro/github/sc-agent/.git/worktrees/r-7-decision-schema/HEAD, which points to refs/heads/sprint/r-7-decision-schema) and the branch ref (/Volumes/Extreme Pro/github/sc-agent/.git/refs/heads/sprint/r-7-decision-schema, which contains 94972978d9e6321be71e884368721cf0f79d3d54). This matches the assigned commit 9497297. The baseline 0d0ebc1 was not examined. Per instructions, no tests, coverage or clippy were run.",
+      "Out of scope and not reviewed: crates/sc-ai (CLI and signal wiring), crates/sc-jev-py, crates/sc-jev-host, and the sprint plan's acceptance criteria."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "aa6550573bd214313",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "findings",
+     "reviewed_branch": "sprint/r-7-decision-schema",
+     "reviewed_commit": "94972978d9e6321be71e884368721cf0f79d3d54",
+     "findings": [
+      {
+       "id": "FTQ-001",
+       "severity": "important",
+       "file": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-7-decision-schema/crates/workspace-tests/tests/test_util_off.rs",
+       "line": 39,
+       "test": "test_test_util_absent_from_normal_graph",
+       "mechanism": "timing_assertion",
+       "issue": "tree() runs `cargo tree` through spawn_with_deadline(&mut cargo, None), which applies the shared 60 s SUBPROCESS_DEADLINE. The command has no --locked and no --offline, so it may touch the network to refresh the registry index and may wait on Cargo's package-cache or build-directory lock while a concurrent cargo process (for example the outer `cargo test --workspace`) holds it. On a cold or contended CI host the call can exceed 60 s and the runner kills it, so the test fails on some runs and passes on others depending on cache state and network speed. The test calls tree() 7 times (1 control, 1 workspace, 5 inverted queries), so it has 7 independent exposures to this window. The sprint already documents the same class of problem for builds: bin_path.rs gives cold release builds a 20 min deadline with a comment about 'Blocking waiting for file lock'. The cargo tree calls get no such treatment.",
+       "recommendation": "Make the graph query deterministic and bounded: (1) add --locked --offline as crates/sc-agent-types/tests/features.rs already does, after a documented warm-up step, so no network is involved; (2) collapse the 7 invocations into one `cargo tree --workspace -e normal,features --prefix none --no-dedupe` run whose output is parsed once, which leaves one bounded subprocess instead of seven; (3) give that single call a named deadline sized for a cargo invocation (spawn_with_limit with an explicit constant), and keep it bounded so a hang still fails. The same 60 s generic deadline on features.rs cargo tree calls (offline, warm-cache dependent) is a related exposure and should use the same named constant.",
+       "evidence": "test_util_off.rs:27-39: `let mut cargo = command(Path::new(env!(\"CARGO\"))); cargo.current_dir(root).args([\"tree\", \"-e\", \"normal,features\", \"--prefix\", \"none\", \"--no-dedupe\"]).args(extra); let output = spawn_with_deadline(&mut cargo, None);` with no --locked/--offline. tests/support/deadline.rs:34 `pub const SUBPROCESS_DEADLINE: Duration = Duration::from_secs(60);`. test_util_off.rs:83-99 calls tree() once for the workspace and once per each of 5 packages in TEST_UTIL_PACKAGES. bin_path.rs:27 `BIN_BUILD_DEADLINE = Duration::from_secs(20 * 60)` with the comment 'a stuck build cannot hang CI'. features.rs:36 uses `--locked --offline` and line 38 `spawn_with_deadline(&mut command, None)`."
+      },
+      {
+       "id": "FTQ-002",
+       "severity": "minor",
+       "file": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-7-decision-schema/crates/sc-agent-http/tests/ureq.rs",
+       "line": 205,
+       "test": "test_timeout_is_network_error_without_the_key",
+       "mechanism": "timing_assertion",
+       "issue": "The test relies on a wall-clock margin for ordering. It assumes the 1 s client request deadline (Timeouts::new(2 s connect, 1 s request)) will not expire before the client has finished connecting and writing the request. The comment says '1 s leaves ample time to connect and write the request first', and the test then asserts `server.finish().len() == 1`. On a starved CI host the client's request deadline can expire before the server thread has read the request. The server then records 0 requests, and the `seen.len()` assertion inside finish() fails. No handshake orders the server's receipt before the client's timeout, so the outcome depends on scheduling. The clock is real because ureq uses the system clock, so it cannot be injected here.",
+       "recommendation": "Replace the implicit margin with an explicit handshake. Have the server thread signal over an mpsc channel as soon as read_request returns for the stalled reply. Run the client send on a thread that reports its result over a channel. The test waits for the head-received signal with a bounded recv_timeout (for example 10 s), then waits for the client result with a bounded recv_timeout, and only then asserts the Timeout kind. Take the request count from the signal, not from a finish() precondition that races the timeout. Keep every wait bounded so a hang fails with a message.",
+       "evidence": "ureq.rs:207-208 comment 'The server holds the connection until `finish`, so the only clock in play is the client request timeout. 1 s leaves ample time to connect and write the request first'. ureq.rs:210-213 `UreqTransport::loopback_for_tests(Timeouts::new(Duration::from_secs(2), Duration::from_secs(1)))`. ureq.rs:234 `assert_eq!(server.finish().len(), 1, \"a timeout is not retried\");`. support/mod.rs:263-268 read_request returns None on read==0, so a request that has not arrived yet produces no Seen entry."
+      },
+      {
+       "id": "FTQ-003",
+       "severity": "minor",
+       "file": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-7-decision-schema/crates/sc-agent-http/tests/ureq.rs",
+       "line": 241,
+       "test": "test_connect_phase_failure_is_retryable_and_not_retried",
+       "mechanism": "fixed_runtime_path",
+       "issue": "refused_port() binds 127.0.0.1:0, reads the port, and drops the listener. The test then connects to that port and expects a connect-phase failure. In the window between the drop and the connect, any other test in the same process (LoopbackServer::spawn binds 127.0.0.1:0 in parallel tests) or another process can bind the freed port. The client then connects to that other listener, not to a refused port. The test sees a successful or different response, or the other test's server records an unexpected request and fails its finish() count. This is a port-reuse race on a shared socket resource. The likelihood is low because ephemeral allocation usually does not hand back a just-freed port immediately, but the mechanism is concrete and the test has no way to detect it.",
+       "recommendation": "Do not probe a freed port. Classify connect-phase failures deterministically at the transport seam: use the existing injected-failure double (the same pattern as RecordingTransport and with_failure) to return a NetworkErrorKind::Connect error, and assert the retry classification and the single send. If a real-socket refusal check is kept, isolate it in its own test binary and run it serially, and assert only that the call returns a retryable NetworkError without asserting that the request was sent to a specific listener. The test should not depend on the port staying unused.",
+       "evidence": "ureq.rs:242 `let endpoint = Endpoint::loopback_http(refused_port(), \"/closed\");` and ureq.rs:243-251 `RecordingTransport::new(loopback())`, `send_with_busy_retry(...).expect_err(\"refused\")`. support/mod.rs:183-188: `pub fn refused_port() -> u16 { let listener = TcpListener::bind(\"127.0.0.1:0\").expect(\"bind loopback\"); let port = listener.local_addr().expect(\"addr\").port(); drop(listener); port }`. support/mod.rs:126 and :184 show other binds on 127.0.0.1:0 in the same test binary."
+      }
+     ],
+     "summary": {
+      "total_findings": 3,
+      "critical": 0,
+      "important": 1,
+      "minor": 2
+     }
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "req-qa",
+   "task_id": "a267b8c746c1f77c5",
+   "fenced_json": {
+    "status": "FAIL",
+    "reviewed_branch": "sprint/r-7-decision-schema",
+    "reviewed_commit": "9497297",
+    "errors": [],
+    "scope": {
+     "phase": "phase-a-refine",
+     "sprint": "r-7"
+    },
+    "baselines_read": [
+     "docs/requirements.md (REQ-SAG-0103/0107/0130/0140-0148 rows)",
+     "docs/architecture.md (ADR-SAG-0030/0031 markers, Trait boundary sentence)"
+    ],
+    "phase_or_sprint_docs_read": [
+     "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md (all 984 lines)"
+    ],
+    "requirement_checks": [
+     {
+      "id": "REQ-SAG-0140",
+      "source": "docs/requirements.md:177",
+      "listed_in_sprint_doc": true,
+      "result": "not-verifiable",
+      "evidence_refs": [
+       "crates/sc-decision-schema/Cargo.toml:26-30",
+       ".github/scripts/cargo-tree-gates.sh:95"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0141",
+      "source": "docs/requirements.md:178",
+      "listed_in_sprint_doc": true,
+      "result": "not-verifiable",
+      "evidence_refs": [
+       "crates/sc-decision-schema/src/judge.rs",
+       "crates/sc-agent-types/src (judge.rs, payload.rs, test_util.rs absent)"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0142",
+      "source": "docs/requirements.md:179",
+      "listed_in_sprint_doc": true,
+      "result": "not-verifiable",
+      "evidence_refs": [
+       "crates/sc-decision-schema/tests/version.rs:10,58"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0144",
+      "source": "docs/requirements.md:181",
+      "listed_in_sprint_doc": true,
+      "result": "not-verifiable",
+      "evidence_refs": [
+       "crates/sc-decision-schema/tests/llm.rs:30"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0145",
+      "source": "docs/requirements.md:182",
+      "listed_in_sprint_doc": true,
+      "result": "not-verifiable",
+      "evidence_refs": [
+       "crates/sc-decision-schema/tests/variants.rs:10,26"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0146",
+      "source": "docs/requirements.md:183",
+      "listed_in_sprint_doc": true,
+      "result": "not-verifiable",
+      "evidence_refs": [
+       "crates/sc-decision-schema/tests/session_log.rs:53,106,184",
+       "tests/fixtures/jev-python/tests/test_session_log_sqlite.py",
+       "crates/sc-agent-types/tests/ids.rs:127"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0147",
+      "source": "docs/requirements.md:184",
+      "listed_in_sprint_doc": true,
+      "result": "not-verifiable",
+      "evidence_refs": [
+       "crates/sc-agent-types/tests/models.rs:8,34",
+       "crates/sc-jev-backends/tests/llm.rs:718"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0148",
+      "source": "docs/requirements.md:185",
+      "listed_in_sprint_doc": true,
+      "result": "not-verifiable",
+      "evidence_refs": [
+       "crates/sc-agent-types/tests/models.rs:58,82",
+       "crates/sc-jev-check/tests/models.rs:55,92",
+       "crates/sc-jev/tests/catalog.rs:15",
+       "crates/sc-jev-backends/tests/llm.rs:755",
+       "crates/sc-decision-schema/tests/mock.rs:121"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0103/0107/0130 amendments",
+      "source": "docs/requirements.md:210-212",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/requirements.md:210-212",
+       "docs/sc-decision-schema/requirements.md:14",
+       "crates/sc-agent-types/Cargo.toml:23-29",
+       "release/sc-publish-consumer-input.json:51-55"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0613 (seam)",
+      "source": "sprint r-7 boundary:send-trace",
+      "listed_in_sprint_doc": true,
+      "result": "not-verifiable",
+      "evidence_refs": [
+       "crates/sc-agent-http/src/retry.rs:253,314,392",
+       "crates/sc-agent-types/tests/trace.rs:6"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0102/0104/0105/0106/0109/0131/0132/0143/0301/0400/0500/0501/0602/0603/0606/0607/0610/0611/0620/0700/0701/0710/0800-0802, NFR-SAG-0001/0002/0004",
+      "source": "docs/requirements.md",
+      "listed_in_sprint_doc": true,
+      "result": "not-verifiable",
+      "evidence_refs": []
+     }
+    ],
+    "deliverable_checks": [
+     {
+      "item": "D1 crate, workspace member/dependency, boundary manifest, docs, README, consumer input (publish_order 2), CI rows, cargo-tree gate row",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-decision-schema/Cargo.toml",
+       "Cargo.toml:5,40",
+       "boundaries/sc-decision-schema/decision-schema.toml",
+       "docs/sc-decision-schema/{requirements,architecture,session-log-schema}.md",
+       ".github/workflows/sc-agent-ci.yml:278-280,330",
+       ".github/scripts/cargo-tree-gates.sh:95",
+       "release/publish-artifacts.toml"
+      ],
+      "notes": "Static presence confirmed. Behaviour not run. release/publish-artifacts.toml already mentions sc-decision-schema, so the kit install appears to have been run."
+     },
+     {
+      "item": "D2 move of decision types (no re-export, features deleted, no remaining sc_agent_types imports of moved items, no Sha256Digest::of call sites)",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-agent-types/Cargo.toml:20-29",
+       "grep: no sc_agent_types import of moved types in crates/",
+       "grep: no Sha256Digest::of( outside the sprint doc"
+      ]
+     },
+     {
+      "item": "D3 versioning",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-decision-schema/src/version.rs",
+       "crates/sc-decision-schema/tests/version.rs"
+      ]
+     },
+     {
+      "item": "D4 llm::v1 wired in wire.rs",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-decision-schema/src/llm/v1.rs",
+       "grep: parse_answers, HAIKU_MODEL and LUNA_MODEL are absent from crates/"
+      ]
+     },
+     {
+      "item": "D5 variants",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-decision-schema/src/variants.rs"
+      ]
+     },
+     {
+      "item": "D6 session-log schema, DDL, fixture, python test, schema_version refusal",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-decision-schema/src/session_log/schema.sql",
+       "crates/sc-decision-schema/src/session_log/mod.rs:280",
+       "tests/fixtures/decision-schema/session-log/fields.jsonl",
+       "crates/sc-decision-schema/tests/session_log.rs:208"
+      ]
+     },
+     {
+      "item": "D7 model catalog, ModelAliases, check.toml [models], model_id on every backend, jev.toml header and sc-jev architecture row",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-agent-types/src/models.rs:117,173,266-274",
+       "crates/sc-jev/src/client/mod.rs:243",
+       "crates/sc-jev-backends/src/backend.rs:361",
+       "crates/sc-jev-check/assets/jev.toml:4",
+       "docs/sc-jev/architecture.md:20"
+      ]
+     },
+     {
+      "item": "D8 SendTrace, required trace parameter on the exchange fns, HttpRequest body as Arc<str>, ProjectLabel, AnswerId",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-agent-types/src/trace.rs",
+       "crates/sc-agent-http/src/retry.rs:253,314,392",
+       "crates/sc-agent-http/src/request.rs:308,364",
+       "crates/sc-agent-types/tests/ids.rs:127,159"
+      ]
+     },
+     {
+      "item": "D9 ADR flips, no '(Proposed, r-7)' marker, Trait boundary sentence, jev::v1 bullet left Proposed r-5, Scope context left Recorded",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "docs/architecture.md:93-95,1567,1601,1619,1639",
+       "grep: 0 matches for 'Proposed, r-7'"
+      ]
+     },
+     {
+      "item": "API clarifications: schema_version refusal and hint, JudgeBackend dyn-compat and additive rule in rustdoc and README, ModelDescriptor::model expect, AnswerId and ModelId hints, released-date check",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-decision-schema/src/judge.rs:387-389",
+       "crates/sc-decision-schema/README.md:13-16",
+       "crates/sc-agent-types/src/models.rs:117,173",
+       "crates/sc-agent-types/tests/models.rs:51,65",
+       "crates/sc-agent-types/tests/ids.rs:174"
+      ]
+     },
+     {
+      "item": "Acceptance table and Required validation commands (just lint, just test, cargo hack, cargo tree, uv pytest, sc-publish-dry-run.sh, each named test printing '1 passed')",
+      "status": "not-verifiable",
+      "closure_state": "open",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:905-936"
+      ],
+      "notes": "This QA session had read-only file tools (Read, Glob, Grep). It had no shell, so it could not run any command. The test targets named in the table exist at the cited lines."
+     }
+    ],
+    "findings": [
+     {
+      "id": "REQ-QA-001",
+      "severity": "Blocking",
+      "category": "acceptance-gap",
+      "source_refs": [
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:905-936"
+      ],
+      "target_refs": [
+       "worktree HEAD 9497297"
+      ],
+      "issue": "Every acceptance criterion and requirement check is a command (cargo test --exact, cargo tree, cargo hack, just lint/test, uv pytest, sc-publish-dry-run.sh). I confirmed the worktree is on branch sprint/r-7-decision-schema at 9497297 and that every named test, file and wiring point exists. I could not run any command. The criteria are therefore not-verifiable, and the gate policy fails not-verifiable items. I found no static defect.",
+      "required_correction": "Re-run req-qa with a shell, or attach the command output (each named test showing '1 passed', plus cargo tree, cargo hack, just lint, just test, check-exact-pins.sh and sc-publish-dry-run.sh results) for commit 9497297.",
+      "compliance_result": "partially-compliant"
+     },
+     {
+      "id": "REQ-QA-002",
+      "severity": "Minor",
+      "category": "cross-doc-conflict",
+      "source_refs": [
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:126,964-965"
+      ],
+      "target_refs": [
+       "crates/sc-jev/src/client/mod.rs:243"
+      ],
+      "issue": "owned_paths names crates/sc-jev/src/check.rs#fn model_id, and D2.4 lists check.rs as an anchor. The implementation puts the trait impl, and so model_id, in client/mod.rs. The sprint's Implementation notes disclose this, but the frontmatter and the D2.4 anchor text were not corrected.",
+      "required_correction": "Change the owned_paths entry and the D2.4 anchor to client/mod.rs, or add a one-line note beside them.",
+      "compliance_result": "partially-compliant"
+     }
+    ],
+    "summary": {
+     "total_findings": 2,
+     "blocking_findings": 1,
+     "overall_compliance": "non-compliant",
+     "deliverables_total": 11,
+     "deliverables_complete": 10,
+     "deliverables_incomplete": 1,
+     "deliverable_completion_percent": 90.9
+    },
+    "gate_reason": "FAIL on a verification gap, not on a defect. The acceptance commands and per-requirement behaviour checks are not-verifiable without a shell, so the PASS conditions are not met. Static evidence is clean: every deliverable D1-D9 and every API-clarification item is present in the files, and the sprint doc has a complete requirements list. The moved modules are gone from sc-agent-types, and nothing in the workspace still imports them from there. The old HAIKU_MODEL, LUNA_MODEL and parse_answers are gone. The exchange fns take a required SendTrace. The architecture markers are flipped, with the jev::v1 bullet left Proposed (r-5) and the Scope context bullet left Recorded. The consumer input and rendered release manifest carry sc-decision-schema at publish_order 2."
+   }
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "a878b459ee9d9270c",
+   "fenced_json": {
+    "agent": "arch-qa",
+    "branch": "sprint/r-7-decision-schema",
+    "scope": {
+     "phase": "phase-a-refine",
+     "sprint": "r-7"
+    },
+    "commit": "9497297",
+    "verdict": "PASS",
+    "blocking": 0,
+    "important": 0,
+    "findings": [],
+    "adr_checks": [
+     {
+      "adr": "ADR-SAG-0030",
+      "source": "docs/architecture.md:1565",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:1567",
+       "docs/architecture.md:140",
+       "crates/sc-decision-schema/Cargo.toml:26",
+       "boundaries/sc-decision-schema/decision-schema.toml:22"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0031",
+      "source": "docs/architecture.md:1647",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:1649",
+       "docs/architecture.md:1656",
+       "docs/architecture.md:141",
+       "crates/sc-decision-schema/src/session_log/schema.sql",
+       "tests/fixtures/decision-schema/session-log/fields.jsonl"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0005",
+      "source": "docs/architecture.md:209",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-decision-schema/src/llm/v1.rs:64"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0009",
+      "source": "docs/architecture.md:312",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-decision-schema/src/judge.rs:426",
+       "crates/sc-decision-schema/src/judge.rs:433"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0016",
+      "source": "docs/architecture.md:940",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:944"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0017",
+      "source": "docs/architecture.md:809",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "release/sc-publish-consumer-input.json:55",
+       "docs/architecture.md:813"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0019",
+      "source": "docs/architecture.md:512",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-backends/src/backend.rs:171"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0022",
+      "source": "docs/architecture.md:426",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-decision-schema/src/test_util.rs"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0026",
+      "source": "docs/architecture.md:1378",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-agent-http/src/retry.rs:253",
+       "crates/sc-agent-http/src/retry.rs:314"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0027",
+      "source": "docs/architecture.md:1494",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-agent-types/Cargo.toml:23",
+       "crates/sc-agent-types/src/trace.rs"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0011",
+      "source": "docs/architecture.md (Active)",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-py/Cargo.toml:38"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0012",
+      "source": "docs/architecture.md:122",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:122"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0001",
+      "source": "docs/architecture.md (Active)",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-decision-schema/src/llm/v1.rs:12"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0003",
+      "source": "docs/architecture.md (Active)",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/registry/mod.rs:47"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0020",
+      "source": "docs/architecture.md (Active)",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/registry/mod.rs:47"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0023",
+      "source": "docs/architecture.md (Active)",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "Cargo.toml:40"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0028",
+      "source": "docs/architecture.md (Active)",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "boundaries/workspace-tests/workspace-tests.toml:31"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0002/0004/0006/0007/0008/0010/0013/0018/0021/0024/0025/0029",
+      "source": "docs/architecture.md",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-agent-types/src/ids.rs:532",
+       "crates/sc-agent-http/src/retry.rs:253",
+       "release/sc-publish-consumer-input.json"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0011-await-mutex (ADR-RUN-0011 pt 2, RULE-ADR-AWAIT-MUTEX)",
+      "source": ".claude/agents/arch-qa rule",
+      "listed_in_sprint_doc": false,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-decision-schema/src/test_util.rs:9"
+      ]
+     }
+    ],
+    "gate_artifact_checks": [
+     {
+      "artifact": "docs/architecture.md (ADR-SAG-0030 / ADR-SAG-0031 flip, policy Phase A.1 landing-sprint ADRs)",
+      "status": "closed",
+      "evidence_refs": [
+       "docs/architecture.md:1567",
+       "docs/architecture.md:1649",
+       "docs/architecture.md:140",
+       "docs/architecture.md:141",
+       "docs/architecture.md:93"
+      ],
+      "notes": "ADR-0030 Status line, bullets and index cell are Active (r-7). The jev::v1 bullet (:1601) stays (Proposed, r-5) and the scope-context bullet stays (Recorded). The ADR-0031 Storage schema subsection and index cell are Active (r-7); the Wiring subsection stays Proposed (r-6). The 0005, 0009, 0016, 0017, 0019, 0022, 0026 and 0027 r-7 amendment subsections and their index markers are Active. No (Proposed, r-7) marker remains. The Trait boundary sentence is rewritten."
+     },
+     {
+      "artifact": "release/sc-publish-consumer-input.json",
+      "status": "closed",
+      "evidence_refs": [
+       "release/sc-publish-consumer-input.json:55"
+      ],
+      "notes": "sc-decision-schema is publish_order 2 and later crates are shifted to 10. release/publish-artifacts.toml carries it. scripts/sc-publish-dry-run.sh builds its package list from the manifest data (line 149), so it needs no literal edit."
+     },
+     {
+      "artifact": "boundaries/sc-decision-schema/decision-schema.toml",
+      "status": "closed",
+      "evidence_refs": [
+       "boundaries/sc-decision-schema/decision-schema.toml:22",
+       "boundaries/sc-agent-http/agent-http.toml:38"
+      ],
+      "notes": "Text matches the sprint doc. allowed_dependencies is sc-agent-types, serde and serde_json. Every dependent manifest gains the edge, and sc-agent-http forbids it."
+     },
+     {
+      "artifact": ".github/scripts/cargo-tree-gates.sh and sc-agent-ci.yml",
+      "status": "closed",
+      "evidence_refs": [
+       ".github/scripts/cargo-tree-gates.sh:95",
+       ".github/workflows/sc-agent-ci.yml:280"
+      ],
+      "notes": "The sc-decision-schema feature-leak row and the feature-powerset row are present, and the judge feature is gone from the forbidden-feature lists."
+     }
+    ],
+    "merge_ready": true,
+    "notes": "Review basis and limits. The branch ref resolves to 94972978d9e6, matching the requested commit 9497297, and the worktree HEAD is refs/heads/sprint/r-7-decision-schema. I had no shell, so I could not run git diff, cargo or the sc-boundary validator, and I did not diff against base 0d0ebc1. Everything below comes from reading files and grepping.\n\nSprint adrs list: every id resolves to an Active ADR, the only Proposed ids being the landing-sprint ADRs 0030 and 0031, which the policy exception allows. The flips are present on the branch. I did not recompute the expected list in full, so I may have missed an ADR the sprint should name.\n\nData-only crate: sc-decision-schema src has no fs, process, net, io, logging or ureq use. Its dependencies are sc-agent-types with default-features = false, plus serde and serde_json. sc-agent-types no longer has the judge or test-util features, and its source tree no longer holds the moved judge.rs, payload.rs, test_util.rs or the old tests.\n\nOther structural checks: no sc_agent_types import of a moved type remains in crates. No Sha256Digest::of( call remains. The judge signature takes &SendTrace. send_with_busy_retry and send_and_parse take a required SendTrace. HAIKU_MODEL, LUNA_MODEL and the jev.toml model key are gone. The registry factory type is fn(ResolvedApiKey, &ModelAliases). UnknownModel has a private field and is built only in FromStr. check.toml [models] is remapped to CONFIG_INVALID. The release path handled the CPR-014 publish gate as the sprint says: the manifest only changed, nothing was published.\n\nRULE-ADR-AWAIT-MUTEX: there is no .await or async fn anywhere in crates, so no std::sync::Mutex guard can span an await.\n\nMinor observation, not a finding: docs/architecture.md:374, an r-1-era note under ADR-SAG-0022, still names sc_agent_types::test_util::MockJudgeBackend. It is historical text that the Active r-7 amendment at :430 supersedes, so I left it.\n\nOne item for req-qa rather than me: the llm::v1::parse_output rustdoc says confidence and probabilities must be in [0, 1], while the sprint says the parse_answers checks move unchanged. I could not diff the old code to confirm."
+   }
+  }
+ ]
+}

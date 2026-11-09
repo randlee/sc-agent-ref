@@ -1,0 +1,3 @@
+## Phase close notes
+
+- Architectural refinement (D1–D13): see [`../phase-a-refine/plan.md`](../phase-a-refine/plan.md).

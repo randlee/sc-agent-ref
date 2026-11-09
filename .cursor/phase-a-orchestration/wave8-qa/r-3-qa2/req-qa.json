@@ -1,0 +1,40 @@
+{
+  "status": "PASS",
+  "reviewed_branch": "sprint/r-3-shared-http",
+  "reviewed_commit": "f19ce8df1d62f3ffe179d20b6a806f081db253bf",
+  "errors": [],
+  "scope": {"phase": "a.1", "sprint": "r-3"},
+  "baselines_read": ["docs/requirements.md (via QA-1 record)", "docs/architecture.md", "docs/plans/phase-a-refine/sprint-r-3-shared-http.md", "release/publish-artifacts.toml", "docs/plans/phase-a/a-10-hardening-dispositions.md"],
+  "phase_or_sprint_docs_read": ["docs/plans/phase-a-refine/sprint-r-3-shared-http.md"],
+  "requirement_checks": [
+    {"id": "REQ-SAG-0402", "source": "docs/requirements.md:169", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["QA-1 upheld; CI green at 7cfd413"]},
+    {"id": "REQ-SAG-0505", "source": "docs/requirements.md:190", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["QA-1 verification; retry tests pass in CI run 42417451354"]},
+    {"id": "REQ-SAG-0130", "source": "docs/requirements.md:191", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["release/publish-artifacts.toml:52-56 (sc-agent-http at publish_order 3)", "docs/plans/phase-a-refine/sprint-r-3-shared-http.md:423-436"]},
+    {"id": "NFR-SAG-0002", "source": "docs/requirements.md:114", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["QA-1 upheld; fix-round diff does not alter the timeout path"]},
+    {"id": "constrained_by set (REQ-SAG-0110/0400/0401/0500/0501/0502/0504/0131/0132, NFR-SAG-0001/0004)", "source": "sprint doc frontmatter", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["PR 26 CI all green at 7cfd413 (run 42417451354, dry-run 42417451319); sprint doc line 503 cites it"]}
+  ],
+  "deliverable_checks": [
+    {"item": "Release/boundary gate artifact: kit re-render of consumer input and publish-artifacts.toml", "status": "present", "closure_state": "closed", "evidence_refs": ["release/publish-artifacts.toml:52-56", "docs/plans/phase-a-refine/sprint-r-3-shared-http.md:423-436,502"], "notes": "The doc now records the parent kit re-render (pin 11b5b049, install.py --dry-run exit 0, dry-run script passed) in 8f969ff. The 'open row' comment is gone from the frontmatter; status: in-review is the QA-2 hold only."},
+    {"item": "Test and gate acceptance rows backed by CI", "status": "present", "closure_state": "closed", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-3-shared-http.md:503", ".cursor/phase-a-orchestration/wave8-qa/r-3-fix1/dev-report.json"], "notes": "The doc cites green PR 26 CI at 7cfd413. The assignment says f19ce8d adds only that citation line."},
+    {"item": "ADR-SAG-0007 r-3 amendment: timeouts are construction state", "status": "present", "closure_state": "closed", "evidence_refs": ["docs/architecture.md:83,556,592-593"], "notes": "An Active bullet at line 592 says with_timeouts is removed and supersedes the line-556 base sentence."},
+    {"item": "a-10 ARCHC-018 row supersession note", "status": "present", "closure_state": "closed", "evidence_refs": ["docs/plans/phase-a/a-10-hardening-dispositions.md:50"], "notes": "The row reads 'implemented; superseded by r-3 (Timeouts on UreqTransport::new)'."}
+  ],
+  "carry_forward_verdicts": {
+    "REQ-QA-R3-001": "closed",
+    "REQ-QA-R3-002": "closed",
+    "REQ-QA-R3-003": "closed",
+    "REQ-QA-R3-004": "closed"
+  },
+  "findings": [],
+  "limitations": "This session had no shell. I could not run git diff or the tests. I confirmed that the worktree HEAD is f19ce8d by reading the worktree's gitdir HEAD file. For the fix-round diff and the CI result, I relied on the dev report and the assignment, whose CI evidence the sprint doc also cites. I found no regression and no new Blocking finding in the doc, ADR, release and a-10 artifacts that I read directly. I did not read the code-level fix-round changes (HttpClient/send_and_parse, BusyExhaustion, new tests) line by line. CI green at 7cfd413 and the dev report's coverage figures stand in for them.",
+  "summary": {
+    "total_findings": 0,
+    "blocking_findings": 0,
+    "overall_compliance": "compliant",
+    "deliverables_total": 4,
+    "deliverables_complete": 4,
+    "deliverables_incomplete": 0,
+    "deliverable_completion_percent": 100.0
+  },
+  "gate_reason": "All four QA-1 carry-forward findings are closed. The sprint doc records the kit re-render and the 'open row' comment is removed, and publish-artifacts.toml has sc-agent-http at order 3. PR 26 CI is cited as green. The ADR-SAG-0007 r-3 bullet is present. The a-10 ARCHC-018 row carries the supersession note. No new Blocking findings or regressions were found."
+}

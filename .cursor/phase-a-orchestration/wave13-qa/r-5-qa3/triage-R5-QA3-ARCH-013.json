@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "R5-QA3-ARCH-013",
+ "found_in": "A1-R5",
+ "found_at": "2026-11-08T06:39:59Z",
+ "title": "ARCH-002 closure is complete for the two named entry points (CanonicalJudgePayload::from_bytes at payload.rs:428 and CheckRequest::parse at ",
+ "description": "ARCH-002 closure is complete for the two named entry points (CanonicalJudgePayload::from_bytes at payload.rs:428 and CheckRequest::parse at jev/v1.rs:565 now use decode_failed, which returns INPUT_INVALID with category and line/column only and a fix hint). Two decode-side sites still use encode_failed: Question::from_json (payload.rs:245) and PayloadBundle::decode (payload.rs:520). Their code is still INPUT_INVALID, which ADR-SAG-0027 and ADR-SAG-0029(c) accept. However, encode_failed's fix hint (crates/sc-agent-types/src/error.rs:833-835) reads '\u2026 could not be encoded as JSON' for a parse failure, which is misleading. The stated rule 'encode_failed kept for encode-side sites only' is not what the tree does. Note: the Question::from_json doc block (payload.rs:229-231) says 'EncodeFailed', and the Errors section says INPUT_INVALID.",
+ "category": "qa",
+ "severity": "important",
+ "pattern": "RULE-ADR-CODE",
+ "file_filter": "crates/sc-decision-schema/src/payload.rs",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "48c4d1cf5a0972351bc146721db41888fbc5cfa3"
+  },
+  {
+   "branch": "sprint/r-5-jev-wire-envelope",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope",
+   "order_index": 1,
+   "head_sha": "69725308455bd8827b0a46e31e3f598327d66f55"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a",
+  "sprint/r-5-jev-wire-envelope"
+ ]
+}

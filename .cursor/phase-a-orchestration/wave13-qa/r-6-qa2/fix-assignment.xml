@@ -1,0 +1,11 @@
+<fix-assignment sprint="r-6" pr="35" branch="sprint/r-6-session-log-record" base-commit="34655a4" round="QA-2">
+  <fix id="R6-QA2-ARCH-001" severity="important">Add one bullet to each r-6 amendment in docs/architecture.md, each marked (Active, r-6):
+    ADR-SAG-0013: envelope correlation_id is the session id and request_id is the answer id; the level is Warn when send_outcome is failed, otherwise Info.
+    ADR-SAG-0008: on open, the store sweep removes session documents past TTL plus one TTL of grace (v1 and v2 included), so SESSION_EXPIRED stays reachable for one more TTL.
+    ADR-SAG-0031 Wiring, log-write policy: on the error path, a flush failure is appended once to the error detail and the code is unchanged.
+    ADR-SAG-0016: the envelope request_id and correlation_id mapping.</fix>
+  <fix id="R6-QA2-FTQ-005" severity="minor">In crates/sc-jev-check/tests/session.rs concurrent_writers, report each writer's completion over an mpsc channel and wait with recv_timeout (30 s). On timeout, panic naming the stuck writer.</fix>
+  <fix id="R6-QA2-FTQ-006" severity="minor">In crates/sc-ai/tests/cli.rs make_fifo, run mkfifo through deadline::spawn_with_deadline and assert success.</fix>
+  <fix id="R6-QA2-RQA-QA-001" severity="minor">In crates/sc-jev-host/tests/log_context.rs, assert the envelope fields. A failed send logs at Warn (use test_error_path_flushes_the_failed_row) and an ok send at Info. correlation_id equals the session id and request_id equals the answer id. Make the obs.rs id parsing fail loudly in debug, or test that the ids are never None for a valid event. Optionally, add a grace-window test: a document between TTL and 2xTTL survives the sweep and reads as SESSION_EXPIRED.</fix>
+  <note>Run the gates on the 1.94.1 toolchain. Keep the sprint status at in-review. Commit with the trailer and push.</note>
+</fix-assignment>

@@ -1,0 +1,151 @@
+{
+ "pr": 45,
+ "qa_pass": "qa-stack-41-1",
+ "round": "stack #41 (PRs 39, 40, 42, 43, 44, 45) on integrate/phase-a",
+ "branch": "fix/pe-plan-notes",
+ "head": "6b946d2",
+ "base": "integrate/phase-a",
+ "notes": "QA gates the stack top per sc-gh-stack; reviewers ran as fixes landed, each naming its commit. e4ede9f to 6b946d2 is docs and comments plus one test comment. d2121c9 to 6b946d2 restructures ADR-SAG-0007 as an amendment and fixes ARCH-002, ARCH-003 by the orchestrator, with arch-qa passing at 3b5171d. Service hardening at 741f8ce raised RSH-001 and RSH-002, fixed in #40, and rust-qa ran its tests at e4ede9f. Findings posted on #39, #43 and #45. Coverage was not run by rust-qa here; CI's coverage job runs it. Scope of this stack excludes Jev and error-contract work, which land as later layers. The earlier intermittent coverage failure on #39 has no proven cause; asserts now print stderr.",
+ "manifest": [
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "a64b6f8584a934ed9",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "e4ede9f"
+  },
+  {
+   "agent": "rust-best-practices-agent",
+   "task_id": "a92c3bac3bcd80015",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "741f8ce"
+  },
+  {
+   "agent": "rust-service-hardening-agent",
+   "task_id": "a677e26f49c58c0cf",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "741f8ce"
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "a5b68d90af97a30c2",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "e4ede9f"
+  },
+  {
+   "agent": "req-qa",
+   "task_id": "abb7349fb95eb6e78",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "d2121c9"
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "aba569c396a9a9e39",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "3b5171d"
+  }
+ ],
+ "reviewer_outputs": [
+  {
+   "agent": "rust-qa-agent",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_commit": "e4ede9f",
+     "findings": [],
+     "summary": {
+      "total_findings": 0
+     },
+     "notes": [
+      "611 passed, 0 failed, 3 ignored, on macOS with 1.94.1; dry-run and cargo deny pass"
+     ]
+    }
+   }
+  },
+  {
+   "agent": "rust-best-practices-agent",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_commit": "741f8ce",
+     "findings": [],
+     "summary": {
+      "total_findings": 0
+     }
+    }
+   }
+  },
+  {
+   "agent": "rust-service-hardening-agent",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "findings",
+     "reviewed_commit": "741f8ce",
+     "findings": [
+      {
+       "id": "RSH-001",
+       "severity": "minor",
+       "state": "closed in #40"
+      },
+      {
+       "id": "RSH-002",
+       "severity": "minor",
+       "state": "closed in #40"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "agent": "flaky-test-qa",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_commit": "e4ede9f",
+     "findings": [],
+     "summary": {
+      "total_findings": 0
+     }
+    }
+   }
+  },
+  {
+   "agent": "req-qa",
+   "fenced_json": {
+    "status": "PASS",
+    "reviewed_commit": "d2121c9",
+    "findings": [],
+    "summary": {
+     "total_findings": 0,
+     "blocking_findings": 0,
+     "deliverable_completion_percent": 100.0
+    }
+   }
+  },
+  {
+   "agent": "arch-qa",
+   "fenced_json": {
+    "agent": "arch-qa",
+    "commit": "3b5171d",
+    "verdict": "PASS",
+    "blocking": 0,
+    "important": 1,
+    "findings": [
+     {
+      "id": "ARCH-002",
+      "severity": "IMPORTANT",
+      "state": "fixed at 6b946d2"
+     },
+     {
+      "id": "ARCH-003",
+      "severity": "MINOR",
+      "state": "fixed at 6b946d2"
+     }
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,24 @@
+{
+  "success": true,
+  "data": {
+    "status": "skipped",
+    "reviewed_branch": "sprint/r-2b-multi-backend-semantics",
+    "reviewed_commit": "330986f574914ada17e79d074227527cce4eb9ba",
+    "review_mode": "sprint_review",
+    "service_indicators_found": [],
+    "topics_reviewed": [],
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": {"critical": 0, "important": 0, "minor": 0}
+    },
+    "notes": [
+      "No service indicators were detected in Cargo manifests or obvious entrypoints.",
+      "The worktree HEAD is detached at 330986f574914ada17e79d074227527cce4eb9ba, which matches the assigned commit. The input says the worktree is a detached review copy, so I did not check the branch name. I read HEAD from the worktree's gitdir because I had no shell.",
+      "I searched every Cargo.toml and .rs file in the worktree for tokio, axum, hyper, tonic, warp, actix-web and reqwest. There were no dependency matches. The only substring hits were 'monotonic' (contains 'tonic') in comments in sc-agent-http/src/retry.rs and test_util.rs, and in an embedded Python string in sc-jev-py/src/run.rs. None of these is a service indicator.",
+      "I found no #[tokio::main], server or listener startup, or async worker loops. The sc-jev, sc-jev-check and sc-jev-backends crates are library and CLI code.",
+      "The required reference files were not read, because the skip path comes before that step."
+    ]
+  },
+  "error": null
+}

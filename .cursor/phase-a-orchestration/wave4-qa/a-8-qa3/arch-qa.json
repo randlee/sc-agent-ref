@@ -1,0 +1,5 @@
+{"agent":"arch-qa","branch":"integrate/phase-a","scope":{"phase":"a","sprint":"a-8"},"commit":"0417aef60b6eba1fb4bf95fdfe8af0a1fa7d146b","verdict":"PASS","blocking":0,"important":0,"findings":[],
+ "adr_checks_summary":"ADR-SAG-0001/0002/0003/0004/0005/0009/0011/0012/0013/0016/0019/0020/0021/0022 upheld; 0008/0015/0017 not applicable",
+ "gate_artifact_checks":["boundaries/sc-jev-py/jev-py.toml closed","boundaries/sc-jev-check/jev-check.toml closed (dependents sc-ai + sc-jev-py)","boundaries/sc-agent-types/agent-types.toml closed","boundaries/sc-ai/sc-ai-cli.toml closed"],
+ "merge_ready":true,
+ "notes":"Merge-fix footprint only. Union boundary dependents present; both payload tests present in run/mod.rs; test-util cfg gating intact; sc-jev-py has no sc-jev edge; sc-observability pinned =1.5.0. cargo tree not run; edge check rests on Cargo.lock/Cargo.toml."}

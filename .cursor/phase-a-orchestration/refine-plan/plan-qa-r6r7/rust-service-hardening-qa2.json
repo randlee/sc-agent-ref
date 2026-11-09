@@ -1,0 +1,78 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "plan/phase-a-refine-r6",
+    "reviewed_commit": "5836f1befb9550ff4f5125f928cbce0c74e5ef1c",
+    "review_mode": "doc_review",
+    "service_indicators_found": [
+      "ureq 3.5.1 (workspace dependency, used by crates/sc-agent-http)",
+      "outbound HTTPS client with busy-retry (send_with_busy_retry, send_and_parse)"
+    ],
+    "topics_reviewed": [
+      "HTTP send path and SendTrace hashing",
+      "session-log writes",
+      "Jev request/response validation",
+      "input size limits"
+    ],
+    "findings": [
+      {
+        "id": "RSH-001",
+        "topic": "Jev request/response validation",
+        "severity": "important",
+        "file": "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md",
+        "line": 103,
+        "issue": "r-5 replaces parse_outcome with CheckResponse::into_answers. Its stated rule list (lines 103-108, 144-145, and the test_response_rules_rejected cases at line 263) drops two checks the current code enforces. One is response `model` equals the request model. The other is that a choice/score answer's probability keys equal the question's criteria keys. The planned rules only say the choice is a criteria option and the probabilities sum to 1. A reply can therefore carry arbitrary probability labels, or labels that are a subset or superset of the options, and still pass. Those labels then flow into DecisionAnswers, the session document and the r-6 answers_json log column. The noul rule (line 236, `exactly {\"yes\": p}`) is stated in prose but has no rejection case in the acceptance list (wrong key set, extra `no` key, p outside [0,1]).",
+        "recommendation": "State in r-5 that into_answers keeps the existing checks: response model equals the request model, and probability keys for choice/score equal the criteria keys. Add the noul key-set and range cases to the existing test_response_rules_rejected list. This carries current behaviour over and adds no new gate. All failures stay RESPONSE_INVALID.",
+        "evidence": "crates/sc-jev/src/check.rs:94 checks body.model == model, and the parse_outcome doc at lines 80-82 lists answer ids, choice and probability keys matching the request. The r-5 plan rule list at line 103-108 has neither the model check nor the probability-key check."
+      },
+      {
+        "id": "RSH-002",
+        "topic": "input size limits",
+        "severity": "important",
+        "file": "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md",
+        "line": 119,
+        "issue": "The request-size limit is enforced today on the final wire body, after the splice. `prepare` compares body.len() to the descriptor's request_limit_bytes and returns InputTooLarge (check.rs:62-66). r-5 deletes splice_model and `prepare`'s path, and deliverables 1 and 3 say no other schema check remains. They never say where the limit is checked against the new CheckRequest::to_body output. The documented Jev body is larger than the canonical bytes (criteria maps, descriptions, model, instructions). A check on the canonical payload would pass bodies that exceed the Jev limit. Dropping the check would send an unbounded body and rely on the server to reject it.",
+        "recommendation": "State in deliverable 3 that sc-jev compares the length of to_body() output to the Jev descriptor's request_limit_bytes before send. It should return InputTooLarge with the same limit and actual-byte fields as today. This is the existing check moved onto the new builder, not a new gate. Haiku and Luna keep enforce_count_and_message_limits unchanged.",
+        "evidence": "crates/sc-jev/src/check.rs:62-66 (`let body = splice_model(..); if actual_bytes > limit_bytes { return Err(JevError::input_too_large(..)) }`). r-5 item 1 and item 3 name no replacement site for this check."
+      },
+      {
+        "id": "RSH-003",
+        "topic": "Jev request/response validation",
+        "severity": "minor",
+        "file": "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md",
+        "line": 199,
+        "issue": "Duplicate-key behaviour is unspecified. OrderedMap is a custom order-preserving visitor, and the input_sha256 recovery (item 5) parses the sent body with it. A duplicate question id or criteria key in a recovered body could silently collapse or shadow an entry, giving a digest that differs from prompt_sha256 with no error. Response `answers` is a BTreeMap, where serde keeps the last duplicate id silently.",
+        "recommendation": "Specify that the OrderedMap visitor and the answers map reject a duplicate key (INPUT_INVALID on request recovery, RESPONSE_INVALID on a reply). Cover it with a case in the existing test_response_rules_rejected and recovery tests rather than a new check.",
+        "evidence": "r-5 lines 199-203 define OrderedMap with a 'custom visitor' and no duplicate rule. Line 239 and following define `answers: BTreeMap<QuestionId, JevAnswer>`."
+      },
+      {
+        "id": "RSH-004",
+        "topic": "HTTP send path and SendTrace hashing",
+        "severity": "minor",
+        "file": "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md",
+        "line": 318,
+        "issue": "Sha256Digest::of(&str) is declared infallible, but sc-sha's calculate_hash returns a Result (D0, line 145-146 says ShaError::InvalidUtf8 'cannot occur'). The plan does not say what `of` does on an Err. Panicking on the send path (record before every Transport::send) would violate M-PANIC-ON-BUG for a non-bug. Separately, sc-sha normalizes CR and CRLF to LF, so for any text that is not compact serde_json the digest is not SHA-256 of the bytes. The plan covers the committed queries as LF-only. The query text hashed at extract.rs:231 is `input.query`, which can be user-supplied and contain CRLF. Its query_sha256 would then no longer match the bytes it claims to identify.",
+        "recommendation": "Say that `of` handles the unreachable Err arm without panicking. For example, treat it as a documented unreachable with a deterministic fallback, or keep `of` returning Result at the one send-site call. Note that query_sha256 identifies LF-normalized query text, and keep the 'digest equals SHA-256 of the sent bytes' claim to request bodies only. This is a wording and behaviour clarification, not a new gate.",
+        "evidence": "r-6 D0 lines 145-159 and the `of` signature at line 318. The `if let Ok(text) = std::str::from_utf8(request.body())` sample at lines 333-337 degrades to a null digest silently, which is acceptable, but `of` itself has no stated error path. crates/sc-treesitter/src/extract.rs:231 hashes input.query."
+      }
+    ],
+    "summary": {
+      "total_findings": 4,
+      "by_severity": {
+        "critical": 0,
+        "important": 2,
+        "minor": 2
+      }
+    },
+    "notes": [
+      "Worktree HEAD (.git/worktrees/plan-qa2-review/HEAD) is exactly 5836f1befb9550ff4f5125f928cbce0c74e5ef1c. The worktree is detached, as the caller stated, so the branch name could not be verified from it and is echoed from the input.",
+      "Service applicability: this is a synchronous ureq-based HTTPS client and CLI. There is no tokio, axum or server listener. Graceful shutdown, health endpoints and backpressure were not reviewed, and nothing was invented for them.",
+      "Existing runtime hardening confirmed and unchanged by the plans. ureq_transport.rs sets a 10s connect timeout and a 120s whole-request timeout, HTTPS-only, no redirects. Response bodies are capped at 8 MiB through take(MAX_RESPONSE_BYTES+1). Busy retry is bounded and does not retry errors. The session file read is capped at 8 MiB.",
+      "Deliberately not flagged, per the owner rule: the best-effort log-write policy (r-6 D6, test_rejected_log_row_keeps_run_ok), the unscrubbed `project` text, and the repo path column. Log row size is bounded in practice. Answers are tied to the request's criteria keys, which RSH-001 asks to keep, and project is capped at 256 bytes. The rows are written per send with no new lock or shared state.",
+      "r-6 record-before-first-send, one SendTrace per backend send, the null request_sha256 when no body is built, and the retry-resends-same-bytes rule are sound as planned. The cancel-before-send case is covered by an acceptance test.",
+      "No new gates, receipts or docs-consistency checks are recommended. RSH-001 to RSH-004 are all spec clarifications that carry existing behaviour onto the new code paths."
+    ]
+  },
+  "error": null
+}

@@ -1,0 +1,6 @@
+[
+  {"agent": "req-qa", "task_id": "20921eed-0901-43f5-8768-6866f0b438bc", "spawn_actor": "parent-orchestrator"},
+  {"agent": "arch-qa", "task_id": "ee3b1768-7c09-4696-9597-bd0c480ff88e", "spawn_actor": "parent-orchestrator"},
+  {"agent": "rust-qa-agent", "task_id": "17c52fe9-ea67-4f51-866d-849d838f5e07", "spawn_actor": "parent-orchestrator"},
+  {"agent": "flaky-test-qa", "task_id": "875480a4-c1e7-4479-9ad6-fdead164c3c2", "spawn_actor": "parent-orchestrator"}
+]

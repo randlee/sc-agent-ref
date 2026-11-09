@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "R5-QA2-ARCH-002",
+ "found_in": "A1-R5",
+ "found_at": "2026-11-08T06:19:25Z",
+ "title": "Decode failures built with JevError::encode_failed carry an encode-side retry hint",
+ "description": "CheckRequest::parse maps every serde failure to JevError::encode_failed (v1.rs:563-564). The same pattern is in CanonicalJudgePayload::from_bytes (payload.rs:408-409). The code is INPUT_INVALID, as the ADR requires. But the EncodeFailed hint reads 'could not be encoded as JSON ... Retry; if it persists, report it as a bug' (error.rs:833). That is the wrong guidance for a malformed caller body or payload. Sprint item 9 asks for InputInvalid with a fix hint, and this is the opposite of a fix hint. The variant is also an encode-side recovery category in ADR-SAG-0027, and these are decode failures. I am not marking it Blocking because the ADR fixes only the code mapping, and ErrorCode, exit code and retryable() are all correct.",
+ "category": "RULE-ADR-CODE",
+ "severity": "important",
+ "pattern": "encode_failed",
+ "file_filter": "crates/sc-decision-schema/src/jev/v1.rs",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "edd4410068b4f74e19d4bcb97b2a237c414dc2eb"
+  },
+  {
+   "branch": "sprint/r-5-jev-wire-envelope",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope",
+   "order_index": 1,
+   "head_sha": "f6b2b86c5cef281ae41cee5db0a2782e149dbb03"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a",
+  "sprint/r-5-jev-wire-envelope"
+ ]
+}

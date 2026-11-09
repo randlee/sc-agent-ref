@@ -1,0 +1,53 @@
+{
+  "status": "PASS",
+  "reviewed_branch": "docs/close-wave1-2",
+  "reviewed_commit": "fe375c2f72683f1b12b77f30080cb30ef6d9cdd6",
+  "errors": [],
+  "scope": {"phase": "a.1", "sprint": "r-1, r-4, r-3c, r-3, r-2 closeout (PR 28, QA-1, review_mode doc_review)"},
+  "caveats": [
+    "I had no shell in this session, so I could not run `git diff origin/integrate/phase-a...fe375c2`, and I could not check the worktree HEAD or branch ref. I could not confirm PR merge state or the cited CI run ids either. The 'No other content changed' check is therefore only partly done. I grepped the sprint docs and every `status:` line is as claimed. The caller should confirm with `git diff --stat`, which should show five files with one line each.",
+    "My PASS depends on that diff check coming back clean."
+  ],
+  "baselines_read": ["docs/requirements.md (REQ-SAG-0133 row, line 162)"],
+  "phase_or_sprint_docs_read": [
+    "docs/plans/phase-a-refine/sprint-r-1-types-break.md",
+    "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md",
+    "docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md",
+    "docs/plans/phase-a-refine/sprint-r-3-shared-http.md",
+    "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md"
+  ],
+  "requirement_checks": [
+    {"id": "REQ-SAG-0133", "source": "docs/requirements.md:162", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:4", "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:271-281", "docs/requirements.md:162"], "notes": "Not fully delivered. The upstream issue URL is open and recorded as an explicit deferral in the sprint frontmatter, the sprint Implementation notes and the requirement row. Tracking bead agt-scoop-multi-shim."},
+    {"id": "REQ-SAG-0134 / REQ-SAG-0135 / NFR-SAG-0004", "source": "docs/requirements.md:163-165", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md:135", "wave8-qa/r-3c-qa2/req-qa.json"], "notes": "The r-3c-qa2 req-qa failure (R3C-003) was only the missing CI citation at head 641856f. The sprint doc now cites runs 42387849824 / 42387849809 at 641856f, marked parent-confirmed. That closes the gap on the repo side."}
+  ],
+  "deliverable_checks": [
+    {"item": "r-1 status complete (PR 22, fce0cfa, QA-2 PASS)", "status": "present", "closure_state": "closed", "evidence_refs": ["sprint-r-1-types-break.md:4,744-746", "wave7-qa/r-1-qa2/vars.json", "wave7-qa/r-1-qa2/machine-status.json:10"], "notes": "The QA-2 req-qa FAIL was REQ-QA-R1-004 (no runtime evidence). The sprint doc now cites CI runs 42382157921 / 42382157967 at 64c0e85, all green. machine-status records the verdict as PASS (R1-004 closed). arch-qa, rust-qa and rust-best-practices all pass."},
+    {"item": "r-4 status complete (PR 21, 97db748)", "status": "partially-present", "closure_state": "open", "evidence_refs": ["sprint-r-4-adrs-and-manifests.md:4,183,265-281", "wave7-qa/r-4-qa2/machine-status.json:57", "docs/development/sc-publish.md:57", "docs/architecture.md:672"], "notes": "The one open acceptance row (req:REQ-SAG-0133, the upstream issue URL) is honestly recorded as deferred. The deferral appears in the frontmatter comment, in a dedicated Deferral section, in the requirement row, and under bead agt-scoop-multi-shim. QA-2 verdict is PASS_WITH_OWNER_DEFERRAL. This is acceptable under the stated check. The 'QA-2 PASS' wording in the frontmatter slightly overstates it, because req-qa itself was FAIL-then-deferral. The comment's 'deferred to owner' qualifier covers that."},
+    {"item": "r-3c status complete (PR 25, 0dca742)", "status": "present", "closure_state": "closed", "evidence_refs": ["sprint-r-3c-treesitter-cli.md:4,131-135", "wave8-qa/r-3c-qa2/*.json"], "notes": "The r-3c-qa2 directory holds only 5 reviewer JSONs. It has no machine-status, quality-report or arch-qa. rust-qa, rust-best-practices, flaky-test and boundary all pass. req-qa is FAIL on the CI citation alone, since fixed in the doc. The QA-2 PASS rests on the parent's attestation, not a roll-up file."},
+    {"item": "r-3 status complete (PR 26, d88879a, QA-2 PASS f19ce8d)", "status": "present", "closure_state": "closed", "evidence_refs": ["sprint-r-3-shared-http.md:4,492-503", "wave8-qa/r-3-qa2/req-qa.json:2,4,39", "wave8-qa/r-3-qa2/reviewer-handoff.json"], "notes": "All reviewers PASS at f19ce8d. The four QA-1 findings are closed."},
+    {"item": "r-2 status complete (PR 27, 38b4ce6, QA-2 PASS 3f66e7b)", "status": "present", "closure_state": "closed", "evidence_refs": ["sprint-r-2-engine-shape.md:4,483-495", "wave8-qa/r-2-qa2/vars.json:9", "wave8-qa/r-2-qa2/req-qa.json:2,4"], "notes": "All reviewers PASS at 3f66e7b."},
+    {"item": "No other content changed", "status": "not-verifiable", "closure_state": "open", "evidence_refs": [], "notes": "I could not run git diff in this session. A grep of `^status:` in the sprint docs shows the expected frontmatter lines only. Sibling sprints r-2b, r-3b and r-5 are untouched (planned / planned / blocked)."}
+  ],
+  "findings": [
+    {
+      "id": "REQ-QA-PR28-001",
+      "severity": "Minor",
+      "category": "cross-doc-conflict",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:265-269"],
+      "target_refs": ["docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:4,271-281"],
+      "issue": "Implementation notes lines 267-269 still say the doc 'stays status: in-review until the URL is recorded or the owner waives the row'. Frontmatter now says status: complete with the URL still unfiled, and the Deferral section (lines 275-280) says the doc is flipped to complete after the URL is recorded. The deferral section text also describes the flip as a future step, but this PR makes the flip now. Both read as stale next to the new status.",
+      "required_correction": "Optional wording fix at lines 268-269 and 279-280. State that the doc is marked complete with the REQ-SAG-0133 URL row deferred, and that the owner records the URL in a later one-line docs commit. This is a wording alignment only. Add no new gate or check.",
+      "compliance_result": "partially-compliant"
+    }
+  ],
+  "summary": {
+    "total_findings": 1,
+    "blocking_findings": 0,
+    "overall_compliance": "compliant",
+    "deliverables_total": 6,
+    "deliverables_complete": 4,
+    "deliverables_incomplete": 2,
+    "deliverable_completion_percent": 66.7
+  },
+  "gate_reason": "PASS. Four of the five status: complete claims (r-1, r-3c, r-3, r-2) are backed by a merged PR and a last QA round that passed, with the earlier req-qa FAILs closed by evidence now cited in the sprint docs. The fifth, r-4, has its single open row (the REQ-SAG-0133 upstream issue URL) recorded honestly as deferred in several places, which the check allows. The two items counted incomplete in the summary are that r-4 deferral and the diff-scope check I could not run. The Minor finding is a stale-wording nit. No new gates, receipts or docs-consistency checks requested, per the owner rule."
+}

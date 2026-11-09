@@ -1,0 +1,57 @@
+<cursor-task id="fix-pr28-qa1" phase="phase-a-refine (A.1)" assignee="rust-developer" mode="fix">
+  <description>PR 28 QA-1 fix round (qa-pr28-1 FAIL 0B/1I/1M). Docs-only wording fix in the r-4 sprint doc. First merge origin/integrate/phase-a (c5aaee1) into the branch.</description>
+
+  <branch>docs/close-wave1-2</branch>
+  <worktree>/private/tmp/claude-501/-Users-randlee--claude-spares-spare-ZVG33J/84ad1f90-7f83-4b6e-b4fc-63121d353959/scratchpad/close-wave12</worktree>
+  <pr-target>integrate/phase-a</pr-target>
+  <authoritative-sprint-doc>docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md</authoritative-sprint-doc>
+
+  <additional-sprint-docs>
+
+  </additional-sprint-docs>
+
+  <finding-ids>
+ARCH-001 (Important, arch-qa); REQ-QA-PR28-001 (Minor, req-qa)
+  </finding-ids>
+
+  <requirement-ids>
+REQ-SAG-0133
+  </requirement-ids>
+
+  <adr-ids>
+ADR-SAG-0017
+  </adr-ids>
+
+  <triage-records>
+.triage/phase-a-refine/findings/ARCH-001.ttl; .triage/phase-a-refine/findings/REQ-QA-PR28-001.ttl (committed on integrate/phase-a at c5aaee1)
+  </triage-records>
+
+  <required-fixes>
+In docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md, reword the Implementation notes at lines 265-269 and the Deferral section at lines 275-281. Both must say: the sprint is status: complete; the req:REQ-SAG-0133 row (the upstream sc-publish issue URL) is deferred to the owner, tracked by bead agt-scoop-multi-shim; and the owner records the URL in a later one-line docs commit. Remove &#x27;stays status: in-review until&#x27; and &#x27;then flips this doc to complete&#x27;. Change no other text.
+  </required-fixes>
+
+  <acceptance-criteria>
+grep -n &#x27;stays .status: in-review&#x27; and grep -n &#x27;flips this doc to&#x27; on the file both return nothing. git diff --stat origin/integrate/phase-a...HEAD shows only the sprint-doc lines. Commit and push docs/close-wave1-2.
+  </acceptance-criteria>
+
+  <validation-requirements>
+
+  </validation-requirements>
+
+  <references>
+https://github.com/randlee/sc-agent/pull/28#issuecomment-6713937887; .cursor/phase-a-orchestration/wave8-qa/pr28-qa1/
+  </references>
+
+  <workflow>
+    <step id="a">ACK this Task immediately. Begin work in the same session unless blocked. This Task has no prior sprint session memory — rely only on this assignment and the cited docs.</step>
+    <step id="b">Read `docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md` before editing. It is the authoritative sprint plan for the owning/promoted branch. Treat it as the source for sprint scope, retained requirements, deletion targets, validation, and acceptance criteria. If this assignment summary and the sprint doc differ, the sprint doc wins and the mismatch must be reported.</step>
+    <step id="c">If additional sprint docs are listed, read them as supporting origin context for cross-sprint findings on this branch. Do not treat them as replacing `docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md`.</step>
+    <step id="d">Read the cited requirement ids and ADR ids in this assignment. Those ids — not whole-document dumps — are the compliance targets this fix must restore. Sprint plans already embed broader requirements/ADR links from planning; do not expand scope beyond the cited ids plus triage occurrences unless the authoritative sprint doc requires it.</step>
+    <step id="e">Update the assigned worktree from the target branch before editing. Include all earlier-sprint fixes already merged forward to that branch.</step>
+    <step id="f">Read the referenced triage records first. Treat the listed occurrences as the minimum required scope on this branch. Fix **every** finding id in `<finding-ids>` regardless of severity (Blocking, Important, and Minor).</step>
+    <step id="g">Fix every promoted-branch occurrence in scope. Do not stop at the first location when the triage record marks the finding as repeatable.</step>
+    <step id="h">As soon as the branch is pushable, commit and push immediately. Report branch name, commit hash, and triage `.ttl` paths from `<triage-records>` so the evidence chain shows fix scope was triaged.</step>
+    <step id="i">Run the required validation after the push report and send a second report with PASS or FAIL plus concrete failure details.</step>
+    <step id="j">Stop after the validation report. Wait for a new parent Task; do not self-merge. Do not spawn child Tasks (reviewers, cursor-quality-mgr, or follow-on dev Tasks).</step>
+  </workflow>
+</cursor-task>

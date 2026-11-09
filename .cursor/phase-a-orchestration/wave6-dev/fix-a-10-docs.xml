@@ -1,0 +1,55 @@
+<cursor-fix-task id="fix-a-10-docs" phase="a" sprint="a-10" assignee="rust-developer">
+  <description>Phase A phase-end hardening, docs / boundaries / CI track. Closes the five phase-QA blockers that are documentation and evidence gaps, makes the boundary manifests truthful and enforceable, and adds the missing consumer-owned CI test workflow. No Rust source changes except where stated (test cfg-gating is NOT yours; a parallel code track owns crates/).</description>
+  <worktree>/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-10-docs-ci-boundaries</worktree>
+  <branch>sprint/a-10-docs-ci-boundaries</branch>
+  <pr-target>integrate/phase-a</pr-target>
+  <base-commit>d4a0111d2df5c818222e9c7388e206f1d4e9bc20</base-commit>
+  <authoritative-review>/Volumes/Extreme Pro/github/sc-agent/PHASE-A-REVIEW.md (section 3 "Docs, boundaries, CI" = your scope; section 4 D1–D13 = OUT of scope; in particular do NOT write the new pin/allocator ADR (D8) or amend ADR-SAG-0005/0008/0017/0019 text)</authoritative-review>
+  <reviewer-json>/Volumes/Extreme Pro/github/sc-agent/.cursor/phase-a-orchestration/phase-end-qa/req-qa.json, arch-qa.json, rust-qa-agent.json, flaky-test-qa.json; phase-end-deep/ruthless-boundary-qa.json, rust-architect-producer-binding.json (ARCHP-012), rust-architect-core.json (ARCHC-017 docs part)</reviewer-json>
+  <files-you-may-touch>docs/**, boundaries/**, .github/workflows/sc-agent-ci.yml (new), .github/workflows/sc-publish-dry-run.yml (only if a shared action/cache tweak is needed), sc-lint.toml, justfile (new recipes only), tests/fixtures/jev-python/** (pytest invocation only, not test bodies), docs/plans/**, docs/project-plan.md, README.md. NOT crates/**, NOT Cargo.toml/Cargo.lock, NOT kit-written files (anything install.py writes; run `install.py --dry-run` recipe from docs/development/sc-publish.md if unsure).</files-you-may-touch>
+
+  <items>
+    <group name="A. Sprint-doc and plan hygiene (REQ-QA blockers)">
+      - REQ-QA-001: sprint docs a-1, a-7, a-8 frontmatter `status: complete` (verify each acceptance table is satisfied on integrate first; if something is genuinely unmet, say so instead of flipping it).
+      - REQ-QA-002: one owning integration sprint per req root. REQ-SAG-0610 → keep under a-8 (plan.md already lists it there) and reword the a-7 row as a boundary-evidence row (not `req:`); NFR-SAG-0002 and NFR-SAG-0003 → choose a-7 as owner (CLI output is the primary surface) and reword the a-8 rows as evidence rows; update plan.md closure table, both sprint acceptance tables, and docs/sc-jev-check/requirements.md (0610 → a-8, not a-6). Record the rule you applied in plan.md next to the "exactly one sprint" sentence.
+      - REQ-QA-003 / REQ-QA-004: once the CI workflow (group C) exists, amend sprint a-9 deliverables/acceptance to name the wheel+pytest CI step it now delivers, and amend sprint a-8 line 64/131-133 to point at that step. Add an "Acceptance evidence" subsection to plan.md pointing at the CI workflow and the three a-9 dry-run runs (42339767937, 42341299125, 42341873748).
+      - REQ-QA-005: a-1 validation line rewritten to the intended invariant (no HTTP client dependency in sc-agent-types: `cargo tree -p sc-agent-types -e normal | grep -E 'reqwest|hyper|ureq'` must be empty); a-1 owned_paths/deliverable 1 updated to the directory-module layout (config/mod.rs, session/mod.rs, …).
+      - REQ-QA-006: plan.md:19 and the approval-gate section, and docs/project-plan.md phase table/status lines → "implementation complete on integrate/phase-a (d4a0111); phase-end review open — see PHASE-A-REVIEW.md items" (do not claim closed).
+      - REQ-QA-007: cite the exact tests that assert key material is absent from stdout/stderr/JSONL (sc-ai tests/cli.rs and sc-jev-py run.rs/logging.rs and the pytest file — grep for the sentinel assertions) in the a-7 and a-8 NFR-SAG-0002 rows.
+      - REQ-QA-008: add REQ-SAG-0005 to plan.md's closure list under a-1; annotate plan.md:362 maturin command as the publish-surface build and note the a-8 `--features extension-module,test-util` build is the test build.
+      - REQ-QA-009: carry bead `agt-luna-live-count` into a "Phase close notes / open items" list in plan.md.
+    </group>
+    <group name="B. Boundaries (make the manifests truthful) — RBQA-F001 (critical), RBQA-F002, ARCH-003, ARCH-004, ARCHP-012">
+      - Convention: allowed_dependencies lists EVERY direct normal (non-dev) dependency, workspace and third-party (option B from the review). Apply to all eight manifests from each crate's Cargo.toml at d4a0111 (the parallel code track may hoist/alter a few deps; that is fine — QA will reconcile; list what Cargo.toml says today). Missing per RBQA-F001: sc-agent-types +sc-observability-types, serde, serde_json, sha2, thiserror, uuid; sc-agent-secrets +keyring, whoami; sc-jev +serde_json, toml, ureq; sc-jev-backends +serde_json, ureq; sc-jev-check +serde, serde_json, toml; sc-treesitter +mimalloc, serde_json, tree-sitter, tree-sitter-python, tree-sitter-rust; sc-ai +mimalloc, serde, serde_json, uuid.
+      - forbidden_edges: sc-treesitter → sc-jev, sc-jev-backends, sc-jev-check, sc-agent-secrets, ureq; sc-jev ↔ sc-jev-backends; sc-jev-check → ureq, tree-sitter*, pyo3, sc-observability; sc-ai → ureq, sc-jev, sc-jev-backends; sc-agent-types → sc-observability, ureq, pyo3; sc-agent-secrets → ureq; sc-jev-py → sc-jev (exists). Note in each file that forbidden_edges are direct-only.
+      - Remove or populate the empty `[enforcement]` / `[testing]` / `references.forbidden` stanzas so they stop implying coverage; if `sc-lint lint sc-boundary` (run `just lint`) accepts a `references.forbidden` entry for `ResolvedApiKey::as_str`, add it; otherwise record in the manifest notes that enforcement is Cargo-edge only. Run `just lint` and report exactly what sc-boundary checked (its output).
+      - Facade strings: update every manifest `facade` to the real public surface today (per ARCHE-017/RBQA-F011/ARCHC-017 lists) — but do NOT change code.
+    </group>
+    <group name="C. CI — QA-001, FTQ-001, REQ-QA-003/004, QA-006 (matrix only)">
+      - New consumer-owned `.github/workflows/sc-agent-ci.yml` on pull_request and push to integrate/* and develop: matrix ubuntu-24.04 / macos-14 / windows-2022; steps: toolchain 1.94.1 via SHA-pinned dtolnay action (copy the pin style from sc-publish-dry-run.yml), `just lint`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`, `cargo test --workspace`, `cargo doc --workspace --no-deps` with `RUSTDOCFLAGS=-D warnings` (allow this step to be `continue-on-error: true` until the code track clears the 11 warnings — note it), coverage job on ubuntu only with cargo-llvm-cov uploading the summary as an artifact (no third-party upload), Python job: python 3.11 + maturin 1.16.0 pinned, `maturin develop --features extension-module,test-util -m crates/sc-jev-py/Cargo.toml` into a venv then `pytest tests/fixtures/jev-python -q`, sc-treesitter feature-matrix job with `cargo hack --each-feature check -p sc-treesitter` (check only, since tests are not yet cfg-gated — code wave 3 does that; leave a TODO-free comment saying the matrix flips to `test` after wave 3). All actions SHA-pinned with version comments; per-step `timeout-minutes`; `permissions: contents: read`; concurrency cancel-in-progress; no retries. Keep the existing sc-publish-dry-run.yml untouched.
+      - sc-lint.toml: add a second `[[tool.sc-lint.test]]` layer for the pytest run (name "jev-python") if the schema allows a shell command; otherwise add a `just test-python` recipe and reference it from the workflow and from docs/development/.
+      - Document the local equivalents in docs/development/ (new `ci.md` or a section in an existing dev doc) and link it from README.md.
+    </group>
+    <group name="D. architecture / per-crate docs — ARCH-005, ARCHC-017 (docs part), ARCHP-012 (doc part), ARCHP-001 (doc part)">
+      - docs/architecture.md: add sc-treesitter (and its edge to sc-agent-types, and the sc-agent-types → sc-observability-types edge) to the Phase A crate graph; note sc-treesitter ships a binary; set the document status line to Active; add an ADR index table (id, title, status, amends/amended-by) in id order; do NOT reorder or rewrite ADR bodies and do NOT change any ADR's text.
+      - docs/sc-jev-backends/architecture.md module table → real modules (backend, wire, validate, transport, retry).
+      - docs/sc-agent-types/subjects-schema.md: grammar_version example → 0.25.0 (match Cargo.toml); helper-capture rule spelled as "capture names beginning with `_` (stored without `@`)" consistently here and in docs/sc-treesitter/; leave the Rust doc comment in crates/ for the code track.
+      - docs/development/sc-publish.md: file ARCH-002's Scoop single-binary limitation and the kit `list-publish-plan publish=false` gap as "upstream issues to file" (they may already be noted — consolidate, don't duplicate).
+    </group>
+  </items>
+
+  <acceptance-criteria>
+    - `just lint` green in the worktree (boundary manifests parse and pass).
+    - The new workflow is syntactically valid (`gh workflow view` is not available pre-push; use `python3 -c 'import yaml,sys; yaml.safe_load(open(sys.argv[1]))' .github/workflows/sc-agent-ci.yml` or actionlint if installed) and all actions are SHA-pinned.
+    - No file outside the allowed list changed (`git diff --stat` must show only docs/, boundaries/, .github/workflows/sc-agent-ci.yml, sc-lint.toml, justfile, README.md).
+    - Every REQ-QA / ARCH id above is closed or explicitly deferred with reason.
+    - Commit in groups (A–D), push `sprint/a-10-docs-ci-boundaries`, report pushed SHA, the sc-boundary lint output, and the GitHub run result of the new workflow once the parent opens the PR (you do not open it).
+  </acceptance-criteria>
+
+  <workflow>
+    <step id="a">ACK. Work only in the worktree above. zsh: never use a variable named `status`.</step>
+    <step id="b">Read PHASE-A-REVIEW.md sections 2–4, the reviewer JSON for your ids, docs/plans/phase-a/plan.md and the ten sprint docs.</step>
+    <step id="c">Implement A → D; run `just lint` after B.</step>
+    <step id="d">Commit per group, push, report. No PR, no merge, no agents. If an item turns out to require an ADR text change, stop on that item and list it.</step>
+  </workflow>
+</cursor-fix-task>

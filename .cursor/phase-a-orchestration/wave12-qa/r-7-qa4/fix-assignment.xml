@@ -1,0 +1,8 @@
+<fix-assignment sprint="r-7" pr="33" branch="sprint/r-7-decision-schema" base-commit="20a46a8" round="QA-4">
+  <fix id="R7-QA4-ARCH-001">crates/workspace-tests/README.md lines 5-6: add sc-decision-schema (features = ["test-util"]) to the dev-dependency list, matching ADR-SAG-0028 as amended in r-7.</fix>
+  <fix id="R7-QA4-ARCH-002">boundaries/workspace-tests/workspace-tests.toml line 18: add sc-decision-schema (features = [test-util]) to the [public] notes dev-dependency list.</fix>
+  <fix id="R7-QA4-REQ-QA-005">docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md lines 261, 420, 594 and 613: name test_util_off_binary as the target that holds test_release_binary_rejects_scripted_answers. The line 613 command becomes `cargo test -p workspace-tests --test test_util_off_binary -- test_release_binary_rejects_scripted_answers --exact`.</fix>
+  <fix id="R7-QA4-REQ-QA-006">docs/plans/phase-a-refine/plan.md:150-153: test_util_off proves the graph half and test_util_off_binary proves that the release-built sc-ai rejects --scripted-answers. Add `cargo test -p workspace-tests --test test_util_off_binary` after plan.md:917.</fix>
+  <fix id="R7-QA4-REQ-QA-007">docs/sc-ai/architecture.md:46: name `--test test_util_off_binary`.</fix>
+  <note>Add "(QA fix)" owned_paths entries to the r-7 sprint doc for the r-3b doc, plan.md, docs/sc-ai/architecture.md and boundaries/workspace-tests/workspace-tests.toml. Then `git grep -n "test_util_off\b"` and fix any other stale reference to the moved test.</note>
+</fix-assignment>

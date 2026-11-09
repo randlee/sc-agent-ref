@@ -1,0 +1,31 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "PE-QA1-REQ-QA-002",
+ "found_in": "A1-R6",
+ "found_at": "2026-11-08T17:15:25Z",
+ "title": "plan.md still reads 'Status: **proposed**'. Its header covers review rounds 1-4 and 6 only, and does not mention round 5. The Phase acceptan",
+ "description": "plan.md still reads 'Status: **proposed**'. Its header covers review rounds 1-4 and 6 only, and does not mention round 5. The Phase acceptance section says it runs 'after r-1, r-4, r-2, r-3, r-3c, r-2b, r-3b merge', which omits r-7, r-5 and r-6. The next paragraph adds their blocks only 'after r-7 and r-6 merge'. docs/requirements.md:148 is headed 'Phase A.1 \u2014 refinement (proposed)', and its preamble says rows carry '(Proposed, r-N)' markers, but none remain. The anchor #phase-a1--refinement-proposed is linked from docs/sc-agent-types/requirements.md:28. Set the plan status to complete, or to the state the phase-end gate defines. Update the Phase acceptance preamble to list all ten sprints. Retitle the docs/requirements.md heading, reword its preamble, and update the anchor link in docs/sc-agent-types/requirements.md:28. partially-compliant",
+ "category": "plan",
+ "severity": "important",
+ "pattern": "plan",
+ "file_filter": "docs/plans/phase-a-refine/plan.md",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "91d36b3ad309deb3350434acaecee0ab2938b13f"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a"
+ ]
+}

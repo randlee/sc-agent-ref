@@ -1,0 +1,48 @@
+{
+  "round": "layer-qa-1",
+  "stack": "integrate/phase-a -> #8 a-11 -> #10 a-3 -> #9 a-4 -> #7 a-5 -> #11 qa-top",
+  "policy": "QA-1 req+arch at each layer commit; fixes land on sprint/wave-2-stack-qa-top",
+  "layers": {
+    "a-11": {
+      "pr": 8,
+      "commit": "675fd16ee41b7d98d2c397b92e0fa1c0bc1d2110",
+      "req_verdict": "FAIL",
+      "arch_verdict": "FAIL",
+      "req_blocking": 2,
+      "arch_blocking": 1,
+      "fix_on_top": ["sprint doc reqs/owned_paths", "sc-treesitter emit JevError fallback"]
+    },
+    "a-3": {
+      "pr": 10,
+      "commit": "e997cf48133532d56ebe89928fe9003562466828",
+      "req_verdict": "FAIL",
+      "arch_verdict": "FAIL",
+      "req_blocking": 2,
+      "arch_blocking": 1,
+      "notes": "layer lint fails agent-types; qa-top cbd42f8 union fixes lint",
+      "fix_on_top": ["sprint ADR-SAG-0001", "owned_paths sc-jev-check"]
+    },
+    "a-4": {
+      "pr": 9,
+      "commit": "b55f74abfe88823324f995f38bf0a40ead65dab3",
+      "req_verdict": "FAIL",
+      "arch_verdict": "FAIL",
+      "req_blocking": 1,
+      "arch_blocking": 9,
+      "fix_on_top": ["sprint adrs/owned_paths"],
+      "open_code": ["ARCH-008 canonical_json_bytes", "ARCH-009 ApiKey ctor — needs triage"]
+    },
+    "a-5": {
+      "pr": 7,
+      "commit": "d73ee28add00a92515f4fcb87a7efa4533ac8d49",
+      "req_verdict": "FAIL",
+      "arch_verdict": "FAIL",
+      "req_blocking": 2,
+      "arch_blocking": 3,
+      "fix_on_top": ["sprint adrs/owned_paths", "agent-types on qa-top not d73ee28"],
+      "open_code": ["ARCH-002 token pre-send", "ARCH-003 secret handoff"]
+    }
+  },
+  "rust_qa_rbp_flaky": "pending",
+  "next": "QA-2 on PR #11 stack head after code triage for remaining ARCH blockers"
+}

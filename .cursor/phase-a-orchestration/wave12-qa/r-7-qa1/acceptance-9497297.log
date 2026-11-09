@@ -1,0 +1,258 @@
+HEAD 9497297
+### cargo tree -p sc-decision-schema -e normal --depth 1
+sc-decision-schema v0.1.0 (/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-7-decision-schema/crates/sc-decision-schema)
+├── sc-agent-types v0.1.0 (/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-7-decision-schema/crates/sc-agent-types)
+├── serde v1.0.229
+└── serde_json v1.0.154
+rc=0
+### bash .github/scripts/cargo-tree-gates.sh
+cargo-tree-gates: all rows passed
+rc=0
+### cargo build -p sc-decision-schema --lib
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.10s
+rc=0
+### cargo test -p sc-decision-schema --test judge
+test test_outcome_rejects_mismatched_answer_keys ... ok
+test test_outcome_rejects_choice_not_offered ... ok
+test test_answers_serde_golden ... ok
+test test_payload_bundle_encode_and_question_choices ... ok
+test test_equal_input_equal_is_derived ... ok
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+rc=0
+### cargo test -p sc-decision-schema --test ids
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.36s
+test test_question_and_choice_ids_validate_on_every_path ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+rc=0
+### cargo test -p sc-decision-schema --features test-util --test mock
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+test test_model_id_default_from_catalog ... ok
+test test_mock_judge_backend_contract ... ok
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+rc=0
+### cargo test -p sc-decision-schema --test version -- test_known_versions_accepted_unknown_rejected --exact
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.34s
+test test_known_versions_accepted_unknown_rejected ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+rc=0
+### cargo test -p sc-decision-schema --test version -- test_schema_version_not_in_canonical_bytes --exact
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+test test_schema_version_not_in_canonical_bytes ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+rc=0
+### cargo test -p workspace-tests --test jev_cross_impl
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.73s
+test deadline::tests::unread_stdin_does_not_block ... ok
+test jev_cross_impl_matches_python_reference ... ok
+test deadline::tests::grandchild_holding_the_pipe_is_bounded_by_the_grace ... ok
+test deadline::tests::deadline_kill_returns_despite_a_grandchild ... ok
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.53s
+rc=0
+### cargo test -p sc-jev-check --test cross_impl_branches
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.84s
+test cross_impl_branches ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+rc=0
+### cargo test -p sc-decision-schema --test llm -- test_llm_output_is_decision_answers --exact
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.39s
+test test_llm_output_is_decision_answers ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+rc=0
+### cargo test -p sc-jev-backends --test llm
+test test_llm_bad_reply_is_typed ... ok
+test test_prompt_change_does_not_alter_prompt_sha256 ... ok
+test test_unknown_model_override_is_sent_verbatim ... ok
+test test_llm_input_is_refused_like_jev_and_nothing_is_sent ... ok
+test test_validate_for_send_refuses_oversize_before_http ... ok
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+rc=0
+### cargo test -p sc-decision-schema --test variants -- test_canonical_variant_is_identity --exact
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.29s
+test test_canonical_variant_is_identity ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+rc=0
+### cargo test -p sc-decision-schema --test variants -- test_every_model_family_maps_to_a_known_schema --exact
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+test test_every_model_family_maps_to_a_known_schema ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+rc=0
+### cargo test -p sc-decision-schema --test session_log -- test_session_log_row_matches_ddl --exact
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.62s
+test test_session_log_row_matches_ddl ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+rc=0
+### cargo test -p sc-decision-schema --test session_log -- test_fields_roundtrip --exact
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+test test_fields_roundtrip ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+rc=0
+### cargo test -p sc-decision-schema --test session_log -- test_unknown_or_missing_key_rejected --exact
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+test test_unknown_or_missing_key_rejected ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+rc=0
+### uv run --directory tests/fixtures/jev-python pytest -q tests/test_session_log_sqlite.py::test_fixture_loads_into_sqlite
+1 passed in 0.01s
+rc=0
+### cargo test -p sc-agent-types --test ids -- test_project_label_limits --exact
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.82s
+test test_project_label_limits ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+rc=0
+### cargo test -p sc-agent-types --test models -- test_known_models_roundtrip --exact
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.32s
+test test_known_models_roundtrip ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+rc=0
+### cargo test -p sc-agent-types --test models -- test_unknown_model_string_parses_as_other --exact
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.04s
+test test_unknown_model_string_parses_as_other ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+rc=0
+### cargo test -p sc-jev-backends --test llm -- test_unknown_model_override_is_sent_verbatim --exact
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.20s
+test test_unknown_model_override_is_sent_verbatim ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 24 filtered out; finished in 0.11s
+rc=0
+### cargo test -p sc-agent-types --test models -- test_latest_alias_lookup --exact
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+test test_latest_alias_lookup ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+rc=0
+### cargo test -p sc-agent-types --test models -- test_alias_override_wins --exact
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+test test_alias_override_wins ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+rc=0
+### cargo test -p sc-agent-types --test ids -- test_backend_catalog_roundtrip --exact
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+test test_backend_catalog_roundtrip ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+rc=0
+### cargo test -p sc-jev-check --features test-util --test models -- test_check_toml_models_override_reaches_backend --exact
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.08s
+test test_check_toml_models_override_reaches_backend ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.17s
+rc=0
+### cargo test -p sc-jev-check --features test-util --test models -- test_unknown_model_alias_is_config_invalid --exact
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.05s
+test test_unknown_model_alias_is_config_invalid ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+rc=0
+### cargo test -p sc-decision-schema --features test-util --test mock -- test_model_id_default_from_catalog --exact
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+test test_model_id_default_from_catalog ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+rc=0
+### cargo test -p sc-jev --test catalog -- test_jev_model_id_is_configured_model --exact
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.65s
+test test_jev_model_id_is_configured_model ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+rc=0
+### cargo test -p sc-jev-backends --test llm -- test_llm_model_id_is_configured_model --exact
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.04s
+test test_llm_model_id_is_configured_model ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 24 filtered out; finished in 0.00s
+rc=0
+### cargo test -p sc-agent-types --test trace -- test_send_trace_first_write_wins --exact
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.15s
+test test_send_trace_first_write_wins ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+rc=0
+### cargo hack check -p sc-agent-types --feature-powerset --no-dev-deps
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.03s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.03s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.03s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.03s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.03s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.03s
+rc=0
+### cargo hack check -p sc-decision-schema --feature-powerset --no-dev-deps
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.03s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.03s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.03s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.03s
+rc=0
+### cargo test -p sc-agent-types --test features
+test deadline::tests::unread_stdin_does_not_block ... ok
+test test_no_default_features_dep_set ... ok
+test test_no_forbidden_crate_in_any_normal_tree ... ok
+test deadline::tests::deadline_kill_returns_despite_a_grandchild ... ok
+test deadline::tests::grandchild_holding_the_pipe_is_bounded_by_the_grace ... ok
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.54s
+rc=0
+### grep Proposed, r-7
+0
+### cargo test -p sc-jev-check --features test-util
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+test crates/sc-jev-check/src/run/response.rs - run::response::RunResponse (line 71) - compile ... ok
+test crates/sc-jev-check/src/run/mod.rs - run (line 59) - compile ... ok
+test crates/sc-jev-check/src/registry/scripted.rs - registry::scripted::register_scripted_backends (line 57) ... ok
+test crates/sc-jev-check/src/registry/mod.rs - registry::BackendRegistry::from_resolver (line 208) ... ok
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+rc=0
+### cargo test -p sc-ai --features test-util
+test deadline::tests::deadline_kill_returns_despite_a_grandchild ... ok
+test deadline::tests::grandchild_holding_the_pipe_is_bounded_by_the_grace ... ok
+test test_cli_log_flush_warning_in_data ... ok
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.12s
+test crates/sc-ai/src/lib.rs - (line 30) ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+rc=0
+### cargo test -p sc-jev --features test-util
+test test_digest_recovery_error_carries_no_body_bytes ... ok
+test test_real_wire_builder_reports_prompt_digest ... ok
+test test_digest_detects_faulty_wire_builder ... ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+test crates/sc-jev/src/client/mod.rs - client::JevClient (line 38) ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+rc=0
+### cargo test -p sc-jev-backends --features test-util
+test test_digest_recovery_error_carries_no_body_bytes ... ok
+test test_real_wire_builder_reports_prompt_digest ... ok
+test test_digest_detects_faulty_wire_builder ... ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+test crates/sc-jev-backends/src/backend.rs - backend::AnthropicHaikuBackend (line 381) ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+rc=0
+### just lint
+compatibility.check: ok
+rc=0
+### just test
+compatibility.check: ok
+rc=0
+### cargo build -p sc-agent-types --lib
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.22s
+rc=0
+### cargo build -p sc-decision-schema --lib
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.03s
+rc=0
+### cargo build -p sc-agent-secrets --lib
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.05s
+rc=0
+### cargo build -p sc-agent-http --lib
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s
+rc=0
+### cargo build -p sc-jev --lib
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.05s
+rc=0
+### cargo build -p sc-jev-backends --lib
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.04s
+rc=0
+### cargo build -p sc-jev-check --lib
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.05s
+rc=0
+### cargo build -p sc-jev-host --lib
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.05s
+rc=0
+### bash .github/scripts/check-exact-pins.sh
+rc=0
+### bash scripts/sc-publish-dry-run.sh
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 16.17s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 18.16s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 26.52s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 30.98s
+    Finished `release` profile [optimized] target(s) in 11.67s
+==> sc-publish dry-run passed (all)
+rc=0
+DONE

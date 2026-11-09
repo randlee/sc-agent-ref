@@ -1,0 +1,90 @@
+{
+  "status": "FAIL",
+  "reviewed_branch": "plan/phase-a-refine",
+  "reviewed_commit": "c7c6f232d0cb08d8105d1e0a016e75748e81cc84",
+  "errors": [],
+  "scope": {"phase": "a", "sprint": "plan/phase-a-refine"},
+  "baselines_read": ["docs/requirements.md", "docs/sc-agent-types/requirements.md", "docs/sc-ai/requirements.md", "docs/architecture.md (ADR index, ADR-0023, ADR-0027)", "docs/plans/phase-a-refine/plan.md", ".claude/project/quality-policy.md", "tests/fixtures/jev/README-contract/errors.json"],
+  "phase_or_sprint_docs_read": ["plan.md", "plan-review-2-dispositions.md", "sprint-r-1-types-break.md", "sprint-r-2-engine-shape.md", "sprint-r-2b-multi-backend-semantics.md", "sprint-r-3-shared-http.md", "sprint-r-3b-compose-and-workspace-tests.md", "sprint-r-3c-treesitter-cli.md", "sprint-r-4-adrs-and-manifests.md", "sprint-r-5-jev-wire-envelope.md"],
+  "round2_closure": {
+    "closed": ["R2-001", "R2-002 (lists complete; see R3-003 for command gaps)", "R2-003", "R2-004", "R2-005", "R2-006", "R2-007", "R2-008", "R2-009", "R2-010", "R2-011"],
+    "open": []
+  },
+  "requirement_checks": [
+    {"id": "REQ-SAG-0701", "source": "docs/requirements.md:110", "listed_in_sprint_doc": false, "result": "violated", "evidence_refs": ["docs/requirements.md:110 (stderr {\"error\",\"message\"})", "sprint-r-1-types-break.md:265-288 (every stderr line gains schema_version:1)", "docs/plans/phase-a/sprint-a-7-sc-ai-cli.md:111 (stderr JSON {error, message} only)"]},
+    {"id": "NFR-SAG-0001", "source": "docs/requirements.md:186", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/requirements.md:186", "docs/sc-agent-types/requirements.md:33", "docs/architecture.md:933-943", "sprint-r-1-types-break.md:497 and :513 (test_error_response_stderr_golden)"]},
+    {"id": "REQ-SAG-0120/0121", "source": "docs/requirements.md:184-185", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["sprint-r-1 frontmatter and D7.1", "docs/sc-agent-types/requirements.md:31-32"]},
+    {"id": "REQ-SAG-0105/0107/0108/0505/0710/0711", "source": "docs/requirements.md:157,159,160,189,188,192", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["each has a (Proposed, r-N) row and a named owner in owned_paths: 0105/0107/0108 r-1, 0710 r-2, 0505 r-3, 0711 r-3b"]}
+  ],
+  "deliverable_checks": [
+    {"item": "Every sprint-r-*.md lists REQ/NFR ids and every id resolves", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["all eight sprint frontmatters"], "notes": "All listed ids resolve in docs/requirements.md. Open gaps are R3-003."},
+    {"item": "Every changed requirement has an amendment row with an owning sprint", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["docs/requirements.md:178-192", "plan.md:461-466"], "notes": "0105/0107/0108/0120/0121/0505/0710/0711 and NFR-0001 all covered. REQ-SAG-0701 is not (R3-001)."},
+    {"item": "Exactly one sprint owns each requirement row", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["plan.md:449-472", "sprint owned_paths"], "notes": "The 20 new rows and the amendments are single-owned. REQ-SAG-0130 has two distinct bullets (r-3, r-3b), which is intentional and recorded."},
+    {"item": "plan.md closure table matches sprint docs", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["plan.md:451-459", "plan.md:681-729 (QA-003 | r-3 present)"], "notes": "req: roots match sprint acceptance tables. Findings ownership matches the 'Closes findings' sections of the sprint docs."},
+    {"item": "Each sprint's acceptance table is checkable (command and expected result)", "status": "partially-present", "closure_state": "not-applicable", "evidence_refs": ["sprint-r-2 :324", "sprint-r-2b :167", "sprint-r-3 :252-263", "sprint-r-3b :342"], "notes": "Mostly yes. See R3-002 and R3-003 for amended rows and listed ids with no mapped command."},
+    {"item": "schema_version:1 reflected in NFR-SAG-0001 amendment and the errors.json contract text", "status": "partially-present", "closure_state": "not-applicable", "evidence_refs": ["docs/requirements.md:186", "docs/architecture.md:941-943", "tests/fixtures/jev/README-contract/errors.json"], "notes": "NFR amendment, ADR-0027 and the golden test are consistent. errors.json lists only error ids and says nothing about the stderr shape, so it needs no edit. The shape contract text that still contradicts the decision is REQ-SAG-0701 (R3-001)."}
+  ],
+  "findings": [
+    {
+      "id": "R3-001",
+      "severity": "Blocking",
+      "category": "requirement-violated",
+      "source_refs": ["docs/requirements.md:110", "docs/plans/phase-a-refine/sprint-r-1-types-break.md:265-288", "docs/plans/phase-a/sprint-a-7-sc-ai-cli.md:111"],
+      "target_refs": ["docs/requirements.md:178-192 (amendment table)", "sprint-r-1 frontmatter requirements list", "sprint-r-1 owned_paths line 88"],
+      "issue": "The schema_version:1 decision adds a key to every stderr line. Approved REQ-SAG-0701 says stderr is `{\"error\",\"message\"}`, and sprint a-7 accepts 'stderr JSON {error, message} only'. Only NFR-SAG-0001 is amended. REQ-SAG-0701 is neither listed in r-1 nor amended, although r-1 changes both main.rs files and the bytes sc-ai writes to stderr. REQ-SAG-0700 is also unlisted in r-1. The plan therefore knowingly violates a binding requirement with no planned requirements edit.",
+      "required_correction": "Add an amendment row to docs/requirements.md: 'REQ-SAG-0701 | stderr is one `ScAgentErrorResponse` line per NFR-SAG-0001 (`{error, message, schema_version, ...}`), exit 2 — (Proposed, r-1)'. Add REQ-SAG-0701 (and 0700) to r-1 `requirements:`. Add the row to r-1 owned_paths line 88. Add an r-1 acceptance row `req:REQ-SAG-0701 (amended)` that names `test_error_response_stderr_golden` and `cargo test -p sc-ai --test cli`. Add REQ-SAG-0701 to the plan.md amendment list at :461-466.",
+      "compliance_result": "non-compliant"
+    },
+    {
+      "id": "R3-002",
+      "severity": "Important",
+      "category": "acceptance-gap",
+      "source_refs": ["sprint-r-3-shared-http.md:252-263", "sprint-r-3b-compose-and-workspace-tests.md:328-342", "sprint-r-2-engine-shape.md:313-325", "sprint-r-1-types-break.md:491-503"],
+      "target_refs": ["docs/requirements.md:182,187,189,190,191,192"],
+      "issue": "Several amended rows have no acceptance row, so their Proposed to Active flip has no checkable criterion. REQ-SAG-0505 has no `req:` row in r-3; the busy-retry tests are only reachable through ADR-0007 and boundary:jev-backends. REQ-SAG-0711 has no `req:` row in r-3b, and the crate-level `docs/sc-ai/requirements.md` edit is covered only by prose. REQ-SAG-0601 has no row in r-2. REQ-SAG-0101 has no row in r-1. The REQ-SAG-0130 r-3 and r-3b bullets are covered only by a regression preflight command.",
+      "required_correction": "Add `req:` rows with a command and expected result. r-3: REQ-SAG-0505 maps to test_busy_policy_numbers and test_retry_after_grammar; REQ-SAG-0130 maps to the publish dry-run listing sc-agent-http. r-3b: REQ-SAG-0711 maps to `cargo test -p sc-agent-compose --test obs` plus a check that the docs/sc-ai/requirements.md row text changed; REQ-SAG-0130 maps to the dry-run listing compose. r-2: REQ-SAG-0601 maps to test_run_response_contract and test_dry_run_reports_over_limit. r-1: REQ-SAG-0101 maps to test_every_variant_code_golden.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "R3-003",
+      "severity": "Important",
+      "category": "requirement-not-listed",
+      "source_refs": ["sprint-r-1-types-break.md:17-41,460-467", "sprint-r-2-engine-shape.md:17-40,324", "sprint-r-2b-multi-backend-semantics.md:17-28,167", "sprint-r-3b-compose-and-workspace-tests.md:17-41,340-342"],
+      "target_refs": ["docs/requirements.md:98,102,109,113,114,115"],
+      "issue": "The plan states that every listed id has a named regression command in that sprint's boundary: row. This is not true everywhere. (a) r-1 touches the sc-jev-check session document (version 2) and LogEvent.operation (Operation enum) but does not list REQ-SAG-0600 or REQ-SAG-0610; it also touches sc-ai main.rs but does not list REQ-SAG-0700. (b) NFR-SAG-0001, NFR-SAG-0002 and NFR-SAG-0003 are listed in r-2, r-2b and r-3b with no mapped command. (c) REQ-SAG-0700, 0701 and 0710 are listed in r-2b with no mapped command, although r-2b changes no sc-ai file. (d) REQ-SAG-0702 in r-3b is covered, but REQ-SAG-0611 and 0603 are not listed.",
+      "required_correction": "Add REQ-SAG-0600, 0610 and 0700 to r-1 with regression commands (`cargo test -p sc-jev-check --test sessions_exact`, `cargo test -p sc-agent-types --test obs`, `cargo test -p sc-ai --test cli`). In r-2, r-2b and r-3b boundary rows, map NFR-SAG-0001 to test_error_response_stderr_golden, NFR-SAG-0002 to the existing secret-leak tests (`cargo test -p sc-jev-backends --test llm`, `cargo test -p sc-ai --test cli`), and NFR-SAG-0003 to `--test sessions_exact`. Drop REQ-SAG-0700 and 0701 from r-2b, or map them to a command.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "R3-004",
+      "severity": "Minor",
+      "category": "cross-doc-conflict",
+      "source_refs": ["docs/sc-agent-types/requirements.md:11,13", "docs/requirements.md:182-183"],
+      "target_refs": ["docs/sc-agent-types/requirements.md:24-33"],
+      "issue": "The crate-level rows REQ-SAG-0101 and REQ-SAG-0103 ('Frozen ... contract') have no Phase A.1 amendment, although the root rows are amended and r-1 owns docs/sc-agent-types/**. Only 0120, 0121 and NFR-0001 are mirrored at crate level, so the crate document still states the contract is frozen.",
+      "required_correction": "Add (Proposed, r-1) amendment rows for REQ-SAG-0101 and REQ-SAG-0103 to docs/sc-agent-types/requirements.md, mirroring the root text, and name them in the r-1 plan.md amendment sentence at :465-466.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "R3-005",
+      "severity": "Minor",
+      "category": "acceptance-gap",
+      "source_refs": ["sprint-r-4-adrs-and-manifests.md:179", "plan.md:100-104"],
+      "target_refs": ["sprint-r-4 Required validation"],
+      "issue": "`git diff --quiet origin/integrate/phase-a -- crates/sc-ai/src/main.rs crates/sc-treesitter/src/main.rs` is run on a tree rebased onto r-1, and r-1 edits both main.rs files. The line passes only if r-1 is already merged into origin/integrate/phase-a. Otherwise it fails, or it passes on a stale base.",
+      "required_correction": "Reword the validation line to compare against the r-4 merge-base with r-1 merged (`git diff --quiet $(git merge-base HEAD origin/integrate/phase-a) -- ...` after the rebase), or state that it runs only after r-1 has merged.",
+      "compliance_result": "partially-compliant"
+    }
+  ],
+  "summary": {
+    "total_findings": 5,
+    "blocking_findings": 1,
+    "overall_compliance": "non-compliant",
+    "deliverables_total": 6,
+    "deliverables_complete": 4,
+    "deliverables_incomplete": 2,
+    "deliverable_completion_percent": "n/a (plan review)"
+  },
+  "gate_reason": "FAIL. R2-001 through R2-011 are closed per the dispositions file and the docs. Item 5 is not fully met: schema_version:1 is reflected in NFR-SAG-0001, ADR-SAG-0027 and the golden test, but Approved REQ-SAG-0701 ('stderr {error,message}') is contradicted. It has no amendment row, and r-1 neither lists it nor owns it (R3-001, Blocking). The remaining findings are Important or Minor gaps in acceptance mapping and requirement lists.",
+  "notes": "Environment: no shell was available, so HEAD was verified by reading the worktree gitdir HEAD and refs/heads/plan/phase-a-refine, which resolve to c7c6f23. Checked: the plan's `sessions_exact` target exists on the a-10-phase-end-hardening worktree. errors.json holds only error ids and carries no stderr shape. Check items 2 and 3 pass with the exceptions above: every id in the sprint lists resolves, the 20 new rows are single-owned, and all required amendments have an owner. The plan.md closure table (lines 449-472 and 679-729) matches the sprint docs. The fix for the Blocking finding is small: one amendment row, r-1 list and owned_paths additions, and one acceptance row."
+}

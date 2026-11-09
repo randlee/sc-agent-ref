@@ -1,0 +1,66 @@
+{
+  "agent": "arch-qa",
+  "branch": "sprint/a-10-phase-end-hardening",
+  "scope": {"phase": "a", "sprint": "a-10-code"},
+  "commit": "391df484994afa14e37c870457050e8bba15fbd5",
+  "verdict": "PASS",
+  "blocking": 0,
+  "important": 0,
+  "findings": [
+    {
+      "id": "ARCH-004",
+      "rule": "RULE-ADR-CODE",
+      "adr": "ADR-SAG-0016",
+      "severity": "MINOR",
+      "file": "docs/architecture.md",
+      "line": 361,
+      "description": "Version spelling difference carried forward: ADR text says 1.5.0 and the workspace pins =1.5.0. The structure holds. The disposition table records it as deferred to D8, as agreed.",
+      "remediation": "Fix the version text in the D8 amendment. No code change."
+    }
+  ],
+  "adr_checks": [
+    {"adr": "ADR-SAG-0020", "source": "docs/architecture.md:222", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["boundaries/sc-agent-secrets/agent-secrets.toml:25,51 (no features; MapEnv and MapKeyring are cfg(test) and not exported)", "docs/plans/phase-a/sprint-a-2-agent-secrets.md:45,61 (superseded pointers)"]},
+    {"adr": "ADR-SAG-0022", "source": "docs/architecture.md:134", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["boundaries/sc-jev-py/jev-py.toml:29-31,55-58"]},
+    {"adr": "ADR-SAG-0029", "source": "docs/architecture.md:397", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["boundaries/sc-agent-secrets/agent-secrets.toml:25,51", "boundaries/sc-jev-py/jev-py.toml:31,57-58", "docs/plans/phase-a/sprint-a-2-agent-secrets.md:45,61"]},
+    {"adr": "ADR-SAG-0013", "source": "docs/architecture.md:314", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["crates/sc-ai/src/observe.rs and crates/sc-jev-py/src/logging.rs (golden test keyed by operation)", "tests/fixtures/observability/session-event.json"]},
+    {"adr": "ADR-SAG-0016", "source": "docs/architecture.md:354", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["Cargo.toml:35-41 (pin policy comment; pins unchanged)"]},
+    {"adr": "ADR-SAG-0017", "source": "docs/architecture.md:289", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["scripts/sc-publish-dry-run.sh (key change only, per the changed-files list)", ".github/workflows/sc-publish-dry-run.yml (cache path only)"]},
+    {"adr": "ADR-SAG-0018", "source": "docs/architecture.md:280", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["scripts/sc-publish-dry-run.sh", ".github/workflows/sc-publish-dry-run.yml"]},
+    {"adr": "All other repo-level and crate ADRs (SAG-0001 to 0012, 0014, 0015, 0019, 0021, Rust API patterns)", "source": "docs/architecture.md", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["The changed-files list has no new crate, dependency edge, feature gate or public type. The only code changes are test support, golden-test keying and a cache key."]},
+    {"adr": "RULE-ADR-AWAIT-MUTEX (ADR-RUN-0011 pt 2)", "source": "arch-qa rules", "listed_in_sprint_doc": false, "result": "not-applicable", "evidence_refs": ["No async fn or .await in tests/support/deadline.rs, crates/sc-ai/src/observe.rs or crates/sc-jev-py/src/logging.rs. No std::sync::Mutex in deadline.rs."]}
+  ],
+  "gate_artifact_checks": [
+    {
+      "artifact": "docs/plans/phase-a/a-10-hardening-dispositions.md",
+      "status": "closed",
+      "evidence_refs": ["docs/plans/phase-a/a-10-hardening-dispositions.md:137 (ARCH-003 row cites commit 9482380 and job 128370466596)", "docs/plans/phase-a/a-10-hardening-dispositions.md:175 (ARCH-005 row)"],
+      "notes": "ARCH-005 closed. The ARCH-003 row and plan.md:403 both record the green just lint evidence. I did not run the CI job myself, and I could not confirm the job result."
+    },
+    {
+      "artifact": "docs/plans/phase-a/plan.md",
+      "status": "closed",
+      "evidence_refs": ["docs/plans/phase-a/plan.md:403"],
+      "notes": "The evidence table cites commit 9482380 and CI job 128370466596."
+    },
+    {
+      "artifact": "boundaries/sc-agent-secrets/agent-secrets.toml",
+      "status": "closed",
+      "evidence_refs": ["boundaries/sc-agent-secrets/agent-secrets.toml:25,51"],
+      "notes": "The [testing] comment now says the doubles are cfg(test) and crate-private (ADR-SAG-0029). ARCH-006 closed for this file."
+    },
+    {
+      "artifact": "boundaries/sc-jev-py/jev-py.toml",
+      "status": "closed",
+      "evidence_refs": ["boundaries/sc-jev-py/jev-py.toml:55-58"],
+      "notes": "The comment is now accurate: the crate has no test doubles of its own, and the test-util feature only registers _testing.run_check_scripted."
+    },
+    {
+      "artifact": "docs/plans/phase-a/sprint-a-2-agent-secrets.md",
+      "status": "closed",
+      "evidence_refs": ["docs/plans/phase-a/sprint-a-2-agent-secrets.md:45,61"],
+      "notes": "Both stale test-util mentions now carry a 'Superseded by ADR-SAG-0029 (a)' pointer."
+    }
+  ],
+  "merge_ready": true,
+  "notes": "Worktree HEAD resolves to refs/heads/sprint/a-10-phase-end-hardening at 391df484994afa14e37c870457050e8bba15fbd5, matching the input. I had no shell, so I verified by reading git files and grep. I did not run just lint or the CI job. ARCH-005 and ARCH-006 are closed. ARCH-004 stays deferred to D8 by prior agreement (MINOR, non-blocking). The root Cargo.toml comment at lines 35-38 is a pin-policy comment with no structural change. The other manifests (jev, jev-backends, ai, treesitter, agent-types, jev-check) still carry the generic 'feature-gated (test-util) test doubles' comment. I did not check each crate's feature set. It is not an ADR violation, and I raised no finding because the prior round limited ARCH-006 to the agent-secrets and jev-py manifests. The 13 changed files add no new ADR drift. They add no new crate, dependency edge, feature gate or public type, and none of the changed code uses .await."
+}

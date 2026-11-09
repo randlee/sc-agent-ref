@@ -1,0 +1,61 @@
+{
+  "agent": "arch-qa",
+  "branch": "sprint/r-2-engine-shape",
+  "scope": {"phase": "a.1", "sprint": "r-2"},
+  "commit": "0d643f2271997d73c8fbd3e98768dbf246ddfcbe",
+  "verdict": "FAIL",
+  "blocking": 1,
+  "important": 0,
+  "findings": [
+    {
+      "id": "ARCH-R2-001",
+      "rule": "RULE-ADR-PLAN",
+      "adr": "ADR-SAG-0016",
+      "severity": "BLOCKING",
+      "file": "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md",
+      "line": 41,
+      "description": "The sprint `adrs` list omits ADR-SAG-0016 (docs/architecture.md:92, Active; 'Libraries take only SharedSessionLog'). D2 puts `SharedSessionLog` in `RunConfig::new(repo_root, session_log)`. `run` emits `LogEvent`s through it. r-2 also edits the composition roots `sc-ai` and `sc-jev-py`, which ADR-SAG-0016 governs. The sprint touches that ADR's subject, so it belongs in the expected list. The omission is not a violation in code: I checked it and sc-jev-check keeps no sc-observability edge. This is a plan-coverage gap only, though RULE-ADR-PLAN counts it as Blocking.",
+      "remediation": "Add ADR-SAG-0016 to the `adrs:` list in the sprint doc front matter. Add a one-line acceptance note that it is upheld: libraries take only SharedSessionLog, and sc-jev-check has no sc-observability edge. No ADR text change is needed."
+    },
+    {
+      "id": "ARCH-R2-002",
+      "rule": "RULE-ADR-CODE",
+      "adr": "ADR-SAG-0014",
+      "severity": "MINOR",
+      "file": "docs/architecture.md",
+      "line": 791,
+      "description": "The ADR-SAG-0014 r-1 interim Status line still reads 'Superseded by ADR-SAG-0024 (r-2) when that lands'. 0024 has now landed. The index cell (line 100) and the plan.md interim row (line 566) both record supersession as a whole. The only stale thing is the future-tense wording. Leaving it is consistent with plan review 5 (ARCH-R2B-003) and with the sprint's note that r-2 does not edit this subsection. The 0014 r-2 amendment restates the `data` rule. The 0024 `equal_input` bullet pins the shape.",
+      "remediation": "Optional. A later sprint that owns the line (r-2b or phase-end) can change it to 'Superseded by ADR-SAG-0024 (Active, r-2)'."
+    }
+  ],
+  "adr_checks": [
+    {"adr": "ADR-SAG-0024", "source": "docs/architecture.md:1007", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:1009-1079", "docs/architecture.md:100", "crates/sc-jev-check/src/run/mod.rs:323", "crates/sc-jev-check/src/run/mod.rs:403", "crates/sc-jev-check/src/run/mod.rs:597", "crates/sc-jev-check/src/run/response.rs:229", "crates/sc-jev-check/src/run/response.rs:393", "crates/sc-jev-check/src/run/builder.rs:30"]},
+    {"adr": "ADR-SAG-0003", "source": "docs/architecture.md:406", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:417-425", "docs/architecture.md:1057", "docs/architecture.md:1074-1075", "crates/sc-jev-check/src/run/mod.rs:597-604"]},
+    {"adr": "ADR-SAG-0005", "source": "docs/architecture.md:122", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:141-147", "crates/sc-jev-check/src/run/mod.rs:85", "crates/sc-jev-check/src/run/mod.rs:369", "crates/sc-jev-check/src/payload/mod.rs:45"]},
+    {"adr": "ADR-SAG-0008", "source": "docs/architecture.md:158", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/src/run/mod.rs:486-489", "crates/sc-jev-check/src/run/mod.rs:533-556", "crates/sc-jev-check/src/session/mod.rs:488"]},
+    {"adr": "ADR-SAG-0009", "source": "docs/architecture.md:192", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:227-234"]},
+    {"adr": "ADR-SAG-0014", "source": "docs/architecture.md:776", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:787", "docs/architecture.md:810-833", "crates/sc-jev-check/src/run/response.rs:458", "crates/sc-jev-check/src/run/response.rs:474"]},
+    {"adr": "ADR-SAG-0019", "source": "docs/architecture.md:335", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:390-395", "docs/architecture.md:397-404"]},
+    {"adr": "ADR-SAG-0022", "source": "docs/architecture.md:236", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:299-316"]},
+    {"adr": "ADR-SAG-0029", "source": "docs/architecture.md:105", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:105", "docs/architecture.md:314-316"]},
+    {"adr": "ADR-SAG-0004", "source": "docs/architecture.md:80", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/src/run/mod.rs:449-462"]},
+    {"adr": "ADR-SAG-0013", "source": "docs/architecture.md:89", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-ai/src/command.rs:18"]},
+    {"adr": "ADR-SAG-0021", "source": "docs/architecture.md:97", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-ai/src/command.rs:449-452", "crates/sc-ai/src/command.rs:532-535"]},
+    {"adr": "ADR-SAG-0020", "source": "docs/architecture.md:427", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/src/registry/mod.rs:33", "crates/sc-jev-check/src/registry/mod.rs:157", "crates/sc-jev-check/src/extract/sanitize.rs:37-44"]},
+    {"adr": "ADR-SAG-0027", "source": "docs/architecture.md:103", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/src/run/response.rs:393"]},
+    {"adr": "ADR-SAG-0001", "source": "docs/architecture.md:77", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/src/run/mod.rs:525"]},
+    {"adr": "ADR-SAG-0002", "source": "docs/architecture.md:78", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/src/payload/mod.rs:45"]},
+    {"adr": "ADR-SAG-0007", "source": "docs/architecture.md:83", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:83"]},
+    {"adr": "ADR-SAG-0010", "source": "docs/architecture.md:86", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-ai/src/command.rs:11"]},
+    {"adr": "ADR-SAG-0011", "source": "docs/architecture.md:87", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-py/src/lib.rs:63"]},
+    {"adr": "ADR-SAG-0015", "source": "docs/architecture.md:91", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/src/extract/subjects.rs"]},
+    {"adr": "ADR-SAG-0017", "source": "docs/architecture.md:93", "listed_in_sprint_doc": true, "result": "not-verifiable", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:453"]},
+    {"adr": "ADR-SAG-0023", "source": "docs/architecture.md:99", "listed_in_sprint_doc": true, "result": "not-verifiable", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:414"]},
+    {"adr": "ADR-SAG-0016", "source": "docs/architecture.md:92", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["boundaries/sc-jev-check/jev-check.toml:46", "crates/sc-jev-check/src/run/mod.rs:474-482"]},
+    {"adr": "ADR-SAG-0025", "source": "docs/architecture.md:1081", "listed_in_sprint_doc": false, "result": "not-applicable", "evidence_refs": ["docs/architecture.md:1083"]}
+  ],
+  "gate_artifact_checks": [
+    {"artifact": "boundaries/sc-jev-check/jev-check.toml", "status": "closed", "evidence_refs": ["boundaries/sc-jev-check/jev-check.toml:24-25", "boundaries/sc-jev-check/jev-check.toml:38"], "notes": "The facade lists the D2.9 items plus Envelope, ENVELOPE_VERSION, OP_RUN, OP_DRY_RUN, OP_ASK and RunResponseBuilder. The sprint's deviation table records these additions. The deleted entry points are named in the notes and are not in the facade. The forbidden_edges and allowed_dependencies are unchanged. Whether the sc-boundary validator accepts the manifest is outside arch-qa's scope."}
+  ],
+  "merge_ready": false,
+  "notes": "Two ADR checks are marked not-verifiable. This run had no Bash tool, so I could not run the publish dry-run (ADR-SAG-0017) or `check-exact-pins.sh` (ADR-SAG-0023), and I could not verify HEAD with git. I did check that the worktree `.git` points at the r-2-engine-shape gitdir. These two do not stem from a plan or code defect. They need command evidence, for example the sprint's validate.log, or a re-run in a shell-enabled pass. Under the verdict rule a `not-verifiable` result forces FAIL until that evidence is supplied.\n\nWhat I verified in the documents:\n- ADR-SAG-0024 is Active (r-2) and its text matches the shipped signatures. There is no `RunConfig::mode`. The `equal_input` shape-pin bullet is verbatim. The landing-details bullet is present and is consistent with the code: the `sessions_dir` CONFIG_INVALID check before any send, the `primary_backend` omission on a dry run, and `discover_repo_root` falling back to `start` when git cannot be run. The index cell carries 'supersedes the ADR-SAG-0014 A.1 r-1 interim subsection'.\n- Every r-2 subsection is Active: ADR-0003, 0005, 0009, 0014, 0019, 0022 and the Rust API patterns amendment. The index markers for 0003, 0005, 0009, 0014, 0019, 0022 and 0029 read Active, and so does the inline marker under the 0014 body at line 787. The ADR-0022 'Correction' sentence is reworded exactly as the sprint specifies, with no self dev-dependency. No '(Proposed, r-2)' marker remains in docs/architecture.md. Exactly 12 '(Proposed, r-2b)' markers remain.\n- The plan.md merge resolution is consistent with plan review 5 (ARCH-R2B-003). It kept PR 24's interim rows for 0008, 0014 and 0019. Row 566 says 0024 supersedes the 0014 interim as a whole, and the r-2b interim rows are unchanged.\n- ADR-SAG-0003 permits the new start-dir fallback outside git. Active text at lines 421-423 says 'git toplevel ... or the start directory (absolutized) outside git'. The 'git cannot be run' extension is covered by the Active 0024 landing-details bullet at lines 1074-1075. Both match the code at run/mod.rs:597-604. The `sc-ai` behaviour change (no `--repo-root` outside git now uses the current directory) follows from that same rule.\n- In code, I found no `PayloadBuilder`, `build_request`, `run_check`, `RunOptions` or `merge_jev_response` in the Rust crates. The only exceptions are Python-facing wrapper names in `sc-jev-py` and doc text. There is no `#[allow(` and no `.await`. The one `std::sync::Mutex` is in test code (registry/mod.rs:285) with no `.await`, so RULE-ADR-AWAIT-MUTEX is not triggered. `resolve_key` is called only from `BackendRegistry::from_env`. Error codes appear as string literals only in test assertions. The child-process env allowlist is `env_clear()` plus allowlist. The allowlist (`TERM` and the `LC_` prefix) differs from the sprint doc's D11.2 list, but it predates this sprint (sanitize.rs unchanged in r-2) and no Active ADR text pins the list. If you want it tightened, that is a requirements matter for req-qa.\n\nTo clear this review:\n1. Fix ARCH-R2-001 by adding ADR-SAG-0016 to the sprint doc's `adrs` list.\n2. Supply command evidence for the ADR-0017 and ADR-0023 checks, or re-run those gates in a pass that has Bash."}

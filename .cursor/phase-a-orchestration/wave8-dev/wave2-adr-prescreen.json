@@ -1,0 +1,94 @@
+{
+  "agent": "arch-qa",
+  "mode": "pre-screen",
+  "input_check": "Docs-only screen of integrate/phase-a at 34dfed0. I could not run git, so branch and commit were not verified. All line numbers are in the worktree's docs/architecture.md unless a sprint doc is named. Sprint docs are under docs/plans/phase-a-refine/. Crate-level docs/<crate>/architecture.md files contain no '## ADR-' sections, so only repo-level ADRs and the Rust API patterns section govern.",
+  "global_precondition": {
+    "finding": "At 34dfed0 the wave-1 flips are not visible in the worktree. ADR-0027 is still 'Proposed (r-1)' (index line 104, status line 1048) and ADR-0023 is still 'Proposed (r-4; compose pin r-3b)' (line 100, status line 891). The r-1 subsections of ADR-0009, 0016, 0020 and 0022 are also still marked '(Proposed, r-1)' (lines 188-210, 264-283, 422-435, 700-708).",
+    "fix": "Do not dispatch wave 2 until r-1 and r-4 are merged into integrate/phase-a with those ADRs and subsections set to Active. r-2, r-3 and r-3c each list ADR-0027, and r-3 and r-3c also list ADR-0023.",
+    "open_r1_blocker": "r-1 QA (ARCH-R1-001..004) found that the typed answers shape, the EqualInputRecord/Attestation/MultiBackendMode shape and session v2 are governed only by Proposed ADR-0024/0025. r-2 builds RunResponse on those shapes. r-2 may dispatch only after r-1 lands an Active amendment covering them, and r-2 must then name that amendment in its adrs list."
+  },
+  "per_sprint": {
+    "r-2": {
+      "proposed_dependencies": [
+        "sprint-r-2:127 `RunConfig::mode(MultiBackendMode)` ('honoured from r-2b') is a public API shape. Its only governing text is ADR-0025 bullet 1 (lines 977-978), which is Proposed and owned by r-2b. ADR-0024 (935-970) does not mention `mode`. A public setter with no effect is a structural decision with no Active ADR (RULE-ADR-CODE, adr null).",
+        "sprint-r-2:166, 195, 216-218 and 346: every pinned RunResponse sample carries `equal_input`. `dry_run.json` has 'equal: false, all NotSent' and `jev_failed_haiku_ok.json` has `equal_input.leak: true`. The Attestation values (NotSent, Failed, Unattested) and `leak = any Failed` are defined only by ADR-0025 bullets 2-3 (979-994) and the ADR-0019 r-2b amendment (361-368), both Proposed and owned by r-2b. ADR-0024 only names the field `equal_input` (951).",
+        "sprint-r-2:219-221 `session_save_failed.json` (session_saved=false, one warning) is a shape whose runtime semantics are ADR-0025 bullet 2 (986-987, r-2b). ADR-0024 covers only `warnings`, `with_warning` and `session_id` null unless saved (949-953). This is acceptable if the sample is documented as a shape pin only.",
+        "sprint-r-2:170-182 `BackendStatus::Failed` and `BackendFailure` are covered by ADR-0024 bullet 3 (953-957), so there is no dependency. The fail-fast runtime and the `Failed` semantics in ADR-0025 are r-2b's.",
+        "The r-1 shapes the response relies on (typed `answers`, EqualInputRecord, Attestation, MultiBackendMode, `input_sha256`) depend on how r-1 resolves ARCH-R1-001/002. No Active text for them exists at 34dfed0."
+      ],
+      "adrs_missing": [
+        "ADR-SAG-0002: r-2 owns the payload path (`payload::refuse_over_cap` deletion, `Arc<PayloadBundle>` in PreparedRun, `payload_bytes`), sprint-r-2:130, 299, 301.",
+        "ADR-SAG-0020: `BackendRegistry::from_env` calls `sc_agent_secrets::resolve_key`, and the command producer child runs under `env_clear()` with an allowlist and no API-key variable (sprint-r-2:235, 281-283). Its r-1 amendment is Active after wave 1.",
+        "ADR-SAG-0017: r-2 owns `crates/sc-jev-check/Cargo.toml` and the published `sc-ai` and `sc-jev-py` paths (sprint-r-2:60, 64-69). r-1 QA ARCH-R1-004 raised the same gap.",
+        "ADR-SAG-0023: r-2 edits crate manifests (sprint-r-2:225-228). Add it once r-4 has made it Active. It is Proposed at 34dfed0.",
+        "ADR-SAG-0007: D13 moves the byte cap into the backend descriptor limit read by `validate_for_send` (sprint-r-2:291-302). Verify and add.",
+        "The r-1 Active amendment that fixes ARCH-R1-002 (typed answers, EqualInputRecord shape, session v2), whatever sprint-id it lands under."
+      ],
+      "adrs_proposed_not_owned": [
+        "ADR-SAG-0027 (sprint-r-2:57): Proposed at 34dfed0 but owned by r-1. This is acceptable only if r-1 has flipped it to Active before dispatch.",
+        "None otherwise. ADR-0024 is r-2's own, and ADR-0025 is correctly absent from the list."
+      ],
+      "flip_scope_check": "r-2 flips exactly its own cells: ADR-0024 status (932) and index row (101); r-2 subsections of 0003 (381), 0005 (142), 0009 (213), 0014 (735), 0019 (354), 0022 (285); the Rust API patterns amendment (860); and the r-2 markers in index rows 0003, 0005, 0009, 0014, 0019, 0022 and 0029 (lines 80, 82, 86, 91, 96, 99, 106). Gaps: (a) the sprint-r-2:344 acceptance row omits the Rust API patterns amendment and the 0029 marker; (b) the inline 'Amended by ADR-SAG-0024 (Proposed, r-2)' at line 733 is not named in owned_paths; (c) the 0019 and 0022 index cells also carry r-2b markers (96, 99) that r-2 must leave untouched.",
+      "fix": "1. Remove `RunConfig::mode` from r-2 and let r-2b add it with ADR-0025. Alternatively add an ADR-0024 r-2 bullet stating that `mode` is accepted, stored and ignored until r-2b. 2. Add an ADR-0024 r-2 bullet or an ADR-0019 r-2 amendment sentence that defines the serialized `equal_input` shape. Say that r-2 pins shape only, using the Active r-1 EqualInputRecord. Say that `leak = any Failed`, Attestation derivation and the session-save-warning runtime behaviour are ADR-0025 (r-2b), and that `jev_failed_haiku_ok.json` and `session_save_failed.json` are built with `test_builder`. 3. Add ADR-0002, 0020, 0017 and 0023 (and 0007 after verifying) to the adrs list, plus the r-1 amendment from ARCH-R1-002. 4. Extend the acceptance row at :344 and owned_paths to cover the Rust API patterns amendment, the 0029 index marker and the line-733 inline marker."
+    },
+    "r-3": {
+      "proposed_dependencies": [
+        "ADR-0020 r-3 amendment bullet 1 (lines 441-455) says `workspace-tests --test source_scans` (r-3b, ADR-0028 Proposed r-3b) 'fails if' a suppression appears elsewhere. The amendment goes Active at r-3 merge, but the enforcement does not exist until wave 4. Sprint-r-3:94-98 and :236-246 acknowledge this. Between r-3 and r-3b an Active ADR sentence is unverifiable (RULE-ADR-CODE not-verifiable). The cross-crate proof of the single secret-read site is governed by the r-3b-owned ADR-0028.",
+        "ADR-0026 is named in the adrs list (sprint-r-3:43) and is only half r-3's. The compose half (1022-1044, Proposed r-3b) must not be relied on. A grep of sprint-r-3 found no compose reliance. Deliverable 5 (sprint-r-3:257-258) shifts publish order only for `sc-agent-http`, and the compose insertion is in ADR-0017's r-3b amendment (607-614).",
+        "sprint-r-3:153-154 and :329-333 defer the CI placement of the rustdoc gate, the RBQA-F003 scan and the cargo-deny step to r-3b. These are gate items and do not govern code shape.",
+        "ADR-0027 and ADR-0023 are Proposed at 34dfed0; see the global precondition. r-3 depends on the ADR-0027 test-util seam (1112-1120) and ADR-0023's caret-only rule (894)."
+      ],
+      "adrs_missing": [
+        "ADR-SAG-0009: deliverable 3 changes the r-1 `with_default_transport(key)` signature and the backend construction path (sprint-r-3:222-224). The ADR-0009 r-1 amendment (188-210) governs it.",
+        "ADR-SAG-0019: r-3 owns `crates/sc-jev-backends/**` and keeps the wire builders and parsers (sprint-r-3:221-222). ADR-0019 governs the LLM wire envelope.",
+        "ADR-SAG-0016: r-3 owns `boundaries/sc-agent-types/**` (`allowed_dependents +sc-agent-http`, sprint-r-3:255) and consumes the `secret` and core features of sc-agent-types. ADR-0016 and its r-1 amendment (700-708) govern that crate."
+      ],
+      "adrs_proposed_not_owned": [
+        "ADR-SAG-0026: r-3 flips the HTTP half only. It is listed with a mixed status (sprint-r-3:266-268). This is acceptable only if the status line (998-1001) and index cell state 'Active (HTTP half, r-3); compose half Proposed (r-3b)', and r-3 asserts nothing about the compose half.",
+        "ADR-SAG-0023: Proposed at 34dfed0 but owned by r-4. Acceptable once r-4 has merged and the r-4 bullets are Active. r-3 must not cite its r-3b subsection (922-928).",
+        "ADR-SAG-0027: owned by r-1, same condition."
+      ],
+      "flip_scope_check": "r-3 flips exactly its own cells: the ADR-0026 HTTP half and status line (998, 1003-1020); r-3 subsections of 0006 (490), 0007 (509), 0017 (599), 0020 (437); and the r-3 markers in index rows 0006, 0007, 0017, 0020, 0029 and 0026 (83, 84, 94, 97, 103, 106). Two cautions: (a) rows 0017 (94) and 0013/0016 carry r-3b markers beside r-3's, which r-3 must not flip; (b) in the 0026 row r-3 must flip only the HTTP-half parts of the Status and Amends columns.",
+      "fix": "1. Move the `source_scans` enforcement clause (449-452) out of the Active ADR-0020 r-3 bullet. Rewrite the r-3 bullet to state only what r-3 enforces: clippy.toml `disallowed-methods`, the `#[expect]` at the one site, the workspace lints, `[lints] workspace = true` checked locally, and the `rg` check. Re-add the cross-crate scan as an ADR-0020 r-3b bullet (or an ADR-0028 bullet) owned by r-3b. 2. Add ADR-0009, ADR-0019 and ADR-0016 to the adrs list. 3. State the mixed ADR-0026 status wording in the acceptance row so a reviewer can check which half is binding."
+    },
+    "r-3c": {
+      "proposed_dependencies": [
+        "None on another sprint's Proposed amendment. The deliverables rest on: ADR-0023 r-4 bullets 2 and 3 (913-919: clap and mimalloc optional behind `cli`, `required-features`, released binaries), which r-4 flips (must_follow r-4); ADR-0027 module seams (1094-1101: `git` enabled only by `sc-treesitter`'s `cli` feature, `default-features = false`), which r-1 flips; and ADR-0015 (616-629) and ADR-0029 (c), both already Active.",
+        "No r-3b ADR bullets are relied on. r-3b rows and ADR-0023's r-3b subsection (922-928) are not cited. sprint-r-3c:117-121 correctly leaves REQ-SAG-0712/0135 and the CI rows to r-3b."
+      ],
+      "adrs_missing": [],
+      "adrs_proposed_not_owned": [
+        "ADR-SAG-0023 (sprint-r-3c:29): owned by r-4. It must be Active (r-4 part) before dispatch, which is why must_follow includes r-4.",
+        "ADR-SAG-0027 (sprint-r-3c:30): owned by r-1, same condition."
+      ],
+      "flip_scope_check": "r-3c owns no ADR text and flips nothing, which is correct. It adds a clap dependency edge and a `git` feature enablement, both already recorded by ADR-0023 and ADR-0027, so no structural decision lacks an ADR. ADR-0016 and ADR-0010 are not required because r-3c owns no sc-agent-types or sc-ai paths.",
+      "fix": "None required. Dispatch after wave-1 flips are confirmed."
+    },
+    "r-2b_note": {
+      "scope": "Frontmatter read only (sprint-r-2b:28-67), not a full body screen.",
+      "proposed_dependencies": [
+        "ADR-0025 bullet 2 (987-988) states REQ-SAG-0604 consumer output (stdout envelope, stderr first failure, exit 2) as 'consumer output in r-3b'. That clause becomes Active at r-2b merge but is delivered by r-3b. Mark it as r-3b-owned or move it to an r-3b bullet."
+      ],
+      "adrs_missing": [
+        "ADR-SAG-0014 (RunResponse body and the session-save `warnings` entry)",
+        "ADR-SAG-0009 (owns `registry/scripted.rs` and the second `register_scripted_backends` JSON form)",
+        "ADR-SAG-0006 and ADR-SAG-0026 HTTP half (owns `sc-jev/src/client/**` and `sc-jev-backends` `backend.rs`/`wire.rs`, which r-3 makes wire-format crates)",
+        "ADR-SAG-0027 (Attestation and `input_sha256` on the r-1 JudgeOutcome)"
+      ],
+      "flip_scope_check": "ADR-0025 and the r-2b subsections of 0004 (472), 0008 (168), 0019 (361), 0022 (302) with index markers: matches the owned_paths list."
+    },
+    "r-3b_note": {
+      "scope": "Frontmatter read only (sprint-r-3b:45-110), not a full body screen.",
+      "proposed_dependencies": [
+        "None identified. 0024 and 0025 are Active by wave 4, and 0023 and 0026 are completed here. The sprint also depends on the wave-3 flip of ADR-0025."
+      ],
+      "adrs_missing": [
+        "ADR-SAG-0003 (ADR-0026 compose half 'Environment ownership' bullet, 1041-1044, makes `.env` and API-key environment reading sc-jev-check's)",
+        "ADR-SAG-0027 (it closes NFR-SAG-0001 and the error-code mapping in sc-ai/sc-jev-py)",
+        "ADR-SAG-0019 and ADR-SAG-0009 (verify against the body)"
+      ],
+      "flip_scope_check": "Flips 0010 (544), 0011 (561), 0013 (643), 0016 (710) and 0017 (607) subsections, the ADR-0023 r-3b subsection (922), the ADR-0026 compose half (1022), ADR-0028 (1124), the ADR-0016 retitle, and the index markers: matches the owned_paths list. The ADR-0017 index cell (94) carries r-4 and r-3 markers that r-3b must not flip."
+    }
+  },
+  "verdict_if_unfixed": "FAIL. r-2 would be rejected under RULE-ADR-PLAN and RULE-ADR-CODE (Blocking): the `mode` setter and the equal_input and Attestation sample shapes are governed only by Proposed ADR-0025 (r-2b), and ADR-0002, 0020 and 0017 are missing from adrs. r-3 would be rejected (Blocking): the Active ADR-0020 r-3 amendment names an r-3b-only enforcement mechanism, and ADR-0009, 0019 and 0016 are missing from adrs. r-3c is clean and would PASS once the wave-1 ADR flips are confirmed. The r-1 ARCH-R1-001/002 resolution must be confirmed before r-2 is dispatched."
+}

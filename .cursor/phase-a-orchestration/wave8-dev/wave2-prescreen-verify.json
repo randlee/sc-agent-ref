@@ -1,0 +1,66 @@
+{
+  "verdict": "PASS",
+  "basis": "No BLOCKING architectural finding. Every pre-screen fix item is present as the dispositions file claims, with the exceptions listed under new_findings. I read the five sprint docs (r-2, r-3, r-2b, r-3b, plan.md) and plan-review-4-dispositions.md in full or by targeted section. I did not read r-3c (not in the target list), and docs/architecture.md is untouched by design. I could not run git, so branch and commit were not verified. Items 1 to 3 in new_findings should be fixed in this PR. They are small, and item 1 is a plan.md validation block that contradicts the convention this PR sets.",
+  "closed": [
+    "r-2 mode removed: D2.1 (sprint-r-2:153-157) states there is no `mode` setter in r-2, with r-2b adding it. The `RunConfig` code block no longer has the setter. r-2b deliverable 1 (sprint-r-2b:94-97) adds `RunConfig::mode`. The ADR-0024 bullet and the acceptance row (sprint-r-2:407) both say 'no RunConfig::mode'. Plan ownership rows 601-602 match.",
+    "r-2 ADR-0024 equal_input shape-pin bullet: present verbatim at sprint-r-2:354-364. D2.6 (:234-243) matches it. `dry_run.json` is produced by a real dry run. `jev_failed_haiku_ok.json` and `session_save_failed.json` are marked as `test_builder` shape pins.",
+    "r-2 adrs: ADR-0002, 0007, 0017, 0020 and 0023 are added (sprint-r-2:43, 47, 55, 57, 60). ADR-0023 is annotated 'binding once r-4 has made its r-4 part Active'. The r-1 interim amendment line is at :64. A new acceptance row at :409 gives a check for each of the five.",
+    "r-2 owned_paths and acceptance: the inline ADR-0014 body marker is added (:83). The Rust API patterns amendment is present (:87). The acceptance row (:408) now covers 0029 and the Rust API patterns amendment. It lists the r-2b markers in rows 0004, 0008, 0019 and 0022 as untouched and as still reading Proposed. The 'Markers r-2 flips and must not touch' paragraph (:376-384) matches the flip list at :90.",
+    "r-3 ADR-0020 bullet 1: replacement wording at sprint-r-3:281-300 names only what r-3 enforces (clippy disallowed-methods, the single #[expect] site, workspace lints, the local lints check and rg). It has no source_scans clause. :302-308 inserts a Proposed 'Amendment (Phase A.1, r-3b)' subsection and adds the index marker. The matching r-3b bullet is at sprint-r-3b:475-485 and r-3b owned_paths (:106, :113), acceptance (:533) and the marker list (:499-506) cover it. The plan table row (plan:594) and the exception note (plan:614-618) record the 'adds an entry' exception.",
+    "r-3 adrs: ADR-0009, 0016 and 0019 are added (sprint-r-3:38, 40, 43). The regression row at :327 checks each. ADR-0023 and ADR-0026 carry annotations.",
+    "r-3 mixed ADR-0026 status: the acceptance row (:324) requires the exact string 'Active (HTTP half, r-3); compose half Proposed (r-3b)' and says r-3 asserts nothing about the compose half. The 'must not flip' list (:313-317) is complete.",
+    "r-2b: ADR-0025 bullet 2 is split at flip time, with the verbatim '(Proposed, r-3b)' consumer-output bullet at sprint-r-2b:198-215. The status wording is consistent with plan.md:609-613 and the r-3b flip (r-3b:487-490, :107, :114, :534). adrs now include 0006, 0009, 0014, 0026 (annotated HTTP half only) and 0027 (sprint-r-2b:33, 36, 38, 43, 44). The regression row is at :223.",
+    "r-3b: adrs add 0003 and 0009 (sprint-r-3b:48, 49) and 0027 (:65). ADR-0019 is declined with a recorded reason. The two new bullets are present (ADR-0020 at :469-485, ADR-0025 at :487-490). The 0017 and 0016 last-marker-only rule is at :499-507. The ADR-0028 'Built-binary contract' rewording is at :492-497. The acceptance rows are at :532-535.",
+    "plan.md: the convention paragraph 'No shape on another sprint's Proposed text' is at plan:620-624. 'Test seams' (plan:130-150) states D0 outcome 4, points to boundaries/README.md, names the required-features plus --features test-util mechanism, and names both stale sentences with their owners (ADR-0022 r-2 Correction by r-2, ADR-0028 by r-3b).",
+    "Self dev-dependency replacement: r-2 (sprint-r-2:245-254, :366-374, validation lines 419-437), r-3 (:176-179, validation 342-352 and :329), r-2b (:161-175, validation 235-256) and r-3b (:236-241) all use [[test]] required-features plus --features test-util, with no self dev-dependency left in any live deliverable. Remaining mentions are inside quoted replacement wording, which is intended."
+  ],
+  "still_open": {
+    "dispatch_gates_not_checkable_in_this_PR": [
+      "The r-1 interim amendment of ADR-0008/0014/0019 (Active, r-1) is only a named entry in r-2 adrs. It exists nowhere in docs/architecture.md and cannot be verified from this branch. r-2 must not dispatch until the r-1 fix round lands it and arch-qa confirms it.",
+      "The wave-1 flips (ADR-0027, ADR-0023 r-4 part, the r-1 subsections) remain a dispatch gate.",
+      "The ADR wording is deferred to flip time, so docs/architecture.md still has the pre-fix text: the ADR-0020 r-3 bullet 1 with the source_scans clause, ADR-0025 bullet 2 with the r-3b clause, and the ADR-0022 and ADR-0028 'self dev-dependency' sentences. Each sprint's arch-qa must check at flip time that the verbatim wording was applied. The acceptance rows already require this."
+    ]
+  },
+  "new_findings": [
+    {
+      "id": "V-001",
+      "severity": "IMPORTANT",
+      "file": "docs/plans/phase-a-refine/plan.md",
+      "line": "776-778",
+      "description": "The plan-level validation block still runs `cargo test -p sc-jev-check --test run_response ...` and `--test multi_backend ...` without `--features test-util`. Those targets are now `[[test]] required-features = [\"test-util\"]`. Cargo rejects or skips a target whose required feature is off, so the plan's own commands fail. The dispositions row for REQ-QA-R1-005 says the validation lines gained the flag, which is only true in the sprint docs.",
+      "remediation": "Add `--features test-util` to plan.md:776-778. Check the other plan.md validation blocks for sc-agent-http, sc-jev, sc-jev-backends and sc-ai targets."
+    },
+    {
+      "id": "V-002",
+      "severity": "MINOR",
+      "file": "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md",
+      "line": "156",
+      "description": "The cross-reference says plan \"ADR index ownership\". No such heading exists. The dispositions row 46 says so and the heading is '## ADR ownership' (plan.md:566).",
+      "remediation": "Change the reference to plan \"ADR ownership\"."
+    },
+    {
+      "id": "V-003",
+      "severity": "MINOR",
+      "file": "docs/plans/phase-a-refine/plan.md",
+      "line": "452-453",
+      "description": "The boundary-map sentence 'in the \"counted, self entries accepted\" branch each crate with a self dev-dependency lists itself, in the sprint that adds the self edge' describes a D0 branch that was not taken (outcome 4 was chosen). It is stale relative to the 'Test seams' paragraph. The dispositions row 47 claims only the r-2 boundary-map cell was updated.",
+      "remediation": "Delete the sentence or mark it 'not taken; outcome 4'."
+    },
+    {
+      "id": "V-004",
+      "severity": "MINOR",
+      "file": "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md",
+      "line": "64",
+      "description": "The adrs list mixes ADR ids with a free-text quoted entry ('plus the r-1 interim amendment ...'). The YAML is valid. The plan-QA check at plan.md:119 and any tooling that resolves each adrs entry to an ADR id may flag the string. Also the inserted bullets use the label '(Active, r-2)', '(Active, r-3)' and not the '(Proposed, r-N)' convention the rest of the doc uses, so any scanner counting '(Proposed, r-N)' markers will not match them.",
+      "remediation": "Move the interim-amendment note into a trailing comment on the ADR-0014 line or into prose. Replace it with the concrete amendment id once r-1 lands it. Optionally state in the sprint doc that the '(Active, r-N)' labels are the post-flip form."
+    },
+    {
+      "id": "V-005",
+      "severity": "MINOR",
+      "file": "docs/plans/phase-a-refine/sprint-r-3-shared-http.md",
+      "line": "351-352",
+      "description": "`test_release_build_refuses_http` now runs only with `--features test-util` (target `ureq` has required-features). Its name and intent are 'release build refuses http'. Running it with the test-util feature on means it does not exercise a build without that feature.",
+      "remediation": "Add a note that `Endpoint::parse` is feature-independent, which is why the test is valid. Alternatively add a `--lib` unit test for the parse refusal that runs without test-util."
+    }
+  ]
+}

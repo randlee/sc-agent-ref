@@ -1,0 +1,49 @@
+{
+  "agent": "arch-qa",
+  "branch": "docs/close-wave1-2",
+  "scope": {"phase": "a.1", "sprint": "r-1, r-2, r-3, r-3c, r-4 (closeout QA-2)"},
+  "commit": "ec170bfa12ee4aaa1f45500efa59705cd9f5eaf1",
+  "verdict": "PASS",
+  "blocking": 0,
+  "important": 0,
+  "findings": [],
+  "carry_forward_closed": [
+    {
+      "id": "ARCH-001",
+      "status": "closed",
+      "evidence": "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:265-271 and 273-284 now say the sprint is status: complete. They say the REQ-SAG-0133 row is deferred to the owner under bead agt-scoop-multi-shim, with the owner recording the URL later. The stale phrases 'stays status: in-review' and 'flips this doc to' no longer appear anywhere under docs/plans/phase-a-refine (grep returned no matches). The body text now agrees with the frontmatter at line 4."
+    }
+  ],
+  "adr_checks": [
+    {
+      "adr": "ADR-SAG-0017",
+      "source": "docs/architecture.md:672",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:4", "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:265-284"]
+    },
+    {
+      "adr": "ADR-SAG-0023",
+      "source": "docs/architecture.md",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:4"]
+    },
+    {
+      "adr": "ADR-SAG-0016",
+      "source": "docs/architecture.md",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:4"]
+    }
+  ],
+  "gate_artifact_checks": [
+    {"artifact": "docs/plans/phase-a-refine/sprint-r-1-types-break.md", "status": "closed", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-1-types-break.md:4"], "notes": "Line 4 is status: complete (merged PR 22, QA-2 PASS)."},
+    {"artifact": "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md", "status": "closed", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:4"], "notes": "Line 4 is status: complete (merged PR 27, QA-2 PASS)."},
+    {"artifact": "docs/plans/phase-a-refine/sprint-r-3-shared-http.md", "status": "closed", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-3-shared-http.md:4"], "notes": "Line 4 is status: complete (merged PR 26, QA-2 PASS)."},
+    {"artifact": "docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md", "status": "closed", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md:4"], "notes": "Line 4 is status: complete (merged PR 25, QA-2 PASS)."},
+    {"artifact": "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md", "status": "closed", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:4", "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:273-284"], "notes": "Complete with one open row, the REQ-SAG-0133 URL. That row is recorded as an explicit owner deferral with a bead. The doc has no internal gate that forbids this."}
+  ],
+  "merge_ready": true,
+  "notes": "I checked the five frontmatter status lines and the r-4 body text. The planned sprints r-3b and r-2b are untouched and still say planned. I found no regressions and no Blocking items. I requested no new gates or receipts. I did not re-run the diff stat, so I rely on the parent evidence that r-4 changed 13 lines and the other four docs changed 2 each."
+}

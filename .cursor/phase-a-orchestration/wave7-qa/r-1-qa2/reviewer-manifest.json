@@ -1,0 +1,8 @@
+[
+  {"agent": "req-qa", "task_id": "ae9fd1f096935285a", "spawn_actor": "parent-orchestrator", "scope_locked": "REQ-QA-R1-001..005"},
+  {"agent": "arch-qa", "task_id": "a87c06c47bde75045", "spawn_actor": "parent-orchestrator", "scope_locked": "ARCH-R1-001..007"},
+  {"agent": "rust-qa-agent", "task_id": "aa58cbec42d5fc6ba", "spawn_actor": "parent-orchestrator", "scope_locked": "QA-001..003 + gates"},
+  {"agent": "flaky-test-qa", "task_id": "a6325a9c8d9c7cbeb", "spawn_actor": "parent-orchestrator", "scope_locked": "FTQ-001..003"},
+  {"agent": "rust-best-practices-agent", "task_id": "adcab38c057adaa24", "spawn_actor": "parent-orchestrator", "scope_locked": "RBP-F003/F201/F202/F104"},
+  {"agent": "ruthless-boundary-qa", "task_id": "abdbaf75703fcb1c9", "spawn_actor": "parent-orchestrator", "scope_locked": "RBQA-F201/F202/F204"}
+]

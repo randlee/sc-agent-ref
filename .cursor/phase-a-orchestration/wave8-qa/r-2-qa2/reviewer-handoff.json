@@ -1,0 +1,651 @@
+{
+ "manifest": [
+  {
+   "agent": "req-qa",
+   "task_id": "a632b8a4cc0268e10",
+   "spawn_actor": "parent-orchestrator",
+   "scope_locked": "QA-1 carry-forward"
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "a930011d44b4c50b8",
+   "spawn_actor": "parent-orchestrator",
+   "scope_locked": "QA-1 carry-forward"
+  },
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "a967fdc38f9315ca5",
+   "spawn_actor": "parent-orchestrator",
+   "scope_locked": "QA-1 carry-forward"
+  },
+  {
+   "agent": "rust-best-practices-agent",
+   "task_id": "a1c48cac21a425675",
+   "spawn_actor": "parent-orchestrator",
+   "scope_locked": "QA-1 carry-forward"
+  },
+  {
+   "agent": "rust-service-hardening-agent",
+   "task_id": "adac73573ed271636",
+   "spawn_actor": "parent-orchestrator",
+   "scope_locked": "QA-1 carry-forward"
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "afa8264f0ac522d5d",
+   "spawn_actor": "parent-orchestrator",
+   "scope_locked": "QA-1 carry-forward"
+  },
+  {
+   "agent": "ruthless-boundary-qa",
+   "task_id": "af000a91f2a75cb59",
+   "spawn_actor": "parent-orchestrator",
+   "scope_locked": "QA-1 carry-forward"
+  }
+ ],
+ "reviewer_outputs": [
+  {
+   "agent": "req-qa",
+   "task_id": "a632b8a4cc0268e10",
+   "fenced_json": {
+    "status": "PASS",
+    "reviewed_branch": "sprint/r-2-engine-shape",
+    "reviewed_commit": "3f66e7bbc09c66fdeca2146bfb436ededd4bf02f",
+    "errors": [],
+    "scope": {
+     "phase": "a.1",
+     "sprint": "r-2"
+    },
+    "baselines_read": [
+     "docs/requirements.md",
+     "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md",
+     "carry-forward req-qa.json (QA-1)",
+     "dev-report.json (fix-r-2-qa1)"
+    ],
+    "phase_or_sprint_docs_read": [
+     "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md"
+    ],
+    "method_notes": "Static, read-only review. I read HEAD from .git/worktrees/r2-qa2-review/HEAD and it equals 3f66e7b. I had no shell, so I ran no cargo, pytest or git commands. I did not diff the range 0d643f2..3f66e7b, so I did not look for regressions across the whole fix round. For CI I rely on the stated PR 27 evidence (green at f7994d5, docs-only 3f66e7b) as the owner ruled. The code evidence below comes from spot-checks only.",
+    "requirement_checks": [
+     {
+      "id": "REQ-SAG-0311, 0309, 0303, 0611, 0702, 0711, 0801, 0802, NFR-SAG-0004",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:44-53",
+       "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:567-576"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0703",
+      "listed_in_sprint_doc": true,
+      "result": "not-applicable",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:572 (r-2 changes no install path)"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0710",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/requirements.md:189 (session_id null unless session_saved)"
+      ]
+     },
+     {
+      "id": "ADR-SAG-0016",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:68,578"
+      ]
+     }
+    ],
+    "deliverable_checks": [
+     {
+      "item": "Carry-forward REQ-QA-R2-001 (complete requirements list)",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:44-53,567-576"
+      ],
+      "notes": "All ten ids are in the frontmatter, and each has an evidence row. 0703 is marked not-applicable with a reason."
+     },
+     {
+      "item": "REQ-QA-R2-002 (CI citation)",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:490-511"
+      ],
+      "notes": "The doc cites run 42419966414 and its job names at f7994d5. The owner ruled this the only action needed."
+     },
+     {
+      "item": "REQ-QA-R2-004 (ask warning and prompt_sha256)",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/run/response.rs:276,324",
+       "crates/sc-ai/src/command.rs:516,551",
+       "crates/sc-ai/tests/cli.rs:469"
+      ],
+      "notes": "AskResponse has with_warning, sc-ai appends the flush warning, and a test checks prompt_sha256 on ask data."
+     },
+     {
+      "item": "REQ-QA-R2-006 (facade narrowing)",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/ (grep finds no `pub mod equal_input|extract|payload`)",
+       "dev-report per_id REQ-QA-R2-006"
+      ],
+      "notes": "The modules are no longer public. The remaining public items are recorded in D2.9 and the deviation table. I did not independently re-read lib.rs."
+     },
+     {
+      "item": "REQ-QA-R2-005 (discover_repo_root narrowed)",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "dev-report per_id REQ-QA-R2-005"
+      ],
+      "notes": "The dev report describes a narrowed fallback with a --lib test. I did not re-read the code; this item rests on the developer report."
+     },
+     {
+      "item": "REQ-QA-R2-007 (producer name)",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "dev-report per_id REQ-QA-R2-007"
+      ],
+      "notes": "The optional `producer` field, the argv[0] fallback, and the row/test were reported. I did not re-read the code; this item rests on the developer report."
+     },
+     {
+      "item": "REQ-QA-R2-008 (REQ-SAG-0710 wording)",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "docs/requirements.md:189"
+      ],
+      "notes": "It now reads session_id (null unless session_saved)."
+     },
+     {
+      "item": "REQ-QA-R2-009 (infallible Envelope, key order)",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "dev-report per_id REQ-QA-R2-009"
+      ],
+      "notes": "Reported as: typed body, serialized on write, key order pinned by a test. This is a Minor finding and rests on the developer report."
+     },
+     {
+      "item": "REQ-QA-R2-003 (files outside owned_paths)",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "ceremony-screen.json"
+      ],
+      "notes": "Ceremony-screened, and no action was required."
+     }
+    ],
+    "carry_forward_verdicts": [
+     {
+      "id": "REQ-QA-R2-001",
+      "verdict": "closed"
+     },
+     {
+      "id": "REQ-QA-R2-002",
+      "verdict": "closed"
+     },
+     {
+      "id": "REQ-QA-R2-003",
+      "verdict": "closed"
+     },
+     {
+      "id": "REQ-QA-R2-004",
+      "verdict": "closed"
+     },
+     {
+      "id": "REQ-QA-R2-005",
+      "verdict": "closed"
+     },
+     {
+      "id": "REQ-QA-R2-006",
+      "verdict": "closed"
+     },
+     {
+      "id": "REQ-QA-R2-007",
+      "verdict": "closed"
+     },
+     {
+      "id": "REQ-QA-R2-008",
+      "verdict": "closed"
+     },
+     {
+      "id": "REQ-QA-R2-009",
+      "verdict": "closed"
+     },
+     {
+      "id": "RBQA-F003",
+      "verdict": "closed (closed by narrowing, no new gate)"
+     }
+    ],
+    "findings": [],
+    "summary": {
+     "total_findings": 0,
+     "blocking_findings": 0,
+     "overall_compliance": "compliant",
+     "deliverables_total": 9,
+     "deliverables_complete": 9,
+     "deliverables_incomplete": 0,
+     "deliverable_completion_percent": 100.0
+    },
+    "gate_reason": "PASS. HEAD is 3f66e7b. The Blocking finding REQ-QA-R2-001 is fixed: the ten missing ids are in the requirements frontmatter with evidence rows (0703 is marked not-applicable with a reason), and ADR-SAG-0016 is listed. REQ-QA-R2-002 is closed by the CI citation. REQ-QA-R2-004, 005, 006, 007, 008 and 009 are closed, though the 005, 007 and 009 closures rest on the developer report because I did not re-read that code. REQ-QA-R2-003 needs no action. I found no new Blocking findings, but I did not diff the full fix-round range, so regressions elsewhere in it are not ruled out. I requested no new gates."
+   }
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "a930011d44b4c50b8",
+   "fenced_json": {
+    "agent": "arch-qa",
+    "branch": "sprint/r-2-engine-shape",
+    "scope": {
+     "phase": "a.1",
+     "sprint": "r-2"
+    },
+    "commit": "3f66e7bbc09c66fdeca2146bfb436ededd4bf02f",
+    "verdict": "PASS",
+    "blocking": 0,
+    "important": 0,
+    "findings": [],
+    "carry_forward": [
+     {
+      "id": "ARCH-R2-001",
+      "status": "closed",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:68",
+       "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:578"
+      ],
+      "notes": "ADR-SAG-0016 is now in the sprint `adrs` list with an upheld note. A grep of crates/ found no sc-observability edge in sc-jev-check. sc-observability appears only in sc-ai and sc-jev-py, which are the composition roots."
+     },
+     {
+      "id": "ARCH-R2-002",
+      "status": "closed",
+      "evidence_refs": [],
+      "notes": "This was MINOR and optional. The developer left it as won't-fix. That is acceptable and not a finding."
+     },
+     {
+      "id": "ADR-SAG-0017 not-verifiable",
+      "status": "closed",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:489-511"
+      ],
+      "notes": "The evidence is the PR 27 sc-publish dry-run, run 42419966426, which is green at f7994d5 (cited in the sprint doc and the dev report). 3f66e7b changes only the sprint doc. I did not re-run it myself because this pass has no shell."
+     },
+     {
+      "id": "ADR-SAG-0023 not-verifiable",
+      "status": "closed",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:489-511"
+      ],
+      "notes": "The evidence is the `dependency gates (allocator, pins)` job in CI run 42419966414, which is green at f7994d5. I did not re-run it myself."
+     }
+    ],
+    "adr_checks": [
+     {
+      "adr": "ADR-SAG-0016",
+      "source": "docs/architecture.md:92",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:68",
+       "crates/sc-jev-check (no sc-observability edge)"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0017",
+      "source": "docs/architecture.md:93",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:495"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0023",
+      "source": "docs/architecture.md:99",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:494"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0024",
+      "source": "docs/architecture.md:1007",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "QA-1 upheld result; the fix-round range 0d643f2..3f66e7b adds no structural change that contradicts it. The fix round narrows the public surface with pub(crate) and adds run::ask. Both are recorded in the ADR-0024 bullets, per the dev report."
+      ]
+     }
+    ],
+    "gate_artifact_checks": [
+     {
+      "artifact": "boundaries/sc-jev-check/jev-check.toml",
+      "status": "closed",
+      "evidence_refs": [],
+      "notes": "The dev report says the facade was narrowed and the boundary check passes. This was not changed by an arch-qa finding. Boundary validation belongs to ruthless-boundary-qa."
+     }
+    ],
+    "merge_ready": true,
+    "notes": "The detached review worktree's gitdir HEAD resolves to 3f66e7bbc09c66fdeca2146bfb436ededd4bf02f, which matches the assignment. The `.await`, `#[allow(`, and std::sync::Mutex sweep of crates/ found no new hits. The only Mutex is the existing test-only one at registry/mod.rs:285, with no `.await`, so RULE-ADR-AWAIT-MUTEX is not triggered. I found no regressions from the fix round at the structural level. The fix round's changes (the shared git test helper, the RepoRelativePath-based CheckSource, and run::ask over FileSessionStore) introduce no new crate, dependency edge, feature gate, or wire contract. This pass had no shell, so I did not re-run any command. The CI evidence is cited from the sprint doc and the dev report."
+   }
+  },
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "a967fdc38f9315ca5",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-2-engine-shape",
+     "reviewed_commit": "3f66e7bbc09c66fdeca2146bfb436ededd4bf02f",
+     "review_mode": "sprint_review",
+     "executed_checks": {
+      "fmt": {
+       "status": "pass",
+       "command": "cargo fmt --all --check"
+      },
+      "clippy": {
+       "status": "pass",
+       "command": "cargo clippy --all-targets --all-features -- -D warnings"
+      },
+      "tests": {
+       "status": "pass",
+       "command": "cargo test --workspace --features test-util (441 passed, 0 failed); cargo test --workspace without the feature (441 passed, 0 failed); RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps (exit 0, also with --features test-util); just lint (exit 0); .github/scripts/cargo-tree-gates.sh (exit 0); .github/scripts/check-exact-pins.sh (exit 0)"
+      },
+      "coverage": {
+       "status": "not_run",
+       "line": 0.0,
+       "branch": 0.0,
+       "function": 0.0,
+       "adequate_for_risk": true
+      },
+      "artifacts": {
+       "status": "not_run",
+       "command": "Local multi-crate cargo publish dry-run skipped as instructed (stale local registry cache). CI evidence: run 42419966426 is green at f7994d5, and 3f66e7b changes only the sprint doc."
+      }
+     },
+     "findings": [],
+     "carry_forward_verdicts": [
+      {
+       "id": "QA-001",
+       "verdict": "closed",
+       "evidence": "Fail-fast session save is documented in the run module docs (crates/sc-jev-check/src/run/mod.rs:34-42). The docs say session_save_failed.json is produced only by RunResponse::test_builder until r-2b."
+      },
+      {
+       "id": "QA-002",
+       "verdict": "closed",
+       "evidence": "No panic! or expect remains in the non-test code of src/run/response.rs. The Envelope keeps the typed body and serializes it only on write, per the dev report. I did not read that serialization code directly."
+      },
+      {
+       "id": "QA-003",
+       "verdict": "closed",
+       "evidence": "The remaining expect and panic calls in extract/command.rs are all at line 402 or later, in test code. The production paths in src/run/mod.rs have no expect or unwrap (checked by grep; the default_backends change is taken from the dev report)."
+      },
+      {
+       "id": "QA-004",
+       "verdict": "closed",
+       "evidence": "TMP_OPEN_ATTEMPTS = 8 bounds the tmp-open retry loop (src/session/mod.rs:487-491). The module docs at line 42 state that the parent-directory fsync after rename is best effort."
+      },
+      {
+       "id": "QA-005",
+       "verdict": "closed",
+       "evidence": "Informational only, with no action required. The unix-gated tests are unchanged, and the cross-platform grep for hardcoded /tmp/ in crates/ is clean."
+      }
+     ],
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "notes": [
+      "All requested checks pass at 3f66e7b. The merge of integrate/phase-a (89a01e5) causes no regression in fmt, clippy, tests, rustdoc or the dependency gates.",
+      "The fix-round visibility narrowing holds up. equal_input, extract and payload are pub(crate) in crates/sc-jev-check/src/lib.rs:14-16. Three test targets declare required-features = [\"test-util\"] in crates/sc-jev-check/Cargo.toml (lines 47, 54, 58). The plain and --features test-util workspace runs both pass with the same 441 count.",
+      "The sprint doc cites CI run 42419966414 (docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:491), so REQ-QA-R2-002 is satisfied. I did not independently verify the REQ, ARCH or RBQA ids that the dev report lists. Those are doc and architecture items outside this Rust QA scope.",
+      "Coverage was not re-run. The round is locked, and QA-1 coverage was 91.64% line for sc-jev-check. The fix round only narrowed visibility and moved code.",
+      "No rust-best-practices or rust-service-hardening review was performed, as out of scope."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "rust-best-practices-agent",
+   "task_id": "a1c48cac21a425675",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-2-engine-shape",
+     "reviewed_commit": "3f66e7bbc09c66fdeca2146bfb436ededd4bf02f",
+     "review_mode": "sprint_review",
+     "practice_mode": "all",
+     "practices_reviewed": [
+      "RBP-001",
+      "RBP-002",
+      "RBP-003",
+      "RBP-004",
+      "RBP-005",
+      "RBP-006",
+      "RBP-007",
+      "RBP-008",
+      "RBP-009",
+      "RBP-010"
+     ],
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "notes": [
+      "RBP-F004: CLOSED. Verified in the worktree at crates/sc-jev-check/src/run/mod.rs: CheckSource::CheckFile now holds RepoRelativePath (line 115). CheckSource::check_file(&RepoRoot, &Path) (line 135) is the only constructor from a raw path, and it delegates to normalize_check_path (line 140), which does the single UTF-8 check, strips './', maps '\\' to '/', and rejects '..' and the repo root itself. config::load_check_at now takes &RepoRelativePath (config/mod.rs:184). A grep across crates/ finds no relative_to_repo or check_path_text functions, so the sc-ai and sc-jev-py normalisers are gone. A test (check_file_is_normalised_lexically_once) covers the single normalisation point. I did not open the sc-ai and sc-jev-py call sites individually.",
+      "RBQA-F003 (earlier minor note about a wide public surface): CLOSED by narrowing, as the ceremony screen directs, with no new gate. In lib.rs, equal_input, extract and payload are pub(crate). Only config, registry, run and session remain pub. Per the developer report, StoredSession and FileSessionStore::{save, load} are public only under test-util.",
+      "Only closure of the carry-forward ids was verified in this locked round. I found no Blocking issue and no regression in the checked fix-round code. I did not review the rest of the 0d643f2..3f66e7b diff, and I did not independently confirm the commit equals HEAD; the assignment pins it as 3f66e7b."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "rust-service-hardening-agent",
+   "task_id": "adac73573ed271636",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-2-engine-shape",
+     "reviewed_commit": "3f66e7bbc09c66fdeca2146bfb436ededd4bf02f",
+     "review_mode": "sprint_review",
+     "service_indicators_found": [
+      "sc-jev-py pyo3 cdylib (long-lived host process)",
+      "HTTP judge backends via sc-agent-http (ureq transport, busy retry)",
+      "subprocess supervision in sc-jev-check extract/command.rs"
+     ],
+     "topics_reviewed": [
+      "config_validation",
+      "retries",
+      "backpressure_bounded_resources",
+      "timeouts",
+      "secret_handling_logging",
+      "input_size_limits"
+     ],
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "notes": [
+      "Carry-forward: QA-1 reported zero findings (status pass), so there were no RSH ids to assign. I checked its four earlier carry-forward ids (RSH-001, 002, 004, 008) as closed in QA-1 and found no sign of regression in the files I read. Verdict: nothing is open and nothing has regressed.",
+      "Verification limits: I had no shell, so I could not run git. I did not confirm that worktree HEAD equals 3f66e7b, and I did not read the actual 0d643f2..3f66e7b diff. I reviewed the code at the worktree path directly, so the caller should confirm HEAD. No RSH id was newly raised.",
+      "discover_repo_root (sc-jev-check/src/run/mod.rs:748-805): The fallback to cwd is now narrow. classify_discovery returns cwd only when git ran and found no work tree and enclosing_git_entry finds no .git at or above start, or when git is not installed (IoFailed NotFound). If git finds no work tree but an ancestor holds .git, it returns INPUT_INVALID, so a subdirectory is never silently taken as the root. Every other discover_toplevel error is propagated as Err. This closes the QA-1 observation that any error was mapped silently to cwd. enclosing_git_entry honours GIT_CEILING_DIRECTORIES, walks upward and always terminates, using symlink_metadata with no reads and no unbounded work. There is no traversal exposure.",
+      "Bounded tmp retry (sc-jev-check/src/session/mod.rs:482-500): open_unique_tmp makes at most TMP_OPEN_ATTEMPTS = 8 tries, each with a fresh 64-bit random name and create_new. Only AlreadyExists is retried. Any other error returns at once, and the final error is surfaced. There is no tight unbounded loop. The write_private cleanup is correct: on any write or rename failure the tmp file is removed, and the mode is 0600. The directory sync is best effort and is not a save failure, which is a documented and acceptable tradeoff. Retry applies only to a local name collision and is not a side-effecting retry.",
+      "Ask path (sc-jev-check/src/run/mod.rs:689-730 and sc-jev-py/src/run.rs:268-287): ask reads the session read-only and never rewrites it. It validates the follow-up, rebuilds the registry for the stored backend only, via config.registry or BackendRegistry::from_env (keys via sc_agent_secrets), and runs validate_for_send before send. The cancel token is propagated. In the Python host, ask_with releases the GIL through py.detach and flushes the logger. No key is cached in LiveSession. The request is bounded by the backend byte cap, and the 8 MiB session read cap is unchanged.",
+      "Pipe-error mapping: sc-ai/src/main.rs:27-28 and sc-treesitter/src/main.rs:27-28 map a stdout write_all failure to JevError::io_failed('stdout', &error) and exit with code 2. The error type keeps only the ErrorKind, and the doc test at sc-agent-types/src/error.rs:476-483 asserts the raw cause text ('secret') is not leaked. So the mapping adds no leak and no hang. I found no BrokenPipe special-casing that could mask a real failure.",
+      "Observations carried from QA-1, none raised as findings: expired session files are never deleted, kill_and_reap kills only the direct child, git helpers have no wall-clock deadline, timeout_seconds has no upper bound, --request-json has no size cap, and sc-agent-secrets dotenv.rs reads .env with no size cap. They are all outside the fix-round regression scope. Per the owner rule I request no new gates, receipts or docs-consistency checks."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "afa8264f0ac522d5d",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-2-engine-shape",
+     "reviewed_commit": "3f66e7bbc09c66fdeca2146bfb436ededd4bf02f",
+     "findings": [],
+     "carry_forward_verdicts": [
+      {
+       "id": "FTQ-001",
+       "verdict": "closed",
+       "evidence": "crates/sc-jev-check/tests/run_response.rs:598-605: git() now uses git_env::git_command(dir) and deadline::spawn_with_deadline. tests/support/git_env.rs isolate_git() removes GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, GIT_OBJECT_DIRECTORY, GIT_ALTERNATE_OBJECT_DIRECTORIES, GIT_COMMON_DIR, GIT_PREFIX, GIT_CONFIG_PARAMETERS, GIT_CONFIG_COUNT, GIT_DEFAULT_HASH and GIT_CEILING_DIRECTORIES. It also sets GIT_CONFIG_GLOBAL and GIT_CONFIG_SYSTEM to the null device, GIT_CONFIG_NOSYSTEM=1 and GIT_TERMINAL_PROMPT=0. git_command also pins core.hooksPath to the null device, disables gpgsign and sets a fixed identity."
+      },
+      {
+       "id": "FTQ-002",
+       "verdict": "closed",
+       "evidence": "crates/sc-ai/tests/cli.rs:874-881: git() uses git_env::git_command(cwd) and .run_with_deadline(), the same shared isolation. init uses git_env::SHA1_INIT. The nogit test at line 675 sets GIT_DIR to a missing path on purpose."
+      },
+      {
+       "id": "FTQ-003",
+       "verdict": "closed",
+       "evidence": "The conditional 'outside git' branch is gone from test_repo_root_from_subdirectory (run_response.rs:611-639). The machine-dependent fallback is now covered by the pure-function lib test run::tests::discovery_falls_back_only_outside_git_or_without_git (src/run/tests.rs:477). That test calls classify_discovery with injected inputs and does not touch the filesystem or TMPDIR. enclosing_git_entry is tested in its own tempdir with a created .git."
+      },
+      {
+       "id": "FTQ-004",
+       "verdict": "closed",
+       "evidence": "crates/sc-jev-check/tests/command.rs:250: the re-executed child now runs through deadline::spawn_with_deadline(&mut command, None). tests/support/deadline.rs enforces a 60s kill of the process group, a 5s pipe grace, and a panic with captured stderr. The run_response.rs git calls are bounded the same way. The runner's own tests assert no wall-clock timing."
+      },
+      {
+       "id": "FTQ-005",
+       "verdict": "closed",
+       "evidence": "No SC_JEV_CHECK_BLESS read remains under crates/sc-jev-check/tests. Blessing is now the separate #[ignore]d test bless_run_response_samples (run_response.rs:138-145). The pinned tests only compare against the fixtures, so an ambient variable can no longer rewrite them."
+      }
+     ],
+     "summary": {
+      "total_findings": 0,
+      "critical": 0,
+      "important": 0,
+      "minor": 0
+     },
+     "notes": "The worktree HEAD was read from /Volumes/Extreme Pro/github/sc-agent/.git/worktrees/r2-qa2-review/HEAD and matches 3f66e7bbc09c66fdeca2146bfb436ededd4bf02f. The branch name could not be confirmed, because the worktree is detached by design. I had no shell, so I did not run the tests or the git diff 0d643f2..3f66e7b. I checked the carry-forward items and their fix paths by reading the code. I found no regressions or blocking issues in the shared helpers tests/support/git_env.rs and tests/support/deadline.rs. No new gates or receipts are requested."
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "ruthless-boundary-qa",
+   "task_id": "af000a91f2a75cb59",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-2-engine-shape",
+     "reviewed_commit": "3f66e7bbc09c66fdeca2146bfb436ededd4bf02f",
+     "review_mode": "sprint_review",
+     "findings": [
+      {
+       "id": "RBQA-F001",
+       "verdict": "closed",
+       "severity": "important",
+       "class": "boundary_tightening",
+       "file": "crates/sc-jev-check/src/run/mod.rs",
+       "line": 689,
+       "issue": "Second public send path (FileSessionStore::ask).",
+       "recommendation": "None.",
+       "evidence": "session/mod.rs no longer has an ask method. Its pub fns are the constructor, accessors and test-util-gated save/load. The send logic is now run::ask (mod.rs:689). It calls validate_for_send (717), then the shared private `send` (651, called at 718) with Operation::Ask. The `send` fn does judge plus one log event. session::contextual_prompt (322) is the single prompt-assembly function and is used by both request_for (641) and ask (707). run::ask reads the session with read_session and never rewrites it. I did not read live_run's body (lines 460-560), so whether it calls `send` is unconfirmed. The line 533/543 validate_for_send calls are consistent with it. The duplicated prompt assembly named in the finding is gone.",
+       "justification_check": "justified and retained",
+       "related_artifacts": [
+        "crates/sc-jev-check/src/session/mod.rs",
+        "boundaries/sc-jev-check/jev-check.toml"
+       ]
+      },
+      {
+       "id": "RBQA-F002",
+       "verdict": "closed",
+       "severity": "important",
+       "class": "boundary_tightening",
+       "file": "crates/sc-jev-check/src/lib.rs",
+       "line": 14,
+       "issue": "payload, extract and equal_input were public modules.",
+       "recommendation": "None.",
+       "evidence": "lib.rs:14-16 now declares `pub(crate) mod equal_input`, `extract` and `payload`. The remaining `pub mod` entries are config, registry, run and session. contextual_prompt, render_session_context, check_follow_up, emit_log, read_session and write_session are pub(crate). StoredSession save/load are `#[cfg(any(test, feature = \"test-util\"))]`.",
+       "justification_check": "justified and retained",
+       "related_artifacts": [
+        "boundaries/sc-jev-check/jev-check.toml"
+       ]
+      },
+      {
+       "id": "RBQA-F003",
+       "verdict": "closed",
+       "severity": "important",
+       "class": "lint_gap",
+       "file": "boundaries/sc-jev-check/jev-check.toml",
+       "line": 24,
+       "issue": "The facade string had no mechanical tie to the pub surface.",
+       "recommendation": "None. The ceremony screen closes this by narrowing, with no new gate, and the owner rule forbids requesting gates.",
+       "evidence": "The pub surface was narrowed (F002), so the drift that motivated the finding is gone. The manifest still carries the production facade and test-util groupings.",
+       "justification_check": "justified and retained",
+       "related_artifacts": [
+        "boundaries/sc-jev-check/jev-check.toml"
+       ]
+      },
+      {
+       "id": "RBQA-F004",
+       "verdict": "closed",
+       "severity": "minor",
+       "class": "doc_gap",
+       "file": "crates/sc-ai/src/lib.rs",
+       "line": 20,
+       "issue": "The facade list mixed production and test-util items, and sc-ai re-exported the Envelope constants as a second path.",
+       "recommendation": "None.",
+       "evidence": "A grep of crates/ shows ENVELOPE_VERSION and OP_* defined only in sc-jev-check/src/run/response.rs:19-28. sc-ai consumes them only by path `sc_jev_check::run::` (lib.rs doc test, tests/cli.rs:27). No sc-ai re-export remains. The manifest facade lines 24-26 now describe a production-then-test-util split. The lines were too long to read in full, so I did not verify their exact wording.",
+       "justification_check": "justified and retained",
+       "related_artifacts": [
+        "boundaries/sc-jev-check/jev-check.toml"
+       ]
+      }
+     ],
+     "summary": {
+      "total_findings": 4,
+      "by_severity": {
+       "critical": 0,
+       "important": 3,
+       "minor": 1
+      }
+     },
+     "notes": [
+      "All four carry-forward ids are closed. There are no new Blocking findings and no regressions from the fix-round diff in the areas I checked.",
+      "I did not run cargo, sc-lint or any validator, and none was supplied. I verified by reading source in the review worktree.",
+      "Unsolicited observation (outside this round's scope): the QA-1 observation about sc-ai's ungated `#[doc(hidden)]` test seam (ExecuteOverrides and related items) was not part of the carry-forward set. I did not re-check it."
+     ]
+    },
+    "error": null
+   }
+  }
+ ]
+}

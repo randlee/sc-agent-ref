@@ -1,0 +1,49 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/r-1-types-break",
+    "reviewed_commit": "22ef273",
+    "review_mode": "sprint_review",
+    "service_indicators_found": [
+      "ureq blocking HTTPS clients (crates/sc-jev-backends/src/transport.rs, crates/sc-jev/src/client/https.rs)",
+      "long-lived git subprocess helpers (crates/sc-agent-types/src/git.rs)",
+      "loopback TcpListener test servers (test-only)"
+    ],
+    "topics_reviewed": [
+      "config_validation",
+      "timeouts",
+      "input_size_limits",
+      "subprocess_hygiene_and_bounded_waits",
+      "retries",
+      "secret_redaction",
+      "atomic_session_writes",
+      "cancellation"
+    ],
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": { "critical": 0, "important": 0, "minor": 0 }
+    },
+    "notes": [
+      "HEAD check: the worktree HEAD is refs/heads/sprint/r-1-types-break, and that ref resolves to 22ef27317d6b608b451ac56f7f1de48731020b6e, which matches the assigned commit. I only had read-only file tools, so I read the git ref files directly and ran no commands, tests or builds.",
+      "Applicability: there are no tokio, axum, hyper, tonic, warp, actix-web or reqwest dependencies and no async or server entrypoints. The only listeners are loopback test servers. I treated the crates as blocking CLI/library code with outbound HTTP (ureq) and git subprocesses, and applied the timeout, input-limit, retry, shutdown-equivalent and secret topics from that angle. Health endpoints, request IDs, backpressure and spawn_blocking do not apply.",
+      "Carry-forward RSH-007 is intact (not regressed). crates/sc-treesitter/src/git_io.rs still has the 8 MiB MAX_INPUT_BYTES. The worktree read checks metadata length and then uses take(MAX+1). The revision read runs cat-file -s on the resolved id before cat-file blob, then re-checks stdout length. crates/sc-jev-check/src/extract/read.rs does the same with MAX_INPUT_BYTES, and its worktree path uses take(MAX+1). The line numbers in a-10-hardening-dispositions.md have drifted, but the logic is unchanged.",
+      "Carry-forward RSH-008 is intact. read.rs:141-189 and git_io.rs:131-179 resolve the spec once with rev-parse --verify --end-of-options, then run cat-file -t, -s and blob on the object id. The shared module crates/sc-agent-types/src/git.rs:99-184 follows the same pattern, adding --quiet and a rev that starts with '-' or equals WORKTREE is refused.",
+      "Observation: the new git module is not yet consumed. Nothing outside its own tests calls sc_agent_types::git::read_at_rev or discover_toplevel. read.rs and git_io.rs keep private copies of the logic. read.rs also still lacks --no-pager, LC_ALL=C and stdin=null, and it classifies failures by matching English stderr text (read.rs:226-243). The shared module avoids this by using exit status and probes. Plan to migrate the two callers so the hardening applies to them.",
+      "git.rs on cat-file blob: git cat-file blob <sha> writes the stored bytes with no textconv or filter. Only --textconv and --filters opt in, so leaving --no-textconv off is correct. The read is bounded by stdout.take(max+1), stderr is Stdio::null so the pipe cannot fill, and an over-cap read kills the child and then waits on it. GIT_TERMINAL_PROMPT=0, LC_ALL=C and stdin=null are set. One small gap: the read_result error path returns after wait, which is fine.",
+      "Minor, git.rs bounded waits: run() uses Command::output() and the blob read has no wall-clock deadline. A hung git, for example on a stalled network filesystem or a lock, would block the caller indefinitely. The byte bound exists but the time bound does not. If 'bounded waits' is a stated r-1 requirement, add a deadline with a kill. For local object reads I judged this below important.",
+      "Minor, git.rs env hygiene: inherited GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, GIT_OBJECT_DIRECTORY and GIT_ALTERNATE_OBJECT_DIRECTORIES override -C. A caller running under a git hook would read a different repository than the root it passed. Consider env_remove for those variables in git().",
+      "Minor, ureq kind mapping: ureq_error_kind in transport.rs:282-288 and https.rs:139-145 maps only Timeout and Io explicitly, and everything else falls to Connect. Real TLS failures such as certificate or handshake errors therefore become Connect, and retryable() returns true for them. NetworkErrorKind::Tls is only produced for the non-https URL guard. NetworkErrorKind::Status is never produced and BodyTooLarge is never produced (an oversize body is ResponseInvalid). retryable() is true only for Busy, Timeout and Connect (code.rs:215, error.rs:780). That is consistent with its docs, and its only consumer is the envelope retryable flag (envelope.rs:114), so the impact is a misleading hint for permanent TLS errors. Map the ureq TLS, certificate and rustls variants to Tls so they are not retryable.",
+      "Timeouts: the HTTP agents set timeout_connect (10 s default), and each request sets timeout_global (backends default 120 s, Jev request.timeout, packaged 60 s). max_redirects(0), https_only and http_status_as_error(false) are set. Response bodies are capped at 8 MiB with take(MAX+1) and a post-check, in both transports. Busy retries are bounded by BUSY_ATTEMPTS and a RetryBudget (backend.rs:183-213). Transport errors are not retried inside the backends.",
+      "max_request_bytes removal: the Jev 96 000 B limit comes from the descriptor (catalog.rs:100-122) and is enforced in check::prepare (check.rs:62-66) before any send, through client/mod.rs:198 and :202. A test exists: jev_api.rs:280 oversized_input_is_refused_and_nothing_is_sent asserts INPUT_TOO_LARGE with nothing sent. jev_api.rs:537-545 pins the 96_000 value. config.rs:193 tests that a stray max_request_bytes key is rejected.",
+      "Secrets: ResolvedApiKey::new is gone and try_new is the only constructor. The only non-test as_str() call sites are transport.rs:87/91 (one #[expect] covering both arms of install_auth) and https.rs:89 (one #[expect]), which matches the two expected sites. Debug and Display print [redacted]. redact_error goes through JevError::map_detail, which matches exhaustively over every variant. Text-bearing variants are mapped, and the unchanged list holds only variants with no free text (KeyMissing, InputTooLarge, InputEmpty, ExtractionEmpty, ExtractionTimeout, SessionNotFound, SessionExpired). I did not see the NetworkErrorKind or OperationalArea variants carry text outside the mapped detail and recovery fields. HttpRequest's Debug redacts headers. Both transports apply redact_error on every error path.",
+      "fix_hint text (error.rs:792-875): the new strings interpolate only caller-supplied detail, repo-relative paths and byte counts. The stderr tail in read.rs is sanitized and run through redact_error. I found no absolute paths, keys or home-directory leaks in the new text. Operational git recovery text reports only the io::ErrorKind.",
+      "Sessions: write_private (session/mod.rs:585-608) uses create_new with mode 0600, writes, sync_all, tightens permissions, renames over the target, removes the tmp file on failure, and syncs the parent directory on Unix. Directories are created with 0700. Reads are capped at MAX_SESSION_BYTES (8 MiB) with take(+1). The tmp-file and v2 document handling shows no regression.",
+      "CancelToken is std-only and always on (an Arc<AtomicBool> with Acquire/Release ordering). I saw nothing wrong with the type itself. I did not trace every call site to confirm that transports check it during blocking sends.",
+      "Minor: crates/sc-agent-secrets/src/dotenv.rs:34 reads the .env file with fs::read_to_string and no size cap. It is a local operator-controlled file, so I left it as an observation.",
+      "Dependency hygiene (cargo audit/deny in CI) was not assessed because the review targets did not include CI configuration."
+    ]
+  },
+  "error": null
+}

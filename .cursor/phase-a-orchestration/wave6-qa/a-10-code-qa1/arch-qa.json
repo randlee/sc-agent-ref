@@ -1,0 +1,98 @@
+{
+  "agent": "arch-qa",
+  "branch": "sprint/a-10-phase-end-hardening",
+  "scope": {"phase": "a", "sprint": "a-10-code"},
+  "commit": "1899319d1ca643696868c1c69c8d49437ba9f1ae",
+  "verdict": "FAIL",
+  "blocking": 2,
+  "important": 1,
+  "findings": [
+    {
+      "id": "ARCH-001",
+      "rule": "RULE-ADR-CODE",
+      "adr": "ADR-SAG-0022",
+      "severity": "BLOCKING",
+      "file": "docs/architecture.md",
+      "line": 155,
+      "description": "ADR-SAG-0022 is Active and says the sc-jev-py test-util feature 'adds keyword-only scripted_answers to run_check', that 'cargo test ... compiles the Python signature with cfg(test)', and that 'sprint a-8 pytest may enable it'. The code no longer does this. run_check has one signature with no scripted_answers parameter. Scripted injection is the separate Python function sc_jev_py._testing.run_check_scripted, registered only under feature test-util (crates/sc-jev-py/src/lib.rs:83-87, crates/sc-jev-py/src/run.rs:518-574). The code does not match the binding ADR text. The ADR also does not mention that ScriptedJudge and RequestLog are now pub under sc-jev-check test-util (crates/sc-jev-check/src/registry/mod.rs:17-27). Note: this change moves toward ADR-SAG-0011, ADR-SAG-0009 and the ADR-SAG-0022 intent (production run_check has no scripted parameter), but an ADR is changed only by a later ADR. Also stale: docs/architecture.md:156-163.",
+      "remediation": "Add an ADR (or amendment, e.g. ADR-SAG-0023 amending ADR-SAG-0022) that records the _testing submodule with run_check_scripted, the single run_check signature, the pub ScriptedJudge/RequestLog under sc-jev-check test-util, and shorthand normalisation inside register_scripted_backends. Update the ADR index. This must be Active or Approved before merge."
+    },
+    {
+      "id": "ARCH-002",
+      "rule": "RULE-ADR-CODE",
+      "adr": "ADR-SAG-0020",
+      "severity": "BLOCKING",
+      "file": "docs/architecture.md",
+      "line": 226,
+      "description": "ADR-SAG-0020 (Active) says 'Cargo feature test-util exposes the in-memory doubles MapEnv and MapKeyring'. sc-agent-secrets no longer has a test-util feature (crates/sc-agent-secrets/Cargo.toml has no [features]). MapEnv and MapKeyring are #[cfg(test)] only (crates/sc-agent-secrets/src/resolve.rs:214-216) and are not exported from lib.rs:69-76. The ADR's extension-point wording no longer matches the crate. Same drift in the same ADR: docs/architecture.md:395-396 says ResolvedApiKey::as_str is the only read and a transport may call it. The code now enforces this with clippy disallowed-methods plus two #[allow(..., reason)] sites, but the ADR does not record the clippy rule or the try_new constructor.",
+      "remediation": "Amend ADR-SAG-0020 by a later ADR. It should record that the doubles are crate-private cfg(test) code with no feature, that ResolvedApiKey::try_new is the one construction rule set, and that clippy.toml disallowed-methods restricts as_str to the two sending transports (crates/sc-jev/src/client/https.rs:84-88, crates/sc-jev-backends/src/transport.rs:81-85)."
+    },
+    {
+      "id": "ARCH-003",
+      "rule": "RULE-GATE",
+      "adr": "ADR-SAG-0020",
+      "severity": "IMPORTANT",
+      "file": "boundaries/sc-agent-secrets/agent-secrets.toml",
+      "line": 24,
+      "description": "The boundary manifest facade still lists sc_agent_secrets::MapEnv and MapKeyring, and notes (line 25) say they are 'behind the test-util feature'. Neither is exported and the feature no longer exists. The manifest is stale versus Cargo.toml and lib.rs. Dependency lists (allowed_dependencies, forbidden_edges) do match Cargo.toml. Boundary correctness itself belongs to ruthless-boundary-qa. I report it as a stale structural artifact.",
+      "remediation": "Remove MapEnv and MapKeyring from the facade and correct the notes."
+    },
+    {
+      "id": "ARCH-004",
+      "rule": "RULE-ADR-CODE",
+      "adr": "ADR-SAG-0016",
+      "severity": "MINOR",
+      "file": "docs/architecture.md",
+      "line": 361,
+      "description": "ADR-SAG-0016 text says sc-observability-types = \"1.5.0\" and sc-observability = \"1.5.0\". Workspace Cargo.toml:39-40 hoists both as \"=1.5.0\" (docs/architecture.md:30 already says =1.5.0). The version-form drift predates this PR and is covered by D8, which is not implemented here. The substance holds: sc-observability-types is only in sc-agent-types, and full sc-observability only in sc-ai and sc-jev-py.",
+      "remediation": "Resolve with the D8 ADR amendment of the version text. No code change."
+    }
+  ],
+  "adr_checks": [
+    {"adr": "ADR-SAG-0001", "source": "docs/architecture.md:88", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/src/registry/scripted.rs:209", "crates/sc-jev-py/src/run.rs:202-204"]},
+    {"adr": "ADR-SAG-0002", "source": "docs/architecture.md:95", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["crates/sc-jev/src/check.rs:53"]},
+    {"adr": "ADR-SAG-0003", "source": "docs/architecture.md:204", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["crates/sc-jev/Cargo.toml:21-26", "crates/sc-jev-backends/Cargo.toml:21-24", "crates/sc-jev-check/Cargo.toml:28"]},
+    {"adr": "ADR-SAG-0004", "source": "docs/architecture.md:240", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/src/run/mod.rs:33-49"]},
+    {"adr": "ADR-SAG-0005", "source": "docs/architecture.md:103", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["crates/sc-ai, sc-jev-py, sc-treesitter source: no PayloadBuilder use (sc-jev-py/src/run.rs:388 is a doc comment only)", "boundaries/sc-jev-check/jev-check.toml:24-25 (prepare_caller_request in payload)"]},
+    {"adr": "ADR-SAG-0006", "source": "docs/architecture.md:247", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["crates/sc-jev/src/lib.rs:30-33", "crates/sc-jev-backends/src/transport.rs:77"]},
+    {"adr": "ADR-SAG-0007", "source": "docs/architecture.md:255", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["crates/sc-jev-backends/Cargo.toml:21-24"]},
+    {"adr": "ADR-SAG-0008", "source": "docs/architecture.md:114", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/src/run/mod.rs:44-46", "crates/sc-jev-check/src/session/mod.rs"]},
+    {"adr": "ADR-SAG-0009", "source": "docs/architecture.md:123", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["crates/sc-jev-py/src/run.rs:519-574 (production run_check signature unchanged by test-util)", "crates/sc-jev-check/src/run/mod.rs:47-48"]},
+    {"adr": "ADR-SAG-0010", "source": "docs/architecture.md:265", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["crates/sc-ai/Cargo.toml:21-30 (no ureq, sc-jev or sc-jev-backends)", "boundaries/sc-ai/sc-ai-cli.toml:38-43"]},
+    {"adr": "ADR-SAG-0011", "source": "docs/architecture.md:272", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["crates/sc-jev-py/Cargo.toml:19 (crate-type = [\"cdylib\"])", "crates/sc-jev-py/src/run.rs:548 (pub(crate) pyfunction)"]},
+    {"adr": "ADR-SAG-0012", "source": "docs/architecture.md:376", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["crates/sc-jev/src/lib.rs:22-35 (client and config private, root re-exports)", "boundaries/sc-jev/jev.toml:24-25"]},
+    {"adr": "ADR-SAG-0013", "source": "docs/architecture.md:314", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["crates/sc-ai/Cargo.toml:27", "crates/sc-jev-py/Cargo.toml:40", "crates/sc-jev/Cargo.toml (no observability dependency)"]},
+    {"adr": "ADR-SAG-0014", "source": "docs/architecture.md:367", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["crates/sc-ai/src/command.rs:616-644"]},
+    {"adr": "ADR-SAG-0015", "source": "docs/architecture.md:299", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["crates/sc-treesitter/Cargo.toml:26-37 (only sc-agent-types, serde_json, tree-sitter, grammars, mimalloc)", "boundaries/sc-treesitter/treesitter.toml:36-45", "sc-lint.toml:51-70"]},
+    {"adr": "ADR-SAG-0016", "source": "docs/architecture.md:354", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["Cargo.toml:39-40 (pins hoisted, still =1.5.0)", "crates/sc-agent-types/Cargo.toml:28", "crates/sc-ai/Cargo.toml:27", "crates/sc-jev-py/Cargo.toml:40", "sc-lint.toml:79-91", "Cargo.lock:211,626,1350 (1.5.0)"]},
+    {"adr": "ADR-SAG-0017", "source": "docs/architecture.md:289", "listed_in_sprint_doc": false, "result": "not-applicable", "evidence_refs": ["No release-surface files in scope of the code PR; D8 amendment not implemented"]},
+    {"adr": "ADR-SAG-0018", "source": "docs/architecture.md:280", "listed_in_sprint_doc": false, "result": "not-applicable", "evidence_refs": []},
+    {"adr": "ADR-SAG-0019", "source": "docs/architecture.md:169", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/src/run/mod.rs:33-49 (RunOptions now also carries rev, sessions: Option, registry; the ADR field list at architecture.md:198-199 omits rev and registry. Pre-existing and minor)", "Cargo.toml:20-23 of sc-jev-check (assets/** packaged)"]},
+    {"adr": "ADR-SAG-0020", "source": "docs/architecture.md:215", "listed_in_sprint_doc": false, "result": "violated", "evidence_refs": ["docs/architecture.md:226-228 vs crates/sc-agent-secrets/Cargo.toml (no [features])", "crates/sc-agent-secrets/src/resolve.rs:214-216", "clippy.toml:6-8", "crates/sc-jev/src/client/https.rs:84-88", "crates/sc-jev-backends/src/transport.rs:81-93"]},
+    {"adr": "ADR-SAG-0021", "source": "docs/architecture.md:326", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["crates/sc-jev-py/src/logging.rs (logger per log root)", "crates/sc-ai/src/command.rs:909 (log-flush warning in data.warning)"]},
+    {"adr": "ADR-SAG-0022", "source": "docs/architecture.md:133", "listed_in_sprint_doc": false, "result": "violated", "evidence_refs": ["docs/architecture.md:155-163 vs crates/sc-jev-py/src/lib.rs:83-87", "crates/sc-jev-py/src/run.rs:518-574", "crates/sc-jev-check/src/registry/mod.rs:17-27"]},
+    {"adr": "RULE-ADR-AWAIT-MUTEX (ADR-RUN-0011 pt 2)", "source": ".claude/agents arch-qa rules", "listed_in_sprint_doc": false, "result": "not-applicable", "evidence_refs": ["No async fn or .await anywhere under crates/ (grep count 0)"]}
+  ],
+  "gate_artifact_checks": [
+    {
+      "artifact": "boundaries/*/*.toml (8 manifests) vs crates/*/Cargo.toml",
+      "status": "open",
+      "evidence_refs": ["boundaries/sc-agent-secrets/agent-secrets.toml:24-25"],
+      "notes": "Dependency lists in all eight manifests match their Cargo.toml normal dependencies after the workspace hoists. The workspace-level `workspace = true` and `.workspace = true` forms do not change crate names. One stale facade and notes entry (MapEnv, MapKeyring, test-util) remains in the sc-agent-secrets manifest."
+    },
+    {
+      "artifact": "sc-lint.toml",
+      "status": "closed",
+      "evidence_refs": ["sc-lint.toml:37-98"],
+      "notes": "global_dependency_ownership records (ureq, pyo3, tree-sitter*, keyring, sc-observability, sc-observability-types, mimalloc) match the current manifest edges and the allowed_dependencies lists. The jev-python test layer is present. mimalloc is documented as interim pending D8."
+    },
+    {
+      "artifact": "clippy.toml",
+      "status": "closed",
+      "evidence_refs": ["clippy.toml:6-8", "crates/sc-jev/src/client/https.rs:84-87", "crates/sc-jev-backends/src/transport.rs:81-84"],
+      "notes": "disallowed-methods for ResolvedApiKey::as_str. The only production as_str readers carry #[allow] with a stated ADR-SAG-0020 reason (the two transports)."
+    }
+  ],
+  "merge_ready": false,
+  "notes": "Verified by file reads: the worktree gitdir points at branch sprint/a-10-phase-end-hardening, whose ref (.git/refs/heads/...) is 1899319d1ca643696868c1c69c8d49437ba9f1ae, matching the input. cargo and git were not run, so the 98-file diff was not enumerated. The check is a full-workspace manifest, boundary and ADR-text sweep plus targeted source greps. Findings: the code changes uphold the substance of every Active ADR, but ADR-SAG-0022 and ADR-SAG-0020 text now contradicts the code (scripted_answers on run_check; sc-agent-secrets test-util feature). Under this agent contract an ADR is changed only by a later Active ADR, so these two are Blocking until an amending ADR is written. The fix is documentation only, no code revert. Confirmations: (1) ADR-SAG-0016: pins hoisted to the workspace and still =1.5.0; sc-observability-types is only in sc-agent-types; full sc-observability only in sc-ai and sc-jev-py. (2) ADR-SAG-0012: sc-jev client and config modules are private; the facade lists root re-exports only. (3) ADR-SAG-0005: VendorPin and PACKAGED-PROMPT-TOKEN are gone (only a negative test string remains at crates/sc-jev-check/src/config/mod.rs:241); no composition root references PayloadBuilder. (4) D1-D13 were not implemented: the workspace has the same 8 members, with no sc-agent-compose, sc-agent-http or workspace-tests crate; sc-observability-types is still a dependency of sc-agent-types (D7 not started); no clap; ADR index is unchanged for D8/D9/D13; mimalloc still unconditional in sc-treesitter (D8). No RULE-ADR-AWAIT-MUTEX findings (no async code). The sprint doc (PHASE-A-REVIEW.md section 3) has no `adrs` list, since it is a review handoff and not a sprint plan, so listed_in_sprint_doc is false throughout and RULE-ADR-PLAN was not applied."
+}

@@ -1,0 +1,52 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/a-10-phase-end-hardening",
+    "reviewed_commit": "145d47aadddd7d893104bbbf6591a91e7bb30b8a",
+    "findings": [
+      {
+        "id": "FTQ-011",
+        "severity": "important",
+        "file": "tests/support/deadline.rs",
+        "line": 53,
+        "test": "every caller of spawn_with_deadline (sc-ai cli, sc-treesitter cli, sc-jev-check git helpers and the env re-exec test, jev_cross_impl)",
+        "mechanism": "unbounded_wait",
+        "issue": "The shared runner bounds only the try_wait loop. Two unbounded waits remain. (1) After the kill at the deadline, `stderr.join()` waits for the drain thread, which waits for pipe EOF. A grandchild that inherited the pipe keeps it open: a git hook, a credential helper, or the `sleep` under an `sh -c` extractor. `child.kill()` does not kill grandchildren, so the join blocks until that process exits, possibly forever. The failure path the runner exists for therefore hangs. The same applies to `stdout.join().expect(..)` on the normal exit path when a daemonized grandchild holds stdout. (2) `pipe.write_all(bytes)` for stdin runs before the deadline clock starts. If the child never reads stdin and the payload exceeds the pipe buffer, the test blocks forever. A child that stalls on a lock or hook is the exact scenario FTQ-003 and FTQ-008 target, so this is the same CI-job-timeout outcome the runner was meant to remove.",
+        "recommendation": "Bound the drains. Have the drain threads send their buffers over an mpsc channel and collect them with recv_timeout, using a short grace period (a few seconds) after exit or kill. If the grace period expires, report 'pipe held open by a grandchild' and use the output captured so far, rather than joining. Start the deadline clock before the stdin write, or write stdin on its own thread so the main loop stays bounded. On Unix, put the child in its own process group and kill the group so grandchildren die with it.",
+        "evidence": "`let stderr = stderr.join().unwrap_or_default();` (line 54, after kill and wait); `stdout: stdout.join().expect(\"stdout reader\")` (line 65); `pipe.write_all(bytes).expect(\"write stdin\")` (line 45) runs before `let started = Instant::now();` (line 47)."
+      },
+      {
+        "id": "FTQ-012",
+        "severity": "minor",
+        "file": "scripts/sc-publish-dry-run.sh",
+        "line": 160,
+        "test": "phase_publish (cargo publish --dry-run, local and PR CI)",
+        "mechanism": "shared_state",
+        "issue": "The content-keyed target dir hashes `git rev-parse HEAD^{tree}` plus `git diff HEAD --binary`. Untracked files are in neither. With SC_PUBLISH_ALLOW_DIRTY=1, cargo packages untracked files, but the key does not change when one is added, edited or removed. The reused tmp-registry unpack under $CARGO_HOME/registry/src then holds stale sources. That is the stale-unpack failure the comment describes (a new public item in sc-agent-types failing to resolve in sc-jev-check). Whether it fails depends on prior run history and cache state, so it is a state-dependent intermittent. Old target/sc-publish-dry-run/<key> directories are also never pruned.",
+        "recommendation": "Add untracked, non-ignored files to the key, for example by hashing `git ls-files --others --exclude-standard -z` paths and contents. Or fail fast on untracked files unless a fresh target dir is used. Do not add a retry or cache-clearing fallback.",
+        "evidence": "`content_key=\"$({ git rev-parse 'HEAD^{tree}'; git diff HEAD --binary; } | python3 -c ...)\"` with `publish_args+=(--target-dir \"target/sc-publish-dry-run/$content_key\")`."
+      }
+    ],
+    "summary": {
+      "total_findings": 2,
+      "critical": 0,
+      "important": 1,
+      "minor": 1
+    },
+    "carry_forward_verification": {
+      "FTQ-006": "closed. The accept loop is nonblocking and bounded by SERVER_DEADLINE (30 s) or the shutdown flag. Streams have 10 s read and write timeouts. finish() uses recv_timeout(10 s) and panics with 'server expected N connections, saw M'. A should_panic self-test covers this. The two copies are byte-compared in sc-jev lib.rs.",
+      "FTQ-007": "closed. The tick count is replaced by a started/ack sentinel-file handshake, with a 20 s bound on both the worker and the extractor and a 60 s extractor timeout above them. The WorkerGuard drop guard sets stop and joins with a 30 s limit. The Rust test is cfg(unix) because it needs sh, which is correct. I did not read the Python twin (tests/fixtures/jev-python/tests/test_run_check_and_ask.py), so it is unverified.",
+      "FTQ-008": "mostly closed. The git helpers, the env re-exec test and the cross-impl test now go through spawn_with_deadline, and GIT_CONFIG_NOSYSTEM is set. The runner itself still has unbounded waits (see FTQ-011).",
+      "FTQ-009": "closed. closed_port() returns a guard that keeps the listener bound, and the redirect target is the reserved name invalid.test. The outcome does not depend on timing. The request times out against a queued, unaccepted connection.",
+      "FTQ-010": "closed. Reply::Stall blocks on a release channel, bounded by SERVER_DEADLINE, and is released by finish()."
+    },
+    "new_test_audit": {
+      "byte_compare_include_str_tests": "no flakiness mechanism. Both files are checked out from the same repo, so the comparison is deterministic.",
+      "sc_treesitter_crlf_test": "no flakiness mechanism. It uses an explicit -text and then text attribute, goes through the bounded git helper, and GIT_CONFIG_NOSYSTEM is set in tests/support/mod.rs.",
+      "WorkerGuard_cfg_unix": "no flakiness mechanism. The cfg gating matches the test's use of sh.",
+      "windows_symlink_test_note": "no flakiness mechanism. The test is cfg(unix)."
+    }
+  },
+  "error": null
+}

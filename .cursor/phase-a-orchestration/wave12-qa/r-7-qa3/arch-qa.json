@@ -1,0 +1,23 @@
+{
+  "agent": "arch-qa",
+  "branch": "sprint/r-7-decision-schema",
+  "scope": {"phase": "phase-a-refine", "sprint": "r-7"},
+  "commit": "a6a1387",
+  "verdict": "PASS",
+  "blocking": 0,
+  "important": 0,
+  "findings": [],
+  "adr_checks": [
+    {"adr": "ADR-SAG-0013", "source": "docs/architecture.md (ADR-SAG-0013; REQ-SAG-0610)", "listed_in_sprint_doc": true, "result": "upheld",
+     "evidence_refs": ["crates/sc-jev-check/src/run/mod.rs:800-821", "crates/sc-jev-check/src/run/mod.rs:40-44", "crates/sc-jev-check/src/run/tests.rs:644-679"]},
+    {"adr": "ADR-SAG-0027", "source": "docs/architecture.md:1406", "listed_in_sprint_doc": true, "result": "upheld",
+     "evidence_refs": ["docs/architecture.md:1512", "crates/sc-agent-types/src/git.rs:43", "crates/sc-agent-types/src/error.rs:177"]},
+    {"adr": "ADR-SAG-0028", "source": "docs/architecture.md:1533", "listed_in_sprint_doc": true, "result": "upheld",
+     "evidence_refs": ["docs/architecture.md:1576", "crates/workspace-tests/Cargo.toml:21", "boundaries/workspace-tests/workspace-tests.toml:31"]},
+    {"adr": "ADR-RUN-0011", "source": "RULE-ADR-AWAIT-MUTEX", "listed_in_sprint_doc": false, "result": "not-applicable",
+     "evidence_refs": ["crates/sc-agent-types/src/git.rs (no Mutex and no .await)"]}
+  ],
+  "gate_artifact_checks": [],
+  "merge_ready": true,
+  "notes": "ARCH-001, ARCH-002 and ARCH-003 are all closed at a6a1387. ARCH-001 (REQ-SAG-0610 with ADR-SAG-0013): crates/sc-jev-check/src/run/mod.rs send() at 800-821 now calls judge.judge(...), then emit_log(...) unconditionally, then returns the result. No branch skips the log for a cancel-at-entry or a NETWORK_ERROR of kind Cancelled. The module doc at 40-44 now says every call that reaches judge emits exactly one LogEvent (Ok, Failed, and a call cancelled before it reached the transport), and that only a backend refused by validate_for_send (NotSent) emits none. judge_one() returns NotSent before send(), so that case still emits none. The old test is gone. tests.rs:647 cancelled_call_still_emits_one_log_event pre-cancels the token and checks that one log event is emitted. It then sends a live request and checks the count is 2. ARCH-002 and ARCH-003 are closed as in my earlier report. ADR-SAG-0028 (docs/architecture.md:1576) amends the workspace-tests dev edges. ADR-SAG-0027 (docs/architecture.md:1512) records GitTimeout and the pub(crate) GIT_DEADLINE. I found no new violation in the 4eb8265..a6a1387 delta. I had no shell, so I could not diff the range; I checked HEAD content directly. The branch ref resolves to a6a13879c59b."
+}

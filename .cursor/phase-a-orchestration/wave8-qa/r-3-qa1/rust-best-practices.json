@@ -1,0 +1,46 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-3-shared-http",
+    "reviewed_commit": "8f969ff",
+    "review_mode": "sprint_review",
+    "practice_mode": "all",
+    "practices_reviewed": ["RBP-001","RBP-002","RBP-003","RBP-004","RBP-005","RBP-006","RBP-007","RBP-008","RBP-009","RBP-010"],
+    "findings": [
+      {
+        "id": "RBP-F007",
+        "practice_id": "RBP-001",
+        "severity": "important",
+        "file": "crates/sc-jev-backends/src/backend.rs",
+        "line": 181,
+        "issue": "Secret redaction of reply-parse errors is a per-call-site convention. The crate docs say send_with_busy_retry redacts every error it returns. That covers only transport and retry errors. The caller must also hand-call redact(error, &request) on every parse error. This forces Client::send to return an (HttpResponse, HttpRequest) tuple just to carry the request for later redaction. The same transport + policy + cancel + provider-prefix + non-200 mapping + redact sequence is written twice, in JevClient::execute and in Client::send. Its builders are duplicated too: with_busy_policy, with_cancel, with_default_transport.",
+        "recommendation": "Move the pattern into sc-agent-http as one shared piece. Either (a) a small Sender/Session type holding the transport, BusyPolicy and CancelToken, with the builders once, whose send returns a Reply handle that owns the request and exposes redact(error) or a map_parse(|body| ...) that redacts for you, or (b) a send_and_parse(transport, request, policy, cancel, |resp| parse) helper that applies redaction to the closure's error. Both backends then drop the tuple and the manual redact calls. ADR-SAG-0012 plans more Jev operations in sc-jev, so a missed redact call will be a secret leak. This keeps the F006 consolidation going one level up.",
+        "evidence": "Manual redact(...) calls: backend.rs:134, 139, 145, 188 and client/mod.rs:181. The full sequence is repeated at client/mod.rs:165-181 and backend.rs:181-194. Both wrappers hold identical state: api_key, transport, policy, cancel (client/mod.rs:74-80, backend.rs:95-102)."
+      }
+    ],
+    "summary": {
+      "total_findings": 1,
+      "by_severity": { "critical": 0, "important": 1, "minor": 0 }
+    },
+    "notes": [
+      "Verification: the worktree HEAD is refs/heads/sprint/r-3-shared-http. I had no shell, so I could not compare the commit hash 8f969ff directly. The branch ref matches the assignment.",
+      "RBP-F006 (parallel HTTP layers): CLOSED. UreqTransport is the only ureq user in crates/. There is one retry loop (retry.rs) and one thread::sleep in the HTTP path (retry.rs:206). Neither sc-jev nor sc-jev-backends depends on ureq or sleeps. The old with_timeouts and with_retry_sleeper are gone from crates/. The new duplication is only the thin wrapper described in RBP-F007.",
+      "RBP-F001 (string-prefix recovery scheme): still OPEN, but sc-agent-http does not extend it. Its errors use NetworkErrorKind plus a fixed detail. The prefix is added by the backends through error.map_detail(|d| format!(\"Jev {d}\")) at client/mod.rs:173 and format!(\"{} {detail}\", provider.name) at backend.rs:185. Provider identity is therefore embedded in detail text, not a structured field. The two Busy exhaustion errors (retry.rs:269 and 276) are told apart only by detail text ('N sends exhausted' vs 'retry budget exhausted'), both under kind Busy. This is acceptable under 'no new ids'. Closing F001 would mean a structured provider/producer field.",
+      "RBP-008 / RBP-003: PASS. Transport is object-safe (one &self method, Send + Sync). It is used as &dyn in send_with_busy_retry, with blanket impls for &T and Arc<T>. The openness statement is explicit ('Open on purpose (ADR-SAG-0006)'). Minor: there is no Box<dyn Transport> impl.",
+      "Generics vs dyn: the dyn parameter on send_with_busy_retry is right, because it is not a hot path and it keeps the function out of monomorphization. JevClient<T = UreqTransport> and the backend wrappers are generic over T, which matches ADR-0006 construction-time injection.",
+      "RBP-004: HeaderName is a const-validated &'static str (a compile error for bad names), HttpRequest and SecretHeader keep private fields, and Debug redacts the secret. Minor items: (a) Timeouts::new and BusyPolicy::new(u32) do not validate. new(0) silently clamps to 1, so NonZeroU32 would fit. Zero Duration timeouts are accepted, while JevClientConfig range-checks them separately. (b) HttpResponse::new takes a raw u16 status and String header names, which is fine for transport-built values. (c) Endpoint carries a redundant https: bool next to the URL string and accepts userinfo in the URL.",
+      "Minor: backend.rs:197 re-runs Endpoint::parse(format!(...)) on every send for compile-time-constant host and path. The error path is unreachable for the constants (RBP-007 flavour). Build the Endpoints once in Provider, as JevClientConfig does.",
+      "Minor: SecretHeader::matches is public in production builds (it is defined in ureq_transport.rs:153-161) and uses a non-constant-time ==. It also gives open, third-party Transport impls an equality oracle, which weakens the 'nothing here returns the key' claim. Gate it behind test-util or document the residual risk. SecretHeader also derives PartialEq/Eq over the key.",
+      "Minor (RBP-001): ureq_transport.rs:137-142 maps an invalid-request build error to NetworkErrorKind::Connect, which is retryable() == true even though the failure is deterministic. Separately, the BodyTooLarge kind is documented as 'exceeded the read cap', but the real cap path (ureq_transport.rs:195-199) returns RESPONSE_INVALID. The BodyExceedsLimit to BodyTooLarge mapping is therefore probably unreachable. Align the two or drop the dead mapping.",
+      "RBP-006: the Mutex use is confined to the test-util module and is justified by the Send + Sync bound on Transport. Poisoning is handled. The module docs say clones share state but do not state why a Mutex is needed, so add one line. FakeClock could be an AtomicU64 of nanoseconds. Lock order (script then clock) is acyclic.",
+      "BusyPolicy and the test hooks: the test hooks are gated by test-util. Hooks::elapsed has an unreachable! arm under test-util (retry.rs:171-172). The invariant (a loop's start comes from its own policy) could be encoded in the types. This is minor.",
+      "#[expect]: the only attribute in the three crates is ureq_transport.rs:164, and it has a reason. There are no bare #[allow]s.",
+      "Facade: Timeouts is justified because it appears in the UreqTransport::new signature. HeaderName is justified because it appears in the with_header and SecretHeader signatures. The free redact function is justified as a cross-crate need (but see RBP-F007). The test_util surface (FakeClock, RecordingSleeper, ScriptedTransport, RecordingTransport) is consistent and secret-safe.",
+      "Layering: Endpoint::parse in request.rs calls into the private ureq_transport module (check_https_url, is_valid_url). URL validation would sit better in request.rs with a re-export of Uri, with the dependency pointing the other way.",
+      "ADR-0007 'backend builder for tests': with_default_transport + new(key, transport) + with_busy_policy(BusyPolicy::with_test_hooks(..)) + with_cancel covers this need. Timeouts are changed via UreqTransport::new(Timeouts::new(..)). The removal of with_timeouts is consistent with that, so no gap.",
+      "RBP-002, RBP-005, RBP-009, RBP-010: no findings. The compile-time-constant header names and the Arc<[u8]> body shared across retries are good applications."
+    ]
+  },
+  "error": null
+}

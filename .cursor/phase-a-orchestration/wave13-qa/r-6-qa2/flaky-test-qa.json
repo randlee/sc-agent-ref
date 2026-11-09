@@ -1,0 +1,39 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-6-session-log-record",
+    "reviewed_commit": "34655a4465760a9e31860b5eea8b78960674714c",
+    "findings": [
+      {
+        "id": "FTQ-005",
+        "severity": "minor",
+        "file": "crates/sc-jev-check/tests/session.rs",
+        "line": 467,
+        "test": "test_two_stores_same_dir_last_writer_wins",
+        "mechanism": "unbounded_wait",
+        "issue": "The concurrent-writer helper joins eight std threads with no deadline. If any writer thread wedges inside save() or load(), the test blocks forever instead of failing, and the CI job only ends at its own timeout. Today the store takes no lock (session/mod.rs:21 states there is no lock), so no blocking path is reachable and this is not a current flake. It still violates the Fix Standard: a join with no hard deadline is a path on which the test can block forever.",
+        "recommendation": "Have each writer thread send a completion message on an mpsc channel (or use a Barrier/scope with a completion counter) and wait with recv_timeout against a fixed deadline, e.g. 30 s. On timeout, panic with a message naming the stuck writer index. Keep the per-thread expect() so save and load errors still surface through the channel.",
+        "evidence": "concurrent_writers (lines 449-468): `for writer in writers { writer.join().expect(\"writer\"); }`. The only bound is the test runner's. session/mod.rs:21 says 'There is no lock, in process or across processes.' Temp names are unique (`<name>.tmp.<pid>.<random>`, mod.rs:455-460), so the rename race itself is safe."
+      },
+      {
+        "id": "FTQ-006",
+        "severity": "minor",
+        "file": "crates/sc-ai/tests/cli.rs",
+        "line": 379,
+        "test": "test_cli_log_flush_warning_in_data",
+        "mechanism": "unbounded_wait",
+        "issue": "The make_fifo helper spawns mkfifo with Command::new(...).status(), which waits with no deadline. This bypasses the workspace's bounded runner (deadline.rs, which every other subprocess in this file uses), so a stalled child would hang the test instead of failing at 60 s. The disallowed_methods expect() only justifies the direct spawn; it does not bound the wait.",
+        "recommendation": "Run mkfifo through deadline::spawn_with_deadline(&mut Command::new(\"mkfifo\").arg(path), None) and assert status.success(), the same way the rest of cli.rs does. The deadline module is already imported at the top of the file.",
+        "evidence": "cli.rs:378-383: `let status = Command::new(\"mkfifo\").arg(path).status().expect(\"spawn mkfifo\");`. Every other subprocess in the file goes through `spawn_with_deadline` (cli.rs:18, 91)."
+      }
+    ],
+    "summary": {
+      "total_findings": 2,
+      "critical": 0,
+      "important": 0,
+      "minor": 2
+    }
+  },
+  "error": null
+}

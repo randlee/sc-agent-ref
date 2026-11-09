@@ -1,0 +1,77 @@
+# QA Findings Update
+
+Generated: 2026-11-08T06:09:00Z
+QA Pass: qa-r6-1
+Sprint/Task: r-6 / qa-r6-1
+Branch: `sprint/r-6-session-log-record`
+Commit: `0408826`
+PR: #35
+Verdict: **FAIL**
+
+## Machine Status (JSON)
+```json
+{
+  "sprint": "r-6",
+  "task": "qa-r6-1",
+  "branch": "sprint/r-6-session-log-record",
+  "commit": "0408826",
+  "pr": 35,
+  "verdict": "FAIL",
+  "deliverables": {
+    "complete": 10,
+    "total": 11,
+    "percent": 90.9
+  },
+  "findings": {
+    "blocking": 1,
+    "important": 2,
+    "minor": 10
+  },
+  "blocking_ids": ["REQ-QA-001"],
+  "merge_readiness": "not ready",
+  "merge_reason": "Spawn gate passed. Open findings: 1 Blocking, 2 Important, 10 Minor (13 total; TODO scan 0). CI at PR head f6ddc71 still pending (test ubuntu-24.04, macos-15, windows-2022). PR head is past the reviewed head 0408826 by test-only commit f6ddc71, which this round did not review.",
+  "next_action": "Triage and fix all 13 open findings (REQ-QA-001 to REQ-QA-005, FTQ-001 to FTQ-004, RSH-001 to RSH-004), then re-QA. Route fix assignments through cursor-orchestration.",
+  "owner": "parent orchestrator (cursor-orchestration)",
+  "reviewer_spawn_gate": "pass",
+  "reviewer_manifest": [{"agent": "rust-qa-agent", "task_id": "a5695e3090ce19689", "spawn_actor": "parent-orchestrator", "fenced_json_received": true, "verdict": "PASS", "findings": {"blocking": 0, "important": 0, "minor": 0}}, {"agent": "rust-best-practices-agent", "task_id": "af06deea9e89628b3", "spawn_actor": "parent-orchestrator", "fenced_json_received": true, "verdict": "PASS", "findings": {"blocking": 0, "important": 0, "minor": 0}}, {"agent": "rust-service-hardening-agent", "task_id": "a875a394afb55ead7", "spawn_actor": "parent-orchestrator", "fenced_json_received": true, "verdict": "FINDINGS", "findings": {"blocking": 0, "important": 0, "minor": 4}}, {"agent": "flaky-test-qa", "task_id": "a9ffd7790164dfa5f", "spawn_actor": "parent-orchestrator", "fenced_json_received": true, "verdict": "FINDINGS", "findings": {"blocking": 0, "important": 1, "minor": 3}}, {"agent": "req-qa", "task_id": "a81fe918769870cbb", "spawn_actor": "parent-orchestrator", "fenced_json_received": true, "verdict": "FAIL", "findings": {"blocking": 1, "important": 1, "minor": 3}}, {"agent": "arch-qa", "task_id": "ac323b0b60158249a", "spawn_actor": "parent-orchestrator", "fenced_json_received": true, "verdict": "PASS", "findings": {"blocking": 0, "important": 0, "minor": 0}}],
+  "evidence_chain": {"qa_pass": "qa-r6-1", "commit": "0408826", "pr_comment_url": "pending", "coordinator_task_id": "not-recorded", "triage": {"ttl_paths": []}},
+  "missing_reviewers": [],
+  "unparsed_reviewers": []}
+```
+
+## Findings Summary
+- Deliverables: 10/11 (90.9%)
+- Blocking: 1
+- Important: 2
+- Minor: 10
+
+## Blocking Findings
+- **REQ-QA-001** (Blocking): sprint `requirements:` list omits crate-level REQ/NFR ids for the seven owned crates. Add them, with a regression command or justification per non-root id, or narrow the rule in plan.md:590.
+
+## Detailed Findings
+- **REQ-QA-001** (Blocking, requirement-not-listed) `docs/plans/phase-a-refine/sprint-r-6-session-log-record.md` `requirements:` list omits crate-level REQ/NFR ids for the seven owned crates (e.g. REQ-SAG-0101/0103/0120/0121/0147/0148, REQ-SAG-0505, REQ-SAG-0300..0314 subset, 0503, 0601-0603, 0620, REQ-SAG-0604/0605, REQ-SAG-0702/0703/0710/0712/0900, REQ-SAG-0803). Fix: add them and give each non-root id a regression command or one-line justification, or amend plan.md:590 to a narrower rule.
+- **REQ-QA-002** (Important, acceptance-gap) `tests/fixtures/jev-python/tests/test_run_check_and_ask.py:185-214`: `test_uuid_session_id_is_input_invalid` asserts ULID ids only; the promised Python UUID refusal and hint do not exist. Fix: amend D1 and REQ-SAG-0612 to ULID-only for Python and rename the test, or add a Python-reachable refusal.
+- **FTQ-001** (Important, env_leak) `tests/fixtures/jev-python/tests/test_run_check_and_ask.py:337`: fixture `git init` inherits GIT_DIR, GIT_INDEX_FILE and similar variables from the launching context. Fix: strip the git environment variables as `crates/sc-agent-types/src/git.rs:98-102` does and set GIT_CONFIG_GLOBAL/SYSTEM, GIT_CONFIG_NOSYSTEM and GIT_TERMINAL_PROMPT=0.
+- **REQ-QA-003** (Minor, cross-doc-conflict) `docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:9-11`: front matter branch/worktree reads `sprint/r-6-session-log-wiring`. Fix: set both to `sprint/r-6-session-log-record`.
+- **REQ-QA-004** (Minor, implementation-drift) `crates/sc-jev-host/src/compose.rs:259-274`: D5 says cwd, implementation uses explicit repo root else cwd. Fix: amend D5, ADR-SAG-0031 and docs/sc-jev-host, and confirm a test covers explicit `--repo-root`.
+- **REQ-QA-005** (Minor, cross-doc-conflict) `crates/sc-agent-types/tests/features.rs:8-9`: stale text says sha2 is a core dependency. Fix: name `sc-sha` and `ulid` as the core dependencies.
+- **FTQ-002** (Minor, unbounded_wait) `tests/fixtures/jev-python/tests/test_run_check_and_ask.py:334`: `git init` subprocess has no timeout. Fix: pass `timeout=` or route through a bounded helper (pairs with FTQ-001).
+- **FTQ-003** (Minor, timing_assertion) `tests/fixtures/jev-python/tests/test_run_check_and_ask.py:403` (`test_build_request_releases_the_gil`): two independent 20 s deadlines race on loaded hosts and misreport the cause. Fix: remove the worker deadline, bound via the stop event and finally block, and assert `started.exists()` first. Do not widen the budgets.
+- **FTQ-004** (Minor, timing_assertion) `crates/sc-jev-host/tests/log_context.rs:147`: discards `response.warnings()`, so flush timeouts surface as opaque row-count failures. Fix: assert `warnings().is_empty()` before reading the file; same pattern at `crates/sc-jev-host/tests/obs.rs:114,150`.
+- **RSH-001** (Minor, bounded_resources_retention) `crates/sc-jev-check/src/session/mod.rs:508-528`: expired `<id>.json` session documents are never removed. Fix: extend `sweep_stale_tmp` to remove documents past the TTL, or document a retention policy with a prune command.
+- **RSH-002** (Minor, graceful_shutdown_flush) `crates/sc-jev-host/src/compose.rs:343-349` and `:418-423`: session-log flush is skipped on the error path, and `obs.rs:45-52` drops flush errors. Fix: always call `finish_log` before propagating the error and surface flush failures.
+- **RSH-003** (Minor, request_id_correlation) `crates/sc-jev-host/src/obs.rs:196-197`: envelope `request_id` and `correlation_id` are None. Fix: populate correlation with the session id, keep `fields{}` unchanged.
+- **RSH-004** (Minor, structured_logging_tracing) `crates/sc-jev-host/src/obs.rs:188`: every session-log event is Level::Info, including failed sends. Fix: derive Warn from `send_outcome == "failed"`.
+
+Coordinator notes: rust-qa ran fmt, clippy and tests at 0408826 (pass). rust-best-practices and rust-service-hardening had no shell, so RSH-001 and RSH-002 are not confirmed as delta-introduced. req-qa and arch-qa were read-only and ran no gates. The PR head is f6ddc71, a test-only commit (log_context.rs) that no reviewer has covered. TODO scan: 0 Rust TODO hits.
+
+## Resolved Since Last Pass
+- none
+
+## Merge Readiness
+- Status: **not ready**
+- Reason: Spawn gate passed. Open findings: 1 Blocking, 2 Important, 10 Minor (13 total; TODO scan 0). CI at PR head f6ddc71 still pending (test ubuntu-24.04, macos-15, windows-2022). PR head is past the reviewed head 0408826 by test-only commit f6ddc71, which this round did not review.
+
+## Next Action
+- Action: Triage and fix all 13 open findings (REQ-QA-001 to REQ-QA-005, FTQ-001 to FTQ-004, RSH-001 to RSH-004), then re-QA. Route fix assignments through cursor-orchestration.
+- Owner: parent orchestrator (cursor-orchestration)

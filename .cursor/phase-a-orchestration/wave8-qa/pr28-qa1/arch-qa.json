@@ -1,0 +1,78 @@
+{
+  "agent": "arch-qa",
+  "branch": "docs/close-wave1-2",
+  "scope": {"phase": "a.1", "sprint": "r-1, r-2, r-3, r-3c, r-4 (closeout)"},
+  "commit": "fe375c2f72683f1b12b77f30080cb30ef6d9cdd6",
+  "verdict": "PASS",
+  "blocking": 0,
+  "important": 1,
+  "findings": [
+    {
+      "id": "ARCH-001",
+      "rule": "RULE-GATE",
+      "adr": "ADR-SAG-0017",
+      "severity": "IMPORTANT",
+      "file": "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md",
+      "line": 268,
+      "description": "The Implementation notes still say 'this doc stays status: in-review until the URL is recorded or the owner waives the row'. Lines 279-280 say the owner flips the doc to complete after recording the URL. The frontmatter (line 4) now says complete while the URL is still unfiled. docs/architecture.md:672 still carries the 'not yet filed' placeholder. The frontmatter comment records the deferral honestly, so the status is defensible. The body text now contradicts it.",
+      "remediation": "Reword lines 268 and 279-280 to say the row is deferred to the owner (bead agt-scoop-multi-shim) and the status is complete with that row open. Alternatively, record the owner's waiver there. This is an edit to existing text only. It adds no gate, receipt or check."
+    }
+  ],
+  "adr_checks": [
+    {
+      "adr": "ADR-SAG-0017",
+      "source": "docs/architecture.md:672",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:4", "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:271-281"]
+    },
+    {
+      "adr": "ADR-SAG-0023",
+      "source": "docs/architecture.md",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [".cursor/phase-a-orchestration/wave7-qa/r-4-qa2/arch-qa.json:6", ".cursor/phase-a-orchestration/wave8-qa/r-2-qa2/arch-qa.json:14"]
+    },
+    {
+      "adr": "ADR-SAG-0016",
+      "source": "docs/architecture.md",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [".cursor/phase-a-orchestration/wave8-qa/r-2-qa2/arch-qa.json:11"]
+    }
+  ],
+  "gate_artifact_checks": [
+    {
+      "artifact": "docs/plans/phase-a-refine/sprint-r-1-types-break.md",
+      "status": "closed",
+      "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-1-types-break.md:4", ".cursor/phase-a-orchestration/wave7-qa/r-1-qa2/arch-qa.json:7", ".cursor/phase-a-orchestration/wave7-qa/r-1-qa2/arch-qa.json:44"],
+      "notes": "The arch-qa QA-2 verdict is PASS with merge_ready true. flaky-test-qa has one minor finding (FTQ-001) and rust-qa passed. The status line cites PR 22 and QA-2 PASS."
+    },
+    {
+      "artifact": "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md",
+      "status": "closed",
+      "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:4", ".cursor/phase-a-orchestration/wave8-qa/r-2-qa2/arch-qa.json:6", ".cursor/phase-a-orchestration/wave8-qa/r-2-qa2/req-qa.json:2"],
+      "notes": "QA-2 arch-qa, req-qa, rust-qa, flaky-test-qa and boundary-qa are all PASS. The CI runs are cited in the sprint doc."
+    },
+    {
+      "artifact": "docs/plans/phase-a-refine/sprint-r-3-shared-http.md",
+      "status": "closed",
+      "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-3-shared-http.md:4", ".cursor/phase-a-orchestration/wave8-qa/r-3-qa2/arch-qa.json:6"],
+      "notes": "The arch-qa QA-2 verdict is PASS with merge_ready true. flaky-test-qa passed."
+    },
+    {
+      "artifact": "docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md",
+      "status": "closed",
+      "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md:4", "docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md:132-135", ".cursor/phase-a-orchestration/wave8-qa/r-3c-qa2/req-qa.json:20-30"],
+      "notes": "The QA-2 req-qa file is FAIL on one item, REQ-QA-R3C-003, which asked for a CI citation at final head 641856f. The sprint doc now cites runs 42387849824 and 42387849809 at 641856f, marked parent-confirmed. The finding's stated correction is therefore applied. No req-qa rerun is on file, and I am not asking for one under the owner rule. The wave8-qa/r-3c-qa2 folder holds no arch-qa file. The QA-1 arch-qa is at wave8-qa/r-3c-qa1/arch-qa.json, and I did not re-read it."
+    },
+    {
+      "artifact": "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md",
+      "status": "closed",
+      "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:4", "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:271-281", ".cursor/phase-a-orchestration/wave7-qa/r-4-qa2/arch-qa.json:6"],
+      "notes": "QA-2 PASS. The one open row, the REQ-SAG-0133 upstream issue URL, is recorded as an explicit owner deferral with a bead and a draft path. The doc has no internal gate that forbids complete with a recorded deferral. See ARCH-001 for the stale body text."
+    }
+  ],
+  "merge_ready": true,
+  "notes": "I could not confirm check 3, 'no other content changed', from the diff. This session had no shell, so I could not run git diff. A grep of the five docs shows the status lines at line 4. The two docs this PR does not touch, r-3b and r-2b, remain status: planned. I read no unexpected content change. The 'QA-2 PASS' labels hold for arch-qa, rust-qa and boundary-qa. Two caveats on other QA-2 files: r-3c req-qa FAIL (resolved by the doc citation) and flaky-test-qa minor findings on r-1 and r-3c (FTQ-001, a test env scrub in crates/sc-agent-types/tests/git.rs). Both are outside arch-qa scope and not blocking. I requested no new gates or receipts."
+}

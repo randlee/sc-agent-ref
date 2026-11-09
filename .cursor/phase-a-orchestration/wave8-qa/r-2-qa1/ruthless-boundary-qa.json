@@ -1,0 +1,87 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-2-engine-shape",
+    "reviewed_commit": "0d643f2271997d73c8fbd3e98768dbf246ddfcbe",
+    "review_mode": "sprint_review",
+    "findings": [
+      {
+        "id": "RBQA-F001",
+        "severity": "important",
+        "class": "boundary_tightening",
+        "file": "crates/sc-jev-check/src/session/mod.rs",
+        "line": 251,
+        "issue": "FileSessionStore::ask is a second public send path. The manifest notes say the only run entry points are prepare, run and discover_repo_root. ask loads a session, builds a JudgeRequest, calls validate_for_send, calls judge and emits a log event, all outside run.",
+        "recommendation": "Either route ask through the engine (a prepared follow-up that run consumes, so the validate/judge/log sequence has one owner), or state in the manifest notes and ADR-SAG-0024 that ask is a second entry point and say why. Share the system-prompt-plus-session-context assembly with run::request_for. Today it is written twice, in session::ask (lines 270-277) and run::request_for (lines 573-577).",
+        "evidence": "sc-ai command.rs:544 and sc-jev-py run.rs:298 and 787 call sessions.ask directly. run.rs live_run (lines 460-483) repeats the same validate, judge, emit_log sequence. The manifest notes claim a single entry-point set. I found no ADR text in the architecture.md grep that blesses ask as a second path.",
+        "justification_check": "duplicated implementation",
+        "related_artifacts": [
+          "boundaries/sc-jev-check/jev-check.toml",
+          "docs/architecture.md (ADR-SAG-0024, ADR-SAG-0004)"
+        ]
+      },
+      {
+        "id": "RBQA-F002",
+        "severity": "important",
+        "class": "boundary_tightening",
+        "file": "crates/sc-jev-check/src/lib.rs",
+        "line": 9,
+        "issue": "lib.rs declares config, equal_input, extract, payload, registry, run and session as `pub mod`. The facade list is much narrower. payload::build_payload, payload::parse_question_set, extract::extract_input, equal_input::producer_from_extractions, config::load_check_str, PACKAGED_SYSTEM_PROMPT, session::StoredSession and others stay public only because in-crate tests import them. The manifest says so itself.",
+        "recommendation": "Make payload, extract and equal_input `pub(crate)` and move their tests in-crate. Where an integration test truly needs a symbol, put it behind `#[doc(hidden)]` or a `test-util` gate. This removes the public payload builder, which ADR-SAG-0005 and ADR-SAG-0024 say prepare must own.",
+        "evidence": "tests/cross_impl_branches.rs:12-13 and tests/command.rs:13 import payload, extract and equal_input items directly. Any downstream crate can call build_payload without prepare. That is the parallel assembly path r-2 was meant to delete. The deletion list (PayloadBuilder, build_request and others) is honoured, but the free functions remain reachable.",
+        "justification_check": "collapsible path (public only for test convenience)",
+        "related_artifacts": [
+          "boundaries/sc-jev-check/jev-check.toml",
+          "docs/architecture.md (ADR-SAG-0005, ADR-SAG-0024)"
+        ]
+      },
+      {
+        "id": "RBQA-F003",
+        "severity": "important",
+        "class": "lint_gap",
+        "file": "boundaries/sc-jev-check/jev-check.toml",
+        "line": 24,
+        "issue": "Nothing mechanical ties the `facade` string, which the manifest says is not enforced by sc-lint 0.8.0, to the real pub surface. The manifest's own notes admit about ten pub items outside it, and a prose line is the only check. The facade also lists config::load_check_at, CheckSpec, InputSpec, FileSessionStore and BackendRegistry as facade members, so the facade is broader than the 'only run entry points' wording.",
+        "recommendation": "Add a public-API snapshot gate (cargo-public-api or a rustdoc-JSON check, with and without test-util) that fails when the pub surface differs from the facade list. Alternatively add an sc-lint TOML policy. Add a gate that `cargo tree -p sc-jev-check -e normal,features` contains no test-util.",
+        "evidence": "The manifest header and the [references] and [enforcement] comments say only Cargo edges are enforced. The facade drift in F001 and F002 passed without any gate failing.",
+        "justification_check": "justified and retained, but unguarded",
+        "related_artifacts": [
+          "boundaries/sc-jev-check/jev-check.toml",
+          "boundaries/README.md"
+        ]
+      },
+      {
+        "id": "RBQA-F004",
+        "severity": "minor",
+        "class": "doc_gap",
+        "file": "boundaries/sc-jev-check/jev-check.toml",
+        "line": 24,
+        "issue": "run::RunResponseBuilder and Envelope plus its constants are listed in the facade. RunResponseBuilder is a test-util-only item sitting in the same flat list as the production facade, and sc-ai re-exports ENVELOPE_VERSION and OP_* (envelope.rs:10, lib.rs:31) as a second public path to the same constants.",
+        "recommendation": "Split `facade` into production and test-util entries, or mark the test-util items inline. Decide one owner for the Envelope constants: either sc-ai drops its re-export or the docs name it as a deliberate compatibility surface.",
+        "evidence": "builder.rs is declared as `#[cfg(any(test, feature = \"test-util\"))] mod builder`. The Envelope and constant moves are justified by ADR-SAG-0024. The sc-ai re-export duplicates the path.",
+        "justification_check": "justified and retained (Envelope, builder); duplicated path (sc-ai re-export)",
+        "related_artifacts": [
+          "boundaries/sc-jev-check/jev-check.toml",
+          "crates/sc-ai/src/lib.rs"
+        ]
+      }
+    ],
+    "summary": {
+      "total_findings": 4,
+      "by_severity": {
+        "critical": 0,
+        "important": 3,
+        "minor": 1
+      }
+    },
+    "notes": [
+      "HEAD verified without git: the worktree .git points at gitdir .git/worktrees/r-2-engine-shape, whose HEAD is `ref: refs/heads/sprint/r-2-engine-shape`. That ref file holds 0d643f2271997d73c8fbd3e98768dbf246ddfcbe. I had no shell, so I ran no cargo tree, no sc-lint and no validator report. The assignment did not supply one. I reviewed the manifest against Cargo.toml and source directly.",
+      "Clean points I checked. (1) test-util is gated in sc-jev-check: `mod builder` and `mod scripted` are cfg(any(test, feature=test-util)). test-util is reached only through the [features] table, the run_response [[test]] required-features, and dev-dependency feature requests (sc-ai, sc-jev-py). No normal dependency enables it. (2) sc-jev-py's test-util is its own feature forwarding to sc-jev-check/test-util, and its in-source use is cfg(any(test, feature=test-util)). (3) No ureq, tree-sitter, pyo3 or sc-observability edge appears in sc-jev-check's Cargo.toml, and all normal dependencies appear in allowed_dependencies. (4) PayloadBuilder is not referenced anywhere in sc-ai or sc-jev-py. (5) Both consumers use only the run, registry and session modules. The only extra imports are sc-ai tests/cli.rs using config::PACKAGED_SYSTEM_PROMPT and sc-jev-check's own tests using payload, extract and equal_input (see F002).",
+      "No critical finding: I found no active leak that would ship.",
+      "Unverified: the owned_paths discipline for the 50-file diff, including the two sc-agent-types rustdoc edits. I had no diff tooling and the sprint doc was not read; the caller should compare the changed-file list with owned_paths.",
+      "Unsolicited observation: sc-ai exports `#[doc(hidden)] ExecuteOverrides`, `execute_with_overrides`, `ObservabilitySessionLog` and `session_log_file` as an ungated public test seam (lib.rs:37-40). It is hidden from docs but still public. A test-util feature gate would match the ADR-SAG-0022 pattern."
+    ]
+  },
+  "error": null
+}

@@ -1,0 +1,51 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/r-7-decision-schema",
+    "reviewed_commit": "45b2b07",
+    "review_mode": "sprint_review",
+    "executed_checks": {
+      "fmt": {
+        "status": "pass",
+        "command": "cargo fmt --all --check"
+      },
+      "clippy": {
+        "status": "pass",
+        "command": "cargo clippy --all-targets --all-features -- -D warnings"
+      },
+      "tests": {
+        "status": "pass",
+        "command": "cargo test"
+      },
+      "coverage": {
+        "status": "not_run",
+        "line": 0.0,
+        "branch": 0.0,
+        "function": 0.0,
+        "adequate_for_risk": true
+      },
+      "artifacts": {
+        "status": "not_run",
+        "command": ""
+      }
+    },
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": {
+        "critical": 0,
+        "important": 0,
+        "minor": 0
+      }
+    },
+    "notes": [
+      "QA-6 final recheck (round_limit=true). Worktree HEAD verified as 45b2b07 on sprint/r-7-decision-schema before running checks.",
+      "Delta 90c5ab1..45b2b07 is doc-only: boundaries/README.md (+4/-2) and docs/plans/phase-a-refine/sprint-r-7-decision-schema.md (status in-review -> complete, one owned_paths entry added). No Rust source changed in the delta, so no delta findings were raised.",
+      "Gates were run in full at 45b2b07 and are green: fmt exit 0, clippy -D warnings exit 0, cargo test exit 0 (67 'test result: ok' blocks, 0 failures; doc tests exit 0). Some suites report 1 ignored test each (for example in the 93-passed suite); these are not failures and were not investigated because they are outside the requested gates.",
+      "Not verified in this pass: the ADR-SAG-0028 r-7 amendment cited in boundaries/README.md, since it is a doc reference outside the Rust QA scope.",
+      "Coverage was not requested (run_checks.coverage=false). Artifact regeneration was not requested."
+    ]
+  },
+  "error": null
+}

@@ -1,0 +1,269 @@
+{
+ "pr": 33,
+ "qa_pass": "qa-r7-3",
+ "round": "QA-3",
+ "sprint": "r-7",
+ "branch": "sprint/r-7-decision-schema",
+ "head": "a6a1387",
+ "base": "integrate/phase-a",
+ "prior_round": {
+  "qa_pass": "qa-r7-2",
+  "pr_comment": "https://github.com/randlee/sc-agent/pull/33#issuecomment-6716378641"
+ },
+ "notes": "arch-qa task a1250423eddababa8 was resent the actual ARCH-001 text, and its second fenced JSON (saved) is authoritative.",
+ "manifest": [
+  {
+   "agent": "req-qa",
+   "task_id": "af77f00c6e066987c",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "a6a1387"
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "a1250423eddababa8",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "a6a1387"
+  },
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "aecf11ce1ee5ac1b3",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "a6a1387"
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "aa920ee81f9219d69",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "a6a1387"
+  }
+ ],
+ "reviewer_outputs": [
+  {
+   "agent": "req-qa",
+   "task_id": "af77f00c6e066987c",
+   "fenced_json": {
+    "status": "PASS",
+    "reviewed_branch": "sprint/r-7-decision-schema",
+    "reviewed_commit": "a6a1387",
+    "errors": [],
+    "scope": {
+     "phase": "phase-a-refine",
+     "sprint": "r-7"
+    },
+    "baselines_read": [
+     "docs/requirements.md (REQ-SAG-0610 row, line 102)",
+     "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md"
+    ],
+    "phase_or_sprint_docs_read": [
+     "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md (lines 1-754 of 995; front matter, owned_paths and D1-D8 read, D9 and the acceptance rows were not)"
+    ],
+    "requirement_checks": [
+     {
+      "id": "REQ-SAG-0610",
+      "source": "docs/requirements.md:102",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/run/mod.rs:798-821",
+       "crates/sc-jev-check/src/run/mod.rs:41-44",
+       "crates/sc-jev-check/src/run/tests.rs:644-680"
+      ]
+     }
+    ],
+    "deliverable_checks": [
+     {
+      "item": "REQ-QA-003: owned_paths carries the QA-fix entries (444ff86)",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:180-190"
+      ],
+      "notes": "Entries exist for git.rs, error.rs, tests/errors.rs plus error-codes.json, tests/support/deadline.rs, test_util_off.rs, sc-agent-http tests/support/mod.rs, run/tests.rs, backend.rs rustdoc, the CI workflow, extraction.md and plan.md. The delta also edits run/mod.rs, which the existing run/** entries cover. The GitTimeout work in docs/architecture.md and docs/sc-agent-types/architecture.md is covered by the existing docs/architecture.md and docs/sc-agent-types/** entries (lines 172, 175)."
+     },
+     {
+      "item": "QA-2 fixes (65f0637 and later) break no requirement, REQ-SAG-0610 in particular",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/run/mod.rs:800-821"
+      ],
+      "notes": "send() calls judge with a fresh SendTrace and then emit_log unconditionally. An Ok, a Failed and a cancelled-before-send call each emit one LogEvent. Only a validate_for_send refusal (NotSent, which returns before send) emits none, as the module doc says. test cancelled_call_still_emits_one_log_event asserts one event for a cancelled call and one more for a failed call."
+     }
+    ],
+    "findings": [
+     {
+      "id": "REQ-QA-004",
+      "severity": "Minor",
+      "category": "cross-doc-conflict",
+      "source_refs": [
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:182"
+      ],
+      "target_refs": [
+       "crates/sc-agent-types/tests/fixtures/error-codes.json"
+      ],
+      "issue": "The owned_paths entry reads 'crates/sc-agent-types/tests/errors.rs, tests/fixtures/error-codes.json#GitTimeout row'. The second path is relative to the crate (the real file is crates/sc-agent-types/tests/fixtures/error-codes.json) and could be read as the repo-root tests/fixtures/. The ownership claim is still unambiguous enough to count REQ-QA-003 as closed.",
+      "required_correction": "Spell the path in full: crates/sc-agent-types/tests/fixtures/error-codes.json#GitTimeout row. This is optional and not a gate item.",
+      "compliance_result": "partially-compliant"
+     }
+    ],
+    "summary": {
+     "total_findings": 1,
+     "blocking_findings": 0,
+     "overall_compliance": "compliant",
+     "deliverables_total": 2,
+     "deliverables_complete": 2,
+     "deliverables_incomplete": 0,
+     "deliverable_completion_percent": 100.0
+    },
+    "gate_reason": "PASS. I confirmed worktree HEAD is sprint/r-7-decision-schema at a6a13879 through the .git refs and logs. I had no shell, so I could not run git diff 4eb8265..a6a1387. I scoped the delta from the reflog commit list and matched it against owned_paths. REQ-QA-003 is closed because the QA-fix entries are present. REQ-SAG-0610 is upheld because the shared send step logs every call that reaches judge. One Minor note (REQ-QA-004) is raised and does not affect the gate."
+   }
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "a1250423eddababa8",
+   "fenced_json": {
+    "agent": "arch-qa",
+    "branch": "sprint/r-7-decision-schema",
+    "scope": {
+     "phase": "phase-a-refine",
+     "sprint": "r-7"
+    },
+    "commit": "a6a1387",
+    "verdict": "PASS",
+    "blocking": 0,
+    "important": 0,
+    "findings": [],
+    "adr_checks": [
+     {
+      "adr": "ADR-SAG-0013",
+      "source": "docs/architecture.md (ADR-SAG-0013; REQ-SAG-0610)",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/run/mod.rs:800-821",
+       "crates/sc-jev-check/src/run/mod.rs:40-44",
+       "crates/sc-jev-check/src/run/tests.rs:644-679"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0027",
+      "source": "docs/architecture.md:1406",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:1512",
+       "crates/sc-agent-types/src/git.rs:43",
+       "crates/sc-agent-types/src/error.rs:177"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0028",
+      "source": "docs/architecture.md:1533",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:1576",
+       "crates/workspace-tests/Cargo.toml:21",
+       "boundaries/workspace-tests/workspace-tests.toml:31"
+      ]
+     },
+     {
+      "adr": "ADR-RUN-0011",
+      "source": "RULE-ADR-AWAIT-MUTEX",
+      "listed_in_sprint_doc": false,
+      "result": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-agent-types/src/git.rs (no Mutex and no .await)"
+      ]
+     }
+    ],
+    "gate_artifact_checks": [],
+    "merge_ready": true,
+    "notes": "ARCH-001, ARCH-002 and ARCH-003 are all closed at a6a1387. ARCH-001 (REQ-SAG-0610 with ADR-SAG-0013): crates/sc-jev-check/src/run/mod.rs send() at 800-821 now calls judge.judge(...), then emit_log(...) unconditionally, then returns the result. No branch skips the log for a cancel-at-entry or a NETWORK_ERROR of kind Cancelled. The module doc at 40-44 now says every call that reaches judge emits exactly one LogEvent (Ok, Failed, and a call cancelled before it reached the transport), and that only a backend refused by validate_for_send (NotSent) emits none. judge_one() returns NotSent before send(), so that case still emits none. The old test is gone. tests.rs:647 cancelled_call_still_emits_one_log_event pre-cancels the token and checks that one log event is emitted. It then sends a live request and checks the count is 2. ARCH-002 and ARCH-003 are closed as in my earlier report. ADR-SAG-0028 (docs/architecture.md:1576) amends the workspace-tests dev edges. ADR-SAG-0027 (docs/architecture.md:1512) records GitTimeout and the pub(crate) GIT_DEADLINE. I found no new violation in the 4eb8265..a6a1387 delta. I had no shell, so I could not diff the range; I checked HEAD content directly. The branch ref resolves to a6a13879c59b."
+   }
+  },
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "aecf11ce1ee5ac1b3",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-7-decision-schema",
+     "reviewed_commit": "a6a1387",
+     "review_mode": "sprint_review",
+     "executed_checks": {
+      "fmt": {
+       "status": "pass",
+       "command": "cargo fmt --all --check"
+      },
+      "clippy": {
+       "status": "pass",
+       "command": "cargo clippy --locked --all-targets --all-features -- -D warnings"
+      },
+      "tests": {
+       "status": "pass",
+       "command": "cargo test --locked --workspace (521 passed, 0 failed); cargo test --locked -p sc-agent-types --features git (pass)"
+      },
+      "coverage": {
+       "status": "not_run"
+      },
+      "artifacts": {
+       "status": "not_run"
+      }
+     },
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "notes": [
+      "HEAD was confirmed as a6a13879 on sprint/r-7-decision-schema. The worktree was clean before and after the checks.",
+      "QA-001 is closed. JevError::GitTimeout { seconds } exists in crates/sc-agent-types/src/error.rs. It maps to ErrorCode::ExtractionTimeout. Its hint no longer points at timeout_seconds and instead tells the user to check for a stalled git process, a lock file or a slow filesystem. It is covered by tests/errors.rs, the error-codes.json fixture and a git.rs test.",
+      "QA-002 is closed. Every cargo step in .github/workflows/sc-agent-ci.yml has --locked. That includes cargo fetch, llvm-cov and llvm-cov report, doc, build, hack --each-feature, and the test steps. The only cargo steps without it are the two `cargo hack check ... --feature-powerset --no-dev-deps` steps, and the workflow comment at lines 274-277 explains why.",
+      "The exemption for those two steps is valid. I ran `cargo hack check --locked -p sc-decision-schema --feature-powerset --no-dev-deps` and it failed with 'cannot update the lock file ... because --locked was passed'. The same command without --locked succeeds and leaves Cargo.lock and the tree unchanged. So the failure comes from the Cargo.toml rewrite, not from lock drift. `cargo check --locked` on the same crate passes, and other steps in the features job still enforce the lock file. I did not run the sc-agent-types variant, which has the same --no-dev-deps shape.",
+      "QA-003 is closed. The module doc in crates/sc-jev-check/src/run/mod.rs gives the worst case as 2 x 420 + 210 = 1050 s (about 17.5 minutes), with the derivation, and notes that cancel does not end an in-flight request.",
+      "I found no new issues from the 4eb8265..a6a1387 delta."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "aa920ee81f9219d69",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "findings",
+     "reviewed_branch": "sprint/r-7-decision-schema",
+     "reviewed_commit": "a6a1387",
+     "findings": [
+      {
+       "id": "FTQ-QA3-001",
+       "severity": "important",
+       "file": "crates/workspace-tests/tests/test_util_off.rs",
+       "line": 143,
+       "test": "test_test_util_absent_from_normal_graph (cargo tree, 60 s deadline) racing test_release_binary_rejects_scripted_answers (cargo build)",
+       "mechanism": "parallel_race",
+       "issue": "The delta's stated premise (7660d24) is that concurrent cargo invocations queue on Cargo's file locks, so TREE_LOCK serializes only the cargo tree calls. The same test binary also runs a cargo build from a parallel test thread (bin_path, via test_release_binary_rejects_scripted_answers). That build is guarded only by bin_path's own BUILD_LOCK, which TREE_LOCK does not share. The default parallel test runner can therefore run a cold release build (up to 20 min deadline, mimalloc and tree-sitter C builds) concurrently with a cargo tree call. If that cargo tree blocks on a Cargo file lock held by the build for longer than CARGO_TREE_DEADLINE (60 s), the call fails by deadline. Which timing triggers it depends on how Cargo's package-cache and build locks interact, and I could not confirm that from this environment. The gap in the serialization itself is confirmed by the code. The result is an intermittent failure that appears only when the build is cold and slow, which is the CI first-run case.",
+       "recommendation": "Make one lock cover every cargo invocation in this binary. Either move the TREE_LOCK static into the shared support module and take it inside bin_path before its build, or prebuild the sc-ai binary in a single serialized setup step before any tree call. Preferred: move test_release_binary_rejects_scripted_answers into its own test binary so this binary never runs a cargo build concurrently with cargo tree. Keep the 60 s tree deadline, but have it cover only the tree call, not the wait on the shared lock.",
+       "evidence": "test_util_off.rs:30-32 declares TREE_LOCK with the comment 'concurrent cargo invocations queue on Cargo's file locks'. test_util_off.rs:36-42 (run_tree) locks TREE_LOCK, then calls spawn_with_limit(CARGO_TREE_DEADLINE). test_util_off.rs:142-143 (test_release_binary_rejects_scripted_answers) calls bin_path('sc-ai','sc-ai') with no TREE_LOCK. bin_path.rs:30 declares a separate BUILD_LOCK. bin_path.rs:69-88 runs `cargo build --locked --release -p <pkg> --features cli` under BIN_BUILD_DEADLINE (20 min) with its own target dir, so it is cold on a fresh runner. No nextest config exists, so cargo test runs these threads in parallel inside one process. Closure checks: FTQ-004 (TREE_LOCK plus 60 s deadline, 7660d24) is in place for tree calls within one binary; FTQ-005 (bounded reap and kill, bb79cdb) is in place in deadline.rs (reap_within, bounded kill helper, PIPE_GRACE finish, no unbounded wait in the runner); FTQ-006 (elapsed assertion removed, 444ff86) is confirmed absent from all targets, including git.rs test_hung_git_is_killed_at_the_deadline. Limits: no shell was available, so I could not run git diff or the tests. Delta scope was taken from the reflog (4eb8265..a6a1387: 65f0637, 444ff86, 6f77fbb, bb79cdb, 7660d24, a3e7ee0, a6a1387) and from current file contents. Cargo lock-sharing behaviour is unverified."
+      }
+     ],
+     "summary": {
+      "total_findings": 1,
+      "critical": 0,
+      "important": 1,
+      "minor": 0
+     }
+    },
+    "error": null
+   }
+  }
+ ]
+}

@@ -1,0 +1,30 @@
+{
+  "agent": "arch-qa",
+  "branch": "sprint/r-7-decision-schema",
+  "scope": {"phase": "phase-a-refine", "sprint": "r-7"},
+  "commit": "90c5ab1",
+  "verdict": "PASS",
+  "blocking": 0,
+  "important": 1,
+  "findings": [
+    {
+      "id": "ARCH-003",
+      "rule": "RULE-ADR-CODE",
+      "adr": "ADR-SAG-0028",
+      "severity": "IMPORTANT",
+      "file": "boundaries/README.md",
+      "line": 110,
+      "description": "Same class as ARCH-001 and ARCH-002. The 'Dev-dependency and self edges' section says r-3b's workspace-tests takes the 'counted' branch with sc-agent-types, sc-jev-check and sc-jev-host adding workspace-tests to allowed_dependents. It gives no r-7 note that sc-decision-schema is now a fourth counted dev edge. The wording is attributed to r-3b, so it is historically accurate. But the section is live guidance and now disagrees with the ADR-SAG-0028 r-7 amendment (docs/architecture.md:1580-1589) and with boundaries/sc-decision-schema/decision-schema.toml:21.",
+      "remediation": "Add sc-decision-schema to the list at lines 110-112, or append 'r-7 adds sc-decision-schema (features = [test-util]) as a fourth counted dev edge; sc-decision-schema lists workspace-tests in allowed_dependents (ADR-SAG-0028 r-7 amendment)'."
+    }
+  ],
+  "adr_checks": [
+    {"adr": "ADR-SAG-0028", "source": "docs/architecture.md:1533 (r-7 amendment at 1576-1589)", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/workspace-tests/README.md:5-7", "crates/workspace-tests/Cargo.toml:21-27", "boundaries/workspace-tests/workspace-tests.toml:18", "boundaries/workspace-tests/workspace-tests.toml:31", "boundaries/sc-decision-schema/decision-schema.toml:21", "docs/architecture.md:80-90"]},
+    {"adr": "ADR-SAG-0030", "source": "docs/architecture.md:1591", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:88-90", "docs/architecture.md:138"]}
+  ],
+  "gate_artifact_checks": [
+    {"artifact": "boundaries/workspace-tests/workspace-tests.toml", "status": "closed", "evidence_refs": ["boundaries/workspace-tests/workspace-tests.toml:31"], "notes": "allowed_dependencies includes sc-decision-schema. The sc-decision-schema manifest lists workspace-tests in allowed_dependents. The Cargo.toml dev set matches."}
+  ],
+  "merge_ready": true,
+  "notes": "ARCH-001 is closed: the README at 5-7 lists sc-decision-schema (features = [test-util]) and matches Cargo.toml and the r-7 amendment. ARCH-002 is closed: the [public] notes at line 18 and allowed_dependencies at line 31 include sc-decision-schema, with test-util. I swept the repo outside docs/plans, .triage and the original ADR-SAG-0028 body. The only other text stating the dev set without sc-decision-schema is boundaries/README.md:110-112 (ARCH-003). cargo-tree-gates.sh:34, docs/architecture.md:80-90, docs/sc-jev-host/architecture.md and the sc-jev-check and sc-jev-host manifests need no change. I could not run git, so I did not confirm that the worktree HEAD is 90c5ab1. The .git file points to the r-7-decision-schema worktree. Please confirm the commit on your side. ARCH-003 is IMPORTANT, not Blocking, because the text is scoped to r-3b and no binding statement contradicts it. I recommend fixing it in this PR anyway."
+}

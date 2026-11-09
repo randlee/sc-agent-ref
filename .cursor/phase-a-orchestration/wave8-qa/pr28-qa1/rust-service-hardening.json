@@ -1,0 +1,24 @@
+{
+  "success": true,
+  "data": {
+    "status": "skipped",
+    "reviewed_branch": "docs/close-wave1-2",
+    "reviewed_commit": "fe375c2f72683f1b12b77f30080cb30ef6d9cdd6",
+    "review_mode": "design_review",
+    "service_indicators_found": [],
+    "topics_reviewed": [],
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": { "critical": 0, "important": 0, "minor": 0 }
+    },
+    "notes": [
+      "Worktree HEAD (.git/worktrees/pr28-review/HEAD) is fe375c2f72683f1b12b77f30080cb30ef6d9cdd6, matching the assigned commit.",
+      "No service indicators found. None of tokio, axum, hyper, tonic, warp, actix-web or reqwest appears in any of the 10 Cargo.toml files in the worktree, which cover the root manifest and the sc-agent-http, sc-agent-secrets, sc-agent-types, sc-ai, sc-jev-backends, sc-jev-check, sc-jev-py, sc-jev and sc-treesitter crates. I did not search the Rust sources for #[tokio::main] or server startup code.",
+      "The PR changes only `status:` frontmatter lines in sprint docs, with no Rust or runtime change, so there is nothing for service hardening to review.",
+      "Input deviations: the assignment gave review_mode 'plan' (not one of the contract values) and 'reviewed_commit' instead of 'commit'. I used design_review as the caller instructed and treated reviewed_commit as the commit.",
+      "I did not check the assignment's sprint-doc items. These were the truth of each status: complete claim, the acceptance rows including r-4's deferred REQ-SAG-0133, and that nothing else changed. They are outside the service-hardening scope and are not covered by this skipped result."
+    ]
+  },
+  "error": null
+}

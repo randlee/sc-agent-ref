@@ -1,0 +1,289 @@
+{
+ "pr": 34,
+ "qa_pass": "qa-r5-4",
+ "round": "QA-4 (final)",
+ "sprint": "r-5",
+ "branch": "sprint/r-5-jev-wire-envelope",
+ "head": "bc27792",
+ "reviewed": "5c85c6b",
+ "base": "integrate/phase-a",
+ "post_review_commits": "bc27792 adds a `cargo fetch --locked` step to the workspace-tests CI job only; no code. It was pushed by the parent under Auto-fix to fix the workspace-tests job, which failed at 5c85c6b because cargo tree --offline could not download indoc.",
+ "notes": "flaky-test-qa was not rerun: its QA-3 pass at 6972530 covers the tests, and the 6972530..5c85c6b test change is one caller test's expected text, verified by rust-qa. Acceptance evidence is in acceptance-5c85c6b.log. Prior rounds' dispositions: R5-QA1-RSH-001 (duplicate of the documented judge bound) and R5-QA1-RQA-QA-001 (pre-existing pyo3 link issue, not run in CI).",
+ "manifest": [
+  {
+   "agent": "req-qa",
+   "task_id": "a6dda57aad6027104",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "5c85c6b"
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "a267c07f47f4d1c3c",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "5c85c6b"
+  },
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "a0a17ad28577c42ab",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "5c85c6b"
+  }
+ ],
+ "reviewer_outputs": [
+  {
+   "agent": "req-qa",
+   "task_id": "a6dda57aad6027104",
+   "fenced_json": {
+    "status": "PASS",
+    "reviewed_branch": "sprint/r-5-jev-wire-envelope",
+    "reviewed_commit": "5c85c6b",
+    "errors": [],
+    "scope": {
+     "phase": "phase-a-refine",
+     "sprint": "r-5"
+    },
+    "baselines_read": [
+     "docs/architecture.md",
+     "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md"
+    ],
+    "phase_or_sprint_docs_read": [
+     "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md"
+    ],
+    "requirement_checks": [
+     {
+      "id": "REQ-SAG-0403",
+      "source": "sprint r-5 acceptance table",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "acceptance-5c85c6b.log:6-14"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0143",
+      "source": "sprint r-5 acceptance table",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "acceptance-5c85c6b.log:3-5",
+       "acceptance-5c85c6b.log:15-17"
+      ]
+     },
+     {
+      "id": "NFR-SAG-0002",
+      "source": "sprint r-5 acceptance table",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "acceptance-5c85c6b.log:21-23",
+       "crates/sc-decision-schema/tests/jev.rs:365",
+       "crates/sc-decision-schema/src/payload.rs:104"
+      ]
+     },
+     {
+      "id": "NFR-SAG-0001",
+      "source": "sprint r-5 acceptance table",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "acceptance-5c85c6b.log:18-20"
+      ]
+     },
+     {
+      "id": "NFR-SAG-0004",
+      "source": "sprint r-5 acceptance table",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "acceptance-5c85c6b.log:24-25"
+      ]
+     }
+    ],
+    "deliverable_checks": [
+     {
+      "item": "Acceptance commands, just lint and just test at 5c85c6b (REQ-QA-001)",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "/Volumes/Extreme Pro/github/sc-agent/.cursor/phase-a-orchestration/wave13-qa/r-5-qa4/acceptance-5c85c6b.log"
+      ],
+      "notes": "Every entry shows test result ok and rc=0 on rustc 1.94.1 at HEAD 5c85c6b. The worktree HEAD ref is sprint/r-5-jev-wire-envelope. I could not resolve the ref to a sha because I have no shell, so the sha match rests on the log header."
+     },
+     {
+      "item": "Toolchain 1.94.1 annotation in OrderedMap deserialize (REQ-QA-002)",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "crates/sc-decision-schema/src/jev/v1.rs:194"
+      ],
+      "notes": "`let Pairs(pairs) = Pairs::<K, V>::deserialize(deserializer)?;` is present. It sits at line 194, not 193 as the notes said."
+     },
+     {
+      "item": "New test in the NFR-SAG-0002 acceptance row (REQ-QA-003)",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:311",
+       "crates/sc-decision-schema/tests/jev.rs:365"
+      ],
+      "notes": "test_malformed_body_hint_is_fix_the_body is in the row. The log shows it ran with 1 passed."
+     },
+     {
+      "item": "ADR-SAG-0029 list entry in the sprint adrs list",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:54",
+       "docs/architecture.md:1086-1105"
+      ],
+      "notes": "The (c) disposition 'serde_json encode / decode failure' maps to INPUT_INVALID with category and line/column only. The entry matches that text."
+     },
+     {
+      "item": "ADR-SAG-0012 r-5 amendment text",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "docs/architecture.md:1031-1041",
+       "docs/architecture.md:122"
+      ],
+      "notes": "The amendment keeps all HTTP in sc-jev and puts the pure mapping in jev::v1. It matches the sprint text. No '(Proposed, r-5)' marker remains in docs/architecture.md."
+     },
+     {
+      "item": "decode_failed routing",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "crates/sc-decision-schema/src/payload.rs:104-119",
+       "crates/sc-decision-schema/src/payload.rs:244",
+       "crates/sc-decision-schema/src/payload.rs:427",
+       "crates/sc-decision-schema/src/jev/v1.rs:565"
+      ],
+      "notes": "Parse failures give INPUT_INVALID with the serde category, position and a 'fix the <what>' hint, and carry no body bytes. This follows ADR-SAG-0029 (c) and ADR-SAG-0020."
+     },
+     {
+      "item": "Changed caller test",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "crates/sc-decision-schema/tests/jev.rs:365-379"
+      ],
+      "notes": "It covers three failure kinds: eof, data and syntax. It asserts the code is INPUT_INVALID, the hint contains 'fix the', and the hint holds no secret text, 'encoded' or 'bug'."
+     }
+    ],
+    "findings": [],
+    "summary": {
+     "total_findings": 0,
+     "blocking_findings": 0,
+     "overall_compliance": "compliant",
+     "deliverables_total": 7,
+     "deliverables_complete": 7,
+     "deliverables_incomplete": 0,
+     "deliverable_completion_percent": 100.0
+    },
+    "gate_reason": "The 6972530..5c85c6b delta has no findings. REQ-QA-001, REQ-QA-002 and REQ-QA-003 are closed. The execution log shows every named command, just lint and just test passing at 5c85c6b. The ADR-0029 list entry, the ADR-SAG-0012 amendment, the decode_failed routing and the changed test are consistent with the sprint doc and docs/architecture.md."
+   }
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "a267c07f47f4d1c3c",
+   "fenced_json": {
+    "agent": "arch-qa",
+    "branch": "sprint/r-5-jev-wire-envelope",
+    "scope": {
+     "phase": "phase-a-refine",
+     "sprint": "r-5"
+    },
+    "commit": "5c85c6b",
+    "verdict": "PASS",
+    "blocking": 0,
+    "important": 0,
+    "findings": [],
+    "adr_checks": [
+     {
+      "adr": "ADR-SAG-0029",
+      "source": "docs/architecture.md:1043",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:54",
+       "docs/architecture.md:1097",
+       "crates/sc-decision-schema/src/payload.rs:104"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0012",
+      "source": "docs/architecture.md:1023",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:1035-1041",
+       "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:49",
+       "crates/sc-decision-schema/src/jev/v1.rs:760"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0030",
+      "source": "docs/architecture.md:1596",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:1632",
+       "crates/sc-decision-schema/src/payload.rs:244"
+      ]
+     }
+    ],
+    "gate_artifact_checks": [],
+    "merge_ready": true,
+    "notes": "I could not run git commands, so I confirmed the worktree branch from .git/worktrees/r-5-jev-wire-envelope/HEAD, which points at refs/heads/sprint/r-5-jev-wire-envelope. I did not resolve that ref to commit 5c85c6b. I read the files in the worktree as they are. ARCH-010 is closed: ADR-SAG-0029 is in the sprint doc adrs list at line 54. ARCH-011 and ARCH-012 are closed: the Active ADR-SAG-0012 r-5 subsection (docs/architecture.md:1035-1041) now names the pure CheckResponse::into_answers mapping in sc_decision_schema::jev::v1, with no HTTP or I/O, and keeps every Jev HTTP operation in sc-jev. The ADR-SAG-0030 index and header text match this. The code at jev/v1.rs:760 and the sprint sample at line 297 agree with the amended ADR. ARCH-013 is closed: Question::from_json (payload.rs:244) and PayloadBundle::decode (payload.rs:427 and 519) route through decode_failed (payload.rs:104). That helper returns INPUT_INVALID with only the serde category and line/column, which is the ADR-SAG-0029 (c) disposition. Two decode sites in sc-decision-schema do not use decode_failed (jev/v1.rs:602 and :722, and variants.rs:100 and llm/v1.rs:35 map errors themselves). I judged these as outside the ARCH-013 delta, and the ADR-SAG-0029 (c) row covers general serde failures. They are not raised as findings, but you may want a quick look. I found no std::sync::Mutex guards held across .await in the reviewed targets."
+   }
+  },
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "a0a17ad28577c42ab",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-5-jev-wire-envelope",
+     "reviewed_commit": "5c85c6b",
+     "review_mode": "sprint_review",
+     "executed_checks": {
+      "fmt": {
+       "status": "pass",
+       "command": "cargo fmt --all --check"
+      },
+      "clippy": {
+       "status": "pass",
+       "command": "cargo +1.94.1 clippy --locked --workspace --all-targets --exclude sc-jev-py -- -D warnings (also passed with --all-features)"
+      },
+      "tests": {
+       "status": "pass",
+       "command": "cargo +1.94.1 test --locked --workspace --exclude sc-jev-py; cargo test --locked -p {sc-jev,sc-jev-backends,sc-decision-schema,sc-jev-check} --features test-util; RUSTDOCFLAGS='-D warnings' cargo doc --locked --workspace --exclude sc-jev-py --no-deps (pass)"
+      },
+      "coverage": {
+       "status": "not_run"
+      },
+      "artifacts": {
+       "status": "not_run"
+      }
+     },
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "notes": [
+      "HEAD was 5c85c6b on sprint/r-5-jev-wire-envelope, as assigned. All gates ran under RUSTUP_TOOLCHAIN=1.94.1.",
+      "Delta 6972530..5c85c6b reviewed: Question::from_json and PayloadBundle::decode now use decode_failed. The sc-jev-check caller test expects 'question is not valid: data error' and asserts the raw prompt text is not echoed. Both pass. The remaining changes are docs/comments only.",
+      "Running --features test-util on sc-agent-types failed because that crate declares no such feature. That was my own over-broad invocation, not a repo defect."
+     ]
+    },
+    "error": null
+   }
+  }
+ ]
+}

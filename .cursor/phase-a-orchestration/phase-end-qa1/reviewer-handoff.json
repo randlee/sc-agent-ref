@@ -1,0 +1,583 @@
+{
+ "pr": 36,
+ "qa_pass": "qa-phase-end-1",
+ "round": "phase-end QA-1",
+ "branch": "integrate/phase-a",
+ "head": "91d36b3",
+ "base": "develop",
+ "manifest": [
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "a1e889a0586b90215",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "91d36b3"
+  },
+  {
+   "agent": "rust-best-practices-agent",
+   "task_id": "a886db6859626ee05",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "91d36b3"
+  },
+  {
+   "agent": "rust-service-hardening-agent",
+   "task_id": "ab37aadc99b7c4d2f",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "91d36b3"
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "aff2241174892cdc1",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "91d36b3"
+  },
+  {
+   "agent": "req-qa",
+   "task_id": "a6c7d7d0f054d4906",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "91d36b3"
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "a9fa798d7f18f1833",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "91d36b3"
+  }
+ ],
+ "reviewer_outputs": [
+  {
+   "agent": "arch-qa",
+   "fenced_json": {
+    "agent": "arch-qa",
+    "branch": "integrate/phase-a",
+    "scope": {
+     "phase": "phase-a-refine",
+     "sprint": null
+    },
+    "commit": "91d36b3",
+    "verdict": "FAIL",
+    "blocking": 1,
+    "important": 1,
+    "findings": [
+     {
+      "id": "ARCH-001",
+      "rule": "RULE-ADR-CODE",
+      "adr": "ADR-SAG-0013",
+      "severity": "BLOCKING",
+      "file": "docs/architecture.md",
+      "line": 38,
+      "description": "The 'Phase A crate graph' prose (lines 23-40) was not updated when r-3b landed. It still says 'Only the composition roots sc-ai and sc-jev-py depend on full sc-observability' and draws sc-ai and sc-jev-py linking sc-observability directly. The binding ADR-SAG-0013 r-3b amendment, the ADR-SAG-0010 r-3b amendment, the A.1 graph at lines 66-97 and crates/sc-jev-host/Cargo.toml:27 all say sc-jev-host is the only crate that links sc-observability. The Cargo manifests of sc-ai and sc-jev-py show no sc-observability dependency. The repo-level architecture doc therefore contradicts its own Active ADRs. The graph at lines 23-35 also omits sc-jev-host, sc-agent-http and sc-decision-schema. The 'starting point' note at line 83 does not cover the false sentence at 38-40.",
+      "remediation": "Rewrite lines 23-49 to the integrated shape. Either delete the Phase A graph or mark it historical, and change the sentence at lines 38-40 to say sc-jev-host is the only crate linking sc-observability. Confirm docs/sc-ai, docs/sc-jev-py and docs/sc-jev-host/architecture.md use the same wording."
+     },
+     {
+      "id": "ARCH-002",
+      "rule": "RULE-ADR-CODE",
+      "adr": null,
+      "severity": "IMPORTANT",
+      "file": "docs/requirements.md",
+      "line": 148,
+      "description": "The heading 'Phase A.1 - refinement (proposed)' and the paragraph at line 150 ('Each row and amendment carries a marker (Proposed, r-N)') are still present at phase end. No row in docs/requirements.md or the crate requirements files carries a Proposed marker any more, so the text is stale. The marker convention is stale in the sense that every sprint has landed.",
+      "remediation": "Retitle the section to 'Phase A.1 - refinement (landed)'. Change the paragraph to say the (Active, r-N) markers record the landing sprint."
+     }
+    ],
+    "adr_checks": [
+     {
+      "adr": "ADR-SAG-0001..0031 (all index rows)",
+      "source": "docs/architecture.md:109-141",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:109-141"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0013",
+      "source": "docs/architecture.md:843",
+      "listed_in_sprint_doc": true,
+      "result": "violated",
+      "evidence_refs": [
+       "docs/architecture.md:38",
+       "crates/sc-jev-host/Cargo.toml:27",
+       "crates/sc-ai/Cargo.toml",
+       "crates/sc-jev-py/Cargo.toml"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0010 / ADR-SAG-0011 (r-3b)",
+      "source": "docs/architecture.md:724-755",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-ai/Cargo.toml:40",
+       "crates/sc-jev-py/Cargo.toml:42"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0016 / ADR-SAG-0023 (r-1 no sc-observability-types)",
+      "source": "docs/architecture.md:126",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/sc-agent-types/requirements.md:37"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0015 (sc-treesitter links no judge/HTTP crate)",
+      "source": "docs/architecture.md:828",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-treesitter/Cargo.toml:27"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0020 r-3 / r-3b (as_str read site)",
+      "source": "docs/architecture.md:600-642",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-agent-http/src/ureq_transport.rs:162",
+       "crates/workspace-tests/tests/source_scans.rs:326"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0026 (ureq confined to sc-agent-http)",
+      "source": "docs/architecture.md:136",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-agent-http/Cargo.toml:31"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0011 / ADR-SAG-0010 (CLI and PyO3 as thin adapters)",
+      "source": "docs/architecture.md:724-755",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-ai/Cargo.toml:25",
+       "crates/sc-jev-py/Cargo.toml:36"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0011 (RULE-ADR-AWAIT-MUTEX)",
+      "source": "RULE-ADR-AWAIT-MUTEX",
+      "listed_in_sprint_doc": false,
+      "result": "not-applicable",
+      "evidence_refs": [
+       "no .await, async fn or tokio in crates/**/*.rs"
+      ]
+     }
+    ],
+    "gate_artifact_checks": [
+     {
+      "artifact": "docs/architecture.md (ADR index)",
+      "status": "closed",
+      "evidence_refs": [
+       "docs/architecture.md:109-141"
+      ],
+      "notes": "Every index row is Active or Active (r-N). The only 'Proposed, r-N' text left outside docs/plans/ is the explanatory preamble at docs/architecture.md:106 and docs/requirements.md:150 (see ARCH-002). No landed sprint has a Proposed marker."
+     },
+     {
+      "artifact": "quality-policy.md Phase A.1 landing-sprint ADR exception",
+      "status": "closed",
+      "evidence_refs": [
+       ".claude/project/quality-policy.md:139-149"
+      ],
+      "notes": "No Proposed ADR dependency remains at phase end."
+     }
+    ],
+    "merge_ready": false,
+    "notes": "I confirmed that the branch is integrate/phase-a and that its ref resolves to 91d36b3ad309deb3350434acaecee0ab2938b13f. I had only Read, Glob and Grep, so I ran no git, cargo or clippy commands. I did not compare the boundaries/ manifests with the crate dependencies. That is ruthless-boundary-qa's remit. I checked Cargo.toml edges only against ADR text. The ADR checks rest on Cargo manifests, grep and docs. I did not read the Rust sources in full."
+   }
+  },
+  {
+   "agent": "req-qa",
+   "fenced_json": {
+    "status": "FAIL",
+    "reviewed_branch": "integrate/phase-a",
+    "reviewed_commit": "91d36b3",
+    "errors": [],
+    "scope": {
+     "phase": "phase-a-refine",
+     "sprint": null
+    },
+    "baselines_read": [
+     "docs/requirements.md",
+     "docs/plans/phase-a-refine/plan.md (read in full)",
+     ".claude/project/quality-policy.md",
+     "docs/<crate>/requirements.md for sc-agent-types, sc-jev-check, sc-jev, sc-ai, sc-jev-py, sc-jev-host, sc-decision-schema, sc-agent-http (greps, plus full reads of the sc-agent-types and sc-jev-check tables)"
+    ],
+    "phase_or_sprint_docs_read": [
+     "docs/plans/phase-a-refine/plan.md",
+     "docs/plans/phase-a-refine/sprint-r-*.md (frontmatter status and requirements counts; sprint-r-4 in detail)"
+    ],
+    "input_verification": "The worktree's .git points at gitdir .git/worktrees/phase-a. Its HEAD is ref refs/heads/integrate/phase-a, and that ref file holds 91d36b3ad309deb3350434acaecee0ab2938b13f. Branch and commit match the input. I had no shell and did not run git. I read the ref files directly.",
+    "requirement_checks": [
+     {
+      "id": "REQ-SAG-0133",
+      "source": "docs/requirements.md:162",
+      "listed_in_sprint_doc": true,
+      "result": "not-verifiable",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:183",
+       "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:265-284"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0105..0109, 0134, 0135, NFR-SAG-0004",
+      "source": "docs/requirements.md:157-165",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/requirements.md:157-165 (all rows (Active, r-N))"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0312-0314, 0402, 0403, 0604-0607, 0620, 0712",
+      "source": "docs/requirements.md:166-176",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/requirements.md:166-176 (each owner matches the plan's REQ closure table)"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0140-0148",
+      "source": "docs/requirements.md:177-185",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/requirements.md:177-185 (owners r-7, r-5 as planned)"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0612-0618",
+      "source": "docs/requirements.md:186-192",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/requirements.md:186-192 (owner r-6)",
+       "no sha2 or uuid in Cargo.toml or crates/*/Cargo.toml (rg, no matches)"
+      ]
+     },
+     {
+      "id": "amendment rows REQ-SAG-0101, 0103, 0107, 0120, 0121, 0130, 0505, 0600, 0601, 0611, 0701, 0710, 0711, NFR-SAG-0001",
+      "source": "docs/requirements.md:198-214",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/requirements.md:198-214 (all Active)"
+      ]
+     }
+    ],
+    "deliverable_checks": [
+     {
+      "item": "Every sprint doc under docs/plans/phase-a-refine/ has status complete",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "sprint-r-1, r-2, r-2b, r-3, r-3b, r-3c, r-4, r-5, r-6 and r-7 each have frontmatter line 4 'status: complete'"
+      ],
+      "notes": "All 10 sprint docs are complete. r-5, r-6 and r-7 carry no merge or QA reference in the status line, unlike the other seven (see REQ-QA-004)."
+     },
+     {
+      "item": "Every in-scope REQ/NFR in the plan's closure table is delivered by a completed sprint (35 ids)",
+      "status": "partially-present",
+      "closure_state": "open",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/plan.md:564-576",
+       "docs/requirements.md:157-192"
+      ],
+      "notes": "34 of 35 ids are Active with their owning sprint. REQ-SAG-0133 is Active, but its req: acceptance row is explicitly deferred (see REQ-QA-001)."
+     },
+     {
+      "item": "r-4 acceptance row req:REQ-SAG-0133 (ADR-SAG-0017 table, bead, and upstream issue URL recorded)",
+      "status": "partially-present",
+      "closure_state": "open",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:183",
+       "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:265-284",
+       "docs/requirements.md:162"
+      ],
+      "notes": "The URL is not recorded. The ADR and docs/development/sc-publish.md keep a 'not yet filed' placeholder, so the row is open even though the sprint is marked complete."
+     },
+     {
+      "item": "No (Proposed, r-N) markers remain in docs/requirements.md or docs/architecture.md",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "rg 'Proposed' over docs/*requirements.md and docs/*architecture.md matched only descriptive text at docs/requirements.md:150 and docs/architecture.md:106"
+      ],
+      "notes": "All markers are flipped to Active."
+     },
+     {
+      "item": "plan.md phase status",
+      "status": "partially-present",
+      "closure_state": "open",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/plan.md:38"
+      ],
+      "notes": "The plan still reads 'Status: proposed', although all sprints are complete."
+     },
+     {
+      "item": "Crate requirement tables agree with the root requirements table",
+      "status": "partially-present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "docs/sc-agent-types/requirements.md:9-43",
+       "docs/sc-jev-check/requirements.md:7-31"
+      ],
+      "notes": "Where crate rows exist, their text and owning sprint agree with the root. Some root ids have no crate row (see REQ-QA-003)."
+     },
+     {
+      "item": "Phase acceptance command list and per-sprint execution evidence",
+      "status": "not-verifiable",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/plan.md:903-948"
+      ],
+      "notes": "I have no shell. I did not run any command or inspect PRs 26-35. I relied on the sprint docs' status lines and the caller's statement that the PR QA reports hold the evidence."
+     }
+    ],
+    "findings": [
+     {
+      "id": "REQ-QA-001",
+      "severity": "Blocking",
+      "category": "acceptance-gap",
+      "source_refs": [
+       "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:183",
+       "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:265-284"
+      ],
+      "target_refs": [
+       "docs/requirements.md:162",
+       "docs/plans/phase-a-refine/plan.md:569"
+      ],
+      "issue": "REQ-SAG-0133 is Active and r-4 is its sole closing sprint. Its acceptance row 'req:REQ-SAG-0133 ... bead + upstream issue URL recorded' is deferred to the owner for a later docs commit. The sprint is nevertheless marked 'status: complete'. The ADR-SAG-0017 amendment and docs/development/sc-publish.md still say 'not yet filed'. The requirement row at docs/requirements.md:162 carries the qualifier 'upstream sc-publish issue URL pending', which means the requirement is not met as written. A requirement cannot be waived or deferred inside a review.",
+      "required_correction": "Choose one of two routes. (a) Have the owner file the randlee/sc-publish issue, record the URL in the ADR-SAG-0017 r-4 amendment and docs/development/sc-publish.md, and remove the 'pending' qualifier from docs/requirements.md:162 before this PR merges. (b) Edit REQ-SAG-0133 and the r-4 acceptance row through a planned, reviewed requirements change, so the URL is not part of the requirement, and amend the sprint doc to match.",
+      "compliance_result": "partially-compliant"
+     },
+     {
+      "id": "REQ-QA-002",
+      "severity": "Important",
+      "category": "plan",
+      "source_refs": [
+       "docs/plans/phase-a-refine/plan.md:38-44",
+       "docs/plans/phase-a-refine/plan.md:905-906"
+      ],
+      "target_refs": [
+       "docs/requirements.md:148-153"
+      ],
+      "issue": "plan.md still reads 'Status: **proposed**'. Its header covers review rounds 1-4 and 6 only, and does not mention round 5. The Phase acceptance section says it runs 'after r-1, r-4, r-2, r-3, r-3c, r-2b, r-3b merge', which omits r-7, r-5 and r-6. The next paragraph adds their blocks only 'after r-7 and r-6 merge'. docs/requirements.md:148 is headed 'Phase A.1 \u2014 refinement (proposed)', and its preamble says rows carry '(Proposed, r-N)' markers, but none remain. The anchor #phase-a1--refinement-proposed is linked from docs/sc-agent-types/requirements.md:28.",
+      "required_correction": "Set the plan status to complete, or to the state the phase-end gate defines. Update the Phase acceptance preamble to list all ten sprints. Retitle the docs/requirements.md heading, reword its preamble, and update the anchor link in docs/sc-agent-types/requirements.md:28.",
+      "compliance_result": "partially-compliant"
+     },
+     {
+      "id": "REQ-QA-003",
+      "severity": "Important",
+      "category": "cross-doc-conflict",
+      "source_refs": [
+       "docs/requirements.md:157-160",
+       "docs/requirements.md:173"
+      ],
+      "target_refs": [
+       "docs/sc-agent-types/requirements.md:25-43",
+       "docs/sc-jev-check/requirements.md:7-31"
+      ],
+      "issue": "Crate tables do not carry every root id for the crate that owns the subject. REQ-SAG-0105, 0106 and 0108 are r-1 rows about sc-agent-types (backend descriptor, JevError variants, SubjectsDocument) and are absent from docs/sc-agent-types/requirements.md. The plan required only 0101, 0103, 0120, 0121 and NFR-0001 there, so this is a gap against the review brief, not against plan text. REQ-SAG-0606 (r-2b, equal from backend-reported digests) is absent from docs/sc-jev-check/requirements.md and from every other crate requirements doc. The same grep found 0606 only in the root table, architecture docs, sprint docs, code and boundary manifests.",
+      "required_correction": "Add crate-level rows with an owning sprint and test reference: 0105, 0106 and 0108 in docs/sc-agent-types/requirements.md, and 0606 in docs/sc-jev-check/requirements.md. Alternatively record in each crate doc that the root table is authoritative for these ids.",
+      "compliance_result": "partially-compliant"
+     },
+     {
+      "id": "REQ-QA-004",
+      "severity": "Minor",
+      "category": "deliverable-missing",
+      "source_refs": [
+       "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:4",
+       "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:4",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:4"
+      ],
+      "target_refs": [
+       "docs/plans/phase-a-refine/sprint-r-1-types-break.md:4"
+      ],
+      "issue": "r-5, r-6 and r-7 say bare 'status: complete'. The other seven sprints cite their merge PR and QA-2 result. The completion evidence for these three cannot be traced from the repository alone.",
+      "required_correction": "Add the merged PR and commit, and the QA result, to the status comment of each of the three docs, consistent with the other sprints.",
+      "compliance_result": "partially-compliant"
+     }
+    ],
+    "summary": {
+     "total_findings": 4,
+     "blocking_findings": 1,
+     "overall_compliance": "non-compliant",
+     "deliverables_total": 7,
+     "deliverables_complete": 2,
+     "deliverables_incomplete": 5,
+     "deliverable_completion_percent": 28.6
+    },
+    "gate_reason": "FAIL: REQ-QA-001 is Blocking. Active requirement REQ-SAG-0133 has a deferred acceptance row, so r-4 is marked complete while an acceptance gate is still open. Otherwise, all ten sprint docs are status complete. The plan's closure table has 35 ids, and 34 are Active at their owning sprint. No Proposed markers remain in the index docs. No sha2 or uuid dependency remains in the manifests. Not independently verified: no commands were run and the PR 26-35 QA reports were not opened."
+   }
+  },
+  {
+   "agent": "rust-qa",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "findings",
+     "reviewed_branch": "integrate/phase-a",
+     "reviewed_commit": "91d36b3",
+     "review_mode": "phase_end",
+     "executed_checks": {
+      "fmt": {
+       "status": "pass",
+       "command": "cargo +1.94.1 fmt --all --check"
+      },
+      "clippy": {
+       "status": "pass",
+       "command": "cargo +1.94.1 clippy --locked --workspace --all-targets [--all-features] --exclude sc-jev-py -- -D warnings (both the default-feature and --all-features runs are clean)"
+      },
+      "tests": {
+       "status": "pass",
+       "command": "cargo +1.94.1 test --locked --workspace --exclude sc-jev-py; per-crate runs matching CI: sc-agent-types --features git, and test-util on sc-decision-schema, sc-jev-check, sc-jev, sc-jev-backends, sc-agent-http, sc-ai; test -p workspace-tests; cargo doc -D warnings; just lint; just test-python (18 pytest passed). All passed, no failures."
+      },
+      "coverage": {
+       "status": "pass",
+       "line": 54.09,
+       "branch": 0.0,
+       "function": 58.0,
+       "adequate_for_risk": false
+      },
+      "artifacts": {
+       "status": "not_run",
+       "command": ""
+      }
+     },
+     "findings": [
+      {
+       "id": "QA-001",
+       "category": "coverage",
+       "severity": "minor",
+       "file": "crates/sc-ai/src/command.rs",
+       "line": 1,
+       "issue": "Workspace line coverage from the CI-equivalent default-feature run (cargo llvm-cov --workspace, sc-jev-py excluded) is 54.1% lines, 58.0% functions. The branch figure is 0 because llvm-cov reports no branch data on this toolchain. Several risk-bearing src files show very low or zero coverage in that run.",
+       "recommendation": "Confirm that the files below are exercised only by test-util or cli feature-gated suites, or by subprocess tests that llvm-cov does not instrument. If so, run llvm-cov with those features, or record the gap as accepted. Otherwise add tests.",
+       "evidence": "Low-coverage files: sc-ai/src/command.rs 14% of 738 lines; sc-ai/src/observe.rs 0%; sc-treesitter/src/main.rs 20%; sc-jev-check/src/registry/scripted.rs 17%; sc-jev-check/src/session/mod.rs 34%; sc-jev-check/src/run/mod.rs 36%; sc-jev-check/src/run/builder.rs 0%; sc-jev-backends/src/transport.rs 0%; sc-jev-backends/src/retry.rs 0%; sc-jev/src/client/https.rs 0%; sc-jev/src/api/config.rs 0%; sc-agent-types/src/subjects.rs 0%."
+      }
+     ],
+     "summary": {
+      "total_findings": 1,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 1
+      }
+     },
+     "notes": [
+      "Worktree HEAD is 91d36b3 on integrate/phase-a, matching the input. git status is clean after the checks.",
+      "The first cargo doc run hit a rustdoc ICE (search_index.rs:180 assertion). The cause was a stale target/doc search index, probably from an earlier stable-toolchain doc build. After rm -rf target/doc, cargo +1.94.1 doc -D warnings --no-deps passed. This is a local build-dir artifact, not a code finding.",
+      "The sc-jev-py --all-features link failure was not run, as instructed. The sc-jev-py maturin build with extension-module,test-util is covered by just test-python and passes.",
+      "Not run: cargo hack feature-powerset checks, deps gate scripts, and the release wheel build. The input did not request them.",
+      "No portability issues surfaced by the executed checks. I did not do a manual cross-platform grep beyond the checks."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "rust-best-practices",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "integrate/phase-a",
+     "reviewed_commit": "91d36b3",
+     "review_mode": "phase_end",
+     "practice_mode": "all",
+     "practices_reviewed": [
+      "RBP-001",
+      "RBP-002",
+      "RBP-003",
+      "RBP-004",
+      "RBP-005",
+      "RBP-006",
+      "RBP-007",
+      "RBP-008",
+      "RBP-009",
+      "RBP-010"
+     ],
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "notes": [
+      "I could not run git, so I checked the commit by reading refs. The worktree HEAD is refs/heads/integrate/phase-a, and that ref resolves to 91d36b3ad309deb3350434acaecee0ab2938b13f. This matches the assigned branch and commit.",
+      "This was a targeted review, not a full line-by-line read of all 147 files under crates/. I used pattern searches (pub trait, Mutex/RefCell/Cell/RwLock, Cow, PhantomData, Deref, Infallible, Result<_, String>, map_err with format!, unwrap) plus direct reads of the key trait and shared-state sites. Only the first 100 of 147 .rs paths were listed, though the searches covered every file.",
+      "RBP-003 and RBP-008: JudgeBackend, EnvSource, KeyringSource, Transport and SessionLog are public traits. Each is documented as intentionally open, which is an explicit seal/open decision. Each is dyn-compatible: &self receivers, no generic methods, no Self in signatures. Transport also has blanket impls for &T and Arc<T>.",
+      "RBP-004: semantic ids use validated newtypes (Rev, SessionId, BackendId, RepoRelativePath, Sha256Digest, QuestionId, ChoiceId, ResolvedApiKey). I saw no raw-String id leaks.",
+      "RBP-006: the only shared mutation in non-test code is the process-global logger registry (Mutex in OnceLock) in sc-jev-host/src/obs.rs:71-75. It is a correct primitive for the threaded model and the type alias is documented. Other Mutex uses are in test utilities (sc-agent-http test_util, sc-decision-schema test_util, test modules), where Arc<Mutex> is documented as needed because Transport is Send + Sync. No RefCell or Cell appears anywhere.",
+      "RBP-007: no Result<_, String> and no map_err(|e| format!) found in src. The unwrap() calls are in doc examples and tests only. No fake-error infallible paths found.",
+      "RBP-009: Cow is used in sc-jev-backends/src/backend.rs:116 and :124 (embedded_text), where borrow-first is the right model.",
+      "RBP-010: PhantomData appears only in a serde visitor (sc-decision-schema/src/jev/v1.rs:158). No capability-token design is implied elsewhere.",
+      "RBP-001: errors use the structured JevError / ErrorCode / ScAgentErrorResponse model, with stable codes and recovery hints. For example, JevError::credential_store_invalid carries a sanitized cause.",
+      "RBP-002, RBP-005: no runtime state-machine or wrapper-ergonomics issues surfaced."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "rust-service-hardening",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "skipped",
+     "reviewed_branch": "integrate/phase-a",
+     "reviewed_commit": "91d36b3",
+     "review_mode": "phase_end",
+     "service_indicators_found": [],
+     "topics_reviewed": [],
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "notes": [
+      "HEAD check: the worktree HEAD is refs/heads/integrate/phase-a, and that ref resolves to 91d36b3ad309deb3350434acaecee0ab2938b13f. This matches the assigned branch and commit. I confirmed it by reading git ref files, since I had no shell.",
+      "None of the default or extra service-indicator dependencies (tokio, axum, hyper, tonic, warp, actix-web, reqwest) appear in any crates/*/Cargo.toml. I checked all 11 crates under /Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/crates/.",
+      "The only HTTP dependency is the blocking client ureq, in crates/sc-agent-http/Cargo.toml. It is not on the indicator list, and I found no async runtime, listener, server startup or request handler. The main.rs files in sc-ai and sc-treesitter are CLI entrypoints. The listener code I found is in sc-agent-http/tests/support/mod.rs, which is test-only.",
+      "The workspace looks like CLI binaries and libraries, not a long-running service. Service-hardening topics such as graceful shutdown, backpressure, health endpoints and request IDs do not apply.",
+      "Owner decisions were not re-raised: the 502 busy retry (ADR-SAG-0007 r-3), the per-judge-call worst-case bound, and the CI advisory scan (bead agt-ci-advisory-scan).",
+      "If you want the blocking-client behaviour in sc-agent-http reviewed (timeouts, retry bounds), re-dispatch with service_indicators_extra: [\"ureq\"] and topics: [\"timeouts\", \"retries\"]."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "flaky-test-qa",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "integrate/phase-a",
+     "reviewed_commit": "91d36b3",
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "critical": 0,
+      "important": 0,
+      "minor": 0
+     }
+    },
+    "error": null
+   }
+  }
+ ]
+}

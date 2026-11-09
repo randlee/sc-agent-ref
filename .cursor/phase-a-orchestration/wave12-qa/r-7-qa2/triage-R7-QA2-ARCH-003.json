@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "R7-QA2-ARCH-003",
+ "found_in": "A1-R7",
+ "found_at": "2026-11-08T02:45:00Z",
+ "title": "The QA-1 fix adds a wall-clock deadline on every git subprocess (pub const GIT_DEADLINE = 60 s, fixed and not configurable, lines 18-23 and ",
+ "description": "The QA-1 fix adds a wall-clock deadline on every git subprocess (pub const GIT_DEADLINE = 60 s, fixed and not configurable, lines 18-23 and 43; enforced at lines 171, 308 and 383). A timeout now surfaces as JevError::ExtractionTimeout, so the code is EXTRACTION_TIMEOUT with timeout_seconds 60. The git module is public (crates/sc-agent-types/src/lib.rs:61 'pub mod git;'), and ADR-SAG-0027 lists it as stable surface. No ADR or crate doc records this process contract, the fixed value, the new public constant, or the new failure mode for git reads (grep of docs/ finds no git deadline text; docs/sc-agent-types/architecture.md has none). ADR-SAG-0027 does allow several variants to map to one existing id, so reusing the id is not itself an ADR-SAG-0027 violation. However, the variant's rustdoc (crates/sc-agent-types/src/error.rs:160 'The extractor exceeded its time limit') and docs/sc-jev-check/extraction.md:37 describe EXTRACTION_TIMEOUT as an extractor-only code, so consumers reading it will misattribute git timeouts. The new process and error contract is therefore a structural decision with no ADR.",
+ "category": "RULE-ADR-CODE",
+ "severity": "blocking",
+ "pattern": "RULE-ADR-CODE",
+ "file_filter": "crates/sc-agent-types/src/git.rs",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "81ffec2fcab6d1b18967a84963df35fe9fb91e80"
+  },
+  {
+   "branch": "sprint/r-7-decision-schema",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-7-decision-schema",
+   "order_index": 1,
+   "head_sha": "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a",
+  "sprint/r-7-decision-schema"
+ ]
+}

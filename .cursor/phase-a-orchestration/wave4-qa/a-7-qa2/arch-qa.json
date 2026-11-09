@@ -1,0 +1,12 @@
+{
+  "agent": "arch-qa",
+  "branch": "sprint/a-7-sc-ai-cli",
+  "scope": {"phase": "a", "sprint": "a-7"},
+  "commit": "844fc6557157be79bb81ff8e899f77ead4c8b601",
+  "verdict": "PASS",
+  "blocking": 0,
+  "important": 0,
+  "findings": [],
+  "merge_ready": true,
+  "notes": "Carry-forward ARCH-013/014 and ADR-SAG-0014 resolved at 844fc65."
+}

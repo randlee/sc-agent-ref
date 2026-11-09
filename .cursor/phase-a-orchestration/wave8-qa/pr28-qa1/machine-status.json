@@ -1,0 +1,27 @@
+{
+  "sprint": "r-1, r-4, r-3c, r-3, r-2 closeout",
+  "task": "qa-pr28-1",
+  "branch": "docs/close-wave1-2",
+  "commit": "fe375c2f72683f1b12b77f30080cb30ef6d9cdd6",
+  "pr": 28,
+  "verdict": "FAIL",
+  "deliverables": {
+    "complete": 4,
+    "total": 6,
+    "percent": 66.7
+  },
+  "findings": {
+    "blocking": 0,
+    "important": 1,
+    "minor": 1
+  },
+  "blocking_ids": [],
+  "merge_readiness": "blocked",
+  "merge_reason": "Finding gate FAIL: 0 Blocking, 1 Important (ARCH-001), 1 Minor (REQ-QA-PR28-001). Both are stale r-4 Implementation-notes and Deferral wording that still describes status: in-review next to the new status: complete. Deliverables are 4/6 (66.7%) per req-qa JSON. Spawn gate pass (4/4 docs-only reviewers with task_id and parsed fenced JSON). TODO scan 0 hits. CI green (11/11 checks).",
+  "next_action": "triage_and_fix",
+  "owner": "parent-orchestrator",
+  "reviewer_spawn_gate": "pass",
+  "reviewer_manifest": [{"agent": "req-qa", "task_id": "a68f0de4953060a57", "spawn_actor": "parent-orchestrator", "fenced_json_received": true, "verdict": "PASS", "findings": {"blocking": 0, "important": 0, "minor": 1}}, {"agent": "arch-qa", "task_id": "ab563e5b990147161", "spawn_actor": "parent-orchestrator", "fenced_json_received": true, "verdict": "PASS", "findings": {"blocking": 0, "important": 1, "minor": 0}}, {"agent": "rust-best-practices-agent", "task_id": "ad95b69128cdedb6f", "spawn_actor": "parent-orchestrator", "fenced_json_received": true, "verdict": "PASS", "findings": {"blocking": 0, "important": 0, "minor": 0}}, {"agent": "rust-service-hardening-agent", "task_id": "aa7796039a40997d4", "spawn_actor": "parent-orchestrator", "fenced_json_received": true, "verdict": "SKIPPED", "findings": {"blocking": 0, "important": 0, "minor": 0}}],
+  "evidence_chain": {"qa_pass": "qa-pr28-1", "commit": "fe375c2f72683f1b12b77f30080cb30ef6d9cdd6", "pr_comment_url": "https://github.com/randlee/sc-agent/pull/28#issuecomment-6713937887", "coordinator_task_id": "not-provided-to-coordinator", "artifacts_dir": ".cursor/phase-a-orchestration/wave8-qa/pr28-qa1", "todo_scan": {"script": ".claude/skills/todo-triage/scripts/find_todos.py", "hits": 0}, "ci": {"required_checks": "all pass (11/11) at fe375c2"}, "triage": {"ttl_paths": []}},
+  "missing_reviewers": [],
+  "unparsed_reviewers": []}

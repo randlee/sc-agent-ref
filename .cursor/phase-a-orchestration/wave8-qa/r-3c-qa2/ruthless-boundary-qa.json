@@ -1,0 +1,41 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-3c-treesitter-cli",
+    "reviewed_commit": "641856fe5f412f3f135d3d71d1a0eadf0e34833c",
+    "review_mode": "sprint_review",
+    "findings": [
+      {
+        "id": "RBQA-F003",
+        "severity": "minor",
+        "class": "boundary_tightening",
+        "file": "crates/sc-jev-check/src/extract/read.rs",
+        "line": 23,
+        "issue": "Still open (partial). MAX_INPUT_BYTES now has an owner in sc_agent_types::git (git.rs:32), and sc-treesitter imports it. sc-jev-check keeps its own `pub(crate) const MAX_INPUT_BYTES: u64 = 8 * 1024 * 1024` (read.rs:23), so the 8 MiB limit still exists in two places.",
+        "recommendation": "Make sc-jev-check import sc_agent_types::git::MAX_INPUT_BYTES and delete its copy. Failing that, add a bead for it and a unit test asserting the two values are equal. The git.rs doc at line 30 already admits the copy, so a tracked follow-up is acceptable for this sprint.",
+        "evidence": "Grep over crates/*/src shows the const defined at git.rs:32 and read.rs:23. The sc-treesitter copy is gone (git_io.rs:26 imports it). Nothing ties the two values together. sc-jev-check would need the `git` feature of sc-agent-types for the import, so check its Cargo.toml feature set before moving it.",
+        "justification_check": "duplicated implementation (documented as a known remaining copy)",
+        "related_artifacts": [
+          "crates/sc-agent-types/src/git.rs",
+          "crates/sc-jev-check/src/extract/read.rs"
+        ]
+      }
+    ],
+    "summary": {
+      "total_findings": 1,
+      "by_severity": {
+        "critical": 0,
+        "important": 0,
+        "minor": 1
+      }
+    },
+    "notes": [
+      "RBQA-F001 is fixed. Grep finds no `Command::new` under crates/sc-treesitter/src. git_io.rs:91 now calls `git::hash_blob(repo, &bytes)`, which lives in the shared module (git.rs:232). I did not diff hash_blob's env policy against the shared module's other callers, but it is now in the same module as the one `Command::new(\"git\")` at git.rs:68.",
+      "RBQA-F002 is fixed. .github/scripts/cargo-tree-gates.sh has two new feature rows. The `lib` row runs `--no-default-features` and fails on any of judge, secret, obs, git or default for sc-agent-types. The `present` row runs with default features and fails unless `git` is enabled (positive control). It uses `-e normal,features -i`. The script header records the negative control (dropping default-features = false). I could not verify that the negative control was run.",
+      "I did not run the script, as the review rules forbid running cargo. I read it only.",
+      "Unsolicited observation, outside this round's scope: crates/sc-ai/src/command.rs:774 and crates/sc-jev-check/src/extract/{mod.rs:134,read.rs:179,command.rs} still spawn git or other processes directly. This is the scope for r-3b's Command::new ban."
+    ]
+  },
+  "error": null
+}

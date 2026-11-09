@@ -1,0 +1,120 @@
+{
+  "reviewer_spawn_gate": "pass",
+  "reviewer_manifest": [
+    {
+      "agent": "req-qa",
+      "task_id": "a083a869ccc67cfa1",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "FAIL",
+      "findings": {
+        "blocking": 2,
+        "important": 0,
+        "minor": 3
+      }
+    },
+    {
+      "agent": "arch-qa",
+      "task_id": "a773afa17a63cc175",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "PASS",
+      "findings": {
+        "blocking": 0,
+        "important": 0,
+        "minor": 1
+      }
+    },
+    {
+      "agent": "rust-qa-agent",
+      "task_id": "a21dcf0ab71d5b57b",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "findings",
+      "findings": {
+        "blocking": 0,
+        "important": 1,
+        "minor": 2
+      }
+    },
+    {
+      "agent": "rust-best-practices-agent",
+      "task_id": "abfdda82981ff7f78",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "findings",
+      "findings": {
+        "blocking": 0,
+        "important": 1,
+        "minor": 0
+      }
+    },
+    {
+      "agent": "rust-service-hardening-agent",
+      "task_id": "adeac310a614593cc",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "findings",
+      "findings": {
+        "blocking": 0,
+        "important": 1,
+        "minor": 1
+      }
+    },
+    {
+      "agent": "flaky-test-qa",
+      "task_id": "a495666e9d95793cd",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "findings",
+      "findings": {
+        "blocking": 0,
+        "important": 1,
+        "minor": 2
+      }
+    }
+  ],
+  "verdict": "FAIL",
+  "findings": {
+    "blocking": 2,
+    "important": 4,
+    "minor": 9
+  },
+  "deliverables": {
+    "complete": 6,
+    "total": 9,
+    "percent": 66.7
+  },
+  "evidence_chain": {
+    "qa_pass": "qa-r-4-1",
+    "commit": "59ec83882480f05ff4b1203d48ecd834afd8aced",
+    "pr_number": 21,
+    "pr_comment_url": "https://github.com/randlee/sc-agent/pull/21#issuecomment-6707500603",
+    "coordinator_task_id": "cursor-quality-mgr-fallback",
+    "reviewer_tasks": {
+      "req-qa": "a083a869ccc67cfa1",
+      "arch-qa": "a773afa17a63cc175",
+      "rust-qa-agent": "a21dcf0ab71d5b57b",
+      "rust-best-practices-agent": "abfdda82981ff7f78",
+      "rust-service-hardening-agent": "adeac310a614593cc",
+      "flaky-test-qa": "a495666e9d95793cd"
+    },
+    "ci": {
+      "failing_check": "dependency gates (allocator, pins)",
+      "cause": "root sc-observability-types =1.5.0 not on lockstep list (pending r-1)"
+    },
+    "triage": {
+      "phase_id": "phase-a.1",
+      "ttl_paths": [],
+      "qa_triage_task_ids": []
+    },
+    "parent_correlation_required": true
+  },
+  "blocking_ids": [
+    "REQ-QA-R4-001",
+    "REQ-QA-R4-002"
+  ],
+  "next_action": "triage_and_fix",
+  "fix_assignment": ".cursor/phase-a-orchestration/wave7-dev/fix-r-4-qa1.md",
+  "owner_action": "REQ-QA-R4-002 upstream sc-publish issue"
+}

@@ -1,0 +1,113 @@
+{
+  "review_mode": "plan",
+  "worktree_path": "/Volumes/Extreme Pro/github/sc-agent",
+  "branch": "plan/phase-a",
+  "commit": "8a37136bdd49631f534b03913dcb7b254b0ec8e3",
+  "scope": {
+    "phase": "a",
+    "sprint": null
+  },
+  "authoritative_sprint_doc": "docs/plans/phase-a/plan.md",
+  "reference_docs": [
+    "docs/architecture.md",
+    "docs/requirements.md"
+  ],
+  "review_targets": [
+    "docs/plans/phase-a/plan.md",
+    "docs/architecture.md",
+    "docs/sc-agent-types/architecture.md"
+  ],
+  "round_limit": true,
+  "changed_files": [],
+  "triage_records": [
+    ".cursor/phase-a-orchestration/carry-forward-qa-plan-1.json"
+  ],
+  "carry_forward_findings": [
+    {
+      "id": "ARCH-001",
+      "severity": "Blocking",
+      "agent": "arch-qa"
+    },
+    {
+      "id": "ARCH-002",
+      "severity": "Blocking",
+      "agent": "arch-qa"
+    },
+    {
+      "id": "ARCH-003",
+      "severity": "Blocking",
+      "agent": "arch-qa"
+    },
+    {
+      "id": "ARCH-004",
+      "severity": "Blocking",
+      "agent": "arch-qa"
+    },
+    {
+      "id": "ARCH-005",
+      "severity": "Blocking",
+      "agent": "arch-qa"
+    },
+    {
+      "id": "ARCH-006",
+      "severity": "Blocking",
+      "agent": "arch-qa"
+    },
+    {
+      "id": "ARCH-007",
+      "severity": "Important",
+      "agent": "arch-qa"
+    },
+    {
+      "id": "ARCH-008",
+      "severity": "Important",
+      "agent": "arch-qa"
+    },
+    {
+      "id": "PLAN-CRIT-001",
+      "severity": "Blocking",
+      "agent": "critical-plan-reviewer"
+    },
+    {
+      "id": "PLAN-CRIT-002",
+      "severity": "Blocking",
+      "agent": "critical-plan-reviewer"
+    },
+    {
+      "id": "PLAN-CRIT-003",
+      "severity": "Blocking",
+      "agent": "critical-plan-reviewer"
+    },
+    {
+      "id": "PLAN-CRIT-004",
+      "severity": "Blocking",
+      "agent": "critical-plan-reviewer"
+    },
+    {
+      "id": "PLAN-CRIT-005",
+      "severity": "Blocking",
+      "agent": "critical-plan-reviewer"
+    },
+    {
+      "id": "PLAN-CRIT-006",
+      "severity": "Important",
+      "agent": "critical-plan-reviewer"
+    },
+    {
+      "id": "PLAN-CRIT-007",
+      "severity": "Important",
+      "agent": "critical-plan-reviewer"
+    },
+    {
+      "id": "PLAN-CRIT-008",
+      "severity": "Important",
+      "agent": "critical-plan-reviewer"
+    },
+    {
+      "id": "PLAN-CRIT-009",
+      "severity": "Important",
+      "agent": "critical-plan-reviewer"
+    }
+  ],
+  "notes": "qa-plan-2: recheck ONLY carry_forward ARCH/PLAN-CRIT from qa-plan-1."
+}

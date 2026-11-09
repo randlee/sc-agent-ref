@@ -1,0 +1,165 @@
+{
+  "reviewer_spawn_gate": "pass",
+  "reviewer_manifest": [
+    {
+      "agent": "req-qa",
+      "task_id": "a5cbe472cb250f124",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "PASS",
+      "findings": {
+        "blocking": 0,
+        "important": 0,
+        "minor": 0
+      },
+      "notes": "REQ-QA-A10-005 minor closed by cb4a284; deliverables 7/8 + 8th closed = 8/8"
+    },
+    {
+      "agent": "arch-qa",
+      "task_id": "a8b9b9e2bf595b2e6",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "PASS",
+      "findings": {
+        "blocking": 0,
+        "important": 0,
+        "minor": 0
+      }
+    },
+    {
+      "agent": "rust-qa-agent",
+      "task_id": "a13a95bbebe1d8e30",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "PASS",
+      "findings": {
+        "blocking": 0,
+        "important": 0,
+        "minor": 0
+      },
+      "notes": "QA-001 important owned by a-10 code wave 3 (carry-forward, not open on PR 18); QA-003 closed by cb4a284"
+    },
+    {
+      "agent": "flaky-test-qa",
+      "task_id": "a0abfab5fb72dd00a",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "PASS",
+      "findings": {
+        "blocking": 0,
+        "important": 0,
+        "minor": 0
+      },
+      "notes": "FTQ-005 minor closed by cb4a284"
+    },
+    {
+      "agent": "rust-best-practices-agent",
+      "task_id": "a71cc46218ca67047",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "PASS",
+      "findings": {
+        "blocking": 0,
+        "important": 0,
+        "minor": 0
+      },
+      "supporting_round": "qa-a-10-docs-1",
+      "reviewed_commit": "91ee1ab"
+    },
+    {
+      "agent": "rust-service-hardening-agent",
+      "task_id": "a88540a9b849b7cfd",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "SKIPPED",
+      "findings": {
+        "blocking": 0,
+        "important": 0,
+        "minor": 0
+      },
+      "supporting_round": "qa-a-10-docs-1",
+      "reviewed_commit": "91ee1ab"
+    }
+  ],
+  "missing_reviewers": [],
+  "unparsed_reviewers": [],
+  "aggregation_source": "reviewer_fenced_json_union_todo_scan",
+  "verdict": "PASS",
+  "findings": {
+    "blocking": 0,
+    "important": 0,
+    "minor": 0
+  },
+  "deliverables": {
+    "complete": 8,
+    "total": 8,
+    "percent": 100
+  },
+  "evidence_chain": {
+    "qa_pass": "qa-a-10-docs-2",
+    "commit": "cb4a284",
+    "pr_number": 18,
+    "pr_comment_url": "https://github.com/randlee/sc-agent/pull/18#issuecomment-6703427358",
+    "coordinator_task_id": "cursor-quality-mgr-fallback",
+    "reviewer_tasks": {
+      "req-qa": "a5cbe472cb250f124",
+      "arch-qa": "a8b9b9e2bf595b2e6",
+      "rust-qa-agent": "a13a95bbebe1d8e30",
+      "flaky-test-qa": "a0abfab5fb72dd00a",
+      "rust-best-practices-agent": "a71cc46218ca67047",
+      "rust-service-hardening-agent": "a88540a9b849b7cfd"
+    },
+    "triage": {
+      "phase_id": "phase-a",
+      "ttl_paths": [],
+      "qa_triage_task_ids": []
+    },
+    "parent_correlation_required": true
+  },
+  "prior_rounds": [
+    {
+      "qa_pass": "qa-a-10-docs-1",
+      "commit": "91ee1ab",
+      "findings": {
+        "important": 2,
+        "minor": 9
+      },
+      "pr_posted": false
+    }
+  ],
+  "closed_finding_ids": [
+    "REQ-QA-A10-001",
+    "REQ-QA-A10-002",
+    "REQ-QA-A10-003",
+    "REQ-QA-A10-004",
+    "REQ-QA-A10-005",
+    "ARCH-007",
+    "ARCH-008",
+    "FTQ-002",
+    "FTQ-003",
+    "FTQ-004",
+    "FTQ-005",
+    "QA-002",
+    "QA-003"
+  ],
+  "carried_forward": [
+    {
+      "id": "QA-001",
+      "severity": "important",
+      "owner": "a-10 code branch wave 3",
+      "note": "feature matrix check-only; documented in workflow + ci.md; not open on PR 18"
+    }
+  ],
+  "todo_scan": {
+    "hits": 0
+  },
+  "ci": {
+    "run": "42346621340",
+    "commit": "cb4a284",
+    "checks": "all pass",
+    "mergeStateStatus": "CLEAN",
+    "mergeable": "MERGEABLE",
+    "doc_job_continue_on_error": true
+  },
+  "next_action": "none"
+}

@@ -1,0 +1,114 @@
+{
+  "scope": {
+    "phase": "A",
+    "sprint": null
+  },
+  "phase_or_sprint_docs": [
+    "docs/plans/phase-a/plan.md",
+    "docs/plans/phase-a/sprint-a-1.md",
+    "docs/plans/phase-a/sprint-a-2.md",
+    "docs/plans/phase-a/sprint-a-3.md",
+    "docs/plans/phase-a/sprint-a-4.md",
+    "docs/plans/phase-a/sprint-a-5.md",
+    "docs/plans/phase-a/sprint-a-6.md",
+    "docs/plans/phase-a/sprint-a-7.md",
+    "docs/plans/phase-a/sprint-a-8.md",
+    "docs/plans/phase-a/sprint-a-9.md",
+    "docs/plans/phase-a/sprint-a-10.md"
+  ],
+  "phase_sprint_documents": [
+    "docs/plans/phase-a/plan.md",
+    "docs/plans/phase-a/sprint-a-1.md",
+    "docs/plans/phase-a/sprint-a-2.md",
+    "docs/plans/phase-a/sprint-a-3.md",
+    "docs/plans/phase-a/sprint-a-4.md",
+    "docs/plans/phase-a/sprint-a-5.md",
+    "docs/plans/phase-a/sprint-a-6.md",
+    "docs/plans/phase-a/sprint-a-7.md",
+    "docs/plans/phase-a/sprint-a-8.md",
+    "docs/plans/phase-a/sprint-a-9.md",
+    "docs/plans/phase-a/sprint-a-10.md"
+  ],
+  "authoritative_sprint_doc": "docs/plans/phase-a/plan.md",
+  "worktree_path": "/Volumes/Extreme Pro/github/sc-agent",
+  "branch": "plan/phase-a",
+  "commit": "1a585c3a2448f149d4e64a26d9c5afd430afbe07",
+  "review_targets": [
+    "docs/requirements.md",
+    "docs/sc-jev-py/requirements.md"
+  ],
+  "round_limit": true,
+  "carry_forward_findings": [
+    {
+      "id": "REQ-QA-001",
+      "severity": "Blocking",
+      "agent": "req-qa"
+    },
+    {
+      "id": "REQ-QA-002",
+      "severity": "Blocking",
+      "agent": "req-qa"
+    },
+    {
+      "id": "REQ-QA-004",
+      "severity": "Blocking",
+      "agent": "req-qa"
+    },
+    {
+      "id": "REQ-QA-007",
+      "severity": "Blocking",
+      "agent": "req-qa"
+    },
+    {
+      "id": "REQ-QA-009",
+      "severity": "Important",
+      "agent": "req-qa"
+    },
+    {
+      "id": "ARCH-INPUT-001",
+      "severity": "Blocking",
+      "agent": "arch-qa"
+    },
+    {
+      "id": "ARCH-001",
+      "severity": "Blocking",
+      "agent": "arch-qa"
+    },
+    {
+      "id": "ARCH-002",
+      "severity": "Blocking",
+      "agent": "arch-qa"
+    },
+    {
+      "id": "ARCH-003",
+      "severity": "Blocking",
+      "agent": "arch-qa"
+    },
+    {
+      "id": "ARCH-004",
+      "severity": "Blocking",
+      "agent": "arch-qa"
+    },
+    {
+      "id": "ARCH-005",
+      "severity": "Blocking",
+      "agent": "arch-qa"
+    },
+    {
+      "id": "ARCH-006",
+      "severity": "Blocking",
+      "agent": "arch-qa"
+    },
+    {
+      "id": "ARCH-007",
+      "severity": "Important",
+      "agent": "arch-qa"
+    },
+    {
+      "id": "ARCH-008",
+      "severity": "Important",
+      "agent": "arch-qa"
+    }
+  ],
+  "notes": "qa-plan-3 recheck only carry_forward from qa-plan-2"
+}

@@ -1,0 +1,32 @@
+{
+  "task_id": "phase-a1-r6r7-plan-qa",
+  "sprint": "phase-a.1 (r-5, r-6, r-7)",
+  "sprint_doc": "docs/plans/phase-a-refine/plan.md",
+  "review_mode": "doc_review",
+  "description": "Focused plan QA for the Phase A.1 r-5/r-6/r-7 plan after consistency hardening (plan-hardening-basic step 6). Owner rule 2026-11-07: ceremony the owner did not specify or discuss is high priority for removal. Do not recommend new gates, receipts, inventories or docs-consistency checks. All owner questions are now closed: r-5 implements the full TypeSafe Jev API (source of truth: .claude/skills/plan-anchoring/references/jev-api.md); sc-sha 1.7.0 behaviour is recorded in r-6 D0; the CLI wrapper is not a conflict. Decided: log-write failure policy is best-effort (plan.md item 9). QA-2: verify each QA-1 finding is closed and report new findings only if Blocking or introduced by the fix commits 31c88ab, 94e35b9 and the merge at 5836f1b.",
+  "pr_number": "",
+  "branch": "plan/phase-a-refine-r6",
+  "worktree_path": "/private/tmp/claude-501/-Users-randlee--claude-spares-spare-ZVG33J/84ad1f90-7f83-4b6e-b4fc-63121d353959/scratchpad/plan-qa2-review",
+  "reviewed_commit": "5836f1befb9550ff4f5125f928cbce0c74e5ef1c",
+  "commits": "debbf1d..5836f1b",
+  "review_targets": [
+    "docs/plans/phase-a-refine/plan.md",
+    "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+    "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md",
+    "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md",
+    "docs/architecture.md (ADR-SAG-0030, ADR-SAG-0031 and the ADR amendments r-5/r-6/r-7 own)",
+    "docs/requirements.md (REQ-SAG-0140..0148, 0600, 0611..0618 and the r-5 rows)"
+  ],
+  "references": [
+    "/Volumes/Extreme Pro/github/sc-agent/.cursor/phase-a-orchestration.json key owner_decisions_2026_11_07 (authoritative owner scope)",
+    "docs/development/sprint-planning-guidelines.md",
+    "docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md",
+    "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md"
+  ],
+  "changed_files": "git diff --stat origin/integrate/phase-a...debbf1d in the worktree",
+  "triage_records": "",
+  "carry_forward_findings": [],
+  "qa_round": "QA-2 (locked recheck)",
+  "findings_scope_locked": true,
+  "carry_forward_findings_file": "/Volumes/Extreme Pro/github/sc-agent/.cursor/phase-a-orchestration/refine-plan/plan-qa-r6r7/REVIEWER.json"
+}

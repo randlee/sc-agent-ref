@@ -1,0 +1,107 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-7-decision-schema",
+    "reviewed_commit": "9497297",
+    "review_mode": "sprint_review",
+    "service_indicators_found": [
+      "ureq (workspace dep ureq = \"3.5.1\", crates/sc-agent-http/Cargo.toml:31)",
+      "ureq::Agent outbound HTTP client (crates/sc-agent-http/src/ureq_transport.rs:47-57)",
+      "send_with_busy_retry outbound retry loop (crates/sc-agent-http/src/retry.rs:248-258, 406-451)",
+      "git subprocess helper (crates/sc-agent-types/src/git.rs:71-94)"
+    ],
+    "topics_reviewed": [
+      "config_validation",
+      "timeouts",
+      "graceful_shutdown",
+      "structured_logging_tracing",
+      "request_id",
+      "retries",
+      "bounded_queues_backpressure",
+      "spawn_blocking",
+      "input_limits",
+      "dependency_hygiene",
+      "ci_release_checklist"
+    ],
+    "findings": [
+      {
+        "id": "RSH-001",
+        "topic": "retries",
+        "severity": "important",
+        "file": "crates/sc-agent-http/src/retry.rs",
+        "line": 45,
+        "issue": "Busy retry resends non-idempotent POST bodies on status 502 as well as 429 and 529. For LLM provider calls (judge message and count requests) a 502 can come from a gateway after the provider already processed and billed the request, so a resend can double-charge or double-process.",
+        "recommendation": "Limit the resend set to statuses that assert the request was not processed (429, 529), or record an explicit owner sign-off in ADR-SAG-0007 that accepts the double-charge risk for 502. Keep the 90 s budget and 4-send bound either way. The sprint doc should state the accepted risk beside the constant.",
+        "evidence": "BUSY_STATUSES = [429, 502, 529] is applied to every POST through retry_loop. The module doc (retry.rs:23-28) acknowledges that a 502 can double-charge a provider that processed the request, but the code still resends it. This is a documented decision, reported here under the zero-tolerance rule."
+      },
+      {
+        "id": "RSH-002",
+        "topic": "timeouts",
+        "severity": "important",
+        "file": "crates/sc-agent-types/src/git.rs",
+        "line": 92,
+        "issue": "Git subprocesses used for revision reads (rev-parse, cat-file -t, cat-file -s, cat-file blob) have no wall-clock deadline. A command that blocks, for example on a partial clone that lazily fetches a missing blob from a promisor remote, a stalled network filesystem, or a hung lock, can pin the calling thread indefinitely. The sc-jev-check command extractor enforces a deadline for its own subprocess, so this is inconsistent.",
+        "recommendation": "Wrap git invocations in a deadline, such as a spawn plus try_wait poll with kill_and_reap, similar to the command extractor in crates/sc-jev-check/src/extract/command.rs. Pass the deadline in from the caller, or set a fixed default. Keep GIT_TERMINAL_PROMPT=0. Note that the doc at git.rs:16-18 defers this to r-2 / r-3c, so it should be tracked as an open item rather than left implicit.",
+        "evidence": "run() calls command.output() with no timeout (git.rs:90-93). read_at_rev calls child.wait() unbounded at git.rs:207-209. The module doc states 'There is no wall-clock deadline ... callers ... own any timeout policy.'"
+      },
+      {
+        "id": "RSH-003",
+        "topic": "timeouts",
+        "severity": "minor",
+        "file": "crates/sc-jev-backends/src/backend.rs",
+        "line": 154,
+        "issue": "There is no end-to-end deadline for one judge call. Each Haiku or Luna judge makes two busy-retry exchanges (count, then message), and each exchange gets its own 90 s start budget and up to 4 sends. Backends in a run are judged sequentially, each with its own budget. Worst-case wall time is about 210 s per exchange, about 420 s per backend, and more than 20 minutes for a three-backend run.",
+        "recommendation": "Add a run-level or judge-level deadline that the busy-retry budget and the in-flight request timeout both respect, for example a deadline carried on the CancelToken or on JudgeRequest. Alternatively, document the worst-case bound in the run API docs.",
+        "evidence": "judge() calls exchange() for count (backend.rs:154-159) and then message (backend.rs:161-174). retry_loop computes started = hooks.start() per send_with_busy_retry call (crates/sc-agent-http/src/retry.rs:412-413). live_run iterates backends sequentially with no overall budget (crates/sc-jev-check/src/run/mod.rs:592-616)."
+      },
+      {
+        "id": "RSH-004",
+        "topic": "structured_logging_tracing",
+        "severity": "minor",
+        "file": "crates/sc-jev-check/src/run/mod.rs",
+        "line": 794,
+        "issue": "The judge log event is emitted unconditionally after judge() returns, even when the send never reached the transport. A cancelled backend is logged as a judge send, and its failure has no distinct event.",
+        "recommendation": "Emit the log only after a transport send actually occurred, or add an outcome or sent field to LogEvent so cancelled-before-send is distinguishable from a sent request. Update the module doc at run/mod.rs:40-41 so it matches the behaviour.",
+        "evidence": "send() calls judge.judge at run/mod.rs:793 and then emit_log at :794 on every path. retry_loop returns cancelled('before a send') without a transport call (crates/sc-agent-http/src/retry.rs:416-417). The module doc says a backend refused before its send emits none."
+      },
+      {
+        "id": "RSH-005",
+        "topic": "dependency_hygiene",
+        "severity": "minor",
+        "file": ".github/actions/setup-lint-toolchain/action.yml",
+        "line": 19,
+        "issue": "No dependency advisory scan runs in CI. cargo-deny is installed by the lint toolchain action, but no cargo deny check or cargo audit step exists in sc-agent-ci.yml, and there is no deny.toml at the repo root. The advisory scan is deferred to a bead (agt-ci-advisory-scan).",
+        "recommendation": "Add a cargo deny check advisories step (or cargo audit) to the CI workflow, with a committed deny.toml that sets the advisory policy. Until then, record the deferral in the sprint doc as an open risk with its tracking id.",
+        "evidence": "The action installs cargo-deny (action.yml:19-22). A repo-wide search found no invocation of cargo deny or cargo audit in .github/workflows or crates. The deferral is recorded at docs/plans/phase-a-refine/sprint-r-3-shared-http.md:407-408."
+      },
+      {
+        "id": "RSH-006",
+        "topic": "ci_release_checklist",
+        "severity": "minor",
+        "file": ".github/workflows/sc-agent-ci.yml",
+        "line": 132,
+        "issue": "The main clippy and test steps do not pass --locked, so CI can resolve dependency versions that differ from the committed Cargo.lock. Only some later steps (treesitter, sc-ai cli, workspace-tests) use --locked.",
+        "recommendation": "Add --locked to the cargo clippy (line 128) and cargo test --workspace (line 132) steps, and to the other cargo test -p ... steps that lack it, so every CI build uses the committed lockfile.",
+        "evidence": "Line 128 runs 'cargo clippy --workspace --all-targets --all-features -- -D warnings' and line 132 runs 'cargo test --workspace', with no --locked. Lines 264, 268, 272 and 447 do use --locked. Cargo.lock is present."
+      }
+    ],
+    "summary": {
+      "total_findings": 6,
+      "by_severity": {
+        "critical": 0,
+        "important": 2,
+        "minor": 4
+      }
+    },
+    "notes": [
+      "Service-hardening review applied. The default service_indicator_dependencies list (tokio, axum, hyper, tonic, warp, actix-web, reqwest) has no hits in the in-scope crates: no tokio, no #[tokio::main], no listeners or request handlers, and no signal handlers. ureq is not in the default list, but it is the blocking HTTP client behind every backend and the list is introduced with 'such as', so it was treated as a service indicator. The crates are a blocking library and CLI surface, not a long-running server.",
+      "The input omitted 'topics', so the default topic set was used. Topics that do not apply were treated as N/A and not reported: health_endpoints_metrics (no server or daemon), spawn_blocking (no async executor, so there is nothing to block), bounded_queues_backpressure (sequential blocking calls with no queues, so no finding). Graceful shutdown is N/A for the in-scope library: CancelToken is checked between attempts and during busy waits (retry.rs:205-206, 416-417) but is not tied to process signals. Signal wiring, if any, belongs to the sc-ai CLI, which is outside review_targets. A Ctrl-C during a paid run therefore has no coordinated stop, though session writes are atomic.",
+      "request_id: no per-send request id exists. SendTrace is a placeholder that r-6 will fill (retry.rs:255-257). The session_id generated per run (run/mod.rs:586) is used as the correlation id on every LogEvent, which is an adequate correlation key for now.",
+      "Controls verified in code (no finding): config is parsed and range-checked once at startup, with deny_unknown_fields and try_new validation (crates/sc-jev/src/config.rs:37, 83-122); connect timeout 10 s and whole-request timeout 120 s with HTTPS-only and zero redirects (crates/sc-agent-http/src/ureq_transport.rs:37-57, 41-42); streamed response cap of 8 MiB, enforced for error statuses too (ureq_transport.rs:19-20, 181-196); error-body snippet bounded to 300 bytes (crates/sc-jev-backends/src/backend.rs:246); session files capped at 8 MiB and written atomically with fsync and rename (crates/sc-jev-check/src/session/mod.rs:87, 458-477); command extractor enforces a timeout, kills the child, bounds stdout to 8 MiB, and keeps a 4 KiB stderr tail (crates/sc-jev-check/src/extract/command.rs:38-55); per-backend request byte and token ceilings applied before send (crates/sc-jev-backends/src/validate.rs:21, 56-66); retry is limited to busy statuses with a 90 s budget, sends capped at 4, and jitter, with wait slices of at most 100 ms checking cancel (retry.rs:44-69, 198-217); errors are redacted (secret Debug prints [redacted], crates/sc-agent-types/src/secret.rs:102-104); test-util hooks are dev-dependency only, so loopback_for_tests and with_test_hooks do not reach release builds (crates/sc-agent-http/Cargo.toml:26, crates/sc-jev/Cargo.toml:37-41, crates/sc-jev-backends/Cargo.toml:36-39).",
+      "Verification: the Bash tool was unavailable, so HEAD was verified by reading the worktree gitdir (/Volumes/Extreme Pro/github/sc-agent/.git/worktrees/r-7-decision-schema/HEAD, which points to refs/heads/sprint/r-7-decision-schema) and the branch ref (/Volumes/Extreme Pro/github/sc-agent/.git/refs/heads/sprint/r-7-decision-schema, which contains 94972978d9e6321be71e884368721cf0f79d3d54). This matches the assigned commit 9497297. The baseline 0d0ebc1 was not examined. Per instructions, no tests, coverage or clippy were run.",
+      "Out of scope and not reviewed: crates/sc-ai (CLI and signal wiring), crates/sc-jev-py, crates/sc-jev-host, and the sprint plan's acceptance criteria."
+    ]
+  },
+  "error": null
+}

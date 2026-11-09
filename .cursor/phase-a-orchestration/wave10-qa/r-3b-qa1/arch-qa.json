@@ -1,0 +1,38 @@
+{
+  "agent": "arch-qa",
+  "branch": "sprint/r-3b-compose-and-workspace-tests",
+  "scope": {"phase": "a.1", "sprint": "r-3b"},
+  "commit": "90004d7",
+  "verdict": "PASS",
+  "blocking": 0,
+  "important": 0,
+  "findings": [],
+  "adr_checks": [
+    {"adr": "ADR-SAG-0026", "source": "docs/architecture.md:1306", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-host/src/compose.rs:64", "crates/sc-jev-host/src/compose.rs:320", "crates/sc-jev-host/src/paths.rs:142", "crates/sc-jev-host/Cargo.toml:21"]},
+    {"adr": "ADR-SAG-0028", "source": "docs/architecture.md:1500", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/workspace-tests/Cargo.toml:21", "Cargo.toml:14"]},
+    {"adr": "ADR-SAG-0005", "source": "docs/architecture.md:155", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-host/src/compose.rs:336", "no PayloadBuilder match in sc-jev-host, sc-ai or sc-jev-py src"]},
+    {"adr": "ADR-SAG-0003", "source": "docs/architecture.md:504", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-agent-secrets/src/platform.rs:25", "crates/sc-jev-host/src/compose.rs:31"]},
+    {"adr": "ADR-SAG-0020", "source": "docs/architecture.md:528", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["clippy.toml:15", "docs/architecture.md:602", "docs/architecture.md:112", "all disallowed_methods expect sites are item-level in the allowed production and test files; no crate-level expect found"]},
+    {"adr": "ADR-SAG-0021", "source": "docs/architecture.md:848", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-host/src/paths.rs:142", "crates/sc-jev-host/src/paths.rs:199"]},
+    {"adr": "ADR-SAG-0016", "source": "docs/architecture.md:876", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-host/src/obs.rs:27", "docs/architecture.md:108", "no sc-observability dependency in crates/sc-ai or crates/sc-jev-py manifests"]},
+    {"adr": "ADR-SAG-0017", "source": "docs/architecture.md:740", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:782", "docs/architecture.md:109"]},
+    {"adr": "ADR-SAG-0023", "source": "docs/architecture.md:1141", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["Cargo.toml:46", "crates/sc-ai/Cargo.toml:40", "crates/sc-jev-py/Cargo.toml:41", "docs/architecture.md:1143"]},
+    {"adr": "ADR-SAG-0010", "source": "docs/architecture.md:698", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-ai/Cargo.toml:25", "docs/architecture.md:705"]},
+    {"adr": "ADR-SAG-0011", "source": "docs/architecture.md:714", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-py/Cargo.toml:33", "docs/architecture.md:722"]},
+    {"adr": "ADR-SAG-0013", "source": "docs/architecture.md:817", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:829"]},
+    {"adr": "ADR-SAG-0022", "source": "docs/architecture.md:309", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["crates/sc-ai/Cargo.toml:33", "crates/sc-jev-py/Cargo.toml:33"]},
+    {"adr": "ADR-SAG-0025", "source": "docs/architecture.md:1271", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:1273", "docs/architecture.md:1289", "docs/architecture.md:117"]},
+    {"adr": "ADR-SAG-0008", "source": "docs/architecture.md:200", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:100", "docs/architecture.md:1277"]},
+    {"adr": "ADR-SAG-0009", "source": "docs/architecture.md:250", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-host/src/compose.rs:199"]},
+    {"adr": "ADR-SAG-0029", "source": "docs/architecture.md:1020", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-py/Cargo.toml:29"]},
+    {"adr": "ADR-SAG-0001, 0002, 0014, 0015, 0018, 0019, 0024, 0027 (remaining listed ADRs)", "source": "docs/architecture.md", "listed_in_sprint_doc": true, "result": "not-applicable", "evidence_refs": ["No change in the diff touches their subject beyond what is recorded above"]},
+    {"adr": "ADR-SAG-0004, 0006, 0007, 0012, 0021 (repo-level, not listed in the sprint doc, other than 0021)", "source": "docs/architecture.md", "listed_in_sprint_doc": false, "result": "not-applicable", "evidence_refs": ["The diff does not touch their subjects"]}
+  ],
+  "gate_artifact_checks": [
+    {"artifact": "docs/architecture.md (ADR index rows and Status lines, Phase A.1 crate graph)", "status": "closed", "evidence_refs": ["docs/architecture.md:53", "docs/architecture.md:102", "docs/architecture.md:120", "docs/architecture.md:1502"], "notes": "All r-3b markers are flipped to Active. The r-4, r-3, r-6 and r-7 markers are untouched."},
+    {"artifact": "boundaries/workspace-tests/workspace-tests.toml and boundaries/sc-jev-host/jev-host.toml", "status": "not-applicable", "evidence_refs": [], "notes": "Boundary manifests and dependency edges belong to ruthless-boundary-qa. The crate manifests I read match ADR-SAG-0028 (dev-dependencies are exactly the five listed)."},
+    {"artifact": "release/sc-publish-consumer-input.json and release/publish-artifacts.toml", "status": "not-applicable", "evidence_refs": [], "notes": "The sprint doc itself records that install.py was not re-run because the kit clone is absent, and that the parent must re-render. I did not request a new gate (owner rule). It is an open item for the parent, not an ADR violation."}
+  ],
+  "merge_ready": true,
+  "notes": "I read the worktree contents directly. No Bash was available, so I could not run git rev-parse. The worktree is detached at gitdir .../worktrees/r3b-qa1-review, and I did not independently confirm that HEAD is 90004d7. RULE-ADR-PLAN: the sprint doc's adrs list covers every ADR the sprint touches, and every id resolves to an Active ADR in docs/architecture.md. The only list gap is ADR-SAG-0022, which is repo-level and upheld, so I did not make it a finding. RULE-ADR-AWAIT-MUTEX: no async fn or .await exists in the changed crates, so the rule is not applicable. The std Mutex uses in crates/sc-jev-host/src/obs.rs and crates/workspace-tests/tests/support/bin_path.rs are synchronous. RULE-ADR-CODE: ComposeInputs has private fields. Environment reads in src are confined to sc-agent-secrets, the sc-jev-check extract and run modules, and crates/sc-jev-host/src/paths.rs. The disallowed_methods expect sites are all item-level, and none of the spawn-site files contains ResolvedApiKey. The crate rename is not a finding."
+}

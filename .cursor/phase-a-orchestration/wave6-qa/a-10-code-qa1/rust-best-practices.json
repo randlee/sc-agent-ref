@@ -1,0 +1,76 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/a-10-phase-end-hardening",
+    "reviewed_commit": "1899319d1ca643696868c1c69c8d49437ba9f1ae",
+    "review_mode": "sprint_review",
+    "practice_mode": "all",
+    "practices_reviewed": ["RBP-001","RBP-002","RBP-003","RBP-004","RBP-005","RBP-006","RBP-007","RBP-008","RBP-009","RBP-010"],
+    "findings": [
+      {
+        "id": "RBP-F010",
+        "practice_id": "RBP-004",
+        "severity": "minor",
+        "file": "crates/sc-agent-types/src/secret.rs",
+        "line": 91,
+        "issue": "Disposition: PARTIALLY FIXED, still open. ResolvedApiKey::try_new exists with one rule set (trim, KEY_MISSING on empty, credential_store_invalid on interior whitespace/control). The normalized_* methods are gone, and sc-agent-secrets resolve.rs:127/140/149 all go through try_new. But the unchecked `pub fn new(secret: String)` is still a public constructor, hidden only by #[doc(hidden)]. Any downstream crate can build a key that skips the invariant. The key is also still a plain String with no zeroize.",
+        "recommendation": "Gate `new` behind #[cfg(any(test, feature = \"test-util\"))]. The test-util feature already exists on sc-agent-types, and every in-repo caller of `new` is a test or test double. That makes try_new the only production constructor. Zeroizing storage can be deferred.",
+        "evidence": "Production code only calls try_new. `ResolvedApiKey::new` is called from test code in secret.rs, sc-agent-secrets lib.rs and resolve.rs, transport.rs:292, https.rs:149, and registry/mod.rs:218. registry/mod.rs:218 is outside a visible cfg(test) gate, so it is likely a test double but I did not confirm it. Nothing prevents external use."
+      },
+      {
+        "id": "RBP-F011",
+        "practice_id": "RBP-004",
+        "severity": "minor",
+        "file": "crates/sc-agent-types/src/observability/v2.rs",
+        "line": 27,
+        "issue": "Disposition: PARTIALLY FIXED, still open. PayloadBundle now has private bytes/sha256, a single from_canonical_bytes constructor, accessors, and into_parts (judge.rs:53-85). That part is closed. The remaining items from the original finding are unchanged. LogEvent.operation is still a free String ('judge'/'ask'). Question.id and ChoiceAnswer.question_id (judge.rs:19,31) are still separate raw Strings. blob_sha is still only checked for non-empty (extract.rs:145).",
+        "recommendation": "Add `enum LogOperation { Judge, Ask }` with Display. Add a QuestionId newtype and a BlobSha newtype that reuses the 40-hex validator. If the stringly operation stays, record the decision in a doc line.",
+        "evidence": "The stringly operation now has a concrete cost. sc-jev-py logging.rs:252-256 action_name() silently rewrites any operation that is not a valid ActionName to \"event\". That is a runtime fallback for a state an enum would rule out."
+      },
+      {
+        "id": "RBP-F015",
+        "practice_id": "RBP-001",
+        "severity": "minor",
+        "file": "crates/sc-jev-check/src/session/mod.rs",
+        "line": 513,
+        "issue": "Disposition: MOSTLY FIXED, residual open. Closed: run/mod.rs has no hand-built ConfigInvalid/InputInvalid literals left. exact.rs is now tests/sessions_exact.rs, and Cargo.toml has no [[test]] path override. Inline tests moved to run/tests.rs and session/tests.rs. Still open: session/mod.rs:513-518 build `JevError::ConfigInvalid { detail: \"session clock ...\" }` literals in unix_ms. fix_hint() therefore tells the caller to 'Fix the check.toml field', which is the wrong recovery for a system-clock fault. session/mod.rs:500-502 (utf8_payload) builds a literal InputInvalid that gets the generic 'matches the expected schema' hint for an internal invariant failure.",
+        "recommendation": "Route the clock failures through JevError::session_store_io or operational_config, and utf8_payload through operational_io or session_document_invalid, so the hint matches the failure.",
+        "evidence": "Literals at session/mod.rs:500, 513, 516. Neither detail uses a recovery prefix, so explicit_recovery() returns None and the check.toml / schema fallback text is used."
+      },
+      {
+        "id": "RBP-F002",
+        "practice_id": "RBP-001",
+        "severity": "minor",
+        "file": "crates/sc-jev-py/src/error.rs",
+        "line": 22,
+        "issue": "Disposition: MOSTLY FIXED, residual open. Closed: encode_failed(label, &serde_json::Error) and io_failed(label, &io::Error) exist in error.rs:327/365. They keep only the serde category plus line/column, or the io::ErrorKind, so no payload text leaks. They are used at every former map_err(|_|) site: the five in sc-ai command.rs (621-666), envelope.rs:25, sc-treesitter git_io.rs and main.rs, read.rs worktree reads, sc-jev-py run.rs, payload/mod.rs:182, and session/mod.rs:459. sc-treesitter extract.rs:317 now reports span overflow as an INPUT_INVALID that names the field and value, no longer INPUT_TOO_LARGE. Still open: sc-jev-py error.rs:22-23 still drops the setattr results with `let _ =`. A failed setattr loses the stable `code`/`message` attributes on the Python exception with no signal. read.rs:60 still discards the FromUtf8Error with map_err(|_|).",
+        "recommendation": "In to_py_err, either ignore setattr with a comment saying why (PyErr attribute set on a fresh exception cannot fail), or fold the failure into the exception text. For read.rs:60, keep `Utf8Error::valid_up_to()` in the detail so the caller learns where the bad byte is.",
+        "evidence": "error.rs:22-23 `let _ = value.setattr(...)`. read.rs:60 `String::from_utf8(bytes).map_err(|_| ...)` with detail \"{relative} is not UTF-8\"."
+      }
+    ],
+    "summary": {
+      "total_findings": 4,
+      "by_severity": { "critical": 0, "important": 0, "minor": 4 }
+    },
+    "notes": [
+      "HEAD check: I had no shell. The worktree .git points at gitdir .git/worktrees/a-10-phase-end-hardening, its HEAD is refs/heads/sprint/a-10-phase-end-hardening, and that ref file reads 1899319d1ca643696868c1c69c8d49437ba9f1ae. Branch and commit match the assignment.",
+      "Scope lock: carry_forward_findings is non-empty, so `findings` is limited to those ids. F001/F003/F005-F009/F012/F013 were not re-reported and the diff did not make them worse, except for the observations below.",
+      "CLOSED in code, no finding: RBP-F004. BackendId and BackendKeyId implement FromStr (ids.rs:173, 236) with key_id() and is_llm(). caller.rs:52 and sc-ai command.rs:738 use `.parse::<BackendId>()`, and sc-jev-py run.rs:157 uses a plain `.collect()` of parses. Only one spelling is accepted, and kebab aliases are rejected on every surface.",
+      "CLOSED in code, no finding: RBP-F014. The SessionLog doc in v2.rs:30-35 states the trait is intentionally open and names the implementors. JudgeBackend (judge.rs:140-142) has the same statement.",
+      "Out-of-scope observations from the new code, for a future review pass. None of these are findings in this round.",
+      "[RBP-007] sc-jev-backends/src/backend.rs:249-256: the macro-generated `AnthropicHaikuBackend::new` / `OpenAiLunaBackend::new` return Result<Self, JevError> but can only return Ok. The docs say this is 'kept so construction checks can be added without an API break'. This is the placeholder-error pattern RBP-007 exists to remove. Return Self, or document that Result is a deliberate stability choice and add a pinning test.",
+      "[RBP-004/RBP-002] sc-treesitter/src/extract.rs:59-69 and 139-149: ExtractInput::new defaults path, rev and blob_sha to \"\", and extract() rejects empty values at run time. Required fields are carried as raw &str and validated late, even though Rev::parse exists. A constructor that takes the three required values (or a typed Rev/BlobSha) would make 'forgot with_path' impossible. The struct is Copy and non_exhaustive, so this can change without breaking callers.",
+      "[RBP-008, related to F006] sc-jev/src/retry_policy.rs and sc-jev-backends/src/retry_policy.rs (189 lines each) are byte-identical copies, and test_server.rs is a second pair (128 lines). The header claims 'Each copy runs the same table test, so the two cannot drift silently'. That is false. Each copy carries its own RETRY_AFTER_TABLE, so editing one file and its own test passes CI. The diff removes the behavioural drift F006 described but adds more verbatim duplication. Either share one source (a #[path] include, or a small shared crate), or add a test that compares include_str! of the two files.",
+      "[RBP-004, correctness] sc-jev-check/src/extract/command.rs:129-135: substitute_placeholders does chained .replace() for {path}, {rev} and {repo_root}. A source_path containing a literal `{rev}`, or a rev containing `{repo_root}`, is expanded a second time. payload/mod.rs:154-172 has a correct single-pass expand_placeholders with a regression test. The command extractor does not use it. Reuse that helper, or add the equivalent test here.",
+      "[RBP-004] sc-agent-types/src/ids.rs:193-265: BackendId now has two text forms. Serde emits open_ai_luna (and open_ai for the key id), while Display/FromStr use openai_luna. A test pins this as a known divergence. So JudgeOutcome.backend JSON written by the CLI cannot be fed back through --backend or the caller request `backends` array. Fix with explicit #[serde(rename = ...)] values once the wire contract is decided.",
+      "[RBP-004, F003 owned by A.1, not worsened] Rev::parse is the new validated entry point and is used at all caller edges: sc-ai command.rs:459, sc-jev-py run.rs:96/140, sc-treesitter main.rs:207, extract.rs:144. But Rev::new and the derived Deserialize (serde transparent) still build an unvalidated Rev. Sha256Digest in the same file uses #[serde(try_from)] for this. Rev from a deserialized subjects document (command-extractor stdout) is unchecked.",
+      "[RBP-001, F001 owned by A.1, not worsened structurally] encode_failed and io_failed reuse OPERATIONAL_DETAIL_PREFIX, so two more constructors now depend on the string-prefix recovery scheme. They also map an internal encode failure to INPUT_INVALID, which blames the caller. The wire code is unchanged, so this is acceptable for now, but it adds to the debt F001 tracks.",
+      "[RBP-001] sc-jev-py/src/logging.rs:129-161 interpolates raw `{error}` Display text into session_store_io hints. The new sanitized helpers deliberately keep only the ErrorKind. Those paths take io and observability errors rather than payload data, so the risk is low, but the style is inconsistent.",
+      "[RBP-007, minor] sc-jev-py/src/run.rs:84-91 payload_text falls back to from_utf8_lossy on bytes documented as always UTF-8. That quietly hides a broken invariant. An expect with a message or an Err would be more honest.",
+      "Good practice observed: JevError::map_detail (error.rs:394) matches exhaustively with no wildcard, and a test checks it touches every text field. ResolvedApiKey::redact_error and sanitize::redact_error are built on it. The sc-jev-py LoggerInner plus Weak-handle registry (logging.rs:45-149) is sound for RBP-006: shutdown runs exactly once in Drop, and the registry Mutex is justified in its comment. Test loopback constructors are cfg(test)-gated, the _testing pymodule is behind the test-util feature, and the GRAMMARS table is a single cfg-gated source of truth.",
+      "Not reviewed in depth: wire.rs/validate.rs bodies, config/mod.rs, table.rs, the sc-ai command.rs argv parser, and the test files, apart from the spawn_with_deadline helpers, which look fine."
+    ]
+  },
+  "error": null
+}

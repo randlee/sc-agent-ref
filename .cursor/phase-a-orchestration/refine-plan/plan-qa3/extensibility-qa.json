@@ -1,0 +1,37 @@
+{
+  "verdict": "PASS",
+  "blocking": 0,
+  "important": 0,
+  "minor": 4,
+  "findings": [
+    {
+      "id": "EXT-030",
+      "severity": "minor",
+      "summary": "The schema_version consumer contract is stated only as reader acceptance. Nothing tells agents or CLI/MCP clients to parse it, or what to do with a value other than 1.",
+      "evidence": "docs/architecture.md:935-943 (ADR-0027). docs/requirements.md:186 (NFR-SAG-0001). The deserializer 'treats anything else as not an error response'.",
+      "remediation": "Add one sentence to ADR-0027 and the sc-ai/sc-jev-py docs. Producers and agents may read schema_version from every stderr line. A value other than 1 means 'unknown error shape': fall back to the exit code and the raw line. State that a bump is a breaking change announced in the changelog. No new code is needed."
+    },
+    {
+      "id": "EXT-031",
+      "severity": "minor",
+      "summary": "PathPolicy is advertised as 'a new consumer builds its own value', but the types of its DefaultRoot/SessionDefault fields are never specified. If they are closed enums with only the cli/python variants, an MCP server would have to edit compose.",
+      "evidence": "r-3b D2.2 (sprint-r-3b-compose-and-workspace-tests.md:141-146). Presets are only cli() and python().",
+      "remediation": "Specify DefaultRoot and SessionDefault as data-carrying enums, for example Fixed(PathBuf) and Relative(&'static str), or as plain values. Add a test that builds a third PathPolicy outside the presets and resolves it. That test is the proof of EXT-012 and costs about 10 lines."
+    },
+    {
+      "id": "EXT-032",
+      "severity": "minor",
+      "summary": "Source scans and docs for workspace-tests are ceremony. The rules they enforce are already enforced by clippy, the rg gate or CI, and several documents are written for an internal publish=false crate.",
+      "evidence": "r-3b D7.3: test_no_allow_attributes repeats the clippy allow_attributes=deny lint (plan:167) and the '! rg #!?[allow(' gate in every sprint and in phase acceptance. test_every_crate_inherits_workspace_lints and test_disallowed_methods_expect_only_in_ureq_transport duplicate lint enforcement. Also a dedicated ADR-0028 plus docs/workspace-tests/{requirements,architecture}.md, and docs/sc-agent-compose/{requirements,architecture}.md.",
+      "remediation": "Keep these shippable proofs: test_git_spawn_only_in_types_git (a real invariant), test_util_off, e2e_treesitter_producer, consumer_parity and git_read_parity. Drop test_no_allow_attributes and keep one allow-attribute check, either the clippy lint or the rg gate. Fold the ADR-0028 and workspace-tests docs into a single short README or ADR paragraph. Treat docs/workspace-tests as optional."
+    },
+    {
+      "id": "EXT-033",
+      "severity": "minor",
+      "summary": "Compose's public signatures expose sc-jev-check types (CheckSource, RunResponse, JevError, JudgeOutcome) at their sc-jev-check paths. Docs should say so, so a third consumer, for example an MCP server, knows it needs a direct, matching sc-jev-check dependency.",
+      "evidence": "r-3b D2.2 and D2.3. The 'one path per item' decline is recorded in the dispositions.",
+      "remediation": "Add a two-line note to the compose README and ADR-0026: 'run_from/ask_from signatures name types owned by sc-jev-check; depend on the same =-pinned version'. No code change."
+    }
+  ],
+  "notes": "Closure of prior findings.\n- EXT-020 is closed. schema_version is always 1 on every stderr line. It is independent of Envelope.version and is pinned by the golden stderr test (r-1 D6.7, ADR-0027, NFR-SAG-0001 amended). The consumer contract is only partly stated (EXT-030).\n- EXT-021 is closed. Declining #[non_exhaustive] on ComposeInputs is correct. With private fields and a new(cwd, policy) constructor plus setters, outside code cannot build or exhaustively destructure the struct, so the attribute adds nothing. This matches the RunResponse treatment.\n- EXT-022 is closed. 'register' is for doubles of existing ids, and the 'adding a backend' checklist is stated honestly: a types minor release plus a FACTORIES row.\n\nJudgements on the specific questions.\n- Compose as composition root for sc-ai and sc-jev-py, with an MCP server as a third adapter, is sound. ComposeInputs carries cancel, mode and an injectable registry, and warnings route through RunResponse. This is the right spine.\n- The decline to re-export engine types from compose is acceptable. A second public path per item is the worse failure. The cost is real but small, because the consumers already depend on sc-jev-check, and it is documented in EXT-033.\n- The FACTORIES table with a closed non_exhaustive BackendId is an honest, minimal choice. It adds no registry DSL, and a test enforces coverage.\n- The feature tables are coherent: judge/secret/obs on by default, git off by default, cancel always on, and test-util off in normal graphs with a proof. test-util hooks are limited to concrete seams, with no speculative traits.\n- The hidden --scripted-answers flag is gated behind test-util and proven absent from the release binary. This is acceptable.\n- The workspace-tests crate is shippable value for the cross-crate proofs (e2e producer, parity, test_util_off). The ceremony is limited to the duplicate scans and docs in EXT-032.\n- Phase A.1 is not over-built. Sprint r-3b is the heaviest item, but its deliverables are mostly real capability."
+}

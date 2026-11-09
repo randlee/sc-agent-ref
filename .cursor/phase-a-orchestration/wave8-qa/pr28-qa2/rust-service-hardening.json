@@ -1,0 +1,25 @@
+{
+  "success": true,
+  "data": {
+    "status": "skipped",
+    "reviewed_branch": "docs/close-wave1-2",
+    "reviewed_commit": "ec170bfa12ee4aaa1f45500efa59705cd9f5eaf1",
+    "review_mode": "doc_review",
+    "service_indicators_found": [],
+    "topics_reviewed": [],
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": {"critical": 0, "important": 0, "minor": 0}
+    },
+    "notes": [
+      "QA-2 locked recheck. The carry-forward file (QA-1) holds a skipped result with zero RSH-* findings. No assigned RSH-* ids exist to verify, so nothing is open or regressed.",
+      "I did not verify the worktree HEAD against the assigned commit. The branch and commit come from the assignment JSON and I did not run git against the worktree.",
+      "No service indicators found. None of tokio, axum, hyper, tonic, warp, actix-web or reqwest appears in any Cargo.toml in the worktree (10 manifests). A search of the .rs files under crates/ for #[tokio::main] found nothing. I did not search for other server or worker entrypoint patterns.",
+      "The PR changes only sprint docs (docs-only, status marking), so there is no runtime change to harden.",
+      "The triage records ARCH-001 and REQ-QA-PR28-001 are architecture and requirements findings, not service-hardening findings. They are outside this reviewer's scope and I did not read them. Their closure is not covered by this result.",
+      "No gates or receipts requested, per the owner rule."
+    ]
+  },
+  "error": null
+}

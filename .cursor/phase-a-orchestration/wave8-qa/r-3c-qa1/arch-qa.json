@@ -1,0 +1,40 @@
+{
+  "agent": "arch-qa",
+  "branch": "sprint/r-3c-treesitter-cli",
+  "scope": {"phase": "a.1", "sprint": "r-3c"},
+  "commit": "39661a6d651223d7a15d514226f83f473f2337cb",
+  "verdict": "PASS",
+  "blocking": 0,
+  "important": 0,
+  "findings": [],
+  "adr_checks": [
+    {"adr": "ADR-SAG-0001", "source": "docs/architecture.md:77", "listed_in_sprint_doc": true, "result": "upheld",
+     "evidence_refs": ["crates/sc-treesitter/src/main.rs:40", "crates/sc-treesitter/src/cli/mod.rs:124", "crates/sc-treesitter/src/git_io.rs:58", "docs/sc-treesitter/architecture.md:63"],
+     "notes": "Every failure goes through a JevError constructor and ScAgentErrorResponse::from_jev_error. No new id or variant. The no-argument case reuses INPUT_INVALID."},
+    {"adr": "ADR-SAG-0015", "source": "docs/architecture.md:664", "listed_in_sprint_doc": true, "result": "upheld",
+     "evidence_refs": ["crates/sc-treesitter/Cargo.toml:37", "crates/sc-agent-types/Cargo.toml:23", "boundaries/sc-treesitter/treesitter.toml:45"],
+     "notes": "sc-agent-types is default-features = false, so judge, secret and obs are off (all three are empty features in sc-agent-types). git comes only through cli. clap, mimalloc, std::process and sc_agent_types::git appear only in main.rs, git_io.rs and cli/mod.rs, which are binary-only. The library tree has no judge, secret, obs or git feature."},
+    {"adr": "ADR-SAG-0017", "source": "docs/architecture.md:93", "listed_in_sprint_doc": true, "result": "upheld",
+     "evidence_refs": ["crates/sc-treesitter/Cargo.toml:48"],
+     "notes": "sc-treesitter stays a released binary, with [[bin]] required-features = [\"cli\"]. No release-surface change."},
+    {"adr": "ADR-SAG-0023", "source": "docs/architecture.md:962", "listed_in_sprint_doc": true, "result": "upheld",
+     "evidence_refs": ["crates/sc-treesitter/Cargo.toml:27", "crates/sc-treesitter/Cargo.toml:32", "crates/sc-treesitter/Cargo.toml:33", "crates/sc-treesitter/Cargo.toml:41", "crates/sc-treesitter/Cargo.toml:55", "crates/sc-treesitter/Cargo.toml:61"],
+     "notes": "clap and mimalloc are optional and sit behind cli. The bin, cli and argv targets all have required-features = [\"cli\"]. The only = pins are tree-sitter, tree-sitter-python and tree-sitter-rust, all on the lockstep list. They keep the inline-table form. The ADR does not require another form, and I found no other = requirement in this crate."},
+    {"adr": "ADR-SAG-0027", "source": "docs/architecture.md:1121", "listed_in_sprint_doc": true, "result": "upheld",
+     "evidence_refs": ["crates/sc-treesitter/Cargo.toml:27", "crates/sc-treesitter/Cargo.toml:37", "crates/sc-treesitter/src/git_io.rs:28", "crates/sc-treesitter/src/git_io.rs:64", "crates/sc-treesitter/src/git_io.rs:230"],
+     "notes": "The ADR names sc-treesitter's cli feature as an enabler of git, and says sc-treesitter uses default-features = false (r-3c). Both hold. Errors go through the JevError and ErrorCode constructors. I found no Mutex or .await in the crate."},
+    {"adr": "ADR-SAG-0029", "source": "docs/architecture.md:841", "listed_in_sprint_doc": true, "result": "upheld",
+     "evidence_refs": ["docs/architecture.md:897", "docs/architecture.md:899", "docs/architecture.md:900", "crates/sc-treesitter/src/cli/mod.rs:139", "crates/sc-treesitter/src/git_io.rs:64", "crates/sc-agent-types/src/git.rs:109"],
+     "notes": "(c) dispositions are preserved. A missing positional is INPUT_INVALID, via message(). A leading '-' revision is rejected by Rev::parse in parse_rev, before any git call. An unresolvable revision or non-blob object is INPUT_INVALID, and an absent path is INPUT_MISSING, both in git::read_at_rev. A path outside the repo is INPUT_INVALID. Over 8 MiB is INPUT_TOO_LARGE on both the revision and worktree paths. io_failed and encode_failed mapping is unchanged."},
+    {"adr": "ADR-SAG-0016", "source": "docs/architecture.md:92", "listed_in_sprint_doc": false, "result": "not-applicable",
+     "evidence_refs": [],
+     "notes": "Not listed in the sprint doc. It governs the sc-agent-types seams (amended by 0023 and 0027), and sc-treesitter touches only the seams that 0027 already covers. This is informational, not a plan finding."}
+  ],
+  "gate_artifact_checks": [
+    {"artifact": "boundaries/sc-treesitter/treesitter.toml", "status": "closed",
+     "evidence_refs": ["boundaries/sc-treesitter/treesitter.toml:25", "boundaries/sc-treesitter/treesitter.toml:38", "boundaries/sc-treesitter/treesitter.toml:40"],
+     "notes": "allowed_dependencies matches every direct normal dependency in Cargo.toml: clap, mimalloc, sc-agent-types, serde_json, tree-sitter and the two grammars. The notes record that clap and mimalloc are optional behind cli, that sc-agent-types is default-features = false, and that git is enabled only by cli. forbidden_edges are unchanged. This is a truthfulness check only. The edge check itself belongs to boundary-qa."}
+  ],
+  "merge_ready": true,
+  "notes": "RULE-ADR-PLAN: the sprint doc's adrs list is complete for its owned paths and deliverables. The repo-level ADRs relevant to sc-treesitter are 0001, 0015, 0017, 0023, 0027 and 0029 (0016 is covered above), and docs/sc-treesitter/architecture.md has no ADR sections of its own. Every listed id resolves to an Active ADR, and no deliverable contradicts one. The sprint also does not claim to flip any marker.\n\nNo ADR text or marker changed. docs/architecture.md is not in changed-files.txt. The only docs edit is docs/sc-treesitter/architecture.md, which holds no ADR sections.\n\nDeviation 1, `extract <sub> --help` exits 0. Permitted. ADR-0029 (c) lists no help disposition. REQ-SAG-0712 (error contract unchanged) is still Proposed, so it does not bind yet. The deliverable text 'DisplayHelp/DisplayVersion print and exit 0' covers it, and docs/sc-treesitter/architecture.md:24-32 documents it.\n\nDeviation 2, no argument is INPUT_INVALID with exit 2. Permitted. It reuses an existing id (ADR-0001 / ADR-0027) and is documented at docs/sc-treesitter/architecture.md:26-28. 0029 (c) has no row for it, so it is not contradicted. Consider adding a row to the 0029 (c) table with the later r-3b/phase-end doc pass, since the old behaviour was help with exit 0. That is optional, not required.\n\nDeviation 3, retained local `git hash-object` spawn in git_io.rs:112-141 and :243. No Active ADR text says a single module owns all git spawns. ADR-0027 says only that `git` is a seam enabled by sc-jev-check and by sc-treesitter's cli feature, and that is satisfied. The spawn follows the shared environment policy, is documented in the module header and in docs/sc-treesitter/architecture.md:38, and needs no ADR note now. The risk is r-3b's Command::new clippy rule, which would then need an item-level expect on git_command (no Command::new rule exists in clippy.toml today). The sprint doc already tracks this, so it is not an ADR gap.\n\nI could not run cargo, git or the cargo tree gates because I have no shell tool. The per-package clippy warning about ResolvedApiKey::as_str, which the sprint doc discloses, is not an ADR violation by itself. It arises because the secret module is off under default-features = false. ADR-0029 (a) is still honoured by the workspace-wide clippy run.\n\nBranch ref refs/heads/sprint/r-3c-treesitter-cli resolves to 39661a6d651223d7a15d514226f83f473f2337cb. The worktree HEAD points at that branch. The commit and branch match the input."
+}

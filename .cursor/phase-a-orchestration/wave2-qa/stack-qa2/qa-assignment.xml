@@ -1,0 +1,18 @@
+<cursor-qa-task id="qa-wave2-stack-2" sprint="wave-2-stack" assignee="cursor-quality-mgr">
+  <description>QA-2 closeout for PR #11 stack top — all wave-2 sprints</description>
+  <review-mode>sprint_review</review-mode>
+  <authoritative-sprint-doc>docs/plans/phase-a/plan.md</authoritative-sprint-doc>
+  <pr-number>11</pr-number>
+  <branch>sprint/wave-2-stack-qa-top</branch>
+  <worktree>/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-5-backend-llm</worktree>
+  <commits>99cd224eacebd51dd4ac8dacde0ccce6542c4d0d</commits>
+  <enforcer-binding>cursor-quality-mgr only; spawn gate from parent handoff</enforcer-binding>
+  <parent-reviewer-handoff required="true">
+    <manifest>[
+  {"agent": "req-qa", "task_id": "0c983a59-60d7-4bd1-96b5-94b1b319abec", "spawn_actor": "parent-orchestrator"},
+  {"agent": "arch-qa", "task_id": "0e80e44b-229a-4c1f-a05f-49b9a26478a4", "spawn_actor": "parent-orchestrator"},
+  {"agent": "rust-qa-agent", "task_id": "dd2ca201-cc8a-42c8-ad4f-4df123a1fdf2", "spawn_actor": "parent-orchestrator"}
+]</manifest>
+    <reviewer-outputs><!-- embedded in orchestrator message to enforcer --></reviewer-outputs>
+  </parent-reviewer-handoff>
+</cursor-qa-task>

@@ -1,0 +1,40 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-6-session-log-record",
+    "reviewed_commit": "34655a4",
+    "review_mode": "sprint_review",
+    "executed_checks": {
+      "fmt": {"status": "pass", "command": "cargo +1.94.1 fmt --all --check"},
+      "clippy": {"status": "pass", "command": "cargo +1.94.1 clippy --locked --workspace --all-targets --exclude sc-jev-py -- -D warnings (also --features test-util on sc-ai, sc-jev-check, sc-agent-http: pass)"},
+      "tests": {"status": "pass", "command": "cargo +1.94.1 test --locked --workspace --exclude sc-jev-py (498 passed, 0 failed); --features test-util: sc-ai 40, sc-jev-check 170, sc-agent-http 46, all pass (sc-jev-host has no test-util feature, so it was run without one: pass). RUSTDOCFLAGS=-D warnings cargo +1.94.1 doc --locked --workspace --no-deps: pass"},
+      "coverage": {"status": "not_run"},
+      "artifacts": {"status": "not_run"}
+    },
+    "findings": [
+      {
+        "id": "QA-001",
+        "category": "tests",
+        "severity": "minor",
+        "file": "crates/sc-jev-host/src/obs.rs",
+        "line": 198,
+        "issue": "RSH-003 and RSH-004 have no test coverage. Nothing asserts that the logged envelope carries correlation_id = session id and request_id = answer id, or that a failed send logs at Warn and a successful one at Info. The assignment asked to update affected golden tests, but none assert these fields. The parse path also uses .ok(), so an id that failed to deserialize would silently log None.",
+        "recommendation": "In crates/sc-jev-host/tests/log_context.rs, assert the log rows' level, correlation_id and request_id. Use the existing test_error_path_flushes_the_failed_row for the failed row (expect Warn) and a successful run for the ok row (expect Info).",
+        "evidence": "grep for correlation_id, level and Warn in crates/sc-jev-host/tests/*.rs returns no matches. The only hits are in src/obs.rs lines 206, 225 and 228."
+      }
+    ],
+    "summary": {
+      "total_findings": 1,
+      "by_severity": {"critical": 0, "important": 0, "minor": 1}
+    },
+    "notes": [
+      "RSH-001: closed, with a deliberate deviation. FileSessionStore::new now deletes *.json session documents once created_at + 2x the default TTL has passed. That covers v1 and v2 documents, skips *.tmp.* files, and leaves non-JSON, unparsable, oversized or created_at-less files alone. The test test_new_store_sweeps_expired_session_documents covers v1, v2 and v3 documents from 2023, a fresh document, and unrelated files. The module doc is updated.",
+      "RSH-001 deviation judgement: sound. read_session's expiry rule is unchanged, so a session between TTL and 2x TTL still answers SESSION_EXPIRED, and only after 2x TTL does it become SESSION_NOT_FOUND. This keeps the 'start a new session' hint for a full extra day and bounds retention. The sweep is best effort and runs once per new(). A store opened with a shorter with_ttl still sweeps at the default 2x TTL, and the doc says so. One test gap: no test puts a document inside the grace window (older than 24 h, younger than 48 h) and checks that it survives and still reads as SESSION_EXPIRED. Consider adding one, but this is not a blocker and not raised as a finding.",
+      "RSH-002: closed. HostRun::run and ask_from flush before propagating the error. note_flush appends the flush warning to the error detail once, and the error code is unchanged. Tests: the unit test flush_failure_on_the_error_path_is_noted_in_the_detail_once and the integration test test_error_path_flushes_the_failed_row.",
+      "RSH-003 and RSH-004: implemented in obs.rs (correlation_id = session id, request_id = answer_id, Warn for send_outcome failed, else Info). Only test coverage is missing, as QA-001 says.",
+      "The parent's Windows test fix f6ddc71 (logged_repo canonicalization) is sound. The new test test_log_context_explicit_repo_root_starts_discovery covers the explicit --repo-root case. The FTQ-004 warnings assertions are in place."
+    ]
+  },
+  "error": null
+}

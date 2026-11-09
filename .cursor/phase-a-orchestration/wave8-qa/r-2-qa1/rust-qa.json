@@ -1,0 +1,93 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-2-engine-shape",
+    "reviewed_commit": "0d643f2271997d73c8fbd3e98768dbf246ddfcbe",
+    "review_mode": "sprint_review",
+    "executed_checks": {
+      "fmt": {"status": "pass", "command": "cargo fmt --all --check"},
+      "clippy": {"status": "pass", "command": "cargo clippy --all-targets -- -D warnings; cargo clippy --all-targets --all-features -- -D warnings (both exit 0)"},
+      "tests": {"status": "pass", "command": "cargo test --workspace x2 (407 passed, 0 failed, identical on both runs); cargo test -p sc-jev-check --features test-util; cargo test -p sc-agent-types --features git,test-util; cargo hack --each-feature test -p sc-treesitter; just test-python (10 passed); RUSTDOCFLAGS=-D warnings cargo doc --workspace --no-deps; just lint; .github/scripts/cargo-tree-gates.sh (all rows passed); .github/scripts/check-exact-pins.sh (4 exact pins, all on the lockstep list); cargo fetch --locked. All exit 0."},
+      "coverage": {
+        "status": "pass",
+        "line": 91.64,
+        "branch": 0.0,
+        "function": 89.65,
+        "adequate_for_risk": true,
+        "per_crate_line_base_vs_head": "sc-agent-secrets 96.53 -> 96.53; sc-agent-types 93.28 -> 93.70; sc-ai 82.63 -> 84.57; sc-jev 88.97 -> 88.97; sc-jev-backends 92.38 -> 92.38; sc-jev-check 91.75 -> 91.64; sc-jev-py 92.81 -> 92.31; sc-treesitter 91.50 -> 91.50",
+        "per_crate_function_base_vs_head": "sc-agent-types 86.69 -> 87.31; sc-ai 74.76 -> 81.32; sc-jev-check 90.29 -> 89.65; sc-jev-py 87.79 -> 88.32; others unchanged",
+        "note": "Command: cargo llvm-cov --workspace --no-report, then cargo llvm-cov report --json --summary-only, aggregated per crate over crates/ files. Baseline measured at 0dca742 in a throwaway worktree with the same command. The top-level line and function figures are for sc-jev-check, the reshaped crate. Branch coverage was not reported by this llvm-cov run (0.0 is a placeholder). sc-jev-check dipped -0.11 line, -0.65 function, -0.18 region, and sc-jev-py -0.50 line. Both stay above 90% line, so the dip is informational."
+      },
+      "artifacts": {"status": "pass", "command": "bash scripts/sc-publish-dry-run.sh (all phases) in a throwaway worktree at 0d643f2 with private CARGO_HOME=/private/tmp/claude-501/qa-r2/cargo-home and fresh target dir. Kit drift check, manifest/lockstep checks and consumer preflight passed. 7-crate `cargo publish --dry-run --locked -p sc-agent-types -p sc-agent-secrets -p sc-jev -p sc-jev-backends -p sc-jev-check -p sc-treesitter -p sc-ai` passed. sc-jev-py abi3 wheel built. Exit 0."}
+    },
+    "findings": [
+      {
+        "id": "QA-001",
+        "category": "correctness",
+        "severity": "minor",
+        "file": "crates/sc-jev-check/src/run/mod.rs",
+        "line": 500,
+        "issue": "In a live run, a session write failure (`save_session(...)?` in `live_run`) returns Err and discards every paid-for backend answer. The pinned sample `session_save_failed.json` (and `RunResponse::session_saved=false`) models the case \"answers kept, session not saved, one warning\", but the engine never produces that shape. Only the test builder does. The pinned shape is therefore dead from the engine's side.",
+        "recommendation": "Either degrade a save failure to a response with `session_saved=false` plus a warning, as the pinned sample implies, or document in the run module docs and the sprint doc that the sample is builder-only and that save failure is fail-fast in r-2. The docs already say `a session write error` is returned, so the second option is acceptable.",
+        "evidence": "live_run: `Some(store) => save_session(store, session_id, &request, &outcomes)?`. No engine path builds the `session_save_failed` shape (tests/run_response.rs:200 builds it via RunResponseBuilder)."
+      },
+      {
+        "id": "QA-002",
+        "category": "correctness",
+        "severity": "minor",
+        "file": "crates/sc-jev-check/src/run/response.rs",
+        "line": 529,
+        "issue": "Library code panics (`panic!` x2) in `to_object` if the response body fails to serialize or is not a JSON object. The branches look unreachable for the current derive-built bodies, but they are still panics on a public-API path.",
+        "recommendation": "Return `Result` and map the failure to `JevError::encode_failed`, or add a unit test pinning that every body type serializes to an object and state the invariant in the doc comment.",
+        "evidence": "`Ok(other) => panic!(...)` and `Err(error) => panic!(...)`."
+      },
+      {
+        "id": "QA-003",
+        "category": "correctness",
+        "severity": "minor",
+        "file": "crates/sc-jev-check/src/extract/command.rs",
+        "line": 183,
+        "issue": "Two `.expect()` calls on `child.stdout.take()` and `child.stderr.take()` in the library path. They are safe because both pipes are set to `Stdio::piped()` just above, so this is a style risk only. A third `.expect()` is at crates/sc-jev-check/src/run/mod.rs:376 (`BackendSet::try_from(vec![Jev])`).",
+        "recommendation": "Map each to `JevError::extraction_failed(...)` (the two `.expect()` calls in command.rs) and make `default_backends` infallible (e.g. a const or `BackendSet::jev_only()`), so the library paths have no panics.",
+        "evidence": "command.rs:183 and :187; run/mod.rs:376."
+      },
+      {
+        "id": "QA-004",
+        "category": "correctness",
+        "severity": "minor",
+        "file": "crates/sc-jev-check/src/session/mod.rs",
+        "line": 470,
+        "issue": "Two edge cases in `write_private`. (a) The `AlreadyExists` retry loop has no iteration bound. (b) If `sync_parent` fails after a successful rename, the save returns `SessionStoreIo` although the new file is already in place. The tmp cleanup is then a no-op, and `run` discards the response for a session that is actually on disk.",
+        "recommendation": "Bound the retry to a small count, and either treat a parent-fsync failure after rename as best-effort or document it.",
+        "evidence": "`loop { match options.open(&tmp) { ... AlreadyExists => {} ... } }` and `.and_then(|()| fs::rename(&tmp, path)).and_then(|()| sync_parent(path))`."
+      },
+      {
+        "id": "QA-005",
+        "category": "portability",
+        "severity": "minor",
+        "file": "crates/sc-jev-check/tests/session.rs",
+        "line": 318,
+        "issue": "Informational only, no action required. The concurrent-writer half of `test_two_stores_same_dir_last_writer_wins` is `#[cfg(unix)]`, and the Windows sharing-error behaviour is documented in the session module docs (Concurrency model, RSH-004) and in the test comment. Windows therefore has no executed coverage of concurrent rename. The `0600` mode assertions are unix-gated for the same reason. The sequential last-writer-wins half runs on every platform.",
+        "recommendation": "None required. Optionally add a Windows test asserting that a failed concurrent save leaves no `.tmp.` leftovers.",
+        "evidence": "cfg(unix) at tests/session.rs:248, :323, :332 and src/session/tests.rs:171."
+      }
+    ],
+    "summary": {
+      "total_findings": 5,
+      "by_severity": {"critical": 0, "important": 0, "minor": 5}
+    },
+    "notes": [
+      "Every requested execution check passed; no check is a finding. All findings are minor first-principles observations (QA-005 is informational).",
+      "RunResponse serialization stability: the 5 pinned samples are dry_run, single_jev, jev_haiku, jev_failed_haiku_ok and session_save_failed (tests/fixtures/run-response/*.json). tests/run_response.rs asserts the exact bytes and top-level key order, and it passes.",
+      "prepare/run error paths: `validate_for_send` runs on every backend before the first send. A later LLM backend's request is re-validated after session context is appended. Session dir misconfiguration is checked before any send. Dry run reports over-limit payloads without refusing them. Descriptor byte-cap enforcement is therefore confirmed by code reading.",
+      "Command producer: the producer name is the file stem of argv[0]. A known error id in the last non-empty stderr line becomes ProducerError. An unknown code or non-JSON line becomes EXTRACTION_FAILED (test_command_stderr_unknown_code_is_extraction_failed passes). Output is redacted, and the child gets a cleared env plus an allowlist.",
+      "FileSessionStore: the write is a create_new tmp file, then fsync, rename, and parent fsync, with 0600/0700 modes and a one-hour stale-tmp sweep on `new`. Reads re-verify the id, the SHA-256 and the outcomes. Version-1 files are refused. Concurrent-writer behaviour and the Windows caveat are documented in the module docs.",
+      "RepoRelativePath is parse-time validated for every check.toml path field (config/mod.rs). BackendSet is adopted in config, run and the registry.",
+      "No `/tmp` hardcoding found in crates/ (cross-platform grep clean).",
+      "Worktree at /Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-2-engine-shape was not modified (git status clean, HEAD verified as 0d643f2 on sprint/r-2-engine-shape). Scratch worktrees under /private/tmp/claude-501/qa-r2/ were removed and pruned; logs remain there. Building in the worktree wrote only to the ignored target/ directory.",
+      "No rust-best-practices or rust-service-hardening review was performed, as out of scope."
+    ]
+  },
+  "error": null
+}

@@ -1,0 +1,23 @@
+{
+  "agent": "arch-qa",
+  "branch": "sprint/r-6-session-log-record",
+  "scope": {"phase": "phase-a-refine", "sprint": "r-6"},
+  "commit": "b35a9c4",
+  "verdict": "PASS",
+  "blocking": 0,
+  "important": 0,
+  "findings": [],
+  "adr_checks": [
+    {"adr": "ADR-SAG-0012", "source": "docs/architecture.md:1037", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:122", "crates/sc-jev/src/check.rs:40", "crates/sc-agent-http/src/retry.rs:422"]},
+    {"adr": "ADR-SAG-0013", "source": "docs/architecture.md:843", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:123", "docs/architecture.md:866", "crates/sc-jev-check/src/run/log.rs:131"]},
+    {"adr": "ADR-SAG-0030", "source": "docs/architecture.md:1610", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:140", "crates/sc-jev/src/check.rs:39", "boundaries/sc-decision-schema/decision-schema.toml:22"]},
+    {"adr": "ADR-SAG-0031", "source": "docs/architecture.md:1692", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:141", "crates/sc-jev-check/src/run/log.rs:111", "crates/sc-jev-check/src/run/log.rs:148"]},
+    {"adr": "ADR-SAG-0026", "source": "docs/architecture.md:1344", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:1417", "crates/sc-agent-http/src/retry.rs:420"]}
+  ],
+  "gate_artifact_checks": [
+    {"artifact": "docs/architecture.md (ADR index)", "status": "closed", "evidence_refs": ["docs/architecture.md:122", "docs/architecture.md:123", "docs/architecture.md:140", "docs/architecture.md:141"], "notes": "Rows 0012, 0013, 0030 and 0031 each carry the Active markers of both sprints. 0012 is Active (r-5). 0013 is Active (r-6). 0030 is Active (r-7) with jev::v1 Active (r-5). 0031 is Active (r-7 storage schema, r-6 wiring). The only 'Proposed' text left is the generic marker rule at line 106. No conflict markers remain in the tree."},
+    {"artifact": "boundaries/*.toml", "status": "closed", "evidence_refs": ["boundaries/sc-agent-http/agent-http.toml:36", "boundaries/sc-jev-check/jev-check.toml:39", "boundaries/sc-jev/jev.toml:38", "boundaries/sc-jev-backends/jev-backends.toml:38"], "notes": "I compared the allowed_dependencies lists against the Cargo.toml direct dependencies of sc-agent-http, sc-jev, sc-jev-backends, sc-jev-check, sc-decision-schema and sc-jev-host. They match. The hash is computed through sc-agent-types (Sha256Digest), so sc-agent-http gains no new edge and still has no edge to sc-decision-schema. Full boundary validation is left to ruthless-boundary-qa."}
+  ],
+  "merge_ready": true,
+  "notes": "I checked that the worktree HEAD resolves to sprint/r-6-session-log-record at b35a9c4cac9be7a3359e7e2597699664c596245a. The combined r-5 and r-6 code is consistent. sc-jev builds the body with CheckRequest::from_canonical(...).to_body() (check.rs:39-41). send_with_busy_retry's retry_loop records Sha256Digest::of_text(request.body()) into the SendTrace once per send, before the first transport send (retry.rs:420-422). So request_sha256 is the hash of the documented Jev body, and prompt_sha256 stays the canonical-payload digest. The engine creates a fresh SendTrace per backend send and emits exactly one SessionLogRow (log.rs:148-150). request_sha256 comes from trace.request_sha256() and is None if no body was built. model_id is judge.model_id(). The row goes out through LogEvent and row.to_fields(), with no bespoke writer. I did not re-run the std Mutex-across-await rule on a diff, because I had no shell and no diff. Neither retry.rs nor log.rs shows a lock held across an await. No findings are caused by combining r-5 and r-6."
+}

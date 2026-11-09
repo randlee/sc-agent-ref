@@ -1,0 +1,23 @@
+{
+  "success": true,
+  "data": {
+    "status": "skipped",
+    "reviewed_branch": "sprint/r-3b-compose-and-workspace-tests",
+    "reviewed_commit": "90004d7",
+    "review_mode": "sprint_review",
+    "service_indicators_found": [],
+    "topics_reviewed": [],
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": {"critical": 0, "important": 0, "minor": 0}
+    },
+    "notes": [
+      "The worktree is a detached copy. Its HEAD is 90004d758db92b84afd5afd99e3f2ce89d5e1425, which matches the assigned commit 90004d7. The branch name could not be checked because the worktree is detached.",
+      "No service indicators were found in the workspace Cargo manifests or crate sources. A search for tokio, axum, hyper, tonic, warp, actix, reqwest, TcpListener and serve( returned no real hits. The only matches were the word 'monotonic' in sc-agent-http and sc-jev-py.",
+      "sc-agent-http is described as a 'shared blocking HTTP layer' and uses ureq, which is not on the indicator list. The other crates are CLIs, a Python binding, and tests. None has an async server, listener, request handler or long-running worker entrypoint.",
+      "No service-hardening topics were reviewed. The check I ran was a text search, so I did not rule out a ureq client or a blocking background worker in sc-agent-http. If you want blocking-client topics such as timeouts, retries and input caps covered, add ureq to service_indicators_extra and re-dispatch."
+    ]
+  },
+  "error": null
+}

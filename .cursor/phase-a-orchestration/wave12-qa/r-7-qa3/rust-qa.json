@@ -1,0 +1,27 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/r-7-decision-schema",
+    "reviewed_commit": "a6a1387",
+    "review_mode": "sprint_review",
+    "executed_checks": {
+      "fmt": {"status": "pass", "command": "cargo fmt --all --check"},
+      "clippy": {"status": "pass", "command": "cargo clippy --locked --all-targets --all-features -- -D warnings"},
+      "tests": {"status": "pass", "command": "cargo test --locked --workspace (521 passed, 0 failed); cargo test --locked -p sc-agent-types --features git (pass)"},
+      "coverage": {"status": "not_run"},
+      "artifacts": {"status": "not_run"}
+    },
+    "findings": [],
+    "summary": {"total_findings": 0, "by_severity": {"critical": 0, "important": 0, "minor": 0}},
+    "notes": [
+      "HEAD was confirmed as a6a13879 on sprint/r-7-decision-schema. The worktree was clean before and after the checks.",
+      "QA-001 is closed. JevError::GitTimeout { seconds } exists in crates/sc-agent-types/src/error.rs. It maps to ErrorCode::ExtractionTimeout. Its hint no longer points at timeout_seconds and instead tells the user to check for a stalled git process, a lock file or a slow filesystem. It is covered by tests/errors.rs, the error-codes.json fixture and a git.rs test.",
+      "QA-002 is closed. Every cargo step in .github/workflows/sc-agent-ci.yml has --locked. That includes cargo fetch, llvm-cov and llvm-cov report, doc, build, hack --each-feature, and the test steps. The only cargo steps without it are the two `cargo hack check ... --feature-powerset --no-dev-deps` steps, and the workflow comment at lines 274-277 explains why.",
+      "The exemption for those two steps is valid. I ran `cargo hack check --locked -p sc-decision-schema --feature-powerset --no-dev-deps` and it failed with 'cannot update the lock file ... because --locked was passed'. The same command without --locked succeeds and leaves Cargo.lock and the tree unchanged. So the failure comes from the Cargo.toml rewrite, not from lock drift. `cargo check --locked` on the same crate passes, and other steps in the features job still enforce the lock file. I did not run the sc-agent-types variant, which has the same --no-dev-deps shape.",
+      "QA-003 is closed. The module doc in crates/sc-jev-check/src/run/mod.rs gives the worst case as 2 x 420 + 210 = 1050 s (about 17.5 minutes), with the derivation, and notes that cancel does not end an in-flight request.",
+      "I found no new issues from the 4eb8265..a6a1387 delta."
+    ]
+  },
+  "error": null
+}

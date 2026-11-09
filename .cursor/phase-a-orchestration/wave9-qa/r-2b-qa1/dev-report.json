@@ -1,0 +1,49 @@
+{
+  "success": true,
+  "data": {
+    "status": "implemented (sprint doc status: in-review, QA pending)",
+    "pushed_sha": "330986f574914ada17e79d074227527cce4eb9ba",
+    "branch": "sprint/r-2b-multi-backend-semantics (pushed to origin; merged origin/integrate/phase-a again after PR 28, which was docs-only; the merge brought in no code changes)",
+    "validation_log": "/private/tmp/claude-501/-Users-randlee--claude-spares-spare-ZVG33J/84ad1f90-7f83-4b6e-b4fc-63121d353959/scratchpad/r2b-only/validation.log",
+    "validation_summary": "Every command in the sprint doc's Required validation list passed, as did the workspace checks from the task file. The checks were: just lint, just test, just test-python, clippy with and without --all-features, cargo fetch --locked, cargo test --workspace (with and without the test-util features), RUSTDOCFLAGS=-D warnings cargo doc, cargo hack --each-feature test -p sc-treesitter, cargo-tree-gates.sh, check-exact-pins.sh, the disallowed_methods and allow(...) greps, the cargo tree test-util-absent checks, cargo publish --dry-run --locked over all 8 crates with a fresh empty CARGO_HOME, and scripts/sc-publish-dry-run.sh. The final `just lint` run was before the merge commit and was not rerun after it.",
+    "acceptance_rows": {
+      "req:REQ-SAG-0606": "pass: test_equal_false_when_backend_digest_differs, test_equal_true_when_all_digests_match, and test_real_wire_builder_reports_prompt_digest and test_digest_detects_faulty_wire_builder in sc-jev (Jev) and sc-jev-backends (Haiku and Luna)",
+      "adr:ADR-SAG-0025": "pass: Status line and index row Status cell are as specified. Bullet 2 ends at '(engine part)', and the r-3b consumer-output bullet follows it, still Proposed. The REQ-SAG-0606 row in requirements.md is now Active (r-2b).",
+      "adr:ADR-SAG-0006,0009,0014,0026,0027": "pass: jev_api and llm tests are green. Scripted backends still install over existing ids only. test_run_response_contract is unchanged, and test_error_response_stderr_golden is green.",
+      "adr:ADR-SAG-0022": "pass: the r-2b subsection is Active, and the four test_scripted_* tests pass",
+      "adr:ADR-SAG-0005,0007": "pass: the digest re-encoding is attestation-only. jev_api, llm and test_no_resend_on_timeout are green.",
+      "adr:ADR-SAG-0004": "pass: test_chain_context_augmented_request_revalidated (that backend Failed, leak = true, nothing sent, no log event)",
+      "adr:ADR-SAG-0008": "pass: test_independent_default_no_prior_answers_in_prompt and test_chain_context_recorded_and_applied. The interim Status line and bullet-1 label were rewritten as specified, and bullet 2 is unchanged.",
+      "adr:ADR-SAG-0019": "pass: the r-2b subsection is Active, and the interim Status line and the body's italic line were rewritten as specified. The interim bullet 2 Arc/CancelToken sentences are unchanged.",
+      "adr:ADR-SAG-0020": "pass: no new disallowed_methods or allow(...) (greps clean), and test_digest_recovery_error_carries_no_body_bytes passes in sc-jev and sc-jev-backends",
+      "adr:ADR-SAG-0013": "pass: test_failed_backend_emits_one_log_event and test_session_save_failure_log_events_unchanged",
+      "adr:ADR-SAG-0003,0023": "pass: check-exact-pins.sh is green, and the three Cargo.toml edits add only a test-util feature and [[test]] entries",
+      "boundary:jev-check": "pass: test_partial_failure_keeps_answers, test_all_failed_returns_err, test_leak_true_iff_any_failed, test_no_resend_on_timeout, test_session_save_failure_keeps_answers, sessions_exact, run::tests::, the multi_backend target and run_response. test-util is absent from `cargo tree -e normal,features` for sc-jev and sc-jev-backends."
+    },
+    "deviations": [
+      "Added WireFault::TruncateBody alongside DropEmbeddedByte in sc-jev and sc-jev-backends (test-util only). The no-body-bytes test needs an unparseable wire body through the public seam.",
+      "The dry-run record now carries RunConfig::mode (default Independent) instead of a constant ChainContext. real_dry_run in tests/run_response.rs sets ChainContext so the pinned r-2 fixtures stay byte-identical.",
+      "A real run cannot equal the test_builder fixture session_save_failed.json byte for byte (it records attested digests and a different mode). The test asserts the fixture's warnings entry, session_saved = false, session_id = null and the kept answers.",
+      "A chain-context refusal, or a request that cannot be built, is Failed in results with attestation NotSent and no log event. A sent backend that fails is Failed with one log event.",
+      "Haiku and Luna recover the digest before the token-count request, which is their first send. The seeded fault applies to the judge message body only.",
+      "equal_input::same_bytes was already gone from the tree in r-1. I removed RunAttestation::uniform instead.",
+      "These implementation notes, with each deviation mapped to its requirement or ADR, are in the sprint doc's Implementation notes section."
+    ],
+    "deferrals": [
+      "r-3b: sc-ai --chain-context and --scripted-answers, partial-failure stdout/stderr/exit 2, the Python chain_context kwarg and JevError.response, and the .pyi. The ADR-SAG-0025 consumer-output bullet, its Status-line clause and the index-row clause stay Proposed (r-3b).",
+      "Parallel fan-out of backends, D9 and r-5 are untouched."
+    ],
+    "files_outside_owned_paths": [
+      "crates/sc-ai/tests/cli.rs: test_multi_backend_cli_equal_input expected the old r-1 interim behaviour (chain_context, unattested, equal false). It now expects independent, matched, equal true and no session context. This is a test-only change.",
+      "tests/fixtures/jev-python/tests/test_run_check_and_ask.py: attestation matched and equal True instead of unattested and False. This is a test-only change.",
+      "docs/sc-jev-check/architecture.md is under docs/sc-jev-check/** and is owned. No consumer source file (sc-ai, sc-jev-py) changed.",
+      "docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md was edited (status in-review, Implementation notes). It is the sprint's own doc."
+    ],
+    "follow_up": [
+      "The coordinator asked me to keep the sprint doc at `status: in-review` while QA runs. When the parent tells me QA-2 passed, I will make one final commit on this branch setting `status: complete` in docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md, so the sprint closes in its own PR. I have not made that commit.",
+      "NOTES-r-2b.md is untracked and was left uncommitted, as the task file requires.",
+      "No PR was opened."
+    ]
+  },
+  "error": null
+}

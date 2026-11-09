@@ -1,0 +1,45 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-3b-compose-and-workspace-tests",
+    "reviewed_commit": "90004d7",
+    "review_mode": "sprint_review",
+    "executed_checks": {
+      "fmt": {"status": "pass", "command": "cargo fmt --all --check"},
+      "clippy": {"status": "pass", "command": "cargo clippy --all-targets --all-features -- -D warnings"},
+      "tests": {
+        "status": "pass",
+        "command": "cargo test --workspace; cargo test -p workspace-tests; cargo test -p sc-agent-types --features git,test-util; cargo test -p sc-agent-http --features test-util; cargo test -p sc-ai --features test-util; cargo test -p sc-ai --test cli --features cli,test-util; just test-python"
+      },
+      "coverage": {"status": "not_run", "line": 0.0, "branch": 0.0, "function": 0.0, "adequate_for_risk": true},
+      "artifacts": {"status": "not_run", "command": ""}
+    },
+    "findings": [
+      {
+        "id": "QA-001",
+        "category": "portability",
+        "severity": "minor",
+        "file": "crates/sc-jev-host/src/obs.rs",
+        "line": 71,
+        "issue": "Doc example hardcodes the Unix-only path \"/tmp/example-log\", which the cross-platform guidelines prohibit.",
+        "recommendation": "Use std::env::temp_dir().join(\"example-log\") in the doc example, or mark the example no_run/hidden if the path is illustrative only.",
+        "evidence": "grep -rn '\"/tmp/' crates/ tests/ returns this line only: ObservabilityAdapter::open(&PathPolicy::cli(), std::path::Path::new(\"/tmp/example-log\"))?"
+      }
+    ],
+    "summary": {
+      "total_findings": 1,
+      "by_severity": {"critical": 0, "important": 0, "minor": 1}
+    },
+    "notes": [
+      "HEAD of the review worktree is 90004d7, on a detached HEAD. The input's branch name could not be confirmed with git, because a detached HEAD has no branch. The commit matches the assignment.",
+      "dev-report.json lists pushed_sha 614d5e5, with 90004d7 as its parent. This review covers 90004d7 only, as assigned.",
+      "All test results were green: cargo test --workspace, cargo test -p workspace-tests, the --features test-util targets for sc-agent-types (git,test-util), sc-agent-http and sc-ai, and sc-ai --test cli --features cli,test-util. just test-python reported 13 passed.",
+      "I tried --features test-util on sc-jev-host and sc-treesitter. Cargo rejected it because neither package has that feature. This is not a finding. The CI file does not list those targets either.",
+      "I skipped the multi-crate publish dry-run, as instructed.",
+      "just test-python wrote untracked output (target/ and a venv) into the review worktree. Nothing tracked was modified.",
+      "The Python tests set HOME and USERPROFILE with monkeypatch in tests/fixtures/jev-python/tests/test_run_check_and_ask.py. The guideline rule covers Rust .env() usage, so I did not report it. paths.rs:181 reads HOME and then USERPROFILE as a fallback, which is cross-platform safe."
+    ]
+  },
+  "error": null
+}

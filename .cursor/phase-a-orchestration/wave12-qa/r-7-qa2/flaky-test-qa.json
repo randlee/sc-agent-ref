@@ -1,0 +1,50 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-7-decision-schema",
+    "reviewed_commit": "4eb8265",
+    "findings": [
+      {
+        "id": "FTQ-004",
+        "severity": "important",
+        "file": "crates/workspace-tests/tests/test_util_off.rs",
+        "line": 28,
+        "test": "test_test_util_absent_from_normal_graph (and test_release_binary_rejects_scripted_answers via bin_path)",
+        "mechanism": "masking_fix",
+        "issue": "The FTQ-001 fix (04584aa) closes the unbounded wait, but it does so by widening the cargo tree deadline from the 60 s runner default to 5 minutes (CARGO_TREE_DEADLINE). The stated cause is a held Cargo file lock, which is contention with other cargo processes. The nondeterminism is not removed. tree() in this file is not serialized with bin_path()'s BUILD_LOCK (bin_path.rs:70), so cargo tree and cargo build run concurrently as threads of one test binary. Under cargo nextest or parallel CI jobs in the same workspace, separate processes contend for the same package-cache and build locks. The test passes only when the competing cargo process releases the lock within 5 minutes, and tree() is called twice per test (lines 81 and 97). The same widening pattern appears in features.rs:24 (CARGO_TREE_DEADLINE, four calls per test) and bin_path.rs:27 (BIN_BUILD_DEADLINE 20 min). A wider bound converts a fast failure into a slow one and hides the lock race rather than removing it. Under the fix standard this is timeout widening around a race.",
+        "recommendation": "Keep a hard bound but stop using it as the cure. (1) Route every cargo invocation in these test binaries through one serialization point (the existing BUILD_LOCK pattern, or a single OnceLock that computes the tree once per process). (2) Isolate the query from concurrent cargo: use a private CARGO_HOME or CARGO_TARGET_DIR seeded from the warm registry, or move the graph check into a CI step that runs before cargo test. The Rust test would then read a pinned fixture, as features.rs already does for the no-default-features set. (3) Restore a deadline near the 60 s default for the graph query, with a failure message that names lock contention so a timeout is diagnosable.",
+        "evidence": "test_util_off.rs:28 `const CARGO_TREE_DEADLINE: Duration = Duration::from_secs(5 * 60);` with the doc comment 'a held Cargo file lock can exceed the 60 s runner default'; test_util_off.rs:47 `spawn_with_limit(&mut cargo, None, CARGO_TREE_DEADLINE)` inside tree(), which does not take BUILD_LOCK; bin_path.rs:70 `let _guard = BUILD_LOCK.lock()` is the only serialization and covers only bin_path builds; features.rs:24 `Duration::from_secs(5 * 60)`; bin_path.rs:27 `BIN_BUILD_DEADLINE: Duration = Duration::from_secs(20 * 60)`."
+      },
+      {
+        "id": "FTQ-005",
+        "severity": "minor",
+        "file": "tests/support/deadline.rs",
+        "line": 98,
+        "test": "run_with_limits (shared runner included by every deadline-bounded test target)",
+        "mechanism": "unbounded_wait",
+        "issue": "After the deadline fires, the runner calls kill_tree and then child.wait() with no bound. kill_tree also runs an external `kill` process via Command::status() with no bound. The module doc (line 9) states 'Every wait is bounded', which is false for these two waits. A child that SIGKILL cannot end promptly (for example, a process in uninterruptible I/O sleep on a hung filesystem or network mount) would leave the test blocked forever instead of failing with the captured stderr. Likelihood is low, but the path exists and contradicts the stated contract.",
+        "recommendation": "After kill, poll child.try_wait() against a fixed budget, as kill_and_reap does in crates/sc-agent-types/src/git.rs:183, and panic with the captured stderr and a note that the child could not be reaped if the budget expires. Replace the `kill` subprocess with a direct signal (for example libc::kill with a negated pgid, or nix::sys::signal) so the cleanup path has no unbounded child-process wait. Alternatively, bound the `kill` status call by polling its own try_wait.",
+        "evidence": "deadline.rs:96-103: `let Some(exit) = exit else { kill_tree(&mut child); let _ = child.wait(); let captured = stderr.finish(...); panic!(...) };` and deadline.rs:180-187: `Command::new(\"kill\")...status();` followed by `let _ = child.kill();`. Module doc deadline.rs:9: 'Every wait is bounded:'."
+      },
+      {
+        "id": "FTQ-006",
+        "severity": "minor",
+        "file": "crates/sc-agent-types/src/git.rs",
+        "line": 488,
+        "test": "test_hung_git_is_killed_at_the_deadline",
+        "mechanism": "timing_assertion",
+        "issue": "The test asserts `started.elapsed() < Duration::from_secs(10)` in addition to the typed EXTRACTION_TIMEOUT. The wall-clock check is redundant: run_with_deadline can only return Err here through the deadline (spawn of `sleep` cannot fail, and try_wait on a live child does not error), so the error assertion already proves the deadline fired. If the deadline did not fire, `sleep 30` would return Ok after 30 s and expect_err would fail. The 10 s check adds only flake exposure: a host stall of more than 10 s, or a suspended CI VM, fails the test even though the behaviour is correct. It also contradicts the FTQ-002 convention stated in the runner (deadline.rs:201-202, 'No wall-clock asserts (FTQ-002)').",
+        "recommendation": "Delete the elapsed assertion and keep the EXTRACTION_TIMEOUT check. If a reap or kill guarantee is wanted, assert it through an observable effect, such as a child that writes a marker file before sleeping and a check that the process is no longer alive (kill -0 on a recorded pid after the call), rather than a time bound.",
+        "evidence": "git.rs:483-493: `let started = Instant::now(); let error = run_with_deadline(hung_child(), Duration::from_millis(200)).expect_err(\"deadline\"); assert_eq!(error.code(), \"EXTRACTION_TIMEOUT\"); assert!(started.elapsed() < Duration::from_secs(10), ...)`. deadline.rs:201-202: '// No wall-clock asserts (FTQ-002): each property is shown by what the runner returns'."
+      }
+    ],
+    "summary": {
+      "total_findings": 3,
+      "critical": 0,
+      "important": 1,
+      "minor": 2
+    }
+  },
+  "error": null
+}

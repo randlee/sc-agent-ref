@@ -17,7 +17,7 @@ version: 1
 
 agents:
   rust-developer:
-    model: grok-4.5-fast-xhigh
+    model: grok-4.7-high-fast
     alternates:
       - composer-2.5-fast
     notes: Implement/fix loops; default grok unless user prefers composer

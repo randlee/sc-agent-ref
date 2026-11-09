@@ -1,0 +1,34 @@
+<cursor-task id="dev-a-6" sprint="a-6" assignee="rust-developer">
+  <description>Sprint a-6 sessions, run_check, multi-backend orchestration in sc-jev-check</description>
+
+  <worktree>/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-6-sessions-and-orchestration</worktree>
+  <branch>sprint/a-6-sessions-and-orchestration</branch>
+  <pr-target>integrate/phase-a</pr-target>
+  <integrate-head>8c28f9d29b36d438f8b0230574cdb434724020d1</integrate-head>
+  <authoritative-sprint-doc>docs/plans/phase-a/sprint-a-6-sessions-and-orchestration.md</authoritative-sprint-doc>
+
+  <deliverables>
+- Implement all deliverables in docs/plans/phase-a/sprint-a-6-sessions-and-orchestration.md
+  </deliverables>
+
+  <acceptance-criteria>
+- All acceptance criteria and Required validation in the sprint doc pass
+- Sprint frontmatter status: complete when done; branch and worktree set
+- docs/plans/project-plan.md includes sprint entry if required by sprint doc
+  </acceptance-criteria>
+
+  <references>
+- docs/requirements.md, docs/architecture.md
+- docs/plans/phase-a/sprint-a-6-sessions-and-orchestration.md
+- crates sc-jev-check (primary), sc-agent-secrets, sc-jev, sc-jev-backends as dependencies only
+  </references>
+
+  <workflow>
+    <step id="a">ACK immediately; execute without blocking questions unless truly stuck.</step>
+    <step id="b">Read sprint doc fully before coding.</step>
+    <step id="c">Base branch integrate/phase-a @ 8c28f9d (post wave-2 stack merge).</step>
+    <step id="d">Commit and push sprint/a-6-sessions-and-orchestration; report SHA for PR.</step>
+    <step id="e">Run sprint Required validation; report PASS/FAIL.</step>
+    <step id="f">Do not self-merge; do not spawn QA/reviewers.</step>
+  </workflow>
+</cursor-task>

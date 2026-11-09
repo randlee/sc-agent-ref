@@ -1,0 +1,32 @@
+{
+  "status": "PASS",
+  "reviewed_branch": "sprint/r-3b-compose-and-workspace-tests",
+  "reviewed_commit": "a7b68f6",
+  "errors": [],
+  "scope": {"phase": "a.1", "sprint": "r-3b"},
+  "baselines_read": ["QA-1 req-qa.json (carry-forward)", "fix-assignment.xml", "sprint-r-3b doc", "docs/architecture.md (ADR-SAG-0026 region)"],
+  "phase_or_sprint_docs_read": ["docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md"],
+  "requirement_checks": [
+    {"id": "REQ-SAG-0703", "source": "docs/sc-ai/requirements.md:12", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["sprint doc:41", "sprint doc:779-781"]},
+    {"id": "REQ-SAG-0803", "source": "docs/sc-jev-py/requirements.md:12", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["sprint doc:42", "sprint doc:781-783"]},
+    {"id": "REQ-SAG-0134", "source": "docs/requirements.md", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["sprint doc:43", "sprint doc:783-785"]},
+    {"id": "REQ-SAG-0620", "source": "docs/requirements.md", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["sprint doc:44", "sprint doc:785-786"]},
+    {"id": "REQ-SAG-0135", "source": "docs/requirements.md:164", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["PR 31 CI 13/13 green at a7b68f6, run 42433144889 (from the assignment)", "sprint doc:794-796"]}
+  ],
+  "deliverable_checks": [
+    {"item": "Carry-forward fixes 1 to 8", "status": "present", "closure_state": "closed", "evidence_refs": ["crates/workspace-tests/tests/support/bin_path.rs:27,38-53,78,88-93", "crates/sc-jev-host/src/obs.rs:71", "docs/architecture.md:1346-1355", "crates/workspace-tests/tests/source_scans.rs:23-43,318", "sprint doc:41-44,125-129,209-211,411,778-796"], "notes": "All verified by reading the files. I ran no commands."}
+  ],
+  "carry_forward_verdicts": {
+    "REQ-QA-001": "closed. REQ-SAG-0703, 0803, 0134 and 0620 are in the requirements list (sprint doc:41-44). Evidence is in Implementation notes (sprint doc:779-786).",
+    "REQ-QA-002": "closed. The assignment gives PR 31 CI as 13/13 green at a7b68f6 (run 42433144889). The sprint doc cites green runs 42432703158 and 42432703189 at f3ceaae (sprint doc:794-796). I could not independently check the run at a7b68f6. The doc cites f3ceaae because the doc cannot name its own commit's run. Not a finding.",
+    "CI-R3B-001": "closed. bin_path.rs no longer canonicalizes: the workspace root comes from CARGO_MANIFEST_DIR ancestors (bin_path.rs:38-53). CI is green including windows-2022 per the assignment.",
+    "FTQ-001": "closed. The build runs through spawn_with_limit with BIN_BUILD_DEADLINE of 20 min and --locked (bin_path.rs:27,78,88). The panic includes stderr and names the file-lock case (bin_path.rs:91-92).",
+    "QA-001": "closed. obs.rs:71 uses std::env::temp_dir(), and no \"/tmp/ literal remains under crates/.",
+    "REQ-QA-004": "closed. docs/architecture.md:1346-1347 and sprint D2.2 (sprint doc:209-211) say ask_from returns AskResponse, whose outcome() is the JudgeOutcome.",
+    "REQ-QA-005": "closed. The GIT_CEILING_DIRECTORIES exception for sc-jev-check run/mod.rs is documented in ADR-SAG-0026 (architecture.md:1355) and in the D7 bullet (sprint doc:411).",
+    "REQ-QA-006": "closed. owned_paths covers tests/support/deadline.rs and git_env.rs, sc-publish.md, agent-http.toml and Cargo.lock (sprint doc:125-129). source_scans rust_files() walks tests/support (source_scans.rs:43), and the test-file rule covers it (source_scans.rs:318)."
+  },
+  "findings": [],
+  "summary": {"total_findings": 0, "blocking_findings": 0, "overall_compliance": "compliant", "deliverables_total": 1, "deliverables_complete": 1, "deliverables_incomplete": 0, "deliverable_completion_percent": 100.0},
+  "gate_reason": "PASS. The worktree HEAD is exactly a7b68f6 (read from the worktree gitdir HEAD file). All carry-forward ids are closed with file evidence. The assignment reports green CI at a7b68f6, including test (windows-2022). I found no new Blocking findings and no regressions. I read files only and ran no cargo, test or CI command."
+}

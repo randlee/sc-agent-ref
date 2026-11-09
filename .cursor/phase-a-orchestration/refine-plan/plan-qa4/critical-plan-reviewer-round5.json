@@ -1,0 +1,15 @@
+{"agent":"critical-plan-reviewer","verdict":"PASS","reviewed_commit":"913b021",
+"reviewed_commit_verified":"/Volumes/Extreme Pro/github/sc-agent/.git/refs/heads/plan/phase-a-refine = 913b021b443229183048857687e8c2bb19e627c8",
+"closed":[
+"CPR-301: r-3b owned_paths now have expect-line-only entries for sc-agent-types/src/git.rs (:82), sc-jev-check/src/extract/command.rs, covering the argv spawn and the test re-exec (:83), and sc-jev-check/src/extract/mod.rs test_support::git_command (:84). Test-file expects are item-level (:85). test_disallowed_methods_expect_sites lists the cfg(test) test_support module (r-3b:337-341). plan.md resolution 12 does the same (:722-728). The same-sprint rule and its unfulfilled_lint_expectations rationale are at r-3b:356-360. The pre-merge clippy sweep, with the PR listing every fixed site, is at r-3b:360-363.",
+"CPR-302: r-1 D10.11 (:478-486) adds the contract bullet. When requires_llm_context() is true and there is no LLM context, validate_for_send (still counted) and judge return INPUT_INVALID and record nothing. test_mock_judge_backend_contract is named as replacing registry::scripted::tests::scripted_judge_records_requests_and_counts_validations. The ADR-SAG-0022 r-1 amendment (architecture.md:278-283) says the base sentence still holds and is not superseded. This also closes the CPR-205 partial.",
+"Minor (a): the D0 'self entry rejected' outcome names the ADR-SAG-0022 r-2 'Correction' sentence and gives its rewording (r-1:174-178).",
+"Minor (b): bin_path's root is concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/../..\") canonicalized when CARGO_TARGET_DIR is unset (r-3b:282-287).",
+"Minor (c): NetworkErrorKind has one snake_case spelling across serde, Display and FromStr. An unknown kind is INPUT_INVALID. It is pinned by test_network_error_kind_spelling (r-1 D6.3 :316-324; validation :670).",
+"Own commits: bf6d2f1 adds ADR-SAG-0029 to the adrs of r-2b (:40) and r-3c (:31). The r-3c acceptance row (:96) matches the 0029 (c) dispositions table (architecture.md:812-821). 3145503/7d9cd14 add the fourth D0 outcome, 'dev edges counted, self edge ignored' (r-1:163-166). It is consistent with r-3b D7.0, since workspace-tests takes the 'counted' branch. Test-file expects being item-level is consistent with r-3b owned_paths :85 and D7.3 :342-346. No regression."
+],
+"still_open":{},
+"findings":[],
+"notes":[
+"Wording only, not blocking: plan.md:138 still says the D0 spike has 'three written outcomes'. r-1 D0 now has four, so change it to 'four written outcomes'."
+]}

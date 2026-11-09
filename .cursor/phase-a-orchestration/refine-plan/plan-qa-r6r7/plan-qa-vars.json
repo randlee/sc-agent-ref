@@ -1,0 +1,29 @@
+{
+  "task_id": "phase-a1-r6r7-plan-qa",
+  "sprint": "phase-a.1 (r-5, r-6, r-7)",
+  "sprint_doc": "docs/plans/phase-a-refine/plan.md",
+  "review_mode": "doc_review",
+  "description": "Focused plan QA for the Phase A.1 r-5/r-6/r-7 plan after consistency hardening (plan-hardening-basic step 6). Owner rule 2026-11-07: ceremony the owner did not specify or discuss is high priority for removal. Do not recommend new gates, receipts, inventories or docs-consistency checks. Two owner gates stay open and must not be resolved by assumption: the D9 question shape (r-5 blocked) and sc-sha raw bytes (r-6 D0 stop-and-report). Decided: log-write failure policy is best-effort (plan.md item 9).",
+  "pr_number": "",
+  "branch": "plan/phase-a-refine-r6",
+  "worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/plan/phase-a-refine-r6",
+  "reviewed_commit": "debbf1d9cc8c8230f435d22088085909608f666d",
+  "commits": "origin/integrate/phase-a..debbf1d",
+  "review_targets": [
+    "docs/plans/phase-a-refine/plan.md",
+    "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+    "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md",
+    "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md",
+    "docs/architecture.md (ADR-SAG-0030, ADR-SAG-0031 and the ADR amendments r-5/r-6/r-7 own)",
+    "docs/requirements.md (REQ-SAG-0140..0148, 0600, 0611..0618 and the r-5 rows)"
+  ],
+  "references": [
+    "/Volumes/Extreme Pro/github/sc-agent/.cursor/phase-a-orchestration.json key owner_decisions_2026_11_07 (authoritative owner scope)",
+    "docs/development/sprint-planning-guidelines.md",
+    "docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md",
+    "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md"
+  ],
+  "changed_files": "git diff --stat origin/integrate/phase-a...debbf1d in the worktree",
+  "triage_records": "",
+  "carry_forward_findings": []
+}

@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "R6-QA1-FTQ-003",
+ "found_in": "A1-R6",
+ "found_at": "2026-11-08T06:07:39Z",
+ "title": "Two independent 20 s wall-clock budgets govern the handshake",
+ "description": "Two independent 20 s wall-clock budgets govern the handshake. The worker thread's deadline starts before build_request spawns the extractor. The child's own 20 s poll starts only after it has written 'started'. On a loaded host where the interpreter start is slow, the worker gives up first, never writes 'ack', and the child exits 3. The test then reports EXTRACTION_FAILED with the message 'the GIL was held', although the GIL was never the cause. The failure is intermittent on loaded CI hosts and carries the wrong diagnosis.",
+ "category": "timing_assertion",
+ "severity": "minor",
+ "pattern": "timing_assertion",
+ "file_filter": "tests/fixtures/jev-python/tests/test_run_check_and_ask.py",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "714d2845c48cd0b4fa40bcd2017c248049f3662a"
+  },
+  {
+   "branch": "sprint/r-6-session-log-record",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-6-session-log-record",
+   "order_index": 1,
+   "head_sha": "f6ddc71c5fc8e0ea9a9e4d100529457784039873"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a",
+  "sprint/r-6-session-log-record"
+ ]
+}

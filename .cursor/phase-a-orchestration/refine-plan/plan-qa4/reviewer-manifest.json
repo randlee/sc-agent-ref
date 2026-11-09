@@ -1,0 +1,6 @@
+[
+  {"agent": "critical-plan-reviewer", "task_id": "a14ef92aa641a82e8", "spawn_actor": "parent-orchestrator", "model": "opus", "scope_locked": "CPR-201..211, M201..M212"},
+  {"agent": "arch-qa", "task_id": "ae7df6299affb2316", "spawn_actor": "parent-orchestrator", "scope_locked": "ARCH-015..019"},
+  {"agent": "req-qa", "task_id": "acd61a1d9e819ab0e", "spawn_actor": "parent-orchestrator", "scope_locked": "R3-001..005"},
+  {"agent": "ruthless-boundary-qa", "task_id": "ac3e97d5f874cd15d", "spawn_actor": "parent-orchestrator", "scope_locked": "RBQA-F101..F107"}
+]

@@ -1,0 +1,25 @@
+{
+  "success": true,
+  "data": {
+    "status": "skipped",
+    "reviewed_branch": "integrate/phase-a",
+    "reviewed_commit": "91d36b3",
+    "review_mode": "phase_end",
+    "service_indicators_found": [],
+    "topics_reviewed": [],
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": {"critical": 0, "important": 0, "minor": 0}
+    },
+    "notes": [
+      "HEAD check: the worktree HEAD is refs/heads/integrate/phase-a, and that ref resolves to 91d36b3ad309deb3350434acaecee0ab2938b13f. This matches the assigned branch and commit. I confirmed it by reading git ref files, since I had no shell.",
+      "None of the default or extra service-indicator dependencies (tokio, axum, hyper, tonic, warp, actix-web, reqwest) appear in any crates/*/Cargo.toml. I checked all 11 crates under /Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/crates/.",
+      "The only HTTP dependency is the blocking client ureq, in crates/sc-agent-http/Cargo.toml. It is not on the indicator list, and I found no async runtime, listener, server startup or request handler. The main.rs files in sc-ai and sc-treesitter are CLI entrypoints. The listener code I found is in sc-agent-http/tests/support/mod.rs, which is test-only.",
+      "The workspace looks like CLI binaries and libraries, not a long-running service. Service-hardening topics such as graceful shutdown, backpressure, health endpoints and request IDs do not apply.",
+      "Owner decisions were not re-raised: the 502 busy retry (ADR-SAG-0007 r-3), the per-judge-call worst-case bound, and the CI advisory scan (bead agt-ci-advisory-scan).",
+      "If you want the blocking-client behaviour in sc-agent-http reviewed (timeouts, retry bounds), re-dispatch with service_indicators_extra: [\"ureq\"] and topics: [\"timeouts\", \"retries\"]."
+    ]
+  },
+  "error": null
+}

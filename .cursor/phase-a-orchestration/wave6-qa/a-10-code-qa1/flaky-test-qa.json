@@ -1,0 +1,72 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/a-10-phase-end-hardening",
+    "reviewed_commit": "1899319d1ca643696868c1c69c8d49437ba9f1ae",
+    "findings": [
+      {
+        "id": "FTQ-006",
+        "severity": "important",
+        "file": "crates/sc-jev/src/test_server.rs (byte-identical copy: crates/sc-jev-backends/src/test_server.rs)",
+        "line": 88,
+        "test": "every LoopbackServer user: sc-jev client::https::tests::* and sc-jev-backends transport::tests::*",
+        "mechanism": "unbounded_wait",
+        "issue": "The server thread loops `listener.accept()` once per scripted Reply with no deadline. serve_one() then does blocking `read_line` and `read_exact` on the client stream with no read timeout. `finish()` calls `JoinHandle::join()` with no deadline. If the code under test makes fewer connections than scripted, the thread blocks in accept forever. That happens when the retry count regresses, e.g. the 3-reply, 5-reply and 3-reply retry tests. It also happens if the client connects but never sends the full head or body. `finish()` then hangs, and the test blocks until the 60-minute CI job timeout instead of failing with a message. The tests that call `finish()` while the client has already given up have the same exposure. Production regressions that cut the request count would show up as a hung job, not a red test.",
+        "recommendation": "Redesign the helper with a hard deadline. Put the listener in nonblocking mode, or use `set_read_timeout` plus an accept loop bounded by `Instant`. Set `stream.set_read_timeout(Some(..))` in serve_one. Have `finish()` signal shutdown (e.g. an AtomicBool or a channel that stops the accept loop) and wait with `recv_timeout`. It should then panic with 'server expected N connections, saw M' instead of joining unboundedly. Do the same in both copies, or move the helper to one shared dev-dependency crate so the copies cannot drift.",
+        "evidence": "`let Ok((stream, _)) = listener.accept() else { break };` (line 71); `self.handle.join().expect(\"server thread\")` (line 88); `reader.read_line(&mut line)` (line 106) and `reader.read_exact(&mut body)` (line 117) on a stream with no timeout set."
+      },
+      {
+        "id": "FTQ-007",
+        "severity": "important",
+        "file": "crates/sc-jev-py/src/run.rs (Python twin: tests/fixtures/jev-python/tests/test_run_check_and_ask.py)",
+        "line": 1081,
+        "test": "build_request_releases_the_gil_during_a_slow_extractor / test_build_request_releases_the_gil",
+        "mechanism": "timing_assertion",
+        "issue": "The test starts a Python thread that does `ticks += 1; time.sleep(0.01)` and runs a 1 s extractor timeout. It then asserts `ticks >= 20`. A correct implementation gives roughly 100 ticks, so the 5x margin is only a heuristic. The count depends on OS scheduling of the Python thread, `time.sleep(0.01)` granularity (about 15.6 ms on Windows, so about 64 ticks at best), and GIL contention from other `Python::attach` tests running in parallel in the same sc-jev-py test binary. On a loaded or oversubscribed runner, especially Windows or macOS, a correct implementation can fall below 20 and fail intermittently. Lowering the threshold or lengthening the extractor would only mask it. In the Rust test, an assertion failure inside `Python::attach` also leaves a non-daemon worker thread running, because `stop.set()` is skipped when `expect_err` panics.",
+        "recommendation": "Replace the tick count with a handshake that is deterministic with a hard bound. Have the Python worker thread create a sentinel file (or set a flag the extractor can observe). Make the command extractor a small python script that polls for the sentinel for up to about 20 s. If the sentinel appears it prints a non-subjects payload, so the build fails with EXTRACTION_INVALID. If it never appears it exits non-zero, so the build fails with EXTRACTION_FAILED. Assert the EXTRACTION_INVALID outcome. The worker can only write the sentinel if the GIL was released, so the test fails deterministically if the GIL is held and never depends on a rate. Use try/finally (Python) or a drop guard (Rust) to stop and join the worker.",
+        "evidence": "`ticks >= 20, \"Python thread starved while the GIL was held: {ticks}\"` (run.rs:1080-1083); `time.sleep(0.01)` loop (run.rs:1054); `assert ticks[0] >= 20, ticks[0]` (test_run_check_and_ask.py:241)."
+      },
+      {
+        "id": "FTQ-008",
+        "severity": "important",
+        "file": "crates/sc-jev-check/src/extract/mod.rs",
+        "line": 159,
+        "test": "all sc-jev-check tests using test_support::git/git_stdout (git_fixture, read.rs and sessions tests); command_extractor_child_env_excludes_secrets (command.rs:553); jev_cross_impl_matches_python_reference (tests/jev_cross_impl/main.rs:25)",
+        "mechanism": "unbounded_wait",
+        "issue": "FTQ-003 is NOT fully closed. `spawn_with_deadline` is used in sc-ai and sc-treesitter, but three raw, deadline-free subprocess waits remain. (1) The sc-jev-check test helper `git()`/`git_stdout()` uses `Command::output()`. A git child that stalls on a lock, hook or credential helper blocks the test forever. `GIT_TERMINAL_PROMPT=0` and a null `GIT_CONFIG_GLOBAL` are set, but `GIT_CONFIG_NOSYSTEM` is not, so a system gitconfig can still apply. (2) The env re-exec test runs `Command::new(current_exe()).output()`, which waits on the re-executed test binary without a deadline. The child's extractor has its own 30 s limits, but the harness spawn, a filter mismatch hang or a stuck pipe is unbounded. (3) The cross-impl test runs `python3 canonicalize.py` with `.output()` and no deadline. In each case a hang becomes a CI job timeout instead of a clear test failure.",
+        "recommendation": "Route all three through a bounded runner (kill, reap and panic with captured stderr after a hard deadline). The runner is the `spawn_with_deadline` pattern from crates/sc-treesitter/tests/support/mod.rs. Put it in one shared dev-support location rather than another copy. Also add `GIT_CONFIG_NOSYSTEM=1` to sc-jev-check's `git_command`.",
+        "evidence": "`git_command(cwd).args(args).output().expect(\"git\")` (extract/mod.rs:159) and `.output().expect(\"git output\")` (:168); `Command::new(exe).args([\"--exact\", \"extract::command::tests::env_probe_child\", ...]).env(PROBE_ENV, ...).stdin(Stdio::null()).output()` (command.rs:553-564); `Command::new(python_program()).arg(fixture.join(\"canonicalize.py\")).output()` (tests/jev_cross_impl/main.rs:25-28)."
+      },
+      {
+        "id": "FTQ-009",
+        "severity": "minor",
+        "file": "crates/sc-jev/src/test_server.rs (copy: crates/sc-jev-backends/src/test_server.rs)",
+        "line": 93,
+        "test": "timeout_and_refused_connection_are_network_errors; redirects_are_not_followed; the refused-connection test in sc-jev-backends transport.rs (about line 433)",
+        "mechanism": "parallel_race",
+        "issue": "`closed_port_url()` binds 127.0.0.1:0, drops the listener, and returns that port as 'nothing listens here'. Tests run in parallel inside one binary, and other tests' `LoopbackServer::start` also bind `:0`. The OS can hand the just-released port to another test's listener before the refused-connection request connects. The request then gets an accepted connection or a stray reply instead of ECONNREFUSED, and `code() == \"NETWORK_ERROR\"` fails. The probability is low, but the window is a real race on a fixed, reusable resource.",
+        "recommendation": "Keep the listener alive but never accept on it. Make the helper return a guard that holds a bound listener with backlog 0, or use a connect target that is guaranteed to refuse. Then the port cannot be reallocated while the test runs. For the redirect target, the URL is never contacted, so use a reserved name such as `http://invalid.test/`.",
+        "evidence": "`let listener = TcpListener::bind(\"127.0.0.1:0\")...; let addr = listener.local_addr()...; drop(listener); format!(\"http://{addr}/closed\")` (lines 94-97)."
+      },
+      {
+        "id": "FTQ-010",
+        "severity": "minor",
+        "file": "crates/sc-jev/src/client/https.rs",
+        "line": 229,
+        "test": "timeout_and_refused_connection_are_network_errors (sc-jev); the timeout test in sc-jev-backends transport.rs (about line 417)",
+        "mechanism": "fixed_sleep",
+        "issue": "The timeout-mapping test uses `Reply::Stall(Duration::from_millis(800))`, which is a fixed `thread::sleep` in the server, against a 150 ms client timeout. The sleep stands in for 'the server never answers'. It always costs 0.8 s because `finish()` joins the sleeping thread. The outcome does not currently flip. If the client is delayed past 800 ms, the server closes the socket and the client still returns NETWORK_ERROR, so the 150 ms vs 800 ms ordering is not asserted. The test is therefore weaker than it looks. It is also slower than needed, and a latent hazard if the error mapping ever distinguishes timeout from reset.",
+        "recommendation": "Make Stall block on a release signal instead of a sleep. Use a channel or `Barrier` that the test fires after the client call returns, with `recv_timeout` as the bound. The server then holds the connection open for exactly as long as the client is waiting, and the test has no wall-clock dependency apart from the client timeout under test. Use a client timeout that is small relative to a generous bound.",
+        "evidence": "`LoopbackServer::start(vec![Reply::Stall(Duration::from_millis(800))])` then `send(&server.url(\"/slow\"), Duration::from_millis(150))`; the stall is `Reply::Stall(wait) => thread::sleep(wait)` (test_server.rs:124)."
+      }
+    ],
+    "summary": {
+      "total_findings": 5,
+      "critical": 0,
+      "important": 3,
+      "minor": 2
+    }
+  },
+  "error": null
+}

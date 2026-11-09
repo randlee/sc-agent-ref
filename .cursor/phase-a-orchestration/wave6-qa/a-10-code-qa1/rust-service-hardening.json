@@ -1,0 +1,106 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/a-10-phase-end-hardening",
+    "reviewed_commit": "1899319d1ca643696868c1c69c8d49437ba9f1ae",
+    "review_mode": "sprint_review",
+    "service_indicators_found": [
+      "ureq (sc-jev transport, sc-jev-backends transport)",
+      "std::process::Command (sc-jev-check extract/command.rs, extract/read.rs; sc-ai command.rs; sc-treesitter git_io.rs)",
+      "FileSessionStore (sc-jev-check session/mod.rs)",
+      "keyring/env secret resolution (ResolvedApiKey)",
+      "PyO3 extension with py.detach (sc-jev-py)"
+    ],
+    "topics_reviewed": [
+      "subprocess_args_env",
+      "path_traversal_input_size_limits",
+      "session_partial_writes_resource_cleanup",
+      "retries_timeouts",
+      "connection_reuse_timeouts",
+      "secret_leakage_in_errors_and_warnings",
+      "release_build_hygiene",
+      "pyo3_gil_and_logger_lifetime"
+    ],
+    "findings": [
+      {
+        "id": "RSH-007",
+        "topic": "input_size_limits",
+        "severity": "minor",
+        "file": "crates/sc-treesitter/src/git_io.rs",
+        "line": 71,
+        "issue": "The rewritten sc-treesitter git_io has no size cap. read_worktree uses std::fs::read on the resolved file with no limit (a regular-file check only). read_at_rev buffers the whole `git cat-file blob` stdout via Command::output() (line 116) with no cap. This is the same RSH-002 class that sc-jev-check/extract/read.rs now closes with MAX_INPUT_BYTES (8 MiB) and a cat-file -s precheck. The sc-treesitter binary can therefore be pointed at a multi-GB tracked file and will buffer it all. Path containment is correct, so this is memory exhaustion only.",
+        "recommendation": "Mirror read.rs. In read_worktree, open the file and use take(MAX+1) with a metadata length check. In read_at_rev, run `git cat-file -s <sha>` after rev-parse and refuse above the cap, then read the blob. Reuse the same 8 MiB constant and return JevError::InputTooLarge.",
+        "evidence": "git_io.rs:71 std::fs::read(&full); git_io.rs:116 run_git(repo, [\"cat-file\", \"blob\", sha]) uses .output(); no MAX constant or `-s` call anywhere in the file."
+      },
+      {
+        "id": "RSH-008",
+        "topic": "input_size_limits / revision_pinning",
+        "severity": "minor",
+        "file": "crates/sc-jev-check/src/extract/read.rs",
+        "line": 135,
+        "issue": "read_git_show makes three independent git invocations (`cat-file -t`, `cat-file -s`, `cat-file blob`), each re-resolving `<rev>:./<path>`. The final `cat-file blob` call does not pass --end-of-options. If a ref moves between the size check and the blob read, the 8 MiB precheck no longer applies to the object actually read. The output is buffered unbounded by .output() and only checked after buffering. sc-treesitter's rewrite avoids this by pinning to the resolved object id.",
+        "recommendation": "Resolve the spec once with `git rev-parse --verify --end-of-options`. Then run -t, -s and `cat-file blob` against the returned object id, which also makes the blob call immune to option-like input. Alternatively, spawn the blob read with a bounded reader.",
+        "evidence": "read.rs:136-164: three git_cat_file calls on the same `spec` string. The blob call is `&[\"blob\", &spec]`, while the -t and -s calls use --end-of-options."
+      }
+    ],
+    "carry_forward_verification": [
+      {
+        "id": "RSH-001",
+        "status": "fixed",
+        "evidence": "extract/sanitize.rs:37-44 apply_env_allowlist does env_clear() and copies only PATH, HOME, USERPROFILE, SYSTEMROOT, TEMP, TMP, TMPDIR, LANG, TERM and LC_*. It is applied in extract/command.rs:142 before args, cwd and pipes are set. *_API_KEY and SC_* cannot pass, and a unit test covers this. GIT_TERMINAL_PROMPT=0 is set on read.rs:184, sc-ai/command.rs:772 and sc-treesitter/git_io.rs:269. The test-only git helper in extract/mod.rs also sets GIT_CONFIG_GLOBAL to the null device. Residual, not a finding: the git children in read.rs, sc-ai and sc-treesitter inherit the full parent env. The original recommendation allowed 'or at least GIT_TERMINAL_PROMPT=0', and these are fixed git subcommands, not repo-configured argv."
+      },
+      {
+        "id": "RSH-002",
+        "status": "fixed for sc-jev-check; new class remains in sc-treesitter (RSH-007, RSH-008)",
+        "evidence": "read.rs:89-133 canonicalizes the root and the target, requires full.starts_with(root), requires metadata.is_file(), reads via take(MAX_INPUT_BYTES+1), and returns InputTooLarge. read.rs:135-176 runs cat-file -t (must be blob), then -s against the cap, then blob, and re-checks the length. validate_relative still blocks '..', absolute paths, ':', backslash and NUL. Revision reads use a ./-prefixed path and --end-of-options on the -t and -s calls. Tests cover oversize worktree files, oversize blobs, directories and trees. The remaining gaps are RSH-007 and RSH-008."
+      },
+      {
+        "id": "RSH-003",
+        "status": "fixed",
+        "evidence": "run/prompt.rs:82-129 sets MAX_PROMPT_BYTES to 1 MiB, requires metadata.is_file() (this rejects /dev/zero and directories), opens the file, reads via take(MAX+1), and returns ConfigInvalid on overflow. Tests exist for oversize files, directories and missing files."
+      },
+      {
+        "id": "RSH-004",
+        "status": "fixed",
+        "evidence": "session/mod.rs:553-580 write_private uses create_new with mode 0600 and a unique tmp name `.{name}.{pid}.{nanos}{nonce}.tmp` (pid, time and an atomic counter), with an AlreadyExists retry loop. It then does write_all, sync_all, tighten_0600 and rename, and removes the tmp file on any error. sync_parent fsyncs the parent directory (unix) after the rename. create_private_dir creates the session dir with DirBuilder mode 0700. Residual, informational: the 0700 mode applies only to directories the call creates; a pre-existing wider-mode session dir is not tightened. There is no TTL sweep of stale .tmp files left by a crash between create and rename. Neither was in the stated acceptance list."
+      },
+      {
+        "id": "RSH-005",
+        "status": "fixed (routine part; cancellation deferred to Phase A.1 and not reported)",
+        "evidence": "The shared retry_policy.rs (verbatim in sc-jev and sc-jev-backends) has RETRY_DEADLINE of 90 s from the first send via RetryBudget. A wait is shortened to the time left, none starts once the budget is spent, and up to 250 ms jitter is added after the Retry-After clamp (30 s). Both clients start the budget immediately before the first send: backend.rs:163 and client/mod.rs:147. BUSY_ATTEMPTS is 4 in backends/retry.rs:18, and jev.toml:8 has attempts = 4. Only 429, 502 and 529 are retried, with unit tests on the table and the deadline."
+      },
+      {
+        "id": "RSH-006",
+        "status": "fixed",
+        "evidence": "Both transports build one ureq Agent in new() and reuse it: UreqTransport (backends transport.rs:166-201) and HttpsTransport (sc-jev client/https.rs:40-69). Both set timeout_connect to 10 s, https_only, max_redirects(0), a versioned user_agent (sc-jev-backends/<ver> and sc-jev/<ver>), and http_status_as_error(false). Per-request timeout_global is applied per send. The 8 MiB response cap is kept."
+      }
+    ],
+    "regression_checks": {
+      "loopback_http_not_in_release": "Pass. `loopback_for_tests` is #[cfg(test)] in both transports. `mod test_server` is #[cfg(test)] in both lib.rs files. Production new() hard-codes https_only(true) and require_https: true, and there are tests that refuse cleartext. The only http:// string in non-test code is the refusal check.",
+      "sanitize_module": "Pass. Allowlist matching is case-insensitive, and non-UTF-8 names are dropped. Redaction is by variable name (*_API_KEY, SC_*) with a minimum value length of 8, and it is defense in depth because the child env is already cleared. map_detail covers every text-bearing JevError variant and has an exhaustive test. stderr_tail is bounded to 4 KiB, and the stderr pipe reader keeps only the tail while draining, so a chatty child cannot grow memory.",
+      "sc_treesitter_git_io": "Pass with RSH-007. The flow is rev-parse --verify --quiet --end-of-options, then cat-file -t on the object id, then cat-file blob on the id, so bytes and id come from the same object. The id is validated as 40 or 64 lowercase hex before reuse. LC_ALL=C and GIT_TERMINAL_PROMPT=0 are applied in the single git_command(). Failures are classified by exit status plus cat-file -e rather than by parsing stderr. Path rules match sc-jev-check's. Absolute arguments go through canonicalize_lenient plus strip_prefix of the canonical toplevel, and the worktree path re-checks starts_with after canonicalize.",
+      "sc_jev_py_logger_cache": "Pass. The registry holds Weak<LoggerInner> keyed by canonical root. A strong Arc lives in LoggerGuard, held by LiveSession inside CheckResult and Session, so the logger lives while any Python handle does. Dead entries are pruned on each open. Shutdown and flush run once, in LoggerInner::drop. The registry mutex recovers from poisoning. A test covers sharing and the fresh start after the last drop.",
+      "gil_release_in_build_request": "Pass. build_request moves owned values into py.detach (run.rs:414). The detached closure touches no Python objects, and to_py runs after the GIL is re-acquired. A unix test (sleep 5 command with a 1 s timeout) asserts that a Python thread keeps ticking. run_check and Session.ask also detach.",
+      "secrets_in_warning_and_extraction_failed": "Pass. data.warning is built only from JevError::fix_hint() on a log flush failure (sc-ai/command.rs:423-427), and that error text comes from log-path and I/O error kinds, with no key material. ExtractionFailed details are one of: 'failed to spawn <argv0> (cause: <kind>)', an exit code plus a 4 KiB stderr tail passed through redact_error, or fixed strings. The child cannot see provider keys because of env_clear. The JevError::io_failed helper deliberately drops cause text, and a test asserts this. Transport errors go through ResolvedApiKey::redact_error, and the Jev transport also strips the Authorization header value from error text. The residual gap is that redaction recognizes secrets by env-var name only, so a key that came from the keyring and reaches a child's stderr some other way would not be caught. The cleared child env makes that path unreachable today."
+    },
+    "summary": {
+      "total_findings": 2,
+      "by_severity": {
+        "critical": 0,
+        "important": 0,
+        "minor": 2
+      }
+    },
+    "notes": [
+      "Commit verified: the branch ref file for sprint/a-10-phase-end-hardening contains 1899319d1ca643696868c1c69c8d49437ba9f1ae, and the worktree HEAD points at that branch. No shell was available, so git itself was not run.",
+      "Not skipped: this is a client/CLI/extension surface. There is no server runtime, so graceful shutdown, health endpoints, request IDs and bounded queues do not apply. They were marked n/a, not as findings.",
+      "findings_scope_locked was not set, so this was a normal review plus carry-forward verification. All six carry-forwards (RSH-001 to RSH-006) are verified fixed. RSH-007 and RSH-008 are new minor findings from the new code paths.",
+      "Observation for later triage, not a finding: sc-treesitter git_io.rs read_worktree computes `sha` with `git hash-object -- <path>`, which applies clean filters (autocrlf, attributes), but returns raw bytes read separately with std::fs::read. The doc comment says 'no filters'. The sha can therefore differ from the sha of the returned bytes, and the file can change between the read and the hash. This is a provenance-integrity point; consider `--no-filters` or hashing the in-memory bytes via `hash-object --stdin --no-filters`.",
+      "Observation: the shared retry_policy.rs is duplicated verbatim in sc-jev and sc-jev-backends (interim until decision D5). Each copy runs the same table test, which is an acceptable drift guard.",
+      "Observation: a send can still take up to the 120 s request timeout before the 90 s retry deadline is evaluated. The worst-case wall time is therefore about one send plus the deadline, roughly 3.5 minutes, down from about 9.5 minutes. This is acceptable for the routine part of RSH-005. Cancellation is deferred to Phase A.1 and not reported.",
+      "Not exhaustively reviewed: cargo audit / cargo deny CI wiring (dependency hygiene), sc-ai observe.rs, and the sc-jev-check config validation beyond the listed targets."
+    ]
+  },
+  "error": null
+}

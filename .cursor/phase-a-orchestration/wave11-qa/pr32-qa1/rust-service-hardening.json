@@ -1,0 +1,29 @@
+{
+  "success": true,
+  "data": {
+    "status": "skipped",
+    "reviewed_branch": "plan/phase-a-decision-apis",
+    "reviewed_commit": "2a44320",
+    "review_mode": "doc_review",
+    "service_indicators_found": [],
+    "topics_reviewed": [],
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": {
+        "critical": 0,
+        "important": 0,
+        "minor": 0
+      }
+    },
+    "notes": [
+      "Input validated: worktree HEAD is ref refs/heads/plan/phase-a-decision-apis, and that branch resolves to 2a44320487c0c5effdd5e026b4a461b44630a7de, matching the assigned branch and commit (short form 2a44320).",
+      "Review targets are documentation only: docs/architecture.md (Crate naming convention section and last ADR-SAG-0030 bullet), docs/plans/phase-a-refine/plan.md (owner item 12 and post-MVP line), and docs/plans/phase-a-refine/sprint-r-7-decision-schema.md (Layering layout note). No Cargo manifest, Rust source, or server/worker entrypoint is in the assigned scope, so no service indicators apply.",
+      "The worktree does contain Cargo manifests (workspace root and crates/*), but they are outside the assigned review_targets and were not inspected for indicators beyond a file glob.",
+      "The 27-line docs-only scope rests on the assignment notes. This agent has no shell, so `git diff origin/integrate/phase-a...2a44320` was not run and the changed-file list was not independently confirmed.",
+      "Required references were read (rust-development guidelines and rust-service-hardening production-checklist). framework-notes.md was not read because no framework is in scope.",
+      "Service-hardening review not applied: no runtime topics apply to documentation-only review targets. Owner rule honored: no new gates requested. Read-only; no files modified."
+    ]
+  },
+  "error": null
+}

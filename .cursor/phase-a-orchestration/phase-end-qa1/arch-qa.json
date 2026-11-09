@@ -1,0 +1,48 @@
+{
+  "agent": "arch-qa",
+  "branch": "integrate/phase-a",
+  "scope": {"phase": "phase-a-refine", "sprint": null},
+  "commit": "91d36b3",
+  "verdict": "FAIL",
+  "blocking": 1,
+  "important": 1,
+  "findings": [
+    {
+      "id": "ARCH-001",
+      "rule": "RULE-ADR-CODE",
+      "adr": "ADR-SAG-0013",
+      "severity": "BLOCKING",
+      "file": "docs/architecture.md",
+      "line": 38,
+      "description": "The 'Phase A crate graph' prose (lines 23-40) was not updated when r-3b landed. It still says 'Only the composition roots sc-ai and sc-jev-py depend on full sc-observability' and draws sc-ai and sc-jev-py linking sc-observability directly. The binding ADR-SAG-0013 r-3b amendment, the ADR-SAG-0010 r-3b amendment, the A.1 graph at lines 66-97 and crates/sc-jev-host/Cargo.toml:27 all say sc-jev-host is the only crate that links sc-observability. The Cargo manifests of sc-ai and sc-jev-py show no sc-observability dependency. The repo-level architecture doc therefore contradicts its own Active ADRs. The graph at lines 23-35 also omits sc-jev-host, sc-agent-http and sc-decision-schema. The 'starting point' note at line 83 does not cover the false sentence at 38-40.",
+      "remediation": "Rewrite lines 23-49 to the integrated shape. Either delete the Phase A graph or mark it historical, and change the sentence at lines 38-40 to say sc-jev-host is the only crate linking sc-observability. Confirm docs/sc-ai, docs/sc-jev-py and docs/sc-jev-host/architecture.md use the same wording."
+    },
+    {
+      "id": "ARCH-002",
+      "rule": "RULE-ADR-CODE",
+      "adr": null,
+      "severity": "IMPORTANT",
+      "file": "docs/requirements.md",
+      "line": 148,
+      "description": "The heading 'Phase A.1 - refinement (proposed)' and the paragraph at line 150 ('Each row and amendment carries a marker (Proposed, r-N)') are still present at phase end. No row in docs/requirements.md or the crate requirements files carries a Proposed marker any more, so the text is stale. The marker convention is stale in the sense that every sprint has landed.",
+      "remediation": "Retitle the section to 'Phase A.1 - refinement (landed)'. Change the paragraph to say the (Active, r-N) markers record the landing sprint."
+    }
+  ],
+  "adr_checks": [
+    {"adr": "ADR-SAG-0001..0031 (all index rows)", "source": "docs/architecture.md:109-141", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:109-141"]},
+    {"adr": "ADR-SAG-0013", "source": "docs/architecture.md:843", "listed_in_sprint_doc": true, "result": "violated", "evidence_refs": ["docs/architecture.md:38", "crates/sc-jev-host/Cargo.toml:27", "crates/sc-ai/Cargo.toml", "crates/sc-jev-py/Cargo.toml"]},
+    {"adr": "ADR-SAG-0010 / ADR-SAG-0011 (r-3b)", "source": "docs/architecture.md:724-755", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-ai/Cargo.toml:40", "crates/sc-jev-py/Cargo.toml:42"]},
+    {"adr": "ADR-SAG-0016 / ADR-SAG-0023 (r-1 no sc-observability-types)", "source": "docs/architecture.md:126", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/sc-agent-types/requirements.md:37"]},
+    {"adr": "ADR-SAG-0015 (sc-treesitter links no judge/HTTP crate)", "source": "docs/architecture.md:828", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-treesitter/Cargo.toml:27"]},
+    {"adr": "ADR-SAG-0020 r-3 / r-3b (as_str read site)", "source": "docs/architecture.md:600-642", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-agent-http/src/ureq_transport.rs:162", "crates/workspace-tests/tests/source_scans.rs:326"]},
+    {"adr": "ADR-SAG-0026 (ureq confined to sc-agent-http)", "source": "docs/architecture.md:136", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-agent-http/Cargo.toml:31"]},
+    {"adr": "ADR-SAG-0011 / ADR-SAG-0010 (CLI and PyO3 as thin adapters)", "source": "docs/architecture.md:724-755", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-ai/Cargo.toml:25", "crates/sc-jev-py/Cargo.toml:36"]},
+    {"adr": "ADR-SAG-0011 (RULE-ADR-AWAIT-MUTEX)", "source": "RULE-ADR-AWAIT-MUTEX", "listed_in_sprint_doc": false, "result": "not-applicable", "evidence_refs": ["no .await, async fn or tokio in crates/**/*.rs"]}
+  ],
+  "gate_artifact_checks": [
+    {"artifact": "docs/architecture.md (ADR index)", "status": "closed", "evidence_refs": ["docs/architecture.md:109-141"], "notes": "Every index row is Active or Active (r-N). The only 'Proposed, r-N' text left outside docs/plans/ is the explanatory preamble at docs/architecture.md:106 and docs/requirements.md:150 (see ARCH-002). No landed sprint has a Proposed marker."},
+    {"artifact": "quality-policy.md Phase A.1 landing-sprint ADR exception", "status": "closed", "evidence_refs": [".claude/project/quality-policy.md:139-149"], "notes": "No Proposed ADR dependency remains at phase end."}
+  ],
+  "merge_ready": false,
+  "notes": "I confirmed that the branch is integrate/phase-a and that its ref resolves to 91d36b3ad309deb3350434acaecee0ab2938b13f. I had only Read, Glob and Grep, so I ran no git, cargo or clippy commands. I did not compare the boundaries/ manifests with the crate dependencies. That is ruthless-boundary-qa's remit. I checked Cargo.toml edges only against ADR text. The ADR checks rest on Cargo manifests, grep and docs. I did not read the Rust sources in full."
+}

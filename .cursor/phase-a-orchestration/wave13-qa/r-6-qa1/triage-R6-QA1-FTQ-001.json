@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "R6-QA1-FTQ-001",
+ "found_in": "A1-R6",
+ "found_at": "2026-11-08T06:07:39Z",
+ "title": "The fixture repository is created with subprocess.run(['git','init',...], env={**os.environ, 'GIT_CONFIG_GLOBAL': devnull, 'GIT_CONFIG_NOSYS",
+ "description": "The fixture repository is created with subprocess.run(['git','init',...], env={**os.environ, 'GIT_CONFIG_GLOBAL': devnull, 'GIT_CONFIG_NOSYSTEM': '1'}). The ambient GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, GIT_OBJECT_DIRECTORY, GIT_COMMON_DIR and similar variables are inherited. Git hooks such as pre-commit export GIT_INDEX_FILE and sometimes GIT_DIR. When pytest is launched from such a context, 'git init' initialises or reinitialises the host repository instead of tmp_path/repo, and the later toplevel discovery from src/pkg resolves against the host. The test's CONFIG_INVALID and .env expectations then fail. Whether it fails depends on how the suite was launched, not on a random draw. The Rust side already strips these variables (crates/sc-agent-types/src/git.rs lines 98-102, and the git() helpers in crates/sc-jev-check/tests/repo.rs and crates/sc-jev-host/tests/log_context.rs), so this is the one fixture that does not.",
+ "category": "env_leak",
+ "severity": "important",
+ "pattern": "env_leak",
+ "file_filter": "tests/fixtures/jev-python/tests/test_run_check_and_ask.py",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "714d2845c48cd0b4fa40bcd2017c248049f3662a"
+  },
+  {
+   "branch": "sprint/r-6-session-log-record",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-6-session-log-record",
+   "order_index": 1,
+   "head_sha": "f6ddc71c5fc8e0ea9a9e4d100529457784039873"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a",
+  "sprint/r-6-session-log-record"
+ ]
+}

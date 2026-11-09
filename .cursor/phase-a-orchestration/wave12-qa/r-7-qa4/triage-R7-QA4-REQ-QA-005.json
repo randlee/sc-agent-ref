@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "found_in": "A1-R7",
+ "found_at": "2026-11-08T04:53:55Z",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "b58ffd2a55f03c54b63ab55db33819244b1a8a48"
+  },
+  {
+   "branch": "sprint/r-7-decision-schema",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-7-decision-schema",
+   "order_index": 1,
+   "head_sha": "20a46a88dcfcc1899d8baec0934837912d638b88"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a",
+  "sprint/r-7-decision-schema"
+ ],
+ "finding_id": "R7-QA4-REQ-QA-005",
+ "title": "Commit 20a46a8 moved test_release_binary_rejects_scripted_answers out of the test_util_off target into test_util_off_binary",
+ "description": "Commit 20a46a8 moved test_release_binary_rejects_scripted_answers out of the test_util_off target into test_util_off_binary. The r-3b acceptance command `cargo test -p workspace-tests --test test_util_off -- test_release_binary_rejects_scripted_answers --exact` (line 613) now matches 0 tests, which the acceptance rule rejects. Lines 261, 420 and 594 still name test_util_off as the holder of that test.",
+ "category": "cross-doc-conflict",
+ "severity": "blocking",
+ "pattern": "--test test_util_off",
+ "file_filter": "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md"
+}

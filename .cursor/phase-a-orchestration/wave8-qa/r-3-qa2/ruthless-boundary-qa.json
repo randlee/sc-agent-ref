@@ -1,0 +1,26 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/r-3-shared-http",
+    "reviewed_commit": "f19ce8df1d62f3ffe179d20b6a806f081db253bf",
+    "review_mode": "sprint_review",
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": { "critical": 0, "important": 0, "minor": 0 }
+    },
+    "notes": [
+      "Verdicts per carry-forward id: RBQA-F009 closed, RBQA-F101 closed, RBQA-F102 closed, RBQA-F103 closed, RBQA-F104 closed. There are no open or regressed ids. The `findings` array is empty because every assigned id is closed.",
+      "RBQA-F009 closed. cargo-tree-gates.sh now has a graph row, 'sc-agent-http -> sc-agent-types secret only'. It runs `-p sc-agent-http -e normal,features -i sc-agent-types`. It fails on any judge, obs, git, default or test-util feature and has a positive control for `secret`. The script is wired into CI, which the developer report states and I did not re-check.",
+      "RBQA-F101 closed. The CI step 'sc-agent-http public API has no ureq type' runs `rm -rf target/doc/sc_agent_http`, then `cargo doc --locked -p sc-agent-http` with dependencies. It then greps for `href=\"[^\"]*ureq/|title=\"[a-z]+ ureq::`, which covers ureq submodule paths. The developer report says it ran the canary in a throwaway worktree and that each half of the regex matched on its own. I did not re-run the canary. The step runs in CI itself, not only in the sprint doc. The report says plan.md and the r-3b doc carry the same command text, but I did not read those docs.",
+      "RBQA-F102 closed. The CI step 'single ResolvedApiKey::as_str site' greps `crates/` for `disallowed_methods|ResolvedApiKey::as_str`. It skips comment lines and the allowed file ureq_transport.rs. It also asserts that the allowed file still contains `disallowed_methods`, so the gate cannot pass because the one real site vanished.",
+      "RBQA-F103 closed. `SecretHeader::matches` at ureq_transport.rs:151-155 is under `#[cfg(feature = \"test-util\")]`. The docs in transport.rs, request.rs and lib.rs say the same. I did not re-read the manifest notes.",
+      "RBQA-F104 closed. The tree-gate rows cover three things. Depth-1 `ureq` absence for sc-jev, sc-jev-backends and sc-jev-check. The forbidden-package row for sc-agent-http, with a `present` positive control for `ureq`. A workspace-wide `test-util` absence row, with a dev-edge positive control. The developer report also adds a CI step that runs `cargo test -p sc-agent-http --features test-util` on all three OSes. I did not confirm that step in the workflow file.",
+      "Unsolicited observation outside this round's assigned scope: the public-API ureq gate has no positive control in CI. The canary proof lives only in the sprint doc and the developer report. If rustdoc's HTML link format changes, the grep can go silently dead. Consider a checked-in canary fixture or a rustdoc-JSON check in r-3b. This is not a blocker for r-3.",
+      "Identity and tooling: I did not verify HEAD against the assigned commit, because I did not run git. The review worktree was read through file reads only. No cargo or sc-lint runs. No boundary-validator report was supplied, so I reviewed the scripts, workflow and sources directly.",
+      "Fix-round regression scan: the changed gate scripts, workflow steps and test-util gating that I read show no new boundary leak."
+    ]
+  },
+  "error": null
+}

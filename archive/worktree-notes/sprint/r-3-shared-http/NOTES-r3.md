@@ -1,0 +1,4 @@
+- canary (widened) both halves matched fn._canary.html; gate exit 1
+- tree-gates canaries: secret-only row FAILs with default-features; test-util row FAILs with sc-jev normal test-util
+- coverage after: TOTAL 92.44 lines; http 97.52 jev 97.83 backends 95.56 (before per rust-qa: 90.08 / 92.30 / 78.94 / 87.76)
+- QA-1 fix round pushed 7cfd413; PR 26 CI all green run 42417451354

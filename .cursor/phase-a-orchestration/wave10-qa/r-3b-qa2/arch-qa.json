@@ -1,0 +1,26 @@
+{
+  "agent": "arch-qa",
+  "branch": "sprint/r-3b-compose-and-workspace-tests",
+  "scope": {"phase": "a.1", "sprint": "r-3b"},
+  "commit": "a7b68f6",
+  "verdict": "PASS",
+  "blocking": 0,
+  "important": 0,
+  "findings": [],
+  "carry_forward_verdicts": [
+    {"id": "arch-qa QA-1 (no findings, PASS at 90004d7)", "verdict": "stays closed", "note": "I found no regression in the fix range."},
+    {"id": "CI-R3B-001", "verdict": "closed from the architecture side", "note": "bin_path.rs no longer canonicalizes. workspace_root() is built from CARGO_MANIFEST_DIR ancestors, so the target dir is absolute and not verbatim (lines 38-53). I did not re-check CI myself. I rely on the caller's statement that PR 31 CI is 13/13 green at a7b68f6, run 42433144889."}
+  ],
+  "adr_checks": [
+    {"adr": "ADR-SAG-0028", "source": "docs/architecture.md:1500", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/workspace-tests/Cargo.toml:21-26", "crates/workspace-tests/tests/support/bin_path.rs:88"]},
+    {"adr": "ADR-SAG-0026", "source": "docs/architecture.md:1306", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:1347", "docs/architecture.md:1355"]},
+    {"adr": "ADR-SAG-0020", "source": "docs/architecture.md:528", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/workspace-tests/tests/support/bin_path.rs:55-61"]},
+    {"adr": "ADR-SAG-0011", "source": "docs/architecture.md:714", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/workspace-tests/Cargo.toml:17-20"]},
+    {"adr": "ADR-SAG-0010, 0003, 0005, 0009, 0013, 0016, 0017, 0021, 0022, 0023, 0025, 0029 and the other repo-level ADRs", "source": "docs/architecture.md", "listed_in_sprint_doc": true, "result": "not-applicable", "evidence_refs": ["The fix range only touches the bin_path.rs build runner, the obs.rs doc example and doc text."]}
+  ],
+  "gate_artifact_checks": [
+    {"artifact": "docs/architecture.md (ADR-SAG-0026 text)", "status": "closed", "evidence_refs": ["docs/architecture.md:1347", "docs/architecture.md:1355"], "notes": "REQ-QA-004 is in place: ask_from returns AskResponse, whose outcome() is the JudgeOutcome. REQ-QA-005 is in place: the GIT_CEILING_DIRECTORIES exception is documented in the environment-ownership bullet."}
+  ],
+  "merge_ready": true,
+  "notes": "I made two checks that go beyond the fix range. First, RULE-ADR-AWAIT-MUTEX is not applicable. The workspace-tests crate has no async fn and no .await. BUILD_LOCK is a std Mutex guard held across a synchronous bounded spawn only. Second, bin_path.rs still takes only the five dev-dependencies that ADR-SAG-0028 lists. sc-ai is built as a binary and never linked. The cargo build now runs through the deadline runner with the BIN_BUILD_DEADLINE constant and --locked, and its panic message names the file-lock case. I did not request any new gate. Limitation: no Bash tool was available. I did not run git rev-parse, and I did not diff 90004d7..a7b68f6. I read the worktree files directly and did not confirm that HEAD is a7b68f6. I did not read the obs.rs doc example, the sprint doc, or the source_scans change, so those parts of the fix range are not checked."
+}

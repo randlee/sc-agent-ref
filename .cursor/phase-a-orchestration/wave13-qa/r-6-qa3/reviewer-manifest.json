@@ -1,0 +1,4 @@
+[{"agent":"req-qa","task_id":"a1a46076a336fbf84","spawn_actor":"parent-orchestrator","commit":"d106d03"},
+{"agent":"arch-qa","task_id":"a2fc9aeaf72329950","spawn_actor":"parent-orchestrator","commit":"d106d03"},
+{"agent":"rust-qa-agent","task_id":"ad3d5af45b5d541ff","spawn_actor":"parent-orchestrator","commit":"d106d03"},
+{"agent":"flaky-test-qa","task_id":"a7274eb0718c62fb3","spawn_actor":"parent-orchestrator","commit":"d106d03"}]

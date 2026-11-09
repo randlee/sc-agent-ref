@@ -1,0 +1,26 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/r-3c-treesitter-cli",
+    "reviewed_commit": "641856fe5f412f3f135d3d71d1a0eadf0e34833c",
+    "review_mode": "sprint_review",
+    "executed_checks": {
+      "fmt": {"status": "pass", "command": "cargo fmt --all --check"},
+      "clippy": {"status": "pass", "command": "cargo clippy --all-targets --all-features -- -D warnings (exit 0, 0 warnings); cargo clippy -p sc-treesitter --all-targets -- -D warnings (exit 0, 0 warnings, silent)"},
+      "tests": {"status": "pass", "command": "cargo test --workspace (389 passed, 0 failed); cargo test -p sc-agent-types --features git,test-util (88 passed); sc-treesitter --test argv --features cli 11/11; --test cli --features cli 17/17; cargo hack test -p sc-treesitter --each-feature exit 0, no failures"},
+      "coverage": {"status": "not_run", "line": 0.0, "branch": 0.0, "function": 0.0, "adequate_for_risk": true},
+      "artifacts": {"status": "pass", "command": "cargo fetch --locked ok; cargo-tree-gates.sh all rows passed; check-exact-pins.sh 4 pins ok; just lint ok; RUSTDOCFLAGS=-D warnings cargo doc --workspace --no-deps --all-features ok; just test-python 9 passed; scripts/sc-publish-dry-run.sh all passed with CARGO_TARGET_DIR set to a fresh dir (7 crates packaged and verified, wheel built)"}
+    },
+    "findings": [],
+    "summary": {"total_findings": 0, "by_severity": {"critical": 0, "important": 0, "minor": 0}},
+    "notes": [
+      "QA-001 is resolved. clippy.toml now has `allow-invalid = true` on the ResolvedApiKey::as_str entry, with an explanatory comment. `cargo clippy -p sc-treesitter --all-targets -- -D warnings` prints no warnings at all, so the config warning is gone.",
+      "The workspace --all-features clippy still enforces the entry. It passes with the `#[expect(clippy::disallowed_methods)]` attributes in sc-jev and sc-jev-backends in place, so those expectations are still fulfilled. I did not run a negative test, because the worktree must not be modified.",
+      "The worktree HEAD was exactly 641856f on the assigned branch when I started. The only untracked file is NOTES-r-3c.md, which is not mine and which I did not touch. Scratch logs are in /private/tmp/claude-501/qa2/. The publish dry-run wrote only under the gitignored target/ directory and the temp dir.",
+      "The publish dry-run script builds under target/sc-publish-dry-run/<content key> through its own --target-dir. So the fresh CARGO_TARGET_DIR does not change where the verify builds go. Those directories were new for this content key (3b747465097e6e69), and every crate compiled from scratch there.",
+      "Coverage was not re-run because it was not in the QA-2 gate list. The previous round measured 91.48% workspace and 90.68% sc-treesitter on 39661a6."
+    ]
+  },
+  "error": null
+}

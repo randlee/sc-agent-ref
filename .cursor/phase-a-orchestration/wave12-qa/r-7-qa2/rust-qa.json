@@ -1,0 +1,62 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-7-decision-schema",
+    "reviewed_commit": "4eb8265",
+    "review_mode": "sprint_review",
+    "executed_checks": {
+      "fmt": {"status": "pass", "command": "cargo fmt --all --check"},
+      "clippy": {"status": "pass", "command": "cargo clippy --all-targets --all-features -- -D warnings"},
+      "tests": {"status": "pass", "command": "cargo test"},
+      "coverage": {"status": "not_run"},
+      "artifacts": {"status": "not_run"}
+    },
+    "findings": [
+      {
+        "id": "QA-001",
+        "category": "correctness",
+        "severity": "important",
+        "file": "crates/sc-agent-types/src/error.rs",
+        "line": 841,
+        "issue": "A git timeout is reported as EXTRACTION_TIMEOUT, whose fix hint says 'Raise timeout_seconds above N or reduce the input so extraction finishes in time.' This misleads the user. The git deadline (GIT_DEADLINE, 60 s, git.rs) is a fixed constant and the doc says it is 'not configurable'. No timeout_seconds setting exists for it, so the user cannot act on the first half of the hint. The git call may also be a rev read, a repo-root discovery or hash-object. 'Reduce the input' does not describe a hung or slow git (a stuck lock, a network filesystem, a huge repo). The Display text 'extraction timed out after 60s' also names the wrong stage.",
+        "recommendation": "Do not reuse the extractor timeout recovery text for git. Either (a) add a dedicated git-timeout variant or code with a hint such as 'git did not finish within 60s; check for a stalled git process, a lock file or a slow filesystem and retry', or (b) make the hint depend on the source, for example by carrying a field that says whether the deadline is configurable. If a new code is too heavy for r-7, at least change the git path to return EXTRACTION_FAILED with a detail like 'git timed out after 60s', since that code has no 'raise timeout_seconds' hint. Update the git.rs module doc and the test at git.rs:487 to match.",
+        "evidence": "git.rs:171, 308 and 383 call JevError::extraction_timeout(GIT_DEADLINE.as_secs()). The hint at error.rs:841-842 is unconditional. The only configurable timeout_seconds is the extractor command's (sc-jev-check/src/extract/command.rs:213)."
+      },
+      {
+        "id": "QA-002",
+        "category": "artifacts",
+        "severity": "minor",
+        "file": ".github/workflows/sc-agent-ci.yml",
+        "line": 256,
+        "issue": "RSH-006 as scoped (main clippy, test and doc steps) is closed. Other cargo steps in the same file still lack --locked, so CI can still resolve versions other than Cargo.lock there. The unlocked steps are cargo hack --each-feature test (256), cargo hack check --feature-powerset (276, 280), cargo build --lib --no-default-features (316, 320) and cargo llvm-cov (535, 542-543). I did not check every run line (the test -p sc-treesitter/sc-ai steps at 262-270 and workspace-tests at 445 were not looked at).",
+        "recommendation": "Add --locked to the remaining cargo steps, or set CARGO_LOCKED or --locked globally, so every step uses the committed Cargo.lock.",
+        "evidence": "Run lines at the cited line numbers have no --locked."
+      },
+      {
+        "id": "QA-003",
+        "category": "guideline",
+        "severity": "minor",
+        "file": "crates/sc-jev-check/src/run/mod.rs",
+        "line": 50,
+        "issue": "The worst-case doc says 'about 17 minutes' for both LLM backends plus Jev. By the doc's own arithmetic that is 2x420 s + Jev. If Jev also gets the 90 s busy-retry budget, it is 2x420 + 210 = 1050 s, about 17.5 minutes. If it does not, the doc should say 960 s (16 minutes). The doc does not say which.",
+        "recommendation": "State the Jev bound explicitly, with or without busy retry, and give the total in seconds so the figure is checkable.",
+        "evidence": "Doc text at run/mod.rs:50-61."
+      }
+    ],
+    "summary": {
+      "total_findings": 3,
+      "by_severity": {"critical": 0, "important": 1, "minor": 2}
+    },
+    "notes": [
+      "Gates: fmt, clippy (--all-targets --all-features -D warnings, also run with --locked) and cargo test all passed on 4eb8265. HEAD matched the assigned branch and commit. The worktree was clean.",
+      "RSH-002 (git deadline, f3e25c9): closed. Every git subprocess (run, read_at_rev, hash_blob) now has a 60 s wall-clock deadline. The child is killed and reaped, the pipes are drained on their own threads, and cleanup is bounded to 2 s. Unit tests cover a hung child and a fast child. They are unix-only (cfg(all(test, unix)) with sleep and true), so the Windows path has no deadline test. This is acceptable but unproven there. A hung grandchild holding a pipe is bounded by the cleanup budget. The drain threads may outlive the call, which is harmless.",
+      "RSH-003 (judge worst-case docs, 4eb8265): closed apart from the QA-003 wording nit. The docs are in backend.rs (module and judge) and run/mod.rs, and the 420 s per-judge-call figure follows from 2 x (90 + 120) = 420. The docs state that cancel does not interrupt an in-flight request.",
+      "RSH-004 (no log on a cancelled-before-send call, f4eb939): closed. send() snapshots is_cancelled() at entry. When the token was already cancelled and the result is NetworkError::Cancelled, it returns before emit_log. Cancellation mid-send still logs. The test cancelled_before_send_emits_no_log_event covers both the cancelled case (0 events) and the live failing case (1 event). The module docs were updated.",
+      "RSH-006 (CI --locked, 5cace43): closed for clippy, test and doc. See QA-002 for the steps that were left out.",
+      "Timeout mapping verdict: yes, it misleads (QA-001).",
+      "Local gates were not run on Windows or Linux. Portability follows from the code review: the new git code uses std::process and threads only, with no hardcoded paths."
+    ]
+  },
+  "error": null
+}

@@ -1,0 +1,9 @@
+[
+  {"agent": "req-qa", "task_id": "3e9e1a14-5c79-4b9d-8ceb-e0540ce0284b", "spawn_actor": "parent-orchestrator"},
+  {"agent": "arch-qa", "task_id": "a89d8539-c7ee-4b7a-a769-fe587e18a90d", "spawn_actor": "parent-orchestrator"},
+  {"agent": "rust-best-practices-agent", "task_id": "647af052-3a69-4ffa-842d-f82279130232", "spawn_actor": "parent-orchestrator"},
+  {"agent": "rust-service-hardening-agent", "task_id": "a75212d2-96b5-472d-94ee-ab0ba5ea4918", "spawn_actor": "parent-orchestrator"},
+  {"agent": "plan-scope-reviewer", "task_id": "3092744a-3a81-4a6a-bc22-d371b1efae75", "spawn_actor": "parent-orchestrator", "supplementary": true},
+  {"agent": "critical-plan-reviewer", "task_id": "1524a604-41ca-4cd9-9bfa-2d50e92cf3a6", "spawn_actor": "parent-orchestrator", "supplementary": true},
+  {"agent": "ceremony-qa", "task_id": "7fb493f3-30dc-4142-af67-119d3435b789", "spawn_actor": "parent-orchestrator", "supplementary": true}
+]

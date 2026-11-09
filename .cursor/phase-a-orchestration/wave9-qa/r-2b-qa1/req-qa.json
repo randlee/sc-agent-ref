@@ -1,0 +1,48 @@
+{
+  "status": "PASS",
+  "reviewed_branch": "sprint/r-2b-multi-backend-semantics",
+  "reviewed_commit": "330986f574914ada17e79d074227527cce4eb9ba",
+  "errors": [],
+  "scope": {"phase": "a.1", "sprint": "r-2b"},
+  "baselines_read": ["docs/requirements.md", "docs/architecture.md", "docs/project-plan.md (not re-read; sprint doc sequencing taken as given)"],
+  "phase_or_sprint_docs_read": ["docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md"],
+  "requirement_checks": [
+    {"id": "REQ-SAG-0606", "source": "docs/requirements.md:173", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev/src/check.rs:83", "crates/sc-jev/src/client/mod.rs:237", "crates/sc-jev-backends/src/wire.rs:77", "crates/sc-jev-backends/src/backend.rs:176", "crates/sc-jev-check/src/run/mod.rs:674", "crates/sc-jev-check/tests/multi_backend.rs:404"]},
+    {"id": "REQ-SAG-0604", "source": "docs/requirements.md:171", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/src/run/mod.rs:576", "crates/sc-jev-check/src/run/mod.rs:590", "crates/sc-jev-check/src/run/mod.rs:597", "crates/sc-jev-check/tests/multi_backend.rs:172"]},
+    {"id": "REQ-SAG-0605", "source": "docs/requirements.md:172", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/src/run/mod.rs:280", "crates/sc-jev-check/src/run/mod.rs:564", "crates/sc-jev-check/tests/multi_backend.rs:252", "crates/sc-jev-check/tests/multi_backend.rs:272"]},
+    {"id": "REQ-SAG-0602/0603/0610/0710, NFR-SAG-0001/0002/0003", "source": "sprint requirements list", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/tests/run_response.rs:292", "crates/sc-jev-check/tests/sessions_exact.rs", "crates/sc-jev-backends/tests/llm.rs"]},
+    {"id": "ADR-SAG-0020 (no new read site)", "source": "docs/architecture.md", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev/src/check.rs:84", "crates/sc-jev/tests/wire.rs:79", "crates/sc-jev-backends/tests/wire.rs:107"]}
+  ],
+  "deliverable_checks": [
+    {"item": "D1 RunConfig::mode, Independent default, ChainContext recorded", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-jev-check/src/run/mod.rs:280", "crates/sc-jev-check/src/run/mod.rs:564"], "notes": "Dry run also records the configured mode."},
+    {"item": "D2 base validation of all backends then per-send re-validation in ChainContext", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-jev-check/src/run/mod.rs:553", "crates/sc-jev-check/src/run/mod.rs:659"], "notes": "A re-validation refusal is NotSent with no LogEvent."},
+    {"item": "D3 per-backend results, all-failed Err, leak=any Failed", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-jev-check/src/run/mod.rs:590", "crates/sc-jev-check/src/run/mod.rs:597"], "notes": ""},
+    {"item": "D4 paid-call rules and session-save failure keeps answers", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-jev-check/src/run/mod.rs:603", "crates/sc-jev-check/tests/multi_backend.rs:340", "crates/sc-jev-check/tests/multi_backend.rs:368"], "notes": "Deviation: the pinned session_save_failed.json bytes are not matched exactly; the test asserts the fixture's warnings entry and the kept answers. The deviation is disclosed in the Implementation notes."},
+    {"item": "D5 equal-input digest recovery, scripted per-backend form, tests", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-jev-check/src/registry/scripted.rs:30", "crates/sc-jev-check/tests/scripted.rs:28", "crates/sc-jev-check/tests/scripted.rs:102"], "notes": "same_bytes and RunAttestation::uniform have no matches in crates/."},
+    {"item": "D6 wire-level digest tests and test-util seam (WireFault, with_wire_fault, [[test]] required-features)", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-jev/Cargo.toml:27", "crates/sc-jev-backends/Cargo.toml:28", "crates/sc-jev/tests/wire.rs:58", "crates/sc-jev-backends/tests/wire.rs:79"], "notes": "Both boundary manifests name test-util."},
+    {"item": "D7 ADR text flips (0025 split, 0004/0008/0019/0022 subsections, index rows, interim Status lines)", "status": "present", "closure_state": "closed", "evidence_refs": ["docs/architecture.md:101", "docs/architecture.md:169", "docs/architecture.md:377", "docs/architecture.md:1133", "docs/requirements.md:173"], "notes": "The ADR-SAG-0025 consumer-output bullet stays Proposed (r-3b), as required."},
+    {"item": "Acceptance rows and Required validation list (named tests exist)", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-jev-check/tests/multi_backend.rs", "crates/sc-jev-check/tests/scripted.rs"], "notes": "All named tests exist. I could not run cargo (no shell in this review), so test results rest on the developer report and static reading."}
+  ],
+  "findings": [
+    {
+      "id": "REQ-QA-001",
+      "severity": "Important",
+      "category": "cross-doc-conflict",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md:91-93", "docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md:50-81"],
+      "target_refs": ["crates/sc-ai/tests/cli.rs", "tests/fixtures/jev-python/tests/test_run_check_and_ask.py", "docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md:395-401"],
+      "issue": "The sprint Outcome says r-2b changes no file in sc-ai or sc-jev-py, and neither edited file is in owned_paths. The branch edits crates/sc-ai/tests/cli.rs and the sc-jev-py test fixture. The Implementation notes disclose this as test-only and forced by the new behaviour, but the Outcome sentence and owned_paths still conflict with the diff.",
+      "required_correction": "Make the doc match the diff. Either add the two test files to owned_paths and reword the Outcome to 'no consumer source file', or record them as an accepted out-of-owned-paths edit. No code change is needed.",
+      "compliance_result": "partially-compliant"
+    }
+  ],
+  "summary": {
+    "total_findings": 1,
+    "blocking_findings": 0,
+    "overall_compliance": "compliant",
+    "deliverables_total": 8,
+    "deliverables_complete": 8,
+    "deliverables_incomplete": 0,
+    "deliverable_completion_percent": 100.0
+  },
+  "gate_reason": "The worktree HEAD is exactly 330986f. The sprint doc has a complete requirements list, every deliverable traces to implementation and a named test, and the ADR-SAG-0025 split and the r-1 interim Status lines match D7. The ADR-SAG-0020 greps for new disallowed_methods and allow( are clean in the owned source paths. I found one Important doc/diff conflict (REQ-QA-001) and no Blocking findings. I read the code and docs statically and did not run cargo, so test results rely on the developer report."
+}

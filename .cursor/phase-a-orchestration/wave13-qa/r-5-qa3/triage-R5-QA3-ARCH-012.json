@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "R5-QA3-ARCH-012",
+ "found_in": "A1-R5",
+ "found_at": "2026-11-08T06:39:59Z",
+ "title": "The binding code sample for CheckResponse::into_answers (in the 'Explicit code samples' block) places response-to-answer mapping in sc_decis",
+ "description": "The binding code sample for CheckResponse::into_answers (in the 'Explicit code samples' block) places response-to-answer mapping in sc_decision_schema::jev::v1. That contradicts ADR-SAG-0012 r-5 (see ARCH-011). RULE-ADR-PLAN treats a plan that contradicts a binding ADR as Blocking even when intended.",
+ "category": "qa",
+ "severity": "blocking",
+ "pattern": "RULE-ADR-PLAN",
+ "file_filter": "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "48c4d1cf5a0972351bc146721db41888fbc5cfa3"
+  },
+  {
+   "branch": "sprint/r-5-jev-wire-envelope",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope",
+   "order_index": 1,
+   "head_sha": "69725308455bd8827b0a46e31e3f598327d66f55"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a",
+  "sprint/r-5-jev-wire-envelope"
+ ]
+}

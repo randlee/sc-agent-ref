@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "R5-QA1-REQ-QA-001",
+ "found_in": "A1-R5",
+ "found_at": "2026-11-08T05:55:41Z",
+ "title": "The sprint owns paths in sc-jev, sc-jev-backends and sc-decision-schema, but its `requirements` list omits ids that apply to them",
+ "description": "The sprint owns paths in sc-jev, sc-jev-backends and sc-decision-schema, but its `requirements` list omits ids that apply to them. From the crate files: REQ-SAG-0110 (sc-jev); REQ-SAG-0502, 0503, 0504 and 0505 (sc-jev-backends; validate.rs cites the REQ-SAG-0502 byte cap and its retry tests sit in the same crate); REQ-SAG-0144, 0145 and 0146 (sc-decision-schema). The repo-level NFRs are missing too: NFR-SAG-0001 (the boundary row already runs test_error_response_stderr_golden), NFR-SAG-0002 (secrets; D9 and ADR-SAG-0020), NFR-SAG-0003 and NFR-SAG-0004. Each one is binding.",
+ "category": "requirement-not-listed",
+ "severity": "blocking",
+ "pattern": "requirement-not-listed",
+ "file_filter": "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "77fffdbd89c5e927f9c6b51fc650fada72cfb400"
+  },
+  {
+   "branch": "sprint/r-5-jev-wire-envelope",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope",
+   "order_index": 1,
+   "head_sha": "14f85f129fda46e39bda90ae2a5333e69213312b"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a",
+  "sprint/r-5-jev-wire-envelope"
+ ]
+}

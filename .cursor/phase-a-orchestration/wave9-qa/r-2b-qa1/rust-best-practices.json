@@ -1,0 +1,79 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-2b-multi-backend-semantics",
+    "reviewed_commit": "330986f574914ada17e79d074227527cce4eb9ba",
+    "review_mode": "sprint_review",
+    "practice_mode": "all",
+    "practices_reviewed": ["RBP-001","RBP-002","RBP-003","RBP-004","RBP-005","RBP-006","RBP-007","RBP-008","RBP-009","RBP-010"],
+    "findings": [
+      {
+        "id": "RBP-F001",
+        "practice_id": "RBP-004",
+        "severity": "important",
+        "file": "crates/sc-jev-backends/src/validate.rs",
+        "line": 14,
+        "issue": "Semantic question ids and choice labels are carried as raw String/Vec<String> (ParsedQuestion { id: String, choices: Vec<String> }). validate_questions re-parses the canonical bytes and re-runs the id-present, duplicate-id and choices-are-strings checks. wire::parse_answers (wire.rs:292-353) compares reply keys and labels as &str sets. backend::typed_answers (backend.rs:89-106) then validates each id a third time with QuestionId::try_from, after the paid judge call. PayloadBundle already holds the validated typed form (payload.rs:134, 235: question_choices(): BTreeMap<QuestionId, BTreeSet<ChoiceId>>).",
+        "recommendation": "Drop ParsedQuestion and the byte re-parse for ids and choices. Use request.payload().question_choices() (QuestionId/ChoiceId) in parse_answers and typed_answers, and keep only the 'type' and 'prompt' checks that the bundle does not cover. Id validity is then decided once, at PayloadBundle::encode. This also removes the case where an id passes pre-send validation and fails QuestionId::try_from as RESPONSE_INVALID after the call.",
+        "evidence": "validate.rs:14-17 and 110-150 build String ids. wire.rs:299-303 and 330-331 compare them as &str. backend.rs:97 calls QuestionId::try_from(id.as_str()) on reply ids that were just matched against those strings."
+      },
+      {
+        "id": "RBP-F002",
+        "practice_id": "RBP-004",
+        "severity": "minor",
+        "file": "crates/sc-jev/src/check.rs",
+        "line": 22,
+        "issue": "PreparedCheck.criteria is BTreeMap<String, BTreeSet<String>>, so question ids and choice labels are raw strings. question_criteria, criteria_from_object and criteria_from_array (check.rs:245-329) re-validate and re-derive them from the payload bytes. parse_outcome (check.rs:226, 228) later converts them to QuestionId and ChoiceId via try_from and response_label. The typed map already exists on PayloadBundle::question_choices().",
+        "recommendation": "Build the expected-answer map from request.payload().question_choices() (QuestionId/ChoiceId) and have parse_outcome compare typed ids. Keep only the Jev-specific shape checks (object or array questions, at least 2 criteria) that the bundle does not cover.",
+        "evidence": "check.rs:22 and 245-329 build string maps. check.rs:226-232 and 240-243 re-validate through the newtypes."
+      },
+      {
+        "id": "RBP-F003",
+        "practice_id": "RBP-007",
+        "severity": "minor",
+        "file": "crates/sc-jev-check/src/run/mod.rs",
+        "line": 473,
+        "issue": "default_backends() returns Result<BackendSet, JevError> for BackendSet::try_from(vec![BackendId::Jev]), a one-element list that cannot fail. The doc comment concedes this ('cannot fail'). The dead error path is propagated with ? from prepare (line 429) instead of being expressed in the type.",
+        "recommendation": "Add an infallible constructor on BackendSet (for example BackendSet::single(id) or Default) and return BackendSet directly. Otherwise make the invariant explicit with a single documented expect so the 'never fails' claim is auditable.",
+        "evidence": "run/mod.rs:469-475 and 429."
+      },
+      {
+        "id": "RBP-F004",
+        "practice_id": "RBP-007",
+        "severity": "minor",
+        "file": "crates/sc-jev-backends/src/wire.rs",
+        "line": 250,
+        "issue": "parse_count checks tokens >= 0 and then converts with u64::try_from(tokens).unwrap_or(0). The unwrap_or(0) fallback is unreachable and would silently turn an impossible conversion into a zero token count, which the later token-limit check would accept.",
+        "recommendation": "Use value.get(\"input_tokens\").and_then(Value::as_u64), which rejects negatives and non-integers in one step with no dead fallback. This matches how nonneg() is handled elsewhere in the file.",
+        "evidence": "wire.rs:248-254."
+      },
+      {
+        "id": "RBP-F005",
+        "practice_id": "RBP-007",
+        "severity": "minor",
+        "file": "crates/sc-jev/src/check.rs",
+        "line": 280,
+        "issue": "criteria_from_object tests fields.is_none_or(..) and then calls fields.expect(\"checked above\"). The expect is safe only because of the earlier branch (unwrap-safe by convention), and the same pattern recurs at line 200 (criteria.get(id).expect(..)).",
+        "recommendation": "Use let Some(fields) = fields.filter(|f| f.len() >= 2) with a single let-else early return, so no expect is needed.",
+        "evidence": "check.rs:273-281."
+      }
+    ],
+    "summary": {
+      "total_findings": 5,
+      "by_severity": { "critical": 0, "important": 1, "minor": 4 }
+    },
+    "notes": [
+      "I could not run commands (no shell tool). I verified the worktree HEAD by reading the gitdir HEAD file, /Volumes/Extreme Pro/github/sc-agent/.git/worktrees/r2b-qa1-review/HEAD, which holds 330986f574914ada17e79d074227527cce4eb9ba and matches the assignment. I did not read changed-files.txt or dev-report.json, and I did not open the tests, Cargo.toml files or docs in the target list. The review covered the Rust sources: sc-jev-backends backend.rs/wire.rs/lib.rs/validate.rs, sc-jev-check run/mod.rs, run/response.rs, registry/scripted.rs and equal_input/mod.rs, and sc-jev check.rs/client/mod.rs/lib.rs.",
+      "RBP-006: no Mutex, RwLock, RefCell or Cell in non-test code in scope. Mutex appears only in test sinks.",
+      "RBP-003 and RBP-008: JudgeBackend is used as Arc<dyn JudgeBackend> and its methods are object-safe. The trait is defined in sc-agent-types, outside this diff. The sprint adds no new pub trait.",
+      "RBP-001: errors use typed JevError constructors with stable codes. Session-save failure is surfaced as 'session not saved: <code>', which is spec'd behaviour, so I filed nothing.",
+      "RBP-002 and RBP-010: no new typestate or capability-token surface. PreparedRun consumed by run() already gives a one-shot guarantee.",
+      "RBP-005: no wrapper ergonomics regressions in scope.",
+      "RBP-009: backend embedded_text uses Cow correctly. Envelope::run and Envelope::ask clone the whole RunResponse or AskResponse into a Box (response.rs:559, 569). That is not a hot path, so I did not file it. Phase-end review may want a borrowed Envelope<'a>.",
+      "Out of practice scope, for the orchestrator: WireFault, droppable_byte and the fault-application logic are duplicated near-verbatim between sc-jev/src/check.rs and sc-jev-backends/src/wire.rs. This is DRY drift risk, not an RBP id, so I filed nothing.",
+      "Owner decisions were treated as settled and I requested no new gates."
+    ]
+  },
+  "error": null
+}

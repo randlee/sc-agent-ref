@@ -1,0 +1,25 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "docs/close-wave1-2",
+    "reviewed_commit": "ec170bfa12ee4aaa1f45500efa59705cd9f5eaf1",
+    "review_mode": "design_review",
+    "practice_mode": "all",
+    "practices_reviewed": [],
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": {"critical": 0, "important": 0, "minor": 0}
+    },
+    "notes": [
+      "The assignment file said review_mode 'doc_review' and had no practice_mode. I used design_review as instructed and treated this as a docs-only locked recheck. No Rust code is in scope, so no RBP practices applied and none were reviewed.",
+      "The worktree HEAD (read from .git/worktrees/pr28-qa2-review/HEAD) is exactly ec170bfa12ee4aaa1f45500efa59705cd9f5eaf1. I did not confirm the branch name, because I had no shell.",
+      "The QA-1 carry-forward file (.cursor/phase-a-orchestration/wave8-qa/pr28-qa1/rust-best-practices.json) recorded zero findings from this reviewer. No carry-forward id for this reviewer is open. I did not open the ARCH-001 or REQ-QA-PR28-001 triage records, because they belong to other reviewers.",
+      "Line 4 of the five target docs reads 'status: complete' with a merged-PR and QA-2 PASS annotation. r-1 is PR 22, r-4 is PR 21, r-3c is PR 25, r-3 is PR 26 and r-2 is PR 27. The r-4 line openly records the REQ-SAG-0133 upstream issue URL as deferred to the owner. r-2b and r-3b are still 'planned', and r-5 is still 'blocked'. The PR does not overreach.",
+      "I could not run git diff, so I did not check that nothing else changed in these files. The parent_evidence (2 changed lines per doc, 13 in r-4) is consistent with status-line-only edits.",
+      "No new gates or receipts requested, per the owner rule. I made no changes."
+    ]
+  },
+  "error": null
+}

@@ -1,0 +1,85 @@
+{
+  "success": true,
+  "data": {
+    "screened": [
+      {
+        "id": "REQ-QA-001",
+        "verdict": "not_applicable",
+        "missing": [],
+        "existing_coverage": "The acceptance commands are already mandated by docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:905-936 in the worktree.",
+        "reason": "The remedy runs the acceptance commands the sprint already requires; it adds no new artifact, and the finding is an execution gap rather than a defect."
+      },
+      {
+        "id": "REQ-QA-002",
+        "verdict": "not_applicable",
+        "missing": [],
+        "existing_coverage": "The sprint Implementation notes already disclose that the fn model_id lives in crates/sc-jev/src/client/mod.rs.",
+        "reason": "The remedy is a path correction in owned_paths and the D2.4 anchor, a doc edit that adds no artifact or check."
+      },
+      {
+        "id": "FTQ-001",
+        "verdict": "not_applicable",
+        "missing": [],
+        "existing_coverage": "crates/sc-agent-types/tests/features.rs already uses --locked --offline for cargo tree, which is the pattern to copy.",
+        "reason": "The remedy changes test code (flags, call count, a named deadline constant), which is shippable capability rather than a process artifact."
+      },
+      {
+        "id": "FTQ-002",
+        "verdict": "not_applicable",
+        "missing": [],
+        "existing_coverage": "none needed",
+        "reason": "The remedy replaces a timing margin with an mpsc handshake in test code, which is shippable capability rather than a process artifact."
+      },
+      {
+        "id": "FTQ-003",
+        "verdict": "not_applicable",
+        "missing": [],
+        "existing_coverage": "The existing injected-failure double (RecordingTransport and with_failure) is already in the test support code.",
+        "reason": "The remedy replaces a real-port probe with an injected failure in test code, which is shippable capability rather than a process artifact."
+      },
+      {
+        "id": "RSH-001",
+        "verdict": "not_applicable",
+        "missing": [],
+        "existing_coverage": "none needed",
+        "reason": "The primary remedy narrows BUSY_STATUSES in retry.rs, which is a code change; the ADR-SAG-0007 sign-off branch is a decision note and not a new artifact type, so it was not evaluated further."
+      },
+      {
+        "id": "RSH-002",
+        "verdict": "not_applicable",
+        "missing": [],
+        "existing_coverage": "none needed",
+        "reason": "The remedy wraps git subprocesses in a deadline in code; the open-item tracking note is secondary and the primary remedy is capability."
+      },
+      {
+        "id": "RSH-003",
+        "verdict": "not_applicable",
+        "missing": [],
+        "existing_coverage": "none needed",
+        "reason": "The primary remedy adds a run-level or judge-level deadline in code; the documentation-only alternative does not create a new artifact."
+      },
+      {
+        "id": "RSH-004",
+        "verdict": "not_applicable",
+        "missing": [],
+        "existing_coverage": "none needed",
+        "reason": "The remedy changes when the judge log event is emitted and updates a module doc, which is a code and doc fix rather than a process artifact."
+      },
+      {
+        "id": "RSH-005",
+        "verdict": "concern_valid_remedy_ceremony",
+        "missing": ["consumer", "observed_defect", "retirement_condition"],
+        "existing_coverage": "The advisory scan is already deferred and tracked: docs/plans/phase-a-refine/sprint-r-3-shared-http.md:407-408 and sprint-r-4-adrs-and-manifests.md:257-260 record it under bead agt-ci-advisory-scan, and plan-review-2-dispositions.md:130 declines it as repository-wide CI policy outside D1-D13. .github/actions/setup-lint-toolchain/action.yml already installs cargo-deny, but no workflow or crate invokes cargo deny or cargo audit.",
+        "reason": "The gap is real, but the finding cites no incident and the deferral is already tracked under the bead, so adding a new CI advisory gate with a committed deny.toml is heavier than the observed defect and was deliberately deferred by the plan."
+      },
+      {
+        "id": "RSH-006",
+        "verdict": "not_applicable",
+        "missing": [],
+        "existing_coverage": "none needed",
+        "reason": "Adding --locked to existing clippy and test steps changes flags only; it is not a new gate or artifact."
+      }
+    ]
+  },
+  "error": null
+}

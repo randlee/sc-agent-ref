@@ -1,0 +1,29 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/r-6-session-log-record",
+    "reviewed_commit": "d106d03",
+    "review_mode": "sprint_review",
+    "executed_checks": {
+      "fmt": {"status": "pass", "command": "cargo +1.94.1 fmt --all --check"},
+      "clippy": {"status": "pass", "command": "cargo +1.94.1 clippy --locked --workspace --all-targets --exclude sc-jev-py -- -D warnings (also re-run with --features test-util: pass)"},
+      "tests": {"status": "pass", "command": "cargo +1.94.1 test --locked --workspace --exclude sc-jev-py (also re-run with --features test-util: pass; 0 failures in both runs)"},
+      "coverage": {"status": "not_run", "line": 0.0, "branch": 0.0, "function": 0.0, "adequate_for_risk": true},
+      "artifacts": {"status": "not_run", "command": ""}
+    },
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": {"critical": 0, "important": 0, "minor": 0}
+    },
+    "notes": [
+      "HEAD verified as d106d03 on sprint/r-6-session-log-record. The default toolchain is 1.99.0, so every gate was run with RUSTUP_TOOLCHAIN=1.94.1 (cargo 1.94.1).",
+      "Docs: RUSTDOCFLAGS=-D warnings cargo doc --locked --workspace --exclude sc-jev-py --no-deps passed.",
+      "The --features test-util runs were workspace-wide (clippy and test), not the per-package invocations in .github/workflows/sc-agent-ci.yml. Both passed.",
+      "QA-001 is closed. In crates/sc-jev-host/tests/log_context.rs the new assert_envelope helper asserts the envelope level, that correlation_id equals fields.session_id, that request_id equals fields.answer_id, and that both ids are strings. It is called with level Info in test_log_context_repo_is_main_repo_paths_stay_on_worktree and with level Warn in test_error_path_flushes_the_failed_row. The Info test also asserts correlation_id equals the session id.",
+      "Delta review of crates/sc-jev-host/src/obs.rs: the new envelope_id! macro uses debug_assert and falls back to None in release builds. I found no correctness issue. request_id now parses only string answer_id values, which the test covers."
+    ]
+  },
+  "error": null
+}

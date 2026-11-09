@@ -1,0 +1,27 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-3c-treesitter-cli",
+    "reviewed_commit": "641856fe5f412f3f135d3d71d1a0eadf0e34833c",
+    "findings": [
+      {
+        "id": "FTQ-001",
+        "severity": "minor",
+        "file": "crates/sc-agent-types/tests/git.rs",
+        "line": 32,
+        "test": "test_hash_blob_matches_stored_blob (and every fixture using repo()/git() in this file)",
+        "mechanism": "env_leak",
+        "issue": "FTQ-001 is closed for sc-treesitter. That fix is in crates/sc-treesitter/tests/support/mod.rs: all nine repo-selecting and config-injecting variables are env_removed, and GIT_CONFIG_SYSTEM is pinned to the null device. It is still partly open in the new sc-agent-types/tests/git.rs. This file's own git() helper removes only five variables (GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, GIT_OBJECT_DIRECTORY, GIT_ALTERNATE_OBJECT_DIRECTORIES). It still inherits GIT_COMMON_DIR, GIT_PREFIX, GIT_CONFIG_PARAMETERS and GIT_CONFIG_COUNT, and it does not pin GIT_CONFIG_SYSTEM. It also does not remove GIT_DEFAULT_HASH. test_hash_blob_matches_stored_blob hard-codes the SHA-1 empty-blob id e69de29b... for a repo created by plain `git init -q`. A host or CI that exports GIT_DEFAULT_HASH=sha256 makes `git init` create a SHA-256 repo, and the test fails with a hash mismatch. The same inherited-variable leak applies when the suite runs from a hook, where git exports GIT_COMMON_DIR and GIT_PREFIX. This is lower risk than before. The `-c` flags on the command line override the config keys that matter, and the library calls under test (discover_toplevel, read_at_rev, hash_blob) use the production git() helper, which does not read the test's env.",
+        "recommendation": "Share one scrub list with sc-treesitter's INHERITED_GIT_VARS. Add GIT_COMMON_DIR, GIT_PREFIX, GIT_CONFIG_PARAMETERS, GIT_CONFIG_COUNT and GIT_DEFAULT_HASH to the env_remove calls, and set GIT_CONFIG_SYSTEM to the null device. Better, make the SHA-1 repo explicit with `git init --object-format=sha1`, as the SHA-256 case already passes --object-format=sha256, so the test no longer depends on the host default.",
+        "evidence": "sc-agent-types/tests/git.rs:32-40 sets GIT_CONFIG_GLOBAL, GIT_CONFIG_NOSYSTEM and GIT_TERMINAL_PROMPT, then removes only five variables. Line 51: `git(dir.path(), &[\"init\", \"-q\"])`. Line 143: `assert_eq!(empty.as_str(), \"e69de29bb2d1d6434b8b29ae775ad8c2e48c5391\")`."
+      }
+    ],
+    "summary": {
+      "total_findings": 1,
+      "critical": 0,
+      "important": 0,
+      "minor": 1
+    }
+  }
+}

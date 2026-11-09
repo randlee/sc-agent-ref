@@ -1,0 +1,20 @@
+{
+  "status": "PASS",
+  "reviewed_branch": "sprint/r-6-session-log-record",
+  "reviewed_commit": "34655a4",
+  "errors": [],
+  "scope": {"phase": "phase-a-refine", "sprint": "r-6"},
+  "baselines_read": ["docs/plans/phase-a-refine/sprint-r-6-session-log-record.md", "fix-assignment.xml (wave13-qa/r-6-qa1)"],
+  "phase_or_sprint_docs_read": ["docs/plans/phase-a-refine/sprint-r-6-session-log-record.md"],
+  "requirement_checks": [],
+  "deliverable_checks": [
+    {"item": "REQ-QA-001: crate-level ids in requirements list, covered once in the boundary:session-log row", "status": "present", "closure_state": "closed", "evidence_refs": ["sprint-r-6-session-log-record.md:46-83", "sprint-r-6-session-log-record.md:440"], "notes": "49-83 lists the ids per crate. The boundary row names `just test` plus the `--features test-util` runs once, with no per-id commands."},
+    {"item": "REQ-QA-002: D1, REQ-SAG-0612 wording and acceptance row say the UUID refusal is CLI-only; pytest renamed", "status": "present", "closure_state": "closed", "evidence_refs": ["sprint-r-6-session-log-record.md:221-224", "sprint-r-6-session-log-record.md:430", "tests/fixtures/jev-python/tests/test_run_check_and_ask.py:217"], "notes": "test_session_ids_are_ulids exists."},
+    {"item": "REQ-QA-003: frontmatter branch and worktree", "status": "present", "closure_state": "closed", "evidence_refs": ["sprint-r-6-session-log-record.md:10-11"], "notes": "Both are sprint/r-6-session-log-record."},
+    {"item": "REQ-QA-004: D5 explicit-root rule in the sprint doc, ADR-SAG-0031 and docs/sc-jev-host; covering test", "status": "present", "closure_state": "closed", "evidence_refs": ["sprint-r-6-session-log-record.md:304-308", "docs/architecture.md:1738", "docs/sc-jev-host/architecture.md:52", "crates/sc-jev-host/tests/log_context.rs:205"], "notes": "test_log_context_explicit_repo_root_starts_discovery exists and is named in the boundary row."},
+    {"item": "REQ-QA-005: features.rs module doc", "status": "present", "closure_state": "closed", "evidence_refs": ["crates/sc-agent-types/tests/features.rs:8-10"], "notes": "The doc says the core dependencies are sc-sha and ulid, and sha2 is transitive."}
+  ],
+  "findings": [],
+  "summary": {"total_findings": 0, "blocking_findings": 0, "overall_compliance": "compliant", "deliverables_total": 5, "deliverables_complete": 5, "deliverables_incomplete": 0, "deliverable_completion_percent": 100.0},
+  "gate_reason": "REQ-QA-001 through 005 are closed at 34655a4. The worktree HEAD ref resolves to that commit. This was a static recheck of the five carried-forward findings only. I did not run any tests or commands, so a green `just test` is not confirmed here. I also did not build a full requirement_checks list. The non-compliance below is not a finding because it is documented in the sprint doc and in the code; the scrum-master can decide whether it needs a ruling. The sweep in FileSessionStore::new (crates/sc-jev-check/src/session/mod.rs:151) uses 2x DEFAULT_SESSION_TTL, not the same cutoff as is_expired that the QA-1 fix text asked for. The deviation is stated at sprint-r-6-session-log-record.md:526-531. The reason given is that a zero-grace sweep would make SESSION_EXPIRED unreachable from the CLI. It is covered by test_new_store_sweeps_expired_session_documents (tests/session.rs:110). One more difference from the fix text: crates/sc-jev-host/tests/obs.rs does not assert response.warnings(). The tests at lines 114 and 150 use the adapter directly and have no response, and they already panic on a flush error."
+}

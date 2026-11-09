@@ -1,0 +1,50 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-4-adrs-and-manifests",
+    "reviewed_commit": "59ec83882480f05ff4b1203d48ecd834afd8aced",
+    "findings": [
+      {
+        "id": "FTQ-001",
+        "severity": "important",
+        "file": ".github/scripts/cargo-tree-gates.sh",
+        "line": 43,
+        "test": "cargo-tree-gates (CI job deps, step 'cargo tree gates')",
+        "mechanism": "shared_state",
+        "issue": "The gate captures cargo tree with `2>&1`, so cargo's stderr progress lines are grepped as if they were tree output. On a cold or partial cargo cache, cargo tree prints lines such as 'Downloaded mimalloc v0.x.y'. cargo tree resolves the whole lockfile, so it can download optional crates that this tree does not link. Those lines match the gate pattern `(^|[^[:alnum:]_-])mimalloc v[0-9]` (the preceding space satisfies the boundary). The row then fails with 'must not contain mimalloc' although the tree is clean. The cache key is hashFiles('**/Cargo.lock') with a restore-keys prefix fallback, so one run can hit a warm cache and pass while the next runs cold and fails. The same job's `cargo build --no-default-features` steps do not fetch the optional mimalloc, so they do not warm it. I did not run cargo here, so the download behaviour is inferred from cargo's resolver. The outcome therefore depends on cache and network state, not on the dependency graph. cargo tree is also run without --locked, so a stale Cargo.lock lets it re-resolve and touch the network, where it should fail hard.",
+        "recommendation": "Redesign the capture so only stdout is grepped: `tree=$(cargo tree --locked ... 2>\"$errfile\")`, and print stderr only when cargo fails. Alternatively run `cargo fetch --locked` as an explicit earlier step. Add --locked to the tree calls and to the two `cargo build` steps so Cargo.lock drift fails deterministically. Do not add retries or a filter that hides specific 'Downloaded' lines.",
+        "evidence": "if ! tree=\"$(cargo \"${args[@]}\" 2>&1)\"; then ... hits=\"$(printf '%s\\n' \"$tree\" | grep -E \"(^|[^[:alnum:]_-])${name} v[0-9]\" || true)\" ; workflow cache: restore-keys prefix fallback; no --locked in any deps step."
+      },
+      {
+        "id": "FTQ-002",
+        "severity": "minor",
+        "file": "crates/sc-treesitter/Cargo.toml",
+        "line": 51,
+        "test": "[[test]] cli (tests/cli.rs) in sc-treesitter and sc-ai",
+        "mechanism": "masking_fix",
+        "issue": "`required-features = [\"cli\"]` makes cargo skip tests/cli.rs silently (no warning, exit 0) in any cell without `cli`. In the `cargo hack --each-feature test -p sc-treesitter` job, the `python` and `rust` cells and the no-default-features cell therefore skip it. This is intended and the manifest comment says so. The cli and default cells still run it, and so does `cargo test --workspace` with default features, so there is no current coverage hole. Two gaps remain. First, nothing asserts that the target actually ran. If `cli` is later dropped from `default` or the feature is renamed, every cell skips the CLI tests and CI stays green. Second, sc-ai has no feature-matrix job, so its cli test depends only on default features. docs/development/ci.md should state that the skip is deliberate.",
+        "recommendation": "No sleep or retry is involved. Add a deterministic guard: a CI step running `cargo test -p sc-treesitter --test cli --features cli` and the same for sc-ai. Cargo hard-errors if the target is missing or its features are unsatisfied. Alternatively, assert that `cargo test --list` output includes cli tests. Document the intended skip in ci.md.",
+        "evidence": "[[test]] name = \"cli\" path = \"tests/cli.rs\" required-features = [\"cli\"]  (both crates); features job: cargo hack --each-feature test -p sc-treesitter."
+      },
+      {
+        "id": "FTQ-003",
+        "severity": "minor",
+        "file": ".github/scripts/check-exact-pins.sh",
+        "line": 151,
+        "test": "check-exact-pins --self-test",
+        "mechanism": "masking_fix",
+        "issue": "Every `fail` case passes on any non-zero exit, and it never checks the reason. If a fixture breaks for another reason, the case still reports 'self-test ok'. Examples: a TOML parse error, a missing python3, or a changed marker. The self-test then no longer proves that an unlisted `=` pin is detected. This is a false-green path, not a timing flake. Temp-dir handling is otherwise sound: the mktemp -d directory is removed by the RETURN trap, out.txt sits outside the scanned Cargo.toml set, and the scan order is sorted. python3 3.11.9 comes from setup-python on the single ubuntu runner, so availability is fine. The job is ubuntu-only, not three runners.",
+        "recommendation": "Have the expect helper assert exit code 1 and a distinguishing substring in out.txt. Use 'NOT LISTED' for the pin cases and 'exactly once each' for the markers case. This is a stricter assertion, not a relaxed one.",
+        "evidence": "[[ \"$want\" == fail && \"$got\" -ne 0 ]]  (any non-zero accepted); check_tree output is captured to out.txt but only printed on failure."
+      }
+    ],
+    "summary": {
+      "total_findings": 3,
+      "critical": 0,
+      "important": 1,
+      "minor": 2
+    }
+  },
+  "error": null
+}

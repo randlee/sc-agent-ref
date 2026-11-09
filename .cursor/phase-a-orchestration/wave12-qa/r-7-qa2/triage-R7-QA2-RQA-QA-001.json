@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "R7-QA2-RQA-QA-001",
+ "found_in": "A1-R7",
+ "found_at": "2026-11-08T02:45:00Z",
+ "title": "A git timeout is reported as EXTRACTION_TIMEOUT, whose fix hint says 'Raise timeout_seconds above N or reduce the input so extraction finish",
+ "description": "A git timeout is reported as EXTRACTION_TIMEOUT, whose fix hint says 'Raise timeout_seconds above N or reduce the input so extraction finishes in time.' This misleads the user. The git deadline (GIT_DEADLINE, 60 s, git.rs) is a fixed constant and the doc says it is 'not configurable'. No timeout_seconds setting exists for it, so the user cannot act on the first half of the hint. The git call may also be a rev read, a repo-root discovery or hash-object. 'Reduce the input' does not describe a hung or slow git (a stuck lock, a network filesystem, a huge repo). The Display text 'extraction timed out after 60s' also names the wrong stage.",
+ "category": "correctness",
+ "severity": "important",
+ "pattern": "correctness",
+ "file_filter": "crates/sc-agent-types/src/error.rs",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "81ffec2fcab6d1b18967a84963df35fe9fb91e80"
+  },
+  {
+   "branch": "sprint/r-7-decision-schema",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-7-decision-schema",
+   "order_index": 1,
+   "head_sha": "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a",
+  "sprint/r-7-decision-schema"
+ ]
+}

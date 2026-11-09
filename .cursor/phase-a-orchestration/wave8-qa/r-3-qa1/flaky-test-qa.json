@@ -1,0 +1,39 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-3-shared-http",
+    "reviewed_commit": "8f969ff",
+    "findings": [
+      {
+        "id": "FTQ-001",
+        "severity": "minor",
+        "file": "crates/sc-agent-http/tests/ureq.rs",
+        "line": 203,
+        "test": "test_timeout_is_network_error_without_the_key",
+        "mechanism": "timing_assertion",
+        "issue": "The client request timeout is 150 ms of real wall-clock time, and it covers the connect and the request write. On a loaded CI runner the 150 ms can run out before the client has written the request. Two things can then go wrong. The first is a wrong error kind, if the timeout fires in the connect phase. The second is that the server reads EOF with no request, `seen` is empty, and `finish()` panics with 'server expected 1 requests, saw 0'. The stall itself is deterministic, because the server holds the connection until `finish`. Only the 150 ms lower bound races the request write.",
+        "recommendation": "Remove the race by making the timeout large enough that the stall is the only possible cause (for example 1-2 s). This is not masking: the server never answers, so a longer timeout cannot make the test pass for the wrong reason, and it costs only wall-clock time. A cleaner option is to add a 'request read' signal from `LoopbackServer` and assert it before expecting the client timeout. Do not add retries.",
+        "evidence": "Timeouts::new(Duration::from_secs(2), Duration::from_millis(150)); Reply::Stall; assert_eq!(server.finish().len(), 1, \"a timeout is not retried\")"
+      },
+      {
+        "id": "FTQ-002",
+        "severity": "minor",
+        "file": "crates/sc-agent-http/Cargo.toml",
+        "line": 35,
+        "test": "retry.rs and ureq.rs targets (all tests)",
+        "mechanism": "masking_fix",
+        "issue": "Both integration targets use `required-features = [\"test-util\"]`, and `default = []`. A plain `cargo test -p sc-agent-http` skips every one of these tests with no failure. The workspace CI job (`cargo test --workspace`, .github/workflows/sc-agent-ci.yml:126) runs them only because sc-jev and sc-jev-backends enable `sc-agent-http/test-util` through their dev-dependencies, and cargo feature unification does the rest. No CI step passes `--features test-util` for sc-agent-http. sc-agent-types does have such a step, at line 132. boundaries/README.md:85-88 says every validation line must pass `--features test-util`, and CI does not. If those dev-dependencies change or a per-package run is used, the whole retry and loopback suite becomes a silent no-op. This is a coverage gap rather than an intermittent failure.",
+        "recommendation": "Add an explicit CI step `cargo test -p sc-agent-http --features test-util`, matching the sc-agent-types step. That step would also catch silent skips if the unification path changes. Add `--features test-util` to any per-package local or just recipe too.",
+        "evidence": "[[test]] name = \"retry\" / \"ureq\" required-features = [\"test-util\"]; the CI grep shows only `cargo test --workspace` and `-p sc-agent-types --features git,test-util`."
+      }
+    ],
+    "summary": {
+      "total_findings": 2,
+      "critical": 0,
+      "important": 0,
+      "minor": 2
+    }
+  },
+  "error": null
+}

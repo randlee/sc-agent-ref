@@ -1,0 +1,21 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/r-3c-treesitter-cli",
+    "reviewed_commit": "641856fe5f412f3f135d3d71d1a0eadf0e34833c",
+    "review_mode": "sprint_review",
+    "practice_mode": "all",
+    "practices_reviewed": ["RBP-008"],
+    "findings": [],
+    "summary": { "total_findings": 0, "by_severity": { "critical": 0, "important": 0, "minor": 0 } },
+    "notes": [
+      "RBP-F001 is closed. I verified it in the files. I did not check that the worktree HEAD equals the assigned commit, because I had no git access. Please treat the commit as caller-asserted.",
+      "git_command and hash_bytes are gone from crates/sc-treesitter/src/git_io.rs. A grep of crates/ finds no remaining definition there.",
+      "sc_agent_types::git::hash_blob(root, bytes) exists at crates/sc-agent-types/src/git.rs:232. It builds on the private git() constructor, so there is one env policy. It uses a per-pipe thread scope, bounded stdout and stderr reads, and the first stderr line in the error detail. This also resolves my earlier minor note about the lost hash-object cause.",
+      "git_io.rs:91 calls git::hash_blob. git_io.rs:52 uses rev.is_worktree() (defined at ids.rs:135). MAX_INPUT_BYTES is imported from the shared git module (git.rs:32).",
+      "Out-of-scope observation for a future pass, not a finding: crates/sc-jev-check/src/extract/read.rs:23 still keeps its own MAX_INPUT_BYTES copy, and read.rs:44 still compares `rev.as_str() == Rev::WORKTREE`. The shared doc comment at git.rs:30 acknowledges the first. sc-jev-check/src/extract/mod.rs:133 has its own git_command, with a different deadline-spawn path."
+    ]
+  },
+  "error": null
+}

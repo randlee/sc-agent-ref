@@ -1,0 +1,9 @@
+boundaries/sc-treesitter/treesitter.toml
+crates/sc-treesitter/Cargo.toml
+crates/sc-treesitter/src/cli/mod.rs
+crates/sc-treesitter/src/git_io.rs
+crates/sc-treesitter/src/main.rs
+crates/sc-treesitter/tests/argv.rs
+crates/sc-treesitter/tests/cli.rs
+docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md
+docs/sc-treesitter/architecture.md

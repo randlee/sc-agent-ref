@@ -1,0 +1,31 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "PE-QA1-ARCH-002",
+ "found_in": "A1-R6",
+ "found_at": "2026-11-08T17:15:25Z",
+ "title": "The heading 'Phase A.1 - refinement (proposed)' and the paragraph at line 150 ('Each row and amendment carries a marker (Proposed, r-N)') ar",
+ "description": "The heading 'Phase A.1 - refinement (proposed)' and the paragraph at line 150 ('Each row and amendment carries a marker (Proposed, r-N)') are still present at phase end. No row in docs/requirements.md or the crate requirements files carries a Proposed marker any more, so the text is stale. The marker convention is stale in the sense that every sprint has landed.",
+ "category": "documentation",
+ "severity": "important",
+ "pattern": "documentation",
+ "file_filter": "docs/requirements.md",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "91d36b3ad309deb3350434acaecee0ab2938b13f"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a"
+ ]
+}

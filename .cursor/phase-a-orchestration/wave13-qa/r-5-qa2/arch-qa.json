@@ -1,0 +1,37 @@
+{
+  "agent": "arch-qa",
+  "branch": "sprint/r-5-jev-wire-envelope",
+  "scope": {"phase": "phase-a-refine", "sprint": "r-5"},
+  "commit": "085dab4",
+  "verdict": "PASS",
+  "blocking": 0,
+  "important": 1,
+  "findings": [
+    {
+      "id": "ARCH-002",
+      "rule": "RULE-ADR-CODE",
+      "adr": "ADR-SAG-0027",
+      "severity": "IMPORTANT",
+      "file": "crates/sc-decision-schema/src/jev/v1.rs",
+      "line": 563,
+      "description": "CheckRequest::parse maps every serde failure to JevError::encode_failed (v1.rs:563-564). The same pattern is in CanonicalJudgePayload::from_bytes (payload.rs:408-409). The code is INPUT_INVALID, as the ADR requires. But the EncodeFailed hint reads 'could not be encoded as JSON ... Retry; if it persists, report it as a bug' (error.rs:833). That is the wrong guidance for a malformed caller body or payload. Sprint item 9 asks for InputInvalid with a fix hint, and this is the opposite of a fix hint. The variant is also an encode-side recovery category in ADR-SAG-0027, and these are decode failures. I am not marking it Blocking because the ADR fixes only the code mapping, and ErrorCode, exit code and retryable() are all correct.",
+      "remediation": "For decode failures, return JevError::input_invalid(format!('Jev wire body is not valid: {category} at line/column; fix the body')). The detail must carry only category and position. Alternatively add a decode-side constructor to sc-agent-types. Apply the same change in payload.rs:409. If the owner prefers to defer, record it as a tracked follow-up bead."
+    }
+  ],
+  "adr_checks": [
+    {"adr": "ADR-SAG-0001", "source": "docs/architecture.md:143", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-decision-schema/src/payload.rs:113-117", "crates/sc-decision-schema/src/jev/v1.rs:562-566"]},
+    {"adr": "ADR-SAG-0002", "source": "docs/architecture.md:150", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-decision-schema/src/payload.rs:105-124", "docs/architecture.md:158-162"]},
+    {"adr": "ADR-SAG-0005", "source": "docs/architecture.md:173", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:200-204"]},
+    {"adr": "ADR-SAG-0012", "source": "docs/architecture.md:1023", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:1031-1037"]},
+    {"adr": "ADR-SAG-0020", "source": "docs/architecture.md:549", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-backends/src/backend.rs:254-259", "crates/sc-decision-schema/src/payload.rs:390-395"]},
+    {"adr": "ADR-SAG-0027", "source": "docs/architecture.md:1409", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-decision-schema/src/payload.rs:105-117", "crates/sc-decision-schema/src/jev/v1.rs:719-726", "crates/sc-agent-types/src/error.rs:773-775"]},
+    {"adr": "ADR-SAG-0030", "source": "docs/architecture.md:1594", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:140", "docs/architecture.md:1630"]},
+    {"adr": "ADR-SAG-0011-point-2 (RULE-ADR-AWAIT-MUTEX)", "source": ".claude/project/quality-policy.md", "listed_in_sprint_doc": false, "result": "not-applicable", "evidence_refs": ["no Mutex or .await in the delta files; the only hits are in crates/sc-decision-schema/src/test_util.rs, which is not in the delta"]}
+  ],
+  "gate_artifact_checks": [
+    {"artifact": "docs/architecture.md (r-5 markers)", "status": "closed", "evidence_refs": ["docs/architecture.md:112", "docs/architecture.md:115", "docs/architecture.md:122", "docs/architecture.md:140"], "notes": "No '(Proposed, r-5)' marker remains in docs/architecture.md. The only remaining mentions are in plan docs: sprint-r-5's own acceptance row, and sprint-r-7 line 688, which is a historical r-7 instruction."},
+    {"artifact": "boundaries/", "status": "closed", "evidence_refs": ["crates/sc-decision-schema/src/jev/v1.rs:155-193"], "notes": "The SCB-CYCLE-001 fix keeps Pairs and PairsVisitor private to v1.rs. They are not facade items, so no manifest change is needed. I did not run just lint, because this agent has no shell. Please confirm that CI run."}
+  ],
+  "merge_ready": true,
+  "notes": "ARCH-001 is closed. Index row docs/architecture.md:140 now reads 'Active (r-7); jev::v1 (Active, r-5)'. The sprint doc adrs list covers all governing ADRs, and the QA-fix owned_paths now cover the delta files. I verified the worktree HEAD ref (refs/heads/sprint/r-5-jev-wire-envelope) by reading it, but I could not resolve the commit hash without a shell. Please confirm that the HEAD hash is 085dab4. Delta review of ADR-SAG-0027: RuleViolation is a private pub(crate) type that converts to InputInvalid. It is not a new public error type and not a new stable code, and rule text carries the question id, kind and counts, never prompt bytes. CheckRequest::parse failures all map to INPUT_INVALID, and CheckResponse::parse maps to RESPONSE_INVALID with fixed, byte-free text. http_failure is now status-only, and kind Status is retained, so retryable() is unaffected. Only ARCH-002 (IMPORTANT) is raised."
+}

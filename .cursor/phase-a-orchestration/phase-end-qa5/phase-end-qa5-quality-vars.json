@@ -1,0 +1,19 @@
+{
+  "qa_pass": "qa-stack-41-2",
+  "sprint_id": "stack #41 (PRs 39, 40, 42, 43, 44, 45)",
+  "task_id": "cursor-quality-mgr",
+  "branch": "fix/pe-plan-notes",
+  "commit": "6b946d2",
+  "pr_number": "45",
+  "verdict": "FAIL",
+  "reviewer_spawn_gate": "pass",
+  "next_action": "parent_respawn_reviewers",
+  "findings_blocking": "0",
+  "findings_important": "0",
+  "findings_minor": "0",
+  "open_findings_json": "[]",
+  "head_correlation_gaps_json": "[\"rust-best-practices-agent@741f8ce\", \"req-qa@d2121c9\"]",
+  "ci_state": "16/16 pass at 6b946d2 (gh pr checks 45)",
+  "todo_scan_hits": "0",
+  "pr_comment_url": "pending"
+}

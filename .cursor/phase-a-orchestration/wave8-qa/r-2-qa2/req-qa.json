@@ -1,0 +1,50 @@
+{
+  "status": "PASS",
+  "reviewed_branch": "sprint/r-2-engine-shape",
+  "reviewed_commit": "3f66e7bbc09c66fdeca2146bfb436ededd4bf02f",
+  "errors": [],
+  "scope": {"phase": "a.1", "sprint": "r-2"},
+  "baselines_read": ["docs/requirements.md", "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md", "carry-forward req-qa.json (QA-1)", "dev-report.json (fix-r-2-qa1)"],
+  "phase_or_sprint_docs_read": ["docs/plans/phase-a-refine/sprint-r-2-engine-shape.md"],
+  "method_notes": "Static, read-only review. I read HEAD from .git/worktrees/r2-qa2-review/HEAD and it equals 3f66e7b. I had no shell, so I ran no cargo, pytest or git commands. I did not diff the range 0d643f2..3f66e7b, so I did not look for regressions across the whole fix round. For CI I rely on the stated PR 27 evidence (green at f7994d5, docs-only 3f66e7b) as the owner ruled. The code evidence below comes from spot-checks only.",
+  "requirement_checks": [
+    {"id": "REQ-SAG-0311, 0309, 0303, 0611, 0702, 0711, 0801, 0802, NFR-SAG-0004", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:44-53", "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:567-576"]},
+    {"id": "REQ-SAG-0703", "listed_in_sprint_doc": true, "result": "not-applicable", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:572 (r-2 changes no install path)"]},
+    {"id": "REQ-SAG-0710", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/requirements.md:189 (session_id null unless session_saved)"]},
+    {"id": "ADR-SAG-0016", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:68,578"]}
+  ],
+  "deliverable_checks": [
+    {"item": "Carry-forward REQ-QA-R2-001 (complete requirements list)", "status": "present", "closure_state": "closed", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:44-53,567-576"], "notes": "All ten ids are in the frontmatter, and each has an evidence row. 0703 is marked not-applicable with a reason."},
+    {"item": "REQ-QA-R2-002 (CI citation)", "status": "present", "closure_state": "closed", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:490-511"], "notes": "The doc cites run 42419966414 and its job names at f7994d5. The owner ruled this the only action needed."},
+    {"item": "REQ-QA-R2-004 (ask warning and prompt_sha256)", "status": "present", "closure_state": "closed", "evidence_refs": ["crates/sc-jev-check/src/run/response.rs:276,324", "crates/sc-ai/src/command.rs:516,551", "crates/sc-ai/tests/cli.rs:469"], "notes": "AskResponse has with_warning, sc-ai appends the flush warning, and a test checks prompt_sha256 on ask data."},
+    {"item": "REQ-QA-R2-006 (facade narrowing)", "status": "present", "closure_state": "closed", "evidence_refs": ["crates/sc-jev-check/src/ (grep finds no `pub mod equal_input|extract|payload`)", "dev-report per_id REQ-QA-R2-006"], "notes": "The modules are no longer public. The remaining public items are recorded in D2.9 and the deviation table. I did not independently re-read lib.rs."},
+    {"item": "REQ-QA-R2-005 (discover_repo_root narrowed)", "status": "present", "closure_state": "closed", "evidence_refs": ["dev-report per_id REQ-QA-R2-005"], "notes": "The dev report describes a narrowed fallback with a --lib test. I did not re-read the code; this item rests on the developer report."},
+    {"item": "REQ-QA-R2-007 (producer name)", "status": "present", "closure_state": "closed", "evidence_refs": ["dev-report per_id REQ-QA-R2-007"], "notes": "The optional `producer` field, the argv[0] fallback, and the row/test were reported. I did not re-read the code; this item rests on the developer report."},
+    {"item": "REQ-QA-R2-008 (REQ-SAG-0710 wording)", "status": "present", "closure_state": "closed", "evidence_refs": ["docs/requirements.md:189"], "notes": "It now reads session_id (null unless session_saved)."},
+    {"item": "REQ-QA-R2-009 (infallible Envelope, key order)", "status": "present", "closure_state": "closed", "evidence_refs": ["dev-report per_id REQ-QA-R2-009"], "notes": "Reported as: typed body, serialized on write, key order pinned by a test. This is a Minor finding and rests on the developer report."},
+    {"item": "REQ-QA-R2-003 (files outside owned_paths)", "status": "present", "closure_state": "closed", "evidence_refs": ["ceremony-screen.json"], "notes": "Ceremony-screened, and no action was required."}
+  ],
+  "carry_forward_verdicts": [
+    {"id": "REQ-QA-R2-001", "verdict": "closed"},
+    {"id": "REQ-QA-R2-002", "verdict": "closed"},
+    {"id": "REQ-QA-R2-003", "verdict": "closed"},
+    {"id": "REQ-QA-R2-004", "verdict": "closed"},
+    {"id": "REQ-QA-R2-005", "verdict": "closed"},
+    {"id": "REQ-QA-R2-006", "verdict": "closed"},
+    {"id": "REQ-QA-R2-007", "verdict": "closed"},
+    {"id": "REQ-QA-R2-008", "verdict": "closed"},
+    {"id": "REQ-QA-R2-009", "verdict": "closed"},
+    {"id": "RBQA-F003", "verdict": "closed (closed by narrowing, no new gate)"}
+  ],
+  "findings": [],
+  "summary": {
+    "total_findings": 0,
+    "blocking_findings": 0,
+    "overall_compliance": "compliant",
+    "deliverables_total": 9,
+    "deliverables_complete": 9,
+    "deliverables_incomplete": 0,
+    "deliverable_completion_percent": 100.0
+  },
+  "gate_reason": "PASS. HEAD is 3f66e7b. The Blocking finding REQ-QA-R2-001 is fixed: the ten missing ids are in the requirements frontmatter with evidence rows (0703 is marked not-applicable with a reason), and ADR-SAG-0016 is listed. REQ-QA-R2-002 is closed by the CI citation. REQ-QA-R2-004, 005, 006, 007, 008 and 009 are closed, though the 005, 007 and 009 closures rest on the developer report because I did not re-read that code. REQ-QA-R2-003 needs no action. I found no new Blocking findings, but I did not diff the full fix-round range, so regressions elsewhere in it are not ruled out. I requested no new gates."
+}

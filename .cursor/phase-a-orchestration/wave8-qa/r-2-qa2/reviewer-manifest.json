@@ -1,0 +1,9 @@
+[
+  {"agent": "req-qa", "task_id": "a632b8a4cc0268e10", "spawn_actor": "parent-orchestrator", "scope_locked": "QA-1 carry-forward"},
+  {"agent": "arch-qa", "task_id": "a930011d44b4c50b8", "spawn_actor": "parent-orchestrator", "scope_locked": "QA-1 carry-forward"},
+  {"agent": "rust-qa-agent", "task_id": "a967fdc38f9315ca5", "spawn_actor": "parent-orchestrator", "scope_locked": "QA-1 carry-forward"},
+  {"agent": "rust-best-practices-agent", "task_id": "a1c48cac21a425675", "spawn_actor": "parent-orchestrator", "scope_locked": "QA-1 carry-forward"},
+  {"agent": "rust-service-hardening-agent", "task_id": "adac73573ed271636", "spawn_actor": "parent-orchestrator", "scope_locked": "QA-1 carry-forward"},
+  {"agent": "flaky-test-qa", "task_id": "afa8264f0ac522d5d", "spawn_actor": "parent-orchestrator", "scope_locked": "QA-1 carry-forward"},
+  {"agent": "ruthless-boundary-qa", "task_id": "af000a91f2a75cb59", "spawn_actor": "parent-orchestrator", "scope_locked": "QA-1 carry-forward"}
+]

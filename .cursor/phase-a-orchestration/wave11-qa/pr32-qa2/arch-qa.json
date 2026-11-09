@@ -1,0 +1,72 @@
+{
+  "agent": "arch-qa",
+  "branch": "plan/phase-a-decision-apis",
+  "scope": {
+    "phase": "r",
+    "sprint": "r-7"
+  },
+  "commit": "ff15bc8",
+  "verdict": "PASS",
+  "blocking": 0,
+  "important": 0,
+  "findings": [],
+  "adr_checks": [
+    {
+      "adr": "ADR-SAG-0007",
+      "source": "docs/architecture.md:667-676",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": ["docs/architecture.md:53-58", "docs/architecture.md:671-672"]
+    },
+    {
+      "adr": "ADR-SAG-0012",
+      "source": "docs/architecture.md:1017-1023",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": ["docs/architecture.md:51-64", "docs/architecture.md:1029-1033", "docs/sc-jev-backends/architecture.md:11"]
+    },
+    {
+      "adr": "ADR-SAG-0019",
+      "source": "docs/architecture.md:432-443",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": ["docs/architecture.md:55-56", "docs/architecture.md:439-443"]
+    },
+    {
+      "adr": "ADR-SAG-0030",
+      "source": "docs/architecture.md:1562-1564",
+      "listed_in_sprint_doc": true,
+      "result": "not-applicable",
+      "evidence_refs": ["docs/architecture.md:1564-1569", "docs/architecture.md:1616-1624", "docs/plans/phase-a-refine/plan.md:663-670", "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:80", "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:202-204"]
+    }
+  ],
+  "gate_artifact_checks": [],
+  "carry_forward_dispositions": [
+    {
+      "id": "ARCH-001",
+      "disposition": "closed",
+      "evidence_refs": ["docs/architecture.md:1616-1624", "docs/plans/phase-a-refine/plan.md:663-670"],
+      "notes": "Crate family rule and reserved sc-decider*/sc-laya*/sc-kev* names are now recorded in the ADR-SAG-0030 'Per-API modules and crate naming' bullet (Recorded; binding as a reservation, flips with ADR-SAG-0030 in r-7). Remediation accepted via the ADR path; ADR-SAG-0030 is listed in r-7 adrs."
+    },
+    {
+      "id": "ARCH-002",
+      "disposition": "closed",
+      "evidence_refs": ["docs/architecture.md:53-58", "docs/plans/phase-a-refine/plan.md:663-666", "docs/sc-jev-backends/architecture.md:11"],
+      "notes": "Naming text no longer says Haiku/Luna speak the Jev API; it says they answer Jev-schema questions over provider HTTP and cites ADR-SAG-0007/0019. 'Today' list includes sc-jev-py. plan.md item 12 carries the same edit. Residual wording outside the locked scope is listed under notes."
+    },
+    {
+      "id": "ARCH-003",
+      "disposition": "closed for the contradiction; residual wording noted (non-blocking)",
+      "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:202-204", "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:216", "docs/architecture.md:1618-1619", "docs/architecture.md:61-64"],
+      "notes": "r-7 Layering note now says jev::v1 lands in r-5; ADR-SAG-0030 per-API bullet says jev::v1 lands in r-5; the r-7 manifest and outcome agree. Residual: the crate-naming text (architecture.md:63) and plan.md:669 still say 'jev::v1 today', and the r-7 'API-agnostic except per-API modules (under ADR-SAG-0012 r-5)' wording was not added. ADR-SAG-0030 is Proposed, so this is not a binding violation, but the wording should be aligned."
+    },
+    {
+      "id": "ARCH-004",
+      "disposition": "closed",
+      "evidence_refs": ["docs/architecture.md:1616-1624"],
+      "notes": "The per-API bullet now states its binding status ('binding as a reservation, owner 2026-11-07; flips with this ADR in r-7') and names the flip sprint."
+    }
+  ],
+  "merge_ready": true,
+  "notes": "Input contract: JSON valid; worktree path absolute; branch and commit given. Verified without Bash (not available here): the worktree .git file points to /Volumes/Extreme Pro/github/sc-agent/.git/worktrees/phase-a-decision-apis; that HEAD is 'ref: refs/heads/plan/phase-a-decision-apis'; refs/heads/plan/phase-a-decision-apis resolves to ff15bc8889e042b5ffce1db458579e293581d3a3, which matches commit ff15bc8. The reflog shows 1ad3294 and ff15bc8 as the two QA-1 fix commits on top of 2a44320. Working-tree cleanliness and the exact fix diffs were not inspected (no git diff or git status available). Review was limited to the carry-forward ids and the text they cite. Blocking-level residual checks, all non-blocking: (a) docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md:660-661 still states the rule 'anything speaking the Jev API, including Haiku and Luna through the Jev schema, is jev'. The qualifier 'through the Jev schema' keeps it close to the fixed naming text, it is a historical rationale line rather than a deliverable, acceptance criterion or code sample, and it is outside the carry-forward scope, so it is not counted. Aligning it with architecture.md:53-58 is recommended. (b) The 'jev::v1 today' wording noted under ARCH-003. The REQ-QA-001 false-positive judgment is the parent's call and was not evaluated by arch-qa; the requirements-table id reuse is a req-qa matter. No new gate was requested or added. The r-7 adrs list against each owned crate's architecture doc was not widened in this round."
+}

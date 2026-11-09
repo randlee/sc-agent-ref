@@ -1,0 +1,50 @@
+<cursor-qa-task id="qa-a-10-docs-2" sprint="a-10-docs" assignee="cursor-quality-mgr">
+  <description>QA-2 closeout for PR #18 — Phase A hardening: docs, boundaries, CI workflow. QA-1 at 91ee1ab: 2I+9M (+ CI red on macos-14/windows). Fix commits ed347e0, ab0b9e6, 5283307, f24d91e, cb4a284 (parent docs-only note). CI run 42346621340 on cb4a284: all 9 jobs success.</description>
+  <review-mode>sprint_review</review-mode>
+  <authoritative-sprint-doc>/Volumes/Extreme Pro/github/sc-agent/PHASE-A-REVIEW.md section 3 'Docs, boundaries, CI' + /Volumes/Extreme Pro/github/sc-agent/.cursor/phase-a-orchestration/wave6-dev/fix-a-10-docs.xml</authoritative-sprint-doc>
+  <pr-number>18</pr-number>
+  <pr-target>integrate/phase-a</pr-target>
+  <branch>sprint/a-10-docs-ci-boundaries</branch>
+  <worktree>/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-10-docs-ci-boundaries</worktree>
+  <commits>cb4a284 (head; docs-only note on f24d91e which reviewers checked; f24d91e is a docs-only commit on 5283307)</commits>
+  <ci>sc-agent-ci run 42346621340 on cb4a284: 9/9 success (doc job green only via continue-on-error, documented); run 42345904358 on 5283307 same; sc-publish dry-run pass</ci>
+  <parent-resolutions>REQ-QA-A10-005 / QA-003 / FTQ-005 (.gitattributes follow-up unrecorded) CLOSED by parent commit cb4a284 adding the note to ci.md Known limits and plan.md open items. QA-001 (feature matrix check-only) is OWNED by a-10 code wave 3 (documented in workflow + ci.md); not a finding against this PR.</parent-resolutions>
+  <enforcer-binding>cursor-quality-mgr only; spawn gate from parent handoff; no Task spawns</enforcer-binding>
+  <parent-reviewer-handoff required="true">
+    <manifest>[
+  {"agent": "req-qa", "task_id": "a5cbe472cb250f124", "spawn_actor": "parent-orchestrator"},
+  {"agent": "arch-qa", "task_id": "a8b9b9e2bf595b2e6", "spawn_actor": "parent-orchestrator"},
+  {"agent": "rust-qa-agent", "task_id": "a13a95bbebe1d8e30", "spawn_actor": "parent-orchestrator"},
+  {"agent": "flaky-test-qa", "task_id": "a0abfab5fb72dd00a", "spawn_actor": "parent-orchestrator"}
+]</manifest>
+    <reviewer-outputs round="qa-a-10-docs-2" commit="f24d91e">
+```json
+{"status":"PASS","reviewed_commit":"f24d91e0e86b8515c4674730f2d8332c76bf7a6d","carry_forward_closure":{"REQ-QA-A10-001":"closed","REQ-QA-A10-002":"closed","REQ-QA-A10-003":"closed","REQ-QA-A10-004":"closed"},"findings":[{"id":"REQ-QA-A10-005","severity":"Minor","issue":".gitattributes follow-up for CRLF workaround unrecorded","parent_resolution":"CLOSED by parent commit cb4a284 (ci.md Known limits + plan.md open items)"}],"summary":{"total_findings":1,"blocking_findings":0,"deliverable_completion_percent":87.5},"gate_reason":"PASS; macos-15, ubuntu-only lint, hash-pinned constraints, env removal all consistent; no requirement regression."}
+```
+```json
+{"agent":"arch-qa","reviewed_commit":"f24d91e0e86b8515c4674730f2d8332c76bf7a6d","verdict":"PASS","blocking":0,"important":0,"findings":[],"carry_forward_closure":{"ARCH-007":"closed","ARCH-008":"closed"},"merge_ready":true,"notes":"All 22 ADR bodies word-for-word unchanged vs integrate; only status line, crate graph, ADR index differ. CI restructure has no ADR bearing."}
+```
+```json
+{"success":true,"data":{"status":"findings","reviewed_commit":"f24d91e0e86b8515c4674730f2d8332c76bf7a6d","executed_checks":{"just_lint":"pass","just_test_python_fresh_venv":"7 passed (venv --clear; --require-hashes -r; hash corruption test fails install as expected)","yaml_actionlint":"clean","pins":"all 40-hex","scope":"22 files, no crates/Cargo changes"},"findings":[{"id":"QA-001","severity":"important","issue":"feature matrix check-only until grammar tests cfg-gated","parent_resolution":"OWNED BY a-10 code wave 3 (documented in workflow + ci.md); not a finding against PR 18"},{"id":"QA-003","severity":"minor","issue":"ci.md does not name the sc-treesitter fixture byte-compare as the autocrlf cause nor track .gitattributes","parent_resolution":"CLOSED by parent commit cb4a284"}],"closed_carry_forward":["QA-002"],"summary":{"total_findings":2,"by_severity":{"critical":0,"important":1,"minor":1}},"notes":["run 42345904358 green is for 5283307; run 42346142428 for f24d91e was queued"]},"error":null}
+```
+```json
+{"success":true,"data":{"status":"findings","reviewed_commit":"f24d91e0e86b8515c4674730f2d8332c76bf7a6d","carry_forward_closed":["FTQ-002","FTQ-003","FTQ-004"],"findings":[{"id":"FTQ-005","severity":"minor","issue":"CRLF handled by CI-only autocrlf step in 5 jobs; .gitattributes is the real fix; local Windows checkouts still affected","parent_resolution":"CLOSED as recorded follow-up by parent commit cb4a284; code-track owns the .gitattributes"}],"summary":{"total_findings":1,"critical":0,"important":0,"minor":1},"notes":["autocrlf step present before checkout in all 5 jobs","ubuntu-only just lint still fails the PR on boundary violation; other legs bounded"]},"error":null}
+```
+    </reviewer-outputs>
+    <supporting-round round="qa-a-10-docs-1" commit="91ee1ab" manifest='[
+  {"agent": "req-qa", "task_id": "afa44a300fba1ef2a", "spawn_actor": "parent-orchestrator"},
+  {"agent": "arch-qa", "task_id": "a93b7db8276a73411", "spawn_actor": "parent-orchestrator"},
+  {"agent": "rust-qa-agent", "task_id": "ab241e8dd14efa31b", "spawn_actor": "parent-orchestrator"},
+  {"agent": "rust-best-practices-agent", "task_id": "a71cc46218ca67047", "spawn_actor": "parent-orchestrator"},
+  {"agent": "rust-service-hardening-agent", "task_id": "a88540a9b849b7cfd", "spawn_actor": "parent-orchestrator"},
+  {"agent": "flaky-test-qa", "task_id": "a14417a64558c9e1c", "spawn_actor": "parent-orchestrator"}
+]'>
+```json
+{"success":true,"data":{"status":"pass","reviewed_branch":"sprint/a-10-docs-ci-boundaries","reviewed_commit":"91ee1ab8dec686a6e324fdb5d0d296594de7f807","review_mode":"sprint_review","practice_mode":"all","findings":[],"summary":{"total_findings":0,"by_severity":{"critical":0,"important":0,"minor":0}},"notes":["No Rust source in diff; RBP-001..010 do not apply","CI gates match Pragmatic Rust Guidelines (fmt, clippy -D warnings, tests, doc); ci.md matches justfile and workflow incl. pinned versions","Observation: doc job continue-on-error is temporary (QA-005 in code track) — ensure tracked","Observation: features job is check-only until wave 3 gates tests","Did not read boundaries/*.toml or architecture docs (arch-qa covers)"]},"error":null}
+```
+```json
+{"success":true,"data":{"status":"skipped","reviewed_branch":"sprint/a-10-docs-ci-boundaries","reviewed_commit":"91ee1ab8dec686a6e324fdb5d0d296594de7f807","review_mode":"sprint_review","service_indicators_found":[],"findings":[],"summary":{"total_findings":0,"by_severity":{"critical":0,"important":0,"minor":0}},"notes":["No Rust source changed; no service indicators; skipped per contract","CI surface out of this agent's scope"]},"error":null}
+```
+    </supporting-round>
+  </parent-reviewer-handoff>
+</cursor-qa-task>

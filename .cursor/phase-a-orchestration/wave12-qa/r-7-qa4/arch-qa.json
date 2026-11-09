@@ -1,0 +1,102 @@
+{
+  "agent": "arch-qa",
+  "branch": "sprint/r-7-decision-schema",
+  "scope": {
+    "phase": "phase-a-refine",
+    "sprint": "r-7"
+  },
+  "commit": "20a46a8",
+  "verdict": "FAIL",
+  "blocking": 2,
+  "important": 0,
+  "findings": [
+    {
+      "id": "ARCH-001",
+      "rule": "RULE-ADR-CODE",
+      "adr": "ADR-SAG-0028",
+      "severity": "BLOCKING",
+      "file": "crates/workspace-tests/README.md",
+      "line": 5,
+      "description": "Delta file (edited in this delta) still states the workspace-tests dev-dependencies as sc-agent-types, sc-jev-check, sc-jev-host, serde_json and tempfile. The amended ADR-SAG-0028 (r-7 'Dev-only edges' bullet, docs/architecture.md:1580-1584) and crates/workspace-tests/Cargo.toml:24 add sc-decision-schema (features = [\"test-util\"]). The crate's own documentation therefore contradicts the amended ADR's dev-only edge set.",
+      "remediation": "Add sc-decision-schema (features = [\"test-util\"]) to the dev-dependency list in README.md lines 5-6 so it matches the amended ADR-SAG-0028 and Cargo.toml."
+    },
+    {
+      "id": "ARCH-002",
+      "rule": "RULE-ADR-CODE",
+      "adr": "ADR-SAG-0028",
+      "severity": "BLOCKING",
+      "file": "boundaries/workspace-tests/workspace-tests.toml",
+      "line": 18,
+      "description": "Carry-forward, outside this delta but reported under the zero-tolerance rule. The [public] notes field says dev-dependencies are sc-agent-types (features = [git]), sc-jev-check, sc-jev-host, serde_json, tempfile. The same manifest's allowed_dependencies (line 31) now includes sc-decision-schema, and the amended ADR-SAG-0028 lists it as a dev edge. The boundary manifest text contradicts the binding amendment.",
+      "remediation": "Add sc-decision-schema (features = [\"test-util\"]) to the notes string on line 18 so it matches allowed_dependencies and ADR-SAG-0028 as amended."
+    }
+  ],
+  "adr_checks": [
+    {
+      "adr": "ADR-SAG-0028",
+      "source": "docs/architecture.md:1533-1589",
+      "listed_in_sprint_doc": true,
+      "result": "violated",
+      "evidence_refs": [
+        "docs/architecture.md:1580-1584",
+        "crates/workspace-tests/Cargo.toml:24",
+        "crates/workspace-tests/README.md:5-6",
+        "boundaries/workspace-tests/workspace-tests.toml:18",
+        "boundaries/workspace-tests/workspace-tests.toml:31",
+        "boundaries/sc-decision-schema/decision-schema.toml:21",
+        "crates/workspace-tests/tests/test_util_off_binary.rs:18-20",
+        "crates/workspace-tests/tests/source_scans.rs:302-374"
+      ]
+    },
+    {
+      "adr": "ADR-SAG-0027",
+      "source": "docs/architecture.md:1480-1491",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+        "crates/workspace-tests/tests/test_util_off_binary.rs:1-4",
+        "crates/workspace-tests/tests/test_util_off.rs:1-4",
+        "crates/workspace-tests/tests/test_util_off_binary.rs:28-35"
+      ]
+    },
+    {
+      "adr": "ADR-SAG-0030",
+      "source": "docs/architecture.md:1591-1600",
+      "listed_in_sprint_doc": true,
+      "result": "not-applicable",
+      "evidence_refs": [
+        "crates/workspace-tests/tests/test_util_off_binary.rs:1-53"
+      ]
+    }
+  ],
+  "gate_artifact_checks": [
+    {
+      "artifact": "boundaries/workspace-tests/workspace-tests.toml",
+      "status": "closed",
+      "evidence_refs": [
+        "boundaries/workspace-tests/workspace-tests.toml:31",
+        "boundaries/workspace-tests/workspace-tests.toml:18"
+      ],
+      "notes": "Structural edges match the amendment: allowed_dependencies includes sc-decision-schema and the forbidden-edge list is unchanged. The notes string is stale (ARCH-002). The manifest has no internal completion gate."
+    },
+    {
+      "artifact": "boundaries/sc-decision-schema/decision-schema.toml",
+      "status": "closed",
+      "evidence_refs": [
+        "boundaries/sc-decision-schema/decision-schema.toml:21"
+      ],
+      "notes": "allowed_dependents lists workspace-tests, matching the amended ADR-SAG-0028 mirror requirement."
+    },
+    {
+      "artifact": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+      "status": "not-applicable",
+      "evidence_refs": [
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:84",
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:186-187"
+      ],
+      "notes": "adrs list includes ADR-SAG-0028 (line 84), so RULE-ADR-PLAN is satisfied for the delta. The delta's owned_paths rows for test_util_off_binary.rs and its README paragraph (lines 186-187) match the files present. The sprint doc has no completion gate of its own."
+    }
+  ],
+  "merge_ready": false,
+  "notes": "Verification. Branch and commit: .git in the worktree points at /Volumes/Extreme Pro/github/sc-agent/.git/worktrees/r-7-decision-schema, whose HEAD is ref refs/heads/sprint/r-7-decision-schema. The branch ref file contains 20a46a88dcfcc1899d8baec0934837912d638b88, which matches commit 20a46a8. Bash was not available to me, so the diff was not run directly. The delta was reviewed from the file contents at HEAD. Delta-scope checks: test_util_off_binary.rs is a new workspace-tests target. Cargo auto-discovers it, and it is a separate binary, so its cargo build does not run alongside test_util_off's serialized cargo tree calls. It uses the isolated bin_path helper (release, --features cli) as the ADR-SAG-0028 built-binary contract requires. It has no normal dependency. Its item-level expect names a process spawn and the file never mentions the secret type, which satisfies the source_scans expect-site rule. It adds no lock, no .await and no allow attribute. The moved-type imports in the workspace-tests targets (jev_cross_impl.rs:12, e2e_treesitter_producer.rs:19) come from sc_decision_schema, as the amendment requires. Because Bash was unavailable, the full repository sweep for other stale pre-amendment dev-dependency wording was limited to the boundaries, workspace-tests and docs/architecture.md globs. Result: two BLOCKING findings (one in the delta, one carried forward). The carry-forward is reported because the zero-tolerance rule applies, even though the delta-only instruction asked for delta findings only. Fix both lines and re-dispatch arch-qa for the locked recheck."
+}

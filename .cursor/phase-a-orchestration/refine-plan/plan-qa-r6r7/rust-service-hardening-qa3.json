@@ -1,0 +1,55 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "plan/phase-a-refine-r6",
+    "reviewed_commit": "7e132e582994b6e21b385afea6c0f5510c71ef55",
+    "review_mode": "doc_review",
+    "service_indicators_found": [
+      "ureq 3.5.1 outbound HTTPS client via sc-agent-http (carried from QA-2; the planned changes are spec text only)"
+    ],
+    "topics_reviewed": [
+      "Jev request/response validation",
+      "input size limits",
+      "duplicate-key handling",
+      "SendTrace hashing"
+    ],
+    "findings": [],
+    "carry_forward_verdicts": [
+      {
+        "id": "RSH-001",
+        "verdict": "fixed",
+        "evidence": "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md lines 105-110 keep both existing checks: the response model equals the request model, and the choice/score probability keys equal the criteria keys. The same lines keep the sum to 1 within 1e-6, a noul answer with exactly the key `yes`, and every value in [0, 1], all RESPONSE_INVALID. Deliverable 3 (line 160) says `into_answers` checks model equality and probability key sets. The `test_response_rules_rejected` acceptance row (line 289) lists the model mismatch, the probability-key mismatch, and the noul wrong-key and out-of-range cases. The signature is at line 278. NoulProbabilities uses deny_unknown_fields (lines 261-263)."
+      },
+      {
+        "id": "RSH-002",
+        "verdict": "fixed",
+        "evidence": "r-5 deliverable 3 (lines 155-157) says sc-jev compares the to_body() length to the descriptor's `request_limit_bytes` before sending and returns InputTooLarge with limit and actual bytes, as today. Acceptance row line 289 adds `test_body_over_limit_is_input_too_large`. The check is the existing one moved onto the new builder, not a new gate."
+      },
+      {
+        "id": "RSH-003",
+        "verdict": "fixed",
+        "evidence": "OrderedMap rejects a duplicate key and the error names the key (r-5 lines 150-153 and the rustdoc at lines 219-220). The code sample uses OrderedMap for CheckRequest.questions and CheckResponse.answers (line 268, 'duplicate id -> RESPONSE_INVALID'). Request or recovered body gives INPUT_INVALID and a reply gives RESPONSE_INVALID. The acceptance row `test_duplicate_key_rejected` (line 289) covers a request and recovery, and the duplicate response id is in test_response_rules_rejected. The criteria-count check lives in one validating constructor. JevState::Object is OrderedMap<String, Value>. The test keys are unsorted (`test_envelope_robust_to_key_ordering`, line 185). The 'verbatim' claim is narrowed to the top level (lines 237-238). The SendTrace RBP-F003 dispositions are applied. The OrderedMap duplicate rule sits in the same r-5 sections as RSH-001 and RSH-002."
+      },
+      {
+        "id": "RSH-004",
+        "verdict": "fixed",
+        "evidence": "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md renames the digest function to `Sha256Digest::of_text(&str)` (lines 184, 323). D2 states the LF normalization in its rustdoc (line 185). The `InvalidUtf8` arm is declared `unreachable!`, a bug and never input-driven (lines 185-187), consistent with M-PANIC-ON-BUG. D0 (lines 148-155) limits the 'digest equals SHA-256 of the bytes sent' claim to request bodies and canonical payloads and says `query_sha256` identifies the LF-normalized query text. HttpRequest carries a String body, so `body()` is `&str` and there is no Option or Result arm (lines 340, 345; with_sent_body takes impl Into<String>)."
+      }
+    ],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": {
+        "critical": 0,
+        "important": 0,
+        "minor": 0
+      }
+    },
+    "notes": [
+      "The worktree HEAD (.git/worktrees/plan-qa3-review/HEAD) is exactly 7e132e582994b6e21b385afea6c0f5510c71ef55. The branch name was not verifiable from the detached worktree and is echoed from the input.",
+      "Locked recheck of RSH-001..004 only. Nothing was found that blocks or regresses these fixes. The unsolicited RBP-* items were not re-verified here, per the lock.",
+      "No new gates, receipts or docs-consistency checks were requested, per the owner rule. Read-only review."
+    ]
+  },
+  "error": null
+}

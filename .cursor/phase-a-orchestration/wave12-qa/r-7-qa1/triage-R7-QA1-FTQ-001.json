@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "R7-QA1-FTQ-001",
+ "found_in": "A1-R7",
+ "found_at": "2026-11-08T02:30:00Z",
+ "title": "tree() runs `cargo tree` through spawn_with_deadline(&mut cargo, None), which applies the ",
+ "description": "tree() runs `cargo tree` through spawn_with_deadline(&mut cargo, None), which applies the shared 60 s SUBPROCESS_DEADLINE. The command has no --locked and no --offline, so it may touch the network to refresh the registry index and may wait on Cargo's package-cache or build-directory lock while a concurrent cargo process (for example the outer `cargo test --workspace`) holds it. On a cold or contended CI host the call can exceed 60 s and the runner kills it, so the test fails on some runs and passes on others depending on cache state and network speed. The test calls tree() 7 times (1 control, 1 workspace, 5 inverted queries), so it has 7 independent exposures to this window. The sprint already documents the same class of problem for builds: bin_path.rs gives cold release builds a 20 min deadline with a comment about 'Blocking waiting for file lock'. The cargo tree calls get no such treatment.",
+ "category": "timing_assertion",
+ "severity": "important",
+ "pattern": "timing_assertion",
+ "file_filter": "crates/workspace-tests/tests/test_util_off.rs",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "0d0ebc1983412ff750b775ed40c3261fe17383dd"
+  },
+  {
+   "branch": "sprint/r-7-decision-schema",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-7-decision-schema",
+   "order_index": 1,
+   "head_sha": "94972978d9e6321be71e884368721cf0f79d3d54"
+  }
+ ],
+ "worktree_paths": [
+  "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+  "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-7-decision-schema"
+ ]
+}

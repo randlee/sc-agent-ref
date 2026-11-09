@@ -1,0 +1,17 @@
+ .claude/project/quality-policy.md                  |  11 +-
+ docs/architecture.md                               | 601 +++++++++++++++-
+ .../phase-a-refine/plan-review-1-dispositions.md   | 169 +++++
+ .../phase-a-refine/plan-review-2-dispositions.md   | 171 +++++
+ docs/plans/phase-a-refine/plan.md                  | 775 +++++++++++++++++++++
+ .../plans/phase-a-refine/sprint-r-1-types-break.md | 559 +++++++++++++++
+ .../phase-a-refine/sprint-r-2-engine-shape.md      | 366 ++++++++++
+ .../sprint-r-2b-multi-backend-semantics.md         | 202 ++++++
+ .../plans/phase-a-refine/sprint-r-3-shared-http.md | 308 ++++++++
+ .../sprint-r-3b-compose-and-workspace-tests.md     | 384 ++++++++++
+ .../phase-a-refine/sprint-r-3c-treesitter-cli.md   | 114 +++
+ .../sprint-r-4-adrs-and-manifests.md               | 189 +++++
+ .../phase-a-refine/sprint-r-5-jev-wire-envelope.md | 128 ++++
+ docs/plans/phase-a/plan.md                         |   1 +
+ docs/requirements.md                               |  46 ++
+ docs/sc-agent-types/requirements.md                |  11 +
+ 16 files changed, 4025 insertions(+), 10 deletions(-)

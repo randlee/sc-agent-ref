@@ -1,0 +1,67 @@
+<cursor-fix-task id="fix-a-10-code-wave1" phase="a" sprint="a-10" assignee="rust-developer">
+  <description>Phase A phase-end hardening, code wave 1 of 3: foundation crates (sc-agent-types, sc-agent-secrets, sc-jev, sc-jev-backends) plus workspace-level lint/dev-dep changes. Routine fixes only; nothing here changes crate layout, trait shape, or wire contracts. Waves 2 (sc-jev-check + sc-ai) and 3 (sc-treesitter + sc-jev-py) run after you, on the same branch, and will consume the helpers you add.</description>
+  <worktree>/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-10-phase-end-hardening</worktree>
+  <branch>sprint/a-10-phase-end-hardening</branch>
+  <pr-target>integrate/phase-a</pr-target>
+  <base-commit>d4a0111d2df5c818222e9c7388e206f1d4e9bc20</base-commit>
+  <authoritative-review>/Volumes/Extreme Pro/github/sc-agent/PHASE-A-REVIEW.md (section 3 = your scope; section 4 = OUT of scope, do not start any D1–D13 item)</authoritative-review>
+  <reviewer-json>/Volumes/Extreme Pro/github/sc-agent/.cursor/phase-a-orchestration/phase-end-qa/*.json and phase-end-deep/*.json (full finding text; ids cited below)</reviewer-json>
+  <requirement-ids>REQ-SAG-0101, REQ-SAG-0102, REQ-SAG-0103, REQ-SAG-0200..0202, REQ-SAG-0400, REQ-SAG-0401, REQ-SAG-0500..0505, NFR-SAG-0002</requirement-ids>
+  <adr-ids>ADR-SAG-0001, ADR-SAG-0003, ADR-SAG-0005, ADR-SAG-0006, ADR-SAG-0007, ADR-SAG-0012, ADR-SAG-0016, ADR-SAG-0019, ADR-SAG-0020, ADR-SAG-0022 (all must still hold; do not amend ADR text)</adr-ids>
+
+  <items>
+    <group name="A. sc-agent-types — additive helpers that waves 2/3 will use">
+      - RBP-F004 / ARCHE-010 / ARCHP-017: `impl FromStr for BackendId` and `for BackendKeyId` (snake_case only; one InputInvalid error with the same message the CLI uses today; decide and document that kebab-case aliases are NOT accepted). Add `pub const fn BackendId::key_id(self) -> BackendKeyId` (ARCHC-022) and `BackendId::is_llm(self) -> bool`. Do NOT add #[non_exhaustive] or change variants (that is D1/D6).
+      - RBP-F003 / ARCHE-010: `Rev::parse(&str) -> Result<Rev, JevError>` rejecting empty, leading '-', NUL, whitespace; keep `Rev::new` for infallible internal use but document that parse is the edge entry point.
+      - RBP-F002: `JevError::encode_failed(label: &str, err: &serde_json::Error) -> JevError` (sanitized: category + line/column, never the document) and `JevError::io_failed(label, &io::Error)`; keep existing variants.
+      - ARCHC-025 / RBP-F010: `JevError::map_detail(impl Fn(&str) -> String)` covering EVERY String-bearing field, with a unit test that iterates all variants (construct one of each) and proves the mapper touched them; rewrite `ResolvedApiKey::redact_error` on top of it.
+      - ARCHC-014 / RBP-F010: `ResolvedApiKey::try_new(id: BackendKeyId, raw: String) -> Result<Self, JevError>` with ONE rule set: trim; empty → KEY_MISSING; interior whitespace or control chars → CONFIG_INVALID with the credential-store hint. Keep `new` but mark it `#[doc(hidden)]` and document test-only. Remove `normalized_typesafe` / `normalized_provider` once sc-jev and sc-jev-backends (group C) use try_new via resolve_key.
+      - ARCHC-016 / RBP-F011: make `PayloadBundle.bytes` and `.sha256` private with `bytes()` / `sha256()` accessors; `from_canonical_bytes` stays the constructor. Fix call sites in ALL crates (this is the one cross-crate edit in wave 1; keep it mechanical).
+      - ARCHC-023: remove the no-op `deny_unknown_fields` on `ScAgentErrorResponse`; reword payload.rs/lib.rs docs so the recursive re-sort is the stated canonical-order guarantee; remove `impl Default for SessionId` (keep `SessionId::new()`); fix call sites.
+      - RBP-F014: one doc sentence on `SessionLog` stating it is intentionally open and why.
+      - ARCHC-009: drop the stale a-1 comment in `test_util::judge_outcome_field_names` (or delete the fn if unused); delete `RecordingSessionLog` / `RejectingSessionLog` if no crate uses them after wave 1 (grep), otherwise leave for wave 2 to adopt.
+      - QA-005: fix the rustdoc intra-doc link at sc-agent-types/src/secret.rs:15.
+    </group>
+    <group name="B. sc-agent-secrets">
+      - ARCHC-015: `.env` parser strips an unquoted trailing ` #…` comment (dotenv convention); add tests for `KEY=v # c`, `KEY="v # not comment"`, `KEY=v#notcomment`; document the dialect in docs/sc-agent-secrets/ (one short section).
+      - ARCHC-014: `resolve_key` / `resolve_key_with` construct the key via `ResolvedApiKey::try_new` so normalization happens once.
+      - ARCHC-009: `MapEnv` / `MapKeyring` behind `#[cfg(test)]`; remove the `test-util` feature from sc-agent-secrets/Cargo.toml (no workspace crate enables it) — note in the commit message that ADR-SAG-0020 text mentioning this feature is handled by the docs track; make `env_var_name` pub(crate) or re-export it (ARCHC-017).
+      - QA-005: fix rustdoc links at lib.rs:8 and :10.
+    </group>
+    <group name="C. sc-jev + sc-jev-backends (align, do not merge the two crates — that is D5)">
+      - QA-003 / ARCHC-013 / RBP-F006 interim: ONE Retry-After semantics (integer or decimal seconds, clamp 0..=30, malformed → 30s), ONE busy status set {429, 502, 529}, ONE exhausted-retry error wording; implement by giving both crates the same code (a small `retry_policy` module copied verbatim with a shared table test in each crate, OR constants + fn in sc-agent-types if you judge that cleaner — but do NOT add ureq or HTTP types to sc-agent-types). Pin behaviour with the same test table in both crates.
+      - ARCHC-007: `Client::judge` in sc-jev-backends prepares once (validate_for_send result reused).
+      - ARCHC-012: delete the unreachable branches and no-op statements listed in ARCHC-012 (busy-exhausted tail, `starts_with(b"{")`, `u64::try_from(len)`, `to_string(&str)` error path, `payload == b"{}"`, dead second replace in https.rs, `let _ = &req.llm`); use `debug_assert!` where an invariant is worth stating.
+      - RSH-006 / ARCHC-020: one ureq `Agent` per transport instance built in `new()` (connect timeout on both; sc-jev's HttpsTransport gains `timeout_connect`), per-request timeout applied per call; User-Agent `concat!("sc-jev/", env!("CARGO_PKG_VERSION"))` and an equivalent on the backends transport.
+      - EXT-008 / ARCHC-024: replace the hand-copied Haiku/Luna wrapper structs with one generic `LlmJudge<P: ProviderSpec>` (or a private macro) behind the two existing public type names/constructors so the public API is unchanged; remove the extra `Arc` around `Client`; rename `VendorReply.commands` → `non_text_blocks`.
+      - ARCHC-018: add `with_timeouts(connect, request)` next to `with_retry_sleeper` (the ADR-SAG-0007 "backend builder for tests") and use it in one test.
+      - ARCHC-019: `JevClientConfig::from_toml` via a private `#[derive(Deserialize)] #[serde(deny_unknown_fields)]` raw struct passed to `try_new`; remove the duplicated range check.
+      - ARCHC-011: do NOT remove `JudgeOutcome.probabilities` (frozen contract, D10); only add a doc comment that it is derived from answers.
+      - ARCHC-017: make `sc-jev`'s `api` / `client` modules private and export only from the crate root; rename `api` → `config`; move the misnamed `jev_api` retry test into client/retry.rs. Make `backend_key_id` in sc-jev-check pub(crate) ONLY if it does not break wave 2's build — otherwise leave for wave 2.
+      - RSH-005 (minor, routine part only): add a total retry deadline (first attempt + N seconds, capping Retry-After) and small jitter to both retry loops; keep attempts=4. Do NOT add cancellation plumbing (that touches the trait → D10).
+      - QA-002: add loopback (in-process `std::net::TcpListener` serving minimal HTTP/1.1, or a fake transport if TLS makes loopback impractical since both transports are https-only — in that case test the status/body/Retry-After/timeout mapping through the transport trait with a recording fake and explicitly report that the TLS path remains untested) tests for: timeout mapping, 4xx/5xx mapping, redirect refusal, oversize body refusal, Retry-After capture. Target: sc-jev ≥ 75% and sc-jev-backends ≥ 85% line coverage (`cargo llvm-cov -p <crate> --summary-only`).
+      - QA-005: fix rustdoc links at sc-jev/src/client/mod.rs:1 and sc-jev-backends/src/transport.rs:148.
+    </group>
+    <group name="D. Workspace-level (root Cargo.toml, clippy.toml)">
+      - RBQA-F012: `[workspace.lints.rust] unsafe_code = "forbid"` and `[lints] workspace = true` in every crate except sc-jev-py (leave sc-jev-py's lints untouched; wave 3 handles it); remove now-redundant `#![forbid(unsafe_code)]` attributes.
+      - RBQA-F008: `clippy.toml` `disallowed-methods` for `sc_agent_types::ResolvedApiKey::as_str` with `#[allow(clippy::disallowed_methods)]` (with a reason comment) only at the two production readers (sc-jev client/https.rs, sc-jev-backends transport.rs). Confirm `just lint` still passes.
+      - QA-007 / ARCHP-021: add `tempfile` as a workspace dev-dependency and switch sc-agent-secrets (already uses it), sc-jev and sc-jev-backends tests to it; waves 2/3 will convert the rest.
+      - QA-005: the `cargo doc --workspace --no-deps` warning count must drop by the ones you own; do not add `-D warnings` to CI (docs track owns CI).
+    </group>
+  </items>
+
+  <acceptance-criteria>
+    - `just lint`, `just test`, `cargo doc --workspace --no-deps` (no new warnings; the four you own gone), `cargo clippy --all-targets --all-features -- -D warnings` green.
+    - `cargo test --workspace` passes INCLUDING sc-jev-check, sc-ai, sc-treesitter, sc-jev-py after your PayloadBundle/SessionId/Default/normalized_* removals (mechanical call-site fixes in those crates are allowed and expected; nothing else in them).
+    - No public API removed except the items listed (normalized_typesafe/normalized_provider, Default for SessionId, PayloadBundle field visibility); no ADR text edited; no new crate.
+    - Every item above either done or explicitly listed as deferred with the reason.
+    - Commit in logical groups (A, B, C, D); push `sprint/a-10-phase-end-hardening`; report pushed SHA, per-item status table, coverage numbers for sc-jev and sc-jev-backends before/after.
+  </acceptance-criteria>
+
+  <workflow>
+    <step id="a">ACK. Work only in the worktree above; never touch other worktrees, develop, or integrate/phase-a. Never edit kit-written release files. zsh: never use a variable named `status`.</step>
+    <step id="b">Read PHASE-A-REVIEW.md sections 1, 3, 5 and the reviewer JSON entries for the ids you own; then the four crates fully.</step>
+    <step id="c">Implement groups A → D, running `cargo test --workspace` after each group.</step>
+    <step id="d">Commit per group, push, report. Do not open a PR, merge, or spawn agents. Note anything you believe is actually an architectural decision in disguise rather than doing it.</step>
+  </workflow>
+</cursor-fix-task>

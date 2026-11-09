@@ -1,0 +1,165 @@
+{
+  "status": "FAIL",
+  "reviewed_branch": "sprint/r-5-jev-wire-envelope",
+  "reviewed_commit": "6972530",
+  "errors": [
+    {
+      "code": "ANALYSIS.ERROR",
+      "message": "This QA session had only Read, Glob, Grep and SubagentHandback. No shell, git or cargo was available, so the delta 085dab4..6972530 could not be diffed and no acceptance command (cargo test, just lint, just test) could be executed. Static reading confirmed the branch and HEAD (see note below). Every acceptance row that needs a '1 passed' result is therefore not-verifiable from this review. The gate cannot be closed as PASS until a shell-capable agent runs the delta commands listed in finding REQ-QA-001."
+    }
+  ],
+  "scope": {
+    "phase": "phase-a-refine",
+    "sprint": "r-5"
+  },
+  "baselines_read": [
+    "docs/requirements.md (REQ-SAG-0140, REQ-SAG-0143, NFR-SAG-0002 rows, read by grep, worktree copy)",
+    "docs/plans/phase-a-refine/plan.md (r-5 rows, read by grep, worktree copy)",
+    "docs/architecture.md (checked for the '(Proposed, r-5)' marker only, worktree copy)"
+  ],
+  "phase_or_sprint_docs_read": [
+    "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md"
+  ],
+  "requirement_checks": [
+    {
+      "id": "NFR-SAG-0002",
+      "source": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/docs/requirements.md:114",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+        "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/crates/sc-decision-schema/src/payload.rs:104-119",
+        "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/crates/sc-decision-schema/src/payload.rs:426-430",
+        "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/crates/sc-decision-schema/src/jev/v1.rs:559-567",
+        "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/crates/sc-decision-schema/tests/jev.rs:362-379"
+      ]
+    },
+    {
+      "id": "REQ-SAG-0140",
+      "source": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/docs/requirements.md:177",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+        "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/crates/sc-decision-schema/Cargo.toml:26-30"
+      ]
+    },
+    {
+      "id": "REQ-SAG-0143",
+      "source": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/docs/requirements.md:180",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+        "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/crates/sc-decision-schema/src/jev/v1.rs:485-489",
+        "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/crates/sc-decision-schema/src/jev/v1.rs:563-567"
+      ]
+    }
+  ],
+  "deliverable_checks": [
+    {
+      "item": "ARCH-002 decode-error hint fix: malformed bodies name category and position only, with a fix-the-body hint",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+        "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/crates/sc-decision-schema/src/payload.rs:102-119",
+        "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/crates/sc-decision-schema/src/payload.rs:426-430",
+        "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/crates/sc-decision-schema/src/jev/v1.rs:563-567",
+        "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/crates/sc-agent-types/src/error.rs:524-528",
+        "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/crates/sc-agent-types/src/error.rs:849-851"
+      ],
+      "notes": "Static only. decode_failed emits '{what} is not valid: {category}{at}; fix the {what}' with no body bytes. fix_hint() wraps that detail in 'Correct the input so it matches the expected schema ({detail}), then retry.' Every message the new test checks is produced by this path. Execution of the test was not possible."
+    },
+    {
+      "item": "New test test_malformed_body_hint_is_fix_the_body (ARCH-002 regression)",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+        "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/crates/sc-decision-schema/tests/jev.rs:362-379"
+      ],
+      "notes": "Static only. The three cases were traced: an EOF case (CheckRequest::parse), a missing-field case (RawCheckRequest has no defaulted fields, so it is a Data error), and a syntax case (CanonicalJudgePayload::from_bytes). Each yields INPUT_INVALID, contains 'fix the', and omits 'encoded', 'bug' and the secret text. No other test in the repository asserts the old hint wording (grep over crates and docs found none)."
+    },
+    {
+      "item": "1.94.1 type annotation in the 085dab4..6972530 delta",
+      "status": "not-verifiable",
+      "closure_state": "open",
+      "evidence_refs": [
+        "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/crates/sc-decision-schema/tests/jev.rs:169",
+        "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/crates/sc-decision-schema/tests/jev.rs:174"
+      ],
+      "notes": "Without a diff tool, the annotated line could not be isolated. The pinned toolchain 1.94.1 is confirmed at Cargo.toml:21 and in CI, but that is not the annotation. The two closure-typed annotations in jev.rs (line 169 and line 174) are candidates only. The coordinator or a shell-capable agent must name the exact line from the commit diff."
+    },
+    {
+      "item": "Coordinator status flip to complete with closeout note",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+        "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:4",
+        "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:387-390"
+      ],
+      "notes": "Frontmatter reads status: complete. The closeout note states that closure is recorded by the quality-mgr report, which the notes say is not required in this round. The 'Proposed, r-5' marker is absent from docs/architecture.md (acceptance row 'adr (r-5)'). plan.md has no conflicting r-5 status row."
+    },
+    {
+      "item": "Acceptance-table commands re-run against the delta (boundary:jev, REQ-SAG-0403, REQ-SAG-0143, REQ-SAG-0142, REQ-SAG-0103, regression rows)",
+      "status": "not-verifiable",
+      "closure_state": "open",
+      "evidence_refs": [
+        "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:302-321"
+      ],
+      "notes": "Each named test must print '1 passed'. None could be executed in this session. Static reads of the touched files found no contradiction, but static reading cannot produce the required pass evidence."
+    }
+  ],
+  "findings": [
+    {
+      "id": "REQ-QA-001",
+      "severity": "Blocking",
+      "category": "acceptance-gap",
+      "source_refs": [
+        "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:302-321"
+      ],
+      "target_refs": [
+        "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/crates/sc-decision-schema/tests/jev.rs:365",
+        "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/crates/sc-decision-schema/src/payload.rs:104"
+      ],
+      "issue": "The delta's acceptance evidence is missing. The sprint requires every command in the acceptance table to print '1 passed' and the required validation (just lint, just test, cargo test -p sc-jev-backends) to run. This review had no shell and could not run any of them, including the new test test_malformed_body_hint_is_fix_the_body. Static reading supports the hint fix but does not meet the execution requirement. This is a review-tooling gap, not a sprint defect. It is still a Blocking gap under the gate policy until the evidence exists.",
+      "required_correction": "Run in the worktree at 6972530 and record the output: cargo test -p sc-decision-schema --test jev (all tests, including test_malformed_body_hint_is_fix_the_body); cargo test -p sc-jev --features test-util --test wire; cargo test -p sc-jev-backends --features test-util --test wire; cargo test -p sc-jev-backends --test llm; cargo test -p sc-jev --test jev_api; cargo test -p sc-agent-types --test errors -- test_error_response_stderr_golden --exact; just lint; just test. Each named test must show 1 passed.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-002",
+      "severity": "Blocking",
+      "category": "acceptance-gap",
+      "source_refs": [
+        "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:94-96"
+      ],
+      "target_refs": [
+        "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/crates/sc-decision-schema/tests/jev.rs:169",
+        "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/Cargo.toml:21"
+      ],
+      "issue": "The delta item described as a '1.94.1 type annotation' could not be located in this session, so its correctness against the stated toolchain cannot be confirmed. Without a diff the reviewer cannot tell which change it is.",
+      "required_correction": "Name the exact file and line of the annotation in the 085dab4..6972530 diff (for example with git diff 085dab4 6972530 -- crates/sc-decision-schema). Confirm it compiles on the pinned toolchain 1.94.1 (Cargo.toml:21, CI RUST_TOOLCHAIN). Record that compile result in the QA report.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-003",
+      "severity": "Minor",
+      "category": "acceptance-gap",
+      "source_refs": [
+        "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:300-311"
+      ],
+      "target_refs": [
+        "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/crates/sc-decision-schema/tests/jev.rs:362-379"
+      ],
+      "issue": "The new regression test test_malformed_body_hint_is_fix_the_body guards ARCH-002 and NFR-SAG-0002 (no body bytes in errors), but the authoritative acceptance table does not name it. The regression is therefore not enforced by the sprint's own gate.",
+      "required_correction": "Add the command 'cargo test -p sc-decision-schema --test jev -- test_malformed_body_hint_is_fix_the_body --exact' to the NFR-SAG-0002 row (or the boundary:jev row) of the acceptance table in the sprint doc, so the gate runs it.",
+      "compliance_result": "partially-compliant"
+    }
+  ],
+  "summary": {
+    "total_findings": 3,
+    "blocking_findings": 2,
+    "overall_compliance": "non-compliant",
+    "deliverables_total": 5,
+    "deliverables_complete": 3,
+    "deliverables_incomplete": 2,
+    "deliverable_completion_percent": 60.0
+  },
+  "gate_reason": "FAIL. Static review of the delta found no requirement violation. The decode-error hint fix (payload.rs:104-119) emits category and position only, with no body bytes. The new test (jev.rs:362-379) traces to INPUT_INVALID with the fix-the-body wording on all three cases. REQ-SAG-0140 and REQ-SAG-0143 are upheld on static evidence. The status flip and closeout note are consistent with the absent Proposed r-5 marker. The gate still fails for three reasons. First, the acceptance commands that must print '1 passed' could not be executed (REQ-QA-001). Second, the '1.94.1 type annotation' in the delta could not be isolated (REQ-QA-002). Third, the new test is not in the acceptance table (REQ-QA-003, Minor). Per policy, not-verifiable items FAIL the gate. This reviewer cannot clear them, so a shell-capable run of the listed commands at commit 6972530 is needed before PASS. Branch and HEAD check: the worktree HEAD is ref sprint/r-5-jev-wire-envelope, which resolves to 69725308455bd8827b0a46e31e3f598327d66f55 (matches assigned commit 6972530), so input validation passed."
+}

@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "R5-QA3-REQ-QA-002",
+ "found_in": "A1-R5",
+ "found_at": "2026-11-08T06:39:59Z",
+ "title": "The delta item described as a '1.94.1 type annotation' could not be located in this session, so its correctness against the stated toolchain",
+ "description": "The delta item described as a '1.94.1 type annotation' could not be located in this session, so its correctness against the stated toolchain cannot be confirmed. Without a diff the reviewer cannot tell which change it is.",
+ "category": "qa",
+ "severity": "blocking",
+ "pattern": "acceptance",
+ "file_filter": "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "48c4d1cf5a0972351bc146721db41888fbc5cfa3"
+  },
+  {
+   "branch": "sprint/r-5-jev-wire-envelope",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope",
+   "order_index": 1,
+   "head_sha": "69725308455bd8827b0a46e31e3f598327d66f55"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a",
+  "sprint/r-5-jev-wire-envelope"
+ ]
+}

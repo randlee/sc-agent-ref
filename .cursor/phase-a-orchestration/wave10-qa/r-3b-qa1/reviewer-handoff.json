@@ -1,0 +1,903 @@
+{
+ "manifest": [
+  {
+   "agent": "req-qa",
+   "task_id": "ada0d81502fc6add6",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "a298b0e6846e44d5a",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "ae2d5a8329056f395",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "rust-best-practices-agent",
+   "task_id": "ae9c5baf0ed266fb7",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "rust-service-hardening-agent",
+   "task_id": "a393144e8a9e0ec91",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "ab07ef3f7f1c9fb67",
+   "spawn_actor": "parent-orchestrator"
+  }
+ ],
+ "reviewer_outputs": [
+  {
+   "agent": "req-qa",
+   "task_id": "ada0d81502fc6add6",
+   "fenced_json": {
+    "status": "FAIL",
+    "reviewed_branch": "sprint/r-3b-compose-and-workspace-tests",
+    "reviewed_commit": "90004d7",
+    "errors": [],
+    "scope": {
+     "phase": "a.1",
+     "sprint": "r-3b"
+    },
+    "baselines_read": [
+     ".claude/project/quality-policy.md",
+     "docs/requirements.md",
+     "docs/sc-ai/requirements.md",
+     "docs/sc-jev-py/requirements.md",
+     "docs/sc-jev-host/requirements.md",
+     "docs/architecture.md",
+     "docs/plans/phase-a-refine/plan.md (not opened; the sprint doc was treated as the authoritative task source)"
+    ],
+    "phase_or_sprint_docs_read": [
+     "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md"
+    ],
+    "requirement_checks": [
+     {
+      "id": "REQ-SAG-0109",
+      "source": "docs/requirements.md:161",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/workspace-tests/Cargo.toml:21-26",
+       "boundaries/workspace-tests/workspace-tests.toml:31",
+       "boundaries/sc-agent-types/agent-types.toml:37",
+       "boundaries/sc-jev-check/jev-check.toml:38",
+       "boundaries/sc-jev-host/jev-host.toml:32",
+       "crates/workspace-tests/tests/*.rs (6 targets)"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0604",
+      "source": "docs/requirements.md:171",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-ai/src/command.rs:183-184",
+       "crates/sc-jev-py/src/run.rs:491-504",
+       "crates/sc-ai/tests/cli.rs:219",
+       "tests/fixtures/jev-python/tests/test_consumer_contract.py:53"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0605",
+      "source": "docs/requirements.md:172",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-host/src/compose.rs:126",
+       "crates/sc-ai/src/cli.rs:123",
+       "crates/sc-ai/tests/cli.rs:291",
+       "tests/fixtures/jev-python/tests/test_consumer_contract.py:93"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0711",
+      "source": "docs/requirements.md:209",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-host/src/obs.rs:27",
+       "crates/sc-jev-host/tests/obs.rs:61",
+       "sc-lint.toml:80-82",
+       "docs/sc-ai/requirements.md:14"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0712",
+      "source": "docs/requirements.md:176",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-ai/src/cli.rs:51,176",
+       "crates/sc-ai/tests/argv.rs",
+       "crates/sc-treesitter/tests/argv.rs"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0135",
+      "source": "docs/requirements.md:164",
+      "listed_in_sprint_doc": true,
+      "result": "not-verifiable",
+      "evidence_refs": [
+       ".github/scripts/cargo-tree-gates.sh:63-64",
+       ".github/workflows/sc-agent-ci.yml:313-315",
+       ".claude dev report deferral: remote CI not yet exercised"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0130",
+      "source": "docs/requirements.md:208",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "release/sc-publish-consumer-input.json:95-103",
+       "release/publish-artifacts.toml:83-90"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0610",
+      "source": "docs/requirements.md:102",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-host/tests/obs.rs:88"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0611",
+      "source": "docs/requirements.md:103",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-host/tests/obs.rs:61"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0703",
+      "source": "docs/sc-ai/requirements.md:12",
+      "listed_in_sprint_doc": false,
+      "result": "not-applicable",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md:17-44"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0803",
+      "source": "docs/sc-jev-py/requirements.md:12",
+      "listed_in_sprint_doc": false,
+      "result": "not-applicable",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md:17-44"
+      ]
+     },
+     {
+      "id": "NFR-SAG-0001",
+      "source": "docs/requirements.md:202",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/workspace-tests/tests/test_util_off.rs:112-127"
+      ]
+     },
+     {
+      "id": "NFR-SAG-0002",
+      "source": "docs/requirements.md:114",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-host/tests/obs.rs:88"
+      ]
+     },
+     {
+      "id": "NFR-SAG-0003",
+      "source": "docs/requirements.md:115",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-host/tests/paths.rs:183"
+      ]
+     },
+     {
+      "id": "NFR-SAG-0004",
+      "source": "docs/requirements.md:165",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "Cargo.toml:43-46",
+       "docs/architecture.md:1177-1181",
+       ".github/workflows/sc-agent-ci.yml:338-344"
+      ]
+     }
+    ],
+    "deliverable_checks": [
+     {
+      "item": "D2.1 crate sc-jev-host: lints workspace, deps, published, consumer-input order 7",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-jev-host/Cargo.toml",
+       "release/sc-publish-consumer-input.json:95-103",
+       "release/publish-artifacts.toml:83-90"
+      ],
+      "notes": "The kit re-render is committed in 90004d7."
+     },
+     {
+      "item": "D2.2 obs adapter, PathPolicy and enums, ComposeInputs (private fields and setters), run_from/ask_from, warnings, env ownership",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-jev-host/src/obs.rs",
+       "crates/sc-jev-host/src/paths.rs:24-137",
+       "crates/sc-jev-host/src/compose.rs:64-396"
+      ],
+      "notes": "ask_from returns AskResponse, not JudgeOutcome as the sprint text says. Documented in the implementation notes, but see REQ-QA-004."
+     },
+     {
+      "item": "D2.3 sc-ai and sc-jev-py adapters deleted; sc-observability edge removed",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-ai/Cargo.toml:35-44",
+       "crates/sc-jev-py/Cargo.toml:35-42",
+       "sc-lint.toml:80-82"
+      ],
+      "notes": "observe.rs and logging.rs are gone. No PayloadBuilder in the three src trees."
+     },
+     {
+      "item": "D2.4 crate docs: docs/sc-jev-host requirements and architecture; ADR-SAG-0027 schema_version rule in sc-ai and sc-jev-py docs",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "docs/sc-jev-host/requirements.md",
+       "docs/sc-ai/architecture.md:35-38",
+       "docs/sc-jev-py/architecture.md:56-60"
+      ],
+      "notes": ""
+     },
+     {
+      "item": "D3 consumers: --chain-context, chain_context, partial failure on both streams, JevError.response, .pyi, tests",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-ai/src/cli.rs:123",
+       "crates/sc-ai/tests/cli.rs:219,291,337",
+       "crates/sc-jev-py/sc_jev_py.pyi:9-15,63",
+       "tests/fixtures/jev-python/tests/test_consumer_contract.py:41,53,93"
+      ],
+      "notes": "The scripted-answers seam is gated on test-util."
+     },
+     {
+      "item": "D7.0 workspace-tests boundary manifest and dependents (dev edges counted)",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "boundaries/workspace-tests/workspace-tests.toml",
+       "boundaries/sc-agent-types/agent-types.toml:37",
+       "boundaries/sc-jev-check/jev-check.toml:38"
+      ],
+      "notes": ""
+     },
+     {
+      "item": "D7.1-7.2 workspace-tests crate shape and bin_path helper",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/workspace-tests/Cargo.toml",
+       "crates/workspace-tests/tests/support/bin_path.rs"
+      ],
+      "notes": ""
+     },
+     {
+      "item": "D7.3 six targets: jev_cross_impl, e2e_treesitter_producer, consumer_parity, git_read_parity, source_scans (5 named tests), test_util_off (2 tests)",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/workspace-tests/tests/source_scans.rs:273,321,389,460,502",
+       "crates/workspace-tests/tests/test_util_off.rs:69,104",
+       "crates/workspace-tests/tests/e2e_treesitter_producer.rs:103,138"
+      ],
+      "notes": "Deviation: ENV_OWNERS adds crates/sc-jev-check/src/run/mod.rs, which the sprint list does not allow. Documented in the implementation notes, but see REQ-QA-005."
+     },
+     {
+      "item": "D12.1 sc-ai clap parser, argv.rs, system-prompt-file test",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-ai/src/cli.rs:51,176",
+       "crates/sc-ai/Cargo.toml:56-65",
+       "crates/sc-ai/tests/cli.rs:390"
+      ],
+      "notes": ""
+     },
+     {
+      "item": "D12.2 CI rows, isolated lib builds, wheel job, workspace-tests job, pin re-run",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       ".github/scripts/cargo-tree-gates.sh:62-78",
+       ".github/workflows/sc-agent-ci.yml:303-344,346-388,390-426"
+      ],
+      "notes": "Wired in the workflow. Remote CI has not been run (see REQ-QA-003)."
+     },
+     {
+      "item": "Acceptance req:REQ-SAG-0135: cargo-tree-gates clap rows pass in CI for both libraries",
+      "status": "not-verifiable",
+      "closure_state": "open",
+      "evidence_refs": [
+       ".github/scripts/cargo-tree-gates.sh:63-64"
+      ],
+      "notes": "The dev report says the new CI jobs have not run remotely. The criterion says 'pass in CI'."
+     },
+     {
+      "item": "ADR text flips: 0010, 0011, 0013, 0016 (retitled), 0017, 0020, 0023, 0025, 0026, 0028; A.1 crate graph",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "docs/architecture.md:51-53,102-120,604,1143,1273,1308,1334,1502"
+      ],
+      "notes": "No stale (Proposed, r-3b) marker remains. Index rows and Status lines match the sprint text."
+     },
+     {
+      "item": "REQ-SAG-0109, 0135, 0604, 0605, 0712, 0130, 0711 rows in docs/requirements.md and crate-level requirements",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "docs/requirements.md:161,164,171,172,176,208,209",
+       "docs/sc-ai/requirements.md:14",
+       "docs/sc-jev-py/requirements.md:15"
+      ],
+      "notes": ""
+     },
+     {
+      "item": "Sprint requirements list is complete (every crate-level and repo-level id)",
+      "status": "partially-present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md:17-44"
+      ],
+      "notes": "REQ-SAG-0703 and REQ-SAG-0803 are missing. See REQ-QA-001."
+     },
+     {
+      "item": "Manifests: sc-ai and sc-jev-py edges, sc-lint.toml sc-observability record, README SCB-MANIFEST-004 row",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "boundaries/sc-ai/sc-ai-cli.toml:36-44",
+       "boundaries/sc-jev-py/jev-py.toml:42-49",
+       "sc-lint.toml:80-84"
+      ],
+      "notes": ""
+     },
+     {
+      "item": "Same-sprint Command::new sweep: clippy.toml entry plus expects",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "clippy.toml:13-15",
+       "crates/workspace-tests/tests/test_util_off.rs:16-22",
+       "crates/workspace-tests/tests/consumer_parity.rs:26-32"
+      ],
+      "notes": "extract/mod.rs carries no expect. Its helper delegates to tests/support/git_env.rs, which carries it. Documented."
+     }
+    ],
+    "findings": [
+     {
+      "id": "REQ-QA-001",
+      "severity": "Blocking",
+      "category": "requirement-not-listed",
+      "source_refs": [
+       "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md:17-44",
+       "docs/sc-ai/requirements.md:12",
+       "docs/sc-jev-py/requirements.md:12"
+      ],
+      "target_refs": [
+       "docs/sc-ai/requirements.md:12",
+       "docs/sc-jev-py/requirements.md:12"
+      ],
+      "issue": "The sprint owns paths in crates/sc-ai/**, crates/sc-jev-py/**, docs/sc-ai/** and docs/sc-jev-py/**, but its `requirements` list omits two crate-level ids. REQ-SAG-0703 (sc-ai install documentation; r-3b edits the sc-ai docs and the sc-publish.md crate-order lines) and REQ-SAG-0803 (sc-jev-py first release on all five channels; r-3b edits the rendered release inputs and release/**) are not named. Every other row in both crate requirements files is listed. REQ-SAG-0134 (cargo-tree-gates.sh mimalloc rows, which this sprint extends) and REQ-SAG-0620 (one RunResponse serialization printed by every consumer, per D3.2) are also in the sprint's subject area and unlisted.",
+      "required_correction": "Add REQ-SAG-0703 and REQ-SAG-0803 to the sprint front-matter `requirements` list. Add REQ-SAG-0134 and REQ-SAG-0620 as well, or record in the sprint doc why they are not constraints. Then record a requirement_check for each.",
+      "compliance_result": "partially-compliant"
+     },
+     {
+      "id": "REQ-QA-002",
+      "severity": "Blocking",
+      "category": "acceptance-gap",
+      "source_refs": [
+       "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md:567",
+       "docs/requirements.md:164"
+      ],
+      "target_refs": [
+       ".github/workflows/sc-agent-ci.yml:313-315",
+       ".github/scripts/cargo-tree-gates.sh:63-64"
+      ],
+      "issue": "The REQ-SAG-0135 acceptance row requires the clap rows to 'pass in CI for both libraries'. The developer report lists 'Remote CI not yet exercised for the new jobs' as a deferral. The `deps`, `wheel` and `workspace-tests` jobs are wired but have no recorded green run on PR #31. This criterion cannot be confirmed from repository evidence alone, so it is not-verifiable. I did not run any command or CI job myself, because this review had no shell.",
+      "required_correction": "Run the PR CI and record green results for the `deps` (cargo tree gates, check-exact-pins), `wheel` and `workspace-tests` jobs. Fix any job that fails. The finding clears when the CI evidence is attached to the PR.",
+      "compliance_result": "partially-compliant"
+     },
+     {
+      "id": "REQ-QA-004",
+      "severity": "Minor",
+      "category": "cross-doc-conflict",
+      "source_refs": [
+       "docs/architecture.md:1346",
+       "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md:199"
+      ],
+      "target_refs": [
+       "crates/sc-jev-host/src/compose.rs:370-374",
+       "docs/sc-jev-host/architecture.md:62"
+      ],
+      "issue": "ADR-SAG-0026 host half (Active, r-3b) says the run_from/ask_from signatures name `JudgeOutcome`, and sprint D2.2 specifies `ask_from -> Result<JudgeOutcome, JevError>`. The code and docs/sc-jev-host/architecture.md:62 say `ask_from` returns `AskResponse`. The change is explained only in the sprint implementation notes.",
+      "required_correction": "Edit docs/architecture.md:1346 to name `AskResponse` (`response.outcome()` is the `JudgeOutcome`). Align the D2.2 bullet in the sprint doc.",
+      "compliance_result": "partially-compliant"
+     },
+     {
+      "id": "REQ-QA-005",
+      "severity": "Minor",
+      "category": "implementation-drift",
+      "source_refs": [
+       "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md:394-402",
+       "docs/architecture.md:1351-1354"
+      ],
+      "target_refs": [
+       "crates/workspace-tests/tests/source_scans.rs:492-497",
+       "crates/sc-jev-check/src/run/mod.rs:883"
+      ],
+      "issue": "The sprint's `test_env_reads_only_in_owners` allowlist has four owners. The implementation adds crates/sc-jev-check/src/run/mod.rs for `GIT_CEILING_DIRECTORIES`. ADR-SAG-0026 environment ownership (docs/architecture.md:1351-1354) still says nothing about this exception, and the sprint's own list is unchanged. The deviation exists only in the implementation notes. It is defensible, because the variable is not a log, session or API-key variable.",
+      "required_correction": "Add the run/mod.rs exception and its reason to the ADR-SAG-0026 environment-ownership bullet and to the D7 `test_env_reads_only_in_owners` bullet, so the doc and the scan agree.",
+      "compliance_result": "partially-compliant"
+     },
+     {
+      "id": "REQ-QA-006",
+      "severity": "Minor",
+      "category": "plan",
+      "source_refs": [
+       "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md:71-121,741-744"
+      ],
+      "target_refs": [
+       "tests/support/deadline.rs",
+       "tests/support/git_env.rs",
+       "docs/development/sc-publish.md",
+       "Cargo.lock",
+       "boundaries/sc-agent-http/agent-http.toml"
+      ],
+      "issue": "Edits outside the listed `owned_paths`: tests/support/{deadline,git_env}.rs, docs/development/sc-publish.md, boundaries/sc-agent-http/agent-http.toml (comment only), Cargo.lock, and the rename edits across docs/plans/** (authorized by the coordinator). The two tests/support files carry `disallowed_methods` expects but live outside crates/**, so `source_scans` does not scan them. Sprint text says scans cover `crates/**/*.rs`, so this matches the plan, but the expects in those files are unchecked.",
+      "required_correction": "Add the unlisted paths to owned_paths in the sprint doc. Consider extending the existing `rust_files()` walk to include tests/support/*.rs, under the test-file rule, so that the existing scan covers those expects. This is not a new gate.",
+      "compliance_result": "partially-compliant"
+     }
+    ],
+    "summary": {
+     "total_findings": 5,
+     "blocking_findings": 2,
+     "overall_compliance": "non-compliant",
+     "deliverables_total": 16,
+     "deliverables_complete": 14,
+     "deliverables_incomplete": 2,
+     "deliverable_completion_percent": 87.5
+    },
+    "gate_reason": "FAIL. The worktree was valid: detached HEAD is exactly 90004d7, and refs/heads and origin for sprint/r-3b-compose-and-workspace-tests both point to it. Two Blocking findings stand. (1) The sprint `requirements` list omits REQ-SAG-0703 and REQ-SAG-0803, crate-level ids for crates the sprint owns (REQ-QA-001). (2) The REQ-SAG-0135 'pass in CI' criterion is not verifiable, because remote CI has not run (REQ-QA-002). Code and doc compliance is otherwise strong: all named deliverables, tests, manifests, ADR flips and release inputs were found and traced, and no PayloadBuilder or sc-observability use remains in sc-ai or sc-jev-py. Three Minor drift items are listed (REQ-QA-004 to 006). The crate rename and the owner decisions were not raised as findings. I read the code but ran no cargo, pytest, maturin or CI command; the developer's validation log is self-reported and was not independently re-run. Finding id REQ-QA-003 is unused."
+   }
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "a298b0e6846e44d5a",
+   "fenced_json": {
+    "agent": "arch-qa",
+    "branch": "sprint/r-3b-compose-and-workspace-tests",
+    "scope": {
+     "phase": "a.1",
+     "sprint": "r-3b"
+    },
+    "commit": "90004d7",
+    "verdict": "PASS",
+    "blocking": 0,
+    "important": 0,
+    "findings": [],
+    "adr_checks": [
+     {
+      "adr": "ADR-SAG-0026",
+      "source": "docs/architecture.md:1306",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-host/src/compose.rs:64",
+       "crates/sc-jev-host/src/compose.rs:320",
+       "crates/sc-jev-host/src/paths.rs:142",
+       "crates/sc-jev-host/Cargo.toml:21"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0028",
+      "source": "docs/architecture.md:1500",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/workspace-tests/Cargo.toml:21",
+       "Cargo.toml:14"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0005",
+      "source": "docs/architecture.md:155",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-host/src/compose.rs:336",
+       "no PayloadBuilder match in sc-jev-host, sc-ai or sc-jev-py src"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0003",
+      "source": "docs/architecture.md:504",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-agent-secrets/src/platform.rs:25",
+       "crates/sc-jev-host/src/compose.rs:31"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0020",
+      "source": "docs/architecture.md:528",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "clippy.toml:15",
+       "docs/architecture.md:602",
+       "docs/architecture.md:112",
+       "all disallowed_methods expect sites are item-level in the allowed production and test files; no crate-level expect found"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0021",
+      "source": "docs/architecture.md:848",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-host/src/paths.rs:142",
+       "crates/sc-jev-host/src/paths.rs:199"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0016",
+      "source": "docs/architecture.md:876",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-host/src/obs.rs:27",
+       "docs/architecture.md:108",
+       "no sc-observability dependency in crates/sc-ai or crates/sc-jev-py manifests"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0017",
+      "source": "docs/architecture.md:740",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:782",
+       "docs/architecture.md:109"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0023",
+      "source": "docs/architecture.md:1141",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "Cargo.toml:46",
+       "crates/sc-ai/Cargo.toml:40",
+       "crates/sc-jev-py/Cargo.toml:41",
+       "docs/architecture.md:1143"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0010",
+      "source": "docs/architecture.md:698",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-ai/Cargo.toml:25",
+       "docs/architecture.md:705"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0011",
+      "source": "docs/architecture.md:714",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-py/Cargo.toml:33",
+       "docs/architecture.md:722"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0013",
+      "source": "docs/architecture.md:817",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:829"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0022",
+      "source": "docs/architecture.md:309",
+      "listed_in_sprint_doc": false,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-ai/Cargo.toml:33",
+       "crates/sc-jev-py/Cargo.toml:33"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0025",
+      "source": "docs/architecture.md:1271",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:1273",
+       "docs/architecture.md:1289",
+       "docs/architecture.md:117"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0008",
+      "source": "docs/architecture.md:200",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:100",
+       "docs/architecture.md:1277"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0009",
+      "source": "docs/architecture.md:250",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-host/src/compose.rs:199"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0029",
+      "source": "docs/architecture.md:1020",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-py/Cargo.toml:29"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0001, 0002, 0014, 0015, 0018, 0019, 0024, 0027 (remaining listed ADRs)",
+      "source": "docs/architecture.md",
+      "listed_in_sprint_doc": true,
+      "result": "not-applicable",
+      "evidence_refs": [
+       "No change in the diff touches their subject beyond what is recorded above"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0004, 0006, 0007, 0012, 0021 (repo-level, not listed in the sprint doc, other than 0021)",
+      "source": "docs/architecture.md",
+      "listed_in_sprint_doc": false,
+      "result": "not-applicable",
+      "evidence_refs": [
+       "The diff does not touch their subjects"
+      ]
+     }
+    ],
+    "gate_artifact_checks": [
+     {
+      "artifact": "docs/architecture.md (ADR index rows and Status lines, Phase A.1 crate graph)",
+      "status": "closed",
+      "evidence_refs": [
+       "docs/architecture.md:53",
+       "docs/architecture.md:102",
+       "docs/architecture.md:120",
+       "docs/architecture.md:1502"
+      ],
+      "notes": "All r-3b markers are flipped to Active. The r-4, r-3, r-6 and r-7 markers are untouched."
+     },
+     {
+      "artifact": "boundaries/workspace-tests/workspace-tests.toml and boundaries/sc-jev-host/jev-host.toml",
+      "status": "not-applicable",
+      "evidence_refs": [],
+      "notes": "Boundary manifests and dependency edges belong to ruthless-boundary-qa. The crate manifests I read match ADR-SAG-0028 (dev-dependencies are exactly the five listed)."
+     },
+     {
+      "artifact": "release/sc-publish-consumer-input.json and release/publish-artifacts.toml",
+      "status": "not-applicable",
+      "evidence_refs": [],
+      "notes": "The sprint doc itself records that install.py was not re-run because the kit clone is absent, and that the parent must re-render. I did not request a new gate (owner rule). It is an open item for the parent, not an ADR violation."
+     }
+    ],
+    "merge_ready": true,
+    "notes": "I read the worktree contents directly. No Bash was available, so I could not run git rev-parse. The worktree is detached at gitdir .../worktrees/r3b-qa1-review, and I did not independently confirm that HEAD is 90004d7. RULE-ADR-PLAN: the sprint doc's adrs list covers every ADR the sprint touches, and every id resolves to an Active ADR in docs/architecture.md. The only list gap is ADR-SAG-0022, which is repo-level and upheld, so I did not make it a finding. RULE-ADR-AWAIT-MUTEX: no async fn or .await exists in the changed crates, so the rule is not applicable. The std Mutex uses in crates/sc-jev-host/src/obs.rs and crates/workspace-tests/tests/support/bin_path.rs are synchronous. RULE-ADR-CODE: ComposeInputs has private fields. Environment reads in src are confined to sc-agent-secrets, the sc-jev-check extract and run modules, and crates/sc-jev-host/src/paths.rs. The disallowed_methods expect sites are all item-level, and none of the spawn-site files contains ResolvedApiKey. The crate rename is not a finding."
+   }
+  },
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "ae2d5a8329056f395",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "findings",
+     "reviewed_branch": "sprint/r-3b-compose-and-workspace-tests",
+     "reviewed_commit": "90004d7",
+     "review_mode": "sprint_review",
+     "executed_checks": {
+      "fmt": {
+       "status": "pass",
+       "command": "cargo fmt --all --check"
+      },
+      "clippy": {
+       "status": "pass",
+       "command": "cargo clippy --all-targets --all-features -- -D warnings"
+      },
+      "tests": {
+       "status": "pass",
+       "command": "cargo test --workspace; cargo test -p workspace-tests; cargo test -p sc-agent-types --features git,test-util; cargo test -p sc-agent-http --features test-util; cargo test -p sc-ai --features test-util; cargo test -p sc-ai --test cli --features cli,test-util; just test-python"
+      },
+      "coverage": {
+       "status": "not_run",
+       "line": 0.0,
+       "branch": 0.0,
+       "function": 0.0,
+       "adequate_for_risk": true
+      },
+      "artifacts": {
+       "status": "not_run",
+       "command": ""
+      }
+     },
+     "findings": [
+      {
+       "id": "QA-001",
+       "category": "portability",
+       "severity": "minor",
+       "file": "crates/sc-jev-host/src/obs.rs",
+       "line": 71,
+       "issue": "Doc example hardcodes the Unix-only path \"/tmp/example-log\", which the cross-platform guidelines prohibit.",
+       "recommendation": "Use std::env::temp_dir().join(\"example-log\") in the doc example, or mark the example no_run/hidden if the path is illustrative only.",
+       "evidence": "grep -rn '\"/tmp/' crates/ tests/ returns this line only: ObservabilityAdapter::open(&PathPolicy::cli(), std::path::Path::new(\"/tmp/example-log\"))?"
+      }
+     ],
+     "summary": {
+      "total_findings": 1,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 1
+      }
+     },
+     "notes": [
+      "HEAD of the review worktree is 90004d7, on a detached HEAD. The input's branch name could not be confirmed with git, because a detached HEAD has no branch. The commit matches the assignment.",
+      "dev-report.json lists pushed_sha 614d5e5, with 90004d7 as its parent. This review covers 90004d7 only, as assigned.",
+      "All test results were green: cargo test --workspace, cargo test -p workspace-tests, the --features test-util targets for sc-agent-types (git,test-util), sc-agent-http and sc-ai, and sc-ai --test cli --features cli,test-util. just test-python reported 13 passed.",
+      "I tried --features test-util on sc-jev-host and sc-treesitter. Cargo rejected it because neither package has that feature. This is not a finding. The CI file does not list those targets either.",
+      "I skipped the multi-crate publish dry-run, as instructed.",
+      "just test-python wrote untracked output (target/ and a venv) into the review worktree. Nothing tracked was modified.",
+      "The Python tests set HOME and USERPROFILE with monkeypatch in tests/fixtures/jev-python/tests/test_run_check_and_ask.py. The guideline rule covers Rust .env() usage, so I did not report it. paths.rs:181 reads HOME and then USERPROFILE as a fallback, which is cross-platform safe."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "rust-best-practices-agent",
+   "task_id": "ae9c5baf0ed266fb7",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-3b-compose-and-workspace-tests",
+     "reviewed_commit": "90004d7",
+     "review_mode": "sprint_review",
+     "practice_mode": "all",
+     "practices_reviewed": [
+      "RBP-001",
+      "RBP-002",
+      "RBP-003",
+      "RBP-004",
+      "RBP-005",
+      "RBP-006",
+      "RBP-007",
+      "RBP-008",
+      "RBP-009",
+      "RBP-010"
+     ],
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "notes": [
+      "Worktree HEAD was verified by reading the worktree gitdir HEAD file: 90004d758db92b84afd5afd99e3f2ce89d5e1425, which matches 90004d7. I could not check the branch name because I had no git command. The detached worktree matches the assigned commit.",
+      "Files read in full: crates/sc-jev-host/src/{compose,obs,paths}.rs. For the other changed non-test Rust sources (sc-ai, sc-jev-py, sc-jev-host/lib.rs, workspace-tests/lib.rs, sc-jev-check extract/command.rs) I only grepped for map_err/format!/Mutex/Cell/pub trait/unwrap/Cow patterns and did not read them in full. I did not read the test files, scripts, TOML or docs.",
+      "RBP-001: errors are structured JevError values with stable codes (INPUT_INVALID, CONFIG_INVALID, INPUT_MISSING) and recovery hints. Examples are the obs.rs open/flush/start_logger messages and explicit_repo_root. A flush failure becomes a warning string through fix_hint (CR-014), which is by design.",
+      "RBP-004: PathPolicy uses &'static str for service and flag names, and the service name is validated at ObservabilityAdapter::open through ServiceName::new. It is a literal-data type by owner design (EXT-012), so I did not report it. Semantic ids (RepoRoot, Rev, SessionId, BackendSet) are already newtypes.",
+      "RBP-006: the only shared mutation in changed src is the process-wide Mutex<HashMap<_, Weak<LoggerInner>>> in obs.rs. It is documented (one writer per service and root), recovers from poison with PoisonError::into_inner, and the last Arc drop owns shutdown. I judged it justified.",
+      "RBP-007: no fake Result paths. Result<_, LogRejected> in log_event and action_name can really fail. The Drop impl's `let _ =` on flush/shutdown is commented as best-effort.",
+      "RBP-003/008: the changed crates add no new pub trait. SessionLog and JudgeBackend are pre-existing dyn-used traits in unchanged crates, are object-safe (Send + Sync, no generic methods) and are used as Arc<dyn ...>.",
+      "RBP-002/005/009/010: no lifecycle state machine, wrapper-forwarding noise, hot-path cloning or capability-token need was found in the changed code. HostRun is a simple prepare-then-run split that consumes self.",
+      "The crate rename to sc-jev-host was treated as settled and was not reviewed. No new gates, receipts or docs-consistency checks are requested."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "rust-service-hardening-agent",
+   "task_id": "a393144e8a9e0ec91",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "skipped",
+     "reviewed_branch": "sprint/r-3b-compose-and-workspace-tests",
+     "reviewed_commit": "90004d7",
+     "review_mode": "sprint_review",
+     "service_indicators_found": [],
+     "topics_reviewed": [],
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "notes": [
+      "The worktree is a detached copy. Its HEAD is 90004d758db92b84afd5afd99e3f2ce89d5e1425, which matches the assigned commit 90004d7. The branch name could not be checked because the worktree is detached.",
+      "No service indicators were found in the workspace Cargo manifests or crate sources. A search for tokio, axum, hyper, tonic, warp, actix, reqwest, TcpListener and serve( returned no real hits. The only matches were the word 'monotonic' in sc-agent-http and sc-jev-py.",
+      "sc-agent-http is described as a 'shared blocking HTTP layer' and uses ureq, which is not on the indicator list. The other crates are CLIs, a Python binding, and tests. None has an async server, listener, request handler or long-running worker entrypoint.",
+      "No service-hardening topics were reviewed. The check I ran was a text search, so I did not rule out a ureq client or a blocking background worker in sc-agent-http. If you want blocking-client topics such as timeouts, retries and input caps covered, add ureq to service_indicators_extra and re-dispatch."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "ab07ef3f7f1c9fb67",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "findings",
+     "reviewed_branch": "sprint/r-3b-compose-and-workspace-tests",
+     "reviewed_commit": "90004d7",
+     "findings": [
+      {
+       "id": "FTQ-001",
+       "severity": "important",
+       "file": "crates/workspace-tests/tests/support/bin_path.rs",
+       "line": 57,
+       "test": "bin_path (used by consumer_parity, git_read_parity, e2e_treesitter_producer, test_util_off)",
+       "mechanism": "unbounded_wait",
+       "issue": "bin_path runs `cargo build --release -p <pkg> ...` with `Command::output()`. That call has no deadline, no kill and no process-group cleanup. Every other subprocess in workspace-tests goes through spawn_with_deadline, which is bounded. The build uses a fixed shared directory, `$CARGO_TARGET_DIR/workspace-tests-bin` or `target/workspace-tests-bin`. Cargo takes a cross-process file lock on that directory. If another cargo process (a parallel `cargo test` invocation, an IDE or rust-analyzer build, or a stale CI process) holds the lock, the child prints 'Blocking waiting for file lock' and waits indefinitely. A network stall while fetching or a wedged rustc has the same effect. The BUILD_LOCK mutex only serialises threads in one process, so it does not guard against this. The test then blocks forever instead of failing with a message, and CI only stops it at the job-level timeout.",
+       "recommendation": "Run the build through the bounded runner with a build-specific hard deadline. Take run_with_limits or spawn_with_deadline from tests/support/deadline.rs and give it its own explicit cold-build limit. The 60s SUBPROCESS_DEADLINE is too short for a cold release build, so use a separate named constant rather than quietly widening the shared one. The build must fail with a clear panic that includes the captured stderr and names the file-lock case. Optionally pass `--locked`, and consider a per-process target directory (for example a tempdir) if sharing the directory is not required.",
+       "evidence": "let output = cargo().current_dir(workspace_root()).args([\"build\", \"--release\", \"-p\", package, \"--features\", \"cli\"]).arg(\"--target-dir\").arg(isolated_target_dir()).arg(\"--message-format=json\").stdin(Stdio::null()).stderr(Stdio::inherit()).output().expect(\"spawn cargo build\"); The module doc says the directory is fixed, 'rather than a tempdir per test', so binaries are not rebuilt each time. The deadline.rs header says 'Every wait is bounded', which this call is not."
+      }
+     ],
+     "summary": {
+      "total_findings": 1,
+      "critical": 0,
+      "important": 1,
+      "minor": 0
+     }
+    },
+    "error": null
+   }
+  }
+ ]
+}

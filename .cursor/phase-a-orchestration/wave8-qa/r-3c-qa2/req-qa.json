@@ -1,0 +1,42 @@
+{
+  "status": "FAIL",
+  "reviewed_branch": "sprint/r-3c-treesitter-cli",
+  "reviewed_commit": "641856fe5f412f3f135d3d71d1a0eadf0e34833c",
+  "errors": [],
+  "scope": {"phase": "a.1", "sprint": "r-3c"},
+  "baselines_read": ["docs/requirements.md", "docs/sc-treesitter/architecture.md"],
+  "phase_or_sprint_docs_read": ["docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md", "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md"],
+  "requirement_checks": [
+    {"id": "REQ-SAG-0134", "source": "docs/requirements.md:163", "listed_in_sprint_doc": true, "result": "not-verifiable", "evidence_refs": ["crates/sc-treesitter/Cargo.toml:21-32"]},
+    {"id": "REQ-SAG-0135", "source": "docs/requirements.md:164", "listed_in_sprint_doc": true, "result": "not-verifiable", "evidence_refs": ["crates/sc-treesitter/Cargo.toml:27-32"]},
+    {"id": "NFR-SAG-0004", "source": "docs/requirements.md:165", "listed_in_sprint_doc": true, "result": "not-verifiable", "evidence_refs": ["crates/sc-treesitter/Cargo.toml:41-43"]}
+  ],
+  "deliverable_checks": [
+    {"item": "D3 git read (R3C-001/002): hash_blob, MAX_INPUT_BYTES and Rev::is_worktree added; git_io.rs spawns nothing", "status": "present", "closure_state": "closed", "evidence_refs": ["crates/sc-agent-types/src/git.rs:32,232", "crates/sc-agent-types/src/ids.rs:135", "crates/sc-agent-types/tests/git.rs:135,167,176", "crates/sc-treesitter/src/git_io.rs:26,52,91", "docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md:40-47,149"], "notes": "git_io.rs has no Command::new or hash-object call. The cross-crate edits are listed in owned_paths with reasons. The r-3b doc has no remaining git_io.rs reference to route, and its Command::new ban waits on r-2/r-3c having moved the callers, which now holds for sc-treesitter."},
+    {"item": "R3C-004 requirement mapping and bare-invocation record", "status": "present", "closure_state": "closed", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md:150-153", "docs/sc-treesitter/architecture.md:32-33"], "notes": "The help, no-arg and test-move rows cite REQ-SAG-0310, REQ-SAG-0701 and NFR-SAG-0001. The architecture doc records bare invocation as INPUT_INVALID, exit 2."},
+    {"item": "R3C-005 ExtractInput item", "status": "present", "closure_state": "closed", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md:176-181"], "notes": "Closed as satisfied by ExtractInput::new, with a citation."},
+    {"item": "R3C-003 CI evidence at the reviewed head", "status": "not-verifiable", "closure_state": "open", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md:131-135"], "notes": "The sprint doc cites runs 42386842485 / 42386842465 at 92b3d05, not the runs 42387849824 / 42387849809 at 641856f named in the task. I cannot run commands or read CI here."}
+  ],
+  "findings": [
+    {
+      "id": "REQ-QA-R3C-003",
+      "severity": "Blocking",
+      "category": "acceptance-gap",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md:131-135"],
+      "target_refs": ["docs/requirements.md:163-165"],
+      "issue": "Still open. The sprint doc's CI evidence is for the older head 92b3d05 (runs 42386842485 / 42386842465), and the doc says 'the parent confirms the final head'. The repository does not cite green runs at 641856f. I cannot confirm that runs 42387849824 / 42387849809 are green at 641856f, because I have no CI access in this session. REQ-SAG-0134, REQ-SAG-0135 and NFR-SAG-0004 therefore remain not-verifiable from repository evidence.",
+      "required_correction": "Add runs 42387849824 / 42387849809 at 641856f to the Implementation notes, replacing or supplementing the 92b3d05 runs. Confirm they are green, or have the coordinator attest the green status directly. Then the three requirement checks can move to upheld.",
+      "compliance_result": "partially-compliant"
+    }
+  ],
+  "summary": {
+    "total_findings": 1,
+    "blocking_findings": 1,
+    "overall_compliance": "non-compliant",
+    "deliverables_total": 4,
+    "deliverables_complete": 3,
+    "deliverables_incomplete": 1,
+    "deliverable_completion_percent": 75.0
+  },
+  "gate_reason": "FAIL on one item only. R3C-001, 002, 004 and 005 are closed by file reads: hash_blob, MAX_INPUT_BYTES and Rev::is_worktree exist with tests, git_io.rs spawns nothing, the requirement mapping and the architecture record are in place, and the ExtractInput item is closed with a citation. R3C-003 is open because the repo cites CI for 92b3d05 rather than 641856f, and I cannot verify CI. If the coordinator confirms the 641856f runs green and the doc is updated to cite them, the gate flips to PASS with no further change."
+}

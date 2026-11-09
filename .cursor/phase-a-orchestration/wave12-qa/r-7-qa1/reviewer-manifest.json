@@ -1,0 +1,6 @@
+[{"agent":"rust-qa-agent","task_id":"a72e7ff5f47f776d4","spawn_actor":"parent-orchestrator","commit":"9497297"},
+{"agent":"rust-best-practices-agent","task_id":"a8763192970988ad8","spawn_actor":"parent-orchestrator","commit":"9497297"},
+{"agent":"rust-service-hardening-agent","task_id":"a677ae57aa7f0e5e6","spawn_actor":"parent-orchestrator","commit":"9497297"},
+{"agent":"flaky-test-qa","task_id":"aa6550573bd214313","spawn_actor":"parent-orchestrator","commit":"9497297"},
+{"agent":"req-qa","task_id":"a267b8c746c1f77c5","spawn_actor":"parent-orchestrator","commit":"9497297"},
+{"agent":"arch-qa","task_id":"a878b459ee9d9270c","spawn_actor":"parent-orchestrator","commit":"9497297"}]

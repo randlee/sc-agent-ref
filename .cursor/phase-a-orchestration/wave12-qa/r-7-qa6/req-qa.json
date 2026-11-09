@@ -1,0 +1,140 @@
+{
+  "status": "FAIL",
+  "reviewed_branch": "sprint/r-7-decision-schema",
+  "reviewed_commit": "45b2b07",
+  "errors": [],
+  "scope": {
+    "phase": "phase-a-refine",
+    "sprint": "r-7"
+  },
+  "baselines_read": [
+    "docs/plans/phase-a-refine/plan.md (targeted: lines 104-123 status-flip rule, 1030-1059 sprint index and crate graph)",
+    "docs/requirements.md (targeted: line 161, REQ-SAG-0109)",
+    "docs/architecture.md (targeted: lines 1533-1597 ADR-SAG-0028 r-3b and r-7 amendments, ADR-SAG-0030 header; grep for Proposed r-7 markers)",
+    "boundaries/README.md (relevant section, lines 78-116)",
+    "docs/requirements.md, docs/architecture.md and docs/project-plan.md were not read in full. This is a delta-limited QA-6 round, and the input declared no change outside the listed delta."
+  ],
+  "phase_or_sprint_docs_read": [
+    "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md (frontmatter lines 1-201, acceptance table lines 930-945, closeout lines 1003-1004)",
+    "boundaries/README.md",
+    "boundaries/sc-decision-schema/decision-schema.toml (lines 8, 20-21)",
+    "boundaries/workspace-tests/workspace-tests.toml (lines 11-31)",
+    "crates/workspace-tests/Cargo.toml (line 24)"
+  ],
+  "requirement_checks": [
+    {
+      "id": "REQ-SAG-0109",
+      "source": "docs/requirements.md:161",
+      "listed_in_sprint_doc": true,
+      "result": "not-applicable",
+      "evidence_refs": [
+        "boundaries/README.md:110-114",
+        "crates/workspace-tests/Cargo.toml:24",
+        "boundaries/workspace-tests/workspace-tests.toml:31"
+      ]
+    }
+  ],
+  "deliverable_checks": [
+    {
+      "item": "Delta A: boundaries/README.md gains the sentence that r-7 adds sc-decision-schema (features = [\"test-util\"]) as a fourth counted dev edge, with workspace-tests in its allowed_dependents",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+        "boundaries/README.md:107-114",
+        "crates/workspace-tests/Cargo.toml:24",
+        "boundaries/sc-decision-schema/decision-schema.toml:21",
+        "boundaries/workspace-tests/workspace-tests.toml:31",
+        "docs/architecture.md:1580-1589"
+      ],
+      "notes": "The sentence matches the existing three counted edges (boundaries/README.md:110-111: sc-agent-types, sc-jev-check, sc-jev-host, each listing workspace-tests). The feature claim matches the Cargo.toml dev-dependency. The manifest and ADR-SAG-0028 r-7 amendment both state the same edge."
+    },
+    {
+      "item": "Delta B: owned_paths entry 'boundaries/README.md#counted dev edges: sc-decision-schema (QA fix)'",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:200"
+      ],
+      "notes": "The entry names the section that the README delta changes."
+    },
+    {
+      "item": "Delta C: sprint status changed from in-review to complete (sprint closeout)",
+      "status": "partially-present",
+      "closure_state": "open",
+      "evidence_refs": [
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:4",
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:1003-1004"
+      ],
+      "notes": "The frontmatter now reads status: complete, but the sprint's own closeout rule still reads 'Status stays in-review (task XML); the coordinator flips it to complete after QA-2.' The sprint is therefore not flipping its own status under its own rule. The stated trigger (QA-1 through QA-5 closed every finding) is not evidenced in the repository. carry_forward_findings and triage_records are empty, and the task XML that holds the status is not in the repository."
+    },
+    {
+      "item": "Sprint acceptance row D9: no '(Proposed, r-7)' marker remains in docs/architecture.md",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:944",
+        "docs/architecture.md:1593-1594"
+      ],
+      "notes": "A grep for 'Proposed, r-7' and 'Proposed (r-7)' returns no marker. The only hit is an unrelated 'r-7 amendment' phrase at docs/architecture.md:1738."
+    },
+    {
+      "item": "ADR-SAG-0028 r-7 amendment (cross-referenced by the README sentence) present and consistent",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+        "docs/architecture.md:1576-1589"
+      ],
+      "notes": "The amendment states the fourth dev edge, the features, and both manifest entries. The r-3b bullet at docs/architecture.md:1548-1557 still says three edges, but it is superseded by the r-7 amendment, which the document's own structure labels as an amendment."
+    },
+    {
+      "item": "workspace-tests manifest allowlist lists sc-decision-schema (counted-edge counterpart of the README sentence)",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+        "boundaries/workspace-tests/workspace-tests.toml:31"
+      ],
+      "notes": "allowed_dependencies includes sc-decision-schema, so the dependent-side edge is recorded."
+    }
+  ],
+  "findings": [
+    {
+      "id": "REQ-QA-001",
+      "severity": "Blocking",
+      "category": "plan",
+      "source_refs": [
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:1003-1004",
+        "docs/plans/phase-a-refine/plan.md:118-119"
+      ],
+      "target_refs": [
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:4"
+      ],
+      "issue": "The sprint doc sets its own frontmatter status to complete (line 4). Its closeout rule (lines 1003-1004) says status stays in-review and the coordinator flips it to complete after QA-2. The delta does not follow that rule, and the closure evidence it cites (QA-1 through QA-5 closed every finding) is not in the repository. The rule is also left unchanged, so the doc now contradicts itself. The status cannot be verified against the task XML, which is not in the repository.",
+      "required_correction": "Revert line 4 to status: in-review. Let the coordinator perform the flip after QA-2 closure is recorded, using evidence that is either in the repository or in the carry-forward input. If the owner wants the sprint to flip its own status, make that a planned edit to lines 1003-1004 that is reviewed in its own round, and cite the closure evidence in that edit.",
+      "compliance_result": "non-compliant"
+    },
+    {
+      "id": "REQ-QA-002",
+      "severity": "Important",
+      "category": "cross-doc-conflict",
+      "source_refs": [
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:1003-1004"
+      ],
+      "target_refs": [
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:4"
+      ],
+      "issue": "The closeout trigger text says 'after QA-2' and 'Status stays in-review', but the frontmatter says complete and the delta note says the flip happened after QA-1 through QA-5. The same document gives two different closure triggers and two different statuses.",
+      "required_correction": "Make the closeout text and the frontmatter agree. Either restore the text to the coordinator-flip rule with the correct trigger, or record the planned rule change as described in REQ-QA-001. Until the two agree, the document remains a cross-document conflict, and the gate policy does not allow PASS.",
+      "compliance_result": "non-compliant"
+    }
+  ],
+  "summary": {
+    "total_findings": 2,
+    "blocking_findings": 1,
+    "overall_compliance": "non-compliant",
+    "deliverables_total": 6,
+    "deliverables_complete": 5,
+    "deliverables_incomplete": 1,
+    "deliverable_completion_percent": 83.3
+  },
+  "gate_reason": "FAIL. The README delta (fourth counted dev edge with features = [\"test-util\"], the owned_paths entry, the D9 marker check, the ADR-SAG-0028 r-7 amendment and the workspace-tests allowlist) is consistent across the repository. The status flip to complete is not: it contradicts the sprint doc's own closeout rule (lines 1003-1004), the closure trigger is internally inconsistent, and the QA-1 through QA-5 closure evidence is not in the repository. This is a Blocking finding (REQ-QA-001), a cross-document conflict (REQ-QA-002) and an open gate-style closeout, so PASS is not allowed. Deliverable completion is 83.3%, below the required 100%. The review was limited to the delta, which I could not diff with git because my tools only read files, so the delta was identified from the input notes and checked against current file contents."
+}

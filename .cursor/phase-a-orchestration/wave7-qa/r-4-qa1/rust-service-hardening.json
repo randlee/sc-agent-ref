@@ -1,0 +1,46 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-4-adrs-and-manifests",
+    "reviewed_commit": "59ec83882480f05ff4b1203d48ecd834afd8aced",
+    "review_mode": "sprint_review",
+    "service_indicators_found": [],
+    "topics_reviewed": ["dependency_hygiene", "ci_checks_release_checklist"],
+    "findings": [
+      {
+        "id": "RSH-001",
+        "topic": "dependency_hygiene",
+        "severity": "important",
+        "file": "Cargo.toml",
+        "line": 39,
+        "issue": "`sc-observability-types = \"=1.5.0\"` is an exact pin that is not on the ADR-SAG-0023 lockstep list. The list in docs/architecture.md (lines 920-926) holds sc-observability, tree-sitter, tree-sitter-python, tree-sitter-rust and sc-agent-compose. The ADR text (line 917) says sc-observability-types is not on the list because r-1 removes it. The crate is still live: crates/sc-agent-types/Cargo.toml:29 consumes it, and boundaries/sc-agent-types/agent-types.toml:38 allows it. check-exact-pins.sh scans [workspace.dependencies], so it will report NOT LISTED and exit 1. That fails the new `deps` CI job on this commit.",
+        "recommendation": "Either relax the pin to a caret range (\"1.5\"), or add sc-observability-types to the lockstep list with its reason until r-1 removes it. Prefer the caret range if the ADR is the source of truth. Confirm by running `bash .github/scripts/check-exact-pins.sh` on the branch.",
+        "evidence": "Reading only, not execution: the Python logic compares each `=` requirement's package name to the marker-delimited set. The workspace entry's name is absent from that set, so unlisted is non-empty and sys.exit(1) runs. I could not run the script because no shell was available."
+      },
+      {
+        "id": "RSH-002",
+        "topic": "dependency_hygiene",
+        "severity": "minor",
+        "file": ".github/workflows/sc-agent-ci.yml",
+        "line": 213,
+        "issue": "The `deps` job has no vulnerability or licence supply-chain scan (cargo audit or cargo deny). It checks pins and the allocator tree only. Pin discipline limits drift but does not detect known-vulnerable crates.",
+        "recommendation": "Add a SHA-pinned, version-pinned cargo-deny or cargo-audit step to the `deps` job, or record in the ADR that it is covered elsewhere, for example by sc-publish-dry-run.yml.",
+        "evidence": "No audit or deny step appears anywhere in the workflow."
+      }
+    ],
+    "summary": {
+      "total_findings": 2,
+      "by_severity": { "critical": 0, "important": 1, "minor": 1 }
+    },
+    "notes": [
+      "No service indicators exist. The tokio, axum, hyper, tonic, warp, actix-web and reqwest dependencies and #[tokio::main] are all absent. The review was limited to dependency hygiene and the CI supply-chain posture, as the dispatch requested. Runtime topics (timeouts, shutdown and so on) were skipped as not applicable.",
+      "HEAD verification: the worktree .git points to .git/worktrees/r-4-adrs-and-manifests. Its HEAD is refs/heads/sprint/r-4-adrs-and-manifests, and that ref reads 59ec83882480f05ff4b1203d48ecd834afd8aced, which matches the assigned commit.",
+      "Allocator behaviour is unchanged for released binaries. crates/sc-ai/src/main.rs:6-10 and crates/sc-treesitter/src/main.rs:9-17 still set #[global_allocator] MiMalloc unconditionally. The `cli` feature is in `default` for both crates. Each [[bin]] has required-features = [\"cli\"], and the `cli` test target is gated the same way. Default builds, `cargo install` and the release matrix therefore keep the allocator in both binaries. Only `--no-default-features` builds drop the bins and mimalloc, which is intended. A caveat: `cargo install sc-ai --no-default-features` would install nothing, and the sc-publish docs should say so (not verified; docs/development/sc-publish.md was not read in depth).",
+      "cargo-tree-gates.sh: the word-bounded regex correctly avoids matching libmimalloc-sys. The gates cover only the lib/no-default-features rows. The default-feature presence of mimalloc in the binaries is not asserted by CI. Optional hardening: add a row or check that the default tree of each bin crate contains mimalloc.",
+      "CI posture is good. Every action is pinned to a full commit SHA with a version comment. The permissions are contents: read. Every step has a timeout. Coverage goes to a run artifact only, with no third-party upload. python3 -I is used for the embedded tomllib script. The Python version is pinned to 3.11.9, which satisfies the tomllib requirement. Tools are installed as exact versions through taiki-e/install-action. No pull_request_target is used.",
+      "Pin script details: it handles renamed packages and target tables, and its self-test covers an unlisted pin, a rename and missing markers. One weakness: the allowed set is built from stripped lines, so any non-blank text line placed between the markers would silently allow a crate of that name. The ADR block currently contains only crate names, so this is acceptable."
+    ]
+  },
+  "error": null
+}

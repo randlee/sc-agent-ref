@@ -1,0 +1,28 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/r-2b-multi-backend-semantics",
+    "reviewed_commit": "330986f574914ada17e79d074227527cce4eb9ba",
+    "review_mode": "sprint_review",
+    "executed_checks": {
+      "fmt": {"status": "pass", "command": "cargo fmt --all --check"},
+      "clippy": {"status": "pass", "command": "cargo clippy --all-targets --all-features -- -D warnings"},
+      "tests": {"status": "pass", "command": "cargo test (workspace); cargo test -p sc-jev -p sc-jev-backends -p sc-jev-check --features test-util"},
+      "coverage": {"status": "not_run", "line": 0.0, "branch": 0.0, "function": 0.0, "adequate_for_risk": true},
+      "artifacts": {"status": "not_run", "command": ""}
+    },
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": {"critical": 0, "important": 0, "minor": 0}
+    },
+    "notes": [
+      "The worktree is a detached HEAD, as the input describes. HEAD equals the assigned commit 330986f. The branch name could not be verified against HEAD.",
+      "I did not run `cargo test --all-features` for the whole workspace. It fails to link sc-jev-py's lib test because the all-features build turns on the sc-jev-py `extension-module` feature, whose symbols are left undefined for the Python interpreter. The Cargo.toml comment on that feature says `cargo test` leaves it off, so this is a limit of the feature, not a regression in r-2b. Clippy with --all-features and plain `cargo test` both pass.",
+      "Cross-platform grep for hardcoded \"/tmp/\" under crates/ found nothing.",
+      "Coverage was not requested. The multi-crate publish dry-run was skipped, as the input instructed."
+    ]
+  },
+  "error": null
+}

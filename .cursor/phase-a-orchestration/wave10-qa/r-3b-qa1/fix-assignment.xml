@@ -1,0 +1,64 @@
+<cursor-task id="fix-r-3b-qa1" phase="phase-a-refine (A.1)" assignee="rust-developer" mode="fix">
+  <description>r-3b QA-1 fix round. qa-r-3b-1 FAIL 2B/2I/4M (enforcer https://github.com/randlee/sc-agent/pull/31#issuecomment-6714709670). Fix all ids; PR 31 CI must be fully green (incl. Windows).</description>
+
+  <branch>sprint/r-3b-compose-and-workspace-tests</branch>
+  <worktree>/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-3b-compose-and-workspace-tests</worktree>
+  <pr-target>integrate/phase-a</pr-target>
+  <authoritative-sprint-doc>docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md</authoritative-sprint-doc>
+
+  <additional-sprint-docs>
+
+  </additional-sprint-docs>
+
+  <finding-ids>
+REQ-QA-001 (B), REQ-QA-002 (B), CI-R3B-001 (I), FTQ-001 (I), REQ-QA-004, REQ-QA-005, REQ-QA-006, QA-001 (M)
+  </finding-ids>
+
+  <requirement-ids>
+REQ-SAG-0109, REQ-SAG-0135, REQ-SAG-0703, REQ-SAG-0803, REQ-SAG-0134, REQ-SAG-0620
+  </requirement-ids>
+
+  <adr-ids>
+ADR-SAG-0026, ADR-SAG-0028
+  </adr-ids>
+
+  <triage-records>
+.triage/phase-a-refine/findings/R3B-{REQ-QA-001,REQ-QA-002,CI-R3B-001,FTQ-001,REQ-QA-004,REQ-QA-005,REQ-QA-006,QA-001}.ttl committed on integrate/phase-a; all promote to the r-3b branch.
+  </triage-records>
+
+  <required-fixes>
+1. CI-R3B-001 (Windows test job): the clippy part is fixed in a6cd399. The job still fails: workspace-tests test_cli_and_python_data_match_golden panics at crates/workspace-tests/tests/support/bin_path.rs:67 &#x27;cargo build -p sc-ai failed&#x27;. Cause: the --target-dir is a canonicalized verbatim path (\\?\D:\...\workspace-tests-bin), and libmimalloc-sys&#x27;s cl.exe build cannot use it. Do not pass a \\?\-prefixed path to cargo: build the dir from CARGO_TARGET_DIR or the workspace root without canonicalize (or strip the verbatim prefix), and keep it absolute.
+2. FTQ-001 in the same file: run that cargo build through the bounded runner (tests/support/deadline.rs) with its own named cold-build deadline (e.g. BIN_BUILD_DEADLINE), failing with a panic that includes captured stderr and names the file-lock case; add --locked.
+3. QA-001: crates/sc-jev-host/src/obs.rs:71 doc example uses std::env::temp_dir().join(&quot;example-log&quot;) instead of /tmp.
+4. REQ-QA-001: add REQ-SAG-0703, REQ-SAG-0803, REQ-SAG-0134, REQ-SAG-0620 to the sprint requirements list with evidence (or a one-line not-applicable reason) in Implementation notes.
+5. REQ-QA-004: docs/architecture.md ADR-SAG-0026 host half and sprint D2.2 say ask_from returns AskResponse (response.outcome() is the JudgeOutcome).
+6. REQ-QA-005: document the sc-jev-check/src/run/mod.rs GIT_CEILING_DIRECTORIES exception in the ADR-SAG-0026 environment-ownership bullet and the D7 test_env_reads_only_in_owners bullet.
+7. REQ-QA-006: add tests/support/{deadline,git_env}.rs, docs/development/sc-publish.md, boundaries/sc-agent-http/agent-http.toml, Cargo.lock and the coordinator-authorized rename docs to owned_paths; extend the existing source_scans rust_files() walk to include tests/support/*.rs under the test-file rule (no new gate).
+8. REQ-QA-002: closes when PR 31 CI is fully green; cite the run id in Implementation notes.
+  </required-fixes>
+
+  <acceptance-criteria>
+just lint; cargo clippy --workspace --all-targets --all-features -- -D warnings; cargo test --workspace; cargo test -p workspace-tests; the --features test-util runs; just test-python; RUSTDOCFLAGS=-D warnings cargo doc --workspace --no-deps. Push; PR 31 CI fully green including test (windows-2022). rg -n &#x27;&quot;/tmp/&#x27; crates/ returns nothing. Sprint doc stays in-review.
+  </acceptance-criteria>
+
+  <validation-requirements>
+
+  </validation-requirements>
+
+  <references>
+.cursor/phase-a-orchestration/wave10-qa/r-3b-qa1/ (reviewer JSON); CI run for a6cd399 test (windows-2022)
+  </references>
+
+  <workflow>
+    <step id="a">ACK this Task immediately. Begin work in the same session unless blocked. This Task has no prior sprint session memory — rely only on this assignment and the cited docs.</step>
+    <step id="b">Read `docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md` before editing. It is the authoritative sprint plan for the owning/promoted branch. Treat it as the source for sprint scope, retained requirements, deletion targets, validation, and acceptance criteria. If this assignment summary and the sprint doc differ, the sprint doc wins and the mismatch must be reported.</step>
+    <step id="c">If additional sprint docs are listed, read them as supporting origin context for cross-sprint findings on this branch. Do not treat them as replacing `docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md`.</step>
+    <step id="d">Read the cited requirement ids and ADR ids in this assignment. Those ids — not whole-document dumps — are the compliance targets this fix must restore. Sprint plans already embed broader requirements/ADR links from planning; do not expand scope beyond the cited ids plus triage occurrences unless the authoritative sprint doc requires it.</step>
+    <step id="e">Update the assigned worktree from the target branch before editing. Include all earlier-sprint fixes already merged forward to that branch.</step>
+    <step id="f">Read the referenced triage records first. Treat the listed occurrences as the minimum required scope on this branch. Fix **every** finding id in `<finding-ids>` regardless of severity (Blocking, Important, and Minor).</step>
+    <step id="g">Fix every promoted-branch occurrence in scope. Do not stop at the first location when the triage record marks the finding as repeatable.</step>
+    <step id="h">As soon as the branch is pushable, commit and push immediately. Report branch name, commit hash, and triage `.ttl` paths from `<triage-records>` so the evidence chain shows fix scope was triaged.</step>
+    <step id="i">Run the required validation after the push report and send a second report with PASS or FAIL plus concrete failure details.</step>
+    <step id="j">Stop after the validation report. Wait for a new parent Task; do not self-merge. Do not spawn child Tasks (reviewers, cursor-quality-mgr, or follow-on dev Tasks).</step>
+  </workflow>
+</cursor-task>

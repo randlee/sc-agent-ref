@@ -1,0 +1,16 @@
+<cursor-task id="dev-r-2b" sprint="r-2b" assignee="rust-developer">
+  <description>Phase A.1 sprint r-2b (wave 3; runs alone). The sprint doc is authoritative for scope, deliverables, deletions, validation and acceptance. Owner decisions (PHASE-A-REVIEW.md §4/§7) are settled; do not reopen. D9 pending (r-5 blocked; not your concern). D0 outcome 4 applies: no self dev-dependency; [[test]] required-features = ["test-util"] + --features test-util (boundaries/README.md). Lesson from r-1 QA: every code shape you ship must be governed by an Active ADR at merge — flip your own subsections with the sprint doc's exact wording, list every Active governing ADR in adrs, write an Implementation notes section mapping deviations to requirement/ADR, keep --features on validation lines, status in-review until QA passes.</description>
+  <worktree>/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-2b-multi-backend-semantics</worktree>
+  <branch>sprint/r-2b-multi-backend-semantics</branch>
+  <pr-target>integrate/phase-a</pr-target>
+  <base-commit>38b4ce6 (integrate/phase-a after r-2 merged; merge origin/integrate/phase-a again before PR to pick up the docs-only PR 28)</base-commit>
+  <authoritative-sprint-doc>docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md (in your worktree)</authoritative-sprint-doc>
+  <plan>docs/plans/phase-a-refine/plan.md; docs/architecture.md ADR-SAG-0023..0029 and the (Proposed, r-2b) subsections you flip; the Implementation notes of every earlier sprint doc (deviations and items deferred to you).</plan>
+  <deliverables>Every D-section of the sprint doc in order. Touch only owned_paths; stop and report if a change you need is outside them.</deliverables>
+  <acceptance-criteria>
+- Every row of "Acceptance criteria (authoritative)" satisfied with the exact "Required validation" commands run and results quoted.
+- Workspace green: just lint; cargo clippy --workspace --all-targets --all-features -- -D warnings; cargo fetch --locked; cargo test --workspace plus every [[test]] required-features target with its --features; RUSTDOCFLAGS=-D warnings cargo doc --workspace --no-deps; just test-python; cargo hack --each-feature test -p sc-treesitter; bash .github/scripts/cargo-tree-gates.sh; bash .github/scripts/check-exact-pins.sh; bash scripts/sc-publish-dry-run.sh.
+- Commits per D-section with trailer Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>; push early and often; report pushed SHA + per-row table + deviations + deferrals + files outside owned_paths. No PR, no merge, no agents. Never edit kit-written release files. zsh: never use a variable named status. Keep an untracked NOTES-r-2b.md for resume.
+  </acceptance-criteria>
+  <references>PHASE-A-REVIEW.md §4/§7; docs/plans/phase-a-refine/plan-review-{1,2,3,4}-dispositions.md; docs/plans/phase-a/a-10-hardening-dispositions.md; boundaries/README.md D0 record.</references>
+</cursor-task>

@@ -1,0 +1,66 @@
+<cursor-qa-task id="qa-a-9-3" sprint="a-9" assignee="cursor-quality-mgr">
+  <description>QA-3 closeout for PR #17 — sprint a-9 sc-publish kit install. QA-1 FAIL (20 findings) at d2738c8 → fix 0cb69c5 → QA-2 closed all 20 and REQ-QA-006, left 1 minor (ARCH-003) → doc fix ea593cc → QA-3 round-limited recheck.</description>
+  <review-mode>sprint_review</review-mode>
+  <authoritative-sprint-doc>docs/plans/phase-a/sprint-a-9-sc-publish-install.md</authoritative-sprint-doc>
+  <pr-number>17</pr-number>
+  <pr-target>integrate/phase-a</pr-target>
+  <branch>sprint/a-9-sc-publish-install</branch>
+  <worktree>/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-9-sc-publish-install</worktree>
+  <commits>ea593cc8a3ef42dc80e4b1e6a4d928c29d577bc6 (QA-3); 0cb69c5a67ab605b2a39e481538939af10d0a880 (QA-2 full recheck, code unchanged since)</commits>
+  <prior-rounds>qa-a-9-1 FAIL 2B+4I+14M https://github.com/randlee/sc-agent/pull/17#issuecomment-6702488738 ; qa-a-9-2 (not separately posted) 0B+0I+1M with all 20 QA-1 ids closed</prior-rounds>
+  <enforcer-binding>cursor-quality-mgr only; spawn gate from parent handoff; no Task spawns</enforcer-binding>
+  <parent-reviewer-handoff required="true">
+    <manifest>[
+  {"agent": "arch-qa", "task_id": "a3a9a1c6345130c09", "spawn_actor": "parent-orchestrator"},
+  {"agent": "req-qa", "task_id": "a9e44d601b6af45dc", "spawn_actor": "parent-orchestrator"},
+  {"agent": "rust-qa-agent", "task_id": "ae7075e47f93a5180", "spawn_actor": "parent-orchestrator"}
+]</manifest>
+    <reviewer-outputs round="qa-a-9-3" commit="ea593cc">
+```json
+{"status":"PASS","reviewed_branch":"sprint/a-9-sc-publish-install","reviewed_commit":"ea593cc8a3ef42dc80e4b1e6a4d928c29d577bc6","errors":[],"scope":{"phase":"a","sprint":"a-9"},"requirement_checks":[{"id":"REQ-SAG-0102","result":"upheld"},{"id":"REQ-SAG-0132","result":"upheld"}],"carry_forward_closure":{"REQ-QA-006":"closed on parent diff evidence"},"findings":[],"summary":{"total_findings":0,"blocking_findings":0,"overall_compliance":"compliant","deliverables_total":10,"deliverables_complete":10,"deliverables_incomplete":0,"deliverable_completion_percent":100.0},"gate_reason":"PASS. Round-limited QA-3. REQ-QA-006 closed; appended jev_cross_impl sentences consistent with REQ-SAG-0102 and sprint a-1; deliverables 10/10."}
+```
+```json
+{"agent":"arch-qa","branch":"sprint/a-9-sc-publish-install","scope":{"phase":"a","sprint":"a-9"},"commit":"ea593cc8a3ef42dc80e4b1e6a4d928c29d577bc6","verdict":"PASS","blocking":0,"important":0,"findings":[],"carry_forward_closure":{"ARCH-003":"closed"},"merge_ready":true,"notes":"Sprint doc lines 90-92 accurate against sc-jev-py/Cargo.toml (publish=false, [[test]] jev_cross_impl path ../../tests/jev_cross_impl/main.rs); no ADR contradiction. Round-limited review."}
+```
+```json
+{"success":true,"data":{"status":"pass","reviewed_branch":"sprint/a-9-sc-publish-install","reviewed_commit":"ea593cc8a3ef42dc80e4b1e6a4d928c29d577bc6","review_mode":"round_limit","executed_checks":{"fmt":{"status":"carried_forward_from_qa2_pass"},"clippy":{"status":"carried_forward_from_qa2_pass"},"tests":{"status":"carried_forward_from_qa2_pass"},"just_lint":{"status":"pass"}},"findings":[],"summary":{"total_findings":0,"by_severity":{"critical":0,"important":0,"minor":0}},"notes":["HEAD ea593cc verified","git diff --stat 0cb69c5 ea593cc: one docs file, 3 insertions; no Rust/Cargo/script/workflow change, QA-2 execution facts carry forward","just lint exit 0"]},"error":null}
+```
+    </reviewer-outputs>
+    <supporting-round round="qa-a-9-2" commit="0cb69c5" manifest='[
+  {"agent": "req-qa", "task_id": "ad4f420209aa2c275", "spawn_actor": "parent-orchestrator"},
+  {"agent": "arch-qa", "task_id": "a6a04222c11401d4d", "spawn_actor": "parent-orchestrator"},
+  {"agent": "rust-qa-agent", "task_id": "a84a2474787659fb3", "spawn_actor": "parent-orchestrator"},
+  {"agent": "flaky-test-qa", "task_id": "a48020b8388f10180", "spawn_actor": "parent-orchestrator"}
+]'>
+```json
+{"status":"PASS","reviewed_branch":"sprint/a-9-sc-publish-install","reviewed_commit":"0cb69c5a67ab605b2a39e481538939af10d0a880","errors":[],"scope":{"phase":"a","sprint":"a-9"},
+"requirement_checks":[{"id":"REQ-SAG-0130","result":"upheld"},{"id":"REQ-SAG-0131","result":"upheld"},{"id":"REQ-SAG-0132","result":"upheld"},{"id":"REQ-SAG-0803","result":"upheld"},{"id":"REQ-SAG-0802","result":"upheld"},{"id":"NFR-SAG-0002","result":"upheld"},{"id":"REQ-SAG-0102","result":"upheld"},{"id":"REQ-SAG-0800","result":"upheld"}],
+"carry_forward_closure":{"REQ-QA-001":"closed","REQ-QA-002":"closed","REQ-QA-003":"closed","REQ-QA-004":"closed","REQ-QA-005":"closed","ARCH-001":"closed (req side)","ARCH-002":"closed (req side)"},
+"findings":[{"id":"REQ-QA-006","severity":"Minor","category":"cross-doc-conflict","issue":"Reviewer could not run git to confirm docs/requirements.md edit is limited to the REQ-SAG-0132 row.","required_correction":"Parent to confirm via git diff.","parent_resolution":"CLOSED by parent evidence: git diff origin/integrate/phase-a...0cb69c5 -- docs/requirements.md = 1 file, 1 insertion, 1 deletion, the REQ-SAG-0132 row only."}],
+"regression_scan":{"jev_cross_impl_moved_to_sc-jev-py":"no violation (REQ-SAG-0102 / a-1 name only tests/jev_cross_impl and workspace command)","include_allowlists_tests":"no regression","toml_1x":"no requirement names a toml version"},
+"summary":{"total_findings":1,"blocking_findings":0,"overall_compliance":"compliant","deliverables_total":10,"deliverables_complete":10,"deliverables_incomplete":0,"deliverable_completion_percent":100.0},
+"gate_reason":"PASS. All carry-forwards closed; deliverables 10/10; REQ-SAG-0132, deliverable 3 and acceptance row agree; no new regression."}
+```
+```json
+{"agent":"arch-qa","branch":"sprint/a-9-sc-publish-install","scope":{"phase":"a","sprint":"a-9"},"commit":"0cb69c5a67ab605b2a39e481538939af10d0a880","verdict":"PASS","blocking":0,"important":0,
+"findings":[{"id":"ARCH-003","rule":"RULE-ADR-PLAN","adr":"ADR-SAG-0018","severity":"MINOR","file":"docs/plans/phase-a/sprint-a-9-sc-publish-install.md","line":82,"description":"Decisions paragraph does not mention that the jev_cross_impl [[test]] target is now hosted by sc-jev-py (reason recorded only in sc-jev-py/Cargo.toml comment). Documentation gap only.","remediation":"Add one sentence: jev_cross_impl is hosted by the publish = false crate sc-jev-py so no crates.io package carries it."}],
+"carry_forward_closure":{"ARCH-001":"closed","ARCH-002":"closed"},
+"adr_checks":{"ADR-SAG-0011":"upheld","ADR-SAG-0022":"upheld","ADR-SAG-0017":"upheld","ADR-SAG-0018":"upheld","ADR-SAG-0012":"upheld","ADR-SAG-0013":"upheld","ADR-SAG-0016":"upheld","ADR-SAG-0015":"upheld","ADR-SAG-0010":"upheld","ADR-SAG-0007":"upheld"},
+"merge_ready":true,
+"notes":"Dependency hoist changes no edge; ADR-SAG-0016 satisfied by =1.5.0; jev_cross_impl in sc-jev-py creates no sc-jev edge (ADR-SAG-0012 holds); [[bin]] removal fine; REQ-SAG-0132 rewording consistent with ADR-0017/0018, no ADR amendment needed. Out of scope for phase review: boundaries/sc-treesitter/treesitter.toml allowed_dependencies lists only sc-agent-types while the crate also depends on mimalloc, serde_json, tree-sitter* (pre-existing)."}
+```
+```json
+{"success":true,"data":{"status":"pass","reviewed_branch":"sprint/a-9-sc-publish-install","reviewed_commit":"0cb69c5a67ab605b2a39e481538939af10d0a880","review_mode":"sprint_review",
+"executed_checks":{"fmt":{"status":"pass"},"clippy":{"status":"pass"},"tests":{"status":"pass","command":"cargo test --workspace (194 passed; jev_cross_impl under sc-jev-py 1 passed)"},"just_lint":{"status":"pass"},"sc_publish_dry_run_sh":{"status":"pass","note":"exit 0; 7 crates packaged and rebuilt from tarball; only the 7 standard 'aborting upload due to dry run' warnings"},"coverage":{"status":"not_run"}},
+"findings":[],"summary":{"total_findings":0,"by_severity":{"critical":0,"important":0,"minor":0}},
+"carry_forward_closed":["QA-001","QA-002","QA-003","QA-004","RBP-F001","RBP-F002","RBP-F003","RBP-F004","RBP-F005","RBP-F006"],
+"notes":["Include allowlists safe: sc-jev-check ships assets/jev.toml + llm-evaluator-system.md; sc-treesitter ships assets/queries/**; no build.rs","sc-treesitter binary still builds without [[bin]]","Workflow SHA-pinned, ubuntu-24.04, maturin==1.16.0, cache key with toolchain + restore-keys, per-step timeouts, network env set","Script: tomllib pin parsing, kit reset/clean, mktemp wheel dir + guard, bounded() fallback worked on macOS","cargo tree -d shows no duplicate toml","Out of scope: kit-owned workflows still tag-pin actions; must be fixed upstream in sc-publish"]},"error":null}
+```
+```json
+{"success":true,"data":{"status":"pass","reviewed_branch":"sprint/a-9-sc-publish-install","reviewed_commit":"0cb69c5a67ab605b2a39e481538939af10d0a880","findings":[],"summary":{"total_findings":0,"critical":0,"important":0,"minor":0},
+"carry_forward_closed":["FTQ-001","FTQ-002","FTQ-003"],
+"notes":["FTQ-001 closed: actions SHA-pinned, ubuntu-24.04, toolchain 1.94.1, python 3.11, maturin 1.16.0 (SHA-to-tag match not independently verified)","FTQ-002 closed: mktemp wheel dir with EXIT trap; caller dir cleared only if basename sc-agent-wheels and not / or repo root; kit reset --hard + clean -fdxq on reuse","FTQ-003 closed: per-step timeout-minutes, bounded() wrapper (timeout/gtimeout/python3) maps 124 to named failure; CARGO_HTTP_TIMEOUT/CARGO_NET_RETRY/PIP_DEFAULT_TIMEOUT; no retry loops","jev_cross_impl under sc-jev-py is its own test binary: no shared statics, env, temp paths or ordering; deterministic","Unreported optional hardening: local single-flight lock for concurrent runs sharing .sc-publish-kit"]},"error":null}
+```
+    </supporting-round>
+  </parent-reviewer-handoff>
+</cursor-qa-task>

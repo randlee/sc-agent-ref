@@ -1,0 +1,31 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "PE-QA2-RBP-F004",
+ "found_in": "A1-R6",
+ "found_at": "2026-11-08T17:33:18Z",
+ "title": "RowContext has all-public fields and is not non_exhaustive, so a new column breaks downstream struct literals.",
+ "description": "RowContext has all-public fields and is not non_exhaustive, so a new column breaks downstream struct literals.",
+ "category": "api-design",
+ "severity": "minor",
+ "pattern": "api-design",
+ "file_filter": "crates/sc-decision-schema/src/session_log/mod.rs",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "f0171cbd38c3ca5e2b9b984bd591e3ff19838e0f"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a"
+ ]
+}

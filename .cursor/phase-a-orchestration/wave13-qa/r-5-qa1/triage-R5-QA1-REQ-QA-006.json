@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "R5-QA1-REQ-QA-006",
+ "found_in": "A1-R5",
+ "found_at": "2026-11-08T05:55:41Z",
+ "title": "(a) The all-types fixture and test payload carry the prior answer {question_id: quality, choice: yes}, but quality's choices are pass and fa",
+ "description": "(a) The all-types fixture and test payload carry the prior answer {question_id: quality, choice: yes}, but quality's choices are pass and fail. sc-jev-check's `validate_state` would refuse that state as 'not in the question'. (b) The `CanonicalJudgePayload::from_bytes` doc says the error never names a payload byte outside a question id, but it formats the raw serde error (`canonical payload is invalid: {error}`). For type mismatches serde_json echoes the offending value (for example `invalid type: string \"...\"`).",
+ "category": "implementation-drift",
+ "severity": "minor",
+ "pattern": "implementation-drift",
+ "file_filter": "crates/sc-decision-schema/src/payload.rs",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "77fffdbd89c5e927f9c6b51fc650fada72cfb400"
+  },
+  {
+   "branch": "sprint/r-5-jev-wire-envelope",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope",
+   "order_index": 1,
+   "head_sha": "14f85f129fda46e39bda90ae2a5333e69213312b"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a",
+  "sprint/r-5-jev-wire-envelope"
+ ]
+}

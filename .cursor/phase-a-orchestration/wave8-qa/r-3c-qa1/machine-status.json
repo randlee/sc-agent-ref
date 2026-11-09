@@ -1,0 +1,116 @@
+{
+  "reviewer_spawn_gate": "pass",
+  "reviewer_manifest": [
+    {
+      "agent": "req-qa",
+      "task_id": "a0fc565b1fbac8fa8",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "FAIL",
+      "findings": {
+        "blocking": 3,
+        "important": 1,
+        "minor": 2
+      }
+    },
+    {
+      "agent": "arch-qa",
+      "task_id": "aa54d513e502de0a7",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "PASS",
+      "findings": {
+        "blocking": 0,
+        "important": 0,
+        "minor": 0
+      }
+    },
+    {
+      "agent": "rust-qa-agent",
+      "task_id": "acbbe18cbf98260c2",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "findings",
+      "findings": {
+        "blocking": 0,
+        "important": 0,
+        "minor": 1
+      }
+    },
+    {
+      "agent": "rust-best-practices-agent",
+      "task_id": "a16d744c3ce22a626",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "findings",
+      "findings": {
+        "blocking": 0,
+        "important": 1,
+        "minor": 0
+      }
+    },
+    {
+      "agent": "flaky-test-qa",
+      "task_id": "a5071cfc10b18a1a3",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "findings",
+      "findings": {
+        "blocking": 0,
+        "important": 1,
+        "minor": 1
+      }
+    },
+    {
+      "agent": "ruthless-boundary-qa",
+      "task_id": "adde922b34cd1f28a",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "findings",
+      "findings": {
+        "blocking": 0,
+        "important": 2,
+        "minor": 1
+      }
+    }
+  ],
+  "verdict": "FAIL",
+  "findings": {
+    "blocking": 4,
+    "important": 5,
+    "minor": 5
+  },
+  "evidence_chain": {
+    "qa_pass": "qa-r-3c-1",
+    "commit": "39661a6d651223d7a15d514226f83f473f2337cb",
+    "pr_number": 25,
+    "pr_comment_url": "https://github.com/randlee/sc-agent/pull/25#issuecomment-6708982753",
+    "coordinator_task_id": "cursor-quality-mgr-fallback",
+    "reviewer_tasks": {
+      "req-qa": "a0fc565b1fbac8fa8",
+      "arch-qa": "aa54d513e502de0a7",
+      "rust-qa-agent": "acbbe18cbf98260c2",
+      "rust-best-practices-agent": "a16d744c3ce22a626",
+      "flaky-test-qa": "a5071cfc10b18a1a3",
+      "ruthless-boundary-qa": "adde922b34cd1f28a"
+    },
+    "ci": {
+      "failing_check": "test (windows-2022)",
+      "cause": "clap usage line uses argv[0]"
+    },
+    "triage": {
+      "phase_id": "phase-a.1",
+      "ttl_paths": [],
+      "qa_triage_task_ids": []
+    },
+    "parent_correlation_required": true
+  },
+  "blocking_ids": [
+    "REQ-QA-R3C-001",
+    "REQ-QA-R3C-002",
+    "REQ-QA-R3C-003",
+    "CI-R3C-001"
+  ],
+  "next_action": "triage_and_fix",
+  "fix_assignment": ".cursor/phase-a-orchestration/wave8-dev/fix-r-3c-qa1.md"
+}

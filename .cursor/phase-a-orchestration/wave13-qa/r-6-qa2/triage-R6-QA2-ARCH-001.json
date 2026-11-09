@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "R6-QA2-ARCH-001",
+ "found_in": "A1-R6",
+ "found_at": "2026-11-08T06:39:59Z",
+ "title": "Four delta behaviours are recorded only in the sprint doc and the crate docs (docs/sc-jev-host/architecture.md:62, docs/sc-jev-check/archite",
+ "description": "Four delta behaviours are recorded only in the sprint doc and the crate docs (docs/sc-jev-host/architecture.md:62, docs/sc-jev-check/architecture.md:20). The repo-level ADR amendments do not state them. (1) The adapter sets the envelope correlation_id to the session id and request_id to the answer id, and logs failed sends at Warn. This is not in the ADR-SAG-0013 r-6 amendment (lines 856-864). (2) FileSessionStore::new deletes expired *.json documents after TTL plus one TTL of grace. This is not in the ADR-SAG-0008 r-6 amendment (lines 254-266). The sprint doc itself calls it a deviation from the is_expired cutoff. (3) ADR-SAG-0031 Wiring (lines 1754-1756) says a flush failure is a data.warnings entry. It does not cover the error path, where the failure is appended once to the error detail. (4) The ADR-SAG-0016 r-6 amendment does not record the envelope request_id and correlation_id mapping either. No ADR is contradicted. The ADR texts are incomplete, so the contract that governs the code is split between the ADRs and the sprint doc.",
+ "category": "qa",
+ "severity": "important",
+ "pattern": "RULE-ADR-CODE",
+ "file_filter": "docs/architecture.md",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "48c4d1cf5a0972351bc146721db41888fbc5cfa3"
+  },
+  {
+   "branch": "sprint/r-6-session-log-record",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-6-session-log-record",
+   "order_index": 1,
+   "head_sha": "34655a4465760a9e31860b5eea8b78960674714c"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a",
+  "sprint/r-6-session-log-record"
+ ]
+}

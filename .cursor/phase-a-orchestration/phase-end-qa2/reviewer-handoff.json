@@ -1,0 +1,26 @@
+{
+ "pr": 38,
+ "qa_pass": "qa-phase-end-2",
+ "round": "phase-end QA-2 (final)",
+ "branch": "fix/phase-end-api",
+ "head": "ddfb698",
+ "base": "integrate/phase-a",
+ "prior_round": {"qa_pass": "qa-phase-end-1", "pr": 36, "pr_comment": "https://github.com/randlee/sc-agent/pull/36#issuecomment-6724564530"},
+ "notes": "Reviewers ran over successive heads as fixes landed. Each result below names its commit. Deltas after the last full run: rust-qa at bd00bc3 was followed by git.rs pipe-wait, its tests and sprint notes; arch-qa and best-practices at bd00bc3 likewise; the developer re-ran fmt, clippy, workspace tests, lint at ddfb698. Service hardening: skipped, no service indicators. Owner confirmed 2026-11-08: best-practices re-review is closure-only after round 3, and further polish goes to beads (agt-dxm) unless Blocking or Important; two repository exceptions await owner confirmation.",
+ "manifest": [
+  {"agent": "rust-qa-agent", "task_id": "a442059fee920531d", "spawn_actor": "parent-orchestrator", "commit": "bd00bc3"},
+  {"agent": "rust-best-practices-agent", "task_id": "aa983cc14d5c04eb0", "spawn_actor": "parent-orchestrator", "commit": "bd00bc3"},
+  {"agent": "rust-service-hardening-agent", "task_id": "aa24629abd9bb10c6", "spawn_actor": "parent-orchestrator", "commit": "f4f3543"},
+  {"agent": "flaky-test-qa", "task_id": "a54444fd417c81181", "spawn_actor": "parent-orchestrator", "commit": "ddfb698"},
+  {"agent": "req-qa", "task_id": "ac503d7d65f336267", "spawn_actor": "parent-orchestrator", "commit": "903ede0"},
+  {"agent": "arch-qa", "task_id": "a9ad88814d3d1a36d", "spawn_actor": "parent-orchestrator", "commit": "bd00bc3"}
+ ],
+ "reviewer_outputs": [
+  {"agent": "rust-qa-agent", "fenced_json": {"success": true, "data": {"status": "pass", "reviewed_commit": "bd00bc3", "findings": [], "summary": {"total_findings": 0}, "notes": ["605 passed, 0 failed on 1.94.1; line coverage 93.02%; cargo audit no vulnerabilities, 3 unmaintained warnings; dry-run passes with no override"]}}},
+  {"agent": "rust-best-practices-agent", "fenced_json": {"success": true, "data": {"status": "pass", "reviewed_commit": "bd00bc3", "findings": [], "summary": {"total_findings": 0}, "notes": ["closure verification of RBP-F201 to F211"]}}},
+  {"agent": "rust-service-hardening-agent", "fenced_json": {"success": true, "data": {"status": "skipped", "reviewed_commit": "f4f3543", "service_indicators_found": [], "findings": []}}},
+  {"agent": "flaky-test-qa", "fenced_json": {"success": true, "data": {"status": "pass", "reviewed_commit": "ddfb698", "findings": [], "summary": {"total_findings": 0}}}},
+  {"agent": "req-qa", "fenced_json": {"status": "PASS", "reviewed_commit": "903ede0", "findings": [], "summary": {"total_findings": 0, "blocking_findings": 0, "deliverable_completion_percent": 100.0}}},
+  {"agent": "arch-qa", "fenced_json": {"agent": "arch-qa", "commit": "bd00bc3", "verdict": "PASS", "blocking": 0, "important": 0, "findings": []}}
+ ]
+}

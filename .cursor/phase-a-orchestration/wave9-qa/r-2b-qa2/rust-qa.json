@@ -1,0 +1,50 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/r-2b-multi-backend-semantics",
+    "reviewed_commit": "3ef50f5f7118f5d136fe5442c0a2a39c2b58debd",
+    "review_mode": "sprint_review",
+    "executed_checks": {
+      "fmt": {"status": "pass", "command": "cargo fmt --all --check"},
+      "clippy": {"status": "pass", "command": "cargo clippy --workspace --all-targets --all-features -- -D warnings"},
+      "tests": {"status": "pass", "command": "cargo test --workspace; cargo test -p sc-jev -p sc-jev-backends -p sc-jev-check --features test-util"},
+      "coverage": {"status": "not_run", "line": 0.0, "branch": 0.0, "function": 0.0, "adequate_for_risk": true},
+      "artifacts": {"status": "not_run", "command": ""}
+    },
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": {"critical": 0, "important": 0, "minor": 0}
+    },
+    "carry_forward_verdicts": {
+      "REQ-QA-001": "resolved. The sprint doc now lists crates/sc-ai/tests/cli.rs and tests/fixtures/jev-python/tests/test_run_check_and_ask.py in owned_paths (lines 62-63). The Outcome wording now reads 'no consumer source file' (line 412).",
+      "RBP-F001": "resolved. ParsedQuestion and the byte re-parse are gone from validate.rs. wire::parse_answers and backend::typed_answers now take the typed question_choices() map. rg for ParsedQuestion in crates/sc-jev-backends/src returns no hit.",
+      "RBP-F002": "resolved. PreparedCheck.criteria is BTreeMap<QuestionId, BTreeSet<ChoiceId>> taken from the bundle. parse_outcome compares and iterates the typed ids. The Jev reply-shape checks are kept (answer-id set equality, choice membership, exact probability label set, numeric confidence).",
+      "RBP-F003": "resolved. impl Default for BackendSet (the single backend [jev]) is added in crates/sc-agent-types/src/ids.rs, with a doctest. I did not trace the default_backends change. My rg for 'fn default_backends' returned nothing, so it may live outside crates/ or have been renamed or removed.",
+      "RBP-F004": "resolved. parse_count in wire.rs is now .and_then(Value::as_u64).ok_or_else(..), with no unwrap_or(0). A negative or missing input_tokens still returns RESPONSE_INVALID.",
+      "RBP-F005": "resolved. The non-test expect calls in sc-jev check.rs are gone, and 'checked above' has no hit. The remaining expect calls in check.rs are in #[cfg(test)] code. The one in wire.rs:495 and backend.rs:51 are non-test but not part of this finding."
+    },
+    "regression_analysis": {
+      "verdict": "no lost validation",
+      "details": [
+        "Question 'type' check: Question has only id, prompt and choices, with deny_unknown_fields (payload.rs:37-42). CanonicalJudgePayload also has deny_unknown_fields. A bundle therefore cannot carry a 'type' key, and the developer's claim holds. The old 'unknown question type' refusal cannot be triggered by a canonical payload.",
+        "Question 'prompt' check: prompt is a required String field, so a missing prompt fails at deserialization before a bundle exists. An empty prompt was accepted before and still is, so nothing changed.",
+        "Empty or missing question id: QuestionId::try_from rejects empty strings, per the ids.rs doctest at line 851.",
+        "Duplicate question id: PayloadBundle::encode returns INPUT_INVALID 'question id X is duplicated' (payload.rs:166-174).",
+        "Non-string or invalid choice labels: ChoiceId is typed and validated on deserialization.",
+        "Fewer than two distinct choices: still refused in sc-jev check.rs::prepare and in sc-jev-backends validate_questions, using set length < 2. This covers one choice and duplicate choices such as ['a','a']. Unit tests cover both cases.",
+        "No questions: still refused in both places. Tests cover it.",
+        "Old Jev checks 'payload must not include model' and 'key sorting before model': the payload struct admits only 'questions' and 'state'. Both sort after 'model', so splice_model's precondition holds by construction.",
+        "Non-canonical or non-JSON bytes: PayloadBundle::decode re-encodes and compares bytes, and encode always yields canonical text, so there is no way to build a non-canonical bundle.",
+        "Reply-side validation is unchanged in strength: answer id set equality, choice membership, probability key set equality, and numeric checks are all retained."
+      ]
+    },
+    "notes": [
+      "The assignment's rg gate for 'ParsedQuestion|unwrap_or\\(0\\)|checked above' returns no hit in crates/sc-jev/src/check.rs or crates/sc-jev-backends/src. wire.rs:usage_i64 now uses unwrap_or_default(), which means the same as unwrap_or(0). It is a documented tolerance for an omitted provider usage counter and has no effect on RBP-F004. I raise it for awareness only.",
+      "Tests that ran and passed: workspace cargo test, and the test-util feature run for sc-jev, sc-jev-backends and sc-jev-check. I did not run cargo doc with RUSTDOCFLAGS=-D warnings, just lint or cargo test --all-features, because the input did not request them. PR CI evidence was given as green.",
+      "The publish dry-run was skipped as instructed. I edited nothing in the worktree. I requested no new gates."
+    ]
+  },
+  "error": null
+}

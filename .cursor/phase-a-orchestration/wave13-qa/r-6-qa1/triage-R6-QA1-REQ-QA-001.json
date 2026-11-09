@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "R6-QA1-REQ-QA-001",
+ "found_in": "A1-R6",
+ "found_at": "2026-11-08T06:07:39Z",
+ "title": "The sprint owns paths in sc-agent-types, sc-agent-http, sc-decision-schema, sc-jev-check, sc-jev-host, sc-ai and sc-jev-py",
+ "description": "The sprint owns paths in sc-agent-types, sc-agent-http, sc-decision-schema, sc-jev-check, sc-jev-host, sc-ai and sc-jev-py. The `requirements` list names only some of each crate's ids. Missing: sc-agent-types REQ-SAG-0101, 0103, 0120, 0121, 0147, 0148 (NFR-SAG-0001 is listed). sc-agent-http REQ-SAG-0505. sc-decision-schema REQ-SAG-0140, 0141, 0142, 0144, 0145 (0146 and 0103 are covered). sc-jev-check REQ-SAG-0300, 0301, 0302, 0303, 0305, 0309, 0311, 0312, 0313, 0314, 0503, 0601, 0602, 0603, 0620. sc-jev-host REQ-SAG-0604, 0605 (plus any other ids in that file, which I only partly listed). sc-ai REQ-SAG-0702, 0703, 0710, 0712, 0900 (NFR-SAG-0001 and REQ-SAG-0604/0605 appear in that file's references). sc-jev-py REQ-SAG-0803, 0604, 0605. The plan states 'Every id a sprint's files touch is in its requirements: list', and the run loop, session store, compose and the whole sc-jev-check/src/** tree are in this sprint's owned paths. The ids that are not `req:` roots would also need a regression command in the boundary row.",
+ "category": "requirement-not-listed",
+ "severity": "blocking",
+ "pattern": "requirements:",
+ "file_filter": "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "714d2845c48cd0b4fa40bcd2017c248049f3662a"
+  },
+  {
+   "branch": "sprint/r-6-session-log-record",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-6-session-log-record",
+   "order_index": 1,
+   "head_sha": "f6ddc71c5fc8e0ea9a9e4d100529457784039873"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a",
+  "sprint/r-6-session-log-record"
+ ]
+}

@@ -1,0 +1,28 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/r-3b-compose-and-workspace-tests",
+    "reviewed_commit": "90004d7",
+    "review_mode": "sprint_review",
+    "practice_mode": "all",
+    "practices_reviewed": ["RBP-001","RBP-002","RBP-003","RBP-004","RBP-005","RBP-006","RBP-007","RBP-008","RBP-009","RBP-010"],
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": {"critical": 0, "important": 0, "minor": 0}
+    },
+    "notes": [
+      "Worktree HEAD was verified by reading the worktree gitdir HEAD file: 90004d758db92b84afd5afd99e3f2ce89d5e1425, which matches 90004d7. I could not check the branch name because I had no git command. The detached worktree matches the assigned commit.",
+      "Files read in full: crates/sc-jev-host/src/{compose,obs,paths}.rs. For the other changed non-test Rust sources (sc-ai, sc-jev-py, sc-jev-host/lib.rs, workspace-tests/lib.rs, sc-jev-check extract/command.rs) I only grepped for map_err/format!/Mutex/Cell/pub trait/unwrap/Cow patterns and did not read them in full. I did not read the test files, scripts, TOML or docs.",
+      "RBP-001: errors are structured JevError values with stable codes (INPUT_INVALID, CONFIG_INVALID, INPUT_MISSING) and recovery hints. Examples are the obs.rs open/flush/start_logger messages and explicit_repo_root. A flush failure becomes a warning string through fix_hint (CR-014), which is by design.",
+      "RBP-004: PathPolicy uses &'static str for service and flag names, and the service name is validated at ObservabilityAdapter::open through ServiceName::new. It is a literal-data type by owner design (EXT-012), so I did not report it. Semantic ids (RepoRoot, Rev, SessionId, BackendSet) are already newtypes.",
+      "RBP-006: the only shared mutation in changed src is the process-wide Mutex<HashMap<_, Weak<LoggerInner>>> in obs.rs. It is documented (one writer per service and root), recovers from poison with PoisonError::into_inner, and the last Arc drop owns shutdown. I judged it justified.",
+      "RBP-007: no fake Result paths. Result<_, LogRejected> in log_event and action_name can really fail. The Drop impl's `let _ =` on flush/shutdown is commented as best-effort.",
+      "RBP-003/008: the changed crates add no new pub trait. SessionLog and JudgeBackend are pre-existing dyn-used traits in unchanged crates, are object-safe (Send + Sync, no generic methods) and are used as Arc<dyn ...>.",
+      "RBP-002/005/009/010: no lifecycle state machine, wrapper-forwarding noise, hot-path cloning or capability-token need was found in the changed code. HostRun is a simple prepare-then-run split that consumes self.",
+      "The crate rename to sc-jev-host was treated as settled and was not reviewed. No new gates, receipts or docs-consistency checks are requested."
+    ]
+  },
+  "error": null
+}

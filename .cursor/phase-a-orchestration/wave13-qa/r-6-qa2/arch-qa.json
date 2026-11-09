@@ -1,0 +1,36 @@
+{
+  "agent": "arch-qa",
+  "branch": "sprint/r-6-session-log-record",
+  "scope": {"phase": "phase-a-refine", "sprint": "r-6"},
+  "commit": "34655a4",
+  "verdict": "PASS",
+  "blocking": 0,
+  "important": 1,
+  "findings": [
+    {
+      "id": "ARCH-001",
+      "rule": "RULE-ADR-CODE",
+      "adr": "ADR-SAG-0013",
+      "severity": "IMPORTANT",
+      "file": "docs/architecture.md",
+      "line": 856,
+      "description": "Four delta behaviours are recorded only in the sprint doc and the crate docs (docs/sc-jev-host/architecture.md:62, docs/sc-jev-check/architecture.md:20). The repo-level ADR amendments do not state them. (1) The adapter sets the envelope correlation_id to the session id and request_id to the answer id, and logs failed sends at Warn. This is not in the ADR-SAG-0013 r-6 amendment (lines 856-864). (2) FileSessionStore::new deletes expired *.json documents after TTL plus one TTL of grace. This is not in the ADR-SAG-0008 r-6 amendment (lines 254-266). The sprint doc itself calls it a deviation from the is_expired cutoff. (3) ADR-SAG-0031 Wiring (lines 1754-1756) says a flush failure is a data.warnings entry. It does not cover the error path, where the failure is appended once to the error detail. (4) The ADR-SAG-0016 r-6 amendment does not record the envelope request_id and correlation_id mapping either. No ADR is contradicted. The ADR texts are incomplete, so the contract that governs the code is split between the ADRs and the sprint doc.",
+      "remediation": "Add one bullet each. ADR-SAG-0013 r-6: envelope correlation_id is the session id, request_id is the answer id, and level is Warn for send_outcome=failed (otherwise Info). ADR-SAG-0008 r-6: the store sweep on open removes documents past TTL plus one TTL of grace, and why. ADR-SAG-0031 Wiring log-write policy: on the error path the flush failure is appended once to the error detail, with the code unchanged. Do this in this PR, or in a later ADR amendment before the next sprint depends on these behaviours."
+    }
+  ],
+  "adr_checks": [
+    {"adr": "ADR-SAG-0031", "source": "docs/architecture.md:1673", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:1738", "crates/sc-jev-host/src/compose.rs:255-270", "crates/sc-jev-host/src/compose.rs:237-253"]},
+    {"adr": "ADR-SAG-0013", "source": "docs/architecture.md:835", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-host/src/obs.rs:185-231", "crates/sc-jev-host/src/compose.rs:347-358", "crates/sc-jev-host/src/compose.rs:436"]},
+    {"adr": "ADR-SAG-0008", "source": "docs/architecture.md:218", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/src/session/mod.rs:148-151", "crates/sc-jev-check/src/session/mod.rs:544-573"]},
+    {"adr": "ADR-SAG-0027", "source": "docs/architecture.md:1406", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-host/src/compose.rs:440-455", "crates/sc-agent-types/src/error.rs:694"]},
+    {"adr": "ADR-SAG-0021", "source": "docs/architecture.md:866", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-host/src/compose.rs:237-247"]},
+    {"adr": "ADR-SAG-0016", "source": "docs/architecture.md:894", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-host/src/obs.rs:185-213"]},
+    {"adr": "ADR-SAG-0028", "source": "docs/architecture.md:1533", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-host/src/compose.rs:264-268"]},
+    {"adr": "ADR-SAG-0011-AWAIT (ADR-RUN-0011 point 2)", "source": "RULE-ADR-AWAIT-MUTEX", "listed_in_sprint_doc": false, "result": "not-applicable", "evidence_refs": ["crates/sc-jev-host/src", "crates/sc-jev-check/src"]}
+  ],
+  "gate_artifact_checks": [
+    {"artifact": "docs/architecture.md (ADR-SAG-0031 Wiring status and index row)", "status": "closed", "evidence_refs": ["docs/architecture.md:141", "docs/architecture.md:1675", "docs/architecture.md:1719"], "notes": "The Status line, bullet markers and index Amended-by markers are flipped to Active (r-6)."}
+  ],
+  "merge_ready": true,
+  "notes": "Verified by reading the worktree files and refs: the branch ref resolves to 34655a4. I had no shell, so I could not run git diff 0408826..34655a4. I judged the delta from the named code paths (the explicit-root rule, the error-path flush, the envelope ids and level, the session sweep) against the ADR text, not from a line-level diff. The D5 explicit-root rule matches ADR-SAG-0031 line 1738: discovery starts from the explicit repo root, else cwd, and a dry run skips git. Paths still use discover_repo_root, so ADR-SAG-0021 holds. The flush note on the error path only edits detail text through the existing map_detail. The error code is unchanged and no key is added to ScAgentErrorResponse. The session sweep is best effort and removes files only. It does not touch the written-once or no-lock model. Neither crate has any .await or async fn, so RULE-ADR-AWAIT-MUTEX does not apply. ARCH-001 is documentation completeness, not a contradiction, so it does not block. I recommend closing it in this PR."
+}

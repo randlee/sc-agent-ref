@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "R7-QA2-FTQ-005",
+ "found_in": "A1-R7",
+ "found_at": "2026-11-08T02:45:00Z",
+ "title": "After the deadline fires, the runner calls kill_tree and then child.wait() with no bound",
+ "description": "After the deadline fires, the runner calls kill_tree and then child.wait() with no bound. kill_tree also runs an external `kill` process via Command::status() with no bound. The module doc (line 9) states 'Every wait is bounded', which is false for these two waits. A child that SIGKILL cannot end promptly (for example, a process in uninterruptible I/O sleep on a hung filesystem or network mount) would leave the test blocked forever instead of failing with the captured stderr. Likelihood is low, but the path exists and contradicts the stated contract.",
+ "category": "unbounded_wait",
+ "severity": "minor",
+ "pattern": "unbounded_wait",
+ "file_filter": "tests/support/deadline.rs",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "81ffec2fcab6d1b18967a84963df35fe9fb91e80"
+  },
+  {
+   "branch": "sprint/r-7-decision-schema",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-7-decision-schema",
+   "order_index": 1,
+   "head_sha": "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a",
+  "sprint/r-7-decision-schema"
+ ]
+}

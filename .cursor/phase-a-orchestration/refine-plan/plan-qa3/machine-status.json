@@ -1,0 +1,25 @@
+{
+  "qa_pass": "qa-plan-refine-3",
+  "commit": "c7c6f23",
+  "pr": 19,
+  "verdict": "FAIL",
+  "reviewer_spawn_gate": "pass",
+  "per_reviewer": {
+    "critical-plan-reviewer": "FAIL 0B/11I/12m",
+    "arch-qa": "FAIL 3B/2I",
+    "req-qa": "FAIL 1B/2I/2m",
+    "ruthless-boundary-qa": "findings 0C/3I/4m",
+    "extensibility-qa": "PASS 4m",
+    "rust-best-practices-agent": "PASS 0 (4 notes)",
+    "rust-service-hardening-agent": "PASS 0 (3 notes)"
+  },
+  "totals": {
+    "blocking": 4,
+    "important": 18,
+    "minor": 22
+  },
+  "next_action": "plan round-4 revision",
+  "fix_assignment": ".cursor/phase-a-orchestration/refine-plan/plan-fix-4.md",
+  "fix_task_id": "a0099e432cc7d629a",
+  "merge_order_note": "PR 20 (a-10) merges before PR 19; plan rebases onto integrate to pick up ADR-SAG-0029"
+}

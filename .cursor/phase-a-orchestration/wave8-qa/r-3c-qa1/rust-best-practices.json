@@ -1,0 +1,38 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-3c-treesitter-cli",
+    "reviewed_commit": "39661a6d651223d7a15d514226f83f473f2337cb",
+    "review_mode": "sprint_review",
+    "practice_mode": "all",
+    "practices_reviewed": ["RBP-001","RBP-002","RBP-003","RBP-004","RBP-005","RBP-006","RBP-007","RBP-008","RBP-009","RBP-010"],
+    "findings": [
+      {
+        "id": "RBP-F001",
+        "practice_id": "RBP-008",
+        "severity": "important",
+        "file": "crates/sc-treesitter/src/git_io.rs",
+        "line": 243,
+        "issue": "git_command() is a verbatim copy of the private git() constructor in sc-agent-types/src/git.rs:52-69. It repeats --no-pager, -C, LC_ALL=C, GIT_TERMINAL_PROMPT=0 and the five env_remove calls. The env-isolation policy now has two owners. hash_bytes() also spawns, pipes and waits on its own child, a second git process path outside the shared module's argv-only, bounded-read discipline (RBQA-F006). The shared copy also sets stdin(Stdio::null()); this copy does not set it on the non-hash path, which shows the two copies can drift. RBP-008 is the closest id in the inventory, so I filed the duplication under it. The substance is an extension/seam violation.",
+        "recommendation": "Yes, a helper in the shared module is the right fix, not a second local copy. Add `pub fn hash_blob(repo: &RepoRoot, bytes: &[u8]) -> Result<BlobSha, JevError>` to sc_agent_types::git (feature `git`). It should reuse the private git() constructor, override stdin to piped, and map errors the way hash_bytes does now. Delete git_command and hash_bytes from git_io.rs, and update the module doc line that says the shared module has no hashing helper. If extending the shared crate is out of scope for this sprint, make the private git() constructor `pub(crate)`-adjacent or expose a documented `pub fn git_command(dir)` so there is one env policy. File a bead for the follow-up.",
+        "evidence": "Both bodies list the same seven env/arg settings in the same order. The doc comment at git_io.rs:240-242 acknowledges the duplication ('same environment policy as sc_agent_types::git')."
+      }
+    ],
+    "summary": {
+      "total_findings": 1,
+      "by_severity": { "critical": 0, "important": 1, "minor": 0 }
+    },
+    "notes": [
+      "Clap structure: PASS. One Cli struct with a Subcommand enum, no stringly flag dispatch. --rev and --captures use typed value_parsers (Rev, Captures) that return JevError. value_parser_error() downcasts the clap source back to JevError so the original code and message reach stderr. Help and version go through Parsed::Print and exit 0. Every other failure is INPUT_INVALID and exit 2. No new ErrorCode ids are introduced. The wording-sensitive message() mapping (PATH_VALUE_NAME placeholder match) is covered by the argv tests per the sprint, but it is mildly brittle against clap upgrades. Minor.",
+      "Rev adoption: PASS. The value parser produces Rev at the edge. main.rs passes &args.rev to read_blob and uses rev.as_str() only to populate ExtractInput. The comparison `rev.as_str() == Rev::WORKTREE` in git_io.rs:61 is a string compare against a type-owned constant. Consider a Rev::is_worktree() on the shared type. Minor.",
+      "RepoRelativePath/BlobSha adoption: PASS. Blob carries RepoRelativePath and BlobSha. Path normalization re-enters through RepoRelativePath::try_from and returns a validated type. ExtractArgs.path stays a raw String, which is defensible because validation needs the discovered repo root and cwd. Minor note only: a CLI-edge `SourcePathArg` newtype would make that explicit.",
+      "ExtractArgs.language, ExtractArgs.query and QueriesArgs.language are raw Strings. They are validated downstream by query_source() and queries() against the compiled-in registries. A closed set cannot be a clap enum because the grammars are feature-gated, so this is acceptable. Minor.",
+      "#[expect]/#[allow]: none present in crates/sc-treesitter. No violation.",
+      "Module seams: PASS. `mod cli; mod git_io;` are private to the binary, and items are pub(crate). The `cli` feature gates the binary and the argv/cli test targets via required-features, and enables sc-agent-types/git. The library builds without clap or mimalloc. The module doc says git_io is 'compiled with the cli feature', which holds because only main.rs declares it.",
+      "RBP-007: no fake Results found. RBP-006: no interior mutability. RBP-009: the to_owned and format! allocations are on cold error paths and are not worth Cow. RBP-005: no wrapper Deref concerns. RBP-002/003/010: not applicable.",
+      "Minor/style: git_io.rs:112 hash_bytes signature line looks over rustfmt width; run cargo fmt --check. The hash_bytes stdin write comment says writing on the current thread is safe because hash-object reads all stdin first. That is true for the output size, but the child's stderr is Stdio::null, so the failure reason is lost; the message 'git hash-object failed' carries no cause. Minor RBP-001 note."
+    ]
+  },
+  "error": null
+}

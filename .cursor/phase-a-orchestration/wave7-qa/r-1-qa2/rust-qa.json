@@ -1,0 +1,51 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/r-1-types-break",
+    "reviewed_commit": "64c0e85",
+    "review_mode": "sprint_review",
+    "executed_checks": {
+      "fmt": {"status": "pass", "command": "cargo fmt --all --check"},
+      "clippy": {"status": "pass", "command": "cargo clippy --workspace --all-targets --all-features -- -D warnings"},
+      "tests": {"status": "pass", "command": "cargo test --workspace (no failures); cargo test -p sc-agent-types --features git,test-util (tests/git.rs 5 passed and tests/mock.rs ran, all ok); cargo test -p sc-jev-check --doc with no test-util (1 passed, the cfg_attr-gated doctest)"},
+      "coverage": {
+        "status": "pass",
+        "line": 91.19,
+        "branch": 0.0,
+        "function": 86.11,
+        "adequate_for_risk": true,
+        "per_crate_line": {"sc-agent-secrets": 96.53, "sc-agent-types": 94.0, "sc-ai": 82.63, "sc-jev": 88.97, "sc-jev-backends": 92.38, "sc-jev-check": 91.75, "sc-jev-py": 92.81, "sc-treesitter": 87.74},
+        "note": "Workspace line coverage is 91.19%, against the 91.07 baseline, so there is no regression. Branch coverage is not reported (0.0 is a placeholder). Compared with the round-1 QA numbers there is no per-crate drop greater than 1 point. sc-agent-types dipped 0.16 and sc-ai 0.29. sc-jev rose 1.08 and sc-jev-backends rose 0.9."
+      },
+      "artifacts": {"status": "not_run", "command": ""},
+      "extra_gates": {
+        "hack_feature_powerset_sc_agent_types_no_dev_deps": "pass",
+        "hack_each_feature_test_sc_treesitter": "pass",
+        "hack_each_feature_check_workspace_no_dev_deps": "pass",
+        "just_lint": "pass (compatibility.check ok; lint.ci.consumer pass, 3 steps)",
+        "rustdoc_D_warnings": "pass (cargo doc --no-deps --workspace)",
+        "just_test_python": "pass (9 passed)",
+        "sc_publish_dry_run": "pass (all)",
+        "cargo_publish_dry_run_locked_7_crates_fresh_CARGO_TARGET_DIR": "pass. All 7 crates (sc-agent-types, sc-agent-secrets, sc-jev, sc-jev-backends, sc-treesitter, sc-jev-check, sc-ai) packaged and reached the 'Uploading' dry-run stage in one multi-package invocation with a fresh target dir. There were no stale-target errors."
+      }
+    },
+    "carry_forward_verification": {
+      "QA-001": "resolved. .github/workflows/sc-agent-ci.yml:117-119 adds the step `cargo test -p sc-agent-types --features git,test-util`. The git and mock targets run and pass under that command.",
+      "QA-002": "resolved. action_name returns Result<ActionName, LogRejected> in both crates/sc-ai/src/observe.rs:186 and crates/sc-jev-py/src/logging.rs:254, with no expect.",
+      "QA-003": "resolved. crates/sc-jev-backends/src/transport.rs:286-298 maps Tls, TlsRequired, RequireHttpsOnly, Pem and Rustls to NetworkErrorKind::Tls, and BodyExceedsLimit to NetworkErrorKind::BodyTooLarge. The mapping test ureq_errors_map_to_network_kinds (transport.rs:491) covers Timeout, Io TimedOut, Io ConnectionReset, Tls, TlsRequired, BodyExceedsLimit, ConnectionFailed and HostNotFound, and asserts that Tls is not retryable. The same mapping and a test exist in crates/sc-jev/src/client/https.rs:141-152 and :405. Pem, Rustls and RequireHttpsOnly share the Tls match arm but have no dedicated test case; I treat that as informational."
+    },
+    "findings": [],
+    "summary": {"total_findings": 0, "by_severity": {"critical": 0, "important": 0, "minor": 0}},
+    "notes": [
+      "Fix-round code sanity checks, all fine.",
+      "JudgeOutcome::check_against (judge.rs:252) delegates to check_answers. The session loader calls it at session/mod.rs:652 and maps a failure to SessionDocumentInvalid. The test tampered_stored_outcome_is_session_document_invalid (session/tests.rs:175) records a valid outcome, tampers the choice to 'maybe', and asserts SessionDocumentInvalid with the hint 'does not match its payload'.",
+      "PayloadBundle now stores canonical text. as_str and into_text exist, and decode still parses, re-encodes, and requires byte equality with the input (payload.rs:196-206).",
+      "EqualInputRecord::new returns Result<Self, JevError>. It rejects an empty backend list and duplicate backends with INPUT_INVALID.",
+      "crates/sc-agent-types/tests/git.rs isolates git with GIT_CONFIG_GLOBAL set to the null device, GIT_CONFIG_NOSYSTEM=1 and GIT_TERMINAL_PROMPT=0. It runs git through the shared deadline::spawn_with_deadline runner (tests/support/deadline.rs).",
+      "tests/features.rs runs cargo tree with --locked --offline, which is why the powerset and fresh-target runs stay offline.",
+      "Worktree HEAD is exactly 64c0e85 on sprint/r-1-types-break, and the tree was clean at start. No hardcoded /tmp paths were introduced."
+    ]
+  },
+  "error": null
+}

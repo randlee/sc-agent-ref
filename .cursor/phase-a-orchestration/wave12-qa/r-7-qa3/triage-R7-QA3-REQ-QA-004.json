@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "found_in": "A1-R7",
+ "found_at": "2026-11-08T04:45:00Z",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "d958938eaec8894b5fd37431925ffab28863387c"
+  },
+  {
+   "branch": "sprint/r-7-decision-schema",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-7-decision-schema",
+   "order_index": 1,
+   "head_sha": "a6a13879c59b176b6f8ceed32b9830ec6ad33754"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a",
+  "sprint/r-7-decision-schema"
+ ],
+ "finding_id": "R7-QA3-REQ-QA-004",
+ "title": "owned_paths spells error-codes.json crate-relative (tests/fixtures/error-codes.json)",
+ "description": "The owned_paths entry reads 'crates/sc-agent-types/tests/errors.rs, tests/fixtures/error-codes.json#GitTimeout row'. The second path is relative to the crate (the real file is crates/sc-agent-types/tests/fixtures/error-codes.json) and could be read as the repo-root tests/fixtures/. The ownership claim is still unambiguous enough to count REQ-QA-003 as closed.",
+ "category": "cross-doc-conflict",
+ "severity": "minor",
+ "pattern": "tests/fixtures/error-codes.json#GitTimeout",
+ "file_filter": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md"
+}

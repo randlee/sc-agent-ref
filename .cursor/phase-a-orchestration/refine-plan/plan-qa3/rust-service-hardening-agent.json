@@ -1,0 +1,33 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "plan/phase-a-refine",
+    "reviewed_commit": "c7c6f232d0cb08d8105d1e0a016e75748e81cc84",
+    "review_mode": "doc_review",
+    "service_indicators_found": ["ureq", "UreqTransport", "send_with_busy_retry", "BusyPolicy", "CancelToken", "reqwest-class HTTP client design"],
+    "topics_reviewed": ["timeouts", "retries", "input_limits", "config_validation", "dependency_hygiene", "graceful_shutdown_cancellation", "tracing_redaction"],
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": {"critical": 0, "important": 0, "minor": 0}
+    },
+    "notes": [
+      "I did not run git. I confirmed the worktree HEAD by reading the git metadata: it points to refs/heads/plan/phase-a-refine, which holds c7c6f232d0cb08d8105d1e0a016e75748e81cc84, so it matches the assigned branch and commit.",
+      "The first reply I sent was an invalid_input error because the original dispatch was not in contract shape. This report supersedes it and answers the resubmission.",
+      "RSH-006 is CLOSED. docs/plans/phase-a-refine/sprint-r-3-shared-http.md (r-3) D1 names `test_ureq_agent_config_values`, a `--lib` unit test on the private AgentConfig. It asserts connect 10 s, global 120 s, redirects 0, https-only and the User-Agent, and it is listed in Required validation. The plan builds one Agent in `UreqTransport::new` and reuses it.",
+      "Observation 1 is CLOSED, and the old concern is resolved by design. `Endpoint::parse` refuses http in every build. Under `test-util`, `Endpoint::loopback_http(port, path)` can only build http://127.0.0.1:<port>/..., and `UreqTransport::loopback_for_tests()` is a separate constructor. If feature unification enables the feature by mistake, the library still cannot reach a non-loopback host over plain http. The `cargo tree ... | grep '\"test-util\"'` gate and `test_release_build_refuses_http` cover the rest. The integration targets use a self dev-dependency, so this works for `--test ureq`.",
+      "Observation 2 is CLOSED. Cancel latency is stated as at most 120 s for a cancel during an in-flight request, in the rustdoc of `send_with_busy_retry`, in the ADR-SAG-0007 r-3 amendment (docs/architecture.md lines 473-476) and in plan.md decision (b). Cancel during a wait is observed within 100 ms through sliced sleeps, and `test_cancel_interrupts_sleep` covers it.",
+      "Observation 3 is CLOSED. The Retry-After grammar is 1-32 bytes matching `^[0-9]+(\\.[0-9]+)?$`, parsed as digits with no f64::from_str and no unchecked Duration::from_secs_f64. `test_retry_after_grammar` is a table of valid and malformed cases. The text is identical in r-3, plan.md and ADR-SAG-0007.",
+      "Observation 4 is CLOSED. Redaction is applied once inside `send_with_busy_retry` to every Err it returns, including errors from third-party Transport impls. `test_transport_error_with_secret_is_redacted` covers it. The rustdoc states that a direct `Transport::send` bypasses retry and redaction.",
+      "Carry-forward RSH-004 is CLOSED. ADR-0024 (architecture.md line 837) states that `FileSessionStore::new` sweeps tmp files older than 1 h. r-2 line 251 says the same. 1 h is long enough that a concurrent writer's in-flight tmp file is not at risk.",
+      "The decline of the cargo deny/audit step is ACCEPTABLE. It is a Tier 3 checklist item and repository-wide CI policy, not a runtime defect in this design. The plan reduces the HTTP dependency surface from two ureq users to one. The exclusion is stated in r-3 'This sprint does not close' and tracked as bead `agt-ci-advisory-scan`. I could not verify that the bead exists. Please confirm it was filed, and schedule it before the crates.io publish gate opens. The caret-only dependencies plus the check-exact-pins gate keep dependency discipline in the meantime.",
+      "Owner retry decisions are encoded exactly. I compared PHASE-A-REVIEW.md lines 295-299 with r-3 D2, plan.md decision (b) and ADR-SAG-0007. Statuses are 429/502/529 and sends are at most 4. A valid Retry-After is honoured, clamped 0-30 s. Absent or malformed Retry-After backs off exponentially from 1 s, capped at 30 s, with up to 250 ms jitter. The default sequence is 1, 2, 4 s. The 90 s budget applies to starting attempts, with waits capped to the remaining budget, and the in-flight timeout is 120 s. There is no connectivity detection and no indefinite wait. Connect and DNS failures return NetworkError Connect with retryable() true at once. A transport error after the body was sent is never retried, and the double-charge risk of retrying 502 is documented. One detail beyond the owner text is that the plan applies jitter on top of a honoured Retry-After too. That is consistent with 'jitter on every wait' and harmless.",
+      "The remaining r-3 items are sound. There is one ureq Agent per transport. The 8 MiB response cap is enforced while streaming, including on error bodies. The secret feature dependency on sc-agent-types is `default-features = false, features = [\"secret\"]`, gated by a `cargo tree -e features` row. Test hooks for the retry policy (`BusyPolicy::with_test_hooks`, the recording and scripted transports) exist only under test-util and are kept out of normal graphs by a gate row.",
+      "The r-2b WireFault hook is acceptable. It is a non-default `test-util` feature on sc-jev and sc-jev-backends, applied inside the real wire builder, and each crate's own integration tests enable it through a self dev-dependency. The convention is the same as r-3's, and the normal-graph `test_util_off` gate covers it.",
+      "The r-3b items are acceptable. API-key and .env reading stays in `sc-jev-check::BackendRegistry::from_env`. Log and session path environment variables are read only by `PathPolicy`. The compose crate appends the log-flush warning once via `with_warning`, so both consumers emit it identically, and `test_cli_log_flush_warning_in_data` covers it.",
+      "Minor implementation notes below the reporting threshold, to carry into r-3. (a) With at most three waits of up to 30 s each, a server Retry-After of 30 s can exhaust the 90 s budget before the fourth send. This is correct behaviour under the budget rule, but the exhausted-budget error should be distinguishable from the exhausted-attempts error. (b) A 32-digit integer Retry-After must saturate at the 30 s clamp, not overflow. The digit-parser should have a test case for it, for example 32 nines. (c) A valid 'Retry-After: 0' gives a zero wait, which is bounded by the 4-send cap, so there is no hot-loop risk."
+    ]
+  },
+  "error": null
+}

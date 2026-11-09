@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "R6-QA1-RSH-002",
+ "found_in": "A1-R6",
+ "found_at": "2026-11-08T06:07:39Z",
+ "title": "The session-log flush is skipped on the error path",
+ "description": "The session-log flush is skipped on the error path. HostRun::run calls run(self.prepared)? (line 344), so when every backend fails and run returns Err, the flush warning is never produced. The adapter is then dropped, and LoggerInner::drop discards flush and shutdown errors (crates/sc-jev-host/src/obs.rs:45-52). A flush failure on the path where failed send rows matter most is therefore silent. ask_from has the same shape: ask(...)? at compose.rs:419 returns before finish_log at line 420.",
+ "category": "graceful_shutdown_flush",
+ "severity": "minor",
+ "pattern": "graceful_shutdown_flush",
+ "file_filter": "crates/sc-jev-host/src/compose.rs",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "714d2845c48cd0b4fa40bcd2017c248049f3662a"
+  },
+  {
+   "branch": "sprint/r-6-session-log-record",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-6-session-log-record",
+   "order_index": 1,
+   "head_sha": "f6ddc71c5fc8e0ea9a9e4d100529457784039873"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a",
+  "sprint/r-6-session-log-record"
+ ]
+}

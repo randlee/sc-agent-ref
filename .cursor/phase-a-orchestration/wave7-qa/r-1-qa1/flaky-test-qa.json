@@ -1,0 +1,51 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-1-types-break",
+    "reviewed_commit": "22ef273",
+    "findings": [
+      {
+        "id": "FTQ-001",
+        "severity": "important",
+        "file": "crates/sc-agent-types/tests/git.rs",
+        "line": 11,
+        "test": "all git.rs tests (repo() helper)",
+        "mechanism": "env_leak",
+        "issue": "The fixture repo is built by running the host's git with the developer's or runner's ambient global and system config. GIT_CONFIG_GLOBAL and GIT_CONFIG_NOSYSTEM are not set. Ambient config such as commit.gpgsign=true, a global core.hooksPath, init.templateDir, core.autocrlf or safe.directory can make `git commit` or `git add` fail or prompt. A gpg pinentry prompt can hang. Which tests pass then depends on the machine. The production helper in src/git.rs sets only GIT_TERMINAL_PROMPT and LC_ALL, so it inherits the same config.",
+        "recommendation": "Reuse the isolation already in the repo: GIT_CONFIG_GLOBAL set to the platform null device, GIT_CONFIG_NOSYSTEM=1, and `-c commit.gpgsign=false -c core.hooksPath=<null>`. The same pattern is in crates/sc-treesitter/tests/support/mod.rs::isolate_git and crates/sc-ai/tests/cli.rs. Better, move it into the shared tests/support helper. Apply the same env to the production `git()` builder in src/git.rs, or have the test pass it through.",
+        "evidence": "git.rs:12-18 `Command::new(\"git\").arg(\"-C\")...env(\"GIT_TERMINAL_PROMPT\", \"0\").status()`. No GIT_CONFIG_* appears in sc-agent-types."
+      },
+      {
+        "id": "FTQ-002",
+        "severity": "important",
+        "file": "crates/sc-agent-types/tests/git.rs",
+        "line": 12,
+        "test": "all git.rs tests; features.rs::tree",
+        "mechanism": "unbounded_wait",
+        "issue": "`.status()` in git.rs and `.output()` in features.rs::tree block with no hard deadline. A git process stuck on a hook, gpg or a lock file, or a `cargo tree` stuck on the package-cache lock or a network fetch, hangs the test run instead of failing. The workspace already provides a bounded runner, tests/support/deadline.rs::spawn_with_deadline, and sc-ai and sc-treesitter use it. These new tests bypass it. The production read_at_rev in src/git.rs:161-175 also does a blocking read_to_end and wait with no timeout, so the production code has the same gap. Route that part to the production-code owner.",
+        "recommendation": "Include tests/support/deadline.rs via #[path] as the other crates do, and run every git and cargo child through spawn_with_deadline so a hang fails with a clear message. For features.rs, also run `cargo tree` with `--offline`, or document that the CI lockfile and registry cache must be warm. That avoids a network dependency when the dependency crates are not yet downloaded. Do not add retries.",
+        "evidence": "git.rs:18 `.status()`; features.rs:15-31 `Command::new(cargo)...--locked --target all...output()`; no `deadline` import in either file."
+      },
+      {
+        "id": "FTQ-003",
+        "severity": "important",
+        "file": "crates/sc-agent-types/Cargo.toml",
+        "line": 53,
+        "test": "tests/git.rs (all)",
+        "mechanism": "env_leak",
+        "issue": "This is a coverage and determinism gap, not a timing race. Mechanism is the closest enum value. `[[test]] name=\"git\" required-features=[\"git\"]` is skipped by plain `cargo test --workspace` unless some workspace member enables sc-agent-types/git, and none does. CI (.github/workflows/sc-agent-ci.yml:109-113) runs `cargo clippy --all-features` and `cargo test --workspace` only. Clippy compiles git.rs but does not run it. The git tests therefore never run in CI, and FTQ-001 and FTQ-002 stay latent until someone runs them locally. mock.rs is different. Dev-dependencies in sc-jev-check, sc-jev-backends, sc-ai and sc-jev enable test-util, so it does run under --workspace feature unification. That makes its execution depend on unification. `cargo test -p sc-agent-types` alone would skip it.",
+        "recommendation": "Add a CI step such as `cargo test -p sc-agent-types --all-features`, or `--features git,test-util`, on all three OSes. Fix FTQ-001 and FTQ-002 first so that step is deterministic.",
+        "evidence": "Cargo.toml:49-55; no `git` feature in any crates/*/Cargo.toml dependency line on sc-agent-types; the CI test step is `cargo test --workspace`."
+      }
+    ],
+    "summary": {
+      "total_findings": 3,
+      "critical": 0,
+      "important": 3,
+      "minor": 0
+    },
+    "notes": "The worktree HEAD is refs/heads/sprint/r-1-types-break at 22ef27317d6b, which matches the assigned commit. I had no shell, so I could not execute the tests. Of the targets you listed, I read crates/sc-agent-types/tests/{git,features,mock}.rs, the sc-agent-types Cargo.toml, src/git.rs, .gitattributes and the CI workflow. I did not read errors, ids, judge, obs and subjects.rs, the sc-jev-check session and sessions_exact tests, test_every_backend_has_factory, the sc-ai tests or the pytest expectations. I also did not inspect the new JudgeOutcome and EqualInputRecord tests. Clean results: mock.rs is a single test with locally constructed Arc<MockJudgeBackend> instances, no statics, no env mutation and no clocks, so there is no shared state across parallel tests. features.rs is host-independent because it passes `--target all` and `--locked`, and it compares crate names only. It depends on a warm registry cache (see FTQ-002). .gitattributes has `* text=auto eol=lf`, so the golden bytes are LF on every OS. The `-text` rule for `tests/fixtures/**` is anchored to the repo root and does not cover crates/*/tests/fixtures. LF checkout still holds, but the byte-exact guarantee for error-stderr.jsonl rests on the global eol=lf rule."
+  },
+  "error": null
+}

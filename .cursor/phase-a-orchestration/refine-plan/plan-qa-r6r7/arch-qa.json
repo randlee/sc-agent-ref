@@ -1,0 +1,30 @@
+{
+  "agent": "arch-qa",
+  "branch": "plan/phase-a-refine-r6",
+  "scope": {"phase": "r", "sprint": "phase-a.1 (r-5, r-6, r-7)"},
+  "commit": "debbf1d9cc8c8230f435d22088085909608f666d",
+  "verdict": "FAIL",
+  "blocking": 5,
+  "important": 0,
+  "findings": [
+    {"id": "ARCH-001", "rule": "RULE-ADR-PLAN", "adr": "ADR-SAG-0019", "severity": "BLOCKING", "file": "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md", "line": 44, "description": "r-6 adrs omits ADR-SAG-0019; r-6 hashes the exact wire body, which that ADR separates from the canonical payload digest. Disposition R6-ARCH-001 claims 0019 is listed.", "remediation": "Add ADR-SAG-0019 to the r-6 adrs list with the reason: request_sha256 is the wire-body digest, prompt_sha256 stays the canonical-payload digest."},
+    {"id": "ARCH-002", "rule": "RULE-ADR-PLAN", "adr": "ADR-SAG-0012", "severity": "BLOCKING", "file": "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md", "line": 44, "description": "r-6 adrs omits ADR-SAG-0012; the ADR-SAG-0026 r-6 amendment (architecture.md:1269) relies on it still holding.", "remediation": "Add ADR-SAG-0012 to the r-6 adrs list: hashing the carried bytes in sc-agent-http is not Jev semantics, sc-jev untouched."},
+    {"id": "ARCH-003", "rule": "RULE-ADR-PLAN", "adr": "ADR-SAG-0024", "severity": "BLOCKING", "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md", "line": 57, "description": "r-7 adrs omits ADR-SAG-0024; r-7 owns RunConfig::models (owned_paths line 125).", "remediation": "Add ADR-SAG-0024 to the r-7 adrs list: RunConfig::models(ModelAliases), prepare/run entry unchanged."},
+    {"id": "ARCH-004", "rule": "RULE-ADR-PLAN", "adr": "ADR-SAG-0012", "severity": "BLOCKING", "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md", "line": 57, "description": "r-7 adrs omits ADR-SAG-0012; r-7 edits sc-jev check.rs and client/mod.rs, adds fn model_id, and removes the jev.toml model key.", "remediation": "Add ADR-SAG-0012 to the r-7 adrs list: Jev model pin moves to the catalog, sc-jev still owns every Jev operation."},
+    {"id": "ARCH-005", "rule": "RULE-ADR-PLAN", "adr": "ADR-SAG-0006", "severity": "BLOCKING", "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md", "line": 57, "description": "r-7 adrs omits ADR-SAG-0006; r-7 owns HttpRequest::with_trace in sc-agent-http (line 102).", "remediation": "Add ADR-SAG-0006 to the r-7 adrs list: HttpRequest gains an optional SendTrace, Transport trait unchanged."}
+  ],
+  "adr_checks": [
+    {"adr": "ADR-SAG-0030", "source": "docs/architecture.md:1427", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:1427-1499", "docs/architecture.md:106", "docs/plans/phase-a-refine/plan.md:708"]},
+    {"adr": "ADR-SAG-0031", "source": "docs/architecture.md:1501", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:1501-1578", "docs/architecture.md:107", "docs/plans/phase-a-refine/plan.md:709-710"]},
+    {"adr": "ADR-SAG-0019", "source": "docs/architecture.md:381", "listed_in_sprint_doc": false, "result": "not-verifiable", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:44-70"]},
+    {"adr": "ADR-SAG-0012", "source": "docs/architecture.md:954", "listed_in_sprint_doc": false, "result": "not-verifiable", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:44-70", "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:57-78"]},
+    {"adr": "ADR-SAG-0024", "source": "docs/architecture.md:1136", "listed_in_sprint_doc": false, "result": "not-verifiable", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:57-78", "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:125"]},
+    {"adr": "ADR-SAG-0006", "source": "docs/architecture.md:590", "listed_in_sprint_doc": false, "result": "not-verifiable", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:57-78", "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:102"]},
+    {"adr": "All other listed and amended ADRs (0001-0005, 0007-0011, 0013, 0014, 0016-0018, 0020-0023, 0025-0029)", "source": "docs/architecture.md", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:27-41", "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:44-70", "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:57-78"]}
+  ],
+  "gate_artifact_checks": [
+    {"artifact": "docs/plans/phase-a-refine/plan.md (Open owner items table)", "status": "open", "evidence_refs": ["docs/plans/phase-a-refine/plan.md:652-657", "docs/architecture.md:1467-1468", "docs/architecture.md:1574-1575", "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:4"], "notes": "Both owner gates stay open and no plan text resolves either one. The D9 question shape is left to owner decision (c) and r-5 is blocked. The sc-sha raw-bytes check is a stop-and-report at r-6 D0. Log-write failure policy is best-effort and consistent across plan.md, ADR-SAG-0031, REQ-SAG-0617 and r-6."}
+  ],
+  "merge_ready": false,
+  "notes": "ADR-SAG-0030 and ADR-SAG-0031 match the sprint docs, the ownership table, the index rows and the amendment subsections. No plan text contradicts an Active ADR. The only defects are five missing adrs entries in the r-6 and r-7 sprint docs, each a one-line fix. No new gates or consistency checks are recommended."
+}

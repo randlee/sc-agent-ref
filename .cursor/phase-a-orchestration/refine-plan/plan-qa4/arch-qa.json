@@ -1,0 +1,39 @@
+{
+"agent":"arch-qa",
+"branch":"plan/phase-a-refine",
+"scope":{"phase":"a","sprint":"plan/phase-a-refine"},
+"commit":"4f778fe",
+"round":4,
+"verdict":"FAIL",
+"blocking":2,
+"important":0,
+"findings":[
+{"id":"ARCH-020","rule":"RULE-ADR-PLAN","adr":"ADR-SAG-0029","severity":"BLOCKING","file":"docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md","line":28,"description":"r-2b `adrs` lacks ADR-SAG-0029. r-2b owns crates/sc-jev-check/src/registry/scripted.rs (line 45) and extends register_scripted_backends with the per-backend JSON form. It states that 'the ADR-SAG-0029 (b) string shorthand' stays (D5 line 138; line 184: 'supersedes no ADR-SAG-0029 sentence, and 0029 (b)'s shorthand rule stands'). It also amends ADR-SAG-0022, which 0029 amends. 0029 (b) therefore governs the deliverable, and the list names 0022 but not 0029.","remediation":"Add `- ADR-SAG-0029` to the r-2b `adrs` frontmatter, after ADR-SAG-0025."},
+{"id":"ARCH-021","rule":"RULE-ADR-PLAN","adr":"ADR-SAG-0029","severity":"BLOCKING","file":"docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md","line":25,"description":"r-3c `adrs` lacks ADR-SAG-0029. r-3c replaces the sc-treesitter argv parser with clap and keeps 'the code current tests expect' on stderr (D2). It also moves git blob reads to the shared git module (owned_paths: main.rs, cli/**, git_io.rs). ADR-SAG-0029 (c) fixes the sc-treesitter CLI error codes: a missing positional is INPUT_INVALID; a revision starting with '-' or a bad path or revision is INPUT_INVALID; a blob over 8 MiB is INPUT_TOO_LARGE. It also covers io_failed and encode_failed mapping. These govern r-3c's paths and deliverables.","remediation":"Add `- ADR-SAG-0029` to the r-3c `adrs` frontmatter. Add an acceptance line that the clap errors and shared git reads keep the 0029 (c) dispositions."}
+],
+"verification":{
+"frontmatter_adrs":"closed. r-1 has 0004 and 0023 (sprint-r-1:50,65) plus 0029 (:68). r-5 has 0004 and 0007 (sprint-r-5:26,29). r-3b has 0002, 0015, 0020 (sprint-r-3b:47,52,56) plus 0029 (:64). ARCH-015, ARCH-016 and ARCH-017 are closed.",
+"adr_0020_amendments":"closed. The r-1 subsection (architecture.md:420-429) names the two 0029 (a) sentences it supersedes: the unchecked `new` 'exists only under cfg(test) or sc-agent-types/test-util', and the 'allow' wording for the two transports. The r-3 subsection (:452-457) names the 'only production readers' sentence. The r-3 'Correction' paragraph is gone. The only 'Correction' hit is the unrelated 0022 r-2 text at :287. The r-3 subsection defers 'no Cargo features' to 0029 (a).",
+"adr_0022_amendments":"closed. The r-1 subsection (:274-277) quotes the 0029 (b) sentence making ScriptedJudge and RequestLog public. The r-2 subsection (:292-294) supersedes only 'Everything else in ADR-SAG-0022 stands' and leaves the run_check signature and _testing rules unchanged. The r-2b subsection supersedes nothing.",
+"index_rows":"closed. The grep shows one 0029 row (architecture.md:106). The 0020 row (:97) and 0022 row (:99) each appear once. They carry 'amended by ADR-SAG-0029' and keep the Proposed A.1 markers, and the 0022 row keeps 'ADR-SAG-0024 (Proposed, r-2)'. The body lines 'Amended by ADR-SAG-0029' are present once in 0020 (:389) and once in 0022 (:226).",
+"adr_0029_body":"closed. No contradictory text in the 0029 body (:762-831). The 'Deferred' paragraph and the closing A.1 pointer agree with the plan. The Rust API patterns bullet (:843-847) is the a-10 text and is consistent with 0029 (a). The A.1 r-1 amendment already overrides its `try_new` wording.",
+"r3b_python_seam":"closed. sprint-r-3b:243-251 states scripted injection via sc_jev_py._testing.run_check_scripted, the test-util feature, the maturin-feature build, and no _testing submodule in the release wheel. The adr:ADR-SAG-0029 acceptance row is at :463.",
+"plan_md":"closed. The Test seams 'Maturin-feature exception' is at plan.md:143-151. The plan PR targets integrate/phase-a (:47-51). The merge order is PR 20 (a-10), then the plan (:52-60), with the index-row conflict rule at :56-58.",
+"r2_sc_jev_py_doc":"closed. The r-2 owned_paths entry is anchored by section (sprint-r-2:73) and the deliverable text is anchored by section, not line (:327-329). plan.md:617-619 agrees. Only the historical plan-review-1 disposition still says 'line 25'."
+},
+"adr_checks":[
+{"adr":"ADR-SAG-0029","source":"docs/architecture.md:762","listed_in_sprint_doc":false,"result":"not-verifiable","evidence_refs":["docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md:28","docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md:138","docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md:25","docs/architecture.md:805"]},
+{"adr":"ADR-SAG-0004","source":"docs/architecture.md:459","listed_in_sprint_doc":true,"result":"upheld","evidence_refs":["sprint-r-1-types-break.md:50","sprint-r-5-jev-wire-envelope.md:26"]},
+{"adr":"ADR-SAG-0023","source":"docs/architecture.md","listed_in_sprint_doc":true,"result":"upheld","evidence_refs":["sprint-r-1-types-break.md:65"]},
+{"adr":"ADR-SAG-0007","source":"docs/architecture.md","listed_in_sprint_doc":true,"result":"upheld","evidence_refs":["sprint-r-5-jev-wire-envelope.md:29"]},
+{"adr":"ADR-SAG-0002 / 0015 / 0020 (r-3b)","source":"docs/architecture.md","listed_in_sprint_doc":true,"result":"upheld","evidence_refs":["sprint-r-3b-compose-and-workspace-tests.md:47","sprint-r-3b-compose-and-workspace-tests.md:52","sprint-r-3b-compose-and-workspace-tests.md:56"]},
+{"adr":"ADR-SAG-0020","source":"docs/architecture.md:385","listed_in_sprint_doc":true,"result":"upheld","evidence_refs":["docs/architecture.md:416-457"]},
+{"adr":"ADR-SAG-0022","source":"docs/architecture.md:222","listed_in_sprint_doc":true,"result":"upheld","evidence_refs":["docs/architecture.md:264-311"]}
+],
+"gate_artifact_checks":[
+{"artifact":"docs/architecture.md ADR index table","status":"closed","evidence_refs":["docs/architecture.md:76-106"],"notes":"One row per ADR, with no duplicates after the merge. The 0029 row and the 0020/0022 amended-by markers are present."},
+{"artifact":"docs/plans/phase-a-refine/plan-review-3-dispositions.md","status":"closed","evidence_refs":["docs/plans/phase-a-refine/plan-review-3-dispositions.md:96-98"],"notes":"The ARCH-015 and ARCH-017 rows match the frontmatter. ARCH-016, ARCH-018 and ARCH-019 are applied as verified above."}
+],
+"merge_ready":false,
+"notes":"ARCH-015..019 are closed. HEAD of plan/phase-a-refine resolves to 4f778fe72c24 (checked in .git/refs/heads and the worktree HEAD). Merging the full ADR-SAG-0029 text surfaced one new gap. Two sprints touch deliverables that 0029 now governs and do not list it: r-2b (0029 (b), scripted registration) and r-3c (0029 (c), sc-treesitter CLI error codes). Each fix is a single frontmatter line. After that no blockers remain."
+}

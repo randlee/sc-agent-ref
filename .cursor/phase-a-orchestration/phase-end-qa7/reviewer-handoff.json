@@ -1,0 +1,152 @@
+{
+ "pr": 46,
+ "qa_pass": "qa-stack-41-4",
+ "round": "stack #41 (PRs 39, 40, 42, 43, 44, 45, 46) on integrate/phase-a",
+ "branch": "fix/pe-r3-wording",
+ "head": "00bc022",
+ "base": "integrate/phase-a",
+ "notes": "Fourth pass. qa-stack-41-3 failed on open Minor REQ-QA-001, which the gate does not allow to be deferred. PR 46 fixes it. 6b946d2 to 00bc022 is docs and .gitignore only (verify with git diff). req-qa at a1ca1a5 closed REQ-QA-001 and raised REQ-QA-002 (docs/sc-jev/requirements.md:31 stale attempts = 4). 00bc022 fixes REQ-QA-002 and sprint r-3 row 519, and adds nothing else. An orchestrator repo-wide grep at 00bc022 for 4-send wording shows only labelled r-3 history, arbitrary test strings, and triage records; req-qa re-verifies at 00bc022. rust-qa and flaky-test-qa at e4ede9f hold for behaviour: the later non-doc changes are two comment changes and one .gitignore line. Scope excludes Jev and error-contract layers (error audit FAIL on #39, agt-2a3, lands later). Bead agt-1hz came from a polish note in the best-practices report, listed under notes and not as a finding; the owner's rule sends polish to beads unless Blocking or Important. Coverage: rust-qa did not run it; the earlier intermittent coverage failure on #39 has no proven cause. req-qa at 00bc022 closes REQ-QA-001 and REQ-QA-002 with 0 findings. arch-qa at a1ca1a5 PASS; a1ca1a5 to 00bc022 touches only docs/sc-jev/requirements.md and one sprint row, no ADR. best-practices and service hardening at 6b946d2 hold: no Rust file changed after 6b946d2.",
+ "manifest": [
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "a64b6f8584a934ed9",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "e4ede9f"
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "a5b68d90af97a30c2",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "e4ede9f"
+  },
+  {
+   "agent": "rust-service-hardening-agent",
+   "task_id": "a3b843eddf01e1495",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "6b946d2"
+  },
+  {
+   "agent": "rust-best-practices-agent",
+   "task_id": "a271632cabc46c494",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "6b946d2"
+  },
+  {
+   "agent": "req-qa",
+   "task_id": "a35c891903b03e7d1",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "00bc022"
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "a0ed67fad3ea5fc74",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "a1ca1a5"
+  }
+ ],
+ "reviewer_outputs": [
+  {
+   "agent": "rust-qa-agent",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_commit": "e4ede9f",
+     "findings": [],
+     "summary": {
+      "total_findings": 0
+     },
+     "notes": [
+      "611 passed, 0 failed, 3 ignored, on macOS with 1.94.1; dry-run and cargo deny pass"
+     ]
+    }
+   }
+  },
+  {
+   "agent": "flaky-test-qa",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_commit": "e4ede9f",
+     "findings": [],
+     "summary": {
+      "total_findings": 0
+     }
+    }
+   }
+  },
+  {
+   "agent": "rust-service-hardening-agent",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_commit": "6b946d2",
+     "findings": [
+      {
+       "id": "RSH-001",
+       "state": "fixed",
+       "severity": "minor"
+      },
+      {
+       "id": "RSH-002",
+       "state": "fixed",
+       "severity": "minor"
+      }
+     ],
+     "summary": {
+      "total_findings": 0
+     }
+    }
+   }
+  },
+  {
+   "agent": "rust-best-practices-agent",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_commit": "6b946d2",
+     "findings": [],
+     "summary": {
+      "total_findings": 0
+     },
+     "notes": [
+      "All ten review_targets read in full"
+     ]
+    }
+   }
+  },
+  {
+   "agent": "req-qa",
+   "fenced_json": {
+    "status": "PASS",
+    "reviewed_commit": "00bc022",
+    "findings": [],
+    "summary": {
+     "total_findings": 0,
+     "blocking_findings": 0,
+     "overall_compliance": "compliant",
+     "deliverable_completion_percent": 100.0
+    },
+    "closed": [
+     "REQ-QA-001",
+     "REQ-QA-002"
+    ]
+   }
+  },
+  {
+   "agent": "arch-qa",
+   "fenced_json": {
+    "agent": "arch-qa",
+    "commit": "a1ca1a5",
+    "verdict": "PASS",
+    "blocking": 0,
+    "important": 0,
+    "findings": [],
+    "merge_ready": true
+   }
+  }
+ ]
+}

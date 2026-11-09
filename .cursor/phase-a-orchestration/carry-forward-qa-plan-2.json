@@ -1,0 +1,16 @@
+[
+  {"id": "REQ-QA-001", "severity": "Blocking", "agent": "req-qa"},
+  {"id": "REQ-QA-002", "severity": "Blocking", "agent": "req-qa"},
+  {"id": "REQ-QA-004", "severity": "Blocking", "agent": "req-qa"},
+  {"id": "REQ-QA-007", "severity": "Blocking", "agent": "req-qa"},
+  {"id": "REQ-QA-009", "severity": "Important", "agent": "req-qa"},
+  {"id": "ARCH-INPUT-001", "severity": "Blocking", "agent": "arch-qa"},
+  {"id": "ARCH-001", "severity": "Blocking", "agent": "arch-qa"},
+  {"id": "ARCH-002", "severity": "Blocking", "agent": "arch-qa"},
+  {"id": "ARCH-003", "severity": "Blocking", "agent": "arch-qa"},
+  {"id": "ARCH-004", "severity": "Blocking", "agent": "arch-qa"},
+  {"id": "ARCH-005", "severity": "Blocking", "agent": "arch-qa"},
+  {"id": "ARCH-006", "severity": "Blocking", "agent": "arch-qa"},
+  {"id": "ARCH-007", "severity": "Important", "agent": "arch-qa"},
+  {"id": "ARCH-008", "severity": "Important", "agent": "arch-qa"}
+]

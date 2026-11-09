@@ -1,0 +1,23 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/r-4-adrs-and-manifests",
+    "reviewed_commit": "8bdfc83",
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "critical": 0,
+      "important": 0,
+      "minor": 0
+    },
+    "verification": {
+      "head_check": "refs/heads/sprint/r-4-adrs-and-manifests resolves to 8bdfc83b43bcbc54c4b7a022d5b2a120b8d10d27 and the worktree HEAD points at that ref. I read the files directly and did not run cargo or the scripts.",
+      "FTQ-001": "Resolved. In cargo-tree-gates.sh, `cargo tree --locked` writes stderr to `$errfile` (`2>\"$errfile\"`) and only stdout is grepped. stderr is printed only when cargo fails, and the temp file is removed by an EXIT trap. The `cargo build --locked` steps in the deps job (lines 275 and 279) also use --locked. The new `present` positive-control rows stop the absence rows from passing vacuously.",
+      "FTQ-002": "Resolved. The features job runs `cargo test --locked -p sc-treesitter --test cli --features cli` and the same for sc-ai. If the target or the feature is renamed or dropped, cargo errors instead of skipping. The skip in the hack cells is commented as deliberate.",
+      "FTQ-003": "Resolved. In `expect`, a `fail` case now requires exit exactly 1 plus a `grep -qF` match on the needle ('NOT LISTED' or 'exactly once each'). A crash or parse error no longer counts as a pass.",
+      "cargo_fetch_step": "Deterministic and sufficient. `cargo fetch --locked` without --target downloads dependencies for all targets, so the platform-only crates that `cargo tree --locked --offline --target all` needs are fetched. It fills the registry index cache and the crate sources. --locked makes Cargo.lock drift fail, and the step has a 10-minute timeout and no retry. The cache key is Cargo.lock-hashed with a prefix restore-key. A cold runner, an exact hit and a partial restore all end with the same fetched set, because fetch fills whatever is missing before the tests run. The cache only changes how long the step takes, not whether the offline tree test passes. The step runs in both the test job (all three OSes) and the coverage job, which are the two jobs that run `cargo test --workspace` or llvm-cov, so no workspace-test job is left without it."
+    }
+  },
+  "error": null
+}

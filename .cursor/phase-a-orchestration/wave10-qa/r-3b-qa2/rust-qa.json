@@ -1,0 +1,40 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/r-3b-compose-and-workspace-tests",
+    "reviewed_commit": "a7b68f6",
+    "review_mode": "sprint_review",
+    "executed_checks": {
+      "fmt": {"status": "pass", "command": "cargo fmt --all --check"},
+      "clippy": {"status": "pass", "command": "cargo clippy --all-targets --all-features -- -D warnings"},
+      "tests": {"status": "pass", "command": "cargo test --workspace; cargo test -p workspace-tests; cargo test -p sc-agent-types --features git,test-util; cargo test -p sc-agent-http --features test-util; cargo test -p sc-ai --features test-util; cargo test -p sc-ai --test cli --features cli,test-util"},
+      "coverage": {"status": "not_run", "line": 0.0, "branch": 0.0, "function": 0.0, "adequate_for_risk": true},
+      "artifacts": {"status": "not_run", "command": ""}
+    },
+    "carry_forward_verdicts": [
+      {
+        "id": "QA-001",
+        "verdict": "closed",
+        "evidence": "crates/sc-jev-host/src/obs.rs:71 now uses std::env::temp_dir().join(\"example-log\"), and the example is marked no_run. grep -rn '\"/tmp/' crates/ tests/ returns no matches."
+      },
+      {
+        "id": "CI-R3B-001",
+        "verdict": "closed",
+        "evidence": "The orchestrator reports PR 31 CI green at a7b68f6 (run 42433144889, 13/13, including test (windows-2022)). I did not check this myself. Locally, clippy --all-targets --all-features -D warnings passes on macOS with the a6cd399 large_enum_variant box fix, and the workspace tests pass."
+      }
+    ],
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": {"critical": 0, "important": 0, "minor": 0}
+    },
+    "notes": [
+      "The review worktree HEAD is exactly a7b68f6cda24dc0d86b900a828d0de3e70501e6d. It is a detached HEAD, so the branch name could not be confirmed with git. The commit matches the assignment.",
+      "I ran every check in the review worktree with the CARGO_TARGET_DIR from the input. All test targets passed with 0 failures.",
+      "I did not run the publish dry-run or just test-python, as instructed. No new gates were requested.",
+      "The Windows-only bin_path verbatim target-dir failure cannot be reproduced on macOS. The CI result is the evidence for that part of CI-R3B-001."
+    ]
+  },
+  "error": null
+}

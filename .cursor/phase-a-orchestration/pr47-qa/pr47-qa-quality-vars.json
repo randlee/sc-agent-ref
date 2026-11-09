@@ -1,0 +1,23 @@
+{
+  "qa_pass": "qa-pr47-final",
+  "sprint_id": "PR 47 (fix/pe-errors on integrate/phase-a)",
+  "task_id": "cursor-quality-mgr",
+  "branch": "fix/pe-errors",
+  "commit": "3da9128",
+  "pr_number": "47",
+  "verdict": "FAIL",
+  "reviewer_spawn_gate": "pass",
+  "next_action": "triage_and_fix",
+  "findings_blocking": "0",
+  "findings_important": "1",
+  "findings_minor_open": "0",
+  "findings_minor_tracked": "21",
+  "open_findings_json": "[\"ERR-QA-6 (Important, open; documented limit, bead agt-285)\"]",
+  "tracked_minors_json": "[\"agt-4ru: ARCH-106, ERR-QA-33 remainder, ERR-QA-34..38, RBP-F203..F207, REQ-QA-105, REQ-QA-106, REQ M3, REQ M4\", \"agt-gsp: RBP-F108..F112\"]",
+  "unreconciled_items_json": "[\"agt-gsp RBP-F109..F112 not evidenced as closed or open this round\"]",
+  "head_correlation_gaps_json": "[]",
+  "ci_state": "16/16 pass at 3da9128 (gh pr checks 47; runs 42541519841, 42541519820)",
+  "todo_scan_hits": "0",
+  "pr_comment_url": "posted by gh pr comment; URL reported in handback",
+  "prior_report_url": "https://github.com/randlee/sc-agent/pull/47#issuecomment-6729354317"
+}

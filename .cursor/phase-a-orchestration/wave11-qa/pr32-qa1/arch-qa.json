@@ -1,0 +1,84 @@
+{
+  "agent": "arch-qa",
+  "branch": "plan/phase-a-decision-apis",
+  "scope": {"phase": "r", "sprint": "r-7"},
+  "commit": "2a44320",
+  "verdict": "FAIL",
+  "blocking": 2,
+  "important": 1,
+  "findings": [
+    {
+      "id": "ARCH-001",
+      "rule": "RULE-ADR-PLAN",
+      "adr": null,
+      "severity": "BLOCKING",
+      "file": "docs/architecture.md",
+      "line": 51,
+      "description": "The 'Crate naming convention' section classifies crate families (sc-jev-*, sc-decision-*) and reserves crate names (sc-decider*, sc-laya*, sc-kev*). That is a structural decision (crate taxonomy). It is recorded only in an unnumbered architecture section and in plan.md owner item 12 (plan.md:663-668). No ADR records it. ADR-SAG-0030's per-API bullet (architecture.md:1611-1615) covers modules only, not crate names.",
+      "remediation": "Record the crate-family rule and the reserved sc-decider*/sc-laya*/sc-kev* names in an ADR (new Proposed ADR, or an ADR-SAG-0030 amendment that names the amended ADR), or remove the naming reservation from this record. No new gate is needed."
+    },
+    {
+      "id": "ARCH-002",
+      "rule": "RULE-ADR-PLAN",
+      "adr": "ADR-SAG-0007",
+      "severity": "BLOCKING",
+      "file": "docs/architecture.md",
+      "line": 53,
+      "description": "The naming rule says sc-jev-* is 'anything that speaks the TypeSafe Jev API, including Haiku and Luna'. This contradicts ADR-SAG-0007 (Haiku/Luna use provider HTTP only, docs/architecture.md:666-667), ADR-SAG-0012 (Jev HTTP lives only in sc-jev, lines 1016-1017), ADR-SAG-0019 (Haiku/Luna body is not Jev's body, lines 431-434), the roadmap row that calls Haiku/Luna 'API-direct Anthropic / OpenAI' (architecture.md:1135), and docs/sc-jev-backends/architecture.md:18 ('not the Jev wire document'). The 'Today' list also omits sc-jev-py (crates/sc-jev-py exists) and includes sc-jev-check and sc-jev-host, which do not speak the Jev API. The same wording is in plan.md:663-665.",
+      "remediation": "Rewrite the sc-jev-* sentence to: sc-jev-* holds the crates that send TypeSafe Jev API requests (sc-jev, sc-jev-check, sc-jev-host, sc-jev-py as facade and composition). sc-jev-backends keeps its historical name and is the provider-HTTP (LLM) crate under ADR-SAG-0007. Correct the 'Today' list to include sc-jev-py. Apply the same edit to plan.md item 12. Do not rename crates and do not add a gate."
+    },
+    {
+      "id": "ARCH-003",
+      "rule": "RULE-ADR-PLAN",
+      "adr": "ADR-SAG-0030",
+      "severity": "IMPORTANT",
+      "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+      "line": 202,
+      "description": "Three sources disagree on when jev::v1 is built. The r-7 Layering note says 'only jev:: is built in r-7' (lines 202-203). The r-7 outcome says jev::v1 is r-5's (line 196), owned_paths exclude src/jev/** and tests/jev.rs as r-5 (line 83), and the manifest adds the jev root in r-5 (line 249). ADR-SAG-0030's per-API bullet says 'jev::v1 now' (architecture.md:1611-1612), while its Status line and 'Jev API structs' bullet put jev::v1 in r-5 (architecture.md:1559-1560, 1593). The 'API-agnostic' claim (architecture.md:1614, sprint-r-7:202) also sits uneasily with jev::v1 (Jev-specific) inside sc-decision-schema, and with architecture.md:58-59 ('sc-decision-* is the API-agnostic layer').",
+      "remediation": "Change the r-7 Layering note to 'jev:: is reserved here and built in r-5'. Change the ADR-SAG-0030 per-API bullet to 'jev::v1 lands in r-5 (see the Jev API structs bullet)'. State in the crate-naming text that sc-decision-schema is API-agnostic except for per-API modules (jev::v1 under ADR-SAG-0012 r-5). Keep the r-5 file ownership unchanged."
+    },
+    {
+      "id": "ARCH-004",
+      "rule": "RULE-ADR-PLAN",
+      "adr": "ADR-SAG-0030",
+      "severity": "MINOR",
+      "file": "docs/architecture.md",
+      "line": 1611,
+      "description": "The new 'Per-API modules' bullet is tagged '(Recorded; post-MVP)' and has no owning sprint, no '(Proposed, r-7)' marker and no owner-gate note. r-7 D9 flips only '(Proposed, r-7)' markers, so after the ADR becomes Active it is unclear whether this bullet is binding.",
+      "remediation": "State in the bullet whether it is binding ('Recorded; binding as a reservation, no module built before r-5/post-MVP') or non-binding. Name the owner or sprint that flips it, following the 'Scope context' precedent."
+    }
+  ],
+  "adr_checks": [
+    {
+      "adr": "ADR-SAG-0007",
+      "source": "docs/architecture.md:662-671",
+      "listed_in_sprint_doc": false,
+      "result": "violated",
+      "evidence_refs": ["docs/architecture.md:53-55", "docs/architecture.md:666-667", "docs/architecture.md:1135"]
+    },
+    {
+      "adr": "ADR-SAG-0012",
+      "source": "docs/architecture.md:1012-1018",
+      "listed_in_sprint_doc": false,
+      "result": "upheld",
+      "evidence_refs": ["docs/sc-jev-backends/architecture.md:18", "docs/architecture.md:53-55"]
+    },
+    {
+      "adr": "ADR-SAG-0019",
+      "source": "docs/architecture.md:431-434",
+      "listed_in_sprint_doc": false,
+      "result": "upheld",
+      "evidence_refs": ["docs/architecture.md:431-434", "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:419-427"]
+    },
+    {
+      "adr": "ADR-SAG-0030",
+      "source": "docs/architecture.md:1557-1564",
+      "listed_in_sprint_doc": true,
+      "result": "not-applicable",
+      "evidence_refs": ["docs/architecture.md:1559-1560", "docs/architecture.md:1593-1594", "docs/architecture.md:1611-1615", "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:202-203"]
+    }
+  ],
+  "gate_artifact_checks": [],
+  "merge_ready": false,
+  "notes": "Input contract: JSON valid, worktree absolute, branch and commit given. Bash was not available, so git diff against origin/integrate/phase-a and git status could not run. Checked instead: the worktree .git file points to /Volumes/Extreme Pro/github/sc-agent/.git/worktrees/phase-a-decision-apis; that HEAD is 'ref: refs/heads/plan/phase-a-decision-apis'; and refs/heads/plan/phase-a-decision-apis resolves to 2a44320487c0c5effdd5e026b4a461b44630a7de, which matches commit 2a44320. The 27-line diff was located by its review targets, not by diff. Working-tree cleanliness was not verified. Read: docs/architecture.md (ADR-SAG-0007, 0012, 0019, 0030 and the naming and roadmap sections), plan.md item 12 and the post-MVP line (478-479, 663-668), sprint-r-7 Layering and manifest text, docs/requirements.md (REQ-SAG-0900/0901 consistent with the 'later agent kind' statement; no requirement row conflicts with the naming or roadmap text), docs/sc-jev-backends/architecture.md:18, and quality-policy.md (no Architectural Rules section and no arch-qa repository exception beyond naming). Not checked: the full sprint r-7 adrs list against each owned crate's architecture doc (outside the 27-line scope). No new gate is requested; remediations are doc-only."
+}

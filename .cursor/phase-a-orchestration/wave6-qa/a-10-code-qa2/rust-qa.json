@@ -1,0 +1,95 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/a-10-phase-end-hardening",
+    "reviewed_commit": "145d47aadddd7d893104bbbf6591a91e7bb30b8a",
+    "review_mode": "sprint_review",
+    "executed_checks": {
+      "fmt": {"status": "pass", "command": "cargo fmt --all --check"},
+      "clippy": {"status": "pass", "command": "cargo clippy --workspace --all-targets --all-features -- -D warnings"},
+      "tests": {"status": "pass", "command": "cargo test --workspace run twice, both exit 0, 315 passed / 0 failed each time, no flakes. cargo hack --each-feature test -p sc-treesitter exit 0 (20 result lines, all ok). just test-python in a fresh venv: 9 passed. GIL sentinel handshake, Rust test build_request_releases_the_gil_during_a_slow_extractor: 5/5 pass (0.07-0.10s each). Python twin test_build_request_releases_the_gil: 5/5 pass. just lint: pass. RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps: pass."},
+      "coverage": {
+        "status": "pass",
+        "line": 90.95,
+        "branch": 0.0,
+        "function": 87.52,
+        "adequate_for_risk": true,
+        "per_crate_line_pct_vs_QA1": {
+          "sc-agent-types": "98.3 (QA-1 98.2)",
+          "sc-agent-secrets": "96.7 (96.7)",
+          "sc-jev-check": "90.5 (90.4)",
+          "sc-jev-backends": "93.6 (93.4)",
+          "sc-treesitter": "85.8 (86.0)",
+          "sc-ai": "81.3 (80.7)",
+          "sc-jev": "90.4 (89.9)",
+          "sc-jev-py": "92.9 (92.5)"
+        },
+        "notes": "Workspace total is 90.95% lines, 87.52% functions and 91.95% regions (QA-1: 90.75 / 87.26 / 91.81). Branch is a 0.0 placeholder because the llvm-cov summary does not report it. Measured with `cargo llvm-cov --workspace --no-report` then `cargo llvm-cov report --json --summary-only`, the same commands CI uses. `--json-summary-only` is not a valid flag in the installed cargo-llvm-cov. sc-treesitter is 0.2 points below QA-1, from the added hash_bytes and size-check paths, and is still 10.6 points above the Phase A baseline of 75.2%."
+      },
+      "artifacts": {
+        "status": "pass",
+        "command": "bash scripts/sc-publish-dry-run.sh (clean tree: all phases pass, 7 crates 'aborting upload due to dry run', wheel built, exit 0). SC_PUBLISH_ALLOW_DIRTY=1 with a one-line edit to crates/sc-agent-types/src/lib.rs, publish phase: pass and a new target dir key (35006508524d7fb5); the edit was then reverted with git checkout. Publish phase re-run after the revert: pass. Worktree clean afterwards."
+      }
+    },
+    "findings": [
+      {
+        "id": "QA-009",
+        "category": "correctness",
+        "severity": "minor",
+        "file": "tests/support/deadline.rs",
+        "line": 45,
+        "issue": "The shared bounded runner does not bound everything it claims to. `pipe.write_all(bytes)` runs before the deadline loop starts. A child that never reads stdin, given more bytes than the pipe buffer holds, blocks the test forever. After the kill at line 52, `stderr.join()` at line 54 blocks as long as any grandchild still holds the stderr pipe. The module doc says a hung child fails the test after SUBPROCESS_DEADLINE.",
+        "recommendation": "Write stdin on its own thread, or start the deadline clock before the write. After kill, join the drain threads with a bounded wait, or drop them without joining. Current callers pass small or no stdin, so this is a latent hole and not a live hang.",
+        "evidence": "Code reading of deadline.rs:43-62. I did not reproduce it, because no current caller supplies a stdin larger than the pipe buffer."
+      },
+      {
+        "id": "QA-010",
+        "category": "portability",
+        "severity": "minor",
+        "file": "crates/sc-jev-check/src/lib.rs",
+        "line": 15,
+        "issue": "Test-only modules reach outside the crate directory. sc-jev-check lib.rs:15 uses #[path = \"../../../tests/support/deadline.rs\"]. sc-jev lib.rs `shared_copies` uses include_str!(\"../../sc-jev-backends/src/...\"). All are cfg(test), so `cargo publish --dry-run` passes (verified). But `cargo test` run against the extracted .crate tarball cannot compile these tests, because the files are outside the packaged `include` list.",
+        "recommendation": "Record in the plan that tarball tests are unsupported, or gate these modules on a repo-only cfg or feature. Low priority, because nothing runs tests from the tarball today.",
+        "evidence": "Cargo.toml `include` for sc-jev and sc-jev-check lists only crate-local paths. `cargo publish --dry-run` passed for all 7 crates."
+      },
+      {
+        "id": "QA-011",
+        "category": "artifacts",
+        "severity": "minor",
+        "file": "scripts/sc-publish-dry-run.sh",
+        "line": 160,
+        "issue": "The content key covers HEAD^{tree} plus `git diff HEAD --binary`. That is tracked content only. Untracked files do not change the key. Key directories under target/sc-publish-dry-run/ also accumulate, one per distinct source state.",
+        "recommendation": "The untracked gap is acceptable for CI. A CI checkout is clean, and without SC_PUBLISH_ALLOW_DIRTY=1 cargo package rejects untracked files itself. It is only a stale-key risk when a developer sets ALLOW_DIRTY with new untracked files. Document that in the script header, or add `git ls-files -o --exclude-standard` content to the hash. Optionally prune old key directories.",
+        "evidence": "Clean-tree run produced key 834d02a851d0281c. One tracked edit produced a new key, 35006508524d7fb5, and a passing dry-run. After the revert the original key was reused and passed."
+      },
+      {
+        "id": "QA-004",
+        "category": "correctness",
+        "severity": "minor",
+        "file": "crates/sc-jev-py/src/logging.rs",
+        "line": 339,
+        "issue": "Carry-forward QA-004, judged adequate, with one minor residual. The adapter is still written twice, in sc-ai observe.rs and sc-jev-py logging.rs. Both now compare against one golden file, tests/fixtures/observability/session-event.json, and the cross-crate drift risk is therefore test-guarded. The operation handling cannot diverge any more. LogOperation is a closed enum, both adapters use as_str(), and the divergent 'event' and 'session' fallbacks are gone. The golden covers only operation=Ask. The Judge spelling and the `every_log_operation_is_an_action_name` loop are tested separately and not through the golden.",
+        "recommendation": "Accept the closure, since the dispositions doc records the rationale under D2 and D7. Optionally add a second golden or a parametrised case for Judge.",
+        "evidence": "Both adapter_matches_the_shared_session_event_golden tests pass. a-10-hardening-dispositions.md lines 169, 181 and 186 document the decision."
+      }
+    ],
+    "summary": {
+      "total_findings": 4,
+      "by_severity": {"critical": 0, "important": 0, "minor": 4}
+    },
+    "notes": [
+      "No fmt, clippy, test, doc, lint, python or publish failure. Every gate listed in the request was re-run and matches or exceeds QA-1. No crate coverage regressed beyond 0.2 points.",
+      "QA-007 is closed. The doc-comment approach is adequate. sc-ai/src/command.rs:748-755 and sc-treesitter/src/git_io.rs:310-315 both explain that the show-toplevel lookups map errors differently on purpose: CONFIG_INVALID with the --repo-root hint versus EXTRACTION_FAILED. Both point to decision D2 and the dispositions doc. No code change was needed.",
+      "LoopbackServer (identical in sc-jev and sc-jev-backends, cmp reports identical). Every wait is bounded: a nonblocking accept loop with a 30 s deadline, 10 s stream timeouts, a 10 s finish deadline, and a Stall reply released by dropping the sender. finish() asserts 'expected N connections, saw M', and a should_panic unit test covers it. Setting shutdown in finish() cannot lose connections the client already made, because accept drains the backlog before the loop checks shutdown. The byte-compare test (sc-jev lib.rs shared_copies) covers both test_server.rs and retry_policy.rs, and both cmp checks passed.",
+      "closed_port() (the closed_port_url guard) holds the listener bound for the guard's lifetime. A unit test proves a re-bind of that port fails. The kernel queues the connection and never answers it, so the client fails at its own timeout and not with ECONNREFUSED. The name 'closed' is slightly misleading, but the doc comment says so accurately.",
+      "sc-treesitter git_io: WORKTREE reads check the file length and use take(MAX+1). Revision reads check `cat-file -s` before the blob read, then check the result length again. Hashing uses `hash-object -t blob --stdin --no-filters` on the bytes already read, so the id matches the returned bytes, no path reaches git, and Windows \\\\?\\ verbatim paths are avoided. cli_worktree_sha_is_the_blob_of_the_raw_bytes passes and is self-validating (an assert_ne proves the fixture would differ under filtering). cli_oversize_inputs_are_input_too_large passes for both HEAD and WORKTREE. The write_all-then-wait_with_output order is safe, because hash-object reads all of stdin before it prints the id.",
+      "RSH-007 and RSH-008: sc-jev-check read.rs resolves the spec once with `rev-parse --verify --end-of-options`. The -t, -s and blob steps then run on the validated hex object id, and object_id() accepts only 40 or 64 lowercase hex digits, so option injection is not possible. A unit test covers it. The single-pass placeholder expansion has a new test.",
+      "WorkerGuard is cfg(unix), matching the cfg(unix) test, so there is no dead code on Windows. Its Drop sets the stop event and joins the worker, so a panic in the test still cleans up. The /tmp hardcoding grep over crates and tests found nothing.",
+      "The publish script works from a clean checkout. It needs network for the kit clone and passed. The dirty-tree behaviour is covered under QA-011.",
+      "I did not mutate the GIL test to show it fails when the GIL is held. The code uses py.detach at run.rs:235, 415 and 452, and the assertion distinguishes EXTRACTION_FAILED from EXTRACTION_INVALID. That is a design argument, not a mutation result.",
+      "No rust-best-practices or rust-service-hardening review was performed."
+    ]
+  },
+  "error": null
+}

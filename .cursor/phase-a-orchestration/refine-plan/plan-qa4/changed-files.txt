@@ -1,0 +1,25 @@
+ docs/architecture.md                               | 279 ++++++++++++++++-----
+ docs/development/ci.md                             |  34 ++-
+ .../phase-a-refine/plan-review-2-dispositions.md   |   4 +-
+ .../phase-a-refine/plan-review-3-dispositions.md   | 157 ++++++++++++
+ docs/plans/phase-a-refine/plan.md                  | 268 ++++++++++++++------
+ .../plans/phase-a-refine/sprint-r-1-types-break.md | 256 ++++++++++++++-----
+ .../phase-a-refine/sprint-r-2-engine-shape.md      |  65 +++--
+ .../sprint-r-2b-multi-backend-semantics.md         |  63 ++++-
+ .../plans/phase-a-refine/sprint-r-3-shared-http.md |  50 +++-
+ .../sprint-r-3b-compose-and-workspace-tests.md     | 269 +++++++++++++++-----
+ .../phase-a-refine/sprint-r-3c-treesitter-cli.md   |  11 +-
+ .../sprint-r-4-adrs-and-manifests.md               |  43 +++-
+ .../phase-a-refine/sprint-r-5-jev-wire-envelope.md |   4 +
+ docs/plans/phase-a/a-10-hardening-dispositions.md  | 206 +++++++++++++++
+ docs/plans/phase-a/plan.md                         |  15 +-
+ docs/plans/phase-a/sprint-a-2-agent-secrets.md     |   4 +-
+ docs/plans/phase-a/sprint-a-4-backend-jev.md       |   2 +-
+ docs/plans/phase-a/sprint-a-8-pyo3-wrapper.md      |   6 +-
+ docs/requirements.md                               |   5 +-
+ docs/sc-agent-secrets/architecture.md              |  27 +-
+ docs/sc-agent-types/requirements.md                |   2 +
+ docs/sc-jev-check/extraction.md                    |  15 +-
+ docs/sc-jev-py/architecture.md                     |  12 +-
+ docs/sc-treesitter/architecture.md                 |  21 ++
+ 24 files changed, 1444 insertions(+), 374 deletions(-)

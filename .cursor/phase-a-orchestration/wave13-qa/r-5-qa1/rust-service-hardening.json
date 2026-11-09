@@ -1,0 +1,51 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-5-jev-wire-envelope",
+    "reviewed_commit": "14f85f1",
+    "review_mode": "sprint_review",
+    "service_indicators_found": ["sc-agent-http (outbound HTTP client layer, workspace crate)", "ureq (workspace dependency, used by sc-agent-http UreqTransport)", "HttpClient / UreqTransport / BusyPolicy (busy retry on 429, 502, 529)", "JevClient::with_default_transport and AnthropicHaikuBackend/OpenAiLunaBackend::with_default_transport (outbound client construction with explicit timeouts)"],
+    "topics_reviewed": ["config_validation", "timeouts", "graceful_shutdown", "input_limits", "error_redaction"],
+    "findings": [
+      {
+        "id": "RSH-001",
+        "topic": "graceful_shutdown",
+        "severity": "important",
+        "file": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/crates/sc-jev-backends/src/backend.rs",
+        "line": 374,
+        "issue": "A single judge() call on Haiku and Luna runs two sequential provider exchanges (count, then message). Each exchange can take a 90 s busy-retry budget plus a 120 s in-flight request, so one judge() can block for about 420 s. No end-to-end deadline spans both exchanges. The CancelToken only takes effect between attempts and during busy waits (see with_cancel doc at backend.rs:328-331), so a cancel or shutdown cannot preempt an in-flight request. The same applies to the Jev path (sc-jev/src/client/mod.rs:159-162), which is bounded at 60 s per exchange.",
+        "recommendation": "Give judge() one overall deadline that is shared by the count and message exchanges (the remaining budget is passed to each exchange's transport timeout and to the busy-retry budget). Make the cancel token able to abort an in-flight request, or at least document the shutdown bound and wire the process shutdown path to it. Add a test that asserts the total judge() wall-time bound.",
+        "evidence": "backend.rs:9-16 documents the worst case (two exchanges, each about 210 s, about 420 s per judge call) and states 'There is no further deadline.' backend.rs:374-378 repeats the 420 s figure in the trait method doc. backend.rs:157-191 runs prepare_checked, then exchange(count_endpoint), then exchange(message_endpoint) with no shared deadline. backend.rs:328-331 states a cancel during an in-flight request is seen only when it returns."
+      },
+      {
+        "id": "RSH-002",
+        "topic": "error_redaction",
+        "severity": "minor",
+        "file": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope/crates/sc-jev-backends/src/backend.rs",
+        "line": 253,
+        "issue": "http_failure() puts up to 300 bytes of the upstream provider's response body into the NETWORK_ERROR detail string (backend.rs:255-260). That string is returned to callers and is typically logged. Provider error bodies can echo request content, and the request carries the canonical payload and evaluator prompt. The Jev backend does not do this: its non-200 path returns only 'HTTP {status}' (sc-jev/src/client/mod.rs:217-221). The two backends therefore apply different error-redaction rules.",
+        "recommendation": "Drop the body snippet from the NETWORK_ERROR detail and keep only the status code (and, if useful, the provider's error type field after validation). This matches the Jev backend. If the snippet must stay for diagnostics, pass it through an explicit allow-list or redaction step, and cover it with a test that a sentinel payload string does not appear in the error text.",
+        "evidence": "backend.rs:253-261: fn http_failure builds format!(\"HTTP {}: {snippet}\", response.status()) from String::from_utf8_lossy(&body[..min(len,300)]). Call site backend.rs:230-232 returns http_failure for any non-200 reply. Jev counterpart client/mod.rs:217-220 returns format!(\"HTTP {}\", response.status()) with no body."
+      }
+    ],
+    "summary": {
+      "total_findings": 2,
+      "by_severity": {
+        "critical": 0,
+        "important": 1,
+        "minor": 1
+      }
+    },
+    "notes": [
+      "Delta attribution not verified. This run has only file read, glob, and grep tools, with no git command, so 77fffdb..14f85f1 could not be diffed. Both findings come from a full review of the in-scope files at HEAD. The caller must confirm that each finding is introduced by the 77fffdb..14f85f1 delta before treating it as delta-scoped.",
+      "HEAD verified without git: the worktree HEAD is ref refs/heads/sprint/r-5-jev-wire-envelope, and that ref resolves to 14f85f129fda46e39bda90ae2a5333e69213312b, which matches the assigned commit 14f85f1. The branch name also matches.",
+      "Review scope: crates/sc-jev (src/client/mod.rs, src/config.rs, src/check.rs, src/lib.rs, src/jev.toml, Cargo.toml), crates/sc-jev-backends (src/backend.rs, src/wire.rs, src/validate.rs, src/lib.rs), and crates/sc-decision-schema/src/jev (mod.rs, v1.rs). Test files were consulted for context only.",
+      "Excluded per triage: the 502 busy-retry behaviour (owner decision) and the CI advisory scan (bead agt-ci-advisory-scan) were not raised. Busy retry for 429 and 529 was also not raised, because it is part of the same owner-approved REQ-SAG-0505 policy.",
+      "Checked and not raised: request-size limits run before any send (validate.rs enforce_count_and_message_limits, and check.rs prepare), and input-token ceilings are enforced. Client timeouts are explicit (Jev 10 s connect and 60 s request from jev.toml; Haiku and Luna 10 s connect and 120 s request). Jev config is validated at startup with range checks in JevClientConfig::try_new. Retry attempts are bounded (4). Output tokens are capped (HAIKU_MAX_TOKENS). Test-only fault injection is behind the off-by-default test-util feature. Production expect() calls cover compile-time constants and serializer invariants only, which is acceptable under M-PANIC-ON-BUG.",
+      "Observation, not a finding: the in-scope crates emit no tracing or log events. Diagnostics flow through the SendTrace and error values, so logging and request-ID correlation are the caller's responsibility. Confirm the service layer that calls these backends does this.",
+      "Out of scope and not reviewed: sc-agent-http (the 8 MiB response cap, the busy-retry implementation, redaction in send_and_parse, and the Retry-After handling). The findings above assume redaction in send_and_parse behaves as its doc comments state."
+    ]
+  },
+  "error": null
+}

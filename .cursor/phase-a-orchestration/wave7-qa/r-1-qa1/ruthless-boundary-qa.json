@@ -1,0 +1,92 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-1-types-break",
+    "reviewed_commit": "22ef273",
+    "review_mode": "sprint_review",
+    "findings": [
+      {
+        "id": "RBQA-F201",
+        "severity": "important",
+        "class": "doc_gap",
+        "file": "boundaries/sc-jev-check/jev-check.toml",
+        "line": 24,
+        "issue": "The `[public].facade` and `notes` still name `registry::ScriptedJudge` and `registry::RequestLog`. r-1 deleted both (ARCHC-010, ADR-SAG-0022 r-1 amendment) in favour of `register_scripted_backends` over `MockJudgeBackend`.",
+        "recommendation": "Remove both names from the facade and from the 'ScriptedJudge, RequestLog behind test-util' sentence in `notes`. If r-2 owns the jev-check manifest, the r-2 sprint doc must name this edit explicitly, and r-1 should not merge a manifest that contradicts the code without that handoff.",
+        "evidence": "A grep of `crates/**/*.rs` finds no `ScriptedJudge` or `RequestLog`. `registry/scripted.rs` only exports `register_scripted_backends`, which is gated by `cfg(any(test, feature = \"test-util\"))`. The facade still lists both as public items. `boundaries/sc-jev-check/**` is not in r-1 `owned_paths`; r-2 line 249 touches the topic.",
+        "justification_check": "duplicated implementation (stale declaration of a deleted path)",
+        "related_artifacts": [
+          "boundaries/sc-jev-check/jev-check.toml",
+          "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md",
+          "docs/plans/phase-a-refine/sprint-r-1-types-break.md"
+        ]
+      },
+      {
+        "id": "RBQA-F202",
+        "severity": "minor",
+        "class": "boundary_tightening",
+        "file": "crates/sc-agent-types/src/lib.rs",
+        "line": 71,
+        "issue": "`ERROR_RESPONSE_SCHEMA_VERSION` is re-exported at the crate root but is absent from the agent-types.toml facade. Nothing outside `envelope.rs` uses it, so the real public surface is wider than the declared facade.",
+        "recommendation": "Either make it `pub(crate)` and drop it from the root re-export, or add it to the facade with a stated consumer. Prefer `pub(crate)`.",
+        "evidence": "A grep finds uses only in `envelope.rs` plus the `lib.rs` re-export. The facade string in agent-types.toml line 24 lists `ScAgentErrorResponse` but not this constant.",
+        "justification_check": "Missing requirement/ADR justification",
+        "related_artifacts": [
+          "boundaries/sc-agent-types/agent-types.toml"
+        ]
+      },
+      {
+        "id": "RBQA-F203",
+        "severity": "minor",
+        "class": "lint_gap",
+        "file": "crates/sc-agent-types/src/git.rs",
+        "line": 45,
+        "issue": "`sc_agent_types::git` is now the intended single git owner, but four other `Command::new(\"git\")` sites remain with no mechanical guard: `sc-treesitter/src/git_io.rs:326`, `sc-jev-check/src/extract/read.rs:202`, `sc-ai/src/command.rs:774`, and `sc-jev-check/src/extract/mod.rs:134` (the last is in test code). No feature enables `sc-agent-types/git` for any consumer yet.",
+        "recommendation": "Accepted as an interim state. The plan assigns the `clippy.toml` `disallowed-methods` ban on `std::process::Command::new` to r-3b, after r-2 and r-3c move the callers. When that ban lands, `git.rs` needs an item-level `#[expect(clippy::disallowed_methods, reason=...)]` on `git()` only. This is satisfiable, but the ban must not be applied crate-wide or by file glob. Also confirm that `crates/sc-agent-types/tests/features.rs` and `tests/git.rs`, which call `Command::new`, are covered by the r-3b test-helper exemption.",
+        "evidence": "plan.md line 216 and sprint-r-3b lines 81-85 and 348. The Command::new sites are listed in this finding.",
+        "justification_check": "justified and retained (guard deferred to r-3b)",
+        "related_artifacts": [
+          "docs/plans/phase-a-refine/plan.md",
+          "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md"
+        ]
+      },
+      {
+        "id": "RBQA-F204",
+        "severity": "minor",
+        "class": "boundary_tightening",
+        "file": "crates/sc-jev-check/src/registry/scripted.rs",
+        "line": 38,
+        "issue": "The doctest on `register_scripted_backends` is not gated on `test-util`. The module compiles under `cfg(any(test, feature = \"test-util\"))`, but a doctest links the library built with `cfg(test)` off. A plain `cargo test -p sc-jev-check` therefore leaves `register_scripted_backends` undefined and the doctest fails to compile. Under `--workspace`, feature unification hides this.",
+        "recommendation": "Gate the example with a doc-level `cfg_attr(not(feature = \"test-util\"), doc = ...)` or mark it `ignore`. Alternatively, accept that every validation line must pass `--features test-util`, as the README convention says, and state that in the sprint validation lines.",
+        "evidence": "registry/mod.rs lines 23-31 gate the module; the doctest in scripted.rs lines 38-51 has no gate. sc-jev-check has no `[[test]] required-features` or doctest setting for this.",
+        "justification_check": "collapsible path",
+        "related_artifacts": [
+          "crates/sc-jev-check/Cargo.toml",
+          "boundaries/README.md"
+        ]
+      }
+    ],
+    "summary": {
+      "total_findings": 4,
+      "by_severity": {
+        "critical": 0,
+        "important": 1,
+        "minor": 3
+      }
+    },
+    "notes": [
+      "I could not verify HEAD == 22ef273 with these tools (no git execution). I read files in the worktree directly, there was no validator report, and I did not diff against the baseline 34dfed0. owned_paths was therefore not audited per file: I could not enumerate the 93-file diff, so I could not confirm that nothing outside the sprint doc's list changed.",
+      "D0 record and agent-types.toml: the README records rule ids per case and the empty-facade rejection (`CLI.CONFIG_ERROR`). agent-types.toml has no self entry, a non-empty facade, and `required-features` on the `mock` and `git` test targets, so it follows the record. There is no self dev-dependency in sc-agent-types/Cargo.toml.",
+      "Facade versus real surface: `catalog`, `code`, `error`, `judge`, `payload`, `secret`, `ids` and `envelope` are private modules, and `error`'s `pub use` of the `code` items is therefore not a second public path. Each item has exactly one path (the crate root). The `schema`, `observability`, `git` and `test_util` modules are public and listed. The only facade mismatch is RBQA-F202.",
+      "Features and dependency set: the normal dependencies are serde, serde_json, sha2, thiserror and uuid. There is no ureq, sc-observability or sc-observability-types. sha2 is justified by the core `Sha256Digest::of`. `tests/features.rs` pins the no-default-features set and checks that forbidden crates are absent under default, no-default and all features. This is mechanically guarded, with no leak found.",
+      "test-util: the feature is enabled only through dev-dependencies (sc-jev, sc-jev-backends, sc-jev-check, sc-ai) and the forwarding features `sc-jev-check/test-util` and `sc-jev-py/test-util`. No normal dependency enables it in the manifests I read. sc-jev-py enables `sc-jev-check/test-util` through a normal dependency line (Cargo.toml:46) with a comment that the publish wheel leaves it off; I did not verify that. If that line is a normal dependency, `MockJudgeBackend` ships in the wheel by default. Worth a check in r-2 or a-10.",
+      "`PayloadBundle::decode` is justified: sc-jev-check `session/mod.rs:666` uses it for replay validation, and it is a validating re-encode comparison.",
+      "`judge_outcome_field_names` is justified: it is used by the contract tests in sc-jev and sc-jev-backends.",
+      "FACTORIES is a private static (`registry/mod.rs:39`) with parity tests that pin its rows to BACKENDS. There is no visibility leak.",
+      "The README row for `SCB-MANIFEST-004` still lists `sc-observability-types`, which plan.md assigns to r-3b. sc-lint.toml has no sc-observability-types ownership record, so the deletion is already done or never existed. It matches the plan (r-4) and is not a finding. The sc-observability ownership record already limits that crate to sc-ai and sc-jev-py, while the plan targets `sc-agent-compose` in r-3b. That is a later sprint's job.",
+      "I read the whole of sc-agent-types git.rs (argv-only, `--end-of-options`, bounded read); I did not read the rest of the crate in full."
+    ]
+  },
+  "error": null
+}

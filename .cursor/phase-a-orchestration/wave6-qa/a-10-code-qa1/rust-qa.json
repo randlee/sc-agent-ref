@@ -1,0 +1,73 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/a-10-phase-end-hardening",
+    "reviewed_commit": "1899319d1ca643696868c1c69c8d49437ba9f1ae",
+    "review_mode": "sprint_review",
+    "executed_checks": {
+      "fmt": {"status": "pass", "command": "cargo fmt --all --check"},
+      "clippy": {"status": "pass", "command": "cargo clippy --workspace --all-targets --all-features -- -D warnings"},
+      "tests": {"status": "pass", "command": "cargo test --workspace (run twice, both green, no flakes; loopback transport tests stable: https 16, backends transport 11, sc-ai cli 12); cargo hack --each-feature test -p sc-treesitter (all combos pass, including --no-default-features); just test-python in a fresh venv (9 passed)"},
+      "coverage": {
+        "status": "pass",
+        "line": 90.75,
+        "branch": 0.0,
+        "function": 87.26,
+        "adequate_for_risk": true,
+        "per_crate_line_pct_vs_baseline": {
+          "sc-agent-types": "98.2 (was 96)",
+          "sc-agent-secrets": "96.7 (was 96)",
+          "sc-jev-check": "90.4 (was 90.2)",
+          "sc-jev-backends": "93.4 (was 80.6)",
+          "sc-treesitter": "86.0 (was 75.2)",
+          "sc-ai": "80.7 (was 71.1)",
+          "sc-jev": "89.9 (was 65.0)",
+          "sc-jev-py": "92.5 (was 60.4)"
+        },
+        "notes": "No crate regressed. Every crate is at or above 80%. Workspace total is 91.81% regions, 87.26% functions and 90.75% lines. Branch coverage is not reported by this llvm-cov summary, so the branch value is 0.0 as a placeholder. QA-002 hot spots are now sc-jev client/https.rs 99.56%, sc-jev-backends transport.rs 97.68%, sc-jev-py run.rs 97.07% and error.rs 100%. Two files still report 0%: crates/sc-jev-py/src/lib.rs (the pymodule init) and crates/sc-jev/src/client/transport.rs. The pytest harness covers the pymodule, but llvm-cov does not instrument it."
+      },
+      "artifacts": {
+        "status": "pass",
+        "command": "just lint (pass); just test (pass); just test-python (pass); RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps (pass); cargo hack (pass); bash scripts/sc-publish-dry-run.sh (all phases pass, wheel built); cargo llvm-cov (pass); cargo tree -d (informational: getrandom 0.2/0.4 and similar transitive duplicates only, no workspace-owned duplicates); git ls-files --eol (595 files i/lf, 1 binary)"
+      }
+    },
+    "findings": [
+      {
+        "id": "QA-004",
+        "category": "correctness",
+        "severity": "minor",
+        "file": "crates/sc-jev-py/src/logging.rs",
+        "line": 263,
+        "issue": "Carry-forward QA-004 is only partly closed. The SessionEvent to LogEvent adapter still exists twice: to_obs_event in sc-jev-py/src/logging.rs:263 and obs_event in sc-ai/src/observe.rs:142. The behavioural divergence is gone. Both now use the same fields, the same 'session' fallback action, and the same level, target and version. The duplication that could drift again remains.",
+        "recommendation": "Move the adapter next to LogEvent in sc-agent-types::observability::v2, or into a shared helper, and call it from both sites. Alternatively, record the duplication as an accepted risk and add a cross-crate equivalence test.",
+        "evidence": "The two function bodies are structurally identical. They differ only in field insertion order (BTreeMap-backed Map, so no wire effect) and in how the schema version and target are constructed."
+      },
+      {
+        "id": "QA-007",
+        "category": "guideline",
+        "severity": "minor",
+        "file": "crates/sc-treesitter/src/git_io.rs",
+        "line": 247,
+        "issue": "Carry-forward QA-007 is only partly closed. The hand-rolled TempDir types are gone (no `struct TempDir` remains in crates). The `git rev-parse --show-toplevel` lookup is still implemented twice: sc-treesitter/src/git_io.rs:247 and sc-ai/src/command.rs:770.",
+        "recommendation": "Share one lookup, or document why the two error mappings must differ.",
+        "evidence": "git grep for the two `--show-toplevel` call sites. Both build their own Command and map errors separately."
+      }
+    ],
+    "summary": {
+      "total_findings": 2,
+      "by_severity": {"critical": 0, "important": 0, "minor": 2}
+    },
+    "notes": [
+      "Carry-forward closure: QA-001 closed (.github/workflows/sc-agent-ci.yml has test, python, features, doc and coverage jobs, and the doc job no longer has continue-on-error). QA-002 closed (coverage table above). QA-003 closed (retry_policy.rs is byte-identical in sc-jev and sc-jev-backends per `cmp`; both table tests pass). QA-005 closed (cargo doc with -D warnings is clean). QA-006 closed (cargo hack --each-feature passes for all combos). QA-008 closed: the three `#[allow(clippy::too_many_arguments)]` are now `#[expect(..., reason=...)]` at run.rs:425, 490 and 547; the remaining `#[allow]` attributes (ids.rs:124, transport.rs:81, https.rs:84) all carry a reason; and the payload.rs:62 expect has a message and is covered by the canonical-JSON tests. QA-004 and QA-007 are partly closed, see findings.",
+      "New expects and debug_asserts in library paths: sc-jev-check extract/command.rs:157,161 (piped child handles), sc-jev check.rs:43 and :258, sc-treesitter extract.rs:186 and :233, and sc-jev config.rs:47 (JevClientConfig::packaged, with a documented # Panics section, exercised by tests/jev_api.rs:568). Each is an unreachable invariant with a message, and the paths they guard are exercised by passing tests. I did not write a dedicated test that violates each invariant, and I do not think one is needed.",
+      "Mutation spot checks, each reverted afterwards with git checkout (worktree clean). Removing `command.env_clear()` makes command_extractor_child_env_excludes_secrets FAIL. Changing the spec `{rev}:./{path}` to `{rev}:{path}` makes subdirectory_repo_root_reads_the_same_file_at_rev_and_worktree FAIL. The symlink-escape tests (read.rs:303 and 318), the `--rev=--output=` injection test (sc-treesitter tests/cli.rs:153) and the single-pass substitution test (payload/mod.rs:194) exist and pass. I did not mutate the last three.",
+      "Symlink tests are `#[cfg(unix)]`, so the symlink-escape protection is not exercised on Windows CI. Consider a Windows-equivalent test or a documented limitation.",
+      "Wheel check: a wheel built through the publish path (no test-util) contains no `_testing` submodule or `run_check_scripted` symbol. The only match in the .so is a doc-comment string mentioning the feature. The pytest build with test-util still passes.",
+      ".gitattributes renormalisation: `git ls-files --eol` shows 595 files i/lf and none with w/crlf. The one non-lf entry, tests/fixtures/jev/cross_impl/reference.bytes (attr -text, binary), is expected. A clone with core.autocrlf=true, checked out at 1899319, has no CRLF files and a clean status. cargo test -p sc-treesitter passes there (17+3+14+4), so the golden bytes are preserved.",
+      "The worktree was verified at HEAD 1899319d... on branch sprint/a-10-phase-end-hardening before any check ran. The baseline is origin/integrate/phase-a at 71110d58 (98 files, +7360/-3629).",
+      "No rust-best-practices or rust-service-hardening review was performed, and I have no inline suggestions for either."
+    ]
+  },
+  "error": null
+}

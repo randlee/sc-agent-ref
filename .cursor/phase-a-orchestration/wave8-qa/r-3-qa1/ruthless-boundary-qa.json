@@ -1,0 +1,89 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-3-shared-http",
+    "reviewed_commit": "8f969ff",
+    "review_mode": "sprint_review",
+    "findings": [
+      {
+        "id": "RBQA-F009",
+        "severity": "minor",
+        "class": "boundary_tightening",
+        "file": "crates/sc-agent-http/Cargo.toml",
+        "line": 30,
+        "issue": "DISPOSITION: FIXED (closed). sc-agent-http now reaches sc-agent-types with default-features = false, features = [\"secret\"]. The CI script row that proves it is still not scripted.",
+        "recommendation": "Close RBQA-F009. r-3b must add the `-e normal,features -i sc-agent-types` row (only `secret` may appear) to cargo-tree-gates.sh. Until then the proof is a local check only.",
+        "evidence": "Cargo.toml line 30 is `sc-agent-types = { ..., default-features = false, features = [\"secret\"] }`. `secret = []` in sc-agent-types has no extra feature edges. agent-types.toml allowed_dependents includes sc-agent-http. The gate row exists in plan.md line 275 ('r-3 local, r-3b script'). cargo-tree-gates.sh rows contain only the sc-ai and sc-treesitter mimalloc rows.",
+        "justification_check": "justified and retained",
+        "related_artifacts": ["docs/plans/phase-a-refine/plan.md", ".github/scripts/cargo-tree-gates.sh", "boundaries/sc-agent-types/agent-types.toml"]
+      },
+      {
+        "id": "RBQA-F101",
+        "severity": "important",
+        "class": "lint_gap",
+        "file": "docs/plans/phase-a-refine/sprint-r-3-shared-http.md",
+        "line": 420,
+        "issue": "The public-API ureq check is inadequate as written. Its href half `ureq/(struct|enum|trait|type|fn|union)\\.` cannot match types in ureq submodules. Only the `title=\"struct ureq::...\"` half caught the canary. The widened form is deferred to r-3b with a 'may'. No CI or script gate exists at this commit.",
+        "recommendation": "Fix it in r-3, not r-3b. (1) Change the command to `ureq/([a-z0-9_]+/)*(struct|enum|trait|type|fn|union|constant|macro)\\.` plus the title alternative. Better, flag any `href=\"[^\"]*ureq/` in target/doc/sc_agent_http/ (rustdoc prose names the crate 'ureq' without a link, so that is safe). (2) Update the command text in plan.md line 786, sprint-r-3 (gate row line 331 and the canary notes) and r-3b line 578. As written, r-3b copies 'the form r-3 proved', which is the weak one. (3) Make r-3b require the canary run (`pub fn _canary() -> ureq::Agent`) inside the CI job, or check in a positive control, so the grep cannot go silently dead. If a rustdoc-JSON check is feasible, prefer it over HTML scraping.",
+        "evidence": "The developer canary recorded in sprint-r-3 lines 417-424 shows the href is `../ureq/agent/struct.Agent.html`. The current regex requires `ureq/struct.` directly, so it misses that. The only live detector is the title format. agent-http.toml notes assert 'No ureq type in any pub signature (cargo doc check)', but sc-agent-ci.yml runs only `cargo doc --workspace --no-deps`, which does not resolve deps, and there is no ureq grep anywhere in .github or justfile. The manifest claim is currently unbacked by any mechanical gate.",
+        "justification_check": "collapsible path (one canonical, correct command in the plan, copied once into CI)",
+        "related_artifacts": ["boundaries/sc-agent-http/agent-http.toml", "docs/plans/phase-a-refine/plan.md", "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md", ".github/workflows/sc-agent-ci.yml"]
+      },
+      {
+        "id": "RBQA-F102",
+        "severity": "minor",
+        "class": "lint_gap",
+        "file": "clippy.toml",
+        "line": 9,
+        "issue": "The single secret-read site is enforced by clippy only. An additional `#[expect(clippy::disallowed_methods, reason = ...)]` anywhere is accepted silently. It needs only a reason string, and nothing counts or confines these expects. The claim 'exactly one site' therefore depends on review.",
+        "recommendation": "Add a cheap mechanical guard. Use an sc-lint source rule or a CI grep that fails when `disallowed_methods` appears in an `expect` attribute (or `ResolvedApiKey::as_str` is called) outside crates/sc-agent-http/src/ureq_transport.rs. Add it to the r-3b gate list.",
+        "evidence": "This commit has exactly one call site, `key.as_str()` at ureq_transport.rs:169 inside `expose`, with `#[expect]`. Grep for `(key|secret)...as_str()` across crates finds no other ResolvedApiKey reads. The tests, including tests/retry.rs and tests/ureq.rs, use `SecretHeader::matches`. The other `.as_str()` hits are Rev/String/HeaderName. The mechanism holds: clippy.toml `disallowed-methods` is still the mechanism, with no crate-wide allow. Root Cargo.toml denies `allow_attributes` and `allow_attributes_without_reason`, and `--all-targets` clippy covers tests. This is a lint-enforced convention, not a type seal, as ADR-SAG-0020 r-3 admits.",
+        "justification_check": "justified and retained (the gap is only the missing guard)",
+        "related_artifacts": ["clippy.toml", "crates/sc-agent-http/src/ureq_transport.rs", "Cargo.toml"]
+      },
+      {
+        "id": "RBQA-F103",
+        "severity": "minor",
+        "class": "boundary_tightening",
+        "file": "crates/sc-agent-http/src/ureq_transport.rs",
+        "line": 158,
+        "issue": "`SecretHeader::matches` is a public, ungated, non-constant-time equality oracle for the key. It is implemented in the transport module, not request.rs, to preserve the single `as_str` site. The rustdoc says it is 'for test transports'.",
+        "recommendation": "Either gate it behind `test-util` (the doctest in request.rs line 136 would then need `# #[cfg(feature = ...)]` or removal), or keep it and accept the oracle, recording that it is intentional in the agent-http.toml notes. The notes do not mention `matches` or `bearer` today. Optionally compare in constant time.",
+        "evidence": "Only a holder of the SecretHeader (hence the key) can call it, so this is not an active leak. The surface is wider than the 'only UreqTransport touches bytes' story in lib.rs.",
+        "justification_check": "justified and retained (ADR-SAG-0020 r-3 deviation row records it)",
+        "related_artifacts": ["boundaries/sc-agent-http/agent-http.toml", "crates/sc-agent-http/src/request.rs"]
+      },
+      {
+        "id": "RBQA-F104",
+        "severity": "minor",
+        "class": "lint_gap",
+        "file": ".github/scripts/cargo-tree-gates.sh",
+        "line": 32,
+        "issue": "r-3 introduces `test-util` on sc-agent-http, but the `cargo tree --workspace -e normal,features` test-util absence gate and the ureq, sc-agent-http absent-dependency and secret-only rows are not scripted. They are local-only until r-3b. In the interim the test-util seam, which permits plain HTTP to 127.0.0.1, has no CI proof that it stays out of normal graphs.",
+        "recommendation": "Acceptable interim only because plan.md assigns the rows to r-3b. Either add the cheap test-util and ureq-ownership rows to the script in r-3, or keep r-3b hard-blocked on them. Record the interim window in the r-3 PR. Also note `cargo test -p sc-agent-http` alone silently skips the `retry` and `ureq` targets (required-features). Only the workspace run unifies test-util via the sc-jev and sc-jev-backends dev-deps. CI must keep running the workspace test.",
+        "evidence": "The `[[test]] required-features` entries sit in the sc-agent-http Cargo.toml. The sc-jev and sc-jev-backends dev-deps enable test-util. The cargo-tree-gates.sh rows contain only mimalloc. Manifest check: no self dev-dependency exists in sc-agent-http/Cargo.toml, and `default = []`, which is correct.",
+        "justification_check": "justified and retained (scheduled in r-3b)",
+        "related_artifacts": ["docs/plans/phase-a-refine/plan.md", "crates/sc-agent-http/Cargo.toml"]
+      }
+    ],
+    "summary": {
+      "total_findings": 5,
+      "by_severity": {
+        "critical": 0,
+        "important": 1,
+        "minor": 4
+      }
+    },
+    "notes": [
+      "Worktree identity: the worktree HEAD is refs/heads/sprint/r-3-shared-http and that ref resolves to 8f969ff85e09091da65dc5153425e36cef3e9de8. This matches the assigned commit. I could not run bash, so I did no cargo, sc-lint or git diff runs. No sc-boundary validator report was supplied, so I reviewed the manifests against source and Cargo.toml directly.",
+      "Because the validator report was absent, two items are unverified: that the root Cargo.toml `[workspace.dependencies] ureq = \"3.5.1\"` is tolerated by the SCB-MANIFEST-004 record (allowed_manifest_paths lists only crates/sc-agent-http/Cargo.toml), and that the diff stays within owned_paths. I could not diff. The sprint doc lists Cargo.lock and the sprint doc itself as the only outside-owned_paths files. Please confirm from the parent's `just lint` output.",
+      "Edge checks that PASS: sc-jev and sc-jev-backends Cargo.toml have no ureq edge, and sc-agent-http appears only as a normal dep plus a test-util dev-dep. Both manifests carry `forbidden_edges` to ureq, and the sc-lint.toml ureq record allows only crates/sc-agent-http. allowed_dependencies and allowed_dependents are mutually consistent across agent-http.toml, jev.toml, jev-backends.toml and agent-types.toml. The sc-jev and sc-jev-backends source files re-export no sc_agent_http or ureq types (pub use only JevClient, JevClientConfig and the two backends).",
+      "Facade check: the real lib.rs public surface is Endpoint, HeaderName, HttpRequest, HttpResponse, Method, SecretHeader, BusyPolicy, send_with_busy_retry, Timeouts, Transport, UreqTransport, redact, and test_util (feature-gated). The manifest facade lists exactly these. The Timeouts, HeaderName and SecretHeader::bearer additions are recorded in the deviation table. `bearer` and `matches` are not named in the manifest notes (minor, see RBQA-F103).",
+      "Omitted sc-agent-compose forbidden edge: acceptable interim. sc-lint 0.8.0 rejects an edge to a non-member, the header comment and the deviation row both record it, and r-3b adds it with the crate. Keep it as an r-3b exit criterion.",
+      "test-util wiring: `default = []`, `test-util = []`, and the targets use `[[test]] required-features`. There is no self dev-dep. The `test_util` module and the hooks are `#[cfg(feature)]`-gated. The `loopback_for_tests` plain-HTTP path is gated, and the production `UreqTransport::send` refuses non-https when `https_only`.",
+      "Judgement on the ureq grep gate: not adequate for r-3b to inherit. It must be widened now (RBQA-F101). The edit touches plan.md and the r-3b doc as well as the r-3 sprint doc. If those are outside r-3's owned_paths, the parent should authorise the doc edit or add it to the r-3b entry criteria explicitly."
+    ]
+  },
+  "error": null
+}

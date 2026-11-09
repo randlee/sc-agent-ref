@@ -1,0 +1,129 @@
+{
+  "reviewer_spawn_gate": "pass",
+  "reviewer_manifest": [
+    {
+      "agent": "req-qa",
+      "task_id": "a70f8f0b29a0a4a1e",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "FAIL",
+      "findings": {
+        "blocking": 6,
+        "important": 2,
+        "minor": 1
+      }
+    },
+    {
+      "agent": "arch-qa",
+      "task_id": "a6baa6e0fc335bdcf",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "FAIL",
+      "findings": {
+        "blocking": 2,
+        "important": 1,
+        "minor": 1
+      }
+    },
+    {
+      "agent": "rust-qa-agent",
+      "task_id": "a83de85669418f00d",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "findings",
+      "findings": {
+        "blocking": 0,
+        "important": 0,
+        "minor": 2
+      }
+    },
+    {
+      "agent": "rust-best-practices-agent",
+      "task_id": "afab5676ba29ea249",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "findings",
+      "findings": {
+        "blocking": 0,
+        "important": 0,
+        "minor": 4
+      }
+    },
+    {
+      "agent": "rust-service-hardening-agent",
+      "task_id": "a57f2817e2d3a0b42",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "findings",
+      "findings": {
+        "blocking": 0,
+        "important": 0,
+        "minor": 2
+      }
+    },
+    {
+      "agent": "flaky-test-qa",
+      "task_id": "a54a99fb6e1b8a843",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "findings",
+      "findings": {
+        "blocking": 0,
+        "important": 3,
+        "minor": 2
+      }
+    }
+  ],
+  "missing_reviewers": [],
+  "unparsed_reviewers": [],
+  "aggregation_source": "reviewer_fenced_json_union_ci",
+  "verdict": "FAIL",
+  "findings": {
+    "blocking": 9,
+    "important": 6,
+    "minor": 12
+  },
+  "deliverables": {
+    "complete": 1,
+    "total": 8,
+    "percent": 12.5
+  },
+  "evidence_chain": {
+    "qa_pass": "qa-a-10-code-1",
+    "commit": "1899319d1ca643696868c1c69c8d49437ba9f1ae",
+    "pr_number": 20,
+    "pr_comment_url": "https://github.com/randlee/sc-agent/pull/20#issuecomment-6704732797",
+    "coordinator_task_id": "cursor-quality-mgr-fallback",
+    "reviewer_tasks": {
+      "req-qa": "a70f8f0b29a0a4a1e",
+      "arch-qa": "a6baa6e0fc335bdcf",
+      "rust-qa-agent": "a83de85669418f00d",
+      "rust-best-practices-agent": "afab5676ba29ea249",
+      "rust-service-hardening-agent": "a57f2817e2d3a0b42",
+      "flaky-test-qa": "a54a99fb6e1b8a843"
+    },
+    "ci": {
+      "failing_check": "test (windows-2022)",
+      "finding": "CI-001"
+    },
+    "triage": {
+      "phase_id": "phase-a",
+      "ttl_paths": [],
+      "qa_triage_task_ids": []
+    },
+    "parent_correlation_required": true
+  },
+  "blocking_ids": [
+    "REQ-QA-001",
+    "REQ-QA-002",
+    "REQ-QA-003",
+    "REQ-QA-004",
+    "REQ-QA-005",
+    "REQ-QA-007",
+    "ARCH-001",
+    "ARCH-002",
+    "CI-001"
+  ],
+  "next_action": "triage_and_fix",
+  "fix_assignment": ".cursor/phase-a-orchestration/wave6-dev/fix-a-10-code-qa1.xml"
+}

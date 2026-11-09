@@ -1,0 +1,134 @@
+{
+  "status": "FAIL",
+  "reviewed_branch": "sprint/r-5-jev-wire-envelope",
+  "reviewed_commit": "14f85f1",
+  "errors": [],
+  "scope": {"phase": "phase-a-refine", "sprint": "r-5"},
+  "baselines_read": [
+    "docs/requirements.md",
+    "docs/sc-decision-schema/requirements.md",
+    "docs/sc-jev/requirements.md",
+    "docs/sc-jev-backends/requirements.md",
+    "docs/architecture.md (ADR-SAG-0002/0005/0012/0030 r-5 amendments, index)",
+    "docs/plans/phase-a-refine/plan.md (REQ closure table, (c))",
+    ".claude/skills/plan-anchoring/references/jev-api.md",
+    "docs/sc-decision-schema/architecture.md",
+    "docs/sc-jev/architecture.md",
+    "boundaries/sc-decision-schema/decision-schema.toml"
+  ],
+  "phase_or_sprint_docs_read": [
+    "docs/plans/phase-a-refine/plan.md",
+    "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md"
+  ],
+  "input_verification": "The branch ref .git/refs/heads/sprint/r-5-jev-wire-envelope is 14f85f129fda..., matching the assigned commit. I could not see uncommitted state because I have no shell. I read the code statically and did not run any test, so the acceptance commands are for the parent to run.",
+  "requirement_checks": [
+    {"id": "REQ-SAG-0403", "source": "docs/requirements.md:170", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev/src/check.rs:39-46", "crates/sc-jev-backends/src/validate.rs:80-98", "crates/sc-decision-schema/src/payload.rs:339"]},
+    {"id": "REQ-SAG-0143", "source": "docs/requirements.md:180", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-decision-schema/src/jev/v1.rs:458-596", "crates/sc-decision-schema/tests/jev.rs:87-366", "tests/fixtures/decision-schema/jev/*.json"]},
+    {"id": "REQ-SAG-0142", "source": "docs/requirements.md:179", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-decision-schema/src/payload.rs:83-86 (kind and descriptions are skipped when default)", "crates/sc-decision-schema/tests/judge.rs:347-359"]},
+    {"id": "REQ-SAG-0103", "source": "docs/requirements.md:210", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-decision-schema/src/payload.rs:150-158", "crates/sc-decision-schema/tests/judge.rs:293-374"]},
+    {"id": "REQ-SAG-0102", "source": "docs/requirements.md:38", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["payload.rs:83-86 (a choice question with no new fields serializes as before; digest run is the parent's)"]},
+    {"id": "REQ-SAG-0400", "source": "docs/requirements.md:80", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev/src/client/mod.rs:243-252 (body built once)", "crates/sc-jev/tests/jev_api.rs:161-192"]},
+    {"id": "REQ-SAG-0401", "source": "docs/requirements.md:81", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev/src/client/mod.rs:117-118 (BusyPolicy)"]},
+    {"id": "REQ-SAG-0500", "source": "docs/requirements.md:87", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-backends/tests/llm.rs:814-836 (score is embedded in canonical bytes, digest equals prompt_sha256)"]},
+    {"id": "REQ-SAG-0501", "source": "docs/requirements.md:88", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-backends/tests/llm.rs:787-809 (noul refused for Haiku and Luna before any POST)"]},
+    {"id": "REQ-SAG-0606", "source": "docs/requirements.md", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev/src/client/mod.rs:248", "crates/sc-jev/src/check.rs:63-68", "crates/sc-jev/tests/wire.rs:57-96"]},
+    {"id": "REQ-SAG-0140", "source": "docs/requirements.md:177", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-decision-schema/Cargo.toml:26-30 (no new dependency)"]},
+    {"id": "REQ-SAG-0141", "source": "docs/requirements.md:178", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["jev types live only in crates/sc-decision-schema/src/jev/v1.rs"]},
+    {"id": "REQ-SAG-0110", "source": "docs/sc-jev/requirements.md:9", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["crates/sc-jev/src/client/mod.rs (all Jev HTTP stays in sc-jev)"]},
+    {"id": "REQ-SAG-0502", "source": "docs/sc-jev-backends/requirements.md:14", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["crates/sc-jev-backends/src/validate.rs:54-67 (unchanged)"]},
+    {"id": "REQ-SAG-0503", "source": "docs/sc-jev-backends/requirements.md:11", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["crates/sc-jev-backends/src/wire.rs (module doc only changed)"]},
+    {"id": "REQ-SAG-0504", "source": "docs/sc-jev-backends/requirements.md:12", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["crates/sc-jev-backends/src/wire.rs:378-402 (unchanged)"]},
+    {"id": "REQ-SAG-0505", "source": "docs/sc-jev-backends/requirements.md:13", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["not touched; llm.rs retry tests are unchanged"]},
+    {"id": "REQ-SAG-0144", "source": "docs/sc-decision-schema/requirements.md:11", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["a noul bundle's choice set is {no, yes}: payload.rs:222-230"]},
+    {"id": "REQ-SAG-0145", "source": "docs/sc-decision-schema/requirements.md:12", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["variants.rs not touched"]},
+    {"id": "REQ-SAG-0146", "source": "docs/sc-decision-schema/requirements.md:13", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["session_log not touched"]},
+    {"id": "NFR-SAG-0001", "source": "docs/requirements.md:202", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["errors are JevError variants (v1.rs:109-116, payload.rs:157); the sprint's own boundary row runs test_error_response_stderr_golden"]},
+    {"id": "NFR-SAG-0002", "source": "docs/requirements.md:114", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["crates/sc-jev/src/client/mod.rs:206-212 (key only as SecretHeader)", "v1.rs:72-81 (error text carries no body bytes)"]},
+    {"id": "NFR-SAG-0003", "source": "docs/requirements.md:115", "listed_in_sprint_doc": false, "result": "not-applicable", "evidence_refs": []},
+    {"id": "NFR-SAG-0004", "source": "docs/requirements.md:165", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["no Cargo.toml dependency change in the sprint's crates"]}
+  ],
+  "deliverable_checks": [
+    {"item": "D1 one deserializing validator; criteria_from_object gone", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["payload.rs:339-347", "sc-jev/src/check.rs:39", "sc-jev-backends/src/validate.rs:81"], "notes": "Both crates call CanonicalJudgePayload::from_bytes. grep finds no criteria_from_object in crates/. Rules run inside try_from."},
+    {"item": "D2 QuestionKind, descriptions, try_new, byte-identical bytes", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["payload.rs:38-181", "tests/judge.rs:293"], "notes": "Matches the binding signatures. Extra rules (distinct labels, dropping descriptions equal to labels) are recorded in the sprint's Implementation notes."},
+    {"item": "D3 jev::v1 types, from_canonical, to_body, CheckResponse::into_answers, splice deleted", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["jev/v1.rs", "sc-jev/src/check.rs", "sc-jev/src/client/mod.rs:243"], "notes": "Every rule in the sprint's response list is implemented. grep finds no splice in crates/. CheckResponse.usage has #[serde(default)] where the signature has none; this is recorded in the notes and is lenient, so I did not file it."},
+    {"item": "D4 four hand-written fixtures and the jev::v1 docs section", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["tests/fixtures/decision-schema/jev/", "docs/sc-decision-schema/architecture.md:63-82"], "notes": "See Minor finding REQ-QA-006 about the state entry in the fixtures."},
+    {"item": "D5 input_sha256 recovery by inverting the body", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["v1.rs:517-577", "sc-jev/src/check.rs:63", "sc-jev/tests/wire.rs:57-77"], "notes": "The recovered digest equals prompt_sha256 for a body from from_canonical. The WireFault seed targets the first instructions value."},
+    {"item": "D6 Haiku/Luna score through the choice path; noul refused before send", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["validate.rs:80-98", "tests/llm.rs:787-836"], "notes": "Message text matches the sprint wording and is INPUT_INVALID."},
+    {"item": "D7 test_envelope_robust_to_key_ordering", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-jev/tests/wire.rs:129-155"], "notes": "Uses zeta, alpha, mid and checks the body order."},
+    {"item": "D8 ADR-0002/0005/0012/0030 amendments, REQ-0403/0143 rows, index markers, no (Proposed, r-5)", "status": "present", "closure_state": "closed", "evidence_refs": ["docs/architecture.md:158-171,200-210,1031-1039,1630-1637", "docs/requirements.md:170,180"], "notes": "grep finds no (Proposed, r-5) marker. The ADR-0005 bullet carries the required 'ADR-SAG-0019 is unchanged' sentence. The crate-level requirement rows are missing (REQ-QA-004)."},
+    {"item": "D9 error taxonomy; no new secret read site", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["v1.rs:109-116,660-665", "client/mod.rs:206-212"], "notes": "Request failures are INPUT_INVALID. Reply failures are RESPONSE_INVALID."},
+    {"item": "Acceptance rows (all named tests exist)", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["sc-decision-schema/tests/jev.rs", "sc-jev/tests/wire.rs", "sc-jev-backends/tests/llm.rs:787"], "notes": "Every named test function exists. Their results come from the developer and parent runs, not from me."}
+  ],
+  "findings": [
+    {
+      "id": "REQ-QA-001",
+      "severity": "Blocking",
+      "category": "requirement-not-listed",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:17-29", "docs/sc-jev-backends/requirements.md:9-14", "docs/sc-decision-schema/requirements.md:8-14", "docs/sc-jev/requirements.md:9", "docs/requirements.md:40,114,115,165"],
+      "target_refs": ["docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:17"],
+      "issue": "The sprint owns paths in sc-jev, sc-jev-backends and sc-decision-schema, but its `requirements` list omits ids that apply to them. From the crate files: REQ-SAG-0110 (sc-jev); REQ-SAG-0502, 0503, 0504 and 0505 (sc-jev-backends; validate.rs cites the REQ-SAG-0502 byte cap and its retry tests sit in the same crate); REQ-SAG-0144, 0145 and 0146 (sc-decision-schema). The repo-level NFRs are missing too: NFR-SAG-0001 (the boundary row already runs test_error_response_stderr_golden), NFR-SAG-0002 (secrets; D9 and ADR-SAG-0020), NFR-SAG-0003 and NFR-SAG-0004. Each one is binding.",
+      "required_correction": "Add the missing ids to the sprint `requirements` list. Where an id is a regression only, give it a named command in the `boundary:jev` row; NFR-SAG-0003 may be marked not-applicable. This edits the sprint doc only; no code change is needed.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-002",
+      "severity": "Important",
+      "category": "implementation-drift",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:126-128 (callers express every type through the canonical payload)", "jev-api.md:44"],
+      "target_refs": ["crates/sc-jev-check/src/payload/questions.rs:102-106", "crates/sc-jev-check/src/payload/caller.rs:43", "crates/sc-jev-check/src/payload/questions.rs:45-50"],
+      "issue": "A noul question cannot be sent through the shipped caller path. `validate_question_set` rejects any question with empty choices ('question q choices are empty'), and noul requires empty choices. `--request-json` calls it at caller.rs:43. Question-set files (check.toml) refuse every type other than choice at questions.rs:45. Library users of `Question::try_new` and the facade payload can reach noul, but `sc-ai jev --request-json` can reach choice and score only. Your note says all Jev question formats must be supported.",
+      "required_correction": "In sc-jev-check, make `validate_question_set` kind-aware: require choices only for choice and score, since the payload deserializer already enforces the counts. Add a caller_json test that sends a noul question (`\"kind\":\"noul\",\"choices\":[]`) and reaches the bundle. Either extend question-set files with score and noul or state in docs/sc-jev-check that they stay choice-only.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-003",
+      "severity": "Important",
+      "category": "implementation-drift",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:356-359 (Known UX gap)", "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:193-196 (INPUT_INVALID with a fix hint)"],
+      "target_refs": ["crates/sc-jev-check/src/payload/caller.rs:75-88", "crates/sc-jev-check/src/payload/questions.rs:102-106"],
+      "issue": "Judgement on the developer's follow-up: it should be fixed in this sprint, not deferred. It is a regression this sprint introduces. Question-kind rules now run inside deserialization, so any rule violation (11 score levels, one choice, descriptions count, an unknown kind) is a serde Data error. `request_json_error` maps every Data error to 'request JSON must contain a questions array', which is false and misleading for a document that does have a questions array. It also masks hints that used to be specific: `{\"choices\":[]}` on a choice question used to reach 'question q choices are empty' (questions.rs:104), and that message is now unreachable from caller JSON. The generic text was chosen so raw values are not echoed (the test at caller.rs:116 asserts that). The rule messages from payload.rs:233-278 contain only the question id, kind and counts, so they are safe to show.",
+      "required_correction": "Surface rule messages while still hiding raw values. For example, give the `RawQuestion` try_from errors a marker prefix as jev::v1 does with OWN_MESSAGE, or expose a typed rule error, and have `request_json_error` show only marked text plus the generic fallback. Add tests for a score question with 11 levels and for a choice question with empty choices that assert the specific hint, and keep malformed_request_hides_the_raw_document green.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-004",
+      "severity": "Important",
+      "category": "cross-doc-conflict",
+      "source_refs": ["docs/requirements.md:180", "docs/requirements.md:170", "docs/plans/phase-a-refine/plan.md:575"],
+      "target_refs": ["docs/sc-decision-schema/requirements.md:8-14", "docs/sc-jev/requirements.md:7-11,22-29"],
+      "issue": "REQ-SAG-0143 and REQ-SAG-0403 are Active in the root requirements, but the crate requirement tables have no row for them. docs/sc-decision-schema/requirements.md lists 0140-0146 and omits 0143, though jev::v1 lives in that crate. docs/sc-jev/requirements.md describes 0403 and 0143 only in prose under 'Phase A.1 (r-5)', with no table row. The crate-level REQ-SAG-0103 row (sc-decision-schema/requirements.md:14) does not mention the additive kind and descriptions fields.",
+      "required_correction": "Add a REQ-SAG-0143 row (sprint r-5) to docs/sc-decision-schema/requirements.md and REQ-SAG-0403 and REQ-SAG-0143 rows to the table in docs/sc-jev/requirements.md. Add the additive-fields note to the crate-level 0103 row. docs/sc-decision-schema/** and docs/sc-jev/** are owned paths.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-005",
+      "severity": "Minor",
+      "category": "cross-doc-conflict",
+      "source_refs": ["docs/plans/phase-a-refine/plan.md:1020"],
+      "target_refs": ["docs/plans/phase-a-refine/plan.md:1020", "crates/sc-jev/src/check.rs:78-79"],
+      "issue": "plan.md:1020 still says 'the \"model\" byte-splice remains until r-5 lands'. In sc-jev/src/check.rs the WireFault::DropEmbeddedByte doc says it 'Drops one byte of the embedded payload text', but the seed now drops a letter of the first `instructions` value.",
+      "required_correction": "Update the plan.md D9 line when the sprint closes, and correct the WireFault doc comment in sc-jev/src/check.rs.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-006",
+      "severity": "Minor",
+      "category": "implementation-drift",
+      "source_refs": ["tests/fixtures/decision-schema/jev/check-request-all-types.json:3", "crates/sc-decision-schema/tests/jev.rs:74"],
+      "target_refs": ["crates/sc-decision-schema/src/payload.rs:325-327,339-347"],
+      "issue": "(a) The all-types fixture and test payload carry the prior answer {question_id: quality, choice: yes}, but quality's choices are pass and fail. sc-jev-check's `validate_state` would refuse that state as 'not in the question'. (b) The `CanonicalJudgePayload::from_bytes` doc says the error never names a payload byte outside a question id, but it formats the raw serde error (`canonical payload is invalid: {error}`). For type mismatches serde_json echoes the offending value (for example `invalid type: string \"...\"`).",
+      "required_correction": "(a) Use `choice: pass` in the fixture and test. (b) Either map Data errors to category and position as `CheckRequest::parse` does, or correct the doc comment.",
+      "compliance_result": "partially-compliant"
+    }
+  ],
+  "summary": {
+    "total_findings": 6,
+    "blocking_findings": 1,
+    "overall_compliance": "non-compliant",
+    "deliverables_total": 10,
+    "deliverables_complete": 10,
+    "deliverables_incomplete": 0,
+    "deliverable_completion_percent": 100.0
+  },
+  "gate_reason": "FAIL on one Blocking finding (REQ-QA-001): the sprint doc's `requirements` list is incomplete against the ids of the crates it owns paths in and the repo-level NFRs. The implementation covers all nine deliverables and every acceptance row's named test exists. jev::v1 encodes every documented format: choice, score, noul, string/object/array state and the {model, answers, usage} reply, with order-preserving maps and duplicate-key refusal. I read the code and did not run any command. Two Important findings concern the caller path in sc-jev-check: a noul question cannot be sent through --request-json (REQ-QA-002), and request_json_error's generic hint (REQ-QA-003) should be fixed now because this sprint's change introduced it."
+}

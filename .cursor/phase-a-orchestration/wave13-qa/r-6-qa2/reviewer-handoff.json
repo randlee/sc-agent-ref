@@ -1,0 +1,349 @@
+{
+ "pr": 35,
+ "sprint": "r-6",
+ "branch": "sprint/r-6-session-log-record",
+ "head": "34655a4",
+ "base": "integrate/phase-a",
+ "notes": "QA-2. rust-qa ran every gate on 1.94.1: 498 tests pass. It judged the RSH-001 grace-TTL deviation sound.",
+ "manifest": [
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "a5513496964ed841f",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "34655a4"
+  },
+  {
+   "agent": "req-qa",
+   "task_id": "ad3986d9c631ea204",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "34655a4"
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "af02e099203b8e717",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "34655a4"
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "aa030f5221c03d384",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "34655a4"
+  }
+ ],
+ "reviewer_outputs": [
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "a5513496964ed841f",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "findings",
+     "reviewed_branch": "sprint/r-6-session-log-record",
+     "reviewed_commit": "34655a4",
+     "review_mode": "sprint_review",
+     "executed_checks": {
+      "fmt": {
+       "status": "pass",
+       "command": "cargo +1.94.1 fmt --all --check"
+      },
+      "clippy": {
+       "status": "pass",
+       "command": "cargo +1.94.1 clippy --locked --workspace --all-targets --exclude sc-jev-py -- -D warnings (also --features test-util on sc-ai, sc-jev-check, sc-agent-http: pass)"
+      },
+      "tests": {
+       "status": "pass",
+       "command": "cargo +1.94.1 test --locked --workspace --exclude sc-jev-py (498 passed, 0 failed); --features test-util: sc-ai 40, sc-jev-check 170, sc-agent-http 46, all pass (sc-jev-host has no test-util feature, so it was run without one: pass). RUSTDOCFLAGS=-D warnings cargo +1.94.1 doc --locked --workspace --no-deps: pass"
+      },
+      "coverage": {
+       "status": "not_run"
+      },
+      "artifacts": {
+       "status": "not_run"
+      }
+     },
+     "findings": [
+      {
+       "id": "QA-001",
+       "category": "tests",
+       "severity": "minor",
+       "file": "crates/sc-jev-host/src/obs.rs",
+       "line": 198,
+       "issue": "RSH-003 and RSH-004 have no test coverage. Nothing asserts that the logged envelope carries correlation_id = session id and request_id = answer id, or that a failed send logs at Warn and a successful one at Info. The assignment asked to update affected golden tests, but none assert these fields. The parse path also uses .ok(), so an id that failed to deserialize would silently log None.",
+       "recommendation": "In crates/sc-jev-host/tests/log_context.rs, assert the log rows' level, correlation_id and request_id. Use the existing test_error_path_flushes_the_failed_row for the failed row (expect Warn) and a successful run for the ok row (expect Info).",
+       "evidence": "grep for correlation_id, level and Warn in crates/sc-jev-host/tests/*.rs returns no matches. The only hits are in src/obs.rs lines 206, 225 and 228."
+      }
+     ],
+     "summary": {
+      "total_findings": 1,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 1
+      }
+     },
+     "notes": [
+      "RSH-001: closed, with a deliberate deviation. FileSessionStore::new now deletes *.json session documents once created_at + 2x the default TTL has passed. That covers v1 and v2 documents, skips *.tmp.* files, and leaves non-JSON, unparsable, oversized or created_at-less files alone. The test test_new_store_sweeps_expired_session_documents covers v1, v2 and v3 documents from 2023, a fresh document, and unrelated files. The module doc is updated.",
+      "RSH-001 deviation judgement: sound. read_session's expiry rule is unchanged, so a session between TTL and 2x TTL still answers SESSION_EXPIRED, and only after 2x TTL does it become SESSION_NOT_FOUND. This keeps the 'start a new session' hint for a full extra day and bounds retention. The sweep is best effort and runs once per new(). A store opened with a shorter with_ttl still sweeps at the default 2x TTL, and the doc says so. One test gap: no test puts a document inside the grace window (older than 24 h, younger than 48 h) and checks that it survives and still reads as SESSION_EXPIRED. Consider adding one, but this is not a blocker and not raised as a finding.",
+      "RSH-002: closed. HostRun::run and ask_from flush before propagating the error. note_flush appends the flush warning to the error detail once, and the error code is unchanged. Tests: the unit test flush_failure_on_the_error_path_is_noted_in_the_detail_once and the integration test test_error_path_flushes_the_failed_row.",
+      "RSH-003 and RSH-004: implemented in obs.rs (correlation_id = session id, request_id = answer_id, Warn for send_outcome failed, else Info). Only test coverage is missing, as QA-001 says.",
+      "The parent's Windows test fix f6ddc71 (logged_repo canonicalization) is sound. The new test test_log_context_explicit_repo_root_starts_discovery covers the explicit --repo-root case. The FTQ-004 warnings assertions are in place."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "req-qa",
+   "task_id": "ad3986d9c631ea204",
+   "fenced_json": {
+    "status": "PASS",
+    "reviewed_branch": "sprint/r-6-session-log-record",
+    "reviewed_commit": "34655a4",
+    "errors": [],
+    "scope": {
+     "phase": "phase-a-refine",
+     "sprint": "r-6"
+    },
+    "baselines_read": [
+     "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md",
+     "fix-assignment.xml (wave13-qa/r-6-qa1)"
+    ],
+    "phase_or_sprint_docs_read": [
+     "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md"
+    ],
+    "requirement_checks": [],
+    "deliverable_checks": [
+     {
+      "item": "REQ-QA-001: crate-level ids in requirements list, covered once in the boundary:session-log row",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "sprint-r-6-session-log-record.md:46-83",
+       "sprint-r-6-session-log-record.md:440"
+      ],
+      "notes": "49-83 lists the ids per crate. The boundary row names `just test` plus the `--features test-util` runs once, with no per-id commands."
+     },
+     {
+      "item": "REQ-QA-002: D1, REQ-SAG-0612 wording and acceptance row say the UUID refusal is CLI-only; pytest renamed",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "sprint-r-6-session-log-record.md:221-224",
+       "sprint-r-6-session-log-record.md:430",
+       "tests/fixtures/jev-python/tests/test_run_check_and_ask.py:217"
+      ],
+      "notes": "test_session_ids_are_ulids exists."
+     },
+     {
+      "item": "REQ-QA-003: frontmatter branch and worktree",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "sprint-r-6-session-log-record.md:10-11"
+      ],
+      "notes": "Both are sprint/r-6-session-log-record."
+     },
+     {
+      "item": "REQ-QA-004: D5 explicit-root rule in the sprint doc, ADR-SAG-0031 and docs/sc-jev-host; covering test",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "sprint-r-6-session-log-record.md:304-308",
+       "docs/architecture.md:1738",
+       "docs/sc-jev-host/architecture.md:52",
+       "crates/sc-jev-host/tests/log_context.rs:205"
+      ],
+      "notes": "test_log_context_explicit_repo_root_starts_discovery exists and is named in the boundary row."
+     },
+     {
+      "item": "REQ-QA-005: features.rs module doc",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "crates/sc-agent-types/tests/features.rs:8-10"
+      ],
+      "notes": "The doc says the core dependencies are sc-sha and ulid, and sha2 is transitive."
+     }
+    ],
+    "findings": [],
+    "summary": {
+     "total_findings": 0,
+     "blocking_findings": 0,
+     "overall_compliance": "compliant",
+     "deliverables_total": 5,
+     "deliverables_complete": 5,
+     "deliverables_incomplete": 0,
+     "deliverable_completion_percent": 100.0
+    },
+    "gate_reason": "REQ-QA-001 through 005 are closed at 34655a4. The worktree HEAD ref resolves to that commit. This was a static recheck of the five carried-forward findings only. I did not run any tests or commands, so a green `just test` is not confirmed here. I also did not build a full requirement_checks list. The non-compliance below is not a finding because it is documented in the sprint doc and in the code; the scrum-master can decide whether it needs a ruling. The sweep in FileSessionStore::new (crates/sc-jev-check/src/session/mod.rs:151) uses 2x DEFAULT_SESSION_TTL, not the same cutoff as is_expired that the QA-1 fix text asked for. The deviation is stated at sprint-r-6-session-log-record.md:526-531. The reason given is that a zero-grace sweep would make SESSION_EXPIRED unreachable from the CLI. It is covered by test_new_store_sweeps_expired_session_documents (tests/session.rs:110). One more difference from the fix text: crates/sc-jev-host/tests/obs.rs does not assert response.warnings(). The tests at lines 114 and 150 use the adapter directly and have no response, and they already panic on a flush error."
+   }
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "af02e099203b8e717",
+   "fenced_json": {
+    "agent": "arch-qa",
+    "branch": "sprint/r-6-session-log-record",
+    "scope": {
+     "phase": "phase-a-refine",
+     "sprint": "r-6"
+    },
+    "commit": "34655a4",
+    "verdict": "PASS",
+    "blocking": 0,
+    "important": 1,
+    "findings": [
+     {
+      "id": "ARCH-001",
+      "rule": "RULE-ADR-CODE",
+      "adr": "ADR-SAG-0013",
+      "severity": "IMPORTANT",
+      "file": "docs/architecture.md",
+      "line": 856,
+      "description": "Four delta behaviours are recorded only in the sprint doc and the crate docs (docs/sc-jev-host/architecture.md:62, docs/sc-jev-check/architecture.md:20). The repo-level ADR amendments do not state them. (1) The adapter sets the envelope correlation_id to the session id and request_id to the answer id, and logs failed sends at Warn. This is not in the ADR-SAG-0013 r-6 amendment (lines 856-864). (2) FileSessionStore::new deletes expired *.json documents after TTL plus one TTL of grace. This is not in the ADR-SAG-0008 r-6 amendment (lines 254-266). The sprint doc itself calls it a deviation from the is_expired cutoff. (3) ADR-SAG-0031 Wiring (lines 1754-1756) says a flush failure is a data.warnings entry. It does not cover the error path, where the failure is appended once to the error detail. (4) The ADR-SAG-0016 r-6 amendment does not record the envelope request_id and correlation_id mapping either. No ADR is contradicted. The ADR texts are incomplete, so the contract that governs the code is split between the ADRs and the sprint doc.",
+      "remediation": "Add one bullet each. ADR-SAG-0013 r-6: envelope correlation_id is the session id, request_id is the answer id, and level is Warn for send_outcome=failed (otherwise Info). ADR-SAG-0008 r-6: the store sweep on open removes documents past TTL plus one TTL of grace, and why. ADR-SAG-0031 Wiring log-write policy: on the error path the flush failure is appended once to the error detail, with the code unchanged. Do this in this PR, or in a later ADR amendment before the next sprint depends on these behaviours."
+     }
+    ],
+    "adr_checks": [
+     {
+      "adr": "ADR-SAG-0031",
+      "source": "docs/architecture.md:1673",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:1738",
+       "crates/sc-jev-host/src/compose.rs:255-270",
+       "crates/sc-jev-host/src/compose.rs:237-253"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0013",
+      "source": "docs/architecture.md:835",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-host/src/obs.rs:185-231",
+       "crates/sc-jev-host/src/compose.rs:347-358",
+       "crates/sc-jev-host/src/compose.rs:436"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0008",
+      "source": "docs/architecture.md:218",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/session/mod.rs:148-151",
+       "crates/sc-jev-check/src/session/mod.rs:544-573"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0027",
+      "source": "docs/architecture.md:1406",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-host/src/compose.rs:440-455",
+       "crates/sc-agent-types/src/error.rs:694"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0021",
+      "source": "docs/architecture.md:866",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-host/src/compose.rs:237-247"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0016",
+      "source": "docs/architecture.md:894",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-host/src/obs.rs:185-213"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0028",
+      "source": "docs/architecture.md:1533",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-host/src/compose.rs:264-268"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0011-AWAIT (ADR-RUN-0011 point 2)",
+      "source": "RULE-ADR-AWAIT-MUTEX",
+      "listed_in_sprint_doc": false,
+      "result": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-jev-host/src",
+       "crates/sc-jev-check/src"
+      ]
+     }
+    ],
+    "gate_artifact_checks": [
+     {
+      "artifact": "docs/architecture.md (ADR-SAG-0031 Wiring status and index row)",
+      "status": "closed",
+      "evidence_refs": [
+       "docs/architecture.md:141",
+       "docs/architecture.md:1675",
+       "docs/architecture.md:1719"
+      ],
+      "notes": "The Status line, bullet markers and index Amended-by markers are flipped to Active (r-6)."
+     }
+    ],
+    "merge_ready": true,
+    "notes": "Verified by reading the worktree files and refs: the branch ref resolves to 34655a4. I had no shell, so I could not run git diff 0408826..34655a4. I judged the delta from the named code paths (the explicit-root rule, the error-path flush, the envelope ids and level, the session sweep) against the ADR text, not from a line-level diff. The D5 explicit-root rule matches ADR-SAG-0031 line 1738: discovery starts from the explicit repo root, else cwd, and a dry run skips git. Paths still use discover_repo_root, so ADR-SAG-0021 holds. The flush note on the error path only edits detail text through the existing map_detail. The error code is unchanged and no key is added to ScAgentErrorResponse. The session sweep is best effort and removes files only. It does not touch the written-once or no-lock model. Neither crate has any .await or async fn, so RULE-ADR-AWAIT-MUTEX does not apply. ARCH-001 is documentation completeness, not a contradiction, so it does not block. I recommend closing it in this PR."
+   }
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "aa030f5221c03d384",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "findings",
+     "reviewed_branch": "sprint/r-6-session-log-record",
+     "reviewed_commit": "34655a4465760a9e31860b5eea8b78960674714c",
+     "findings": [
+      {
+       "id": "FTQ-005",
+       "severity": "minor",
+       "file": "crates/sc-jev-check/tests/session.rs",
+       "line": 467,
+       "test": "test_two_stores_same_dir_last_writer_wins",
+       "mechanism": "unbounded_wait",
+       "issue": "The concurrent-writer helper joins eight std threads with no deadline. If any writer thread wedges inside save() or load(), the test blocks forever instead of failing, and the CI job only ends at its own timeout. Today the store takes no lock (session/mod.rs:21 states there is no lock), so no blocking path is reachable and this is not a current flake. It still violates the Fix Standard: a join with no hard deadline is a path on which the test can block forever.",
+       "recommendation": "Have each writer thread send a completion message on an mpsc channel (or use a Barrier/scope with a completion counter) and wait with recv_timeout against a fixed deadline, e.g. 30 s. On timeout, panic with a message naming the stuck writer index. Keep the per-thread expect() so save and load errors still surface through the channel.",
+       "evidence": "concurrent_writers (lines 449-468): `for writer in writers { writer.join().expect(\"writer\"); }`. The only bound is the test runner's. session/mod.rs:21 says 'There is no lock, in process or across processes.' Temp names are unique (`<name>.tmp.<pid>.<random>`, mod.rs:455-460), so the rename race itself is safe."
+      },
+      {
+       "id": "FTQ-006",
+       "severity": "minor",
+       "file": "crates/sc-ai/tests/cli.rs",
+       "line": 379,
+       "test": "test_cli_log_flush_warning_in_data",
+       "mechanism": "unbounded_wait",
+       "issue": "The make_fifo helper spawns mkfifo with Command::new(...).status(), which waits with no deadline. This bypasses the workspace's bounded runner (deadline.rs, which every other subprocess in this file uses), so a stalled child would hang the test instead of failing at 60 s. The disallowed_methods expect() only justifies the direct spawn; it does not bound the wait.",
+       "recommendation": "Run mkfifo through deadline::spawn_with_deadline(&mut Command::new(\"mkfifo\").arg(path), None) and assert status.success(), the same way the rest of cli.rs does. The deadline module is already imported at the top of the file.",
+       "evidence": "cli.rs:378-383: `let status = Command::new(\"mkfifo\").arg(path).status().expect(\"spawn mkfifo\");`. Every other subprocess in the file goes through `spawn_with_deadline` (cli.rs:18, 91)."
+      }
+     ],
+     "summary": {
+      "total_findings": 2,
+      "critical": 0,
+      "important": 0,
+      "minor": 2
+     }
+    },
+    "error": null
+   }
+  }
+ ]
+}

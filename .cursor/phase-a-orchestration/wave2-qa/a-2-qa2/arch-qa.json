@@ -1,0 +1,15 @@
+{
+  "review_mode": "sprint_review",
+  "worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-2-agent-secrets",
+  "branch": "sprint/a-2-agent-secrets",
+  "commit": "85710a9074d6508362be8ef23f6343951b816041",
+  "scope": { "phase": "a", "sprint": "a-2" },
+  "authoritative_sprint_doc": "docs/plans/phase-a/sprint-a-2-agent-secrets.md",
+  "review_targets": ["crates/sc-agent-secrets/", "boundaries/sc-agent-secrets/", "docs/architecture.md"],
+  "reference_docs": ["docs/architecture.md", "docs/sc-agent-secrets/architecture.md"],
+  "round_limit": true,
+  "changed_files": [],
+  "triage_records": ["https://github.com/randlee/sc-agent/pull/6#issuecomment-6590312623"],
+  "carry_forward_findings": ["ARCH-001", "ARCH-002", "ARCH-003", "REQ-QA-001", "REQ-QA-002", "RBP-F001", "RBP-F002", "RBP-F003", "QA-001"],
+  "notes": "QA-2 PR #6 verify ADR and boundary fixes"
+}

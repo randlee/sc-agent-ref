@@ -1,0 +1,31 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "PE-QA1-QA-001",
+ "found_in": "A1-R6",
+ "found_at": "2026-11-08T17:15:25Z",
+ "title": "crates/sc-ai/src/command.rs Workspace line coverage from the CI-equivalent default-feature run (cargo llvm-cov --workspace, sc-jev-py exclud",
+ "description": "crates/sc-ai/src/command.rs Workspace line coverage from the CI-equivalent default-feature run (cargo llvm-cov --workspace, sc-jev-py excluded) is 54.1% lines, 58.0% functions. The branch figure is 0 because llvm-cov reports no branch data on this toolchain. Several risk-bearing src files show very low or zero coverage in that run. Confirm that the files below are exercised only by test-util or cli feature-gated suites, or by subprocess tests that llvm-cov does not instrument. If so, run llvm-cov with those features, or record the gap as accepted. Otherwise add tests. Low-coverage files: sc-ai/src/command.rs 14% of 738 lines; sc-ai/src/observe.rs 0%; sc-treesitter/src/main.rs 20%; sc-jev-check/src/registry/scripted.rs 17%; sc-jev-check/src/session/mod.rs 34%; sc-jev-check/src/run/mod.rs 36%; sc-jev-check/src/run/builder.rs 0%; sc-jev-backends/src/transport.rs 0%; sc-jev-backends/src/retry.rs 0%; sc-jev/src/client/https.rs 0%; sc-jev/src/api/config.rs 0%; sc-agent-types/src/subjects.rs 0%.",
+ "category": "coverage",
+ "severity": "minor",
+ "pattern": "coverage",
+ "file_filter": "crates/sc-ai/src/command.rs",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "91d36b3ad309deb3350434acaecee0ab2938b13f"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a"
+ ]
+}

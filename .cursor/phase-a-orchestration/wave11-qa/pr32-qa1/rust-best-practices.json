@@ -1,0 +1,34 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "plan/phase-a-decision-apis",
+    "reviewed_commit": "2a44320487c0c5effdd5e026b4a461b44630a7de",
+    "review_mode": "doc_review",
+    "practice_mode": "all",
+    "practices_reviewed": ["RBP-001", "RBP-002", "RBP-003", "RBP-004", "RBP-005", "RBP-006", "RBP-007", "RBP-008", "RBP-009", "RBP-010"],
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": {
+        "critical": 0,
+        "important": 0,
+        "minor": 0
+      }
+    },
+    "notes": [
+      "This report supersedes my earlier invalid_input handback. The coordinator resubmitted with practice_mode 'all', so the review was run.",
+      "Worktree check: HEAD resolves to refs/heads/plan/phase-a-decision-apis at 2a44320487c0c5effdd5e026b4a461b44630a7de, which matches the assigned branch and commit.",
+      "Limitation: no shell tool was available, so I could not run git diff. The review covered the three named targets as they read at HEAD in /Volumes/Extreme Pro/github/sc-agent-worktrees/plan/phase-a-decision-apis (docs/architecture.md 'Crate naming convention' and the ADR-SAG-0030 'Scope context' bullet at about lines 1628-1634; docs/plans/phase-a-refine/plan.md owner item 12 at about lines 663-668; docs/plans/phase-a-refine/sprint-r-7-decision-schema.md 'Layering' at about lines 200-215). I did not verify the exact 27-line diff boundary.",
+      "Review mode: the dispatch text said 'design_review', which is not a contract enum value. The assignment JSON and the resubmission both say doc_review, and I used that.",
+      "Cadence (doc_review per enforcement-strategy.md): RBP-001 and RBP-002 are Run. RBP-003, RBP-004, RBP-005, RBP-008 and RBP-010 are Trigger. RBP-006, RBP-007 and RBP-009 are Skip. None of the Trigger conditions is met by the reviewed text. The diff adds no new failure modes, state transitions, new pub traits, semantic-id or unit-bearing primitives, wrapper ergonomics, dyn-trait surfaces, or capability tokens.",
+      "RBP-003 check: JudgeBackend is documented as intentionally open (architecture.md around line 292, ADR-SAG-0009 and sprint-r-1 around line 223), so the open/sealed decision is recorded.",
+      "RBP-008 check: the trait is documented as object-safe (sc-agent-http/architecture.md around line 30), and the Arc<dyn JudgeBackend> usage is documented.",
+      "Consistency checks passed: the owner item 12, the ADR-SAG-0030 post-MVP bullet and the sprint layering note agree on decider-first, then laya, with kev reserved later, and on jev:: being the only module built in r-7. The Scope context bullet matches plan item 4 and the REQ-SAG-0900/0901 wording (Phase B API-direct agents; CLI wrappers are a later agent kind). The layering note's sc-agent-types and sc-decision-schema contents match ADR-SAG-0030 on the decision-type move.",
+      "Out-of-scope observation (doc accuracy, not an RBP finding; not in scope for this pass): the 'Today:' list in docs/architecture.md 'Crate naming convention' (line 55) reads 'sc-jev, sc-jev-backends, sc-jev-check and sc-jev-host' and omits sc-jev-py. sc-jev-py exists in the crate graph (architecture.md line 67), in boundaries/sc-jev-py/jev-py.toml and in the release docs. Because the section's own rule says sc-jev-* is anything speaking the Jev API, the list looks incomplete. Suggest the owner add sc-jev-py to that list in a future docs pass.",
+      "Out-of-scope observation (for a future RBP-004 pass on the model catalog, not in these targets): ADR-SAG-0030's model catalog bullet (architecture.md around lines 1616-1627) describes ModelAliases::latest(\"jev\" | \"haiku\" | \"luna\") taking a raw string alias, while ModelId is typed. An alias newtype could be considered there.",
+      "No new gates were requested, per the owner rule."
+    ]
+  },
+  "error": null
+}

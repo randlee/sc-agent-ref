@@ -1,0 +1,13 @@
+docs/architecture.md
+docs/plans/phase-a-refine/plan-review-1-dispositions.md
+docs/plans/phase-a-refine/plan.md
+docs/plans/phase-a-refine/sprint-r-1-types-break.md
+docs/plans/phase-a-refine/sprint-r-2-engine-shape.md
+docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md
+docs/plans/phase-a-refine/sprint-r-3-shared-http.md
+docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md
+docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md
+docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md
+docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md
+docs/plans/phase-a/plan.md
+docs/requirements.md

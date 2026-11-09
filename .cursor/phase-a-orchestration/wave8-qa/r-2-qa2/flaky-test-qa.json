@@ -1,0 +1,24 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/r-2-engine-shape",
+    "reviewed_commit": "3f66e7bbc09c66fdeca2146bfb436ededd4bf02f",
+    "findings": [],
+    "carry_forward_verdicts": [
+      {"id": "FTQ-001", "verdict": "closed", "evidence": "crates/sc-jev-check/tests/run_response.rs:598-605: git() now uses git_env::git_command(dir) and deadline::spawn_with_deadline. tests/support/git_env.rs isolate_git() removes GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, GIT_OBJECT_DIRECTORY, GIT_ALTERNATE_OBJECT_DIRECTORIES, GIT_COMMON_DIR, GIT_PREFIX, GIT_CONFIG_PARAMETERS, GIT_CONFIG_COUNT, GIT_DEFAULT_HASH and GIT_CEILING_DIRECTORIES. It also sets GIT_CONFIG_GLOBAL and GIT_CONFIG_SYSTEM to the null device, GIT_CONFIG_NOSYSTEM=1 and GIT_TERMINAL_PROMPT=0. git_command also pins core.hooksPath to the null device, disables gpgsign and sets a fixed identity."},
+      {"id": "FTQ-002", "verdict": "closed", "evidence": "crates/sc-ai/tests/cli.rs:874-881: git() uses git_env::git_command(cwd) and .run_with_deadline(), the same shared isolation. init uses git_env::SHA1_INIT. The nogit test at line 675 sets GIT_DIR to a missing path on purpose."},
+      {"id": "FTQ-003", "verdict": "closed", "evidence": "The conditional 'outside git' branch is gone from test_repo_root_from_subdirectory (run_response.rs:611-639). The machine-dependent fallback is now covered by the pure-function lib test run::tests::discovery_falls_back_only_outside_git_or_without_git (src/run/tests.rs:477). That test calls classify_discovery with injected inputs and does not touch the filesystem or TMPDIR. enclosing_git_entry is tested in its own tempdir with a created .git."},
+      {"id": "FTQ-004", "verdict": "closed", "evidence": "crates/sc-jev-check/tests/command.rs:250: the re-executed child now runs through deadline::spawn_with_deadline(&mut command, None). tests/support/deadline.rs enforces a 60s kill of the process group, a 5s pipe grace, and a panic with captured stderr. The run_response.rs git calls are bounded the same way. The runner's own tests assert no wall-clock timing."},
+      {"id": "FTQ-005", "verdict": "closed", "evidence": "No SC_JEV_CHECK_BLESS read remains under crates/sc-jev-check/tests. Blessing is now the separate #[ignore]d test bless_run_response_samples (run_response.rs:138-145). The pinned tests only compare against the fixtures, so an ambient variable can no longer rewrite them."}
+    ],
+    "summary": {
+      "total_findings": 0,
+      "critical": 0,
+      "important": 0,
+      "minor": 0
+    },
+    "notes": "The worktree HEAD was read from /Volumes/Extreme Pro/github/sc-agent/.git/worktrees/r2-qa2-review/HEAD and matches 3f66e7bbc09c66fdeca2146bfb436ededd4bf02f. The branch name could not be confirmed, because the worktree is detached by design. I had no shell, so I did not run the tests or the git diff 0d643f2..3f66e7b. I checked the carry-forward items and their fix paths by reading the code. I found no regressions or blocking issues in the shared helpers tests/support/git_env.rs and tests/support/deadline.rs. No new gates or receipts are requested."
+  },
+  "error": null
+}

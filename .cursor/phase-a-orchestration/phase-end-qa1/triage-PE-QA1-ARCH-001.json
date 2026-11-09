@@ -1,0 +1,31 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "PE-QA1-ARCH-001",
+ "found_in": "A1-R6",
+ "found_at": "2026-11-08T17:15:25Z",
+ "title": "The 'Phase A crate graph' prose (lines 23-40) was not updated when r-3b landed. It still says 'Only the composition roots sc-ai and sc-jev-p",
+ "description": "The 'Phase A crate graph' prose (lines 23-40) was not updated when r-3b landed. It still says 'Only the composition roots sc-ai and sc-jev-py depend on full sc-observability' and draws sc-ai and sc-jev-py linking sc-observability directly. The binding ADR-SAG-0013 r-3b amendment, the ADR-SAG-0010 r-3b amendment, the A.1 graph at lines 66-97 and crates/sc-jev-host/Cargo.toml:27 all say sc-jev-host is the only crate that links sc-observability. The Cargo manifests of sc-ai and sc-jev-py show no sc-observability dependency. The repo-level architecture doc therefore contradicts its own Active ADRs. The graph at lines 23-35 also omits sc-jev-host, sc-agent-http and sc-decision-schema. The 'starting point' note at line 83 does not cover the false sentence at 38-40.",
+ "category": "documentation",
+ "severity": "blocking",
+ "pattern": "documentation",
+ "file_filter": "docs/architecture.md",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "91d36b3ad309deb3350434acaecee0ab2938b13f"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a"
+ ]
+}

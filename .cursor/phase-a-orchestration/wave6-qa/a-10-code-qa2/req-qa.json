@@ -1,0 +1,63 @@
+{
+  "status": "PASS",
+  "reviewed_branch": "sprint/a-10-phase-end-hardening",
+  "reviewed_commit": "145d47aadddd7d893104bbbf6591a91e7bb30b8a",
+  "errors": [],
+  "scope": {"phase": "a", "sprint": "a-10-code"},
+  "baselines_read": ["docs/requirements.md", "docs/sc-agent-types/requirements.md", "docs/sc-jev-py/requirements.md", "docs/architecture.md"],
+  "phase_or_sprint_docs_read": [
+    "PHASE-A-REVIEW.md (section 3 scope, as summarised by the four wave XMLs)",
+    "docs/plans/phase-a/a-10-hardening-dispositions.md",
+    "fix-a-10-code-wave1.xml",
+    "fix-a-10-code-wave2.xml",
+    "fix-a-10-code-wave3.xml",
+    "fix-a-10-code-qa1.xml"
+  ],
+  "requirement_checks": [
+    {"id": "REQ-SAG-0101", "source": "docs/requirements.md:37", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["tests/fixtures/jev/README-contract/errors.json:4-24", "crates/sc-agent-types/src/error.rs:632 (codes_match_readme_contract_snapshot)", "crates/sc-agent-types/src/error.rs:327,365 (encode_failed/io_failed return existing InputInvalid)", "docs/architecture.md:440-459 (ADR-SAG-0029 (c))"]},
+    {"id": "REQ-SAG-0800", "source": "docs/requirements.md:122", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:447-459 (remaps recorded; Python code equals Rust JevError code)", "boundaries/sc-jev-py/jev-py.toml:24-31 (still only sc-jev-check; forbidden edge to sc-jev retained)"]},
+    {"id": "REQ-SAG-0801/0802", "source": "docs/requirements.md:123-124", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/plans/phase-a/a-10-hardening-dispositions.md:121,148"]},
+    {"id": "NFR-SAG-0002 (secrets)", "source": "docs/requirements.md", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-agent-types/src/secret.rs:62,91", "clippy.toml:6", "docs/architecture.md:406-423"]},
+    {"id": "all other REQ/NFR", "source": "docs/requirements.md", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["changed-files.txt lists no requirements file, so requirement text is unchanged"]}
+  ],
+  "deliverable_checks": [
+    {"item": "REQ-QA-001 ADR-SAG-0022 text", "status": "present", "closure_state": "closed", "evidence_refs": ["docs/architecture.md:156-174 (superseded pointers, original text kept)", "docs/architecture.md:425-438"], "notes": "ADR-SAG-0029 (b) added; index rows amended at lines 84-87."},
+    {"item": "REQ-QA-002 sc-jev-py architecture and sprint a-8", "status": "present", "closure_state": "closed", "evidence_refs": ["docs/sc-jev-py/architecture.md:26-34", "docs/plans/phase-a/sprint-a-8-pyo3-wrapper.md:70,120-121"], "notes": "Names run_check_scripted and states run_check never takes scripted_answers."},
+    {"item": "REQ-QA-003 plan.md CI rows", "status": "present", "closure_state": "closed", "evidence_refs": ["docs/plans/phase-a/plan.md:406,408,423-425", "docs/development/ci.md:25", ".github/workflows/sc-agent-ci.yml:9,200,236-240"], "notes": "Doc gate is hard with RUSTDOCFLAGS -D warnings. Feature matrix runs test. Run ids kept as history. ci.md matches the workflow."},
+    {"item": "REQ-QA-004 jev-py.toml facade", "status": "present", "closure_state": "closed", "evidence_refs": ["boundaries/sc-jev-py/jev-py.toml:23-31"], "notes": "Facade is the Python module surface and includes _testing::run_check_scripted. Notes updated. sc-boundary/just lint was not run, because I had no shell."},
+    {"item": "REQ-QA-005 error-code remaps", "status": "present", "closure_state": "closed", "evidence_refs": ["docs/architecture.md:440-459", "tests/fixtures/jev/README-contract/errors.json"], "notes": "ADR-SAG-0029 (c) has an 8-row Before/After table. Every id (INPUT_INVALID, INPUT_MISSING, INPUT_TOO_LARGE, CONFIG_INVALID, KEY_MISSING) is in errors.json, and no new ids were added."},
+    {"item": "REQ-QA-006 sc-treesitter API notes", "status": "present", "closure_state": "closed", "evidence_refs": ["docs/sc-treesitter/architecture.md:29 (cited by the disposition table)"], "notes": "I did not open this file. I take the record from the disposition table, and docs/sc-treesitter/architecture.md is in the changed-files list."},
+    {"item": "REQ-QA-007 per-id disposition table", "status": "present", "closure_state": "closed", "evidence_refs": ["docs/plans/phase-a/a-10-hardening-dispositions.md:16-171"], "notes": "152 rows counted. 143 implemented and 9 deferred, matching the stated totals. I cross-checked every id in wave1, wave2, wave3 and qa1 XMLs and each has a row. Each deferred row names a reason and owner. The two instances of ARCHC-017 (wave 1 B and C) share one row, which is cosmetic."},
+    {"item": "REQ-QA-008 D1-D13 no-code statement", "status": "present", "closure_state": "closed", "evidence_refs": ["docs/plans/phase-a/a-10-hardening-dispositions.md:173-195"], "notes": "All 13 rows state 'No' for code changed. D-adjacent changes cite RBP-F004/ARCHE-010/ARCHC-022, ARCHC-014/RBP-F010 and RBP-F011. The serde spelling is unchanged and the FromStr doc at ids.rs:239-245 matches."},
+    {"item": "REQ-QA-009 ADR-0020 test-util, sprint a-4, jev.toml", "status": "present", "closure_state": "closed", "evidence_refs": ["docs/architecture.md:236-244", "boundaries/sc-jev/jev.toml:24-25", "docs/plans/phase-a/sprint-a-4-backend-jev.md (changed)"], "notes": "jev.toml facade lists root re-exports only."},
+    {"item": "Spot-check of 15 disposition rows", "status": "present", "closure_state": "closed", "evidence_refs": ["crates/sc-agent-types/src/ids.rs:236", "crates/sc-jev-check/src/extract/read.rs:126,145-147", "crates/sc-jev-check/src/extract/sanitize.rs:37-44", "crates/sc-treesitter/src/git_io.rs:136-150", "crates/sc-jev-py/src/logging.rs:77-83", "crates/sc-jev-py/src/lib.rs:83-91", "crates/sc-jev-check/src/session/mod.rs:563-565", ".gitattributes:4", ".github/workflows/sc-agent-ci.yml:236-240", "crates/sc-jev/src/test_server.rs:142", "Cargo.toml:48", "clippy.toml:6", "crates/sc-jev-check/src/payload/mod.rs:155", "crates/sc-agent-types/src/subjects.rs:22-26", "crates/sc-jev-check/src/run/prompt.rs:82 and crates/sc-agent-types/src/secret.rs:62,91"], "notes": "All 15 rows match the cited code. Sampling was not random: I read the rows with the highest security or contract weight."}
+  ],
+  "findings": [
+    {
+      "id": "REQ-QA-201",
+      "severity": "Minor",
+      "category": "cross-doc-conflict",
+      "source_refs": ["docs/plans/phase-a/sprint-a-2-agent-secrets.md:45,61", "docs/architecture.md:236-238", "docs/sc-agent-secrets/architecture.md:28-29"],
+      "target_refs": ["docs/plans/phase-a/sprint-a-2-agent-secrets.md:45,61"],
+      "issue": "The historical sprint a-2 plan still says feature `test-util` exposes MapEnv and MapKeyring. ADR-SAG-0029 (a) removed that feature. The a-4 plan got the equivalent fix (REQ-QA-009), so this is a doc inconsistency. The ADR index points to the supersession, which limits the harm.",
+      "required_correction": "Add one line to lines 45 and 61: 'Superseded by ADR-SAG-0029 (a): no test-util feature; MapEnv and MapKeyring are cfg(test) private.' This can land in this PR or the next docs touch.",
+      "compliance_result": "partially-compliant"
+    }
+  ],
+  "summary": {
+    "total_findings": 1,
+    "blocking_findings": 0,
+    "overall_compliance": "compliant",
+    "deliverables_total": 10,
+    "deliverables_complete": 10,
+    "deliverables_incomplete": 0,
+    "deliverable_completion_percent": 100.0
+  },
+  "gate_reason": "PASS: REQ-QA-001 through REQ-QA-009 are all closed against concrete file evidence. The disposition table covers every id in the three wave XMLs and the QA-1 XML, with 152 rows and the totals correct. Each of the 13 D-items states that no code changed. No requirement file changed, and REQ-SAG-0101 and REQ-SAG-0800 are upheld because ADR-SAG-0029 (c) records every remap against existing errors.json ids. One Minor doc finding remains.",
+  "notes": [
+    "HEAD verified without a shell. The worktree .git points to .git/worktrees/a-10-phase-end-hardening, whose HEAD is the branch ref, and refs/heads/sprint/a-10-phase-end-hardening contains exactly 145d47aadddd7d893104bbbf6591a91e7bb30b8a.",
+    "Reviewer had no shell. I did not re-run just lint, sc-boundary, cargo or pytest. Gate results (including CI on three OSes) must come from the parent or rust-qa.",
+    "I did not read PHASE-A-REVIEW.md section 4. The D1-D13 check is against the wave XMLs, which restate the section 4 exclusions, and against the disposition table. I did not open docs/sc-treesitter/architecture.md directly (REQ-QA-006).",
+    "Small stale comment, not a finding: Cargo.toml:45-46 says wave 3 of a-10 'decides how' sc-jev-py opts into workspace lints."
+  ]
+}

@@ -1,0 +1,334 @@
+{
+ "manifest": [
+  {
+   "agent": "req-qa",
+   "task_id": "a85031ebdae140bb7",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "a6f025dd43bce7975",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "rust-best-practices-agent",
+   "task_id": "a856e6f02356eaf29",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "rust-service-hardening-agent",
+   "task_id": "a8261985ca40f5842",
+   "spawn_actor": "parent-orchestrator"
+  }
+ ],
+ "reviewer_outputs": [
+  {
+   "agent": "req-qa",
+   "task_id": "a85031ebdae140bb7",
+   "fenced_json": {
+    "status": "PASS",
+    "reviewed_branch": "docs/close-wave1-2",
+    "reviewed_commit": "ec170bfa12ee4aaa1f45500efa59705cd9f5eaf1",
+    "errors": [],
+    "scope": {
+     "phase": "a.1",
+     "sprint": "r-1, r-4, r-3c, r-3, r-2 closeout (PR 28, QA-2 locked recheck, doc_review)"
+    },
+    "caveats": [
+     "I had no shell. I confirmed the worktree HEAD by reading .git/worktrees/pr28-qa2-review/HEAD, which holds ec170bfa12ee4aaa1f45500efa59705cd9f5eaf1. I did not confirm the branch ref name or run git diff. I rely on the parent evidence for the diff stat (5 files; r-4 13 lines, the others 2 each).",
+     "The triage .ttl files under .triage/phase-a-refine/findings/ were not found in the main checkout by glob. I rechecked the findings directly against the worktree docs instead."
+    ],
+    "baselines_read": [
+     "docs/requirements.md (REQ-SAG-0133, from QA-1 evidence)",
+     "carry-forward req-qa.json (QA-1)"
+    ],
+    "phase_or_sprint_docs_read": [
+     "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md",
+     "docs/plans/phase-a-refine/sprint-r-1-types-break.md",
+     "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md",
+     "docs/plans/phase-a-refine/sprint-r-3-shared-http.md",
+     "docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md"
+    ],
+    "requirement_checks": [
+     {
+      "id": "REQ-SAG-0133",
+      "source": "docs/requirements.md:162",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:4",
+       "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:265-284"
+      ],
+      "notes": "The open upstream-issue-URL row is recorded as an explicit owner deferral in the frontmatter, the Implementation notes and the Deferral section. Tracking bead agt-scoop-multi-shim. The wording is consistent."
+     }
+    ],
+    "deliverable_checks": [
+     {
+      "item": "Carry-forward REQ-QA-PR28-001 (stale 'stays in-review' / future-flip wording in r-4)",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "sprint-r-4-adrs-and-manifests.md:265-271",
+       "sprint-r-4-adrs-and-manifests.md:273-284"
+      ],
+      "notes": "Lines 268-271 now say the sprint is status: complete, the REQ-SAG-0133 row is deferred, and the owner records the URL in a later one-line docs commit. Lines 281-283 say the same. No 'stays status: in-review' or 'flips this doc to' wording remains."
+     },
+     {
+      "item": "Carry-forward ARCH-001",
+      "status": "not-verifiable",
+      "closure_state": "not-applicable",
+      "evidence_refs": [],
+      "notes": "This id is not in the QA-1 req-qa.json, which holds only REQ-QA-PR28-001. It is arch-qa scope and I did not review it. No req-qa finding depends on it."
+     },
+     {
+      "item": "r-1 status complete",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "sprint-r-1-types-break.md:4"
+      ],
+      "notes": "Frontmatter reads: merged PR 22 (fce0cfa), QA-2 PASS."
+     },
+     {
+      "item": "r-4 status complete with REQ-SAG-0133 deferred",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "sprint-r-4-adrs-and-manifests.md:4"
+      ],
+      "notes": "The deferral is explicit and consistent with the owner's stated allowance."
+     },
+     {
+      "item": "r-3c status complete",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "sprint-r-3c-treesitter-cli.md:4"
+      ],
+      "notes": "Frontmatter reads: merged PR 25 (0dca742), QA-2 PASS."
+     },
+     {
+      "item": "r-3 status complete",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "sprint-r-3-shared-http.md:4"
+      ],
+      "notes": "Frontmatter reads: merged PR 26 (d88879a), QA-2 PASS f19ce8d."
+     },
+     {
+      "item": "r-2 status complete",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "sprint-r-2-engine-shape.md:4"
+      ],
+      "notes": "Frontmatter reads: merged PR 27 (38b4ce6), QA-2 PASS 3f66e7b."
+     },
+     {
+      "item": "Sibling sprints untouched",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "sprint-r-2b:4",
+       "sprint-r-3b:4",
+       "sprint-r-5:4"
+      ],
+      "notes": "These read planned, planned and blocked. The parent diff stat shows only 5 files changed."
+     }
+    ],
+    "findings": [],
+    "summary": {
+     "total_findings": 0,
+     "blocking_findings": 0,
+     "overall_compliance": "compliant",
+     "deliverables_total": 8,
+     "deliverables_complete": 7,
+     "deliverables_incomplete": 0,
+     "deliverable_completion_percent": 100.0
+    },
+    "gate_reason": "PASS. REQ-QA-PR28-001 is closed because the stale r-4 wording is now consistent with status: complete and the explicit REQ-SAG-0133 deferral. The five sprint docs carry the expected status lines. No new Blocking findings or regressions, and no new gates or receipts requested. ARCH-001 is not a req-qa id, so I left it out of the completion count (7 of 8 items; the eighth is not-applicable)."
+   }
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "a6f025dd43bce7975",
+   "fenced_json": {
+    "agent": "arch-qa",
+    "branch": "docs/close-wave1-2",
+    "scope": {
+     "phase": "a.1",
+     "sprint": "r-1, r-2, r-3, r-3c, r-4 (closeout QA-2)"
+    },
+    "commit": "ec170bfa12ee4aaa1f45500efa59705cd9f5eaf1",
+    "verdict": "PASS",
+    "blocking": 0,
+    "important": 0,
+    "findings": [],
+    "carry_forward_closed": [
+     {
+      "id": "ARCH-001",
+      "status": "closed",
+      "evidence": "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:265-271 and 273-284 now say the sprint is status: complete. They say the REQ-SAG-0133 row is deferred to the owner under bead agt-scoop-multi-shim, with the owner recording the URL later. The stale phrases 'stays status: in-review' and 'flips this doc to' no longer appear anywhere under docs/plans/phase-a-refine (grep returned no matches). The body text now agrees with the frontmatter at line 4."
+     }
+    ],
+    "adr_checks": [
+     {
+      "adr": "ADR-SAG-0017",
+      "source": "docs/architecture.md:672",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:4",
+       "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:265-284"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0023",
+      "source": "docs/architecture.md",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:4"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0016",
+      "source": "docs/architecture.md",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:4"
+      ]
+     }
+    ],
+    "gate_artifact_checks": [
+     {
+      "artifact": "docs/plans/phase-a-refine/sprint-r-1-types-break.md",
+      "status": "closed",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-1-types-break.md:4"
+      ],
+      "notes": "Line 4 is status: complete (merged PR 22, QA-2 PASS)."
+     },
+     {
+      "artifact": "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md",
+      "status": "closed",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:4"
+      ],
+      "notes": "Line 4 is status: complete (merged PR 27, QA-2 PASS)."
+     },
+     {
+      "artifact": "docs/plans/phase-a-refine/sprint-r-3-shared-http.md",
+      "status": "closed",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-3-shared-http.md:4"
+      ],
+      "notes": "Line 4 is status: complete (merged PR 26, QA-2 PASS)."
+     },
+     {
+      "artifact": "docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md",
+      "status": "closed",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md:4"
+      ],
+      "notes": "Line 4 is status: complete (merged PR 25, QA-2 PASS)."
+     },
+     {
+      "artifact": "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md",
+      "status": "closed",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:4",
+       "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:273-284"
+      ],
+      "notes": "Complete with one open row, the REQ-SAG-0133 URL. That row is recorded as an explicit owner deferral with a bead. The doc has no internal gate that forbids this."
+     }
+    ],
+    "merge_ready": true,
+    "notes": "I checked the five frontmatter status lines and the r-4 body text. The planned sprints r-3b and r-2b are untouched and still say planned. I found no regressions and no Blocking items. I requested no new gates or receipts. I did not re-run the diff stat, so I rely on the parent evidence that r-4 changed 13 lines and the other four docs changed 2 each."
+   }
+  },
+  {
+   "agent": "rust-best-practices-agent",
+   "task_id": "a856e6f02356eaf29",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "docs/close-wave1-2",
+     "reviewed_commit": "ec170bfa12ee4aaa1f45500efa59705cd9f5eaf1",
+     "review_mode": "design_review",
+     "practice_mode": "all",
+     "practices_reviewed": [],
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "notes": [
+      "The assignment file said review_mode 'doc_review' and had no practice_mode. I used design_review as instructed and treated this as a docs-only locked recheck. No Rust code is in scope, so no RBP practices applied and none were reviewed.",
+      "The worktree HEAD (read from .git/worktrees/pr28-qa2-review/HEAD) is exactly ec170bfa12ee4aaa1f45500efa59705cd9f5eaf1. I did not confirm the branch name, because I had no shell.",
+      "The QA-1 carry-forward file (.cursor/phase-a-orchestration/wave8-qa/pr28-qa1/rust-best-practices.json) recorded zero findings from this reviewer. No carry-forward id for this reviewer is open. I did not open the ARCH-001 or REQ-QA-PR28-001 triage records, because they belong to other reviewers.",
+      "Line 4 of the five target docs reads 'status: complete' with a merged-PR and QA-2 PASS annotation. r-1 is PR 22, r-4 is PR 21, r-3c is PR 25, r-3 is PR 26 and r-2 is PR 27. The r-4 line openly records the REQ-SAG-0133 upstream issue URL as deferred to the owner. r-2b and r-3b are still 'planned', and r-5 is still 'blocked'. The PR does not overreach.",
+      "I could not run git diff, so I did not check that nothing else changed in these files. The parent_evidence (2 changed lines per doc, 13 in r-4) is consistent with status-line-only edits.",
+      "No new gates or receipts requested, per the owner rule. I made no changes."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "rust-service-hardening-agent",
+   "task_id": "a8261985ca40f5842",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "skipped",
+     "reviewed_branch": "docs/close-wave1-2",
+     "reviewed_commit": "ec170bfa12ee4aaa1f45500efa59705cd9f5eaf1",
+     "review_mode": "doc_review",
+     "service_indicators_found": [],
+     "topics_reviewed": [],
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "notes": [
+      "QA-2 locked recheck. The carry-forward file (QA-1) holds a skipped result with zero RSH-* findings. No assigned RSH-* ids exist to verify, so nothing is open or regressed.",
+      "I did not verify the worktree HEAD against the assigned commit. The branch and commit come from the assignment JSON and I did not run git against the worktree.",
+      "No service indicators found. None of tokio, axum, hyper, tonic, warp, actix-web or reqwest appears in any Cargo.toml in the worktree (10 manifests). A search of the .rs files under crates/ for #[tokio::main] found nothing. I did not search for other server or worker entrypoint patterns.",
+      "The PR changes only sprint docs (docs-only, status marking), so there is no runtime change to harden.",
+      "The triage records ARCH-001 and REQ-QA-PR28-001 are architecture and requirements findings, not service-hardening findings. They are outside this reviewer's scope and I did not read them. Their closure is not covered by this result.",
+      "No gates or receipts requested, per the owner rule."
+     ]
+    },
+    "error": null
+   }
+  }
+ ],
+ "parent_supplied_evidence": {
+  "diff_stat": "5 sprint docs; r-4 13 lines, others 2",
+  "triage_records": [
+   ".triage/phase-a-refine/findings/ARCH-001.ttl",
+   ".triage/phase-a-refine/findings/REQ-QA-PR28-001.ttl"
+  ],
+  "triage_commit": "c5aaee1 on integrate/phase-a",
+  "fix_commit": "ec170bf",
+  "fix_assignment": ".cursor/phase-a-orchestration/wave8-qa/pr28-qa1/fix-assignment.xml"
+ },
+ "prior_round": {
+  "qa_pass": "qa-pr28-1",
+  "verdict": "FAIL 0B/1I/1M",
+  "pr_comment": "https://github.com/randlee/sc-agent/pull/28#issuecomment-6713937887"
+ }
+}

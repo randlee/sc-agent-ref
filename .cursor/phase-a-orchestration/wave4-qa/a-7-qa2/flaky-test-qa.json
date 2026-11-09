@@ -1,0 +1,14 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/a-7-sc-ai-cli",
+    "reviewed_commit": "844fc65",
+    "findings": [],
+    "summary": {"total_findings": 0, "critical": 0, "important": 0, "minor": 0},
+    "carry_forward_recheck": {
+      "FTQ-001": {"disposition": "resolved", "note": "Bounded cleanup at 844fc65."}
+    }
+  },
+  "error": null
+}

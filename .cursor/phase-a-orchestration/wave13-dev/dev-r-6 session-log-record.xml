@@ -1,0 +1,22 @@
+<cursor-task id="dev-r-6 session-log-record" sprint="r-6 session-log-record" assignee="rust-developer">
+  <description>Phase A.1 sprint r-6 session-log-record, wave 6. It runs in parallel with the other wave-6 sprint; their owned_paths are disjoint, so stay strictly inside yours. The sprint doc is authoritative. Owner decisions in plan.md are settled: do not stop to ask questions, and record any conservative choice in Implementation notes. Add no ceremony beyond what the sprint doc requires.
+- The base is sprint/r-7-decision-schema at 57c66e2. r-7 passed final QA and is merging into integrate/phase-a. When it merges, merge integrate/phase-a into your branch; never rebase.
+- Flip only your own (Proposed, r-6 session-log-record) markers, using the doc's exact wording.
+- Keep the sprint doc at status: in-review. The coordinator flips it after QA.
+- TypeSafe Jev API (.claude/skills/plan-anchoring/references/jev-api.md) is the source of truth. Support every Jev question format.
+- Lessons from r-7 QA: keep every doc that names a file, test target or dependency set in sync with the code, including README files, boundary manifest notes, plan.md and other sprint docs. Every judge call emits exactly one LogEvent (REQ-SAG-0610). Use --locked on CI cargo steps.</description>
+  <worktree>/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-6 session-log-record-</worktree>
+  <branch>sprint/r-6 session-log-record-</branch>
+  <pr-target>integrate/phase-a</pr-target>
+  <base-commit>57c66e2</base-commit>
+  <authoritative-sprint-doc>docs/plans/phase-a-refine/sprint-r-6 session-log-record-.md</authoritative-sprint-doc>
+  <plan>docs/plans/phase-a-refine/plan.md; docs/architecture.md: the (Proposed, r-6 session-log-record) subsections; the r-7 Implementation notes.</plan>
+  <acceptance-criteria>
+- Every acceptance row in the sprint doc passes, and each named test prints 1 passed.
+- just lint; cargo clippy --workspace --all-targets --all-features -- -D warnings; cargo test --workspace; the --features test-util runs; just test-python; RUSTDOCFLAGS=-D warnings cargo doc --workspace --no-deps.
+- If the release consumer input changes, report it; the parent runs install.py. Never hand-edit rendered release files.
+- Build output goes to the external drive through the ~/.cargo/config.toml build-dir. Never put a target dir under /tmp.
+- Commit with trailer "Co-Authored-By: Claude Opus 5.5 &lt;noreply@anthropic.com&gt;" and push. Open a PR into integrate/phase-a whose body ends with "🤖 Generated with [Claude Code](https://claude.com/claude-code)".
+- Report the PR URL, head SHA, gate results, deviations and files outside owned_paths.
+  </acceptance-criteria>
+</cursor-task>

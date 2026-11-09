@@ -1,0 +1,55 @@
+{
+  "success": true,
+  "data": {
+    "status": "implemented",
+    "summary": "Every item in the r-2 QA-1 fix round (fix-r-2-qa1.md) is done. PR 27 CI was fully green at f7994d5 (runs 42419966414 and 42419966426). After that I pushed one docs-only commit, 3f66e7b, which writes those CI results into the sprint doc as REQ-QA-R2-002 asks; CI on 3f66e7b had not finished when I sent this. Locally all 44 validation lines pass. The one caveat: `cargo publish --dry-run` only passes with an empty CARGO_HOME, because a reused cargo cache keeps stale copies of the 0.1.0 crates.",
+    "pushed_head": "3f66e7bbc09c66fdeca2146bfb436ededd4bf02f",
+    "ci": {
+      "green_head": "f7994d5",
+      "sc_agent_ci_run": "42419966414 — all pass: test (ubuntu-24.04, macos-15, windows-2022), python (ubuntu-24.04, macos-15, windows-2022), rustdoc (-D warnings), sc-treesitter feature matrix, dependency gates (allocator, pins), coverage (llvm-cov)",
+      "sc_publish_dry_run_run": "42419966426 — the dry-run job passes",
+      "earlier_failure": "d385f95 failed rustdoc (-D warnings): the run::ask docs linked the private field RunConfig::repo_root. f7994d5 fixes it by naming the repo root given to RunConfig::new, with no #[allow]. RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps exits 0 locally, both default and with --features test-util.",
+      "new_head_3f66e7b": "Changes only the sprint doc's Validation paragraph (the CI citation for REQ-QA-R2-002). Its CI is still running; this report does not cover it."
+    },
+    "is_ancestor_origin_integrate": "exit 0 (integrate/phase-a d88879a is an ancestor of HEAD)",
+    "validation_log": "/private/tmp/claude-501/-Users-randlee--claude-spares-spare-ZVG33J/84ad1f90-7f83-4b6e-b4fc-63121d353959/scratchpad/r2-only/validate.log",
+    "validation_result": "43 of 44 lines pass in that log, and every --exact line prints `1 passed`. That covers the 33 Required-validation lines, including `cargo test -p sc-jev-check --lib -- payload::` added for REQ-SAG-0303, and all 11 workspace gates. The 44th line, `cargo publish --dry-run`, failed only because my private CARGO_HOME already held old copies of the 0.1.0 crates: cargo reuses an extracted crate with the same name and version, so it compiled pre-r-3 sc-jev-backends source that still uses ureq. With a brand-new empty CARGO_HOME it exits 0: /private/tmp/claude-501/-Users-randlee--claude-spares-spare-ZVG33J/84ad1f90-7f83-4b6e-b4fc-63121d353959/scratchpad/r2-only/publish-f7994d5.log. That line now lists every published crate in order, including sc-agent-http from r-3; the sprint doc's own validation block predates r-3 and still lacks it. CI starts with a clean cache and passes.",
+    "per_id": [
+      {"id": "step-0 merge d88879a", "commit": "89a01e5", "note": "A normal merge commit. docs/architecture.md and docs/requirements.md conflicted only where both sprints flipped markers on the same lines; I kept r-3's Active markers and r-2's Active markers on each line, plus r-2's REQ-SAG-0601 wording. cargo-tree-gates.sh, sc-agent-ci.yml and clippy.toml merged cleanly."},
+      {"id": "REQ-QA-R2-001 (Blocking)", "commit": "d385f95", "note": "The ten missing ids are in the frontmatter `requirements`. The Implementation notes have a 'QA-1 requirement coverage' table with evidence for each. REQ-SAG-0703 is marked not applicable, because r-2 changes no install path."},
+      {"id": "ARCH-R2-001 (Blocking)", "commit": "d385f95", "note": "ADR-SAG-0016 is in `adrs` with the upheld note, also stated in the notes: libraries take only SharedSessionLog, and sc-jev-check has no sc-observability edge."},
+      {"id": "REQ-QA-R2-006 + RBQA-F002 (closes RBQA-F003)", "commit": "6eb4485 (+ d385f95 docs)", "note": "equal_input, extract and payload are now pub(crate), as are build_payload, extract_input, load_check_str, parse_question_set, producer_from_extractions, the prompt-path types, SESSION_CONTEXT_HEADER, STALE_TMP_AGE and DEFAULT_SESSION_TTL. StoredSession and FileSessionStore::{save, load} are public only under test-util, and the session and sessions_exact targets now declare required-features = [\"test-util\"]. Tests that used the internals now go through prepare / run / ask or are --lib tests. The facade string lists every remaining public item. Sprint-doc section D2.9 and the deviation table record what stays public and why. No snapshot gate was added. The boundary check passes."},
+      {"id": "RBQA-F001", "commit": "6eb4485", "note": "FileSessionStore no longer sends. Follow-ups go through run::ask(&FileSessionStore, SessionId, follow_up, RunConfig) -> AskResponse. run and ask now share one send step (judge, then one log event) and one function that builds the system prompt plus session context (session::contextual_prompt). This is recorded in the ADR-SAG-0024 FileSessionStore bullet."},
+      {"id": "RBP-F004", "commit": "6eb4485", "note": "CheckSource::CheckFile now holds a RepoRelativePath. CheckSource::check_file(&RepoRoot, &Path) is the one place a check path is normalised, and config::load_check_at takes &RepoRelativePath. The three hand-written normalisers are deleted: sc-ai relative_to_repo, sc-jev-py check_path_text, and the engine's check_path_text. The old sc-ai normalisation test moved into sc-jev-check."},
+      {"id": "FTQ-001 / FTQ-002", "commit": "6eb4485", "note": "tests/support/git_env.rs is the one shared GIT_* scrub. It uses the r-3c list including GIT_CONFIG_SYSTEM and GIT_DEFAULT_HASH, runs `init --object-format=sha1`, and disables hooks and signing. sc-jev-check's unit-test fixtures and tests/run_response.rs use it, as does sc-ai tests/cli.rs, all through spawn_with_deadline. No list is copy-pasted."},
+      {"id": "REQ-QA-R2-004", "commit": "6eb4485 (+ d385f95 ADR-SAG-0014 r-2 text)", "note": "AskResponse carries outcome, session_id, prompt_sha256 and warnings, with with_warning. Envelope::ask(&AskResponse) writes them. sc-ai again reports an ask log-flush failure as a warning (CR-014), and ask data includes prompt_sha256 again; a cli test asserts it."},
+      {"id": "REQ-QA-R2-002", "commit": "3f66e7b", "note": "The Implementation notes cite the PR 27 CI job names and run ids at f7994d5, plus the validation log path."},
+      {"id": "REQ-QA-R2-005 (Minor)", "commit": "6eb4485 (+ d385f95 ADR-SAG-0003 r-2 text)", "note": "discover_repo_root falls back to the start directory only when git is not installed, or when git finds no work tree and no ancestor holds `.git`. Everything else is INPUT_INVALID. The ADR-SAG-0003 r-2 text is narrowed to match, and a deterministic --lib test covers every branch."},
+      {"id": "REQ-QA-R2-007 (Minor)", "commit": "6eb4485 (+ REQ-SAG-0313 row in d385f95)", "note": "I added the optional field as `producer = \"...\"` rather than the suggested `name`, because a `name` key would be confused with the input's table key. Without it the name falls back to the argv[0] stem. The REQ-SAG-0313 row records the interpreter case, and a test covers it."},
+      {"id": "REQ-QA-R2-008 (Minor)", "commit": "d385f95", "note": "The REQ-SAG-0710 amendment now reads `session_id` (null unless `session_saved`)."},
+      {"id": "REQ-QA-R2-009 / QA-002 / QA-003 (Minor)", "commit": "6eb4485", "note": "Envelope keeps the typed body and writes it only when serialized, so building it cannot panic. Keys come out in the documented order, pinned by run::tests::ask_envelope_carries_digest_warnings_and_readback_in_order. The pipe .expect calls now map to EXTRACTION_FAILED, and default_backends returns its error instead of unwrapping."},
+      {"id": "QA-001 (Minor)", "commit": "6eb4485", "note": "I chose to document rather than change behaviour. A failed session write stays fail-fast in r-2, and session_save_failed.json is a test_builder-only sample until r-2b. This is stated in the run module docs, the ADR-SAG-0024 landing bullet and the deviation table."},
+      {"id": "QA-004 (Minor)", "commit": "6eb4485", "note": "The tmp-name retry stops after 8 attempts. The parent-directory fsync after the rename is now best effort and documented in the concurrency model."},
+      {"id": "FTQ-003 (Minor)", "commit": "6eb4485", "note": "I split the case out, which FTQ-003 allows. A deterministic --lib test (classify_discovery) covers the outside-git branches, and I removed the machine-dependent branch from the integration test, with a comment saying so."},
+      {"id": "FTQ-004 (Minor)", "commit": "6eb4485", "note": "The re-executed env-probe child runs under spawn_with_deadline, and so do run_response's git fixtures."},
+      {"id": "FTQ-005 (Minor)", "commit": "6eb4485", "note": "Fixtures are rewritten only by the ignored test bless_run_response_samples, run by name with --ignored. The normal checks only compare."},
+      {"id": "RBQA-F004 (Minor)", "commit": "6eb4485", "note": "The facade lists production items first, then the test-util group, with a manifest comment and notes saying so. sc_jev_check::run is now the only owner of the envelope constants; sc-ai's re-export is removed and its doc test and cli imports updated."},
+      {"id": "ARCH-R2-002", "commit": "won't fix", "note": "Optional, and the fix file says to leave it."},
+      {"id": "REQ-QA-R2-003", "commit": "won't fix", "note": "Ceremony-screened and already disclosed."},
+      {"id": "QA-005", "commit": "won't fix", "note": "Informational."},
+      {"id": "CI rustdoc failure (coordinator)", "commit": "f7994d5", "note": "Doc link fixed; rustdoc -D warnings passes locally and in CI run 42419966414."}
+    ],
+    "commits": ["89a01e5 merge d88879a", "6eb4485 code fixes", "d385f95 docs and ADR text", "f7994d5 rustdoc link", "3f66e7b CI citation"],
+    "files_outside_owned_paths": [
+      "tests/support/git_env.rs — new shared git test helper, required by the fix round's FTQ-001/002 item.",
+      "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md — the sprint doc itself."
+    ],
+    "follow_up": [
+      "Wait for CI on 3f66e7b, which changes only the sprint doc.",
+      "Clear the stale sc-*-0.1.0 extractions under ~/.cargo/registry/src, or run local publish dry-runs with a fresh CARGO_HOME. CI is unaffected.",
+      "The sprint doc's Required-validation block still lists the publish line without sc-agent-http; the plan owner may want to update it.",
+      "Optional: point the sc-agent-types and sc-treesitter test helpers at tests/support/git_env.rs. Those crates are outside my owned paths, so I did not touch them."
+    ]
+  },
+  "error": null
+}

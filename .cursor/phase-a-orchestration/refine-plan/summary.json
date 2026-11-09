@@ -1,0 +1,58 @@
+{
+  "base": "d4a0111",
+  "branch": "plan/phase-a-refine",
+  "sprints": [
+    {"id": "r-1", "title": "sc-agent-types break (D1, D6, D10-break, D7 types)", "closes": ["EXT-001","ARCHE-005","ARCHC-005","RBP-F004","RBP-F001","ARCHC-004","ARCHE-022","EXT-007","ARCHP-003","RBP-F002","ARCHC-011","EXT-011","RBQA-F010","RBQA-F009","ARCHC-008","ARCHC-021","ARCHP-001","ARCHP-020","a10-serde-openai-spelling","a10-encode-io-code"], "must_follow": ["a-10"], "parallel_safe": ["r-4"], "effort": "L", "owned_paths": ["crates/sc-agent-types/**","docs/sc-agent-types/**","crates/sc-jev/src/**","crates/sc-jev-backends/src/**","crates/sc-jev-check/src/**","crates/sc-jev-py/src/**","crates/sc-ai/src/command.rs","crates/sc-ai/src/envelope.rs","crates/sc-ai/src/lib.rs","crates/sc-ai/src/observe.rs","crates/sc-treesitter/src/render.rs","crates/sc-treesitter/src/extract.rs","crates/sc-treesitter/src/lib.rs"]},
+    {"id": "r-2", "title": "engine shape (D2 engine, D4, D11, D13 code)", "closes": ["EXT-002","ARCHE-003","ARCHE-011","ARCHE-012","RBQA-F005","QA-004","RBP-F013","EXT-006","ARCHE-004","RBP-F005","RBP-F008","CR-001","ARCHE-006","ARCHP-002","ARCHE-007","RBP-F009","EXT-004","RBQA-F004"], "must_follow": ["r-1"], "parallel_safe": ["r-3"], "effort": "L", "owned_paths": ["crates/sc-jev-check/src/**","crates/sc-jev-check/tests/**","crates/sc-jev-check/assets/jev.toml","crates/sc-jev-backends/src/validate.rs","crates/sc-jev/src/check.rs","crates/sc-agent-types/src/schema/check.rs","crates/sc-ai/src/command.rs","crates/sc-ai/src/envelope.rs","crates/sc-ai/tests/cli.rs","crates/sc-jev-py/src/run.rs","crates/sc-jev-py/src/lib.rs","docs/sc-jev-check/**"]},
+    {"id": "r-2b", "title": "multi-backend semantics + equal-input (D3)", "closes": ["ARCHE-002","ARCHE-013","ARCHE-001","CR-009"], "must_follow": ["r-2","r-3"], "parallel_safe": ["r-3b"], "effort": "M", "owned_paths": ["crates/sc-jev-check/src/run/**","crates/sc-jev-check/src/equal_input/**","crates/sc-jev-check/src/session/**","crates/sc-jev-check/tests/**","crates/sc-jev/src/check.rs","crates/sc-jev-backends/src/wire.rs","crates/sc-jev-backends/src/backend.rs","crates/sc-ai/tests/cli.rs","tests/fixtures/jev-python/**","docs/sc-jev-check/**"]},
+    {"id": "r-3", "title": "sc-agent-http shared HTTP crate (D5)", "closes": ["EXT-005","RBQA-F003","RBP-F006","ARCHC-001","QA-003","a10-infallible-ctors-seal-new"], "must_follow": ["r-1","r-4"], "parallel_safe": ["r-2"], "effort": "M", "owned_paths": ["crates/sc-agent-http/**","boundaries/sc-agent-http/**","docs/sc-agent-http/**","crates/sc-jev/Cargo.toml","crates/sc-jev/src/client/**","crates/sc-jev/src/lib.rs","crates/sc-jev-backends/Cargo.toml","crates/sc-jev-backends/src/transport.rs","crates/sc-jev-backends/src/retry.rs","crates/sc-jev-backends/src/lib.rs","crates/sc-agent-types/src/secret.rs","boundaries/sc-jev/**","boundaries/sc-jev-backends/**","Cargo.toml","release/sc-publish-consumer-input.json","clippy.toml"]},
+    {"id": "r-3b", "title": "sc-agent-compose, workspace-tests, clap (D2 compose, D7 tests, D12)", "closes": ["EXT-002","RBQA-F005","ARCHP-014","RBP-F013","ARCHP-002","CR-001","ARCHE-018","EXT-010","RBP-F012","ARCHP-011"], "must_follow": ["r-2","r-3","r-4"], "parallel_safe": ["r-2b"], "effort": "M", "owned_paths": ["crates/sc-agent-compose/**","crates/workspace-tests/**","tests/jev_cross_impl/**","boundaries/sc-agent-compose/**","boundaries/sc-ai/**","boundaries/sc-jev-py/**","boundaries/sc-treesitter/**","crates/sc-ai/Cargo.toml","crates/sc-ai/src/main.rs","crates/sc-ai/src/lib.rs","crates/sc-ai/src/command.rs","crates/sc-ai/src/observe.rs","crates/sc-ai/tests/argv.rs","crates/sc-jev-py/Cargo.toml","crates/sc-jev-py/src/logging.rs","crates/sc-jev-py/src/lib.rs","crates/sc-treesitter/Cargo.toml","crates/sc-treesitter/src/main.rs","crates/sc-treesitter/tests/argv.rs","Cargo.toml","release/sc-publish-consumer-input.json","docs/sc-agent-compose/**"]},
+    {"id": "r-4", "title": "pins, allocator, released binaries, ADR wording (D8, D13 wording)", "closes": ["ARCH-001","ARCH-002","RBP-F001(a-9)","ARCHP-005","ARCHP-006","RBQA-F007","ARCH-006","a10-retry-numbers"], "must_follow": ["a-10"], "parallel_safe": ["r-1"], "effort": "S", "owned_paths": ["Cargo.toml","crates/sc-ai/Cargo.toml","crates/sc-ai/src/main.rs","crates/sc-treesitter/Cargo.toml","crates/sc-treesitter/src/main.rs","release/sc-publish-consumer-input.json","docs/development/sc-publish.md","docs/architecture.md","docs/requirements.md",".github/workflows/ci.yml"]},
+    {"id": "r-5", "title": "Jev wire envelope + canonical-only schema (D9) — BLOCKED", "closes": ["ARCHC-002","ARCHC-003"], "must_follow": ["r-2b","r-3"], "parallel_safe": [], "effort": "M", "status": "blocked", "owned_paths": ["crates/sc-jev/src/**","crates/sc-jev/tests/**","crates/sc-jev-backends/src/validate.rs","crates/sc-jev-backends/src/wire.rs","crates/sc-agent-types/src/judge.rs","docs/sc-jev/**"]}
+  ],
+  "waves": [["r-1","r-4"],["r-2","r-3"],["r-2b","r-3b"],["r-5 (blocked)"]],
+  "critical_path": ["r-1","r-2","r-2b"],
+  "adr_amendments": [
+    {"adr": "ADR-SAG-0005", "change": "narrow to four extractor kinds; entry point per 0024", "sprint": "r-4"},
+    {"adr": "ADR-SAG-0005", "change": "canonical-only schema + Jev JSON envelope", "sprint": "r-5", "blocked": true},
+    {"adr": "ADR-SAG-0006", "change": "transports in sc-agent-http", "sprint": "r-3"},
+    {"adr": "ADR-SAG-0007", "change": "stated retry numbers", "sprint": "r-4"},
+    {"adr": "ADR-SAG-0008", "change": "independent default, chain_context explicit", "sprint": "r-2b"},
+    {"adr": "ADR-SAG-0009", "change": "catalog row + capabilities = registration", "sprint": "r-1"},
+    {"adr": "ADR-SAG-0010", "change": "sc-ai depends on sc-agent-compose; clap", "sprint": "r-3b"},
+    {"adr": "ADR-SAG-0016", "change": "=1.5.0 version text", "sprint": "r-4"},
+    {"adr": "ADR-SAG-0016", "change": "LogRejected; types drops sc-observability-types", "sprint": "r-1"},
+    {"adr": "ADR-SAG-0016", "change": "adapter moves to sc-agent-compose", "sprint": "r-3b"},
+    {"adr": "ADR-SAG-0017", "change": "two binaries + per-channel coverage", "sprint": "r-4"},
+    {"adr": "ADR-SAG-0019", "change": "RunOptions -> RunConfig", "sprint": "r-2"},
+    {"adr": "ADR-SAG-0019", "change": "equal-input from backend-reported digest", "sprint": "r-2b"},
+    {"adr": "ADR-SAG-0020", "change": "one sealing model; infallible ctors; sealed new; secrets test-util gone; a-10 renames", "sprint": "r-3"},
+    {"adr": "ADR-SAG-0022", "change": "registry via RunConfig::registry", "sprint": "r-2"},
+    {"adr": "Rust API patterns", "change": "withdraw Extractor sealing note (RBP-F004)", "sprint": "r-2"}
+  ],
+  "new_adrs": [
+    {"adr": "ADR-SAG-0023", "title": "Dependency pins, allocator, released binaries", "sprint": "r-4"},
+    {"adr": "ADR-SAG-0024", "title": "Engine entry point and response contract", "sprint": "r-2"},
+    {"adr": "ADR-SAG-0025", "title": "Multi-backend semantics and equal-input attestation", "sprint": "r-2b"},
+    {"adr": "ADR-SAG-0026", "title": "Shared HTTP crate and composition crate", "sprint": "r-3b"},
+    {"adr": "ADR-SAG-0027", "title": "Error taxonomy and extensibility", "sprint": "r-1"}
+  ],
+  "new_reqs": [
+    {"id": "REQ-SAG-0105", "sprint": "r-1"}, {"id": "REQ-SAG-0106", "sprint": "r-1"},
+    {"id": "REQ-SAG-0107", "sprint": "r-1"}, {"id": "REQ-SAG-0108", "sprint": "r-1"},
+    {"id": "REQ-SAG-0109", "sprint": "r-3b"}, {"id": "REQ-SAG-0133", "sprint": "r-4"},
+    {"id": "REQ-SAG-0134", "sprint": "r-4"}, {"id": "NFR-SAG-0004", "sprint": "r-4"},
+    {"id": "REQ-SAG-0312", "sprint": "r-2"}, {"id": "REQ-SAG-0313", "sprint": "r-2"},
+    {"id": "REQ-SAG-0314", "sprint": "r-2"}, {"id": "REQ-SAG-0402", "sprint": "r-3"},
+    {"id": "REQ-SAG-0403", "sprint": "r-5", "blocked": true},
+    {"id": "REQ-SAG-0604", "sprint": "r-2b"}, {"id": "REQ-SAG-0605", "sprint": "r-2b"},
+    {"id": "REQ-SAG-0606", "sprint": "r-2b"}, {"id": "REQ-SAG-0607", "sprint": "r-2"},
+    {"id": "REQ-SAG-0620", "sprint": "r-2"}, {"id": "REQ-SAG-0712", "sprint": "r-3b"}
+  ],
+  "open_questions": [
+    "D9 (blocks r-5): Does the TypeSafe Jev API accept questions as an array of {id, prompt, choices}, an object of {type, instructions, criteria}, or both; which does production use today?",
+    "Owner confirm: sc-agent-compose is published (internal-support, = pinned) because sc-ai is on crates.io; alternative is dropping sc-ai from crates.io (changes REQ-SAG-0130).",
+    "Owner confirm: 90 s retry budget is shorter than the 120 s request timeout; plan defines the budget as 'no new attempt after 90 s'.",
+    "Confirm the a-10 CI workflow path (.github/workflows/ci.yml assumed) for r-4 owned_paths."
+  ]
+}

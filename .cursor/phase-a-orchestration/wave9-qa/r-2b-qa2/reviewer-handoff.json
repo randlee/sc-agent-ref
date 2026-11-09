@@ -1,0 +1,435 @@
+{
+ "manifest": [
+  {
+   "agent": "req-qa",
+   "task_id": "ac9d3e622d1932008",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "adc6d3bf201f7386f",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "a21fdf6d98830556a",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "a9a4946760b94c454",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "rust-best-practices-agent",
+   "task_id": "a25871d99cb21477a",
+   "spawn_actor": "parent-orchestrator",
+   "note": "locked carry-forward verifier for RBP-F001..F005"
+  }
+ ],
+ "reviewer_outputs": [
+  {
+   "agent": "req-qa",
+   "task_id": "ac9d3e622d1932008",
+   "fenced_json": {
+    "status": "PASS",
+    "reviewed_branch": "sprint/r-2b-multi-backend-semantics",
+    "reviewed_commit": "3ef50f5f7118f5d136fe5442c0a2a39c2b58debd",
+    "errors": [],
+    "scope": {
+     "phase": "a.1",
+     "sprint": "r-2b"
+    },
+    "baselines_read": [
+     "docs/requirements.md (QA-1 reading carried forward; not re-read)",
+     "docs/architecture.md (QA-1 reading carried forward; not re-read)",
+     "docs/project-plan.md (not re-read; locked recheck)"
+    ],
+    "phase_or_sprint_docs_read": [
+     "docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md"
+    ],
+    "requirement_checks": [
+     {
+      "id": "REQ-SAG-0606",
+      "source": "docs/requirements.md:173",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev/src/check.rs:81",
+       "crates/sc-jev-backends/src/validate.rs:77"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0604",
+      "source": "docs/requirements.md:171",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-backends/src/backend.rs:218"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0605",
+      "source": "docs/requirements.md:172",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-backends/src/backend.rs:197"
+      ]
+     }
+    ],
+    "deliverable_checks": [
+     {
+      "item": "REQ-QA-001 fix: two consumer test files in owned_paths; Outcome reworded to 'no consumer source file'",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md:62",
+       "docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md:63",
+       "docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md:95",
+       "docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md:411"
+      ],
+      "notes": "Both paths are listed in owned_paths. The Outcome now says 'changes no consumer source file (the sc-ai and sc-jev-py sources)' and states the two tests are owned here."
+     },
+     {
+      "item": "Regression focus: refusal coverage after the typed question_choices() rewrite",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "crates/sc-agent-types/src/payload.rs:36",
+       "crates/sc-agent-types/src/payload.rs:96",
+       "crates/sc-agent-types/src/payload.rs:162",
+       "crates/sc-jev/src/check.rs:44",
+       "crates/sc-jev-backends/src/validate.rs:77",
+       "crates/sc-jev/src/check.rs:309",
+       "crates/sc-jev-backends/src/validate.rs:112"
+      ],
+      "notes": "See the regression analysis in gate_reason."
+     }
+    ],
+    "findings": [],
+    "carry_forward_verdicts": [
+     {
+      "id": "REQ-QA-001",
+      "verdict": "closed",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md:62-63",
+       "docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md:95-97"
+      ]
+     }
+    ],
+    "summary": {
+     "total_findings": 0,
+     "blocking_findings": 0,
+     "overall_compliance": "compliant",
+     "deliverables_total": 2,
+     "deliverables_complete": 2,
+     "deliverables_incomplete": 0,
+     "deliverable_completion_percent": 100.0
+    },
+    "gate_reason": "The worktree gitdir HEAD (.git/worktrees/r2b-qa2-review/HEAD) is exactly 3ef50f5. The carry-forward file holds one req-qa finding, REQ-QA-001, and it is closed: the doc now matches the diff. Regression check: dropping the question 'type' and 'prompt' checks loses no refusal. Question is a struct with private fields {id, prompt: String, choices: Vec<ChoiceId>}, and Question and CanonicalJudgePayload both use deny_unknown_fields (payload.rs:36-37, 96-98). A 'type' key cannot deserialize, and a missing prompt fails deserialization. The type system therefore rules out both cases the old byte-level checks guarded. The one remaining case, an empty-string prompt, is not required to be refused by anything under docs/ (grep found no such rule). The cases a canonical payload can still trigger all stay covered. No question, and fewer than two distinct choices (including duplicate choices that collapse in the set), are refused in sc-jev check.rs:44-57 and sc-jev-backends validate.rs:77-95. Duplicate question ids are refused at PayloadBundle::encode (payload.rs:166-174). Ids and choices come from the typed map, so malformed ids cannot occur. parse_outcome still refuses a wrong model, wrong shape, answer-id mismatch, a choice outside the criteria, non-numeric confidence or probability, and inexact probability keys (check.rs:159-226). Unit tests exercise each refusal (check.rs:309-387, validate.rs:111-132). The grep for ParsedQuestion|unwrap_or(0)|checked above finds none in the sc-jev and sc-jev-backends sources. The only unwrap_or(0) hits are in sc-agent-http test support, sc-ai cli tests and sc-jev-check extract/command.rs, none of them in the files the assignment named. The developer's claim holds, and I found no lost validation and no regression. I read the code statically and did not run cargo; CI green at 3ef50f5 is taken from the input. I did not re-read wire.rs, backend.rs typed_answers or the BackendSet changes in depth, because they are outside the locked req-qa carry-forward scope. No Blocking findings and no new gates requested."
+   }
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "adc6d3bf201f7386f",
+   "fenced_json": {
+    "agent": "arch-qa",
+    "branch": "sprint/r-2b-multi-backend-semantics",
+    "scope": {
+     "phase": "a.1",
+     "sprint": "r-2b"
+    },
+    "commit": "3ef50f5f7118f5d136fe5442c0a2a39c2b58debd",
+    "verdict": "PASS",
+    "blocking": 0,
+    "important": 0,
+    "findings": [],
+    "carry_forward_verdicts": [],
+    "adr_checks": [
+     {
+      "adr": "ADR-SAG-0002",
+      "source": "docs/architecture.md:114",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-agent-types/src/payload.rs:162",
+       "crates/sc-agent-types/src/payload.rs:196",
+       "crates/sc-jev/src/check.rs:44"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0004",
+      "source": "docs/architecture.md:528",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-backends/src/validate.rs:55",
+       "crates/sc-jev/src/check.rs:58"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0005",
+      "source": "docs/architecture.md:122",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev/src/check.rs:58",
+       "crates/sc-jev/src/check.rs:232"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0020",
+      "source": "docs/architecture.md:438",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev/src/check.rs:81",
+       "crates/sc-jev-backends/src/wire.rs:289"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0022",
+      "source": "docs/architecture.md:238",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev/src/check.rs:92"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0025",
+      "source": "docs/architecture.md:1133",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev/src/check.rs:81"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0001/0003/0006/0007/0008/0009/0012/0013/0014/0019/0023/0024/0026/0027/0029",
+      "source": "docs/architecture.md",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "The fix range changes only validation and parsing internals. It touches no run orchestration, dependency edge, feature gate or wire contract, so the QA-1 results stand."
+      ]
+     }
+    ],
+    "gate_artifact_checks": [
+     {
+      "artifact": "docs/architecture.md ADR index and Status lines (r-2b)",
+      "status": "closed",
+      "evidence_refs": [],
+      "notes": "I did not re-inspect these rows. Nothing in the fix range edits docs/architecture.md, and the QA-1 closed result stands."
+     }
+    ],
+    "merge_ready": true,
+    "notes": "REGRESSION FOCUS: no validation was lost. Method was a static read. I compared the pre-fix validator (the r-2-engine-shape worktree copy of crates/sc-jev-backends/src/validate.rs) against validate.rs and check.rs at 3ef50f5. I ran no tests.\n\nMapping from each old byte-level refusal to what covers it now:\n(1) Payload is not JSON, or has no 'questions' array: PayloadBundle can only come from encode or decode. Those go through CanonicalJudgePayload, where serde with deny_unknown_fields makes it unrepresentable (payload.rs:36, 96, 196).\n(2) Empty questions: still refused. validate.rs:81 and check.rs:45 return 'a check needs at least one question'.\n(3) Unknown question 'type' (the old 'no answer schema' refusal): Question has only id, prompt and choices, with deny_unknown_fields (payload.rs:36-42). A 'type' key makes decode or deserialization fail before a bundle exists. The check is unreachable, so it is not lost. This is slightly stricter than before: even type=\"choice\" is now rejected at decode.\n(4) Missing prompt: prompt is a required String field, so a missing prompt cannot be deserialized or built. An empty prompt was accepted before and is accepted now, so there is no change.\n(5) Missing or empty id: QuestionId is a label newtype (ids.rs:773). It refuses empty or control-character text at construction.\n(6) Duplicate id: PayloadBundle::encode returns INPUT_INVALID 'question id ... is duplicated' (payload.rs:166-174).\n(7) Choices absent, non-array, or with non-string items: Vec<ChoiceId> cannot hold them.\n(8) Fewer than two choices: still refused (validate.rs:86-93, check.rs:50-57). Choices are held as a BTreeSet, so [\"a\",\"a\"] collapses to one and is now also refused. Before, it was accepted, so this is stricter, not a regression.\n(9) Canonical-form oracle: removed in check.rs. A bundle is canonical by construction (ADR-SAG-0002).\n(10) Reply-side checks: still covered. wire::parse_answers and check::parse_outcome compare typed question ids, choice membership, the exact probability keys, and that the confidence and probability values are numbers (wire.rs:289-344, check.rs:159-226). The typed_answers lookup fails closed (backend.rs:88-111). parse_count returns RESPONSE_INVALID on a missing input_tokens, with no unwrap_or(0).\n\nTest coverage for the refusal cases is retained in validate.rs (mod refusals) and check.rs (mod refusals). backend.rs:218 and check.rs:44 call these checks before any send. The comment at tests/llm.rs:415 records that an unknown question type is unrepresentable.\n\nObservation, not a finding: docs/sc-jev-backends/architecture.md:19 still says validate covers 'question types'. The code now relies on the type system for that, so the row is slightly stale. It is not an ADR, so it is not Blocking. A wording fix would be tidy but needs no new gate.\n\nRULE-ADR-AWAIT-MUTEX: not applicable. The changed validation and parse code has no lock and no .await. No new disallowed_methods, allow(...) or as_str use of secrets appears in the files I read."
+   }
+  },
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "a21fdf6d98830556a",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-2b-multi-backend-semantics",
+     "reviewed_commit": "3ef50f5f7118f5d136fe5442c0a2a39c2b58debd",
+     "review_mode": "sprint_review",
+     "executed_checks": {
+      "fmt": {
+       "status": "pass",
+       "command": "cargo fmt --all --check"
+      },
+      "clippy": {
+       "status": "pass",
+       "command": "cargo clippy --workspace --all-targets --all-features -- -D warnings"
+      },
+      "tests": {
+       "status": "pass",
+       "command": "cargo test --workspace; cargo test -p sc-jev -p sc-jev-backends -p sc-jev-check --features test-util"
+      },
+      "coverage": {
+       "status": "not_run",
+       "line": 0.0,
+       "branch": 0.0,
+       "function": 0.0,
+       "adequate_for_risk": true
+      },
+      "artifacts": {
+       "status": "not_run",
+       "command": ""
+      }
+     },
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "carry_forward_verdicts": {
+      "REQ-QA-001": "resolved. The sprint doc now lists crates/sc-ai/tests/cli.rs and tests/fixtures/jev-python/tests/test_run_check_and_ask.py in owned_paths (lines 62-63). The Outcome wording now reads 'no consumer source file' (line 412).",
+      "RBP-F001": "resolved. ParsedQuestion and the byte re-parse are gone from validate.rs. wire::parse_answers and backend::typed_answers now take the typed question_choices() map. rg for ParsedQuestion in crates/sc-jev-backends/src returns no hit.",
+      "RBP-F002": "resolved. PreparedCheck.criteria is BTreeMap<QuestionId, BTreeSet<ChoiceId>> taken from the bundle. parse_outcome compares and iterates the typed ids. The Jev reply-shape checks are kept (answer-id set equality, choice membership, exact probability label set, numeric confidence).",
+      "RBP-F003": "resolved. impl Default for BackendSet (the single backend [jev]) is added in crates/sc-agent-types/src/ids.rs, with a doctest. I did not trace the default_backends change. My rg for 'fn default_backends' returned nothing, so it may live outside crates/ or have been renamed or removed.",
+      "RBP-F004": "resolved. parse_count in wire.rs is now .and_then(Value::as_u64).ok_or_else(..), with no unwrap_or(0). A negative or missing input_tokens still returns RESPONSE_INVALID.",
+      "RBP-F005": "resolved. The non-test expect calls in sc-jev check.rs are gone, and 'checked above' has no hit. The remaining expect calls in check.rs are in #[cfg(test)] code. The one in wire.rs:495 and backend.rs:51 are non-test but not part of this finding."
+     },
+     "regression_analysis": {
+      "verdict": "no lost validation",
+      "details": [
+       "Question 'type' check: Question has only id, prompt and choices, with deny_unknown_fields (payload.rs:37-42). CanonicalJudgePayload also has deny_unknown_fields. A bundle therefore cannot carry a 'type' key, and the developer's claim holds. The old 'unknown question type' refusal cannot be triggered by a canonical payload.",
+       "Question 'prompt' check: prompt is a required String field, so a missing prompt fails at deserialization before a bundle exists. An empty prompt was accepted before and still is, so nothing changed.",
+       "Empty or missing question id: QuestionId::try_from rejects empty strings, per the ids.rs doctest at line 851.",
+       "Duplicate question id: PayloadBundle::encode returns INPUT_INVALID 'question id X is duplicated' (payload.rs:166-174).",
+       "Non-string or invalid choice labels: ChoiceId is typed and validated on deserialization.",
+       "Fewer than two distinct choices: still refused in sc-jev check.rs::prepare and in sc-jev-backends validate_questions, using set length < 2. This covers one choice and duplicate choices such as ['a','a']. Unit tests cover both cases.",
+       "No questions: still refused in both places. Tests cover it.",
+       "Old Jev checks 'payload must not include model' and 'key sorting before model': the payload struct admits only 'questions' and 'state'. Both sort after 'model', so splice_model's precondition holds by construction.",
+       "Non-canonical or non-JSON bytes: PayloadBundle::decode re-encodes and compares bytes, and encode always yields canonical text, so there is no way to build a non-canonical bundle.",
+       "Reply-side validation is unchanged in strength: answer id set equality, choice membership, probability key set equality, and numeric checks are all retained."
+      ]
+     },
+     "notes": [
+      "The assignment's rg gate for 'ParsedQuestion|unwrap_or\\(0\\)|checked above' returns no hit in crates/sc-jev/src/check.rs or crates/sc-jev-backends/src. wire.rs:usage_i64 now uses unwrap_or_default(), which means the same as unwrap_or(0). It is a documented tolerance for an omitted provider usage counter and has no effect on RBP-F004. I raise it for awareness only.",
+      "Tests that ran and passed: workspace cargo test, and the test-util feature run for sc-jev, sc-jev-backends and sc-jev-check. I did not run cargo doc with RUSTDOCFLAGS=-D warnings, just lint or cargo test --all-features, because the input did not request them. PR CI evidence was given as green.",
+      "The publish dry-run was skipped as instructed. I edited nothing in the worktree. I requested no new gates."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "a9a4946760b94c454",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-2b-multi-backend-semantics",
+     "reviewed_commit": "3ef50f5f7118f5d136fe5442c0a2a39c2b58debd",
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "critical": 0,
+      "important": 0,
+      "minor": 0
+     },
+     "carry_forward_verdicts": [],
+     "notes": {
+      "head_verified": "The worktree's gitdir HEAD (/Volumes/Extreme Pro/github/sc-agent/.git/worktrees/r2b-qa2-review/HEAD) is 3ef50f5f7118f5d136fe5442c0a2a39c2b58debd, which matches the assigned commit. I read the file to check this because I could not run git. The worktree is detached, so I could not confirm the branch name.",
+      "carry_forward": "The QA-1 flaky-test file (/Volumes/Extreme Pro/github/sc-agent/.cursor/phase-a-orchestration/wave9-qa/r-2b-qa1/flaky-test-qa.json, reviewed at 330986f) is a pass with zero findings. There are no flaky-test carry-forward ids to give verdicts on. The REQ-QA-001 and RBP-F001 to F005 ids in the fix assignment come from other reviewers, not this auditor, and I did not judge them.",
+      "flakiness_of_rewritten_refusal_tests": "The rewritten tests are in-process and deterministic: validate.rs::refusals, check.rs::refusals and response_shape, and the llm.rs refusal tests. They have no sleeps, spawns, sockets, env mutation, fixed paths, shared statics, or unbounded waits. Ordering is stable because the cases are fixed arrays over BTreeMap and BTreeSet. I found no intermittent-failure mechanism.",
+      "regression_check_lost_validation": "No refusal that a canonical payload can still trigger has been lost. I checked the PayloadBundle and CanonicalJudgePayload code, because I could not diff against the old commit. (1) Zero questions is refused in sc-jev check.rs::prepare and in sc-jev-backends validate.rs::validate_questions, and both are tested. (2) A question with fewer than two distinct choices is refused. Choices are collected into a BTreeSet, so [a, a] is refused too. Both cases are tested in both crates. (3) A duplicate question id is refused by PayloadBundle::encode. (4) The question 'type' check is unreachable. Question has deny_unknown_fields and no type field, so a payload with a type key fails to deserialize. llm.rs::test_unknown_question_type_has_no_answer_schema asserts this. (5) A missing 'prompt' is unreachable. prompt is a required String in Question. A missing system prompt (None) is still refused with INPUT_INVALID, as asserted in llm.rs::test_llm_input_is_refused_like_jev_and_nothing_is_sent. (6) The byte caps (INPUT_TOO_LARGE) and the token cap are still enforced and tested. (7) The reply-side checks all remain against the typed maps: answer-id set, choice membership, exact probability keys, numeric confidence and probability, the model key, and object shape. They are tested in check.rs::parse_outcome_refuses_every_malformed_answer and llm.rs::test_llm_bad_reply_is_typed. One thing I could not confirm is whether the old code refused an empty-string prompt. Neither the sprint doc's dropped-check list nor the assignment mentions one.",
+      "non_blocking_observation": "llm.rs::test_unknown_question_type_has_no_answer_schema ends with 'let _ = backend.id(); assert!(posts(&recorded).is_empty());'. The posts assertion is vacuous because no backend call is made. The test still asserts that the payload fails to parse. This is a test-strength nit, not flakiness and not a lost refusal, so it is not a finding."
+     }
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "rust-best-practices-agent",
+   "task_id": "a25871d99cb21477a",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-2b-multi-backend-semantics",
+     "reviewed_commit": "3ef50f5f7118f5d136fe5442c0a2a39c2b58debd",
+     "review_mode": "sprint_review",
+     "practice_mode": "selected",
+     "practices_reviewed": [
+      "RBP-004",
+      "RBP-007"
+     ],
+     "findings": [],
+     "verdicts": [
+      {
+       "id": "RBP-F001",
+       "practice_id": "RBP-004",
+       "disposition": "fixed",
+       "evidence": "sc-jev-backends validate.rs no longer has ParsedQuestion or a byte re-parse. validate_questions(&PayloadBundle) returns bundle.question_choices() (validate.rs:77-95). wire::parse_answers (wire.rs:289) and backend::typed_answers (backend.rs:88) take &BTreeMap<QuestionId, BTreeSet<ChoiceId>> from request.payload().question_choices() (backend.rs:197-199). The QuestionId::try_from re-validation after the judge call is gone, so no id can pass pre-send and fail afterwards."
+      },
+      {
+       "id": "RBP-F002",
+       "practice_id": "RBP-004",
+       "disposition": "fixed",
+       "evidence": "sc-jev check.rs: PreparedCheck.criteria is BTreeMap<QuestionId, BTreeSet<ChoiceId>> cloned from payload.question_choices() (check.rs:20-67). parse_outcome compares typed ids and has no string re-validation (check.rs:159-226). criteria_from_object and criteria_from_array are removed."
+      },
+      {
+       "id": "RBP-F003",
+       "practice_id": "RBP-007",
+       "disposition": "fixed",
+       "evidence": "run/mod.rs:429 now uses BackendSet::default(). sc-agent-types ids.rs:438-450 provides an infallible Default of [Jev] with a doc test. The dead error path is gone."
+      },
+      {
+       "id": "RBP-F004",
+       "practice_id": "RBP-007",
+       "disposition": "fixed",
+       "evidence": "wire.rs:245-252 parse_count uses value.get(\"input_tokens\").and_then(Value::as_u64) with no unwrap_or(0). The only unwrap_or(0) left in sc-jev* sources is in a test-pipe drain in extract/command.rs:337, unrelated to token counts."
+      },
+      {
+       "id": "RBP-F005",
+       "practice_id": "RBP-007",
+       "disposition": "fixed",
+       "evidence": "The criteria_from_object expect(\"checked above\") is gone with the function. In parse_outcome the criteria.get(id).expect pattern is replaced by iterating (question, allowed) pairs directly, with ok_or_else for answer and choice lookup. No non-test expect remains in check.rs."
+      }
+     ],
+     "regression_check": {
+      "result": "no lost validation",
+      "analysis": [
+       "Empty payload (no questions): still refused with INPUT_INVALID 'at least one question', in both validate_questions and check.rs prepare.",
+       "Question with fewer than two choices: still refused (INPUT_INVALID 'question X is not a choice question...'). The check now runs on the distinct-choice set, so ['a','a'] is also refused. The old code let it through, so this is stricter, not lost.",
+       "Missing, empty or control-character question id or choice label: ids.rs:773-788 rejects empty and control-character text in the typed ids, and Question deserialization uses QuestionId and ChoiceId. This is stricter than the old non-empty-string check.",
+       "Duplicate question id: PayloadBundle::encode (payload.rs:166-174) refuses it with INPUT_INVALID.",
+       "Non-string choices or a non-array choices field: Question.choices is Vec<ChoiceId>, so the payload cannot be constructed.",
+       "Missing or non-string prompt: Question.prompt is a required String, so a payload without one fails at deserialization. The old check also accepted an empty-string prompt, so no behaviour was lost.",
+       "Unknown question 'type': Question has #[serde(deny_unknown_fields)] and no type field. A payload carrying type is refused at deserialization, even type:'choice', which the old code tolerated. A PayloadBundle cannot carry it, so the developer's claim holds. The refusal now happens upstream of the backends.",
+       "The byte cap, token ceiling and the count and message limits in validate.rs are unchanged.",
+       "Reply-side checks are intact: id-set equality, choice membership, probability-key equality and numeric checks, in wire::parse_answers and check.rs parse_outcome.",
+       "Refusal tests for the three malformed-payload cases exist in validate.rs and check.rs, now built through PayloadBundle::encode."
+      ],
+      "assignment_deviation": "The developer dropped the 'type' and 'prompt' checks although the assignment said to keep them. I treat this as acceptable and not a regression, because the types make those invalid values unrepresentable in a bundle. If the project wants a payload with a stray 'type' key to get a specific error message, that would be an error-shape question for the layer that deserializes payloads. It is not an RBP regression."
+     },
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "notes": [
+      "Findings were scope-locked to RBP-F001..F005. No unrelated or new Blocking finding was found.",
+      "I read the files in the review worktree directly and compared validate.rs with the QA-1 worktree copy. I did not run commands or tests, and I requested no new gates.",
+      "Minor observation, not filed: typed_answers (backend.rs:98-100) finds the QuestionId by a linear scan with as_str() == id. The question set is tiny, so there is no practical cost."
+     ]
+    },
+    "error": null
+   }
+  }
+ ],
+ "triage": {
+  "commit": "5169a8b on integrate/phase-a",
+  "ttl_paths": [
+   ".triage/phase-a-refine/findings/R2B-REQ-QA-001.ttl",
+   ".triage/phase-a-refine/findings/R2B-RBP-F001.ttl",
+   ".triage/phase-a-refine/findings/R2B-RBP-F002.ttl",
+   ".triage/phase-a-refine/findings/R2B-RBP-F003.ttl",
+   ".triage/phase-a-refine/findings/R2B-RBP-F004.ttl",
+   ".triage/phase-a-refine/findings/R2B-RBP-F005.ttl"
+  ]
+ },
+ "fix_assignment": ".cursor/phase-a-orchestration/wave9-qa/r-2b-qa1/fix-assignment.xml",
+ "fix_commit": "3ef50f5",
+ "prior_round": {
+  "qa_pass": "qa-r-2b-1",
+  "verdict": "FAIL 0B/2I/4M",
+  "pr_comment": "https://github.com/randlee/sc-agent/pull/30#issuecomment-6714055343"
+ }
+}

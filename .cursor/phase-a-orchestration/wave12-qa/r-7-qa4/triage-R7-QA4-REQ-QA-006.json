@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "found_in": "A1-R7",
+ "found_at": "2026-11-08T04:53:55Z",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "b58ffd2a55f03c54b63ab55db33819244b1a8a48"
+  },
+  {
+   "branch": "sprint/r-7-decision-schema",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-7-decision-schema",
+   "order_index": 1,
+   "head_sha": "20a46a88dcfcc1899d8baec0934837912d638b88"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a",
+  "sprint/r-7-decision-schema"
+ ],
+ "finding_id": "R7-QA4-REQ-QA-006",
+ "title": "plan.md:151-153 says `workspace-tests --test test_util_off` is a graph query plus a release-built sc-ai that rejects --scripted-answers",
+ "description": "plan.md:151-153 says `workspace-tests --test test_util_off` is a graph query plus a release-built sc-ai that rejects --scripted-answers. After 20a46a8 that target is the graph half only, and the release-built check is in test_util_off_binary. The plan validation list at plan.md:917 runs only `--test test_util_off` and so omits the release-binary proof.",
+ "category": "cross-doc-conflict",
+ "severity": "blocking",
+ "pattern": "test_util_off",
+ "file_filter": "docs/plans/phase-a-refine/plan.md"
+}

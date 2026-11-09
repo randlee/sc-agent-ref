@@ -1,0 +1,31 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/r-3-shared-http",
+    "reviewed_commit": "f19ce8df1d62f3ffe179d20b6a806f081db253bf",
+    "review_mode": "sprint_review",
+    "executed_checks": {
+      "fmt": {"status": "pass", "command": "cargo fmt --all --check"},
+      "clippy": {"status": "pass", "command": "cargo clippy --workspace --all-targets --all-features -- -D warnings"},
+      "tests": {"status": "pass", "command": "cargo test --workspace; cargo test -p sc-agent-http --features test-util; bash .github/scripts/cargo-tree-gates.sh (exit 0)"},
+      "coverage": {"status": "pass", "line": 92.44, "branch": 0.0, "function": 88.70, "adequate_for_risk": true},
+      "artifacts": {"status": "not_run", "command": "multi-crate cargo publish dry-run skipped per instruction; CI dry-run is green (run 42417451319)"}
+    },
+    "carry_forward_verdicts": {
+      "QA-001": "closed. Workspace line coverage is 92.44%, above the 91.48 baseline. This was measured with `cargo llvm-cov --workspace --exclude sc-jev-py --all-features --json --summary-only`. Per-crate line coverage: sc-agent-http 97.52, sc-jev 97.83, sc-jev-backends 95.56, sc-jev-check 91.21, sc-agent-types 92.96, sc-agent-secrets 96.53, sc-treesitter 91.50, sc-ai 82.63. These match the developer's reported figures.",
+      "QA-002": "closed. The kind stays Busy, and the typed accessor BusyExhaustion::of is exported from the crate. It returns Sends or Budget. test_exhaustion_reason_distinguishable passes, and the doc example asserts Budget."
+    },
+    "findings": [],
+    "summary": {"total_findings": 0, "by_severity": {"critical": 0, "important": 0, "minor": 0}},
+    "notes": [
+      "The worktree HEAD is f19ce8d. It is a detached review copy, so there is no branch name to compare against. The commit matches the assignment.",
+      "`git show f19ce8d` shows it changes only one sprint-doc line, consistent with the assignment.",
+      "All workspace test result lines are ok with 0 failed, including the loopback and stall tests. The `--features test-util` run for sc-agent-http also passes.",
+      "The hardcoded `/tmp/` grep over crates/ returned nothing.",
+      "I found no regressions from the fix-round diff. That covers the HttpClient and send_and_parse refactor, the new tree-gate rows, and the merge of integrate/phase-a.",
+      "Not re-run, by instruction or because CI covers them: the multi-crate publish dry-run, the Windows and Linux jobs, and the public-API canary and single-read-site CI greps. The developer reports these green at 7cfd413 and CI is green."
+    ]
+  },
+  "error": null
+}

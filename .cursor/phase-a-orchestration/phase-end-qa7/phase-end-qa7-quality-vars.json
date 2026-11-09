@@ -1,0 +1,21 @@
+{
+  "qa_pass": "qa-stack-41-4",
+  "sprint_id": "stack #41 (PRs 39, 40, 42, 43, 44, 45, 46)",
+  "task_id": "cursor-quality-mgr",
+  "branch": "fix/pe-r3-wording",
+  "commit": "00bc022",
+  "pr_number": "46",
+  "verdict": "PASS",
+  "reviewer_spawn_gate": "pass",
+  "next_action": "none",
+  "findings_blocking": "0",
+  "findings_important": "0",
+  "findings_minor": "0",
+  "open_findings_json": "[]",
+  "unreconciled_items_json": "[\"agt-1hz (P3 bead says best-practices polish at 6b946d2; not in reviewer JSON; not counted)\"]",
+  "head_correlation_gaps_json": "[]",
+  "ci_state": "16/16 pass at 00bc022 (gh pr checks 46; runs 42529396367, 42529396384)",
+  "todo_scan_hits": "0",
+  "pr_comment_url": "https://github.com/randlee/sc-agent/pull/46#issuecomment-6727982618",
+  "prior_report_url": "https://github.com/randlee/sc-agent/pull/45#issuecomment-6727865331"
+}

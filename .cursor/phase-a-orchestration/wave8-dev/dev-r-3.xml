@@ -1,0 +1,17 @@
+<cursor-task id="dev-r-3" sprint="r-3" assignee="rust-developer">
+  <description>Phase A.1 sprint r-3 (wave 2: r-2, r-3, r-3c run in parallel; owned_paths are disjoint by plan). The sprint doc is authoritative for scope, deliverables, deletions, validation and acceptance. Owner decisions (PHASE-A-REVIEW.md §4/§7) are settled; do not reopen. D9 pending (r-5 blocked; not your concern). D0 outcome 4 applies: sc-agent-http integration targets use [[test]] required-features = ["test-util"], no self dev-dependency. Retry policy exactly per PHASE-A-REVIEW.md §7 (1 s exponential-ish backoff when Retry-After absent/malformed, 30 s clamp, 250 ms jitter, 90 s budget, 120 s in-flight, no connectivity detection).</description>
+  <worktree>/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-3-shared-http</worktree>
+  <branch>sprint/r-3-shared-http</branch>
+  <pr-target>integrate/phase-a</pr-target>
+  <base-commit>97db748 (integrate/phase-a after r-1 + r-4 + wave-2 doc fix; worktree at this commit)</base-commit>
+  <authoritative-sprint-doc>docs/plans/phase-a-refine/sprint-r-3-shared-http.md (in your worktree)</authoritative-sprint-doc>
+  <plan>docs/plans/phase-a-refine/plan.md (conventions: test seams incl. D0 outcome recorded in boundaries/README.md, lint hygiene, ADR index ownership, owned_paths, gate table); docs/architecture.md ADR-SAG-0023..0029 and the (Proposed, r-3) amendment subsections you flip per the sprint doc; the r-1 Implementation notes in sprint-r-1-types-break.md (deviations that affect you).</plan>
+  <deliverables>Every D-section of the sprint doc in order. Touch only files in the sprint doc owned_paths; if a change you need is outside them, stop on that item and report it rather than editing.</deliverables>
+  <acceptance-criteria>
+- Every row of the sprint doc "Acceptance criteria (authoritative)" satisfied, with the exact "Required validation" commands run and results quoted.
+- Workspace green: just lint; cargo clippy --workspace --all-targets --all-features -- -D warnings; cargo test --workspace (plus any [[test]] required-features targets with their --features); RUSTDOCFLAGS=-D warnings cargo doc --workspace --no-deps; just test-python; cargo hack --each-feature test -p sc-treesitter; bash .github/scripts/cargo-tree-gates.sh; bash .github/scripts/check-exact-pins.sh; bash scripts/sc-publish-dry-run.sh.
+- Sprint doc frontmatter status complete (or in-review with the open row named), branch, worktree set; only the (Proposed, r-3) markers the doc tells you to flip are flipped.
+- Commits per D-section with trailer Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>; push early and often; report pushed SHA + per-row acceptance table + deviations + deferrals. No PR, no merge, no agents. Never edit kit-written release files. zsh: never use a variable named status. Persist progress notes in an untracked NOTES-r-3.md so a resume after interruption can continue.
+  </acceptance-criteria>
+  <references>PHASE-A-REVIEW.md §4/§7; docs/plans/phase-a-refine/plan-review-{1,2,3}-dispositions.md; docs/plans/phase-a/a-10-hardening-dispositions.md (items deferred to this sprint); boundaries/README.md D0 record.</references>
+</cursor-task>

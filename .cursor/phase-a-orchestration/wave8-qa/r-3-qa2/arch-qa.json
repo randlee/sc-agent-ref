@@ -1,0 +1,30 @@
+{
+  "agent": "arch-qa",
+  "branch": "sprint/r-3-shared-http",
+  "scope": {"phase": "a.1", "sprint": "r-3"},
+  "commit": "f19ce8df1d62f3ffe179d20b6a806f081db253bf",
+  "verdict": "PASS",
+  "blocking": 0,
+  "important": 0,
+  "findings": [],
+  "carry_forward_verdicts": [
+    {"id": "ARCH-R3-001", "verdict": "closed", "evidence_refs": [
+      "docs/architecture.md:557-558 (base sentence marked superseded in part)",
+      "docs/architecture.md:587-593 (Active r-3 bullet: timeouts are UreqTransport::new(Timeouts) construction state, with_timeouts removed, supersedes 'configurable on backend builder for tests')",
+      "docs/plans/phase-a-refine/sprint-r-3-shared-http.md:293-302 (ADR text item 7 carries the same bullet)",
+      "docs/plans/phase-a-refine/sprint-r-3-shared-http.md:504 (disposition row, c85a8f6)",
+      "no with_timeouts in crates/"
+    ]}
+  ],
+  "adr_checks": [
+    {"adr": "ADR-SAG-0007", "source": "docs/architecture.md:549", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:587-593"]},
+    {"adr": "ADR-SAG-0026", "source": "docs/architecture.md:1087", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/sc-agent-http/architecture.md:21,60-61 (send_and_parse and HttpClient are recorded inside the HTTP half's facade, in the crate architecture doc)", "sprint-r-3-shared-http.md:507,526"]},
+    {"adr": "ADR-SAG-0020", "source": "docs/architecture.md:425", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["sprint-r-3-shared-http.md:507 (RBP-F007 redaction moved into send_and_parse, which strengthens the redaction contract)"]},
+    {"adr": "RULE-ADR-AWAIT-MUTEX (ADR-RUN-0011 pt 2)", "source": ".claude/project/quality-policy.md", "listed_in_sprint_doc": false, "result": "not-applicable", "evidence_refs": ["No .await in crates/sc-agent-http, sc-jev or sc-jev-backends. The only Mutex hits are the synchronous test doubles in crates/sc-agent-http/src/test_util.rs."]}
+  ],
+  "gate_artifact_checks": [
+    {"artifact": "release/publish-artifacts.toml + release/sc-publish-consumer-input.json", "status": "not-applicable", "evidence_refs": ["/Volumes/Extreme Pro/github/sc-agent/.cursor/phase-a-orchestration/wave8-qa/r-3-fix1/dev-report.json (kit re-render recorded at 8f969ff, nothing under release/ changed after)"], "notes": "This was an open row in QA-1. The dev report says it was re-rendered. I did not open the release files. The check belongs to req-qa and the integrator, and it is not an ADR matter."}
+  ],
+  "merge_ready": true,
+  "notes": "Locked QA-2 round. The only carry-forward, ARCH-R3-001, is closed. Regression check on the fix-round diff: the new public HttpClient<T> and send_and_parse sit inside the ADR-SAG-0026 HTTP half. They are recorded in docs/sc-agent-http/architecture.md and the sprint doc, and they add no dependency edge, feature gate or wire contract, so no new ADR is needed. Limitations: this was a read-only review with the Grep and Read tools, and I did not run cargo or the CI gates. I did not independently verify HEAD against the commit through git. I relied on the assigned worktree path and the dispatch metadata. The PR 26 CI evidence comes from the dispatch input."
+}

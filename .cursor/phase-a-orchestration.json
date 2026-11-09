@@ -1,0 +1,2066 @@
+{
+  "phase_id": "phase-a",
+  "integration_branch": "integrate/phase-a",
+  "integration_worktree": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+  "integrate_head": "d88879a",
+  "develop_head": "2fb25fd",
+  "pr_plan_merged": 4,
+  "pr_a1_merged": 5,
+  "model_policy": {
+    "rust-developer": "grok-4.7-high-fast",
+    "cursor-quality-mgr": "composer-2.5-fast",
+    "qa_reviewers": "orchestration-agent-models.yaml",
+    "qa_rotation": [
+      "claude-sonnet-5-5-high",
+      "gpt-5.6-terra-medium",
+      "grok-4.7-high-fast",
+      "composer-2.5-fast",
+      "kimi-k3-max"
+    ],
+    "qa_rotation_index": 0,
+    "claude_code_mapping": {
+      "rust-developer": "opus",
+      "qa_reviewers": "sonnet",
+      "cursor-quality-mgr": "sonnet"
+    }
+  },
+  "sprints": {
+    "a-1": {
+      "branch": "sprint/a-1-workspace-and-types",
+      "worktree": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-1-workspace-and-types",
+      "status": "complete",
+      "pr": 5,
+      "pr_target": "integrate/phase-a"
+    },
+    "a-2": {
+      "branch": "sprint/a-2-agent-secrets",
+      "worktree": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-2-agent-secrets",
+      "pr_target": "integrate/phase-a",
+      "wave": 2,
+      "dev_task_id": "0e44d975-8593-4e6f-923b-64ae35f78ab2",
+      "commit": "85710a9074d6508362be8ef23f6343951b816041",
+      "pr": 6,
+      "status": "complete",
+      "qa_pass": "qa-a-2-2",
+      "merged_to_integrate": true,
+      "fix_task_id": "d50ef032-d544-452f-b034-84224b628907",
+      "qa2_reviewers": {
+        "req-qa": "86d2b660-d253-4888-a766-eee05acaac77",
+        "arch-qa": "bc247a18-820a-4eaf-9bd1-c333b64db5c4",
+        "rust-qa-agent": "a9f59c24-2446-48de-b48c-ff05afa5f2ac"
+      },
+      "qa1_reviewers": {
+        "req-qa": "5caf9d03-15cf-4fee-931b-76ceb1a30c5e",
+        "arch-qa": "6bf6881e-1b55-4bfc-ad9c-fa503df30132",
+        "rust-qa-agent": "b1b38068-d812-4a75-a472-547488962ce4",
+        "rust-best-practices-agent": "bcfdf2c4-d5c1-41b9-a3c9-728a0baf5954",
+        "rust-service-hardening-agent": "d23efd8e-8790-4c77-b453-d029f6ac89cf",
+        "flaky-test-qa": "10c640ba-d941-4c5b-91db-fc1c161160ba"
+      },
+      "qa1_coordinator_task_id": "50d6a2c0-ae71-4371-af59-5bfb789c2f44"
+    },
+    "a-3": {
+      "branch": "sprint/a-3-check-build-and-payload",
+      "worktree": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-3-check-build-and-payload",
+      "status": "complete",
+      "pr_target": "integrate/phase-a",
+      "wave": 2,
+      "dev_task_id": "1eb4d56f-d85f-4e55-893f-40f9b2b0dc9c",
+      "commit": "def8ee1ea151e78a661509bdf4e913e048cc931f",
+      "pr": 10,
+      "merged_to_integrate": true,
+      "merged_via": "wave-2-stack PR 11"
+    },
+    "a-11": {
+      "branch": "sprint/a-11-sc-treesitter",
+      "worktree": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-11-sc-treesitter",
+      "status": "complete",
+      "pr_target": "integrate/phase-a",
+      "wave": 2,
+      "dev_task_id": "8a16cf31-12ee-4fe5-9276-2732819d8dc3",
+      "commit": "67c89d3ab383435781f35a06697eb463e32291f7",
+      "pr": 8,
+      "merged_to_integrate": true,
+      "merged_via": "wave-2-stack PR 11"
+    },
+    "a-4": {
+      "branch": "sprint/a-4-backend-jev",
+      "worktree": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-4-backend-jev",
+      "status": "complete",
+      "pr_target": "integrate/phase-a",
+      "wave": 2,
+      "dev_task_id": "386d397f-8534-4f6e-954e-decf896fb4c4",
+      "commit": "956b7119b9daa1c3b8ea902358bf033be8cf716a",
+      "pr": 9,
+      "merged_to_integrate": true,
+      "merged_via": "wave-2-stack PR 11"
+    },
+    "a-5": {
+      "branch": "sprint/a-5-backend-llm",
+      "worktree": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-5-backend-llm",
+      "status": "complete",
+      "pr_target": "integrate/phase-a",
+      "wave": 2,
+      "dev_task_id": "9bb97dd4-bf67-41a4-b6f1-608ec821a2a3",
+      "commit": "adba5d54d10d0e7550fcc642c3f2e749768844b9",
+      "pr": 7,
+      "merged_to_integrate": true,
+      "merged_via": "wave-2-stack PR 11"
+    },
+    "wave-2-stack": {
+      "branch": "sprint/wave-2-stack-qa-top",
+      "worktree": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-5-backend-llm",
+      "pr": 11,
+      "pr_target": "sprint/a-5-backend-llm",
+      "stack_prs": [
+        8,
+        10,
+        9,
+        7,
+        11
+      ],
+      "head": "99cd224eacebd51dd4ac8dacde0ccce6542c4d0d",
+      "status": "qa_pass",
+      "fix_policy": "stack_top_only",
+      "merged_to_integrate": true
+    },
+    "a-6": {
+      "branch": "sprint/a-6-sessions-and-orchestration",
+      "worktree": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-6-sessions-and-orchestration",
+      "pr_target": "integrate/phase-a",
+      "wave": 3,
+      "status": "complete",
+      "integrate_base": "8c28f9d",
+      "commit": "499ee1894130af12946ab9435dbf06944bbe2d54",
+      "pr": 13,
+      "dev_task_id": "c3d09e97-320d-425a-98ce-f6588890a81b",
+      "fix_task_id": "ee1f43fe-70a7-4bed-8ee7-d1749beace40",
+      "qa_pass": "qa-a-6-2",
+      "qa2_reviewers": {
+        "req-qa": "7b57c938-cf70-467e-a549-a7e7b718f96a",
+        "arch-qa": "e3e704fa-9569-4e15-9eef-405af1554012",
+        "rust-qa-agent": "f1ee5f61-08e9-4338-acc4-13831594e3de",
+        "flaky-test-qa": "f7442e7b-d2e4-493a-be73-e5d55a1b2638"
+      },
+      "qa2_coordinator_task_id": "c65f085e-4025-4b0d-97eb-024cde25140b",
+      "merged_to_integrate": true,
+      "merge_commit": "53644e2"
+    },
+    "a-7": {
+      "branch": "sprint/a-7-sc-ai-cli",
+      "worktree": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-7-sc-ai-cli",
+      "pr_target": "integrate/phase-a",
+      "wave": 4,
+      "status": "complete",
+      "integrate_base": "53644e2",
+      "commit": "844fc65",
+      "pr": 14,
+      "merge_commit": "4a5a204",
+      "qa_pass": "qa-a-7-2",
+      "qa2_reviewers": {
+        "req-qa": "838d9204-efd8-4ef3-8d1f-c0eb52055c76",
+        "arch-qa": "cae7497c-16b6-4d6c-b1e3-b712486579e5",
+        "rust-qa-agent": "d1e7452d-e88c-4564-8570-cf1faaae8f77",
+        "flaky-test-qa": "5e153379-7b24-4ac8-8473-1239ecbdce5f"
+      },
+      "merged_to_integrate": true,
+      "artifacts": ".cursor/phase-a-orchestration/wave4-qa/a-7-qa2/"
+    },
+    "a-8": {
+      "branch": "sprint/a-8-pyo3-wrapper",
+      "worktree": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-8-pyo3-wrapper",
+      "pr_target": "integrate/phase-a",
+      "wave": 4,
+      "status": "complete",
+      "integrate_base": "53644e2",
+      "commit": "bfd36cb93a52c627e6cb04f24c5c6111243e8c00",
+      "pr": 15,
+      "merge_fix_commit": "a924e788c5b279a9cc332b027e71dc147d96da2b",
+      "merge_commit": "0417aef60b6eba1fb4bf95fdfe8af0a1fa7d146b",
+      "qa_pass": "qa-a-8-3",
+      "qa2_reviewers": {
+        "req-qa": "20921eed-0901-43f5-8768-6866f0b438bc",
+        "arch-qa": "ee3b1768-7c09-4696-9597-bd0c480ff88e",
+        "rust-qa-agent": "17c52fe9-ea67-4f51-866d-849d838f5e07",
+        "flaky-test-qa": "875480a4-c1e7-4479-9ad6-fdead164c3c2"
+      },
+      "merged_to_integrate": true,
+      "artifacts": ".cursor/phase-a-orchestration/wave4-qa/a-8-qa2/",
+      "qa3_reviewers": {
+        "req-qa": "a69a76dc1153dc391",
+        "arch-qa": "a7371edabd8e0c883",
+        "rust-qa-agent": "a1cf3aab68d7bf67b",
+        "flaky-test-qa": "a08fea2181d8c1972"
+      },
+      "qa3_coordinator_task_id": "ac9cdbc3f5f2b568b",
+      "merge_commit_qa": "PASS at 0417aef (qa-a-8-3)"
+    },
+    "a-9": {
+      "branch": "sprint/a-9-sc-publish-install",
+      "worktree": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-9-sc-publish-install",
+      "pr_target": "integrate/phase-a",
+      "wave": 5,
+      "status": "complete",
+      "integrate_base": "0417aef60b6eba1fb4bf95fdfe8af0a1fa7d146b",
+      "sprint_doc": "docs/plans/phase-a/sprint-a-9-sc-publish-install.md",
+      "sc_publish_pin": "11b5b04907aade73599ad2fdabf4562f11f41ea8",
+      "dev_assignment": ".cursor/phase-a-orchestration/wave5-dev/dev-a-9.xml",
+      "dev_task_id": "abd95dde363e28182",
+      "commit": "ebf5a3183a48cab4c44aa4083ceca84072afb7db",
+      "pr": 17,
+      "dev_validation": "PASS (just lint/test, install dry-run, preflight, cargo publish --dry-run 7/7, maturin wheel)",
+      "dev_notes": [
+        "kit release-preflight.yml is dispatch-only; repo-owned sc-publish-dry-run.yml carries REQ-SAG-0132",
+        "upstream kit gaps: list-publish-plan ignores publish=false; scoop template single-binary",
+        "edits outside owned_paths: crates/sc-jev-py/pyproject.toml, crates/sc-jev-py/Cargo.toml, scripts/sc-publish-dry-run.sh, .github/workflows/sc-publish-dry-run.yml"
+      ],
+      "qa_pass": "qa-a-9-3",
+      "qa1_reviewers": {
+        "req-qa": "a93135f5a7f6a7687",
+        "arch-qa": "a9503f1935185c6d9",
+        "rust-qa-agent": "ae07ee917779ae499",
+        "rust-best-practices-agent": "abfe8d86ded68518a",
+        "rust-service-hardening-agent": "a8a4e204458debee7",
+        "flaky-test-qa": "ae1c92ee207fbcc04"
+      },
+      "qa1_coordinator_task_id": "afc324886e7c074df",
+      "fix_task_id": "ad915aab4c4c3cad5",
+      "fix_commits": [
+        "44ea29b",
+        "f2548d8",
+        "0cb69c5"
+      ],
+      "fix_ci": "dry-run PASS run 42341299125",
+      "qa2_reviewers": {
+        "req-qa": "ad4f420209aa2c275",
+        "arch-qa": "a6a04222c11401d4d",
+        "rust-qa-agent": "a84a2474787659fb3",
+        "flaky-test-qa": "a48020b8388f10180"
+      },
+      "qa3_reviewers": {
+        "req-qa": "a9e44d601b6af45dc",
+        "arch-qa": "a3a9a1c6345130c09",
+        "rust-qa-agent": "ae7075e47f93a5180"
+      },
+      "qa3_coordinator_task_id": "a557c35186811dfc8",
+      "merged_to_integrate": true,
+      "merge_commit": "d4a0111d2df5c818222e9c7388e206f1d4e9bc20"
+    },
+    "a-10-code": {
+      "branch": "sprint/a-10-phase-end-hardening",
+      "worktree": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-10-phase-end-hardening",
+      "pr_target": "integrate/phase-a",
+      "wave": 6,
+      "status": "complete",
+      "integrate_base": "d4a0111",
+      "scope": "routine code fixes from PHASE-A-REVIEW.md section 3, three sequential developer waves",
+      "assignments": ".cursor/phase-a-orchestration/wave6-dev/",
+      "dev_task_ids": {
+        "wave1": "a585c1fff33cef4ba",
+        "wave2": "a7ca891db82ae3e72",
+        "wave3": "a2d8fc6a4e3da624e"
+      },
+      "wave1_commit": "5f944781ffdae0fa0f60550430959ae2bf8f165c",
+      "wave1": "done: 237 tests; cov sc-jev 89.15%, sc-jev-backends 93.15%; rustdoc 11->6",
+      "wave1_notes_for_planning": [
+        "serde spelling bug: OpenAiLuna -> open_ai_luna / OpenAi -> open_ai vs documented openai_luna (CLI rejects its own documented spelling); wire change -> r-1 (D1/D6)",
+        "key sealing: constructors never fail now; hidden ResolvedApiKey::new skips validation -> RBQA-F003 / r-3",
+        "retry numbers chosen: 90s budget, 250ms jitter, empty Retry-After -> 30s; backends accept decimal -> confirm in ADR-SAG-0007/REQ-SAG-0505 (r-4)",
+        "encode_failed/io_failed return INPUT_INVALID \u2014 contract question (r-1)"
+      ],
+      "wave1_notes_for_docs": [
+        "boundaries/sc-jev/jev.toml lists module sc_jev::client as public (now private)",
+        "ADR-SAG-0020 still mentions secrets test-util feature (removed)",
+        "sprint-a-4 doc lists src/api/** (renamed config)"
+      ],
+      "wave2_commit": "13f4ecb3b7f0f1f2dfc1d1ea9d41d9c13b060e5c",
+      "wave2": "done: all items; integrate 71110d5 merged (5a8373f) clean; rustdoc 6 left (jev-py 5, treesitter 1)",
+      "wave2_notes_for_planning": [
+        "test seams on published crates: cannot self-enable a feature for integration tests (sc-lint rejects unversioned self dev-dep; publish dry-run fails versioned) -> doc(hidden) seams; CI --features or sc-lint change (r-3b/r-4)",
+        "RBP-F015 hints reuse operational_*/registry_invalid prefixes until D6 variants (r-1)",
+        "producer_from_extractions refuses differing producers (stopgap before D3)",
+        "third byte cap: 8 MiB input-read cap next to 200000 payload and 96000 backend caps -> D13 owner question (r-2)",
+        "env allowlist has no per-input opt-in (D11-adjacent)",
+        "ARCHE-010 side fix: sc-ai old serde parse rejected openai_luna (serde open_ai_luna) \u2014 confirms r-1 serde rename item"
+      ],
+      "pr": 20,
+      "commit": "1899319d1ca643696868c1c69c8d49437ba9f1ae",
+      "wave3_commit": "1899319",
+      "wave3": "done: 298 tests x2; rustdoc 0; jev-py cov 92.55%; .gitattributes; doc gate real; feature matrix tests",
+      "known_doc_leftovers": [
+        "docs/architecture.md:156 and docs/sc-jev-py/architecture.md:26-28 still describe scripted_answers on run_check",
+        "docs/plans/phase-a/plan.md stale 'doc continue-on-error / feature matrix check-only' bullet + validation rows",
+        "boundaries/sc-jev-py/jev-py.toml facade lists Rust paths now pub(crate)"
+      ],
+      "wave3_notes_for_planning": [
+        "Python error code change CONFIG_INVALID->INPUT_INVALID for unknown/kebab backends",
+        "sc-treesitter API shape changes (languages() iterator, queries() Vec) pre-publish",
+        "extract() rejects leading-dash revs"
+      ],
+      "qa1": {
+        "reviewed_commit": "1899319",
+        "status": "FAIL_posted",
+        "done": [
+          "req-qa FAIL 6B",
+          "arch-qa FAIL 2B+1I",
+          "rust-service-hardening 2 minor",
+          "rust-best-practices 4 minor",
+          "flaky-test-qa 3I+2m",
+          "ci-finding CI-001"
+        ],
+        "pending": [],
+        "fix_assignment": ".cursor/phase-a-orchestration/wave6-dev/fix-a-10-code-qa1.xml",
+        "adr_amendment_id": "ADR-SAG-0029 (0023-0028 reserved by PR 19 plan)",
+        "findings": {
+          "blocking": 9,
+          "important": 6,
+          "minor": 12
+        },
+        "pr_comment": "https://github.com/randlee/sc-agent/pull/20#issuecomment-6704732797",
+        "machine_status": ".cursor/phase-a-orchestration/wave6-qa/a-10-code-qa1/machine-status.json"
+      },
+      "fix_qa1": {
+        "task_id": "ac686ad57455b4f2b",
+        "assignment": ".cursor/phase-a-orchestration/wave6-dev/fix-a-10-code-qa1.xml",
+        "status": "done",
+        "adr_amendment": "ADR-SAG-0029",
+        "pushed": "145d47a",
+        "ci": "10/10 pass run 42360114766 + dry-run 42360114760",
+        "dispositions": "docs/plans/phase-a/a-10-hardening-dispositions.md (152 rows: 143 implemented, 9 deferred)",
+        "notes": "CI-001 root cause: Windows canonicalize \\\\?\\ path breaks git hash-object; fixed via hash-object --stdin --no-filters. Dry-run E0432 root cause: cached ~/.cargo/registry/src stale unpack; fixed in consumer-owned scripts/sc-publish-dry-run.sh with content-keyed target dir (untracked-files gap in key, CI unaffected)."
+      },
+      "qa2": {
+        "reviewed_commit": "145d47a",
+        "status": "FAIL_posted",
+        "reviewers": [
+          "req-qa",
+          "arch-qa",
+          "rust-qa-agent",
+          "flaky-test-qa"
+        ],
+        "manifest": ".cursor/phase-a-orchestration/wave6-qa/a-10-code-qa2/reviewer-manifest.json",
+        "findings": {
+          "blocking": 0,
+          "important": 2,
+          "minor": 8
+        },
+        "pr_comment": "https://github.com/randlee/sc-agent/pull/20#issuecomment-6705192343",
+        "per_reviewer": {
+          "req-qa": "PASS 10/10",
+          "arch-qa": "PASS merge_ready (ARCH-005 I)",
+          "rust-qa": "gates green, 4 minor",
+          "flaky": "FTQ-006..010 closed; FTQ-011 I, FTQ-012 m"
+        }
+      },
+      "fix_qa2": {
+        "task_id": "ac686ad57455b4f2b (resumed)",
+        "status": "done",
+        "scope": "FTQ-011/QA-009 runner bounds, ARCH-005 lint evidence, 8 minor",
+        "pushed": "391df48",
+        "ci": "10/10 pass run 42361636926 + dry-run 42361636967",
+        "dispositions_rows": "162 (152 implemented, 10 deferred)"
+      },
+      "qa3": {
+        "reviewed_commit": "391df48",
+        "status": "PASS",
+        "mode": "locked verification",
+        "manifest": ".cursor/phase-a-orchestration/wave6-qa/a-10-code-qa3/reviewer-manifest.json",
+        "pr_comment": "https://github.com/randlee/sc-agent/pull/20#issuecomment-6705350004"
+      },
+      "merged": "8e4c9bb (PR 20)",
+      "final_commit": "391df48"
+    },
+    "a-10-docs": {
+      "branch": "sprint/a-10-docs-ci-boundaries",
+      "worktree": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-10-docs-ci-boundaries",
+      "pr_target": "integrate/phase-a",
+      "wave": 6,
+      "status": "complete",
+      "integrate_base": "d4a0111",
+      "scope": "docs, boundaries, CI workflow, sprint-doc hygiene from PHASE-A-REVIEW.md section 3",
+      "dev_task_id": "a110296b7dfb6844c",
+      "pr": 18,
+      "commit": "cb4a284",
+      "qa1_reviewers": {
+        "req-qa": "afa44a300fba1ef2a",
+        "arch-qa": "a93b7db8276a73411",
+        "rust-qa-agent": "ab241e8dd14efa31b",
+        "rust-best-practices-agent": "a71cc46218ca67047",
+        "rust-service-hardening-agent": "a88540a9b849b7cfd",
+        "flaky-test-qa": "a14417a64558c9e1c"
+      },
+      "fix_commits": [
+        "ed347e0",
+        "ab0b9e6",
+        "5283307",
+        "f24d91e"
+      ],
+      "ci_green_run": "42345904358 on 5283307 (9 jobs; doc job green only via continue-on-error)",
+      "qa_pass": "qa-a-10-docs-2",
+      "qa2_reviewers": {
+        "req-qa": "a5cbe472cb250f124",
+        "arch-qa": "a8b9b9e2bf595b2e6",
+        "rust-qa-agent": "a13a95bbebe1d8e30",
+        "flaky-test-qa": "a0abfab5fb72dd00a"
+      },
+      "qa2_coordinator_task_id": "ab65ee4fcdbad20b8",
+      "merged_to_integrate": true,
+      "merge_commit": "71110d581580a24cb0482f25a90255718f36a67d"
+    }
+  },
+  "qa_rounds": [
+    {
+      "sprint": "a-2",
+      "qa_pass": "qa-a-2-1",
+      "commit": "e174dbe090e05258a88ad81fecdef5851c1b87a9",
+      "verdict": "FAIL",
+      "pr_number": 6,
+      "pr_comment_url": "https://github.com/randlee/sc-agent/pull/6#issuecomment-6590312623",
+      "reviewer_spawn_gate": "pass",
+      "findings": {
+        "blocking": 3,
+        "important": 4,
+        "minor": 2
+      },
+      "coordinator_task_id": "50d6a2c0-ae71-4371-af59-5bfb789c2f44",
+      "next_action": "triage_and_fix"
+    },
+    {
+      "sprint": "a-2",
+      "qa_pass": "qa-a-2-2",
+      "commit": "85710a9074d6508362be8ef23f6343951b816041",
+      "verdict": "PASS",
+      "pr_number": 6,
+      "pr_comment_url": "https://github.com/randlee/sc-agent/pull/6#issuecomment-6590501956",
+      "reviewer_spawn_gate": "pass",
+      "findings": {
+        "blocking": 0,
+        "important": 0,
+        "minor": 0
+      },
+      "coordinator_task_id": "2a0d380d-56b1-4c75-a92b-de4c8721b55f",
+      "next_action": "none",
+      "merged": true
+    },
+    {
+      "sprint": "wave-2-stack",
+      "qa_pass": "qa-wave2-stack-1",
+      "commit": "f404a43373a28998dfe1482805c8e61f7aef75ee",
+      "verdict": "FAIL",
+      "pr_number": 11,
+      "findings": {
+        "blocking": 2,
+        "important": 1,
+        "minor": 6
+      },
+      "next_action": "triage_and_fix"
+    },
+    {
+      "sprint": "wave-2-stack",
+      "qa_pass": "qa-wave2-stack-2",
+      "commit": "99cd224eacebd51dd4ac8dacde0ccce6542c4d0d",
+      "verdict": "PASS",
+      "pr_number": 11,
+      "pr_comment_url": "https://github.com/randlee/sc-agent/pull/11#issuecomment-6593632548",
+      "reviewer_spawn_gate": "pass",
+      "findings": {
+        "blocking": 0,
+        "important": 0,
+        "minor": 0
+      },
+      "coordinator_task_id": "20dd9f9b-046c-40e0-b7c3-dc154acf0dcb",
+      "next_action": "none"
+    },
+    {
+      "sprint": "a-6",
+      "qa_pass": "qa-a-6-1",
+      "commit": "27917a02f760ca0c56c821e655101846dab5a06c",
+      "verdict": "FAIL",
+      "pr_number": 13,
+      "findings": {
+        "blocking": 7,
+        "important": 3,
+        "minor": 3
+      },
+      "next_action": "triage_and_fix"
+    },
+    {
+      "sprint": "a-6",
+      "qa_pass": "qa-a-6-2",
+      "commit": "499ee1894130af12946ab9435dbf06944bbe2d54",
+      "verdict": "PASS",
+      "pr_number": 13,
+      "pr_comment_url": "https://github.com/randlee/sc-agent/pull/13#issuecomment-6595086538",
+      "reviewer_spawn_gate": "pass",
+      "findings": {
+        "blocking": 0,
+        "important": 0,
+        "minor": 0
+      },
+      "coordinator_task_id": "c65f085e-4025-4b0d-97eb-024cde25140b",
+      "next_action": "none"
+    },
+    {
+      "sprint": "a-7",
+      "qa_pass": "qa-a-7-2",
+      "commit": "844fc65",
+      "verdict": "PASS",
+      "pr_number": 14,
+      "pr_comment_url": "https://github.com/randlee/sc-agent/pull/14#issuecomment-6598893463",
+      "reviewer_spawn_gate": "pass",
+      "reviewer_manifest": [
+        {
+          "agent": "req-qa",
+          "task_id": "838d9204-efd8-4ef3-8d1f-c0eb52055c76",
+          "spawn_actor": "parent-orchestrator"
+        },
+        {
+          "agent": "arch-qa",
+          "task_id": "cae7497c-16b6-4d6c-b1e3-b712486579e5",
+          "spawn_actor": "parent-orchestrator"
+        },
+        {
+          "agent": "rust-qa-agent",
+          "task_id": "d1e7452d-e88c-4564-8570-cf1faaae8f77",
+          "spawn_actor": "parent-orchestrator"
+        },
+        {
+          "agent": "flaky-test-qa",
+          "task_id": "5e153379-7b24-4ac8-8473-1239ecbdce5f",
+          "spawn_actor": "parent-orchestrator"
+        }
+      ],
+      "findings": {
+        "blocking": 0,
+        "important": 0,
+        "minor": 0
+      },
+      "coordinator_task_id": null,
+      "note": "coordinator task id not persisted by the Cursor session; see wave4-qa/a-7-qa2/qa-assignment.xml",
+      "next_action": "none",
+      "merged": true
+    },
+    {
+      "sprint": "a-8",
+      "qa_pass": "qa-a-8-2",
+      "commit": "bfd36cb93a52c627e6cb04f24c5c6111243e8c00",
+      "verdict": "PASS",
+      "pr_number": 15,
+      "pr_comment_url": "https://github.com/randlee/sc-agent/pull/15#issuecomment-6598894697",
+      "reviewer_spawn_gate": "pass",
+      "reviewer_manifest": [
+        {
+          "agent": "req-qa",
+          "task_id": "20921eed-0901-43f5-8768-6866f0b438bc",
+          "spawn_actor": "parent-orchestrator"
+        },
+        {
+          "agent": "arch-qa",
+          "task_id": "ee3b1768-7c09-4696-9597-bd0c480ff88e",
+          "spawn_actor": "parent-orchestrator"
+        },
+        {
+          "agent": "rust-qa-agent",
+          "task_id": "17c52fe9-ea67-4f51-866d-849d838f5e07",
+          "spawn_actor": "parent-orchestrator"
+        },
+        {
+          "agent": "flaky-test-qa",
+          "task_id": "875480a4-c1e7-4479-9ad6-fdead164c3c2",
+          "spawn_actor": "parent-orchestrator"
+        }
+      ],
+      "findings": {
+        "blocking": 0,
+        "important": 0,
+        "minor": 0
+      },
+      "coordinator_task_id": null,
+      "note": "coordinator task id not persisted by the Cursor session; post-merge conflict fix a924e78 / 0417aef not covered by this round",
+      "next_action": "none",
+      "merged": true
+    },
+    {
+      "sprint": "a-8",
+      "qa_pass": "qa-a-8-3",
+      "commit": "0417aef60b6eba1fb4bf95fdfe8af0a1fa7d146b",
+      "verdict": "PASS",
+      "pr_number": 15,
+      "pr_comment_url": "https://github.com/randlee/sc-agent/pull/15#issuecomment-6702316826",
+      "reviewer_spawn_gate": "pass",
+      "reviewer_manifest": [
+        {
+          "agent": "req-qa",
+          "task_id": "a69a76dc1153dc391",
+          "spawn_actor": "parent-orchestrator"
+        },
+        {
+          "agent": "arch-qa",
+          "task_id": "a7371edabd8e0c883",
+          "spawn_actor": "parent-orchestrator"
+        },
+        {
+          "agent": "rust-qa-agent",
+          "task_id": "a1cf3aab68d7bf67b",
+          "spawn_actor": "parent-orchestrator"
+        },
+        {
+          "agent": "flaky-test-qa",
+          "task_id": "a08fea2181d8c1972",
+          "spawn_actor": "parent-orchestrator"
+        }
+      ],
+      "findings": {
+        "blocking": 0,
+        "important": 0,
+        "minor": 0
+      },
+      "coordinator_task_id": "ac9cdbc3f5f2b568b",
+      "todo_scan": "0 hits (whole worktree)",
+      "scope": "post-merge recheck of conflict resolution a924e78 as landed at 0417aef",
+      "next_action": "none",
+      "merged": true
+    },
+    {
+      "sprint": "a-9",
+      "qa_pass": "qa-a-9-1",
+      "commit": "d2738c8f535c28cedc87fc4693f2d78e2bc0d47c",
+      "verdict": "FAIL",
+      "pr_number": 17,
+      "pr_comment_url": "https://github.com/randlee/sc-agent/pull/17#issuecomment-6702488738",
+      "reviewer_spawn_gate": "pass",
+      "reviewer_manifest": [
+        {
+          "agent": "req-qa",
+          "task_id": "a93135f5a7f6a7687",
+          "spawn_actor": "parent-orchestrator",
+          "fenced_json_received": true,
+          "verdict": "FAIL",
+          "findings": {
+            "blocking": 1,
+            "important": 1,
+            "minor": 3
+          }
+        },
+        {
+          "agent": "arch-qa",
+          "task_id": "a9503f1935185c6d9",
+          "spawn_actor": "parent-orchestrator",
+          "fenced_json_received": true,
+          "verdict": "FAIL",
+          "findings": {
+            "blocking": 1,
+            "important": 1,
+            "minor": 0
+          }
+        },
+        {
+          "agent": "rust-qa-agent",
+          "task_id": "ae07ee917779ae499",
+          "spawn_actor": "parent-orchestrator",
+          "fenced_json_received": true,
+          "verdict": "findings",
+          "findings": {
+            "blocking": 0,
+            "important": 0,
+            "minor": 4
+          }
+        },
+        {
+          "agent": "rust-best-practices-agent",
+          "task_id": "abfe8d86ded68518a",
+          "spawn_actor": "parent-orchestrator",
+          "fenced_json_received": true,
+          "verdict": "findings",
+          "findings": {
+            "blocking": 0,
+            "important": 1,
+            "minor": 5
+          }
+        },
+        {
+          "agent": "rust-service-hardening-agent",
+          "task_id": "a8a4e204458debee7",
+          "spawn_actor": "parent-orchestrator",
+          "fenced_json_received": true,
+          "verdict": "SKIPPED",
+          "findings": {
+            "blocking": 0,
+            "important": 0,
+            "minor": 0
+          }
+        },
+        {
+          "agent": "flaky-test-qa",
+          "task_id": "ae1c92ee207fbcc04",
+          "spawn_actor": "parent-orchestrator",
+          "fenced_json_received": true,
+          "verdict": "findings",
+          "findings": {
+            "blocking": 0,
+            "important": 1,
+            "minor": 2
+          }
+        }
+      ],
+      "findings": {
+        "blocking": 2,
+        "important": 4,
+        "minor": 14
+      },
+      "blocking_ids": [
+        "REQ-QA-001",
+        "ARCH-001"
+      ],
+      "finding_ids": [
+        "REQ-QA-001",
+        "ARCH-001",
+        "REQ-QA-002",
+        "ARCH-002",
+        "RBP-F001",
+        "FTQ-001",
+        "REQ-QA-003",
+        "REQ-QA-004",
+        "REQ-QA-005",
+        "QA-001",
+        "QA-002",
+        "QA-003",
+        "QA-004",
+        "RBP-F002",
+        "RBP-F003",
+        "RBP-F004",
+        "RBP-F005",
+        "RBP-F006",
+        "FTQ-002",
+        "FTQ-003"
+      ],
+      "coordinator_task_id": "afc324886e7c074df",
+      "todo_scan": "0 hits",
+      "ci": "dry-run PASS run 42339767937",
+      "triage_ttl_paths": [],
+      "triage_note": "triaging-findings preflight broken (missing lib module); single open branch; phase precedent (a-2, a-6) also had no .ttl records",
+      "duplicate_flags": [
+        [
+          "ARCH-002",
+          "REQ-QA-002"
+        ],
+        [
+          "FTQ-001",
+          "QA-003"
+        ],
+        [
+          "FTQ-002",
+          "QA-004"
+        ],
+        [
+          "RBP-F003",
+          "QA-001"
+        ]
+      ],
+      "next_action": "triage_and_fix",
+      "fix_assignment": ".cursor/phase-a-orchestration/wave5-fix/fix-a-9-1.xml",
+      "fix_task_id": "ad915aab4c4c3cad5"
+    },
+    {
+      "sprint": "a-9",
+      "qa_pass": "qa-a-9-2",
+      "commit": "0cb69c5a67ab605b2a39e481538939af10d0a880",
+      "verdict": "FAIL (1 minor open)",
+      "pr_number": 17,
+      "pr_comment_url": null,
+      "reviewer_spawn_gate": "pass",
+      "reviewer_manifest": [
+        {
+          "agent": "req-qa",
+          "task_id": "ad4f420209aa2c275",
+          "spawn_actor": "parent-orchestrator"
+        },
+        {
+          "agent": "arch-qa",
+          "task_id": "a6a04222c11401d4d",
+          "spawn_actor": "parent-orchestrator"
+        },
+        {
+          "agent": "rust-qa-agent",
+          "task_id": "a84a2474787659fb3",
+          "spawn_actor": "parent-orchestrator"
+        },
+        {
+          "agent": "flaky-test-qa",
+          "task_id": "a48020b8388f10180",
+          "spawn_actor": "parent-orchestrator"
+        }
+      ],
+      "findings": {
+        "blocking": 0,
+        "important": 0,
+        "minor": 1
+      },
+      "finding_ids": [
+        "ARCH-003"
+      ],
+      "closed_carry_forward": [
+        "REQ-QA-001",
+        "REQ-QA-002",
+        "REQ-QA-003",
+        "REQ-QA-004",
+        "REQ-QA-005",
+        "ARCH-001",
+        "ARCH-002",
+        "QA-001",
+        "QA-002",
+        "QA-003",
+        "QA-004",
+        "RBP-F001",
+        "RBP-F002",
+        "RBP-F003",
+        "RBP-F004",
+        "RBP-F005",
+        "RBP-F006",
+        "FTQ-001",
+        "FTQ-002",
+        "FTQ-003",
+        "REQ-QA-006 (closed by parent git-diff evidence)"
+      ],
+      "deliverables": "10/10",
+      "coordinator_task_id": null,
+      "note": "enforcer not run for this round; parent folded QA-2 and QA-3 into one enforcer run after the one-line doc fix",
+      "fix_commit": "ea593cc8a3ef42dc80e4b1e6a4d928c29d577bc6",
+      "fix_actor": "parent-orchestrator (sprint-doc sentence only)",
+      "next_action": "qa3_recheck"
+    },
+    {
+      "sprint": "a-9",
+      "qa_pass": "qa-a-9-3",
+      "commit": "ea593cc8a3ef42dc80e4b1e6a4d928c29d577bc6",
+      "verdict": "PASS",
+      "pr_number": 17,
+      "pr_comment_url": "https://github.com/randlee/sc-agent/pull/17#issuecomment-6702720871",
+      "reviewer_spawn_gate": "pass",
+      "reviewer_manifest": [
+        {
+          "agent": "req-qa",
+          "task_id": "a9e44d601b6af45dc",
+          "spawn_actor": "parent-orchestrator",
+          "fenced_json_received": true,
+          "verdict": "PASS",
+          "findings": {
+            "blocking": 0,
+            "important": 0,
+            "minor": 0
+          }
+        },
+        {
+          "agent": "arch-qa",
+          "task_id": "a3a9a1c6345130c09",
+          "spawn_actor": "parent-orchestrator",
+          "fenced_json_received": true,
+          "verdict": "PASS",
+          "findings": {
+            "blocking": 0,
+            "important": 0,
+            "minor": 0
+          }
+        },
+        {
+          "agent": "rust-qa-agent",
+          "task_id": "ae7075e47f93a5180",
+          "spawn_actor": "parent-orchestrator",
+          "fenced_json_received": true,
+          "verdict": "PASS",
+          "findings": {
+            "blocking": 0,
+            "important": 0,
+            "minor": 0
+          }
+        },
+        {
+          "agent": "flaky-test-qa",
+          "task_id": "a48020b8388f10180",
+          "spawn_actor": "parent-orchestrator",
+          "fenced_json_received": true,
+          "verdict": "PASS",
+          "findings": {
+            "blocking": 0,
+            "important": 0,
+            "minor": 0
+          },
+          "supporting_round": "qa-a-9-2",
+          "commit": "0cb69c5a67ab605b2a39e481538939af10d0a880",
+          "note": "conditional reviewer satisfied by qa-a-9-2; no code changed since"
+        }
+      ],
+      "findings": {
+        "blocking": 0,
+        "important": 0,
+        "minor": 0
+      },
+      "closed_finding_ids": [
+        "REQ-QA-006",
+        "ARCH-003",
+        "QA-001",
+        "QA-002",
+        "QA-003",
+        "QA-004",
+        "RBP-F001",
+        "RBP-F002",
+        "RBP-F003",
+        "RBP-F004",
+        "RBP-F005",
+        "RBP-F006",
+        "FTQ-001",
+        "FTQ-002",
+        "FTQ-003",
+        "REQ-QA-001",
+        "REQ-QA-002",
+        "REQ-QA-003",
+        "REQ-QA-004",
+        "REQ-QA-005",
+        "ARCH-001",
+        "ARCH-002"
+      ],
+      "coordinator_task_id": "a557c35186811dfc8",
+      "deliverables": "10/10",
+      "ci": {
+        "check": "dry-run",
+        "status": "pass",
+        "run": 42341873748
+      },
+      "todo_scan": "0 hits",
+      "triage_ttl_paths": [],
+      "next_action": "merge",
+      "post_qa_commit": "ebf5a3183a48cab4c44aa4083ceca84072afb7db (sprint doc status: complete only)",
+      "merged": true
+    },
+    {
+      "sprint": "phase-a",
+      "qa_pass": "qa-phase-a-end-1",
+      "commit": "d4a0111d2df5c818222e9c7388e206f1d4e9bc20",
+      "verdict": "FAIL",
+      "pr_number": null,
+      "pr_comment_url": null,
+      "report": ".cursor/phase-a-orchestration/phase-end-qa/findings-report.md",
+      "reviewer_spawn_gate": "pass",
+      "reviewer_manifest": [
+        {
+          "agent": "req-qa",
+          "task_id": "ae1553c5f55b547d9",
+          "spawn_actor": "parent-orchestrator",
+          "fenced_json_received": true,
+          "verdict": "FAIL",
+          "findings": {
+            "blocking": 4,
+            "important": 3,
+            "minor": 2
+          }
+        },
+        {
+          "agent": "arch-qa",
+          "task_id": "a5e16e072b53094a4",
+          "spawn_actor": "parent-orchestrator",
+          "fenced_json_received": true,
+          "verdict": "FAIL",
+          "findings": {
+            "blocking": 1,
+            "important": 5,
+            "minor": 0
+          }
+        },
+        {
+          "agent": "rust-qa-agent",
+          "task_id": "a11c83eef325631fc",
+          "spawn_actor": "parent-orchestrator",
+          "fenced_json_received": true,
+          "verdict": "FAIL (findings)",
+          "findings": {
+            "blocking": 0,
+            "important": 2,
+            "minor": 6
+          }
+        },
+        {
+          "agent": "rust-best-practices-agent",
+          "task_id": "ac400eb8e386068a7",
+          "spawn_actor": "parent-orchestrator",
+          "fenced_json_received": true,
+          "verdict": "FAIL (findings)",
+          "findings": {
+            "blocking": 0,
+            "important": 8,
+            "minor": 7
+          }
+        },
+        {
+          "agent": "rust-service-hardening-agent",
+          "task_id": "aa326ed9fe3f9cf15",
+          "spawn_actor": "parent-orchestrator",
+          "fenced_json_received": true,
+          "verdict": "FAIL (findings)",
+          "findings": {
+            "blocking": 0,
+            "important": 2,
+            "minor": 4
+          }
+        },
+        {
+          "agent": "flaky-test-qa",
+          "task_id": "a039d9a636df49717",
+          "spawn_actor": "parent-orchestrator",
+          "fenced_json_received": true,
+          "verdict": "FAIL (findings)",
+          "findings": {
+            "blocking": 0,
+            "important": 1,
+            "minor": 2
+          }
+        }
+      ],
+      "findings": {
+        "blocking": 5,
+        "important": 21,
+        "minor": 21
+      },
+      "blocking_ids": [
+        "REQ-QA-001",
+        "REQ-QA-002",
+        "REQ-QA-003",
+        "REQ-QA-004",
+        "ARCH-001"
+      ],
+      "classification_summary": {
+        "routine": 28,
+        "architectural": 19
+      },
+      "deliverables": {
+        "complete": 7,
+        "total": 13,
+        "percent": 53.8
+      },
+      "coordinator_task_id": "aeddae6707782738f",
+      "todo_scan": "0 hits",
+      "triage_ttl_paths": [],
+      "next_action": "triage_and_fix (routine) + owner discussion (architectural)"
+    },
+    {
+      "sprint": "a-10-docs",
+      "qa_pass": "qa-a-10-docs-1",
+      "commit": "91ee1ab8dec686a6e324fdb5d0d296594de7f807",
+      "verdict": "FAIL (2 important, 9 minor; CI red on macos-14 + windows just setup)",
+      "pr_number": 18,
+      "reviewer_spawn_gate": "pass",
+      "reviewer_manifest": [
+        {
+          "agent": "req-qa",
+          "task_id": "afa44a300fba1ef2a",
+          "spawn_actor": "parent-orchestrator"
+        },
+        {
+          "agent": "arch-qa",
+          "task_id": "a93b7db8276a73411",
+          "spawn_actor": "parent-orchestrator"
+        },
+        {
+          "agent": "rust-qa-agent",
+          "task_id": "ab241e8dd14efa31b",
+          "spawn_actor": "parent-orchestrator"
+        },
+        {
+          "agent": "rust-best-practices-agent",
+          "task_id": "a71cc46218ca67047",
+          "spawn_actor": "parent-orchestrator"
+        },
+        {
+          "agent": "rust-service-hardening-agent",
+          "task_id": "a88540a9b849b7cfd",
+          "spawn_actor": "parent-orchestrator"
+        },
+        {
+          "agent": "flaky-test-qa",
+          "task_id": "a14417a64558c9e1c",
+          "spawn_actor": "parent-orchestrator"
+        }
+      ],
+      "findings": {
+        "blocking": 0,
+        "important": 2,
+        "minor": 9
+      },
+      "finding_ids": [
+        "REQ-QA-A10-001",
+        "REQ-QA-A10-002",
+        "REQ-QA-A10-003",
+        "REQ-QA-A10-004",
+        "ARCH-007",
+        "ARCH-008",
+        "FTQ-002",
+        "FTQ-003",
+        "FTQ-004",
+        "QA-001",
+        "QA-002"
+      ],
+      "ci": "run 42344867011: test(windows) fail at just setup (sc-lint bootstrap WinError 2); macos-14 jobs cancelled ('macos-14-arm64-us-default not supported'); 6 other jobs pass",
+      "coordinator_task_id": null,
+      "note": "enforcer deferred to QA-2 (fix round folded in; same pattern as a-9 QA-2)",
+      "fix_actor": "a110296b7dfb6844c (resumed docs developer)",
+      "next_action": "fix_then_qa2"
+    },
+    {
+      "sprint": "phase-a-refine-plan",
+      "qa_pass": "qa-plan-refine-1",
+      "commit": "df935b5",
+      "verdict": "FAIL",
+      "pr_number": 19,
+      "reviewers": {
+        "req-qa": "aa7c382f6ae1b0846 FAIL 6B",
+        "arch-qa": "a4fe3d7c45487bfc8 FAIL 8B+7I (first attempt af9186f32474af243 rejected input format)",
+        "rust-best-practices-agent": "a90efe8031153e2a5 8I+4M",
+        "rust-service-hardening-agent": "aed4f990bc9b373be 4I+1M",
+        "extensibility-qa": "aa7f96da6070a524a 5I+3M",
+        "ruthless-boundary-qa": "a11e18896825d2bdc 5I+1M",
+        "critical-plan-reviewer": "aec39c8e3da8692dc FAIL 3B+20I+7M"
+      },
+      "artifacts": ".cursor/phase-a-orchestration/refine-plan/plan-qa1/",
+      "owner_confirmations_needed": [
+        "TypeSafe payload shape (D9)"
+      ],
+      "next_action": "plan_fix_round"
+    },
+    {
+      "sprint": "a-10-docs",
+      "qa_pass": "qa-a-10-docs-2",
+      "commit": "cb4a284",
+      "verdict": "PASS",
+      "pr_number": 18,
+      "pr_comment_url": "https://github.com/randlee/sc-agent/pull/18#issuecomment-6703427358",
+      "reviewer_spawn_gate": "pass",
+      "reviewer_manifest": [
+        {
+          "agent": "req-qa",
+          "task_id": "a5cbe472cb250f124",
+          "spawn_actor": "parent-orchestrator",
+          "fenced_json_received": true,
+          "verdict": "PASS",
+          "findings": {
+            "blocking": 0,
+            "important": 0,
+            "minor": 0
+          },
+          "notes": "REQ-QA-A10-005 minor closed by cb4a284; deliverables 7/8 + 8th closed = 8/8"
+        },
+        {
+          "agent": "arch-qa",
+          "task_id": "a8b9b9e2bf595b2e6",
+          "spawn_actor": "parent-orchestrator",
+          "fenced_json_received": true,
+          "verdict": "PASS",
+          "findings": {
+            "blocking": 0,
+            "important": 0,
+            "minor": 0
+          }
+        },
+        {
+          "agent": "rust-qa-agent",
+          "task_id": "a13a95bbebe1d8e30",
+          "spawn_actor": "parent-orchestrator",
+          "fenced_json_received": true,
+          "verdict": "PASS",
+          "findings": {
+            "blocking": 0,
+            "important": 0,
+            "minor": 0
+          },
+          "notes": "QA-001 important owned by a-10 code wave 3 (carry-forward, not open on PR 18); QA-003 closed by cb4a284"
+        },
+        {
+          "agent": "flaky-test-qa",
+          "task_id": "a0abfab5fb72dd00a",
+          "spawn_actor": "parent-orchestrator",
+          "fenced_json_received": true,
+          "verdict": "PASS",
+          "findings": {
+            "blocking": 0,
+            "important": 0,
+            "minor": 0
+          },
+          "notes": "FTQ-005 minor closed by cb4a284"
+        },
+        {
+          "agent": "rust-best-practices-agent",
+          "task_id": "a71cc46218ca67047",
+          "spawn_actor": "parent-orchestrator",
+          "fenced_json_received": true,
+          "verdict": "PASS",
+          "findings": {
+            "blocking": 0,
+            "important": 0,
+            "minor": 0
+          },
+          "supporting_round": "qa-a-10-docs-1",
+          "reviewed_commit": "91ee1ab"
+        },
+        {
+          "agent": "rust-service-hardening-agent",
+          "task_id": "a88540a9b849b7cfd",
+          "spawn_actor": "parent-orchestrator",
+          "fenced_json_received": true,
+          "verdict": "SKIPPED",
+          "findings": {
+            "blocking": 0,
+            "important": 0,
+            "minor": 0
+          },
+          "supporting_round": "qa-a-10-docs-1",
+          "reviewed_commit": "91ee1ab"
+        }
+      ],
+      "findings": {
+        "blocking": 0,
+        "important": 0,
+        "minor": 0
+      },
+      "closed_finding_ids": [
+        "REQ-QA-A10-001",
+        "REQ-QA-A10-002",
+        "REQ-QA-A10-003",
+        "REQ-QA-A10-004",
+        "REQ-QA-A10-005",
+        "ARCH-007",
+        "ARCH-008",
+        "FTQ-002",
+        "FTQ-003",
+        "FTQ-004",
+        "FTQ-005",
+        "QA-002",
+        "QA-003"
+      ],
+      "carried_forward": [
+        {
+          "id": "QA-001",
+          "severity": "important",
+          "owner": "a-10 code branch wave 3",
+          "note": "feature matrix check-only; documented in workflow + ci.md; not open on PR 18"
+        }
+      ],
+      "coordinator_task_id": "ab65ee4fcdbad20b8",
+      "ci": {
+        "run": "42346621340",
+        "commit": "cb4a284",
+        "checks": "all pass",
+        "mergeStateStatus": "CLEAN",
+        "mergeable": "MERGEABLE",
+        "doc_job_continue_on_error": true
+      },
+      "deliverables": "8/8",
+      "next_action": "merge",
+      "merged": true
+    },
+    {
+      "sprint": "phase-a-refine-plan",
+      "qa_pass": "qa-plan-refine-2",
+      "commit": "a1e3a52",
+      "verdict": "FAIL",
+      "pr_number": 19,
+      "reviewers": {
+        "critical-plan-reviewer": "abb29fac79416d94f FAIL 1B+10I+7M (round1: 23 closed/6 partial/1 open)",
+        "arch-qa": "abde860878b12cfea FAIL 3B+2I+1M (all 14 carry-forwards closed)",
+        "req-qa": "a597e18f06fdaf1ca FAIL 5B+5I+1M",
+        "rust-best-practices-agent": "a35898bcdb41c6ed1 1I+1M (13/15 closed)",
+        "rust-service-hardening-agent": "a07672a3e7614df14 1M (+1 probable important obs)",
+        "extensibility-qa": "a453e073cea79ed3d PASS 3M",
+        "ruthless-boundary-qa": "ac7724bc3a429bab8 3I+3M"
+      },
+      "artifacts": ".cursor/phase-a-orchestration/refine-plan/plan-qa2/",
+      "convergent_themes": [
+        "cfg(test) seams -> test-util feature or --lib",
+        "r-1 must own sc-treesitter grammar.rs/query.rs/git_io.rs (+main.rs or ctors)",
+        "BackendId dispatch via table not clippy lint",
+        "#[allow] inventory before allow_attributes deny",
+        "pin-check vs sc-observability-types",
+        "error-field population rule + warning key",
+        "MockJudgeBackend contract + r-2b ownership",
+        "workspace-tests manifest/helper + dev-edge semantics",
+        "ADR index per-row ownership",
+        "ADR-0014/REQ-0710, REQ-0120/0121 amendments; workspace-tests ADR; adrs/requirements lists",
+        "git feature non-default; secret scan in workspace-tests + [lints] inheritance",
+        "naming exception in quality-policy.md; crate docs for new crates"
+      ],
+      "next_action": "plan_fix_round_3 (cap: round 3 of 3)"
+    },
+    {
+      "id": "qa-a-10-code-1",
+      "sprint": "a-10-code",
+      "commit": "1899319",
+      "verdict": "FAIL",
+      "blocking": 9,
+      "important": 6,
+      "minor": 12,
+      "ci": "windows-2022 red (CI-001)"
+    },
+    {
+      "id": "qa-plan-refine-3",
+      "sprint": "plan/phase-a-refine",
+      "commit": "c7c6f23",
+      "verdict": "FAIL",
+      "blocking": 4,
+      "important": 18,
+      "minor": 22
+    },
+    {
+      "id": "qa-a-10-code-2",
+      "sprint": "a-10-code",
+      "commit": "145d47a",
+      "verdict": "FAIL",
+      "blocking": 0,
+      "important": 2,
+      "minor": 8,
+      "ci": "10/10 pass"
+    },
+    {
+      "id": "qa-a-10-code-3",
+      "sprint": "a-10-code",
+      "commit": "391df48",
+      "verdict": "PASS",
+      "blocking": 0,
+      "important": 0,
+      "minor": 0
+    },
+    {
+      "id": "qa-plan-refine-4",
+      "sprint": "plan/phase-a-refine",
+      "commit": "4f778fe",
+      "verdict": "FAIL (CPR 0B/2I; arch 2B frontmatter; req PASS; RBQA PASS)",
+      "blocking": 2,
+      "important": 2,
+      "minor": 5
+    },
+    {
+      "id": "qa-plan-refine-5",
+      "sprint": "plan/phase-a-refine",
+      "commit": "913b021",
+      "verdict": "PASS",
+      "blocking": 0,
+      "important": 0,
+      "minor": 1
+    },
+    {
+      "id": "qa-r-4-1",
+      "sprint": "r-4",
+      "commit": "59ec838",
+      "verdict": "FAIL",
+      "blocking": 2,
+      "important": 4,
+      "minor": 8
+    },
+    {
+      "id": "qa-r-1-1",
+      "sprint": "r-1",
+      "commit": "22ef273",
+      "verdict": "FAIL",
+      "blocking": 7,
+      "important": 12,
+      "minor": 7
+    },
+    {
+      "id": "qa-r-1-2",
+      "sprint": "r-1",
+      "commit": "64c0e85/a1b3ca0",
+      "verdict": "PASS",
+      "blocking": 0,
+      "important": 0,
+      "minor": 0
+    },
+    {
+      "id": "qa-r-4-2",
+      "sprint": "r-4",
+      "commit": "8bdfc83/39ed835",
+      "verdict": "PASS (owner deferral REQ-SAG-0133)",
+      "blocking": 0,
+      "important": 0,
+      "minor": 1
+    },
+    {
+      "id": "qa-r-3c-1",
+      "sprint": "r-3c",
+      "commit": "39661a6",
+      "verdict": "FAIL",
+      "blocking": 4,
+      "important": 5,
+      "minor": 5
+    },
+    {
+      "qa_pass": "qa-r-3-2",
+      "commit": "f19ce8d",
+      "verdict": "PASS",
+      "pr": 26,
+      "pr_comment_url": "https://github.com/randlee/sc-agent/pull/26#issuecomment-6713920020",
+      "reviewer_manifest": ".cursor/phase-a-orchestration/wave8-qa/r-3-qa2/reviewer-manifest.json",
+      "coordinator": "cursor-quality-mgr a4416a2495e5c2062",
+      "process_violation": "merged at d88879a before enforcer; retroactive record"
+    },
+    {
+      "qa_pass": "qa-r-2-2",
+      "commit": "3f66e7b",
+      "verdict": "PASS",
+      "pr": 27,
+      "pr_comment_url": "https://github.com/randlee/sc-agent/pull/27#issuecomment-6713921024",
+      "reviewer_manifest": ".cursor/phase-a-orchestration/wave8-qa/r-2-qa2/reviewer-manifest.json",
+      "coordinator": "cursor-quality-mgr a92c77f429f43ac7a",
+      "process_violation": "merged at 38b4ce6 before enforcer; r-2 QA-1 fix dispatched without /triaging-findings; retroactive record"
+    },
+    {
+      "qa_pass": "qa-pr28-1",
+      "commit": "fe375c2",
+      "verdict": "FAIL 0B/1I/1M",
+      "pr": 28,
+      "pr_comment_url": "https://github.com/randlee/sc-agent/pull/28#issuecomment-6713937887",
+      "coordinator": "a394654db5b322441",
+      "triage_ttl_paths": [
+        ".triage/phase-a-refine/findings/ARCH-001.ttl",
+        ".triage/phase-a-refine/findings/REQ-QA-PR28-001.ttl"
+      ]
+    },
+    {
+      "qa_pass": "qa-pr28-2",
+      "commit": "ec170bf",
+      "verdict": "PASS",
+      "pr": 28,
+      "pr_comment_url": "https://github.com/randlee/sc-agent/pull/28#issuecomment-6714029750",
+      "coordinator": "a394654db5b322441",
+      "merged": true
+    },
+    {
+      "qa_pass": "qa-plan-r67-2",
+      "commit": "5836f1b",
+      "verdict": "FAIL 0B/8I/10M",
+      "pr": 29,
+      "pr_comment_url": "https://github.com/randlee/sc-agent/pull/29#issuecomment-6714019730",
+      "coordinator": "af5dd1d8c039de429"
+    },
+    {
+      "qa_pass": "qa-plan-r67-3",
+      "commit": "7e132e5",
+      "verdict": "PASS",
+      "pr": 29,
+      "pr_comment_url": "https://github.com/randlee/sc-agent/pull/29#issuecomment-6714155673",
+      "coordinator": "af5dd1d8c039de429",
+      "merged": true,
+      "residual_notes": [
+        "r-6 l.372 AnswerId generator wording",
+        "r-5 JevQuestion derive(Deserialize) vs try_from sample",
+        "plan.md:717 ADR-0009 index row omits judge signature"
+      ]
+    },
+    {
+      "qa_pass": "qa-r-2b-1",
+      "commit": "330986f",
+      "verdict": "FAIL 0B/2I/4M",
+      "pr": 30,
+      "pr_comment_url": "https://github.com/randlee/sc-agent/pull/30#issuecomment-6714055343",
+      "coordinator": "a6225b9b63e564aaa",
+      "triage_commit": "5169a8b"
+    },
+    {
+      "qa_pass": "qa-r-2b-2",
+      "commit": "3ef50f5 (head 06bc5cf)",
+      "verdict": "PASS",
+      "pr": 30,
+      "pr_comment_url": "https://github.com/randlee/sc-agent/pull/30#issuecomment-6714245516",
+      "coordinator": "acdf15c95884dd31d",
+      "merged": true
+    },
+    {
+      "qa_pass": "qa-r-3b-1",
+      "commit": "90004d7",
+      "verdict": "FAIL 2B/2I/4M",
+      "pr": 31,
+      "pr_comment_url": "https://github.com/randlee/sc-agent/pull/31#issuecomment-6714709670",
+      "coordinator": "af2ca0311cfc9b8bd",
+      "triage_commit": "8449610"
+    },
+    {
+      "qa_pass": "qa-r-3b-2",
+      "commit": "a7b68f6 (head e194167)",
+      "verdict": "PASS",
+      "pr": 31,
+      "pr_comment_url": "https://github.com/randlee/sc-agent/pull/31#issuecomment-6715568080",
+      "coordinator": "a5909fc95512f83c9",
+      "merged": true,
+      "note": "a6cd399 (Windows clippy box) was committed by the owner during the usage-limit gap"
+    },
+    {
+      "pr": 32,
+      "round": "qa-pr32-3b",
+      "head": "1ecc725",
+      "verdict": "PASS",
+      "comment": "https://github.com/randlee/sc-agent/pull/32#issuecomment-6715858376",
+      "merged": "0d0ebc1",
+      "notes": "arch-qa ARCH-001..005 fixed b3c1c9b; ARCH-006 closed by quality-policy Repository exception (landing-sprint ADRs) 1ecc725; per-finding .ttl triage skipped for docs-only PR (recorded deviation)"
+    },
+    {
+      "pr": 33,
+      "round": "qa-r7-1",
+      "head": "9497297",
+      "verdict": "FAIL",
+      "comment": "https://github.com/randlee/sc-agent/pull/33#issuecomment-6716224250"
+    },
+    {
+      "pr": 33,
+      "round": "qa-r7-2",
+      "head": "4eb8265",
+      "verdict": "FAIL",
+      "comment": "https://github.com/randlee/sc-agent/pull/33#issuecomment-6716378641"
+    },
+    {
+      "pr": 33,
+      "round": "qa-r7-3",
+      "head": "a6a1387",
+      "verdict": "FAIL",
+      "comment": "https://github.com/randlee/sc-agent/pull/33#issuecomment-6717394905"
+    },
+    {
+      "pr": 33,
+      "round": "qa-r7-4",
+      "head": "20a46a8",
+      "verdict": "FAIL",
+      "comment": "https://github.com/randlee/sc-agent/pull/33#issuecomment-6717456213"
+    },
+    {
+      "pr": 33,
+      "round": "qa-r7-5",
+      "head": "90c5ab1",
+      "verdict": "FAIL",
+      "comment": "https://github.com/randlee/sc-agent/pull/33#issuecomment-6717488489"
+    },
+    {
+      "pr": 33,
+      "round": "qa-r7-6",
+      "head": "57c66e2",
+      "verdict": "PASS",
+      "comment": "https://github.com/randlee/sc-agent/pull/33#issuecomment-6717709407",
+      "notes": "Deviation: QA-6 REQ-QA-001/002 were fixed by parent edits to the coordinator's own closeout text, with no triage records. qa-r7-1 RSH-001 is an owner decision and RSH-005 is deferred (bead agt-ci-advisory-scan)."
+    },
+    {
+      "pr": 34,
+      "round": "qa-r5-1",
+      "head": "14f85f1",
+      "verdict": "FAIL",
+      "comment": "https://github.com/randlee/sc-agent/pull/34#issuecomment-6717969592"
+    },
+    {
+      "pr": 34,
+      "round": "qa-r5-2",
+      "head": "085dab4",
+      "verdict": "FAIL",
+      "comment": "https://github.com/randlee/sc-agent/pull/34#issuecomment-6718169606"
+    },
+    {
+      "pr": 34,
+      "round": "qa-r5-3",
+      "head": "6972530",
+      "verdict": "FAIL",
+      "comment": "https://github.com/randlee/sc-agent/pull/34#issuecomment-6718343495"
+    },
+    {
+      "pr": 34,
+      "round": "qa-r5-4",
+      "head": "bc27792",
+      "verdict": "PASS",
+      "comment": "https://github.com/randlee/sc-agent/pull/34#issuecomment-6718512154",
+      "notes": "Parent fixes under Auto-fix: f6b2b86 (1.94.1 inference) and bc27792 (CI cargo fetch). The acceptance evidence was run by the parent: acceptance-6972530.log and acceptance-5c85c6b.log."
+    },
+    {
+      "pr": 35,
+      "round": "qa-r6-1",
+      "head": "0408826",
+      "verdict": "FAIL",
+      "comment": "https://github.com/randlee/sc-agent/pull/35#issuecomment-6718073583"
+    },
+    {
+      "pr": 35,
+      "round": "qa-r6-2",
+      "head": "34655a4",
+      "verdict": "FAIL",
+      "comment": "https://github.com/randlee/sc-agent/pull/35#issuecomment-6718342661"
+    },
+    {
+      "pr": 35,
+      "round": "qa-r6-3",
+      "head": "2edb7bb",
+      "verdict": "PASS (pre-merge-conflict)",
+      "comment": "https://github.com/randlee/sc-agent/pull/35#issuecomment-6718516595"
+    },
+    {
+      "pr": 35,
+      "round": "qa-r6-4",
+      "head": "b35a9c4",
+      "verdict": "PASS",
+      "comment": "https://github.com/randlee/sc-agent/pull/35#issuecomment-6718641734",
+      "notes": "Parent fixes under Auto-fix: f6ddc71 (Windows path canonicalization in a test), 2edb7bb (CI cargo fetch), b35a9c4 (merge of integrate with r-5; ADR index conflict resolved). The merged tree was re-reviewed by rust-qa, arch-qa and req-qa."
+    }
+  ],
+  "runtime_note": "2026-11-06 session runs under Claude Code (not Cursor). Cursor model ids in orchestration-agent-models.yaml are mapped: rust-developer -> opus; all QA reviewers and the quality-mgr enforcer -> sonnet. cursor-quality-mgr is run via the general-purpose fallback that adopts .cursor/agents/cursor-quality-mgr.md.",
+  "post_a9_plan": {
+    "requested": "2026-11-06",
+    "steps": [
+      "Phase-ending QA on integrate/phase-a: all six reviewers (req-qa, arch-qa, rust-qa-agent, rust-best-practices-agent, rust-service-hardening-agent, flaky-test-qa) per cursor-quality-mgr.md Default reviewer set; cursor-quality-mgr enforcer publishes report.",
+      "Deep critical review beyond phase-end set: extensibility-qa, ruthless-boundary-qa, critical-plan-reviewer-style hostile pass, rust-code-explorer + rust-architect read of every crate for unnecessary logic, duplicated paths, awkward boundaries, over-abstraction, dead code (repowise/TODO scan).",
+      "Routine fixes (lint, tests, TODOs, reviewer findings, dead code, naming) -> rust-developer fix loop without asking.",
+      "Architectural refinements (crate/module shape, trait boundaries, API surface changes) -> write up options + recommendation and DISCUSS WITH USER BEFORE any change."
+    ],
+    "merge_integrate_to_develop": "separate product decision; not part of this plan"
+  },
+  "phase_end": {
+    "started": "2026-11-06",
+    "integrate_head": "d4a0111d2df5c818222e9c7388e206f1d4e9bc20",
+    "status": "reviews_complete",
+    "artifacts": ".cursor/phase-a-orchestration/phase-end-qa/ and phase-end-deep/",
+    "qa_verdict": "FAIL 5B+21I+21M (47 ids; 28 routine / 19 architectural)",
+    "deep_review": {
+      "manifest": ".cursor/phase-a-orchestration/phase-end-deep/reviewer-manifest.json",
+      "extensibility-qa": "2B+5I+4M (EXT-001..011)",
+      "ruthless-boundary-qa": "1C+7I+4M (RBQA-F001..F012)",
+      "rust-code-reviewer": "0B+6I+10M (CR-001..016), 6 reproduced",
+      "rust-architect core": "25 (17 routine / 8 arch) ARCHC-001..025",
+      "rust-architect engine+cli": "24 (13 routine / 11 arch) ARCHE-001..024",
+      "rust-architect producer+binding": "22 (15 routine / 7 arch) ARCHP-001..022"
+    },
+    "review_doc": "PHASE-A-REVIEW.md (repo root, untracked)",
+    "decisions": {
+      "accepted": "2026-11-06 (user: 'Accept all recs')",
+      "source": "PHASE-A-REVIEW.md section 4",
+      "D1": "non_exhaustive BackendId/BackendKeyId/JevError + JudgeBackend::capabilities() + single BACKENDS catalog; before first crates.io publish",
+      "D2": "CheckSource -> prepare -> run engine API; RunResponse in sc-jev-check; discover_repo_root in engine; new unpublished sc-agent-compose crate for obs adapter + path policy (amend ADR-SAG-0016); keep ADR-SAG-0021 per-root precedence",
+      "D3": "independent multi-backend by default + explicit chain_context mode recorded on attestation; per-backend Results with leak=any failed; equal-input from backend-reported wire digest; amend ADR-SAG-0008/0019",
+      "D4": "stateless FileSessionStore {dir,ttl,clock} save/load/ask(&BackendRegistry); delete SessionStore trait and install_registry; write once at end, only when an LLM backend took part",
+      "D5": "new sc-agent-http crate shared by sc-jev and sc-jev-backends",
+      "D6": "explicit error variants mapping to existing stable code() ids; producer-neutral variants; #[non_exhaustive]; retryable()",
+      "D7": "local LogRejected error, drop sc-observability-types dep; keep one types crate with schema module; subjects validate+builder in types; crates/workspace-tests (publish=false)",
+      "D8": "new ADR: caret ranges in library crates, exact pins only for documented lockstep (sc-observability); mimalloc behind default-on cli feature with required-features on bin; amend ADR-SAG-0017 for both binaries + per-channel coverage; amend ADR-SAG-0016 version text",
+      "D9": "CanonicalJudgePayload the only schema both backends validate by deserializing; Jev wire body as JSON envelope around canonical object; amend ADR-SAG-0005 \u2014 BLOCKED on confirming the TypeSafe API accepted payload shape",
+      "D10": "keep sync JudgeBackend declared blocking; drop redundant re-validation; prepare/send split and typed JudgeMeta deferred to first Phase B agent; remove probabilities with the D6 break",
+      "D11": "path: Option<String> on InputSpec::Command; command extractor parses ScAgentErrorResponse stderr line and re-raises code; workspace e2e test running real sc-treesitter through check.toml",
+      "D12": "clap derive in sc-ai and sc-treesitter",
+      "D13": "ADR-SAG-0005 narrowed to the four consumer extractor kinds; remove sealed Extractor trait + amend RBP-F004 note; single owner of request byte cap",
+      "sequencing": [
+        "a-10 routine tracks land first (avoid conflicts)",
+        "then planning: ADR amendments + sprint docs per cluster, plan review per cursor-orchestration",
+        "clusters: {D1,D6,D10-break} types crate break; {D2,D4,D11} engine shape; {D5,D7} crate layout; {D3} semantics+ADRs; {D8,D13} ADRs+manifests; {D9} after vendor answer; {D12} any time",
+        "re-run phase-ending gate; then integrate -> develop decision"
+      ],
+      "D2_compose_publish": "CONFIRMED by owner 2026-11-06: publish sc-agent-compose to crates.io as internal-support crate, =-pinned from sc-ai and sc-jev-py, no semver promise of its own (sc-ai is published and cannot depend on an unpublished crate)",
+      "retry_policy": "CONFIRMED by owner 2026-11-06: busy statuses 429/502/529; Retry-After honoured and clamped 0-30 s; when absent or malformed, exponential-ish backoff starting ~1 s (1,2,4,8... capped at 30 s) + up to 250 ms jitter; 4 sends; total retry budget 90 s (no new attempt starts after it) with an in-flight attempt allowed its full 120 s request timeout; no connectivity detection or indefinite wait on network loss \u2014 transport/connect failures return NETWORK_ERROR with retryable()=true and the caller decides"
+    },
+    "goal": "2026-11-07 autonomous goal: complete development of the Phase A critical-review improvements (a-10 routine + Phase A.1 r-sprints), run a full post-architecture QA of the repo and fix remaining findings, then push/PR integrate/phase-a -> develop. r-5 (D9) stays blocked unless the TypeSafe payload shape is confirmed.",
+    "qa_rounds": [
+      {
+        "pr": 36,
+        "qa_pass": "qa-phase-end-1",
+        "commit": "91d36b3",
+        "verdict": "FAIL",
+        "comment": "https://github.com/randlee/sc-agent/pull/36#issuecomment-6724564530"
+      }
+    ]
+  },
+  "phase_a_refine": {
+    "branch": "plan/phase-a-refine",
+    "worktree": "/Volumes/Extreme Pro/github/sc-agent-worktrees/plan/phase-a-refine",
+    "status": "plan_merged",
+    "base": "d4a0111",
+    "decisions": "phase_end.decisions",
+    "planner_task_id": "a695944ec1b83d536",
+    "files": [
+      "docs/plans/phase-a-refine/plan.md",
+      "sprint-r-1..r-5 (8 docs)",
+      "docs/architecture.md amendments + ADR-SAG-0023..0027 proposed",
+      "docs/requirements.md Phase A.1 rows",
+      "docs/plans/phase-a/plan.md pointer"
+    ],
+    "summary": ".cursor/phase-a-orchestration/refine-plan/summary.json",
+    "planner_resolutions": "12 underspecified items resolved by planner; see persisted output toolu_01LcahusQzmQkKmSPe1KM7HU.txt",
+    "commit": "7d9cd14",
+    "pr": 19,
+    "pr_target": "integrate/phase-a",
+    "plan_fix_task_id": "a360545f09cfa95cf",
+    "revision_commit": "0147d85",
+    "merge_commit": "a1e3a52",
+    "sprints": [
+      "r-1 XL",
+      "r-4 M",
+      "r-2 L",
+      "r-3 L",
+      "r-3c M",
+      "r-2b M",
+      "r-3b XL",
+      "r-5 blocked"
+    ],
+    "critical_path": "r-1 -> r-2 -> r-2b -> r-3b",
+    "dispositions": "docs/plans/phase-a-refine/plan-review-1-dispositions.md (99 applied / 3 declined / 4 owner)",
+    "plan_fix3_task_id": "ac18f40cf4d8ebea3",
+    "plan_qa3_dir": ".cursor/phase-a-orchestration/refine-plan/plan-qa3",
+    "round3_dispositions": "docs/plans/phase-a-refine/plan-review-2-dispositions.md",
+    "notes": "round-3 decisions to confirm with owner: schema_version always 1 on stderr errors; r-1 merges before r-4; self-referencing dev-dep enables test-util; ADR-SAG-0029 reserved for PR 20 hardening amendment",
+    "plan_fix4_task_id": "a0099e432cc7d629a",
+    "plan_qa3_verdict": "FAIL 4B/18I/22m (doc-only)",
+    "round4_dispositions": "docs/plans/phase-a-refine/plan-review-3-dispositions.md",
+    "owner_check_decisions_round4": [
+      "ScriptedJudge/RequestLog deleted in r-1; callers move to MockJudgeBackend (with_provider_meta, validations(), refusing); recorded as ADR-0022 r-1 amendment superseding 0029(b) sentence",
+      "sc_ai::execute_with_overrides deleted in r-3b; sc-ai tests run the built binary with --scripted-answers; TTL expiry test moves to sc-jev-check (relies on created_at outside digest)",
+      "Jev confidence: option (a) QuestionAnswer.confidence Option<f64>; top-level answers written once from typed answers; extra per-answer keys survive only in provider_meta",
+      "sc-boundary dev-edge spike = r-1 D0 with three outcomes (dev edges ignored / counted / self entries rejected -> [[test]] required-features=test-util)",
+      "std::process::Command::new becomes clippy disallowed-method in r-3b; expect sites: sc-agent-types git.rs, command extractor, and test files not mentioning ResolvedApiKey",
+      "bin_path builds release binaries into fixed target/workspace-tests-bin",
+      "ADR index Amends/amended-by cells filled in plan PR; 0023 lists 0016/0017 not 0005 (0005 change is D13)",
+      "scripted-answers per-backend form {\"backends\": {...}}",
+      "sha2 moves to core feature set (sc-treesitter lib calls Sha256Digest::of)",
+      "schema_version always 1 on stderr (EXT-020 accepted by CPR)"
+    ],
+    "merged_integrate": "8e4c9bb",
+    "plan_qa4": {
+      "req-qa": "PASS",
+      "ruthless-boundary-qa": "PASS (2 obs applied: D0 4th outcome, item-level test expects)",
+      "arch-qa": "ARCH-020/021 applied (0029 in r-2b/r-3c)",
+      "critical-plan-reviewer": "26/27 closed; CPR-301 (Command::new ban ownership/allowed sites), CPR-302 (LLM-context refusal kept in MockJudgeBackend) + 3 minor -> reviser a0099e432cc7d629a"
+    },
+    "next": "commit CPR-301/302 fixups, locked CPR verification (QA-5), merge PR 19, start wave 1 (r-1 || r-4)",
+    "merged": "34dfed0 (PR 19)",
+    "final_commit": "bf8b853",
+    "plan_qa5": "critical-plan-reviewer PASS"
+  },
+  "pending_bd_items": [
+    "agt-ci-advisory-scan: cargo deny/audit CI step (declined from Phase A.1 plan as repo-wide policy; schedule before crates.io publish gate)",
+    "agt-scoop-multi-shim created in the r-4 worktree beads DB only (main DB down); sync/export needed",
+    "agt-ci-advisory-scan created in r-4 worktree beads DB only; sync needed"
+  ],
+  "phase_a1_waves": {
+    "wave1": {
+      "sprints": {
+        "r-1": {
+          "branch": "sprint/r-1-types-break",
+          "worktree": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-1-types-break",
+          "base": "34dfed0",
+          "assignment": ".cursor/phase-a-orchestration/wave7-dev/dev-r-1.xml",
+          "status": "complete",
+          "task_id": "a7493bb5cb1aaa629",
+          "pushed": "22ef273 (dev 7a8b144 + parent one-line sc-agent-secrets Cargo.toml fix)",
+          "pr": 22,
+          "d0_outcome": "4 \u2014 dev edges counted, self edge flagged, self entry rejected -> [[test]] required-features; no self dev-deps",
+          "later_sprint_impact": [
+            "r-2/r-3/r-2b/r-3b use required-features not self dev-dep",
+            "r-2 rewords ADR-0022 r-2 Correction sentence",
+            "workspace-tests: counted branch, facade=workspace_tests",
+            "CI should run sc-agent-types --features git target until r-2 enables git"
+          ],
+          "qa1_manifest": ".cursor/phase-a-orchestration/wave7-qa/r-1-qa1/reviewer-manifest.json",
+          "qa1": {
+            "commit": "22ef273",
+            "verdict": "FAIL",
+            "blocking": 7,
+            "important": 12,
+            "minor": 7,
+            "pr_comment": "https://github.com/randlee/sc-agent/pull/22#issuecomment-6707973108",
+            "root_causes": [
+              "D10-break shapes shipped ahead of their governing ADR amendments (0024/0025) -> Active interim r-1 amendment to ADR-0008/0014/0019",
+              "sprint doc gaps: requirements list, Implementation notes, D0 wording, --features flags",
+              "git test target not in CI; git tests inherit ambient config; unbounded waits",
+              "RepoRelativePath half-adopted; deserialized JudgeOutcome unchecked; UTF-8 re-proved"
+            ],
+            "fix": ".cursor/phase-a-orchestration/wave7-dev/fix-r-1-qa1.md",
+            "fix_task": "a7493bb5cb1aaa629 (resumed)"
+          },
+          "fix_qa1": {
+            "pushed": "64c0e85",
+            "merged_integrate": "554b8f6",
+            "per_id": "all fixed; RBQA-F203 accepted interim; item19 partial (JudgeOutcome::new(&PayloadBundle) + 4 deferred to r-2)",
+            "files_outside_original_owned_paths": [
+              "sc-lint.toml",
+              "crates/sc-agent-secrets/Cargo.toml",
+              "clippy.toml",
+              ".github/workflows/sc-agent-ci.yml",
+              "boundaries/sc-jev-check/jev-check.toml",
+              "docs/architecture.md interim r-1 subsections 0008/0014/0019"
+            ]
+          },
+          "qa2_manifest": ".cursor/phase-a-orchestration/wave7-qa/r-1-qa2/reviewer-manifest.json",
+          "ci": "pending at 64c0e85 (4 pass, 6 pending)",
+          "ci_64c0e85": "10/10 pass (runs 42382157921, 42382157967)",
+          "qa2_interim": {
+            "arch-qa": "PASS (minor plan.md ADR-ownership rows \u2192 r-2/r-2b)",
+            "rust-best-practices": "PASS",
+            "ruthless-boundary-qa": "closed (RBQA-F205 false positive: merge-introduced files)",
+            "flaky-test-qa": "FTQ-001 minor residual \u2192 applied by parent",
+            "req-qa": "R1-004 runtime evidence \u2192 CI green cited by parent",
+            "rust-qa-agent": "pending"
+          },
+          "merged": "fce0cfa (PR 22)",
+          "final_commit": "a1b3ca0",
+          "qa2": {
+            "verdict": "PASS 0/0/0",
+            "pr_comment": "https://github.com/randlee/sc-agent/pull/22#issuecomment-6708336678"
+          }
+        },
+        "r-4": {
+          "branch": "sprint/r-4-adrs-and-manifests",
+          "worktree": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-4-adrs-and-manifests",
+          "base": "34dfed0",
+          "assignment": ".cursor/phase-a-orchestration/wave7-dev/dev-r-4.xml",
+          "status": "complete (in-review: owner deferral REQ-SAG-0133)",
+          "task_id": "ae9efbb5888ffaa8c",
+          "pushed": "8bdfc83",
+          "pr": 21,
+          "pending_after_r1": [
+            "check-exact-pins.sh (root sc-observability-types line)",
+            "main.rs diff vs merge-base",
+            "rebase + full gate re-run"
+          ],
+          "qa1": {
+            "commit": "59ec838",
+            "verdict": "FAIL",
+            "blocking": 2,
+            "important": 4,
+            "minor": 8,
+            "fix": ".cursor/phase-a-orchestration/wave7-dev/fix-r-4-qa1.md"
+          },
+          "ci": "11/11 pass",
+          "after_r1": "rebase; remove transitional lockstep entry + ADR-0023 sentence; confirm sc-lint record gone; re-run pins/self-test/main.rs diff; QA-2 (req-qa + arch-qa + rust-qa)",
+          "next": "remove transitional lockstep entry; delete sc-lint record (conflict); re-gate; QA-2 (req-qa, arch-qa, rust-qa locked)",
+          "merged_r1": "fc4c928",
+          "qa2_manifest": ".cursor/phase-a-orchestration/wave7-qa/r-4-qa2/reviewer-manifest.json",
+          "open_owner_item": "REQ-QA-R4-002 upstream sc-publish issue URL (sprint doc in-review)",
+          "merged": "97db748 (PR 21)",
+          "final_commit": "39ed835",
+          "qa2": {
+            "verdict": "PASS with owner deferral",
+            "pr_comment": "https://github.com/randlee/sc-agent/pull/21#issuecomment-6708597239"
+          }
+        }
+      },
+      "merge_order": "r-1 before r-4",
+      "status": "complete"
+    },
+    "wave2": {
+      "base": "97db748",
+      "sprints": {
+        "r-2": {
+          "branch": "sprint/r-2-engine-shape",
+          "worktree": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-2-engine-shape",
+          "assignment": ".cursor/phase-a-orchestration/wave8-dev/dev-r-2.xml",
+          "status": "qa1_running",
+          "task_id": "ab3be2415805e9354",
+          "pushed": "0d643f2",
+          "validation": "43/43 pass (scratchpad/r2-only/validate.log)",
+          "deviations_for_qa": [
+            "live run with ask-capable backend requires RunConfig::sessions_dir (CONFIG_INVALID otherwise)",
+            "Jev-only live run saves no session (session_id null)",
+            "Envelope::ask drops prompt_sha256 key; ask log-flush failure not reported (r-3b)",
+            "discover_repo_root falls back to start dir; sc-ai outside git uses cwd instead of CONFIG_INVALID",
+            "Python equal_input is a record on dry run",
+            "check.toml paths validated at parse time (RepoRelativePath)",
+            "RunResponseBuilder own module (SCB-CYCLE-001)",
+            "plan.md 0014 interim row: kept PR 24 version (consistent with plan review 5)"
+          ],
+          "pr": 27,
+          "qa1_manifest": ".cursor/phase-a-orchestration/wave8-qa/r-2-qa1/reviewer-manifest.json"
+        },
+        "r-3": {
+          "branch": "sprint/r-3-shared-http",
+          "worktree": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-3-shared-http",
+          "assignment": ".cursor/phase-a-orchestration/wave8-dev/dev-r-3.xml",
+          "status": "qa1_fix_round_resumed; rust-qa QA-1 resumed in isolated worktree at cc9c4cb",
+          "task_id": "a5d145916a20050b1",
+          "pushed": "8f969ff (dev ea81690 + parent kit re-render)",
+          "pr": 26,
+          "qa1_manifest": ".cursor/phase-a-orchestration/wave8-qa/r-3-qa1/reviewer-manifest.json",
+          "r3b_handoffs": [
+            "widen public-API href pattern for ureq submodules",
+            "compose forbidden edge in agent-http manifest once compose is a member",
+            "CI cargo-tree-gates rows for sc-agent-http/sc-jev/sc-jev-backends"
+          ],
+          "qa1_interim": {
+            "req-qa": "FAIL 2B (stale sprint-doc render note; CI evidence pending) /1I (ADR-0007 timeouts bullet)/1m",
+            "arch-qa": "PASS merge_ready, 1I (same ADR-0007 bullet)",
+            "flaky": "2 minor (150 ms real-time timeout test; no explicit --features test-util CI step for sc-agent-http)",
+            "ci": "windows: test_refused_connection_is_connect_and_retryable got Timeout not Connect \u2014 accept Connect|Timeout (both retryable)",
+            "pending": [
+              "rust-qa",
+              "rust-best-practices",
+              "rust-service-hardening",
+              "ruthless-boundary"
+            ]
+          },
+          "fix": ".cursor/phase-a-orchestration/wave8-dev/fix-r-3-qa1.md",
+          "parent_authorized_cross_edits": [
+            "plan.md + r-3b doc ureq-grep command text",
+            "docs/plans/phase-a/a-10-hardening-dispositions.md ARCHC-018 row",
+            "cargo-tree-gates.sh rows",
+            "sc-agent-ci.yml deps job steps (ureq grep, disallowed_methods grep) + test job --features test-util step"
+          ]
+        },
+        "r-3c": {
+          "branch": "sprint/r-3c-treesitter-cli",
+          "worktree": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-3c-treesitter-cli",
+          "assignment": ".cursor/phase-a-orchestration/wave8-dev/dev-r-3c.xml",
+          "status": "complete",
+          "task_id": "af036709a1ecdeed6",
+          "pushed": "641856f",
+          "pr": 25,
+          "qa1_manifest": ".cursor/phase-a-orchestration/wave8-qa/r-3c-qa1/reviewer-manifest.json",
+          "open_decision": "local git hash-object call in git_io.rs vs r-3b Command::new ban \u2014 add hashing helper to sc_agent_types::git (r-3b) or item-level expect",
+          "qa1": {
+            "commit": "39661a6",
+            "verdict": "FAIL",
+            "blocking": 4,
+            "important": 5,
+            "minor": 5,
+            "pr_comment": "https://github.com/randlee/sc-agent/pull/25#issuecomment-6708982753"
+          },
+          "fix": ".cursor/phase-a-orchestration/wave8-dev/fix-r-3c-qa1.md",
+          "parent_authorized_cross_crate": "sc_agent_types::git hash_blob + MAX_INPUT_BYTES (+Rev::is_worktree); cargo-tree-gates.sh row; tests/support/deadline.rs self-test asserts",
+          "ci": "11/11 pass (runs 42387849824, 42387849809)",
+          "next": "QA-2 locked verify (req-qa REQ-QA-R3C-001..005, RBP-F001, RBQA-F001/F002/F003, FTQ-001/002, QA-001, CI-R3C-001) then merge PR 25 \u2014 merge order: r-2 first if its QA finishes; otherwise r-3c may merge before r-2 (disjoint owned_paths)",
+          "note": "hash_blob/MAX_INPUT_BYTES/Rev::is_worktree added to sc_agent_types::git (parent-authorized); docs/sc-agent-types/architecture.md:30 git row needs hash_blob/MAX_INPUT_BYTES (one cell, unowned \u2014 next docs pass)",
+          "merged": "0dca742 (PR 25)",
+          "final_commit": "c4a61d9",
+          "qa2": "PASS"
+        }
+      },
+      "r-3": {
+        "status": "merged",
+        "pr": 26,
+        "merge_commit": "d88879a",
+        "qa2": "PASS f19ce8d (wave8-qa/r-3-qa2)"
+      },
+      "r-3c": {
+        "status": "merged"
+      },
+      "r-2": {
+        "status": "qa1-fix-round",
+        "pr": 27,
+        "qa1": "FAIL 2B/9I/15M at 0d643f2 (wave8-qa/r-2-qa1); ceremony-screened",
+        "fix_assignment": "wave8-dev/fix-r-2-qa1.md",
+        "developer": "ab3be2415805e9354"
+      }
+    },
+    "wave3": [
+      "r-2b"
+    ],
+    "wave4": [
+      "r-3b"
+    ],
+    "wave5": [
+      "r-5 (blocked D9)"
+    ],
+    "wave2_prep": {
+      "prescreen": ".cursor/phase-a-orchestration/wave8-dev/wave2-adr-prescreen.json",
+      "verdict_if_unfixed": "r-2 and r-3 would FAIL RULE-ADR-PLAN/CODE; r-3c clean",
+      "fix_branch": "plan/phase-a-refine-wave2-fix",
+      "fix_worktree": "/Volumes/Extreme Pro/github/sc-agent-worktrees/plan/phase-a-refine-wave2-fix",
+      "fix_task": "a794819434666cbc1",
+      "scope": "sprint docs r-2/r-3/r-2b/r-3b + plan.md convention; no architecture.md edits (open PRs 21/22 touch it)",
+      "dispatch_gate": "wave 2 starts only after r-1 + r-4 merged (ADR-0027/0023 Active on integrate) and this fix merged",
+      "commit": "4d318ee",
+      "pr": 23,
+      "status": "merged (PR 23)",
+      "dispositions": "docs/plans/phase-a-refine/plan-review-4-dispositions.md",
+      "verify": "arch-qa PASS + V-001..V-005 applied"
+    },
+    "wave34_prep": {
+      "prescreen": ".cursor/phase-a-orchestration/wave9-dev/wave34-adr-prescreen.json",
+      "verdict_if_unfixed": "r-2b 2B/2I, r-3b 2B/1I/1m, r-5 2B/2I \u2014 all doc edits",
+      "fix_branch": "plan/phase-a-refine-wave34-fix",
+      "fix_task": "a3c9c58b4b9849e79",
+      "assignments_drafted": [
+        ".cursor/phase-a-orchestration/wave9-dev/dev-r-2b.xml",
+        ".cursor/phase-a-orchestration/wave9-dev/dev-r-3b.xml"
+      ],
+      "wave4_preflight": "confirm r-3 landed the ADR-0020 'Amendment (Phase A.1, r-3b)' Proposed subsection + index marker",
+      "commit": "493534a",
+      "pr": 24,
+      "status": "merged (PR 24)",
+      "dispositions": "docs/plans/phase-a-refine/plan-review-5-dispositions.md",
+      "later_cleanup": "plan.md 'New boundary manifests' + cargo tree gate row still carry pre-D0 conditional",
+      "final_commit": "29a7ec2",
+      "verify": "arch-qa PASS + ARCH-V-001..006 applied"
+    },
+    "plan_r6_r7": {
+      "branch": "plan/phase-a-refine-r6",
+      "worktree": "/Volumes/Extreme Pro/github/sc-agent-worktrees/plan/phase-a-refine-r6",
+      "status": "plan-hardening-basic step 1 running",
+      "next": "run /plan-hardening-basic on it (owner request), then plan PR",
+      "commit": "ffeb5e6",
+      "rounds": "/private/tmp/claude-501/plan-hardening-r6r7/rounds.md",
+      "planning_agent_task": "a0e17f5b27d6fe4e4",
+      "r7_req_ids": "REQ-SAG-0140..0148",
+      "waves": "r-7 wave 5; r-5 and r-6 wave 6 (parallel)"
+    }
+  },
+  "pending_owner_items": [],
+  "plan_followups": [
+    "Plan lesson for wave 2+: when a sprint ships a shape governed by a later sprint's Proposed ADR, the sprint doc must include an Active interim amendment (r-1 QA-1 ARCH-R1-001/002). Check r-2/r-3/r-3c docs for the same pattern before dispatch.",
+    "r-2/r-2b: reconcile ADR-0024/0025 Amends cells with the r-1 interim subsections and add rows to plan.md 'ADR ownership' table",
+    "r-4: drop its sc-lint.toml deletion step; rebase onto r-1 CI step",
+    "D0 outcome 4 kept (SCB-MANIFEST-002 exclusion \u2192 outcome 2 declined: cargo package resolves versioned self edge from crates.io)",
+    "plan.md 'ADR ownership' table: add rows for the r-1 interim subsections on ADR-0008/0014/0019 (arch-qa ARCH-R1-F01) \u2014 r-2/r-2b or next plan touch",
+    "wave-2 developers branched from 97db748; PR 24 (plan docs) and each other's merges land on integrate \u2014 each sprint merges origin/integrate/phase-a before its final push (plan.md ADR-ownership rows may conflict with r-2's reconciliation; keep both)",
+    "r-3b: decide hash-object helper in sc_agent_types::git vs expect on sc-treesitter git_io::git_command before the Command::new ban (r-3c deviation)",
+    "Local env: shared ~/.cargo/registry/src has stale sc-*-0.1.0 extractions; clear them when no sprint is building (CI unaffected)"
+  ],
+  "session_handoff": {
+    "cutoff": "usage limit reached 2026-11-07",
+    "running_agents_at_cutoff": {
+      "r-2 dev": "ab3be2415805e9354",
+      "r-3 fix round": "a5d145916a20050b1",
+      "r-3 rust-qa QA-1": "ac75aa1f6e0543209"
+    },
+    "resume_steps": [
+      "read .cursor/phase-a-orchestration.json phase_a1_waves.wave2",
+      "collect any handbacks from the three agents above (task output files under /private/tmp/claude-501/.../tasks/)",
+      "r-3c: run QA-2 locked verify on 641856f, post closeout, merge PR 25",
+      "r-3: forward rust-qa findings to fix round if any; on push run QA-2; merge PR 26",
+      "r-2: open PR, QA-1 (7 reviewers), fix, QA-2, merge (r-2 before r-2b)",
+      "then wave 3 (r-2b, assignment .cursor/phase-a-orchestration/wave9-dev/dev-r-2b.xml; set BASE_PLACEHOLDER; create worktree), wave 4 (r-3b; pre-flight: confirm ADR-0020 r-3b Proposed subsection landed via r-3), full-repo post-architecture QA, PR integrate/phase-a -> develop",
+      "process note: give each developer its own scratchpad subdirectory (r-3/r-3c validate.sh collided)"
+    ],
+    "owner_items": [
+      "file upstream sc-publish issue from .cursor/phase-a-orchestration/wave7-dev/sc-publish-multi-shim-issue-draft.md and record URL (r-4 in-review)",
+      "D9 TypeSafe payload shape decision (r-5 blocked)",
+      "bd sync: agt-scoop-multi-shim, agt-ci-advisory-scan (r-4 worktree DB only)"
+    ]
+  },
+  "owner_decisions_2026_11_07": {
+    "D9_direction": "typed serde struct per Jev API call, serialized to JSON (no byte splice) \u2014 matches plan; question shape (array {id,prompt,choices} vs object {type,instructions,criteria} vs both) still unknown",
+    "session_logging": {
+      "session_id": "ULID (replaces UUID; breaking change accepted pre-1.0)",
+      "sha256": "SHA-256 of exactly what is sent to the backend (request body); intended later as a cache key to save tokens (post-MVP)",
+      "sha_library": "sc-sha (crates.io, team-published) \u2014 open: confirm it hashes raw bytes without normalization",
+      "repo": "base repo via git, resolving a worktree to its main repository; if not in a repo, the folder the tool was called from",
+      "project": "free text supplied by the caller (e.g. atm-core.phase-br)",
+      "placement": "on every JSONL line unless data is forked elsewhere",
+      "model_id": "string per line, e.g. jev-x.y.z, luna-6.1, haiku-5.5 (multiple models may log to one file)",
+      "storage": "JSONL for MVP; SQLite expected soon \u2014 design the record schema with SQLite in mind",
+      "open": [
+        "does sc-sha hash raw bytes unchanged?",
+        "should a log-write failure fail the run (today: warning only)?"
+      ]
+    },
+    "new_sprint": "r-6 session log header + ULID + sc-sha (after r-3b)",
+    "sc_decision_schema": {
+      "crate": "sc-decision-schema (new, data-only): versioned decision schema (question/answer payload), Jev API request/response structs per call, LLM I/O for luna/haiku on the same schema, model-family schema variants for future local decision models, session-log SQLite DDL + JSONL projection",
+      "layering": "sc-agent-types is below sc-decision-schema and holds types shared by every agent kind (not only decision models)",
+      "model_catalog": "sc-agent-types: open enum of known models tracking recent releases, so newer models work post-release; alias lookup ('luna', 'haiku', ...) returns the latest model string",
+      "long_term_scope": "sc-agent will launch decision models, Claude/Codex via SDK/API directly, and CLI agents (claude-code, codex-cli, cursor-cli, ...) through a wrapper; more SDK/CLI agent types land in sc-agent-types over time",
+      "resolved": {
+        "log_line_shape": "row lives inside sc-observability v2 fields{} (no bespoke JSONL writer; ADR-SAG-0013 kept); our outcome key renamed send_outcome",
+        "send_trace": "sc-agent-http hashes the request body at the send site (all backends, one place) and records it for the engine; model_id from a new JudgeBackend method with a default from the descriptor/catalog; failed send logs model_id always and request_sha256 NULL when no body was built",
+        "schema_version_placement": "outside the hashed canonical payload bytes (envelope and log row), so prompt_sha256 and the cross-impl fixture are unchanged"
+      }
+    },
+    "ceremony_rule": "Ceremony not specified or discussed by the owner is high priority for removal; the orchestrator judges ceremony flags and escalates only if truly undecidable.",
+    "log_write_failure_policy": "(a) best-effort, as shipped today: a failed or rejected log row never fails the run. The parent decided this under the ceremony rule (CQA-F006); r-6 is unblocked.",
+    "jev_question_formats": "Resolved: support all TypeSafe Jev API question formats (the API is the source of truth): keyed questions object with choice/score/noul types and criteria maps, state string|object|array; flat body {model, state, questions}; schemas in sc-decision-schema. r-5 unblocked.",
+    "sc_sha_raw_bytes": "Resolved from the sc-sha 1.7.0 source: calculate_hash takes strict UTF-8 text and normalizes CRLF/CR to LF; there is no raw-bytes API. serde_json compact bodies contain no raw CR, so the digest equals SHA-256 of the sent bytes. Non-UTF-8 bodies are impossible. sc-sha depends on sha2 (transitive only).",
+    "cli_wrapper_scope": "Not a conflict: REQ-SAG-0900/0901 define the API-direct agents; CLI wrappers are additional future agent kinds. No open item.",
+    "dev_qa_policy": "No blocking owner questions after planning; dev<->QA runs end to end; issues addressed at the end.",
+    "crate_rename": "sc-agent-compose renamed to sc-jev-host (owner final, 2026-11-07). Rule: jev = speaks the Jev API (incl. Haiku/Luna via Jev schema); decision = API-agnostic across decision APIs (decider, laya, jev, kev)."
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-4-adrs-and-manifests",
+    "reviewed_commit": "59ec83882480f05ff4b1203d48ecd834afd8aced",
+    "review_mode": "sprint_review",
+    "practice_mode": "all",
+    "practices_reviewed": ["RBP-001","RBP-002","RBP-003","RBP-004","RBP-005","RBP-006","RBP-007","RBP-008","RBP-009","RBP-010"],
+    "findings": [
+      {
+        "id": "RBP-F001",
+        "practice_id": "RBP-005",
+        "severity": "important",
+        "file": "Cargo.toml",
+        "line": 39,
+        "issue": "Root [workspace.dependencies] still has sc-observability-types = \"=1.5.0\". That crate is not on the ADR-SAG-0023 lockstep list (docs/architecture.md:920-926), and crates/sc-agent-types/Cargo.toml:29 still uses it. At this commit, `check-exact-pins.sh` exits 1 and the new CI `check-exact-pins` step (sc-agent-ci.yml:260-262) is red.",
+        "recommendation": "Keep the list as it is. Before final validation, rebase onto integrate/phase-a once r-1 has merged, since r-1 deletes the user and the root entry, then re-run the script. If r-1 cannot merge first, put the exact pin on the list temporarily and say so in the PR. The sprint plan already sets the merge order (r-1, then r-4).",
+        "evidence": "HEAD's reflog shows it forked from 34dfed0 with no r-1 merge. Cargo.toml:39 and sc-agent-types/Cargo.toml:29 are both present, and the architecture.md:917-918 text says r-1 removes them."
+      }
+    ],
+    "summary": {
+      "total_findings": 1,
+      "by_severity": {"critical": 0, "important": 1, "minor": 0}
+    },
+    "notes": [
+      "Environment limits: I had only Read, Grep and Glob, with no shell. I could not run cargo, the scripts or git diff. I verified HEAD from .git/worktrees/r-4-adrs-and-manifests (the branch ref and the reflog ending at 59ec838). I did not verify Cargo.lock churn by diff. Cargo.lock does show clap 4.6.7 and mimalloc 0.1.52, and sc-observability-types is still present because r-1 has not landed.",
+      "Scope mismatch: the assignment calls RBP-005 'dependency/feature hygiene', but the canonical inventory defines RBP-005 as Deref Coercion for Wrapper Ergonomics. I filed the manifest finding under RBP-005 to follow the assignment. No Rust wrapper types are in the reviewed targets, so the Deref pattern itself does not apply. RBP-001 to RBP-004 and RBP-006 to RBP-010 do not apply to manifests, scripts, CI or docs, and no findings arise there.",
+      "Manifest checks that pass. Lockstep pins (sc-observability, tree-sitter, tree-sitter-python, tree-sitter-rust) match the ADR list; everything else is caret. mimalloc and clap are optional workspace deps. In both crates, `cli = [\"dep:mimalloc\", \"dep:clap\"]` uses `dep:` syntax correctly. `[[bin]]` and `[[test]] cli` both carry `required-features = [\"cli\"]`. sc-ai defaults to [\"cli\"], and sc-treesitter to [\"cli\",\"python\",\"rust\"], with python and rust as `dep:` features. tree-sitter is non-optional and the library builds with --no-default-features. The manifest comments point at ADR-SAG-0023. The intra-workspace path deps carry `version = \"0.1.0\"`, so they stay publishable. Features cannot leak into the library builds.",
+      "Script structure: the bash wrapper around `python3 -I -` with a quoted heredoc is sound. The ADR is the single source for the list, so the script keeps no copy. The checks are strict: markers must appear exactly once each, an empty list fails, the scan covers target tables and renamed packages, and `>=` and `<=` are not treated as pins. The self-test covers an injected unlisted pin, a rename inside a [target] table, and missing markers. cargo-tree-gates.sh uses word-bounded patterns that handle `libmimalloc-sys` correctly, and it validates the mode.",
+      "Minor (not counted as a finding): check-exact-pins.sh needs Python 3.11 for tomllib. On an older local python3 it fails with a bare ImportError rather than the script's own message. Add an explicit `sys.version_info` guard that says 'needs python3 >= 3.11'.",
+      "Minor: `tree-sitter = { version = \"=0.27.1\" }` in crates/sc-treesitter/Cargo.toml could be the string form `\"=0.27.1\"`. Alternatively, hoist the tree-sitter pins to [workspace.dependencies] so each lockstep pin has one definition.",
+      "Minor: the cargo-tree-gates.sh header says the other rows come from r-3b. The `both` mode has no row that uses it yet, which is acceptable."
+    ]
+  },
+  "error": null
+}

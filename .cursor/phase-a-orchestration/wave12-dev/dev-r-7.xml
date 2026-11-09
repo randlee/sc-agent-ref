@@ -1,0 +1,27 @@
+<cursor-task id="dev-r-7" sprint="r-7" assignee="rust-developer">
+  <description>Phase A.1 sprint r-7, wave 5, runs alone. The sprint doc is authoritative. Owner decisions in plan.md are settled; do not stop to ask questions, and record any conservative choice in Implementation notes. Add no ceremony beyond what the sprint doc requires.
+- D0 outcome 4 applies: [[test]] required-features = ["test-util"], run with --features test-util.
+- Flip only your own (Proposed, r-7) markers, using the doc's exact wording.
+- Keep the sprint doc at status: in-review. Set status: complete only after the parent says QA-2 passed.
+- Naming rule: sc-jev-* is the Jev decision family; sc-decision-* is API-agnostic and hosts per-API modules.
+- Non-blocking notes from the plan QA:
+  - Use AnswerId::new(), not Ulid::new().to_string(). The r-6 wording names the generator.
+  - Use JevQuestion try_from, not derive(Deserialize).
+  - The plan.md ADR-SAG-0009 index row should mention the judge &amp;SendTrace signature.</description>
+  <worktree>/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-7-decision-schema</worktree>
+  <branch>sprint/r-7-decision-schema</branch>
+  <pr-target>integrate/phase-a</pr-target>
+  <base-commit>0d0ebc1</base-commit>
+  <authoritative-sprint-doc>docs/plans/phase-a-refine/sprint-r-7-decision-schema.md</authoritative-sprint-doc>
+  <plan>docs/plans/phase-a-refine/plan.md; docs/architecture.md: ADR-SAG-0030, ADR-SAG-0031 and the (Proposed, r-7) subsections; the Implementation notes of earlier sprints, for items deferred to r-7.</plan>
+  <acceptance-criteria>
+- Every acceptance row in the sprint doc passes.
+- just lint; cargo clippy --workspace --all-targets --all-features -- -D warnings; cargo test --workspace; the --features test-util runs; just test-python; RUSTDOCFLAGS=-D warnings cargo doc --workspace --no-deps.
+- Run cargo publish --dry-run with a fresh CARGO_HOME.
+- r-7 changes the release consumer input. Report it, and the parent runs the kit install. Never hand-edit rendered release files.
+- Use a per-agent scratch dir and a private CARGO_TARGET_DIR.
+- Commit with trailer "Co-Authored-By: Claude Opus 5.5 &lt;noreply@anthropic.com&gt;" and push.
+- Report fenced JSON with the SHA, a per-row table, deviations, deferrals and files outside owned_paths.
+- Do not open a PR.
+  </acceptance-criteria>
+</cursor-task>

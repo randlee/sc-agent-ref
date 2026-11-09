@@ -1,0 +1,14 @@
+<cursor-task id="dev-a-7" sprint="a-7" assignee="rust-developer">
+  <description>Sprint a-7 sc-ai CLI (jev subcommands) thin adapter over sc-jev-check</description>
+  <worktree>/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-7-sc-ai-cli</worktree>
+  <branch>sprint/a-7-sc-ai-cli</branch>
+  <pr-target>integrate/phase-a</pr-target>
+  <integrate-head>53644e2d4a4eb01dffe86ae5581b0b5d2e4859c6</integrate-head>
+  <authoritative-sprint-doc>docs/plans/phase-a/sprint-a-7-sc-ai-cli.md</authoritative-sprint-doc>
+  <deliverables>Implement all deliverables and acceptance in sprint doc.</deliverables>
+  <workflow>
+    <step>Read sprint doc fully; implement crates/sc-ai and boundaries/sc-ai-cli.</step>
+    <step>Run all Required validation commands; fix until pass.</step>
+    <step>Commit and push branch; report SHA. Do not merge or spawn QA.</step>
+  </workflow>
+</cursor-task>

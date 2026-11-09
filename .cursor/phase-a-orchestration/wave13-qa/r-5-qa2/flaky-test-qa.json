@@ -1,0 +1,16 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/r-5-jev-wire-envelope",
+    "reviewed_commit": "085dab4",
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "critical": 0,
+      "important": 0,
+      "minor": 0
+    }
+  },
+  "error": null
+}

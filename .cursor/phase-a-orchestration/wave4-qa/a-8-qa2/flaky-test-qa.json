@@ -1,0 +1,11 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/a-8-pyo3-wrapper",
+    "reviewed_commit": "bfd36cb93a52c627e6cb04f24c5c6111243e8c00",
+    "findings": [],
+    "summary": {"total_findings": 0, "critical": 0, "important": 0, "minor": 0}
+  },
+  "error": null
+}

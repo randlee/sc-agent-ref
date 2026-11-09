@@ -1,0 +1,94 @@
+# QA Findings Update
+
+Generated: 2026-11-07
+QA Pass: qa-r-1-1
+Sprint/Task: r-1 / qa-r-1-1
+Branch: `sprint/r-1-types-break`
+Commit: `22ef27317d6b608b451ac56f7f1de48731020b6e`
+PR: #22
+Verdict: **FAIL**
+
+## Machine Status (JSON)
+```json
+{
+  "sprint": "r-1",
+  "task": "qa-r-1-1",
+  "branch": "sprint/r-1-types-break",
+  "commit": "22ef27317d6b608b451ac56f7f1de48731020b6e",
+  "pr": 22,
+  "verdict": "FAIL",
+  "deliverables": {
+    "complete": 6,
+    "total": 9,
+    "percent": 66.7
+  },
+  "findings": {
+    "blocking": 7,
+    "important": 12,
+    "minor": 7
+  },
+  "blocking_ids": ["REQ-QA-R1-001", "REQ-QA-R1-002", "REQ-QA-R1-004", "ARCH-R1-001", "ARCH-R1-002", "ARCH-R1-003", "ARCH-R1-004"],
+  "merge_readiness": "blocked",
+  "merge_reason": "Finding gate FAIL: 7 Blocking, 12 Important, 7 Minor. Root causes: (1) r-1 implemented the outcome/attestation/session-v2 shapes whose governing ADR amendments (0024/0025 of 0008/0014/0019) are still Proposed — needs an Active r-1 interim amendment; (2) sprint doc lacks Implementation notes, full requirements list, and the D0 outcome-4 wording/--features flags; (3) git test target never runs in CI and git tests inherit ambient git config; (4) RepoRelativePath half-adopted, deserialized JudgeOutcome bypasses invariants, UTF-8 re-proved. rust-qa gates all green, coverage 91.07% (baseline 90.95). RSH PASS.",
+  "next_action": "triage_and_fix",
+  "owner": "parent-orchestrator",
+  "reviewer_spawn_gate": "pass",
+  "reviewer_manifest": [{"agent": "req-qa", "task_id": "ae9fd1f096935285a", "spawn_actor": "parent-orchestrator", "fenced_json_received": true, "verdict": "FAIL", "findings": {"blocking": 3, "important": 1, "minor": 1}}, {"agent": "arch-qa", "task_id": "a87c06c47bde75045", "spawn_actor": "parent-orchestrator", "fenced_json_received": true, "verdict": "FAIL", "findings": {"blocking": 4, "important": 3, "minor": 0}}, {"agent": "rust-qa-agent", "task_id": "aa58cbec42d5fc6ba", "spawn_actor": "parent-orchestrator", "fenced_json_received": true, "verdict": "findings", "findings": {"blocking": 0, "important": 1, "minor": 2}}, {"agent": "rust-best-practices-agent", "task_id": "adcab38c057adaa24", "spawn_actor": "parent-orchestrator", "fenced_json_received": true, "verdict": "findings", "findings": {"blocking": 0, "important": 3, "minor": 1}}, {"agent": "rust-service-hardening-agent", "task_id": "a97ac88e958558666", "spawn_actor": "parent-orchestrator", "fenced_json_received": true, "verdict": "PASS", "findings": {"blocking": 0, "important": 0, "minor": 0}}, {"agent": "flaky-test-qa", "task_id": "a6325a9c8d9c7cbeb", "spawn_actor": "parent-orchestrator", "fenced_json_received": true, "verdict": "findings", "findings": {"blocking": 0, "important": 3, "minor": 0}}, {"agent": "ruthless-boundary-qa", "task_id": "abdbaf75703fcb1c9", "spawn_actor": "parent-orchestrator", "fenced_json_received": true, "verdict": "findings", "findings": {"blocking": 0, "important": 1, "minor": 3}}],
+  "evidence_chain": {"qa_pass": "qa-r-1-1", "commit": "22ef27317d6b608b451ac56f7f1de48731020b6e", "pr_number": 22, "pr_comment_url": "pending", "coordinator_task_id": "cursor-quality-mgr-fallback", "reviewer_tasks": {"req-qa": "ae9fd1f096935285a", "arch-qa": "a87c06c47bde75045", "rust-qa-agent": "aa58cbec42d5fc6ba", "rust-best-practices-agent": "adcab38c057adaa24", "rust-service-hardening-agent": "a97ac88e958558666", "flaky-test-qa": "a6325a9c8d9c7cbeb", "ruthless-boundary-qa": "abdbaf75703fcb1c9"}, "triage": {"phase_id": "phase-a.1", "ttl_paths": [], "qa_triage_task_ids": []}, "parent_correlation_required": true},
+  "missing_reviewers": [],
+  "unparsed_reviewers": []}
+```
+
+## Findings Summary
+- Deliverables: 6/9 (66.7%)
+- Blocking: 7
+- Important: 12
+- Minor: 7
+
+## Blocking Findings
+- **REQ-QA-R1-001** (Blocking, req-qa) `docs/requirements.md:36,48-50,68-74,80-81,87-92,98-103,109-116,122-124` — Correction: Add the missing ids to the frontmatter, or add a recorded per-id exclusion naming why each is untouched. For REQ-SAG-0710 and NFR-SAG-0003, add acceptance evidence: the answers and equal_input JSON shape and the equal=false-on-live change, and the session v2 retention behaviour.
+- **REQ-QA-R1-002** (Blocking, req-qa) `crates/sc-jev/src/config.rs:193` — Correction: Add the Implementation notes section. For each deviation, give the requirement it touches: max_request_bytes against REQ-SAG-0400, decode against REQ-SAG-0103 and ADR-0027 (explain why it is public), and the provider_meta/probabilities shape against REQ-SAG-0710 and the frozen contracts. Also add the D0 outcome-4 statement and the changed later-sprint lines to the sprint doc. Fix D10.11 and the Validation lines for `--test mock`, `--test git` and the other required-features targets by adding `--features test-util` or `--features git`. Without that, plain `cargo test --test mock` errors on required-features.
+- **REQ-QA-R1-004** (Blocking, req-qa) `docs/plans/phase-a-refine/sprint-r-1-types-break.md:637-713` — Correction: Attach the command log (or CI run) for the exact commit 22ef273 so the claim can be matched to the doc's list, and re-run with the `--features` flags once REQ-QA-R1-002 is fixed.
+- **ARCH-R1-001** (Blocking, arch-qa) `crates/sc-jev-check/src/run/mod.rs:343` — Correction: Land an Active amendment first, either an ADR-SAG-0019/0008 'Amendment (Phase A.1, r-1)' or an earlier-landing ADR-SAG-0025 attestation subsection. It must state that until backend hashing lands a live run reports equal=false/Unattested. Or keep r-1 equal-input semantics unchanged until the ADR is Active: for example, record Matched when the engine verified that every backend received the same shared Arc bundle.
+- **ARCH-R1-002** (Blocking, arch-qa) `crates/sc-agent-types/src/judge.rs:212` — Correction: Add an Active r-1 amendment (to ADR-SAG-0014, 0019 and 0008, or a new Active ADR) that records the typed answer shape, the EqualInputRecord/Attestation/MultiBackendMode shape, session v2 and the dropped per-answer keys. Alternatively split the attestation and session-v2 changes out to the sprint that lands ADR-SAG-0025. Add an index row and Amended-by markers.
+- **ARCH-R1-003** (Blocking, arch-qa) `docs/plans/phase-a-refine/sprint-r-1-types-break.md:66` — Correction: Remove ADR-SAG-0025 from the r-1 adrs list. Either make the needed content Active in r-1 (see ARCH-R1-002) or move D10-break items 3-5 to r-2b.
+- **ARCH-R1-004** (Blocking, arch-qa) `docs/plans/phase-a-refine/sprint-r-1-types-break.md:46` — Correction: Add ADR-SAG-0014 and ADR-SAG-0021 to adrs (and ADR-SAG-0017 if its text covers the manifest/package changes), then record adr_checks results for them in the sprint closure.
+
+## Detailed Findings
+- **REQ-QA-R1-001** (Blocking, req-qa) `docs/requirements.md:36,48-50,68-74,80-81,87-92,98-103,109-116,122-124` — Correction: Add the missing ids to the frontmatter, or add a recorded per-id exclusion naming why each is untouched. For REQ-SAG-0710 and NFR-SAG-0003, add acceptance evidence: the answers and equal_input JSON shape and the equal=false-on-live change, and the session v2 retention behaviour.
+- **REQ-QA-R1-002** (Blocking, req-qa) `crates/sc-jev/src/config.rs:193` — Correction: Add the Implementation notes section. For each deviation, give the requirement it touches: max_request_bytes against REQ-SAG-0400, decode against REQ-SAG-0103 and ADR-0027 (explain why it is public), and the provider_meta/probabilities shape against REQ-SAG-0710 and the frozen contracts. Also add the D0 outcome-4 statement and the changed later-sprint lines to the sprint doc. Fix D10.11 and the Validation lines for `--test mock`, `--test git` and the other required-features targets by adding `--features test-util` or `--features git`. Without that, plain `cargo test --test mock` errors on required-features.
+- **REQ-QA-R1-004** (Blocking, req-qa) `docs/plans/phase-a-refine/sprint-r-1-types-break.md:637-713` — Correction: Attach the command log (or CI run) for the exact commit 22ef273 so the claim can be matched to the doc's list, and re-run with the `--features` flags once REQ-QA-R1-002 is fixed.
+- **ARCH-R1-001** (Blocking, arch-qa) `crates/sc-jev-check/src/run/mod.rs:343` — Correction: Land an Active amendment first, either an ADR-SAG-0019/0008 'Amendment (Phase A.1, r-1)' or an earlier-landing ADR-SAG-0025 attestation subsection. It must state that until backend hashing lands a live run reports equal=false/Unattested. Or keep r-1 equal-input semantics unchanged until the ADR is Active: for example, record Matched when the engine verified that every backend received the same shared Arc bundle.
+- **ARCH-R1-002** (Blocking, arch-qa) `crates/sc-agent-types/src/judge.rs:212` — Correction: Add an Active r-1 amendment (to ADR-SAG-0014, 0019 and 0008, or a new Active ADR) that records the typed answer shape, the EqualInputRecord/Attestation/MultiBackendMode shape, session v2 and the dropped per-answer keys. Alternatively split the attestation and session-v2 changes out to the sprint that lands ADR-SAG-0025. Add an index row and Amended-by markers.
+- **ARCH-R1-003** (Blocking, arch-qa) `docs/plans/phase-a-refine/sprint-r-1-types-break.md:66` — Correction: Remove ADR-SAG-0025 from the r-1 adrs list. Either make the needed content Active in r-1 (see ARCH-R1-002) or move D10-break items 3-5 to r-2b.
+- **ARCH-R1-004** (Blocking, arch-qa) `docs/plans/phase-a-refine/sprint-r-1-types-break.md:46` — Correction: Add ADR-SAG-0014 and ADR-SAG-0021 to adrs (and ADR-SAG-0017 if its text covers the manifest/package changes), then record adr_checks results for them in the sprint closure.
+- **REQ-QA-R1-003** (Important, req-qa) `sc-lint.toml` — Correction: Either add the two paths to owned_paths in the sprint doc, or revert the sc-agent-secrets dev-dependency (it is redundant) and move the sc-lint.toml change into the Implementation notes, updating r-4's wording. Reaching 'acceptable' needs a plan note in either case.
+- **ARCH-R1-005** (Important, arch-qa) `docs/architecture.md:29` — Correction: Update the crate graph and the paragraph at lines 28-41 to remove the sc-observability-types edge. Mark the ADR-SAG-0016 body sentence with a 'Superseded by r-1 amendment' pointer, as the 0029 convention does.
+- **ARCH-R1-006** (Important, arch-qa) `crates/sc-agent-types/src/lib.rs:44` — Correction: Either add pub use crate::catalog::{BACKENDS, BackendDescriptor, BackendFamily} in ids.rs, or reword ADR-SAG-0027, the crate architecture doc and the catalog.rs/code.rs module docs to say 'crate-root re-exports'. The stable public module paths are schema, observability::v2, git and test_util.
+- **ARCH-R1-007** (Important, arch-qa) `sc-lint.toml:79` — Correction: Either add the sc-lint.toml record deletion to r-1's owned_paths and tell r-4 to drop that step (the note you asked for), or restore the record and leave deletion to r-4. Do not rely on ADR-SAG-0023 (Proposed) for the ownership rule.
+- **QA-001** (Important, rust-qa-agent) `crates/sc-agent-types/Cargo.toml:53` — Correction: Add `cargo test -p sc-agent-types --features git --test git` (and `--features test-util --test mock`) to CI and the just/test layers. Alternatively enable `git` through a dev-dependency or feature unification so the workspace run covers it.
+- **RBP-F003** (Important, rust-best-practices-agent) `crates/sc-jev-check/src/extract/read.rs:69` — Correction: Make read_repo_bytes and read_repo_text take &RepoRelativePath and delete validate_relative. Give InputSpec paths and CheckSpec paths the RepoRelativePath type, with deserialization through the validator so a bad check.toml fails at load. Handle the '-' stdin sentinel explicitly before conversion. Cover InputSpec::Command.path in r-2 as the plan says. If the config move is deliberately deferred to r-2, the r-1 plan and dispositions (plan-review-1 line 129) must say 'half applied', and the 'one validator' wording must be dropped until then.
+- **RBP-F201** (Important, rust-best-practices-agent) `crates/sc-agent-types/src/judge.rs:210` — Correction: Split the check out of new into a shared function, for example JudgeOutcome::check_against(&PayloadBundle). Then either drop Deserialize from JudgeOutcome and read stored outcomes through a StoredOutcome wire type, or keep Deserialize and call check_against in StoredSession::from_document once the payload is decoded. Either way, a stored outcome that does not match its payload becomes SESSION_DOCUMENT_INVALID. Narrow the type doc to say what is guaranteed.
+- **RBP-F202** (Important, rust-best-practices-agent) `crates/sc-jev-check/src/session/mod.rs:211` — Correction: Add PayloadBundle::as_str() -> &str and into_text() -> (String, Sha256Digest). Store a validated String (or keep the bytes and use str::from_utf8_unchecked behind a private invariant). Delete utf8_payload, the error branches and the expect, and update the open() rustdoc and its test.
+- **FTQ-001** (Important, flaky-test-qa) `crates/sc-agent-types/tests/git.rs:11` — Correction: Reuse the isolation already in the repo: GIT_CONFIG_GLOBAL set to the platform null device, GIT_CONFIG_NOSYSTEM=1, and `-c commit.gpgsign=false -c core.hooksPath=<null>`. The same pattern is in crates/sc-treesitter/tests/support/mod.rs::isolate_git and crates/sc-ai/tests/cli.rs. Better, move it into the shared tests/support helper. Apply the same env to the production `git()` builder in src/git.rs, or have the test pass it through.
+- **FTQ-002** (Important, flaky-test-qa) `crates/sc-agent-types/tests/git.rs:12` — Correction: Include tests/support/deadline.rs via #[path] as the other crates do, and run every git and cargo child through spawn_with_deadline so a hang fails with a clear message. For features.rs, also run `cargo tree` with `--offline`, or document that the CI lockfile and registry cache must be warm. That avoids a network dependency when the dependency crates are not yet downloaded. Do not add retries.
+- **FTQ-003** (Important, flaky-test-qa) `crates/sc-agent-types/Cargo.toml:53` — Correction: Add a CI step such as `cargo test -p sc-agent-types --all-features`, or `--features git,test-util`, on all three OSes. Fix FTQ-001 and FTQ-002 first so that step is deterministic.
+- **RBQA-F201** (Important, ruthless-boundary-qa) `boundaries/sc-jev-check/jev-check.toml:24` — Correction: Remove both names from the facade and from the 'ScriptedJudge, RequestLog behind test-util' sentence in `notes`. If r-2 owns the jev-check manifest, the r-2 sprint doc must name this edit explicitly, and r-1 should not merge a manifest that contradicts the code without that handoff.
+- **REQ-QA-R1-005** (Minor, req-qa) `docs/plans/phase-a-refine/plan.md:132,444` — Correction: Update plan.md 'Test seams' now, and add a note at the stale Proposed text pointing to boundaries/README.md.
+- **QA-002** (Minor, rust-qa-agent) `crates/sc-ai/src/observe.rs:184` — Correction: Return a Result, or fall back to a fixed valid ActionName. Alternatively make the mapping a const or match so the invariant is checked at compile time. Keep the unit test either way.
+- **QA-003** (Minor, rust-qa-agent) `crates/sc-jev-backends/src/transport.rs:282` — Correction: Map ureq's TLS-specific variants (Rustls, Pki and similar) to NetworkErrorKind::Tls if retryable() or the fix_hint distinguish them. Otherwise document that Connect covers them. Add a mapping test for each branch.
+- **RBP-F104** (Minor, rust-best-practices-agent) `crates/sc-agent-types/src/schema/subjects.rs:22` — Correction: Add these types to the triage table with an explicit decision. Either give them private fields plus constructors and accessors (SubjectsSource::new, SubjectsProducer::new, LlmWireContext::system_prompt(), ChoiceAnswer::new), or record that they are frozen wire types whose fields are fixed by the schema version. For ExtractInput, drop #[non_exhaustive] or make the fields private.
+- **RBQA-F202** (Minor, ruthless-boundary-qa) `crates/sc-agent-types/src/lib.rs:71` — Correction: Either make it `pub(crate)` and drop it from the root re-export, or add it to the facade with a stated consumer. Prefer `pub(crate)`.
+- **RBQA-F203** (Minor, ruthless-boundary-qa) `crates/sc-agent-types/src/git.rs:45` — Correction: Accepted as an interim state. The plan assigns the `clippy.toml` `disallowed-methods` ban on `std::process::Command::new` to r-3b, after r-2 and r-3c move the callers. When that ban lands, `git.rs` needs an item-level `#[expect(clippy::disallowed_methods, reason=...)]` on `git()` only. This is satisfiable, but the ban must not be applied crate-wide or by file glob. Also confirm that `crates/sc-agent-types/tests/features.rs` and `tests/git.rs`, which call `Command::new`, are covered by the r-3b test-helper exemption.
+- **RBQA-F204** (Minor, ruthless-boundary-qa) `crates/sc-jev-check/src/registry/scripted.rs:38` — Correction: Gate the example with a doc-level `cfg_attr(not(feature = "test-util"), doc = ...)` or mark it `ignore`. Alternatively, accept that every validation line must pass `--features test-util`, as the README convention says, and state that in the sprint validation lines.
+
+## Resolved Since Last Pass
+- Carry-forwards verified: RSH-007/008 intact; RBP-F011 fixed; RBP-F104 mostly applied.
+
+## Merge Readiness
+- Status: **blocked**
+- Reason: Finding gate FAIL: 7 Blocking, 12 Important, 7 Minor. Root causes: (1) r-1 implemented the outcome/attestation/session-v2 shapes whose governing ADR amendments (0024/0025 of 0008/0014/0019) are still Proposed — needs an Active r-1 interim amendment; (2) sprint doc lacks Implementation notes, full requirements list, and the D0 outcome-4 wording/--features flags; (3) git test target never runs in CI and git tests inherit ambient git config; (4) RepoRelativePath half-adopted, deserialized JudgeOutcome bypasses invariants, UTF-8 re-proved. rust-qa gates all green, coverage 91.07% (baseline 90.95). RSH PASS.
+
+## Next Action
+- Action: triage_and_fix
+- Owner: parent-orchestrator

@@ -1,0 +1,82 @@
+{
+  "agent": "arch-qa",
+  "mode": "verification",
+  "branch": "plan/phase-a-refine-wave34-fix",
+  "commit": "493534a (not independently resolved; I read the worktree files directly, no git HEAD check was run)",
+  "verdict": "PASS",
+  "verdict_note": "No BLOCKING finding remains. All 12 findings from the pre-screen (ARCH-R2B-001..004, ARCH-R3B-001..004, ARCH-R5-001..004) are closed in text, with the two small wording defects below. One IMPORTANT and four MINOR items remain. None blocks dispatch of r-2b or r-3b. docs/architecture.md was not changed, by design. The ADR wording lives in the sprint docs for flip time, so I checked it against the current architecture.md text at the worktree.",
+  "closed": [
+    "ARCH-R2B-001 (ADR-0020). Added to r-2b adrs (sprint-r-2b:42). Acceptance row at :297. Validation lines :339-340 (clippy sweep and the `! rg disallowed_methods` over r-2b's owned source dirs). `test_digest_recovery_error_carries_no_body_bytes` is run on both wire targets with --features test-util (:323-324).",
+    "ARCH-R2B-002 (ADR-0013). Added (:39). Acceptance row at :298 names Operation::Judge, which exists in code (sc-agent-types/tests/obs.rs:82). It also states that a Failed backend emits one event and that NotSent emits none. Consistent with REQ-SAG-0610 'every prompt send emits'. Both tests are in validation (:317-318).",
+    "ARCH-R2B advisory (ADR-0003, ADR-0023). Added, annotated 'untouched' (:31, :44). Acceptance row at :299 with check-exact-pins in validation (:341).",
+    "ARCH-R2B-003 (interim supersession). owned_paths now carry the 0008 and 0019 interim subsections and the 0019 body italic line (:72-75). D7 (:224-271) gives superseded vs in force per sentence. ADR-0008 interim bullet 1 is superseded except its last sentence (shared Arc<PayloadBundle>), and bullet 2 (session v2) is kept (:230-241). ADR-0019 interim keeps the first two sentences of bullet 1, supersedes the 'Until r-2b ... equal = false' sentences and bullet 2's 'r-1 records ChainContext', and keeps the Arc<PayloadBundle>/CancelToken part (:242-262). The new Status lines are verbatim. The ADR-0014 'null until r-2b' clause is covered by an r-2b-owned pointer line appended to ADR-0025 bullet 3 (:263-271). ADR-0025 is wholly r-2b-owned, so this is authorized. plan.md rows 575, 580, 593 and the exception paragraph (:625-628) match. Acceptance rows :295-296 check the result.",
+    "ARCH-R2B-004 (markers). D7 'Markers r-2b must not touch' (:273-283) lists the ADR-0026 row and text, the r-3b markers in 0010, 0011, 0013, 0016, 0017, 0020, 0023 and 0028, the r-1 'A.1 subsection' markers and the r-2 markers.",
+    "ARCH-R3B-001 (ADR-0008). Added (sprint-r-3b:50). Acceptance row present: Independent is the default in compose and both consumers.",
+    "ARCH-R3B-002 (ADR-0019, plus ADR-0005). Added (:49, :60). D12.1 (:427-433) maps --llm-system-prompt-file to ComposeInputs::system_prompt_override and adds test_cli_system_prompt_file_overrides_check_toml. The check is real: the session document carries `system_prompt: Option<String>` (sc-jev-check/src/session/mod.rs:95). Acceptance rows at :572-573. Validation :603-605 (`! rg PayloadBuilder`, the new test with --features test-util, `run::prompt::`). The reversed decline is correct.",
+    "ARCH-R3B-003 (ADR-0028 conditional and 'ignored' branch). Grep finds no 'ignored' text in r-3b. D7.0 (:271-284) states outcome 4, the dependency allowlist (README case 1b accepts allowed_dependencies or allowed_dev_dependencies), facade = \"workspace_tests\" (matches boundaries/README.md:111-112), and +workspace-tests on allowed_dependents of the three crates. D12.2 (:440) has no dev-set row. The Manifests paragraph (:455-467) is unconditional. The replacement for the ADR-0028 'Dev-only edges' bullet (:515-527) matches README.md:105-110. Its 'replace this sentence' quote is character-for-character the current architecture.md:1227-1229 text.",
+    "ARCH-R3B-004 (Status lines). ADR-0023 Status line (:112) and ADR-0028 including its Status line (:114) are owned. Wording is given (:483-487). Acceptance rows at :569-570.",
+    "r-3b check 3, wave-4 pre-flight for the ADR-0020 r-3b subsection and marker (:471-475) with a verbatim fallback insert. The markers paragraph (:536-555) still protects the r-4 and r-3 markers in rows 0016 and 0017.",
+    "ARCH-R5-001 (adrs 0001, 0020, 0026, 0027). Added with comments (sprint-r-5:25-36). Deliverable 5 (:97-101) and acceptance row (:153).",
+    "ARCH-R5-002 (ADR-0002 Branch B). owned_paths (:46-47). Verbatim amendment and the index marker 'A.1 subsection (Active, r-5)' in Branch B (:124-144). Branch A says no ADR-0002 change (:108-111). The acceptance row (:152) includes the both/neither rejection. plan.md row 570 and the third exception (:622-625) are consistent.",
+    "ARCH-R5-003 (ADR-0019 unchanged). Deliverable 4 (:91-96) adds the sentence. No new owned path, which is correct.",
+    "ARCH-R5-004 (--features test-util on wire lines). Lines :161-163 and :166, and the acceptance cell :154. jev_api and llm correctly omit it.",
+    "plan.md ownership rows for the r-1 interim subsections (0008, 0014, 0019) and the ADR-0002 r-5 row are present (:570, :575, :580, :593). The ownership-row order and 'exactly one landing sprint' hold, with r-2b's interim-line rewrite recorded as the documented exception (:625-628).",
+    "Item 4 (self dev-dependency). r-2b, r-3b and r-5 have no residual self dev-dependency text beyond statements that there is none (r-2b:181, r-3b:240 region). The ADR-0028 reword stays at r-3b:529-534. The remaining stale architecture.md lines (:311, :1236) belong to the r-2 and r-3b flip-time rewrites, which are already specified."
+  ],
+  "still_open": {
+    "IMPORTANT": [
+      {
+        "id": "ARCH-V-001",
+        "rule": "RULE-GATE",
+        "file": "docs/plans/phase-a-refine/plan.md",
+        "line": "379-392, 401, 283, 358, 447-451",
+        "description": "r-3b D7.0 says to write the workspace-tests manifest per 'plan.md New boundary manifests', but that section still carries the TOML with `facade = \"\"` (:401), which the D0 spike showed is rejected at load (boundaries/README.md:74, :111). It also still has the conditional 'If they are ignored' branch (:385-388), the 'dev edges ignored' gate-table sentence (:283) and 'only in the counted branch' wording (:358, :446-451). plan-review-5-dispositions.md 'Not changed' discloses this. r-3b's own text (D7.0, :278-279) overrides it with facade = \"workspace_tests\", so risk is low, but the manifest source r-3b points to is wrong.",
+        "remediation": "In plan.md set `facade = \"workspace_tests\"` in the quoted TOML, collapse :379-392 to the recorded outcome 4, and delete the 'ignored' gate-table sentence. If the plan PR must stay small, add a one-line note after :401, 'facade rejected empty; use \"workspace_tests\" (r-3b D7.0)'."
+      },
+      {
+        "id": "ARCH-V-002",
+        "rule": "RULE-ADR-PLAN",
+        "file": "docs/plans/phase-a-refine/sprint-r-2b-multi-backend-semantics.md",
+        "line": 297,
+        "description": "The new ADR-0020 acceptance row requires that 'a body that cannot be parsed for recovery yields an error' with no body or key bytes, but no deliverable defines that path. D5 (:129-146) maps results to Attestation only. It does not say when recovery runs (before the send, per OBS-B, or after), what the error is (an ErrorCode, which one), or whether it makes the backend Failed with nothing sent. A test is required for behavior the sprint never specifies.",
+        "remediation": "Add one sentence to D5. Recovery runs on the serialized body before it is handed to send_with_busy_retry. A parse failure is a JevError (state the ErrorCode) that makes that backend Failed with nothing sent. The message, fix hint and details carry no body or key bytes."
+      }
+    ],
+    "MINOR": [
+      {
+        "id": "ARCH-V-003",
+        "file": "sprint-r-2b-multi-backend-semantics.md",
+        "line": "242-249",
+        "description": "Sentence counting for the ADR-0019 r-1 interim bullet 1. The architecture.md text (arch:375-382) has three sentences: (1) 'The sentence ... now reads: ... Attestation ... `equal` is derived: true only when every backend is Matched.', (2) 'Until r-2b ... a live run reports equal = false.', (3) 'The engine still gives every backend the one shared bundle.' D7 says 'its first two sentences (per-backend Attestation; equal true only when every backend is Matched) stay' and 'the sentences ... are superseded'. The Attestation and derived-equal clauses are one sentence, and the superseded 'Until r-2b ...' text is one sentence. The intent is clear (the first sentence and the last stay, the middle one goes), but 'first two sentences' and the plural 'sentences' are inexact in a sprint whose purpose is sentence-level precision. The same wording is in the dispositions row ARCH-R2B-003.",
+        "remediation": "Reword to 'its first sentence (per-backend Attestation; `equal` derived) and its last sentence (one shared bundle) stay; the middle sentence beginning \"Until r-2b\" is superseded'."
+      },
+      {
+        "id": "ARCH-V-004",
+        "file": "sprint-r-2b-multi-backend-semantics.md",
+        "line": "267-271",
+        "description": "The ADR-0025 bullet-3 pointer line says input_sha256 'is null only for a backend that was not sent or failed'. An Unattested backend (sent, but reported no digest) also leaves it null, and bullet 3 itself keeps Unattested as a state.",
+        "remediation": "Say 'is null only for a backend that was not sent, failed, or reported no digest (Unattested)'."
+      },
+      {
+        "id": "ARCH-V-005",
+        "file": "sprint-r-5-jev-wire-envelope.md",
+        "line": "152",
+        "description": "The ADR-0002 acceptance row requires 'a test rejects a payload with both questions and criteria and one with neither (INPUT_INVALID)', but the test has no name and no Required validation line. Branch B is blocked, so this is a completeness note.",
+        "remediation": "Name the test (for example test_payload_requires_exactly_one_of_questions_or_criteria) and add its line to the validation block for Branch B."
+      },
+      {
+        "id": "ARCH-V-006",
+        "file": "sprint-r-3b-compose-and-workspace-tests.md",
+        "line": 572,
+        "description": "The ADR-0019 acceptance row says 'the Python override reaches ComposeInputs::system_prompt_override', but only the sc-ai flag has a test (test_cli_system_prompt_file_overrides_check_toml). The Python side has none, so half of the row is unproven.",
+        "remediation": "Either add a pytest through _testing.run_check_scripted (the system_prompt_override kwarg, if it exists today) or limit the row to the CLI."
+      }
+    ]
+  },
+  "new_findings": [
+    "ARCH-V-002 through ARCH-V-006 above are introduced or exposed by the fixes. None is a contradiction with a binding ADR.",
+    "Cross-reference check, tables and YAML: r-2b adrs (20 ids) and owned_paths parse cleanly. Acceptance roots in all three sprint docs resolve to adrs entries, and every added ADR has an acceptance row. plan.md ADR-ownership rows are consistent with the sprint docs. I found no dangling reference.",
+    "Merge-wave reliance: r-3b relies only on text that is Active by wave 4. r-5 relies on text Active by wave 5, or on its own text. r-2b's markers list matches its owned_paths. r-3b's compose row 0020 depends on the r-3 hand-off, which the pre-flight covers."
+  ],
+  "merge_ready": true
+}

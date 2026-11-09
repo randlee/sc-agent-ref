@@ -1,0 +1,29 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-1-types-break",
+    "reviewed_commit": "64c0e85",
+    "findings": [
+      {
+        "id": "FTQ-001",
+        "severity": "minor",
+        "file": "crates/sc-agent-types/tests/git.rs",
+        "line": 23,
+        "test": "all git.rs tests (git() helper and repo())",
+        "mechanism": "env_leak",
+        "issue": "FTQ-001 is mostly fixed, but one gap remains. The fixture git() sets GIT_CONFIG_GLOBAL, GIT_CONFIG_NOSYSTEM, commit.gpgsign=false, core.hooksPath and GIT_TERMINAL_PROMPT. It does not env_remove GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, GIT_OBJECT_DIRECTORY or GIT_ALTERNATE_OBJECT_DIRECTORIES. The production helper in src/git.rs now removes all five. If cargo test runs from inside a git hook (pre-commit or pre-push), those variables are inherited. The fixture git init, add and commit then act on the outer repository, not the temp dir. The result is a wrong assertion or a stray commit in the developer's repo, depending on how the tests are launched.",
+        "recommendation": "In the test git() helper, add env_remove for the same five variables the production helper removes. Do this in tests/support or in a shared isolate-git helper so sc-treesitter and sc-ai get it too.",
+        "evidence": "tests/git.rs:23-34 sets env for GIT_CONFIG_GLOBAL, GIT_CONFIG_NOSYSTEM and GIT_TERMINAL_PROMPT and has no env_remove. src/git.rs:62-66 removes the five variables."
+      }
+    ],
+    "summary": {
+      "total_findings": 1,
+      "critical": 0,
+      "important": 0,
+      "minor": 1
+    },
+    "notes": "HEAD is refs/heads/sprint/r-1-types-break at 64c0e85fba7d, which matches the assigned commit. I had no shell, so I did not run the tests. Verification is by reading the code.\n\nFTQ-001 (isolation): partly fixed. The fixture isolation claim holds apart from the GIT_* gap in the finding above.\n\nFTQ-002 (unbounded waits): fixed for the tests. tests/git.rs:35 and tests/features.rs:34 both go through deadline::spawn_with_deadline. That runner has a 60 s hard deadline, a process-group kill, a 5 s pipe grace and a detached stdin writer, so none of its waits are unbounded. features.rs now passes --locked --offline --target all, and the warm-cache requirement is in the module doc. The production read_at_rev still has no wall-clock deadline (src/git.rs run() uses a blocking .output(), and child.wait() follows read_to_end). The module doc declares this, citing the max_bytes bound, prompts being off and r-2/r-3c owning timeout policy. That is an accepted production-owner routing, not a test flake. I am not re-raising it, but it is a judge decision.\n\nFTQ-003 (CI coverage): fixed. .github/workflows/sc-agent-ci.yml:117-119 adds cargo test -p sc-agent-types --features git,test-util with timeout-minutes 15, after cargo test --workspace. I confirmed only that the step is present. I did not check that it runs on all three OSes. It sits in the same job as the workspace test, which the file header says runs on all three.\n\nTampered-stored-outcome test (sc-jev-check/src/session/tests.rs:175): clean. It uses its own temp store dir, deterministic JSON mutation and no sleeps. The 60 s TTL is far above its runtime.\n\nMockJudgeBackend (src/test_util.rs): clean. Its state is a per-instance Mutex<Vec> and AtomicUsize. The Behaviour enum is private and static-free, and the backend holds no statics, so there is no cross-test sharing."
+  },
+  "error": null
+}

@@ -1,0 +1,31 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "PE-QA2-RBP-F002",
+ "found_in": "A1-R6",
+ "found_at": "2026-11-08T17:33:18Z",
+ "title": "SubjectsProducer and SubjectsSource have all-public fields and are not non_exhaustive; mode is a raw String over a close",
+ "description": "SubjectsProducer and SubjectsSource have all-public fields and are not non_exhaustive; mode is a raw String over a closed set. Any field added after publish breaks downstream struct literals.",
+ "category": "api-design",
+ "severity": "important",
+ "pattern": "api-design",
+ "file_filter": "crates/sc-agent-types/src/schema/subjects.rs",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "f0171cbd38c3ca5e2b9b984bd591e3ff19838e0f"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a"
+ ]
+}

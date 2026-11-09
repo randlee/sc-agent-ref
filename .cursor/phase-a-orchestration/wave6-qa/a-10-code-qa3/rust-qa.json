@@ -1,0 +1,29 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/a-10-phase-end-hardening",
+    "reviewed_commit": "391df484994afa14e37c870457050e8bba15fbd5",
+    "review_mode": "sprint_review",
+    "executed_checks": {
+      "fmt": {"status": "pass", "command": "cargo fmt --all --check"},
+      "clippy": {"status": "pass", "command": "cargo clippy --workspace --all-targets --all-features -- -D warnings"},
+      "tests": {"status": "pass", "command": "cargo test --workspace (exit 0, every result line ok, 0 failed). The three deadline.rs unix tests ran 5x via `cargo test -p sc-jev-check deadline`: 3/3 passed each run, about 0.55s each. pgrep for `sleep 30` found nothing after the workspace run and after the 5x runs, so no stray processes. just lint: pass (compatibility.check ok, lint.ci.consumer pass, 3 steps). RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps: pass. The sc-ai and sc-jev-py adapter golden tests pass."},
+      "coverage": {"status": "pass", "line": 90.95, "branch": 0.0, "function": 87.52, "adequate_for_risk": true, "notes": "Workspace lines are 90.9526%, equal to the 90.95 baseline. Regions are 91.96%. Branch is a 0.0 placeholder because llvm-cov does not report it. Measured with cargo llvm-cov --workspace --no-report followed by cargo llvm-cov report --json --summary-only."},
+      "artifacts": {"status": "pass", "command": "Content-key snippet from scripts/sc-publish-dry-run.sh run standalone in the worktree. I did not rerun the full dry-run, because only the key logic changed. Clean tree: key ffe03e52246c4e3d. After adding untracked qa_untracked.txt: 198cd5a8f097b0e5. After changing that file's contents: 5e475204b1bc86da. After removing the file: ffe03e52246c4e3d, the original key restored. git status is clean afterwards."}
+    },
+    "findings": [],
+    "carry_forward_verification": {
+      "QA-009": "Resolved. In tests/support/deadline.rs, stdin is written on a detached thread. Each pipe wait is bounded by PIPE_GRACE, after which the process group is killed (kill -KILL -- -pgid) and the captured bytes are returned without joining the reader thread. Unit tests cover all three cases. A 4 MiB unread stdin does not block (unread_stdin_does_not_block). A pipe-holding grandchild is bounded by the grace (grandchild_holding_the_pipe_is_bounded_by_the_grace). A deadline kill with a grandchild returns promptly (deadline_kill_returns_despite_a_grandchild).",
+      "QA-010": "Resolved by documentation. docs/development/ci.md now has a 'Tests do not run from a packaged .crate' Known-limits entry. It names the #[path] includes and the include_str! use, and says no gating is applied.",
+      "QA-011": "Resolved. The key now hashes untracked non-ignored files (path and contents) as well as the HEAD tree and the working diff. Adding a file, or changing its contents, changes the key. Removing it restores the original key. The script header documents that the key directories accumulate and are not pruned, and CI keeps them out of its cache.",
+      "QA-004": "Resolved. tests/fixtures/observability/session-event.json now holds both 'ask' and 'judge' goldens. The sc-ai observe.rs and sc-jev-py logging.rs adapter tests loop over LogOperation::ALL and compare each against golden[operation.as_str()]. Both pass."
+    },
+    "summary": {"total_findings": 0, "by_severity": {"critical": 0, "important": 0, "minor": 0}},
+    "notes": [
+      "HEAD matched the assigned commit and branch. The worktree was clean before and after the review.",
+      "The cargo test pipeline's non-zero exit in my command came from pgrep finding no `sleep 30` processes, which is the desired result. cargo test itself exited 0."
+    ]
+  },
+  "error": null
+}

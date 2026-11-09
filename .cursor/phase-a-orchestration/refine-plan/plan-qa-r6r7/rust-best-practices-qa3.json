@@ -1,0 +1,39 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "plan/phase-a-refine-r6",
+    "reviewed_commit": "7e132e582994b6e21b385afea6c0f5510c71ef55",
+    "review_mode": "design_review",
+    "practice_mode": "all",
+    "practices_reviewed": ["RBP-001","RBP-002","RBP-003","RBP-004","RBP-005","RBP-006","RBP-007","RBP-008","RBP-009","RBP-010"],
+    "verdicts": {
+      "RBP-F001": "closed. The trace is per send and is passed as judge(&self, req, trace: &SendTrace) rather than carried on JudgeRequest (r-7 D8.2, sample l.763). A rustdoc on SendTrace explains the Arc<OnceLock> (sample l.721-722).",
+      "RBP-F002": "closed. Question is #[serde(try_from = RawQuestion)] with one Question::try_new that both crates use (r-5 D1/D2). QuestionKind {Choice, Score, Noul} uses skip_serializing_if = is_choice, so the bytes are unchanged.",
+      "RBP-F003": "closed. OrderedMap rejects duplicate keys, and the response uses RESPONSE_INVALID. JevState::Object is OrderedMap<String, Value>. JevQuestion has one validating constructor for the criteria counts. The nested-Value claim is narrowed to the top level only. test_state_forms_roundtrip uses unsorted keys, and test_duplicate_key_rejected is added.",
+      "RBP-F004": "closed. TimestampMs truncates to ms, and AnswerId is a newtype. RowContext uses both. The fields round-trip test includes a clock reading with sub-millisecond digits.",
+      "RBP-F005": "closed. The DecisionSchema trait is dropped. Canonical is kept as plain functions. Dispatch is static, keyed by SchemaFamily, and parse_output holds the one match. The ADR-SAG-0030 'Model-family variants' bullet in docs/architecture.md l.1549-1553 is updated to match.",
+      "RBP-F006": "closed. HttpRequest holds a text body (Arc<str>, body() -> &str), and with_sent_body takes impl Into<String>. There is no UTF-8 Option or Result arm, and the sample signatures type-check.",
+      "RBP-F007": "closed as a partial accept per the parent disposition. String alias lookup is kept, and fallback_for and the unwrap_or_else default are gone, with no remaining references. The model_id() default is documented as serving catalog backends only, and non-catalog backends must implement it. test_backend_catalog_roundtrip covers the catalog rows.",
+      "RBP-F008": "closed. NoulProbabilities { yes } has deny_unknown_fields, and CheckResponse::model is a ModelId. The Probability newtype is skipped as directed.",
+      "RBP-F009": "closed. ProjectLabel has Display, FromStr, AsRef<str>, Hash and serde through FromStr, and its Debug is documented.",
+      "RBP-F010": "closed. The alias error hint lists valid aliases, ProjectLabel states its limits, try_from_fields names the key, and the CONFIG_INVALID remap keeps the message and hint.",
+      "RBP-F011": "closed as superseded by F005. No trait remains to seal.",
+      "RBP-F012": "closed as superseded by F005. input() is now an infallible identity function.",
+      "RBP-F013": "closed. When log_context is unset, the default is discover_main_repo_root(repo_root) (r-6 sample l.359).",
+      "RBP-F014": "closed. Sha256Digest::of is renamed of_text. The rustdoc states the LF normalization, and the 'equals SHA-256 of the bytes' claim is limited to request bodies and payloads. Two mentions of the old name remain in r-7 l.379 and l.387, but both describe the rename itself."
+    },
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": { "critical": 0, "important": 0, "minor": 0 }
+    },
+    "notes": [
+      "The review was read-only. No gates or receipts were requested.",
+      "Non-blocking, unsolicited observation outside the locked scope: r-6 l.372 still says 'answer_id is Ulid::new().to_string()'. RowContext.answer_id is now an AnswerId, and r-6 D2 says AnswerId wraps ulid::Ulid. A wording fix to 'AnswerId::new()' or 'a fresh AnswerId' would remove the mismatch. AnswerId in the r-7 sample shows only FromStr and Display, so it has no generator. Its constructor should be specified in r-6.",
+      "Non-blocking: the r-5 sample derives Deserialize on JevQuestion beside the comment that says try_from = RawJevQuestion. The comment is the binding intent, and the sample bodies are non-binding.",
+      "Branch name was verified only against the assignment text. The worktree was read through file reads, with no git command."
+    ]
+  },
+  "error": null
+}

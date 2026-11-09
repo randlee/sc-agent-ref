@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "R5-QA1-REQ-QA-004",
+ "found_in": "A1-R5",
+ "found_at": "2026-11-08T05:55:41Z",
+ "title": "REQ-SAG-0143 and REQ-SAG-0403 are Active in the root requirements, but the crate requirement tables have no row for them",
+ "description": "REQ-SAG-0143 and REQ-SAG-0403 are Active in the root requirements, but the crate requirement tables have no row for them. docs/sc-decision-schema/requirements.md lists 0140-0146 and omits 0143, though jev::v1 lives in that crate. docs/sc-jev/requirements.md describes 0403 and 0143 only in prose under 'Phase A.1 (r-5)', with no table row. The crate-level REQ-SAG-0103 row (sc-decision-schema/requirements.md:14) does not mention the additive kind and descriptions fields.",
+ "category": "cross-doc-conflict",
+ "severity": "important",
+ "pattern": "cross-doc-conflict",
+ "file_filter": "docs/sc-decision-schema/requirements.md",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "77fffdbd89c5e927f9c6b51fc650fada72cfb400"
+  },
+  {
+   "branch": "sprint/r-5-jev-wire-envelope",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-5-jev-wire-envelope",
+   "order_index": 1,
+   "head_sha": "14f85f129fda46e39bda90ae2a5333e69213312b"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a",
+  "sprint/r-5-jev-wire-envelope"
+ ]
+}

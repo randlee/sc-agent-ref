@@ -1,0 +1,429 @@
+{
+ "pr": 33,
+ "qa_pass": "qa-r7-4",
+ "round": "QA-4",
+ "sprint": "r-7",
+ "branch": "sprint/r-7-decision-schema",
+ "head": "20a46a8",
+ "base": "integrate/phase-a",
+ "prior_round": {
+  "qa_pass": "qa-r7-3",
+  "pr_comment": "https://github.com/randlee/sc-agent/pull/33#issuecomment-6717394905"
+ },
+ "manifest": [
+  {
+   "agent": "req-qa",
+   "task_id": "a542fff0b4cbec9e5",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "20a46a8"
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "a4b17f9f831bae6a6",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "20a46a8"
+  },
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "ac9ca27566f990c1e",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "20a46a8"
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "aae62bfe1a66badb9",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "20a46a8"
+  }
+ ],
+ "reviewer_outputs": [
+  {
+   "agent": "req-qa",
+   "task_id": "a542fff0b4cbec9e5",
+   "fenced_json": {
+    "status": "FAIL",
+    "reviewed_branch": "sprint/r-7-decision-schema",
+    "reviewed_commit": "20a46a8",
+    "errors": [
+     {
+      "code": "ANALYSIS.ERROR",
+      "message": "No shell tool was available in this run. The worktree HEAD was verified by reading /Volumes/Extreme Pro/github/sc-agent/.git/worktrees/r-7-decision-schema/HEAD (ref: refs/heads/sprint/r-7-decision-schema) and /Volumes/Extreme Pro/github/sc-agent/.git/refs/heads/sprint/r-7-decision-schema (20a46a88dcfcc1899d8baec0934837912d638b88). The delta a6a13879..20a46a8 was identified from the reflog and the commit message, not from git diff. cargo, just and git commands were not executed, so acceptance commands were not re-run; evidence is by file reading only."
+     }
+    ],
+    "scope": {
+     "phase": "phase-a-refine",
+     "sprint": "r-7"
+    },
+    "baselines_read": [
+     "docs/requirements.md (REQ-SAG-0109, REQ-SAG-0701, NFR-SAG-0001, NFR-SAG-0002, NFR-SAG-0004 rows)",
+     "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md (authoritative sprint doc)",
+     "docs/plans/phase-a-refine/plan.md (lines 148-153, 912-921)",
+     "docs/architecture.md (lines 1482-1491)",
+     "crates/workspace-tests/README.md"
+    ],
+    "phase_or_sprint_docs_read": [
+     "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+     "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md (lines 261, 420, 594, 612-613)",
+     "docs/sc-ai/architecture.md (lines 41-48)"
+    ],
+    "requirement_checks": [
+     {
+      "id": "REQ-SAG-0109",
+      "source": "docs/requirements.md:161",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/workspace-tests/tests/test_util_off_binary.rs:1-28",
+       "crates/workspace-tests/tests/test_util_off.rs:1-4",
+       "crates/workspace-tests/Cargo.toml:21-27",
+       "crates/workspace-tests/README.md:48-52"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0701",
+      "source": "docs/requirements.md:203",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/workspace-tests/tests/test_util_off_binary.rs:36-51"
+      ]
+     },
+     {
+      "id": "NFR-SAG-0001",
+      "source": "docs/requirements.md:202",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/workspace-tests/tests/test_util_off_binary.rs:41-44"
+      ]
+     },
+     {
+      "id": "NFR-SAG-0002",
+      "source": "docs/requirements.md:114",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/workspace-tests/tests/test_util_off_binary.rs:26-35"
+      ]
+     },
+     {
+      "id": "NFR-SAG-0004",
+      "source": "docs/requirements.md:165",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/workspace-tests/Cargo.toml:21-27"
+      ]
+     }
+    ],
+    "deliverable_checks": [
+     {
+      "item": "REQ-QA-004 carry-forward: owned_paths spells out crates/sc-agent-types/tests/fixtures/error-codes.json (GitTimeout row)",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:183",
+       "crates/sc-agent-types/tests/fixtures/error-codes.json:34-37"
+      ],
+      "notes": "REQ-QA-004 is closed. The path is listed in owned_paths and the file exists with the GitTimeout row."
+     },
+     {
+      "item": "Release-binary test moved to its own target crates/workspace-tests/tests/test_util_off_binary.rs (test_release_binary_rejects_scripted_answers)",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "crates/workspace-tests/tests/test_util_off_binary.rs:28",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:186"
+      ],
+      "notes": "The file exists and is auto-discovered, because crates/workspace-tests/Cargo.toml declares no [[test]] entries. Its helpers resolve: tests/support/mod.rs exposes bin_path, and the deadline module is included from tests/support/deadline.rs. No dead code results."
+     },
+     {
+      "item": "test_util_off.rs narrowed to the graph half (one serialized, bounded cargo tree)",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "crates/workspace-tests/tests/test_util_off.rs:1-4",
+       "crates/workspace-tests/tests/test_util_off.rs:30-34",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:185"
+      ],
+      "notes": "The module doc and the implementation agree. The release-binary test is no longer in this target."
+     },
+     {
+      "item": "crates/workspace-tests/README.md test_util_off_binary paragraph",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "crates/workspace-tests/README.md:50-52",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:187"
+      ],
+      "notes": "The paragraph exists and matches the target."
+     },
+     {
+      "item": "New target is wired into the test path (just test runs cargo test --workspace)",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "sc-lint.toml:17-19",
+       "justfile:14-15"
+      ],
+      "notes": "just test delegates to sc-lint with command [cargo, test, --workspace], which discovers the new target."
+     },
+     {
+      "item": "Every reference to the release-binary test names the target that now holds it (r-3b acceptance and validation commands, plan.md, docs/sc-ai/architecture.md)",
+      "status": "partially-present",
+      "closure_state": "open",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md:613",
+       "docs/plans/phase-a-refine/plan.md:152-153",
+       "docs/plans/phase-a-refine/plan.md:917",
+       "docs/sc-ai/architecture.md:46"
+      ],
+      "notes": "Four references still name `--test test_util_off` as the holder of the release-binary proof. The r-3b command at line 613 now selects 0 tests, which the acceptance rule rejects. Only the crate README was updated."
+     }
+    ],
+    "findings": [
+     {
+      "id": "REQ-QA-005",
+      "severity": "Blocking",
+      "category": "cross-doc-conflict",
+      "source_refs": [
+       "crates/workspace-tests/tests/test_util_off_binary.rs:28",
+       "crates/workspace-tests/tests/test_util_off.rs:1-4"
+      ],
+      "target_refs": [
+       "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md:613",
+       "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md:594",
+       "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md:420",
+       "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md:261"
+      ],
+      "issue": "Commit 20a46a8 moved test_release_binary_rejects_scripted_answers out of the test_util_off target into test_util_off_binary. The r-3b acceptance command `cargo test -p workspace-tests --test test_util_off -- test_release_binary_rejects_scripted_answers --exact` (line 613) now matches 0 tests, which the acceptance rule rejects. Lines 261, 420 and 594 still name test_util_off as the holder of that test.",
+      "required_correction": "Change the r-3b line 613 command to `cargo test -p workspace-tests --test test_util_off_binary -- test_release_binary_rejects_scripted_answers --exact`, and change lines 261, 420 and 594 to name test_util_off_binary for that test. The r-3b doc is not in the r-7 owned_paths, so add an owned_paths entry for it in the r-7 sprint doc (or record the correction in an owned file) before the edit lands.",
+      "compliance_result": "non-compliant"
+     },
+     {
+      "id": "REQ-QA-006",
+      "severity": "Blocking",
+      "category": "cross-doc-conflict",
+      "source_refs": [
+       "crates/workspace-tests/tests/test_util_off.rs:1-4",
+       "crates/workspace-tests/tests/test_util_off_binary.rs:1-4"
+      ],
+      "target_refs": [
+       "docs/plans/phase-a-refine/plan.md:150-153",
+       "docs/plans/phase-a-refine/plan.md:917"
+      ],
+      "issue": "plan.md:151-153 says `workspace-tests --test test_util_off` is a graph query plus a release-built sc-ai that rejects --scripted-answers. After 20a46a8 that target is the graph half only, and the release-built check is in test_util_off_binary. The plan validation list at plan.md:917 runs only `--test test_util_off` and so omits the release-binary proof.",
+      "required_correction": "Rewrite plan.md:150-153 to say test_util_off proves the graph half and test_util_off_binary proves the release-built sc-ai rejects --scripted-answers. Add `cargo test -p workspace-tests --test test_util_off_binary` after plan.md:917. plan.md is not in the r-7 owned_paths, so add an owned_paths entry for it first.",
+      "compliance_result": "non-compliant"
+     },
+     {
+      "id": "REQ-QA-007",
+      "severity": "Blocking",
+      "category": "cross-doc-conflict",
+      "source_refs": [
+       "crates/workspace-tests/tests/test_util_off_binary.rs:1-4",
+       "crates/workspace-tests/README.md:50-52"
+      ],
+      "target_refs": [
+       "docs/sc-ai/architecture.md:46"
+      ],
+      "issue": "docs/sc-ai/architecture.md:46 cites `workspace-tests --test test_util_off` as the proof that the published sc-ai binary has no --scripted-answers flag. That proof is now in test_util_off_binary (crates/workspace-tests/tests/test_util_off_binary.rs:28). The architecture doc contradicts the implementation and the crate README.",
+      "required_correction": "Change docs/sc-ai/architecture.md:46 to name `--test test_util_off_binary`. docs/sc-ai/** is not in the r-7 owned_paths, so add an owned_paths entry for that paragraph in the r-7 sprint doc before the edit lands.",
+      "compliance_result": "non-compliant"
+     }
+    ],
+    "summary": {
+     "total_findings": 3,
+     "blocking_findings": 3,
+     "overall_compliance": "non-compliant",
+     "deliverables_total": 6,
+     "deliverables_complete": 5,
+     "deliverables_incomplete": 1,
+     "deliverable_completion_percent": 83.3
+    },
+    "gate_reason": "FAIL. The carry-forward REQ-QA-004 is closed: owned_paths (sprint doc line 183) names crates/sc-agent-types/tests/fixtures/error-codes.json, and the file carries the GitTimeout row. The branch ref resolves to 20a46a8, which matches the assigned commit. The delta's implementation is sound: the new target is auto-discovered, its helpers resolve, test_util_off is narrowed to the graph half, the README paragraph exists, and `just test` runs `cargo test --workspace`. However, the move left three documents (r-3b sprint doc, plan.md, docs/sc-ai/architecture.md) pointing the release-binary proof at test_util_off, which now runs zero matching tests. These are unresolved cross-document conflicts caused by the delta, and the gate forbids PASS while any remain. The cargo and git acceptance commands were not re-executed in this run because no shell tool was available."
+   }
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "a4b17f9f831bae6a6",
+   "fenced_json": {
+    "agent": "arch-qa",
+    "branch": "sprint/r-7-decision-schema",
+    "scope": {
+     "phase": "phase-a-refine",
+     "sprint": "r-7"
+    },
+    "commit": "20a46a8",
+    "verdict": "FAIL",
+    "blocking": 2,
+    "important": 0,
+    "findings": [
+     {
+      "id": "ARCH-001",
+      "rule": "RULE-ADR-CODE",
+      "adr": "ADR-SAG-0028",
+      "severity": "BLOCKING",
+      "file": "crates/workspace-tests/README.md",
+      "line": 5,
+      "description": "Delta file (edited in this delta) still states the workspace-tests dev-dependencies as sc-agent-types, sc-jev-check, sc-jev-host, serde_json and tempfile. The amended ADR-SAG-0028 (r-7 'Dev-only edges' bullet, docs/architecture.md:1580-1584) and crates/workspace-tests/Cargo.toml:24 add sc-decision-schema (features = [\"test-util\"]). The crate's own documentation therefore contradicts the amended ADR's dev-only edge set.",
+      "remediation": "Add sc-decision-schema (features = [\"test-util\"]) to the dev-dependency list in README.md lines 5-6 so it matches the amended ADR-SAG-0028 and Cargo.toml."
+     },
+     {
+      "id": "ARCH-002",
+      "rule": "RULE-ADR-CODE",
+      "adr": "ADR-SAG-0028",
+      "severity": "BLOCKING",
+      "file": "boundaries/workspace-tests/workspace-tests.toml",
+      "line": 18,
+      "description": "Carry-forward, outside this delta but reported under the zero-tolerance rule. The [public] notes field says dev-dependencies are sc-agent-types (features = [git]), sc-jev-check, sc-jev-host, serde_json, tempfile. The same manifest's allowed_dependencies (line 31) now includes sc-decision-schema, and the amended ADR-SAG-0028 lists it as a dev edge. The boundary manifest text contradicts the binding amendment.",
+      "remediation": "Add sc-decision-schema (features = [\"test-util\"]) to the notes string on line 18 so it matches allowed_dependencies and ADR-SAG-0028 as amended."
+     }
+    ],
+    "adr_checks": [
+     {
+      "adr": "ADR-SAG-0028",
+      "source": "docs/architecture.md:1533-1589",
+      "listed_in_sprint_doc": true,
+      "result": "violated",
+      "evidence_refs": [
+       "docs/architecture.md:1580-1584",
+       "crates/workspace-tests/Cargo.toml:24",
+       "crates/workspace-tests/README.md:5-6",
+       "boundaries/workspace-tests/workspace-tests.toml:18",
+       "boundaries/workspace-tests/workspace-tests.toml:31",
+       "boundaries/sc-decision-schema/decision-schema.toml:21",
+       "crates/workspace-tests/tests/test_util_off_binary.rs:18-20",
+       "crates/workspace-tests/tests/source_scans.rs:302-374"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0027",
+      "source": "docs/architecture.md:1480-1491",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/workspace-tests/tests/test_util_off_binary.rs:1-4",
+       "crates/workspace-tests/tests/test_util_off.rs:1-4",
+       "crates/workspace-tests/tests/test_util_off_binary.rs:28-35"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0030",
+      "source": "docs/architecture.md:1591-1600",
+      "listed_in_sprint_doc": true,
+      "result": "not-applicable",
+      "evidence_refs": [
+       "crates/workspace-tests/tests/test_util_off_binary.rs:1-53"
+      ]
+     }
+    ],
+    "gate_artifact_checks": [
+     {
+      "artifact": "boundaries/workspace-tests/workspace-tests.toml",
+      "status": "closed",
+      "evidence_refs": [
+       "boundaries/workspace-tests/workspace-tests.toml:31",
+       "boundaries/workspace-tests/workspace-tests.toml:18"
+      ],
+      "notes": "Structural edges match the amendment: allowed_dependencies includes sc-decision-schema and the forbidden-edge list is unchanged. The notes string is stale (ARCH-002). The manifest has no internal completion gate."
+     },
+     {
+      "artifact": "boundaries/sc-decision-schema/decision-schema.toml",
+      "status": "closed",
+      "evidence_refs": [
+       "boundaries/sc-decision-schema/decision-schema.toml:21"
+      ],
+      "notes": "allowed_dependents lists workspace-tests, matching the amended ADR-SAG-0028 mirror requirement."
+     },
+     {
+      "artifact": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+      "status": "not-applicable",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:84",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:186-187"
+      ],
+      "notes": "adrs list includes ADR-SAG-0028 (line 84), so RULE-ADR-PLAN is satisfied for the delta. The delta's owned_paths rows for test_util_off_binary.rs and its README paragraph (lines 186-187) match the files present. The sprint doc has no completion gate of its own."
+     }
+    ],
+    "merge_ready": false,
+    "notes": "Verification. Branch and commit: .git in the worktree points at /Volumes/Extreme Pro/github/sc-agent/.git/worktrees/r-7-decision-schema, whose HEAD is ref refs/heads/sprint/r-7-decision-schema. The branch ref file contains 20a46a88dcfcc1899d8baec0934837912d638b88, which matches commit 20a46a8. Bash was not available to me, so the diff was not run directly. The delta was reviewed from the file contents at HEAD. Delta-scope checks: test_util_off_binary.rs is a new workspace-tests target. Cargo auto-discovers it, and it is a separate binary, so its cargo build does not run alongside test_util_off's serialized cargo tree calls. It uses the isolated bin_path helper (release, --features cli) as the ADR-SAG-0028 built-binary contract requires. It has no normal dependency. Its item-level expect names a process spawn and the file never mentions the secret type, which satisfies the source_scans expect-site rule. It adds no lock, no .await and no allow attribute. The moved-type imports in the workspace-tests targets (jev_cross_impl.rs:12, e2e_treesitter_producer.rs:19) come from sc_decision_schema, as the amendment requires. Because Bash was unavailable, the full repository sweep for other stale pre-amendment dev-dependency wording was limited to the boundaries, workspace-tests and docs/architecture.md globs. Result: two BLOCKING findings (one in the delta, one carried forward). The carry-forward is reported because the zero-tolerance rule applies, even though the delta-only instruction asked for delta findings only. Fix both lines and re-dispatch arch-qa for the locked recheck."
+   }
+  },
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "ac9ca27566f990c1e",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-7-decision-schema",
+     "reviewed_commit": "20a46a8",
+     "review_mode": "sprint_review",
+     "executed_checks": {
+      "fmt": {
+       "status": "pass",
+       "command": "cargo fmt --all --check"
+      },
+      "clippy": {
+       "status": "pass",
+       "command": "cargo clippy --all-targets --all-features -- -D warnings"
+      },
+      "tests": {
+       "status": "pass",
+       "command": "cargo test"
+      },
+      "coverage": {
+       "status": "not_run",
+       "line": 0.0,
+       "branch": 0.0,
+       "function": 0.0,
+       "adequate_for_risk": true
+      },
+      "artifacts": {
+       "status": "not_run",
+       "command": ""
+      }
+     },
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "notes": [
+      "HEAD is 20a46a8 on sprint/r-7-decision-schema, as assigned.",
+      "CI coverage of the new target: .github/workflows/sc-agent-ci.yml has a workspace-tests job that runs `cargo test --locked -p workspace-tests` (line 451) with no `--test` filters. Cargo discovers crates/workspace-tests/tests/test_util_off_binary.rs automatically, so no workflow change is needed. The workflow mentions `workspace-tests --test source_scans` only in a comment (line 357). That comment refers to a different target.",
+      "I ran `cargo test -p workspace-tests --test test_util_off_binary` on its own. It passed 4 tests, including test_release_binary_rejects_scripted_answers. The 4 tests include 3 deadline unit tests pulled in through the `#[path]` module include of tests/support/deadline.rs.",
+      "The full `cargo test` run had no failures or panics.",
+      "The a6a1387..20a46a8 delta touches the workspace-tests README, test_util_off.rs, the new test_util_off_binary.rs, and one plan doc. The new test uses a bin_path helper and spawn_with_deadline, with no hardcoded Unix paths. I found no portability or correctness issues in the delta."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "aae62bfe1a66badb9",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-7-decision-schema",
+     "reviewed_commit": "20a46a8",
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "critical": 0,
+      "important": 0,
+      "minor": 0
+     }
+    },
+    "error": null
+   }
+  }
+ ]
+}

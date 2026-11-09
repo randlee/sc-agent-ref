@@ -1,0 +1,24 @@
+{
+  "review_mode": "sprint_review",
+  "worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-2-agent-secrets",
+  "branch": "sprint/a-2-agent-secrets",
+  "commit": "e174dbe090e05258a88ad81fecdef5851c1b87a9",
+  "scope": {
+    "phase": "a",
+    "sprint": "a-2"
+  },
+  "authoritative_sprint_doc": "docs/plans/phase-a/sprint-a-2-agent-secrets.md",
+  "review_targets": [
+    "crates/sc-agent-secrets/",
+    "boundaries/sc-agent-secrets/"
+  ],
+  "reference_docs": [
+    "docs/architecture.md",
+    "docs/sc-agent-secrets/architecture.md"
+  ],
+  "round_limit": false,
+  "changed_files": [],
+  "triage_records": [],
+  "carry_forward_findings": [],
+  "notes": "QA-1 PR 6 sprint a-2"
+}

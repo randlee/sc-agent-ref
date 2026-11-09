@@ -1,0 +1,138 @@
+{
+ "pr": 56,
+ "qa_pass": "qa-stack-41-final",
+ "round": "stack #41 PRs 47, 49, 51, 50, 52, 53, 54, 55, 56",
+ "branch": "fix/py-ask",
+ "head": "ad669c5",
+ "base": "integrate/phase-a",
+ "notes": "Owner directive 2026-11-08: merge stack when QA and CI are green on the stack top. Owner rules: Minor findings go to beads for phase A; owner-supplied evidence settles a question and doesn't go back through rounds: the owner's live Jev traces closed ERR-QA-6, and the bead agt-285 is closed. Each layer was reviewed as it landed; results are on its PR. Stack-top reviewers: req-qa at 6eca341 found REQ-QA-005 (ask row reused REQ-SAG-0605), fixed at ad669c5 with REQ-SAG-0731, one test docstring, and one ADR-SAG-0011 note closing ARCH-008; verify with git diff 6eca341 ad669c5. arch-qa at 6eca341 PASS. Rust gates: authors ran the full set on 6eca341, CI re-runs at head. Hands-on: stress at c8801da and 5b92b15, row-loss at 7f68e8e, durability at 2c9ef20: posted on PRs 50 and 52. Known limits: closed reader noticed at next write, bounded by retry budget; stuck-disk finish takes about 8.5 s; no live provider error bodies beyond Jev's; real locked Keychain not tested; coverage failure on #39 has no proven cause (the failure at 6ab8eb6 was a test missing Python::initialize, fixed). Minors: beads agt-4ru, agt-gsp, agt-044, agt-prh, agt-8e2, agt-akp.",
+ "manifest": [
+  {
+   "agent": "req-qa",
+   "task_id": "ad8be831eca1761a7",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "6eca341"
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "a6e4739ec2fe6dca8",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "6eca341"
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "a34f6c857bb41ed37",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "23df9f6"
+  },
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "aa7fc8247a69190c8",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "a52c776"
+  },
+  {
+   "agent": "rust-best-practices-agent",
+   "task_id": "a864f11f803825548",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "ca2768f"
+  },
+  {
+   "agent": "rust-service-hardening-agent",
+   "task_id": "a67852e30ef9fe5c4",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "a4c79b5"
+  }
+ ],
+ "reviewer_outputs": [
+  {
+   "agent": "req-qa",
+   "fenced_json": {
+    "status": "FAIL then fixed at ad669c5",
+    "reviewed_commit": "6eca341",
+    "findings": [
+     {
+      "id": "REQ-QA-005",
+      "severity": "Blocking",
+      "state": "fixed at ad669c5: REQ-SAG-0731, verify by git diff"
+     }
+    ],
+    "closure": {
+     "REQ-QA-001": "closed",
+     "REQ-QA-002": "closed",
+     "REQ-QA-003": "closed",
+     "REQ-QA-004": "closed by the same fix"
+    }
+   }
+  },
+  {
+   "agent": "arch-qa",
+   "fenced_json": {
+    "commit": "6eca341",
+    "verdict": "PASS",
+    "blocking": 0,
+    "important": 1,
+    "merge_ready": true,
+    "findings": [
+     {
+      "id": "ARCH-008",
+      "severity": "IMPORTANT",
+      "state": "fixed at ad669c5: ADR-SAG-0011 note"
+     }
+    ]
+   }
+  },
+  {
+   "agent": "flaky-test-qa",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_commit": "23df9f6",
+     "notes": [
+      "64 of 64 load runs; six None submits fixed later"
+     ]
+    }
+   }
+  },
+  {
+   "agent": "rust-qa-agent",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_commit": "a52c776",
+     "notes": [
+      "Per-layer; authors ran the same gates at 6eca341; CI at head."
+     ]
+    }
+   }
+  },
+  {
+   "agent": "rust-best-practices-agent",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "findings fixed",
+     "reviewed_commit": "ca2768f",
+     "notes": [
+      "RBP-F007 fixed at 23df9f6, verified by the flaky closure."
+     ]
+    }
+   }
+  },
+  {
+   "agent": "rust-service-hardening-agent",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "skipped",
+     "reviewed_commit": "a4c79b5",
+     "notes": [
+      "No service indicators."
+     ]
+    }
+   }
+  }
+ ]
+}

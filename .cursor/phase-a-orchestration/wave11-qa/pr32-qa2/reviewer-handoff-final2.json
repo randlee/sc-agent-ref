@@ -1,0 +1,666 @@
+{
+ "pr": 32,
+ "manifest": [
+  {
+   "agent": "req-qa",
+   "task_id": "a6640b567c2f3be7b",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "ff15bc8"
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "a0a165ed8b2501edd",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "ff15bc8"
+  },
+  {
+   "agent": "req-qa",
+   "task_id": "a31b471da4a0f1e78",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "197c24f",
+   "round": "locked REQ-QA-005"
+  },
+  {
+   "agent": "rust-service-hardening-agent",
+   "task_id": "a5b19f3b3c07a8e7e",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "197c24f"
+  },
+  {
+   "agent": "rust-best-practices-agent",
+   "task_id": "adadbd4a95023b149",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "197c24f; locked recheck 537a69d"
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "af1012bab54db6323",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "86262ed FAIL (ARCH-001..006); b3c1c9b locked recheck (001-005 closed); 1ecc725 locked recheck PASS"
+  }
+ ],
+ "reviewer_outputs": [
+  {
+   "agent": "req-qa",
+   "task_id": "a6640b567c2f3be7b",
+   "fenced_json": {
+    "status": "FAIL",
+    "reviewed_branch": "plan/phase-a-decision-apis",
+    "reviewed_commit": "ff15bc8889e042b5ffce1db458579e293581d3a3",
+    "errors": [
+     {
+      "code": "ANALYSIS.ERROR",
+      "message": "Bash is not available in this run, so git diff 1ad3294..ff15bc8 and a dirty-tree check could not be executed. Commit identity was verified without git: worktree gitdir /Volumes/Extreme Pro/github/sc-agent/.git/worktrees/phase-a-decision-apis/HEAD is 'ref: refs/heads/plan/phase-a-decision-apis', and refs/heads/plan/phase-a-decision-apis = ff15bc8889e042b5ffce1db458579e293581d3a3. The fix-commit delta was therefore reviewed by re-reading the current state of each carry-forward target, not by diff."
+     },
+     {
+      "code": "ANALYSIS.ERROR",
+      "message": "docs/project-plan.md was read by grep only (no A.1 or r-7 entries found). Sequencing for r-7 was checked against docs/plans/phase-a-refine/plan.md. .claude/project/quality-policy.md was not reviewed in this round."
+     }
+    ],
+    "scope": {
+     "phase": "A.1 (phase-a-refine)",
+     "sprint": "r-7"
+    },
+    "baselines_read": [
+     "docs/requirements.md (lines 95-215)",
+     "docs/architecture.md (lines 25-64 naming convention, 1555-1640 ADR-SAG-0030)",
+     "docs/plans/phase-a-refine/plan.md (lines 600-680)",
+     "docs/project-plan.md (grep only)"
+    ],
+    "phase_or_sprint_docs_read": [
+     "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md (lines 1-45, 190-233, 870-895)"
+    ],
+    "requirement_checks": [
+     {
+      "id": "REQ-SAG-0130",
+      "source": "docs/requirements.md:130, :207, :208, :212",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/requirements.md:150-153 (amendment rows keep verbatim, same-id convention)",
+       "docs/requirements.md:194-196 (amendments table is keyed by existing ids)",
+       "docs/requirements.md:212 (Proposed, r-7 row)",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:29",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:891 (qualified as 'amended, r-7 bullet')"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0143",
+      "source": "docs/requirements.md:180",
+      "listed_in_sprint_doc": false,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/requirements.md:180 (Proposed, r-5)",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:121 (sc-jev client judge: 'body built as String', r-7 owned path)",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:126 (sc-jev-backends backend.rs: body built as String)",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:197 (jev::v1 is r-5's, carried unchanged)",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:17-45 (front-matter list, 0143 absent)"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0140",
+      "source": "docs/requirements.md:177",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:18"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0900",
+      "source": "docs/requirements.md:139",
+      "listed_in_sprint_doc": false,
+      "result": "not-applicable",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/plan.md:618-622 (owner 2026-11-07: API-direct agents are Phase B, not touched by r-7)"
+      ]
+     }
+    ],
+    "deliverable_checks": [
+     {
+      "item": "CF REQ-QA-001: REQ-SAG-0130 unique id per row (carry-forward)",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "docs/requirements.md:150-153",
+       "docs/requirements.md:130, :207, :208, :212",
+       "docs/requirements.md:199 and :210 (REQ-SAG-0103 reused in the same table)",
+       "docs/requirements.md:159 and :211 (REQ-SAG-0107 reused)",
+       "docs/requirements.md:99 and :204 (REQ-SAG-0601 reused)",
+       "docs/requirements.md:116 and :209 (REQ-SAG-0711 reused)"
+      ],
+      "notes": "JUSTIFIED, closed. The repo convention for the Phase A.1 amendments table reuses the id of the amended row. The same reuse appears for 0103, 0107, 0601 and 0711. The sprint disambiguates each use by its bullet text (line 29) and its acceptance qualifier (line 891). Parent ruling accepted. Not a Blocking finding."
+     },
+     {
+      "item": "CF REQ-QA-002: crate naming convention covers per-API modules in sc-decision-schema",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "docs/architecture.md:53-64",
+       "docs/architecture.md:1617-1624",
+       "docs/plans/phase-a-refine/plan.md:663-670"
+      ],
+      "notes": "CLOSED. sc-decision-* is API-agnostic for shared types and hosts one versioned module per API (jev::v1 today). Architecture and plan item 12 match. The fix is a wording change, not a rename."
+     },
+     {
+      "item": "CF REQ-QA-003: sc-jev-py listed in naming convention with rationale",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "docs/architecture.md:57-58 ('sc-jev-py (the PyO3 consumer of sc-jev-host)')",
+       "docs/architecture.md:31",
+       "docs/plans/phase-a-refine/plan.md:665-667 ('consumers built only on it, such as sc-jev-py')"
+      ],
+      "notes": "CLOSED. sc-jev-py is in the Today list with rationale, and plan item 12 mirrors it."
+     },
+     {
+      "item": "CF REQ-QA-004: r-7 Layering note no longer claims 'only jev:: is built in r-7'",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:202-204",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:197",
+       "docs/architecture.md:1598-1600",
+       "docs/plans/phase-a-refine/plan.md:609"
+      ],
+      "notes": "CLOSED. The note reads 'jev::v1 lands in r-5 and is carried unchanged; r-7 adds no per-API module', consistent with ADR-SAG-0030 and plan.md."
+     },
+     {
+      "item": "ADR amendment subsections exist for each amended ADR (ADR-SAG-0030 claim)",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "docs/architecture.md:1562-1568"
+      ],
+      "notes": "Carry-forward state unchanged; no regression seen in the re-read targets."
+     },
+     {
+      "item": "Plan item 12 and post-MVP order (decider first, then laya; kev unscheduled)",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/plan.md:663-670",
+       "docs/plans/phase-a-refine/plan.md:478",
+       "docs/architecture.md:1617-1624"
+      ],
+      "notes": "Order is identical in all three places."
+     },
+     {
+      "item": "Sprint r-7 front-matter requirements list present and populated",
+      "status": "present",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:17-45"
+      ],
+      "notes": "Present and populated. Completeness is covered by the next item."
+     },
+     {
+      "item": "Sprint r-7 requirements list complete for every touched id (REQ-SAG-0143)",
+      "status": "absent",
+      "closure_state": "not-applicable",
+      "evidence_refs": [
+       "docs/requirements.md:180",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:17-45",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:121-126"
+      ],
+      "notes": "New in this round. The sprint's owned sc-jev and sc-jev-backends body-building paths are touched and carried. REQ-SAG-0143 is not listed."
+     }
+    ],
+    "findings": [
+     {
+      "id": "REQ-QA-005",
+      "severity": "Blocking",
+      "category": "requirement-not-listed",
+      "source_refs": [
+       "docs/requirements.md:180 (REQ-SAG-0143)",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:197"
+      ],
+      "target_refs": [
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:17-45",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:121",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:126"
+      ],
+      "issue": "Sprint r-7 touches the REQ-SAG-0143 subject. It has owned paths in sc-jev (client/mod.rs:121 'body built as String') and sc-jev-backends (backend.rs:126). It also carries jev::v1 in sc-decision-schema unchanged. REQ-SAG-0143 defines the CheckRequest/CheckResponse body path that these owned paths touch. The id is absent from the front-matter requirements list. This is not a carry-forward item. It is raised under the Blocking rule for a missing listed id, and the parent may treat it as a new finding in this locked round.",
+      "required_correction": "Add '- REQ-SAG-0143   # regression: jev::v1 carried unchanged; sc-jev body still built as String until r-5' to the sprint r-7 front-matter requirements list (after line 25). Add a matching acceptance or regression row if the sprint claims it. Make no change to requirements.md.",
+      "compliance_result": "non-compliant"
+     }
+    ],
+    "summary": {
+     "total_findings": 1,
+     "blocking_findings": 1,
+     "overall_compliance": "non-compliant",
+     "deliverables_total": 8,
+     "deliverables_complete": 7,
+     "deliverables_incomplete": 1,
+     "deliverable_completion_percent": 87.5
+    },
+    "gate_reason": "FAIL on one Blocking finding, REQ-QA-005: REQ-SAG-0143 is touched by r-7 owned paths but is not in the front-matter requirements list. All four carry-forward findings are closed or justified. REQ-QA-001 (duplicate REQ-SAG-0130) is justified by the repo's same-id amendment convention, with the same reuse for 0103, 0107, 0601 and 0711, and the sprint disambiguates each use. REQ-QA-002 and REQ-QA-003 are closed by the architecture and plan item 12 wording, which now lists sc-jev-py with rationale and hosts per-API modules in sc-decision-schema. REQ-QA-004 is closed by sprint lines 202-204. No regression was found in the re-read targets. Completion is 7 of 8 (87.5%), not 100%. If the parent rules that 0143 is outside r-7's touched subjects, REQ-QA-005 can be withdrawn and the gate would PASS, but that ruling is not mine to make."
+   }
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "a0a165ed8b2501edd",
+   "fenced_json": {
+    "agent": "arch-qa",
+    "branch": "plan/phase-a-decision-apis",
+    "scope": {
+     "phase": "r",
+     "sprint": "r-7"
+    },
+    "commit": "ff15bc8",
+    "verdict": "PASS",
+    "blocking": 0,
+    "important": 0,
+    "findings": [],
+    "adr_checks": [
+     {
+      "adr": "ADR-SAG-0007",
+      "source": "docs/architecture.md:667-676",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:53-58",
+       "docs/architecture.md:671-672"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0012",
+      "source": "docs/architecture.md:1017-1023",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:51-64",
+       "docs/architecture.md:1029-1033",
+       "docs/sc-jev-backends/architecture.md:11"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0019",
+      "source": "docs/architecture.md:432-443",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:55-56",
+       "docs/architecture.md:439-443"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0030",
+      "source": "docs/architecture.md:1562-1564",
+      "listed_in_sprint_doc": true,
+      "result": "not-applicable",
+      "evidence_refs": [
+       "docs/architecture.md:1564-1569",
+       "docs/architecture.md:1616-1624",
+       "docs/plans/phase-a-refine/plan.md:663-670",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:80",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:202-204"
+      ]
+     }
+    ],
+    "gate_artifact_checks": [],
+    "carry_forward_dispositions": [
+     {
+      "id": "ARCH-001",
+      "disposition": "closed",
+      "evidence_refs": [
+       "docs/architecture.md:1616-1624",
+       "docs/plans/phase-a-refine/plan.md:663-670"
+      ],
+      "notes": "Crate family rule and reserved sc-decider*/sc-laya*/sc-kev* names are now recorded in the ADR-SAG-0030 'Per-API modules and crate naming' bullet (Recorded; binding as a reservation, flips with ADR-SAG-0030 in r-7). Remediation accepted via the ADR path; ADR-SAG-0030 is listed in r-7 adrs."
+     },
+     {
+      "id": "ARCH-002",
+      "disposition": "closed",
+      "evidence_refs": [
+       "docs/architecture.md:53-58",
+       "docs/plans/phase-a-refine/plan.md:663-666",
+       "docs/sc-jev-backends/architecture.md:11"
+      ],
+      "notes": "Naming text no longer says Haiku/Luna speak the Jev API; it says they answer Jev-schema questions over provider HTTP and cites ADR-SAG-0007/0019. 'Today' list includes sc-jev-py. plan.md item 12 carries the same edit. Residual wording outside the locked scope is listed under notes."
+     },
+     {
+      "id": "ARCH-003",
+      "disposition": "closed for the contradiction; residual wording noted (non-blocking)",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:202-204",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:216",
+       "docs/architecture.md:1618-1619",
+       "docs/architecture.md:61-64"
+      ],
+      "notes": "r-7 Layering note now says jev::v1 lands in r-5; ADR-SAG-0030 per-API bullet says jev::v1 lands in r-5; the r-7 manifest and outcome agree. Residual: the crate-naming text (architecture.md:63) and plan.md:669 still say 'jev::v1 today', and the r-7 'API-agnostic except per-API modules (under ADR-SAG-0012 r-5)' wording was not added. ADR-SAG-0030 is Proposed, so this is not a binding violation, but the wording should be aligned."
+     },
+     {
+      "id": "ARCH-004",
+      "disposition": "closed",
+      "evidence_refs": [
+       "docs/architecture.md:1616-1624"
+      ],
+      "notes": "The per-API bullet now states its binding status ('binding as a reservation, owner 2026-11-07; flips with this ADR in r-7') and names the flip sprint."
+     }
+    ],
+    "merge_ready": true,
+    "notes": "Input contract: JSON valid; worktree path absolute; branch and commit given. Verified without Bash (not available here): the worktree .git file points to /Volumes/Extreme Pro/github/sc-agent/.git/worktrees/phase-a-decision-apis; that HEAD is 'ref: refs/heads/plan/phase-a-decision-apis'; refs/heads/plan/phase-a-decision-apis resolves to ff15bc8889e042b5ffce1db458579e293581d3a3, which matches commit ff15bc8. The reflog shows 1ad3294 and ff15bc8 as the two QA-1 fix commits on top of 2a44320. Working-tree cleanliness and the exact fix diffs were not inspected (no git diff or git status available). Review was limited to the carry-forward ids and the text they cite. Blocking-level residual checks, all non-blocking: (a) docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md:660-661 still states the rule 'anything speaking the Jev API, including Haiku and Luna through the Jev schema, is jev'. The qualifier 'through the Jev schema' keeps it close to the fixed naming text, it is a historical rationale line rather than a deliverable, acceptance criterion or code sample, and it is outside the carry-forward scope, so it is not counted. Aligning it with architecture.md:53-58 is recommended. (b) The 'jev::v1 today' wording noted under ARCH-003. The REQ-QA-001 false-positive judgment is the parent's call and was not evaluated by arch-qa; the requirements-table id reuse is a req-qa matter. No new gate was requested or added. The r-7 adrs list against each owned crate's architecture doc was not widened in this round."
+   }
+  },
+  {
+   "agent": "req-qa",
+   "task_id": "a31b471da4a0f1e78",
+   "fenced_json": {
+    "status": "PASS",
+    "reviewed_branch": "plan/phase-a-decision-apis",
+    "reviewed_commit": "197c24f",
+    "errors": [],
+    "scope": {
+     "phase": "phase-a-refine",
+     "sprint": "r-7 (QA-3 locked recheck)"
+    },
+    "baselines_read": [
+     "docs/requirements.md",
+     "docs/architecture.md",
+     "docs/project-plan.md"
+    ],
+    "phase_or_sprint_docs_read": [
+     "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+     "docs/plans/phase-a-refine/plan.md"
+    ],
+    "requirement_checks": [
+     {
+      "id": "REQ-SAG-0143",
+      "source": "docs/requirements.md:180",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:27"
+      ]
+     }
+    ],
+    "deliverable_checks": [
+     {
+      "item": "REQ-QA-005 carry-forward: REQ-SAG-0143 present in r-7 front-matter requirements list",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:27"
+      ],
+      "notes": "Line 27 lists REQ-SAG-0143 as a regression entry inside the requirements list (lines 17-57). The id resolves to docs/requirements.md:180."
+     },
+     {
+      "item": "Commit 197c24f regression check: r-7 requirements line change, and 'jev::v1 today' replaced by 'jev::v1 from r-5' in docs/architecture.md and plan.md",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "docs/architecture.md:63",
+       "docs/architecture.md:137",
+       "docs/architecture.md:1598",
+       "docs/plans/phase-a-refine/plan.md:669",
+       "docs/plans/phase-a-refine/plan.md:838",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:27"
+      ],
+      "notes": "No 'jev::v1` today' wording remains under docs/. Both edited docs now read 'jev::v1 from r-5' (architecture.md:63, plan.md:669). Architecture.md:1598 keeps the '(Proposed, r-5)' Jev API structs bullet, consistent with the r-5 ownership. No cross-document conflict or regression was found in the touched lines."
+     }
+    ],
+    "findings": [],
+    "summary": {
+     "total_findings": 0,
+     "blocking_findings": 0,
+     "overall_compliance": "compliant",
+     "deliverables_total": 2,
+     "deliverables_complete": 2,
+     "deliverables_incomplete": 0,
+     "deliverable_completion_percent": 100.0
+    },
+    "gate_reason": "HEAD of the worktree resolves to refs/heads/plan/phase-a-decision-apis at 197c24fbfc3b603026fd064f20b026bfb6459315, matching the assigned branch and commit. REQ-QA-005 is closed: REQ-SAG-0143 is listed at sprint-r-7-decision-schema.md:27 and resolves to docs/requirements.md:180. The 197c24f wording change is present and shows no regression. Limitation: no Bash or git tool was available, so the commit diff was not run. The regression check relied on content greps of the touched files, not a diff of 197c24f, so changes outside the greps were not inspected. No Blocking findings, and deliverable completion is 100%, so PASS."
+   }
+  },
+  {
+   "agent": "rust-service-hardening-agent",
+   "task_id": "a5b19f3b3c07a8e7e",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "skipped",
+     "reviewed_branch": "plan/phase-a-decision-apis",
+     "reviewed_commit": "197c24f",
+     "review_mode": "doc_review",
+     "service_indicators_found": [],
+     "topics_reviewed": [],
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "notes": [
+      "Input validated: worktree_path /Volumes/Extreme Pro/github/sc-agent-worktrees/plan/phase-a-decision-apis, HEAD is ref refs/heads/plan/phase-a-decision-apis, which resolves to 197c24fbfc3b603026fd064f20b026bfb6459315 (matches commit 197c24f).",
+      "review_targets (docs/architecture.md, docs/plans/phase-a-refine/plan.md, docs/plans/phase-a-refine/sprint-r-7-decision-schema.md) are documentation only. No Cargo.toml and no Rust source file is in review scope, consistent with the input notes.",
+      "No listed service-indicator dependency (tokio, axum, hyper, tonic, warp, actix-web, reqwest) appears in any workspace Cargo.toml under the worktree. The only HTTP client dependency is ureq (crates/sc-agent-http), which is not in the default indicator list and is not in review scope.",
+      "No #[tokio::main], TcpListener, server startup, or long-running worker entrypoint was found in crates/**. The keyword hits in docs are descriptive text about timeouts and retries in planned sprint documents, not runtime code under review.",
+      "Result is skipped because no service indicators are present in the assigned scope. No service-hardening findings were raised, and no tests or quality gates were run.",
+      "Workspace read limitation: .claude/skills/rust-development/guidelines.txt was read only through line 1470 of 2428 because the tool output was truncated. The remaining lines were not needed for a skipped result."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "rust-best-practices-agent",
+   "task_id": "adadbd4a95023b149",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "findings",
+     "reviewed_branch": "plan/phase-a-decision-apis",
+     "reviewed_commit": "197c24f",
+     "review_mode": "doc_review",
+     "practice_mode": "all",
+     "practices_reviewed": [
+      "RBP-001",
+      "RBP-002",
+      "RBP-003",
+      "RBP-004",
+      "RBP-005",
+      "RBP-006",
+      "RBP-007",
+      "RBP-008",
+      "RBP-009",
+      "RBP-010"
+     ],
+     "findings": [
+      {
+       "id": "RBP-F001",
+       "practice_id": "RBP-001",
+       "severity": "important",
+       "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+       "line": 479,
+       "issue": "SessionLogRow::try_from_fields refuses only unknown, missing or wrong-typed keys (INPUT_INVALID). It defines no refusal for a row whose schema_version differs from SESSION_LOG_SCHEMA_VERSION (1), and no recovery text for that failure. A row written by a future schema with the same key set would be accepted silently. The schema_version column (line 497) and the code sample (line 838) do not close this.",
+       "recommendation": "State that try_from_fields refuses any schema_version other than SESSION_LOG_SCHEMA_VERSION with INPUT_INVALID and a fix hint naming the supported version and the 'written by a newer sc-agent' recovery, matching the session-document rule (architecture.md ADR-SAG-0008 r-1 and the DecisionSchemaId refusal rule at sprint lines 406-410). Extend the existing test_unknown_or_missing_key_rejected row to cover it; do not add a new gate.",
+       "evidence": "Sprint line 479: 'try_from_fields(&Map) (unknown key, missing key or wrong type is INPUT_INVALID)'. Line 497: 'schema_version INTEGER NOT NULL -- SESSION_LOG_SCHEMA_VERSION of the row'. The error-context pattern (Phase 2, error inventory) requires recovery steps for each failure mode; this one has none."
+      },
+      {
+       "id": "RBP-F002",
+       "practice_id": "RBP-003",
+       "severity": "minor",
+       "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+       "line": 324,
+       "issue": "The open/sealed decision for JudgeBackend is recorded (architecture.md line 297: 'intentionally open (not sealed)'), but the stability statement for the published crate contradicts it. D1.4 says the README states 'no semver promise beyond the schema versions it names', while the moved trait is a public, open extension point whose additive-evolution rule (architecture.md lines 297-298: new methods get default bodies) is itself a compatibility promise. Downstream implementors would depend on JudgeRequest, JudgeOutcome, SendTrace and ModelId, yet no downstream run path exists (BackendRegistry::register cannot add an id; factory table is private, per architecture.md lines 292-296).",
+       "recommendation": "Decide explicitly in the ADR-SAG-0009 r-7 amendment. Either keep the trait open and state its additive-evolution rule as a semver promise (and drop 'no semver promise' for that trait), or seal it with a private supertrait and a rustdoc '# Sealed' note, as sealed-traits-plan.md prescribes when the implementation set is fixed. Record which one in the crate README.",
+       "evidence": "Sprint line 324: 'README of the new crate states data-only; no semver promise beyond the schema versions it names'. Sprint line 765: 'pub trait JudgeBackend: Send + Sync'. Architecture line 297: 'JudgeBackend is intentionally open (not sealed); every method added after A.1 has a default body.'"
+      },
+      {
+       "id": "RBP-F003",
+       "practice_id": "RBP-008",
+       "severity": "minor",
+       "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+       "line": 765,
+       "issue": "JudgeBackend is designed for dynamic dispatch (Arc<dyn JudgeBackend> in the factory table at line 580, BackendRegistry::register(Arc<dyn JudgeBackend>), Vec<Arc<dyn JudgeBackend>> in architecture.md line 1124), and it is about to be published. No plan text states that it must remain dyn-compatible (&self receivers only, no generic methods, no Self in signatures), or whether downstream code is expected to box or store it. The additive rule (default-body methods) can add a generic method and silently break dyn use.",
+       "recommendation": "Add one sentence to the ADR-SAG-0009 r-7 amendment and to the trait rustdoc: JudgeBackend is dyn-compatible (&self receivers, no generic methods, no Self in signatures), and new methods must keep it so. The existing factory-table coercion already compile-checks this in-tree, so no new CI gate is needed.",
+       "evidence": "Sprint line 765-773 (trait sample: judge and model_id take &self and no generics, but no statement of the requirement); line 580 (Arc<dyn JudgeBackend> factory). Trait-object-safety pattern: 'require the design to state whether downstream consumers are expected to box/store trait objects.'"
+      },
+      {
+       "id": "RBP-F004",
+       "practice_id": "RBP-004",
+       "severity": "minor",
+       "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+       "line": 816,
+       "issue": "RowContext.repo is a public String holding an absolute repo path, and its invariant (absolute; main repo or calling folder) lives only in a comment. Non-UTF-8 bytes are replaced lossily, so two distinct repos can store the same value, and answers_by_repo_project (line 516) indexes on it. The sibling field project (line 817) is already a validated newtype (ProjectLabel), so the design is inconsistent.",
+       "recommendation": "Introduce a RepoRoot newtype with a fallible constructor (absolute path, else INPUT_INVALID with a fix hint) and use it as the field type. Decide non-UTF-8 handling explicitly: reject it, or keep the lossy encoding and state its collision consequence for the index.",
+       "evidence": "Sprint line 816: 'pub repo: String, // absolute path text; a non-UTF-8 byte is replaced (documented)'. Line 817: 'pub project: Option<ProjectLabel>'. Newtype pattern: 'validated values reused across boundaries with a distinct meaning' should be newtypes."
+      },
+      {
+       "id": "RBP-F005",
+       "practice_id": "RBP-007",
+       "severity": "minor",
+       "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+       "line": 681,
+       "issue": "ModelDescriptor::model(&self) -> ModelId is declared infallible, but the descriptor stores model as &'static str (line 678), and the only ModelId constructor is the fallible FromStr (line 669; UnknownModel has no public constructor). The signature therefore needs an unwrap or expect that the plan never names. The invariant (every MODELS string parses to a known variant) is held only by test_known_models_roundtrip, which is a convention rather than a type shape.",
+       "recommendation": "Either store the known ModelId variant in the descriptor (unit variants are const-constructible, so ModelDescriptor can drop Copy if needed), or state the expect in the signature's doc with the M-PANIC-ON-BUG rationale and point it at test_known_models_roundtrip. BackendDescriptor::default_model (line 697) is fine only if its row also stores a variant; say so.",
+       "evidence": "Sprint line 678: 'model: &'static str, family: ModelFamily, alias: &'static str, released: &'static str'. Line 681: 'pub fn model(&self) -> ModelId;'. Line 669: 'impl FromStr for ModelId ... empty or control char -> INPUT_INVALID'. Infallible pattern: 'unwrap() justified socially instead of structurally'."
+      },
+      {
+       "id": "RBP-F006",
+       "practice_id": "RBP-001",
+       "severity": "minor",
+       "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+       "line": 715,
+       "issue": "Two new failure modes name a stable code but no recovery text: AnswerId::from_str (not a ULID -> INPUT_INVALID, line 715) and ModelId::from_str for an empty or control-character string (line 669). ProjectLabel (line 626) and DecisionSchemaId (line 758) do specify hints. The acceptance rows (line 888) check the code only.",
+       "recommendation": "Specify a fix hint for each new error path, as ProjectLabel does. For example, AnswerId: use the answer_id value written in the session log row. ModelId: use a non-empty model string without control characters, or pick one from the ModelAliases catalog. Extend the existing acceptance rows to assert the hint.",
+       "evidence": "Sprint line 715: 'impl FromStr for AnswerId { ... /* not a ULID -> INPUT_INVALID */ }'. Line 669 gives the code only. Error-context pattern Phase 2: 'Does each inventory entry have recovery steps? Flag entries with empty recovery columns.'"
+      },
+      {
+       "id": "RBP-F007",
+       "practice_id": "RBP-004",
+       "severity": "minor",
+       "file": "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md",
+       "line": 678,
+       "issue": "The model release date is carried as a free-form &'static str ('YYYY-MM-DD' only in a trailing comment), and builtin() selects the 'newest MODELS row per alias' (line 691) by that string. No typed date or format check guards the ordering, so a malformed or mis-ordered entry silently changes which model every alias sends.",
+       "recommendation": "Type the release date (for example a small ReleaseDate with const construction and Ord), or add a format check to the catalog test (test_latest_alias_lookup) that asserts every released value is a valid date.",
+       "evidence": "Sprint line 678: 'released: &'static str, // \"YYYY-MM-DD\"'. Line 691: 'pub fn builtin() -> Self; // newest MODELS row per alias'."
+      }
+     ],
+     "summary": {
+      "total_findings": 7,
+      "by_severity": {
+       "critical": 0,
+       "important": 1,
+       "minor": 6
+      }
+     },
+     "notes": [
+      "Input check: worktree HEAD resolves to refs/heads/plan/phase-a-decision-apis = 197c24fbfc3b603026fd064f20b026bfb6459315, matching the assigned commit 197c24f.",
+      "Scope reviewed: docs/architecture.md (Crate naming convention lines 51-64; ADR-SAG-0009 r-1 lines 292-298; ADR-SAG-0030 lines 1562-1644, including the per-API bullet at 1616-1624; ADR-SAG-0031 storage schema lines 1653-1689); docs/plans/phase-a-refine/plan.md (layering item 2 at 610-613, owner item 12 at 663-670); docs/plans/phase-a-refine/sprint-r-7-decision-schema.md (layering 201-218, D1.4 at 324, D3-D8 and code samples 647-869, acceptance rows 880-895).",
+      "Consistent, no finding: owner item 12 agrees with the crate naming convention and the ADR-SAG-0030 per-API bullet on family names (sc-jev-*, sc-decider*, sc-laya*, sc-kev*, sc-decision-*), on decider-then-laya ordering with kev unscheduled, and on jev::v1 landing in r-5. The ADR-SAG-0030 Amends list matches its index row (architecture.md line 137).",
+      "Conforming, no finding: RBP-002 (SessionLogRow ok/failed constructors keep outcome shape private); RBP-006 (SendTrace OnceLock interior mutability has a stated rationale, sprint lines 611-613); RBP-010 (a required SendTrace parameter on the exchange functions makes 'no send without a trace' a type-shape rule, sprint lines 614-618). RBP-005 and RBP-009 are not triggered in this docs-only scope.",
+      "Owner-decided, not re-raised: ModelAliases::latest and with_override keep string aliases (sprint D7.2, owner 2026-11-07). This would otherwise be an RBP-004 candidate.",
+      "Out-of-scope observation 1 (no RBP id): architecture.md line 1616 marks the per-API bullet '(Recorded; binding as a reservation ... flips with this ADR in r-7)' instead of the (Proposed, r-N) form. Sprint D9 (lines 633-645) flips only (Proposed, r-7) markers, so this bullet would stay stale after r-7.",
+      "Out-of-scope observation 2 (no RBP id): module layout. The stated rule is one versioned module per decision API (architecture.md lines 63-64 and 1617-1621), but r-7 adds llm::v1 (Haiku and Luna I/O, which architecture.md lines 53-58 count as the Jev family) and variants. Architecture.md line 1030 names sc_decision_schema::jev while line 1598 names jev::v1. The plan should decide whether llm::v1 belongs under the Jev family.",
+      "Coverage limit: guidelines.txt was read only to line 1470 of 2428. Practice definitions came from practice-inventory.md and enforcement-strategy.md. Per-pattern references loaded: sealed-traits-plan, trait-object-safety-plan, newtype-zero-cost-plan, infallible-plan, error-context-recovery-plan.",
+      "Read-only review. No files were modified. Recommendations add no CI or quality gates, per the owner rule."
+     ]
+    },
+    "error": null
+   },
+   "recheck": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "plan/phase-a-decision-apis",
+     "reviewed_commit": "537a69d",
+     "review_mode": "doc_review",
+     "practice_mode": "selected",
+     "practices_reviewed": [
+      "RBP-001",
+      "RBP-003",
+      "RBP-004",
+      "RBP-007",
+      "RBP-008"
+     ],
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "notes": [
+      "Locked recheck of carry-forward RBP-F001 to RBP-F007. Input check: refs/heads/plan/phase-a-decision-apis = 537a69d1cfe4ed90c2d4ccab6ec36731b3cc41b2, matching the assigned commit.",
+      "RBP-F001 (RBP-001) closed: sprint-r-7 'API clarifications' (lines 203-206) makes try_from_fields refuse a schema_version other than SESSION_LOG_SCHEMA_VERSION with INPUT_INVALID, a hint, and coverage in test_unknown_or_missing_key_rejected.",
+      "RBP-F002 (RBP-003) closed by binding clarification (lines 207-210): JudgeBackend stays open, with the additive-default-body rule as its semver promise. Minor residual: the D1.4 README sentence at line 324 still reads 'no semver promise beyond the schema versions it names'. The binding clarification supersedes it and says the README states the additive rule, so this is not blocking. The sentence should be edited to match.",
+      "RBP-F003 (RBP-008) closed (lines 207-210): dyn-compatibility is stated (&self receivers, no generic methods, no Self in signatures) and required in the rustdoc and crate README.",
+      "RBP-F004 (RBP-004) justified: owner decision keeps repo as absolute path text, and the non-UTF-8 replacement and the answers_by_repo_project collision are documented on the field (lines 211-213). Accepted as an owner-justified deviation from the newtype recommendation.",
+      "RBP-F005 (RBP-007) justified: ModelDescriptor::model() uses expect under M-PANIC-ON-BUG, with the invariant proven by test_known_models_roundtrip (lines 214-215). This is an accepted alternative to the recommended variant-storage option.",
+      "RBP-F006 (RBP-001) closed: AnswerId::from_str and ModelId::from_str errors carry fix hints, and the acceptance rows assert them (lines 216-218).",
+      "RBP-F007 (RBP-004) closed: test_latest_alias_lookup asserts that every released value is a valid YYYY-MM-DD date (lines 219-220).",
+      "No regressions found in the new section. D9 also flips the ADR-SAG-0030 per-API bullet to (Active, r-7) (line 221), which addresses out-of-scope observation 1 from the prior review. Out-of-scope observation 2 (llm::v1 versus the one-module-per-API rule) remains unaddressed and is not a blocking item for this recheck."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "af1012bab54db6323",
+   "fenced_json": {
+    "agent": "arch-qa",
+    "branch": "plan/phase-a-decision-apis",
+    "scope": {
+     "phase": "phase-a-refine",
+     "sprint": "r-7"
+    },
+    "commit": "1ecc725",
+    "reviewed_commit": "1ecc725",
+    "verdict": "PASS",
+    "blocking": 0,
+    "important": 0,
+    "findings": [],
+    "adr_checks": [
+     {
+      "adr": "ADR-SAG-0030",
+      "source": "docs/architecture.md:1564",
+      "listed_in_sprint_doc": true,
+      "result": "not-applicable",
+      "evidence_refs": [
+       ".claude/project/quality-policy.md:139-149 (Repository exceptions: Phase A.1 landing-sprint ADRs, names arch-qa, recorded by PR 32 ARCH-006)",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:86 (listed; r-7 is the landing sprint)"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0031",
+      "source": "docs/architecture.md:1647",
+      "listed_in_sprint_doc": true,
+      "result": "not-applicable",
+      "evidence_refs": [
+       ".claude/project/quality-policy.md:139-149 (same exception; r-7 is the storage-schema landing sprint)",
+       "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:87 (listed)"
+      ]
+     }
+    ],
+    "gate_artifact_checks": [
+     {
+      "artifact": "docs/architecture.md (ADR-SAG-0030 and ADR-SAG-0031 Status lines and index cells)",
+      "status": "open",
+      "evidence_refs": [
+       "docs/architecture.md:1564 (Proposed)",
+       "docs/architecture.md:1647 (Proposed)",
+       ".claude/project/quality-policy.md:145-148 (flip is checked at r-7 sprint QA)"
+      ],
+      "notes": "Expected open at plan review. The landing sprint r-7 must flip ADR-SAG-0030 and ADR-SAG-0031, and their r-7 subsections, to Active on its sprint branch. Checked at r-7 sprint QA, not here."
+     }
+    ],
+    "merge_ready": true,
+    "notes": "Locked recheck of ARCH-006 only, at 1ecc725. Worktree ref refs/heads/plan/phase-a-decision-apis = 1ecc725142591c75c776da50b23450c082c2a7b6, matching the requested commit. ARCH-006 is closed. The new Repository exceptions entry in .claude/project/quality-policy.md:139-149 names arch-qa and covers the Proposed ids that r-7 lands, which resolves the RULE-ADR-PLAN binding question at plan review. Its conditions: the flip must be present on the r-7 sprint branch at sprint QA, and any other dependency on a Proposed ADR stays a finding. Observation only, not a finding under the locked scope: sprint-r-5 is later in dependency order than r-7 and its jev::v1 bullet depends on ADR-SAG-0030 (Proposed, r-5). I did not check the r-5 adrs list, so the entry's rule for sprints that land after r-7 should be confirmed at r-5 plan review. The jev::v1 wording question is unchanged: no conflict."
+   }
+  }
+ ],
+ "head": "1ecc725",
+ "post_review_commits": "537a69d (r-7 API clarifications, verified by RBP locked recheck) and 86262ed (aligns the D1.4 README sentence with the recheck residual note); both docs-only; b3c1c9b (ARCH-001..005 adrs list) and 1ecc725 (quality-policy Repository exception, ARCH-006), verified by arch-qa locked recheck at 1ecc725",
+ "prior_round": {
+  "qa_pass": "qa-pr32-2 spawn-gate FAIL",
+  "pr_comment": "https://github.com/randlee/sc-agent/pull/32#issuecomment-6715674716"
+ }
+}

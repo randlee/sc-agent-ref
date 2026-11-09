@@ -1,0 +1,462 @@
+{
+ "pr": 34,
+ "qa_pass": "qa-r5-2",
+ "round": "QA-2",
+ "sprint": "r-5",
+ "branch": "sprint/r-5-jev-wire-envelope",
+ "head": "085dab4",
+ "base": "integrate/phase-a",
+ "prior_round": {
+  "qa_pass": "qa-r5-1",
+  "pr_comment": "https://github.com/randlee/sc-agent/pull/34#issuecomment-6717969592",
+  "dispositions": "../r-5-qa1/fix-assignment.xml"
+ },
+ "notes": "CI failed on every job at 085dab4: sc-decision-schema did not compile on the pinned toolchain 1.94.1 (a type inference failure at jev/v1.rs:193). The parent fixed it in f6b2b86 under Auto-fix authorization, with a one-line Pairs::<K, V> annotation, and verified the build, clippy, tests and doc on 1.94.1. QA-3 must cover f6b2b86.",
+ "manifest": [
+  {
+   "agent": "req-qa",
+   "task_id": "a21e4b4b3c4196fa4",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "085dab4"
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "ab87438fa57f1a831",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "085dab4"
+  },
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "a15ea565daaa7e378",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "085dab4"
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "a15ef2689151deee3",
+   "spawn_actor": "parent-orchestrator",
+   "commit": "085dab4"
+  }
+ ],
+ "reviewer_outputs": [
+  {
+   "agent": "req-qa",
+   "task_id": "a21e4b4b3c4196fa4",
+   "fenced_json": {
+    "status": "PASS",
+    "reviewed_branch": "sprint/r-5-jev-wire-envelope",
+    "reviewed_commit": "085dab4",
+    "errors": [],
+    "scope": {
+     "phase": "phase-a-refine",
+     "sprint": "r-5"
+    },
+    "baselines_read": [
+     "docs/requirements.md",
+     "docs/architecture.md",
+     "docs/plans/phase-a-refine/plan.md",
+     "docs/sc-decision-schema/requirements.md",
+     "docs/sc-jev/requirements.md",
+     "docs/sc-jev-check/requirements.md"
+    ],
+    "phase_or_sprint_docs_read": [
+     "docs/plans/phase-a-refine/plan.md",
+     "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md"
+    ],
+    "requirement_checks": [
+     {
+      "id": "REQ-SAG-0110, 0502, 0503, 0504, 0505, 0144, 0145, 0146",
+      "source": "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:28-35",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "sprint-r-5-jev-wire-envelope.md:28-35"
+      ]
+     },
+     {
+      "id": "NFR-SAG-0001, 0002, 0004",
+      "source": "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:36-39",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "sprint-r-5-jev-wire-envelope.md:36-39",
+       "crates/sc-jev-backends/src/backend.rs:254-259",
+       "crates/sc-agent-types/src/error.rs:465-481"
+      ]
+     },
+     {
+      "id": "NFR-SAG-0003",
+      "source": "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:38",
+      "listed_in_sprint_doc": true,
+      "result": "not-applicable",
+      "evidence_refs": [
+       "sprint-r-5-jev-wire-envelope.md:38"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0143, REQ-SAG-0403, REQ-SAG-0103",
+      "source": "docs/requirements.md:170,180,210",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/sc-decision-schema/requirements.md:11,15",
+       "docs/sc-jev/requirements.md:12-13"
+      ]
+     }
+    ],
+    "deliverable_checks": [
+     {
+      "item": "REQ-QA-001: sprint requirements list completed",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:28-39"
+      ],
+      "notes": "All 11 ids are listed. NFR-SAG-0003 is marked not-applicable. The boundary:jev row is a single long line at :310 that I did not read in full. A count of the regression ids in the doc shows they occur."
+     },
+     {
+      "item": "REQ-QA-002: kind-aware question-set check, noul test, owned_paths entry",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "crates/sc-jev-check/src/payload/questions.rs:82-105",
+       "crates/sc-jev-check/src/payload/caller.rs:181-185",
+       "docs/sc-jev-check/requirements.md:35-40",
+       "sprint-r-5-jev-wire-envelope.md:75"
+      ],
+      "notes": "The noul test is present. The docs state the rule, and the (QA fix) entry is in owned_paths."
+     },
+     {
+      "item": "REQ-QA-003 / RBP-F002: typed rule error, specific hints",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "crates/sc-decision-schema/src/payload.rs:102-125",
+       "crates/sc-jev-check/src/payload/caller.rs:90-102,154-168"
+      ],
+      "notes": "RuleViolation replaces OWN_MESSAGE and String errors (grep finds no OWN_MESSAGE). The tests cover score with 11 levels and choice with empty choices. v1.rs uses JevError as its TryFrom error, which is typed."
+     },
+     {
+      "item": "RBP-F001 / REQ-QA-006b: from_bytes maps serde errors to category and position",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "crates/sc-decision-schema/src/payload.rs:407-411",
+       "crates/sc-agent-types/src/error.rs:465-481"
+      ],
+      "notes": "from_bytes calls encode_failed, which formats category and line/column only."
+     },
+     {
+      "item": "REQ-QA-004: requirements rows",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "docs/sc-decision-schema/requirements.md:11,15",
+       "docs/sc-jev/requirements.md:12-13"
+      ],
+      "notes": "The REQ-SAG-0143 row, the REQ-SAG-0403 row and the 0103 additive-fields note are all present."
+     },
+     {
+      "item": "RBP-F003: CheckRequest::parse error codes match behaviour",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "crates/sc-decision-schema/src/jev/v1.rs:554-566"
+      ],
+      "notes": "The docs match the code. describe() is gone."
+     },
+     {
+      "item": "RBP-F004: unchecked constructors gated",
+      "status": "partially-present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "crates/sc-decision-schema/src/payload.rs:132-146,380"
+      ],
+      "notes": "Question::new is replaced by new_unchecked behind cfg(any(test, feature=test-util)), and the test helpers use it. CanonicalJudgePayload::new stays pub, but it takes already-validated Questions and encode() still checks duplicate ids, so there is no bypass. Informational only."
+     },
+     {
+      "item": "RBP-F005: ChoiceId::yes()/no()",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "crates/sc-decision-schema/src/ids.rs:118-124",
+       "crates/sc-decision-schema/src/payload.rs:271"
+      ],
+      "notes": "The yes() and no() constants exist and answer_labels uses them. The filter_map(ok) grep finds nothing in the touched code."
+     },
+     {
+      "item": "RBP-F006: into_answers single lookup",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "crates/sc-decision-schema/src/jev/v1.rs:759-775"
+      ],
+      "notes": "It iterates the request questions and looks up each answer once."
+     },
+     {
+      "item": "RSH-002: http_failure status only, plus sentinel test",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "crates/sc-jev-backends/src/backend.rs:254-259",
+       "crates/sc-jev-backends/tests/llm.rs:583-592"
+      ],
+      "notes": "The detail is HTTP {status}, and the test asserts the sentinel body is absent."
+     },
+     {
+      "item": "REQ-QA-005: D9 line and WireFault doc",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/plan.md:1020",
+       "crates/sc-jev/src/check.rs:78-81"
+      ],
+      "notes": "Both are corrected."
+     },
+     {
+      "item": "REQ-QA-006a: fixture uses prior answer pass",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "crates/sc-decision-schema/tests/jev.rs:67,74"
+      ],
+      "notes": "The fixture and the jev.rs payload use pass."
+     },
+     {
+      "item": "ARCH-001: ADR-SAG-0030 index row status",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "docs/architecture.md:140"
+      ],
+      "notes": "The row reads Active (r-7); jev::v1 (Active, r-5)."
+     }
+    ],
+    "findings": [],
+    "summary": {
+     "total_findings": 0,
+     "blocking_findings": 0,
+     "overall_compliance": "compliant",
+     "deliverables_total": 13,
+     "deliverables_complete": 13,
+     "deliverables_incomplete": 0,
+     "deliverable_completion_percent": 100.0
+    },
+    "gate_reason": "PASS. HEAD of sprint/r-5-jev-wire-envelope is 085dab4, checked in the worktree's git log. REQ-QA-001 to REQ-QA-006 are closed by the QA-1 fixes, and I found nothing new in the 14f85f1..085dab4 delta. I could not run git or cargo, because this session only had read and search tools. The review rests on reading the code and docs, not on test runs or a diff. The sprint doc's boundary:jev row (line 310, one long line) was only counted by grep. The two dispositions (R5-QA1-RSH-001 and R5-QA1-RQA-QA-001) are outside the 14f85f1..085dab4 delta and raise no finding."
+   }
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "ab87438fa57f1a831",
+   "fenced_json": {
+    "agent": "arch-qa",
+    "branch": "sprint/r-5-jev-wire-envelope",
+    "scope": {
+     "phase": "phase-a-refine",
+     "sprint": "r-5"
+    },
+    "commit": "085dab4",
+    "verdict": "PASS",
+    "blocking": 0,
+    "important": 1,
+    "findings": [
+     {
+      "id": "ARCH-002",
+      "rule": "RULE-ADR-CODE",
+      "adr": "ADR-SAG-0027",
+      "severity": "IMPORTANT",
+      "file": "crates/sc-decision-schema/src/jev/v1.rs",
+      "line": 563,
+      "description": "CheckRequest::parse maps every serde failure to JevError::encode_failed (v1.rs:563-564). The same pattern is in CanonicalJudgePayload::from_bytes (payload.rs:408-409). The code is INPUT_INVALID, as the ADR requires. But the EncodeFailed hint reads 'could not be encoded as JSON ... Retry; if it persists, report it as a bug' (error.rs:833). That is the wrong guidance for a malformed caller body or payload. Sprint item 9 asks for InputInvalid with a fix hint, and this is the opposite of a fix hint. The variant is also an encode-side recovery category in ADR-SAG-0027, and these are decode failures. I am not marking it Blocking because the ADR fixes only the code mapping, and ErrorCode, exit code and retryable() are all correct.",
+      "remediation": "For decode failures, return JevError::input_invalid(format!('Jev wire body is not valid: {category} at line/column; fix the body')). The detail must carry only category and position. Alternatively add a decode-side constructor to sc-agent-types. Apply the same change in payload.rs:409. If the owner prefers to defer, record it as a tracked follow-up bead."
+     }
+    ],
+    "adr_checks": [
+     {
+      "adr": "ADR-SAG-0001",
+      "source": "docs/architecture.md:143",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-decision-schema/src/payload.rs:113-117",
+       "crates/sc-decision-schema/src/jev/v1.rs:562-566"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0002",
+      "source": "docs/architecture.md:150",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-decision-schema/src/payload.rs:105-124",
+       "docs/architecture.md:158-162"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0005",
+      "source": "docs/architecture.md:173",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:200-204"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0012",
+      "source": "docs/architecture.md:1023",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:1031-1037"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0020",
+      "source": "docs/architecture.md:549",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-jev-backends/src/backend.rs:254-259",
+       "crates/sc-decision-schema/src/payload.rs:390-395"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0027",
+      "source": "docs/architecture.md:1409",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "crates/sc-decision-schema/src/payload.rs:105-117",
+       "crates/sc-decision-schema/src/jev/v1.rs:719-726",
+       "crates/sc-agent-types/src/error.rs:773-775"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0030",
+      "source": "docs/architecture.md:1594",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:140",
+       "docs/architecture.md:1630"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0011-point-2 (RULE-ADR-AWAIT-MUTEX)",
+      "source": ".claude/project/quality-policy.md",
+      "listed_in_sprint_doc": false,
+      "result": "not-applicable",
+      "evidence_refs": [
+       "no Mutex or .await in the delta files; the only hits are in crates/sc-decision-schema/src/test_util.rs, which is not in the delta"
+      ]
+     }
+    ],
+    "gate_artifact_checks": [
+     {
+      "artifact": "docs/architecture.md (r-5 markers)",
+      "status": "closed",
+      "evidence_refs": [
+       "docs/architecture.md:112",
+       "docs/architecture.md:115",
+       "docs/architecture.md:122",
+       "docs/architecture.md:140"
+      ],
+      "notes": "No '(Proposed, r-5)' marker remains in docs/architecture.md. The only remaining mentions are in plan docs: sprint-r-5's own acceptance row, and sprint-r-7 line 688, which is a historical r-7 instruction."
+     },
+     {
+      "artifact": "boundaries/",
+      "status": "closed",
+      "evidence_refs": [
+       "crates/sc-decision-schema/src/jev/v1.rs:155-193"
+      ],
+      "notes": "The SCB-CYCLE-001 fix keeps Pairs and PairsVisitor private to v1.rs. They are not facade items, so no manifest change is needed. I did not run just lint, because this agent has no shell. Please confirm that CI run."
+     }
+    ],
+    "merge_ready": true,
+    "notes": "ARCH-001 is closed. Index row docs/architecture.md:140 now reads 'Active (r-7); jev::v1 (Active, r-5)'. The sprint doc adrs list covers all governing ADRs, and the QA-fix owned_paths now cover the delta files. I verified the worktree HEAD ref (refs/heads/sprint/r-5-jev-wire-envelope) by reading it, but I could not resolve the commit hash without a shell. Please confirm that the HEAD hash is 085dab4. Delta review of ADR-SAG-0027: RuleViolation is a private pub(crate) type that converts to InputInvalid. It is not a new public error type and not a new stable code, and rule text carries the question id, kind and counts, never prompt bytes. CheckRequest::parse failures all map to INPUT_INVALID, and CheckResponse::parse maps to RESPONSE_INVALID with fixed, byte-free text. http_failure is now status-only, and kind Status is retained, so retryable() is unaffected. Only ARCH-002 (IMPORTANT) is raised."
+   }
+  },
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "a15ea565daaa7e378",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-5-jev-wire-envelope",
+     "reviewed_commit": "085dab4",
+     "review_mode": "sprint_review",
+     "executed_checks": {
+      "fmt": {
+       "status": "pass",
+       "command": "cargo fmt --all --check"
+      },
+      "clippy": {
+       "status": "pass",
+       "command": "cargo clippy --workspace --exclude sc-jev-py --all-targets --all-features -- -D warnings (a plain `cargo clippy --all-targets --all-features -- -D warnings` also finished clean)"
+      },
+      "tests": {
+       "status": "pass",
+       "command": "cargo test --workspace --exclude sc-jev-py --all-features; cargo test (default). Neither run had a failure, and 90 'test result: ok' lines were recorded across both."
+      },
+      "coverage": {
+       "status": "not_run",
+       "line": 0.0,
+       "branch": 0.0,
+       "function": 0.0,
+       "adequate_for_risk": true
+      },
+      "artifacts": {
+       "status": "not_run",
+       "command": ""
+      }
+     },
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "notes": [
+      "HEAD is 085dab4 on sprint/r-5-jev-wire-envelope, as assigned.",
+      "Closure of the earlier reviewers' findings, checked in code:",
+      "- RBP-F001: CanonicalJudgePayload::from_bytes now maps serde errors through JevError::encode_failed. That keeps only the error category and line/column, so the raw serde text is never formatted.",
+      "- RBP-F002: the String errors and prefix sniffing are replaced by a private typed RuleViolation in payload.rs. It converts into JevError::input_invalid, and sc-jev-check's parse_question keeps the rule text only for InputInvalid.",
+      "- RBP-F003: request_json_error maps the Data category to one generic hint, consistently.",
+      "- RBP-F004: Question::new is now Question::new_unchecked, gated behind #[cfg(any(test, feature = \"test-util\"))]. The sc-jev-backends test uses new_unchecked.",
+      "- RBP-F005: ChoiceId::yes() and ChoiceId::no() exist in ids.rs.",
+      "- RBP-F006: into_answers iterates request.questions and looks up each answer once, after a length check.",
+      "- RSH-002: http_failure in sc-jev-backends/src/backend.rs now returns 'HTTP {status}' only. The test in tests/llm.rs asserts that SENTINEL-RESPONSE-BODY and the key do not appear in the error.",
+      "CanonicalJudgePayload::new stays public, and I judge that acceptable. The deviation from RBP-F004 is real but benign. Question can now only be built through try_new or deserialization, so every Question handed to new already satisfies its kind rules. The remaining payload-level invariant, duplicate question ids, is enforced by PayloadBundle::encode, and from_bytes re-validates. Public new therefore cannot produce an invalid bundle. Optional follow-up (minor, not a finding): add a doc line on new saying it relies on Question being pre-validated.",
+      "sc-jev-py was excluded as instructed, because its link failure is pre-existing (RQA-QA-001 disposition).",
+      "Docs changes (requirements ids, ADR index row, plan.md D9) were not reviewed in depth, since they are outside this agent's scope."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "a15ef2689151deee3",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-5-jev-wire-envelope",
+     "reviewed_commit": "085dab4",
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "critical": 0,
+      "important": 0,
+      "minor": 0
+     }
+    },
+    "error": null
+   }
+  }
+ ]
+}

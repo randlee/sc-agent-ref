@@ -1,0 +1,22 @@
+{
+  "generated_at": "2026-11-08T05:25:16Z",
+  "qa_pass": "qa-r7-6",
+  "sprint_id": "r-7",
+  "task_id": "phase-a-refine/sprint-r-7-decision-schema",
+  "branch": "sprint/r-7-decision-schema",
+  "commit": "57c66e2e27d9ee6e76a5a71f65de70039b6f56c2",
+  "pr_number": "33",
+  "verdict": "PASS",
+  "validated_scope_md": "- Sprint r-7 (phase-a-refine), branch `sprint/r-7-decision-schema`, head 57c66e2, base `integrate/phase-a`.\n- req-qa at 57c66e2: PASS, REQ-QA-001 and REQ-QA-002 closed, deliverables 2/2 (100%) for the delta-limited recheck.\n- arch-qa at 45b2b07: PASS, ARCH-003 closed, ADR-SAG-0028 r-7 amendment upheld. Commits 45b2b07..57c66e2 touch only `docs/plans/phase-a-refine/sprint-r-7-decision-schema.md`.\n- rust-qa-agent at 45b2b07: PASS (fmt, clippy -D warnings, cargo test). No Rust source changed after 45b2b07.\n- flaky-test-qa omitted by parent: no test-logic changes since QA-4 (recorded in handoff notes).\n- CI on PR 33: 13 of 13 checks pass (run 42450435304 and dry-run 42450435307).\n- TODO scan (`.claude/skills/todo-triage/scripts/find_todos.py`) at 57c66e2: zero hits.",
+  "findings_blocking": "0",
+  "findings_important": "0",
+  "findings_minor": "0",
+  "residual_risks_md": "- REQ-QA-001 and REQ-QA-002 fixes were parent edits to coordinator closeout text with no dispatch and no triage records. Recorded deviation in the handoff; closure rests on the fresh req-qa run at 57c66e2.\n- arch-qa and rust-qa-agent ran at 45b2b07, not the head. The intervening commits change only the sprint doc, per the handoff and `git diff --name-only`.\n- req-qa final round covers only the two locked items (2/2). It did not re-review the full sprint, which earlier rounds covered.",
+  "merge_readiness": "ready",
+  "merge_reason": "All gate conditions met: spawn gate pass, 0B/0I/0M, TODO scan clean, 13/13 CI checks green. Merge decision is the parent's.",
+  "recommendation": "Parent may proceed to merge decision. Merge and approval were not performed by this enforcer.",
+  "blocking_ids_json": "[]",
+  "reviewer_spawn_gate": "pass",
+  "reviewer_manifest_json": "[{\"agent\": \"req-qa\", \"task_id\": \"aaaf148e50de05865\", \"spawn_actor\": \"parent-orchestrator\", \"fenced_json_received\": true, \"verdict\": \"PASS\", \"reviewed_commit\": \"57c66e2\", \"findings\": {\"blocking\": 0, \"important\": 0, \"minor\": 0}}, {\"agent\": \"arch-qa\", \"task_id\": \"aac1e6a71c4563bf1\", \"spawn_actor\": \"parent-orchestrator\", \"fenced_json_received\": true, \"verdict\": \"PASS\", \"reviewed_commit\": \"45b2b07\", \"findings\": {\"blocking\": 0, \"important\": 0, \"minor\": 0}}, {\"agent\": \"rust-qa-agent\", \"task_id\": \"ab30931349540ddca\", \"spawn_actor\": \"parent-orchestrator\", \"fenced_json_received\": true, \"verdict\": \"PASS\", \"reviewed_commit\": \"45b2b07\", \"findings\": {\"blocking\": 0, \"important\": 0, \"minor\": 0}}]",
+  "evidence_chain_json": "{\"qa_pass\": \"qa-r7-6\", \"commit\": \"57c66e2e27d9ee6e76a5a71f65de70039b6f56c2\", \"pr_comment_url\": \"pending\", \"coordinator_task_id\": \"cursor-quality-mgr (subagent task id not exposed)\", \"triage\": {\"ttl_paths\": []}}"
+}

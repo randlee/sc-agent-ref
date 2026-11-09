@@ -1,0 +1,55 @@
+<cursor-task id="dev-a-9" sprint="a-9" assignee="rust-developer">
+  <description>Sprint a-9: install the sc-publish release kit, pin it, author release/sc-publish-consumer-input.json, prove release preflight and publish dry-run</description>
+
+  <worktree>/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-9-sc-publish-install</worktree>
+  <branch>sprint/a-9-sc-publish-install</branch>
+  <pr-target>integrate/phase-a</pr-target>
+  <authoritative-sprint-doc>docs/plans/phase-a/sprint-a-9-sc-publish-install.md</authoritative-sprint-doc>
+
+  <deliverables>
+- Implement every deliverable in the sprint doc (REQ-SAG-0130, 0131, 0132, 0803; ADR-SAG-0017, 0018).
+- Pin revision: use the local sc-publish clone at the sibling path ../sc-publish (relative to the primary repo root /Volumes/Extreme Pro/github/sc-agent), currently at develop HEAD 11b5b04907aade73599ad2fdabf4562f11f41ea8. Pin that exact 40-char SHA in release/sc-publish-pin.toml. Read plugins/sc-publish/docs/getting-started.md, docs/consumer-preflight-and-docli.md and release/sc-publish-pin.toml.example in that clone before writing anything.
+- Consumer JSON: workspace crates in publish order (sc-agent-types, sc-agent-secrets, sc-jev, sc-jev-backends, sc-jev-check, sc-treesitter, sc-ai), maturin project sc-jev-py, release_binaries for sc-ai and sc-treesitter, channels crates.io, pypi, homebrew, scoop, winget.
+- Run install.py (real install, then --dry-run must exit 0). Never hand-edit rendered publish-artifacts.toml / channel contracts / publish-preflight.toml (ADR-SAG-0018).
+- Secrets naming per kit: PYPI_API_TOKEN (pypi env), TEST_PYPI_API_TOKEN (testpypi env), CARGO_REGISTRY_TOKEN (repo secret, crates-io env). Document them; do not create them.
+- docs/development/sc-publish.md: install, pin bump, dry-run drift check, first-release checklist (cargo publish --dry-run order incl. sc-treesitter; maturin build for sc-jev-py; tag/release gate).
+- .gitignore: .sc-publish-kit/ and .sc-publish-venv/.
+- Before install.py, move any existing file that collides with a kit path (install.py overwrites silently).
+  </deliverables>
+
+  <acceptance-criteria>
+- Every command in the sprint doc Required validation block passes in the worktree (just lint, just test, install dry-run exit 0, run-consumer-preflight.sh exit 0, cargo publish --dry-run --locked for all seven crates, maturin build produces a wheel).
+- Rendered manifests and workflows include all five channels.
+- Preflight requirements from the kit hold: [workspace.package].version present, every published crate uses version.workspace = true, members listed literally (no globs), Cargo.lock committed; verify-version-lockstep passes.
+- release-preflight workflow is present so it runs on the PR.
+- This sprint does NOT create a tag or perform a production publish.
+- sprint doc deliverables gate:
+  - `docs/plans/phase-a/sprint-a-9-sc-publish-install.md` exists
+  - sprint doc frontmatter sets `status: complete`
+  - sprint doc frontmatter sets `branch:`
+  - sprint doc frontmatter sets `worktree:`
+- planning index gate:
+  - `docs/plans/project-plan.md` includes the sprint entry before closeout
+  </acceptance-criteria>
+
+  <references>
+- docs/plans/phase-a/sprint-a-9-sc-publish-install.md (authoritative)
+- docs/plans/phase-a/plan.md
+- docs/requirements.md (REQ-SAG-0130..0132, REQ-SAG-0803)
+- docs/architecture.md (ADR-SAG-0017, ADR-SAG-0018)
+- ../sc-publish/plugins/sc-publish/docs/getting-started.md
+- ../sc-publish/plugins/sc-publish/docs/consumer-preflight-and-docli.md
+- https://github.com/randlee/sc-publish
+  </references>
+
+  <workflow>
+    <step id="a">ACK this Task assignment immediately in your completion preamble. Make reasonable assumptions; do not ask clarifying questions unless a real blocker prevents execution.</step>
+    <step id="b">Begin executing in this Task session immediately after ACK.</step>
+    <step id="c">Read `docs/plans/phase-a/sprint-a-9-sc-publish-install.md` before coding. Treat it as the authoritative source for scope, deliverables, deletion targets, validation, and acceptance criteria. If this assignment summary and the sprint doc differ, the sprint doc wins and the mismatch must be reported.</step>
+    <step id="d">Before coding, update the worktree from the sprint target branch and include prior fixes already merged to that target.</step>
+    <step id="e">As soon as the development changes are complete and the branch is pushable, commit and push immediately. Report branch name and commit hash so the parent can open/update the PR.</step>
+    <step id="f">After the push report, run the required validation and tests. Do not wait for PR creation before starting validation.</step>
+    <step id="g">When validation completes, send a second report with PASS or FAIL, concrete failure details if any, and whether follow-up fixes are required.</step>
+    <step id="h">Stop after the validation report. Wait for parent Tasks (QA reviewers are spawned by parent, not by you). Do not self-merge. Do not spawn child Tasks (no rust-best-practices-agent, reviewers, or cursor-quality-mgr from this session).</step>
+  </workflow>
+</cursor-task>

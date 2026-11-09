@@ -1,0 +1,4 @@
+<fix-assignment sprint="r-7" pr="33" branch="sprint/r-7-decision-schema" base-commit="a6a1387" round="QA-3">
+  <fix id="R7-QA3-FTQ-001" severity="important">crates/workspace-tests/tests/test_util_off.rs: the bin_path cargo build in test_release_binary_rejects_scripted_answers runs in parallel with the TREE_LOCK-guarded cargo tree calls. Preferred fix: move test_release_binary_rejects_scripted_answers into its own test binary, so this binary never runs a cargo build alongside cargo tree. Alternative: one shared lock in tests/support that both bin_path and run_tree take. Keep the 60 s tree deadline scoped to the tree call only.</fix>
+  <fix id="R7-QA3-REQ-QA-004" severity="minor">Sprint doc owned_paths line 182: spell out crates/sc-agent-types/tests/fixtures/error-codes.json#GitTimeout row.</fix>
+</fix-assignment>

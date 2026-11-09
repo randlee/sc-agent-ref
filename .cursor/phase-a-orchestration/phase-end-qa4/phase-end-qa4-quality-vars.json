@@ -1,0 +1,18 @@
+{
+  "qa_pass": "qa-stack-41-1",
+  "sprint_id": "stack #41 (PRs 39, 40, 42, 43, 44, 45)",
+  "task_id": "cursor-quality-mgr",
+  "branch": "fix/pe-plan-notes",
+  "commit": "6b946d2",
+  "pr_number": "45",
+  "verdict": "FAIL",
+  "reviewer_spawn_gate": "pass",
+  "next_action": "triage_and_fix",
+  "findings_blocking": "0",
+  "findings_important": "1",
+  "findings_minor": "1",
+  "open_findings_json": "[\"ARCH-002\", \"ARCH-003\"]",
+  "ci_state": "16/16 pass at 6b946d2 (gh pr checks 45)",
+  "todo_scan_hits": "0",
+  "pr_comment_url": "pending"
+}

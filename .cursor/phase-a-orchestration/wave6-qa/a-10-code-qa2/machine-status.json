@@ -1,0 +1,103 @@
+{
+  "reviewer_spawn_gate": "pass",
+  "reviewer_manifest": [
+    {
+      "agent": "req-qa",
+      "task_id": "a560cb6487a35a7a7",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "PASS",
+      "findings": {
+        "blocking": 0,
+        "important": 0,
+        "minor": 1
+      }
+    },
+    {
+      "agent": "arch-qa",
+      "task_id": "a7877b2f6f4ad7162",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "PASS",
+      "findings": {
+        "blocking": 0,
+        "important": 1,
+        "minor": 2
+      }
+    },
+    {
+      "agent": "rust-qa-agent",
+      "task_id": "ae3994776709ae2b3",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "findings",
+      "findings": {
+        "blocking": 0,
+        "important": 0,
+        "minor": 4
+      }
+    },
+    {
+      "agent": "flaky-test-qa",
+      "task_id": "ae47effc6cc76c350",
+      "spawn_actor": "parent-orchestrator",
+      "fenced_json_received": true,
+      "verdict": "findings",
+      "findings": {
+        "blocking": 0,
+        "important": 1,
+        "minor": 1
+      }
+    }
+  ],
+  "missing_reviewers": [],
+  "unparsed_reviewers": [],
+  "verdict": "FAIL",
+  "findings": {
+    "blocking": 0,
+    "important": 2,
+    "minor": 8
+  },
+  "deliverables": {
+    "complete": 10,
+    "total": 10,
+    "percent": 100
+  },
+  "evidence_chain": {
+    "qa_pass": "qa-a-10-code-2",
+    "commit": "145d47aadddd7d893104bbbf6591a91e7bb30b8a",
+    "pr_number": 20,
+    "pr_comment_url": "https://github.com/randlee/sc-agent/pull/20#issuecomment-6705192343",
+    "coordinator_task_id": "cursor-quality-mgr-fallback",
+    "reviewer_tasks": {
+      "req-qa": "a560cb6487a35a7a7",
+      "arch-qa": "a7877b2f6f4ad7162",
+      "rust-qa-agent": "ae3994776709ae2b3",
+      "flaky-test-qa": "ae47effc6cc76c350"
+    },
+    "ci": {
+      "run": "42360114766",
+      "dry_run": "42360114760",
+      "checks": "10/10 pass"
+    },
+    "triage": {
+      "phase_id": "phase-a",
+      "ttl_paths": [],
+      "qa_triage_task_ids": []
+    },
+    "parent_correlation_required": true
+  },
+  "open_ids": [
+    "ARCH-005",
+    "FTQ-011",
+    "REQ-QA-201",
+    "ARCH-006",
+    "ARCH-004",
+    "QA-009",
+    "QA-010",
+    "QA-011",
+    "QA-004",
+    "FTQ-012"
+  ],
+  "next_action": "triage_and_fix"
+}

@@ -1,0 +1,7 @@
+{"success":true,"data":{"status":"findings","reviewed_branch":"sprint/a-10-docs-ci-boundaries","reviewed_commit":"91ee1ab8dec686a6e324fdb5d0d296594de7f807","review_mode":"sprint_review",
+"executed_checks":{"fmt":"pass","clippy":"pass","tests":"pass (194, rustc 1.99 local; CI pins 1.94.1)","just_lint":"pass; sc-lint-boundary pass (0 findings)","just_test_python":"7 passed","yaml":"ok","actionlint":"clean","sha_pins":"all 25 refs 40-hex; 6 distinct SHAs verified against upstream tags","cargo_hack_check":"5/5 combos pass","install_dry_run":"in sync","ureq_probe":"boundary lint FAILS (2 findings) when ureq is added to sc-ai in a scratch copy — ownership records are enforced"},
+"findings":[
+{"id":"QA-001","severity":"minor","file":".github/workflows/sc-agent-ci.yml","line":193,"issue":"QA-006 only partly closed: feature matrix is check-only until grammar tests are cfg-gated in code wave 3.","recommendation":"Keep QA-006 open; flip to `cargo hack --each-feature test` after wave 3."},
+{"id":"QA-002","severity":"minor","file":".github/workflows/sc-agent-ci.yml","line":43,"issue":"Header 'no step retries' vs CARGO_NET_RETRY=2 (duplicate of FTQ-003).","recommendation":"Reword header + ci.md."}],
+"summary":{"total_findings":2,"by_severity":{"critical":0,"important":0,"minor":2}},
+"notes":["QA-001/FTQ-001 closed on the CI side","doc continue-on-error documented temporary (QA-005)","Windows branch of test-python and Rust 1.94.1 not verified locally"]},"error":null}

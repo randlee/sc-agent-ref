@@ -1,0 +1,149 @@
+{
+  "status": "FAIL",
+  "reviewed_branch": "sprint/r-2-engine-shape",
+  "reviewed_commit": "0d643f2271997d73c8fbd3e98768dbf246ddfcbe",
+  "errors": [],
+  "scope": {"phase": "a.1", "sprint": "r-2"},
+  "baselines_read": ["docs/requirements.md", "docs/architecture.md", "docs/sc-jev-check/requirements.md", "docs/sc-ai/requirements.md", "docs/sc-jev-py/requirements.md", "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md (r-3b ownership only)"],
+  "phase_or_sprint_docs_read": ["docs/plans/phase-a-refine/sprint-r-2-engine-shape.md"],
+  "method_notes": "Read-only review. HEAD verified from .git/worktrees/r-2-engine-shape/HEAD (ref sprint/r-2-engine-shape) and refs/heads/sprint/r-2-engine-shape = 0d643f2. I ran no cargo, pytest or just commands and PR 27 CI is pending, so the 43/43 validation claim and every `1 passed` line are NOT independently confirmed. Everything below is static (code, docs, test presence).",
+  "requirement_checks": [
+    {"id": "REQ-SAG-0620", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/src/run/mod.rs:323", "crates/sc-jev-check/src/run/mod.rs:403", "boundaries/sc-jev-check/jev-check.toml:24", "docs/requirements.md:175"]},
+    {"id": "REQ-SAG-0607", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/src/run/mod.rs:514", "crates/sc-jev-check/src/run/mod.rs:533", "crates/sc-jev-check/src/session/mod.rs:22", "docs/requirements.md:174"]},
+    {"id": "REQ-SAG-0312", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/src/extract/command.rs:116", "crates/sc-jev-check/tests/command.rs:54", "docs/requirements.md:166"]},
+    {"id": "REQ-SAG-0313", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/src/extract/command.rs:140", "crates/sc-jev-check/tests/command.rs:140"]},
+    {"id": "REQ-SAG-0314", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/src/run/mod.rs:460", "crates/sc-jev-check/src/run/response.rs:409", "crates/sc-jev-check/tests/caps.rs:45", "grep for refuse_over_cap, max_input_bytes, Extractor, PackagedConfig: no hits outside comments and assertions"]},
+    {"id": "REQ-SAG-0601", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/requirements.md:188", "crates/sc-jev-check/src/run/mod.rs:411"]},
+    {"id": "REQ-SAG-0710", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/src/run/response.rs:235", "docs/requirements.md:189"]},
+    {"id": "REQ-SAG-0602", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-check/src/run/mod.rs:421", "crates/sc-jev-py/src/run.rs:368"]},
+    {"id": "REQ-SAG-0700/0701", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-ai/src/command.rs:514", "crates/sc-ai/tests/cli.rs:454"]},
+    {"id": "REQ-SAG-0300/0301/0302/0305/0502/0503/0600/0603/0610/0800, NFR-SAG-0001/0002/0003", "listed_in_sprint_doc": true, "result": "not-verifiable", "evidence_refs": ["Static review found no contradiction; the confirming test runs are in the validation list and CI is pending."]},
+    {"id": "REQ-SAG-0311, REQ-SAG-0309, REQ-SAG-0303, REQ-SAG-0611", "source": "docs/sc-jev-check/requirements.md:10,12,15,22", "listed_in_sprint_doc": false, "result": "not-verifiable", "evidence_refs": ["Not in the sprint requirements list; the sprint edits extract/subjects.rs, extract/table.rs, payload/mod.rs and session/emit_log, which these ids govern"]},
+    {"id": "REQ-SAG-0702, REQ-SAG-0703, REQ-SAG-0711", "source": "docs/sc-ai/requirements.md:11,12,14", "listed_in_sprint_doc": false, "result": "not-verifiable", "evidence_refs": ["crates/sc-ai/src/command.rs:464 (readback rebuilt), crates/sc-ai/src/command.rs:402 (logging adapter path)"]},
+    {"id": "REQ-SAG-0801, REQ-SAG-0802", "source": "docs/sc-jev-py/requirements.md:10,11", "listed_in_sprint_doc": false, "result": "not-verifiable", "evidence_refs": ["Sprint owns crates/sc-jev-py/src/** and tests/fixtures/jev-python/**; the Python harness and wheel build are edited"]},
+    {"id": "NFR-SAG-0004", "source": "docs/requirements.md:165", "listed_in_sprint_doc": false, "result": "not-verifiable", "evidence_refs": ["crates/sc-jev-check/Cargo.toml:31 changes the sc-agent-types dependency (features = [\"git\"])"]}
+  ],
+  "deliverable_checks": [
+    {"item": "D2 prepare/run/RunConfig/PreparedRun/CheckSource/CallerRequest/discover_repo_root", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-jev-check/src/run/mod.rs:103-604"], "notes": "Signatures match the sprint doc. There is no mode setter. Backend precedence is implemented at :332. The four old entry points are gone."},
+    {"item": "D2.5/D2.6 RunResponse, BackendFailure derived at serialize time, Envelope, five pinned samples", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-jev-check/src/run/response.rs", "crates/sc-jev-check/tests/fixtures/run-response/*.json"], "notes": "Envelope.data is a serde_json::Map and no preserve_order feature is set in any Cargo.toml, so printed key order is probably alphabetical, not the documented order. Tests presumably compare by Value. Not confirmed."},
+    {"item": "D2.8/D2.9 registry API and facade", "status": "partially-present", "closure_state": "not-applicable", "evidence_refs": ["boundaries/sc-jev-check/jev-check.toml:25", "crates/sc-jev-check/src/lib.rs:9-15"], "notes": "See REQ-QA-R2-006."},
+    {"item": "D4 stateless FileSessionStore, tmp/rename/fsync, sweep, write-once", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-jev-check/src/session/mod.rs:22-72,468-543", "crates/sc-jev-check/tests/session.rs:204-388"], "notes": "install_registry, record_outcome, SessionStore trait and the locks are gone."},
+    {"item": "D11 command path / stderr re-raise", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-jev-check/src/extract/command.rs:116,140", "crates/sc-jev-check/tests/command.rs"], "notes": "The producer name is the file stem of argv[0] (a deviation row). That is 'python3' for 'python3 script.py'; see REQ-QA-R2-007."},
+    {"item": "D13 engine cap removed, backend-owned cap, dry-run over_limit", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-jev-check/src/run/mod.rs:460", "crates/sc-jev-check/src/run/response.rs:405-416"], "notes": ""},
+    {"item": "ADR-SAG-0024 Active, shape-pin bullet verbatim, header, index row; 0003/0005/0009/0014/0019/0022/0029 r-2 markers Active; r-2b markers left Proposed", "status": "present", "closure_state": "closed", "evidence_refs": ["docs/architecture.md:79-105", "docs/architecture.md:1007-1079"], "notes": "The r-2b markers in rows 0004, 0008, 0019 and 0022 are untouched."},
+    {"item": "Requirement rows 0312/0313/0314/0607/0620 and 0601/0710 amendments flipped; no other rows flipped", "status": "present", "closure_state": "closed", "evidence_refs": ["docs/requirements.md:166-189", "docs/sc-jev-check/requirements.md:18-27"], "notes": ""},
+    {"item": "Sprint requirements list complete", "status": "partially-present", "closure_state": "open", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:17-40"], "notes": "See REQ-QA-R2-001."},
+    {"item": "Validation evidence (43/43; --exact lines print 1 passed; PR 27 CI)", "status": "not-verifiable", "closure_state": "open", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:465-481"], "notes": "The developer log is session scratch (scratchpad/r2-only/validate.log), not in the repo, and CI is pending. Cite CI green when it lands."}
+  ],
+  "deviation_judgement": [
+    {"deviation": "ask-capable live runs require sessions_dir (CONFIG_INVALID before any send)", "verdict": "acceptable", "why": "REQ-SAG-0607 sets no default directory. The check runs before any send (ADR-SAG-0004) and is recorded in the ADR-SAG-0024 landing bullet. sc-ai (command.rs:449) and sc-jev-py (run.rs:126) always pass a directory. Embedders using RunConfig::registry must also set sessions_dir; this is documented in the run() rustdoc."},
+    {"deviation": "Jev-only live runs save no session (session_id null)", "verdict": "acceptable", "why": "Matches REQ-SAG-0607 ('only when an ask-capable backend returned Ok') and D2.5/CPR-M6. The amended REQ-SAG-0710 row (docs/requirements.md:189) does not say session_id may be null (REQ-QA-R2-008)."},
+    {"deviation": "Envelope::ask drops prompt_sha256; the ask log-flush warning is not reported", "verdict": "partial", "why": "The prompt_sha256 drop is not a REQ violation, because no REQ or ADR text promised it on ask data. Dropping the CR-014 warning silently discards a delivered a-10 hardening (a-10-hardening-dispositions.md:77). The r-3b sprint (compose section, line 199-206) covers only run_from; ask_from returns a bare JudgeOutcome, so no sprint owns the restore. See REQ-QA-R2-004."},
+    {"deviation": "discover_repo_root falls back to start (also when git cannot be run); sc-ai outside git uses cwd", "verdict": "acceptable with a note", "why": "The outside-git fallback is mandated by D2.4 and recorded in the ADR-SAG-0003 r-2 amendment (architecture.md:421). No REQ text requires the Phase A 'CONFIG_INVALID, pass --repo-root'. The 'git cannot be run' case is a decision the sprint made, not one D2.4 gives, and the code at run/mod.rs:602 swallows every Err(_) from discover_toplevel, not only 'git missing'. See REQ-QA-R2-005."},
+    {"deviation": "Python equal_input is a record on dry runs", "verdict": "acceptable", "why": "REQ-SAG-0602 requires the record on every backend run; a dry-run record is a superset. It matches the dry_run.json pin and the ADR-SAG-0024 bullet. The .pyi still reads dict | None."}
+  ],
+  "owned_paths_judgement": "The edits to crates/sc-agent-types/src/ids.rs and crates/sc-agent-types/src/git.rs are outside owned_paths. They are rustdoc-only, and the sentences were stale after r-3c. Nothing in the repo records the claimed 'parent-authorized' approval. See REQ-QA-R2-003. All other changed files are inside owned_paths.",
+  "findings": [
+    {
+      "id": "REQ-QA-R2-001",
+      "severity": "Blocking",
+      "category": "requirement-not-listed",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:17-40", "docs/sc-jev-check/requirements.md:10,12,15,22", "docs/sc-ai/requirements.md:11,12,14", "docs/sc-jev-py/requirements.md:10,11", "docs/requirements.md:165"],
+      "target_refs": ["docs/plans/phase-a-refine/sprint-r-2-engine-shape.md"],
+      "issue": "The sprint requirements list is incomplete. The sprint owns paths in sc-jev-check, sc-ai and sc-jev-py, so it must name every id in each crate's requirements file, plus every repo-level NFR. Missing: REQ-SAG-0311, 0309, 0303, 0611 (sc-jev-check); REQ-SAG-0702, 0703, 0711 (sc-ai); REQ-SAG-0801, 0802 (sc-jev-py; 0803 is the release id and arguably out of scope); NFR-SAG-0004 (repo-level; Cargo.toml dependency edits). Because they are unlisted, no requirement_check evidence exists for them.",
+      "required_correction": "Add the missing ids to the frontmatter `requirements` list. Record upheld evidence for each. For example, 0311 and 0309 are covered by `cargo test -p sc-jev-check --lib -- extract::`; 0702 by the sc-ai readback assertions in tests/cli.rs; 0801 by the pytest run; NFR-SAG-0004 by check-exact-pins.sh. Alternatively, record an explicit not-applicable reason per id in the sprint doc. Because this is a plan-doc edit, it needs re-review.",
+      "compliance_result": "non-compliant"
+    },
+    {
+      "id": "REQ-QA-R2-002",
+      "severity": "Important",
+      "category": "acceptance-gap",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:465-481,401-417"],
+      "target_refs": [],
+      "issue": "The acceptance evidence is not repository-verifiable. The 43/43 claim rests on a developer log under session scratch (scratchpad/r2-only/validate.log, publish-private-home.log), and PR 27 CI is pending. I did not execute anything. The cargo publish dry-run needed a private CARGO_HOME. The sprint doc says scripts/sc-publish-dry-run.sh exits 0 on the committed tree, but that is only a developer statement.",
+      "required_correction": "Cite PR 27 CI green (job names) in the Implementation notes before closure, or re-run the validation list in QA-2. Reviewers should confirm each --exact line prints `1 passed`, plus the cargo-tree gates, `! rg '#!?\\[allow\\('` (I grepped `allow(` under crates/: no hits), and the cargo publish dry-run.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-R2-003",
+      "severity": "Minor",
+      "category": "plan",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:67-93,543-546"],
+      "target_refs": ["crates/sc-agent-types/src/ids.rs", "crates/sc-agent-types/src/git.rs"],
+      "issue": "Two files outside owned_paths were edited, in a crate owned by a different sprint. The sprint doc says 'parent-authorized' but the repo has no record of it.",
+      "required_correction": "Add the two rustdoc-only edits to owned_paths as narrow entries (the plan's convention for anchored sections), or cite the authorizing orchestration record. The edits are doc-only and correct, so no revert is needed.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-R2-004",
+      "severity": "Important",
+      "category": "implementation-drift",
+      "source_refs": ["docs/plans/phase-a/a-10-hardening-dispositions.md:77", "docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:16,510", "docs/plans/phase-a-refine/sprint-r-3b-compose-and-workspace-tests.md:197-206"],
+      "target_refs": ["crates/sc-ai/src/command.rs:545-547", "crates/sc-jev-check/src/run/response.rs:474-485"],
+      "issue": "`sc-ai jev ask` now discards a session-log flush failure with `let _ = finish_log(&prepared)`. Phase A reported it as an envelope warning (CR-014, status implemented). The ask envelope also lost `prompt_sha256`. The sprint's own rationale says 'no consumer behaviour changes beyond the pinned response shape'. No later sprint owns the restore: r-3b's `ask_from` returns a bare JudgeOutcome and only `run_from` appends the warning. No REQ text is violated, but a shipped hardening is silently regressed.",
+      "required_correction": "Choose one: (a) give ask a warnings slot (for example `Envelope::ask(..).with_warning(..)`, or an AskResponse type) and report the flush failure; or (b) record in r-3b and the ADR-SAG-0014 r-2 amendment that ask has no warning channel, and amend the CR-014 disposition row. In either case name the owning sprint. Do not leave the drop recorded only in this sprint's deviation table.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-R2-005",
+      "severity": "Minor",
+      "category": "design",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:171-172,511", "docs/architecture.md:421-425,1074"],
+      "target_refs": ["crates/sc-jev-check/src/run/mod.rs:597-604"],
+      "issue": "`discover_repo_root` maps every `Err(_)` from `discover_toplevel` (git missing, git failing, unreadable directory) to 'start'. D2.4 only specifies the outside-git case. A failing git inside a real repository therefore silently picks a subdirectory as the root, so a different .env is read and relative-path validation uses a different root. This is the same git-toplevel vs cwd disagreement D2.4 was meant to end.",
+      "required_correction": "Fall back only when git is absent (spawn NotFound) or reports 'not a git repository'. Map other errors to a typed error. Add a test for that case, and state the narrowed rule in the ADR-SAG-0003 r-2 amendment.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-R2-006",
+      "severity": "Important",
+      "category": "deliverable-missing",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:278-284,405", "boundaries/sc-jev-check/jev-check.toml:25"],
+      "target_refs": ["crates/sc-jev-check/src/lib.rs:9-15"],
+      "issue": "D2.9 says the facade lists exactly the items above, and the REQ-SAG-0620 row says the facade lists only prepare/run/discover_repo_root as run entry points. The boundary notes admit more public items, kept 'because crate tests import them': config::load_check_str, extract::extract_input, payload::build_payload, payload::parse_question_set, equal_input::producer_from_extractions, session::{StoredSession, SESSION_CONTEXT_HEADER, STALE_TMP_AGE}. `payload::build_payload` and `extract::extract_input` are a public second route to payload assembly, which cuts against ADR-SAG-0005 'facade owns payload assembly' and the 'one way to run' outcome. These widenings are not in the deviation table (only the OP_* and RunResponseBuilder additions are).",
+      "required_correction": "Make these items `pub(crate)` and move the tests that need them in-crate (`--lib` tests) or behind `test-util`. If a few must stay public (StoredSession is needed by FileSessionStore::save), list them in D2.9 and in the deviation table with the governing ADR. Confirm the sc-lint facade check is green with the final list.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-R2-007",
+      "severity": "Minor",
+      "category": "implementation-drift",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:317-320,514", "docs/requirements.md:167"],
+      "target_refs": ["crates/sc-jev-check/src/extract/command.rs:140-153"],
+      "issue": "D11.3 says the ProducerError producer name comes 'from the input'. The implementation uses the file stem of argv[0]. For the common `python3 script.py` or `uv run ...` form this names the interpreter, not the producer.",
+      "required_correction": "Use an explicit optional `name` on the command input, falling back to the stem of the first non-interpreter argument or argv[0]. Otherwise document the interpreter limitation in REQ-SAG-0313's row or the extraction doc.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-R2-008",
+      "severity": "Minor",
+      "category": "cross-doc-conflict",
+      "source_refs": ["docs/requirements.md:113,189", "docs/architecture.md:1026,824"],
+      "target_refs": ["docs/requirements.md:189"],
+      "issue": "The amended REQ-SAG-0710 row says 'plus session_id' with no null case. ADR-SAG-0014 r-2 and ADR-SAG-0024 define session_id as null unless a session is saved, which is the Jev-only and dry-run behaviour. The requirement text under-describes the contract the code implements.",
+      "required_correction": "Reword the REQ-SAG-0710 amendment to 'session_id (null unless session_saved)'.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-R2-009",
+      "severity": "Minor",
+      "category": "implementation-drift",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-2-engine-shape.md:218-221"],
+      "target_refs": ["crates/sc-jev-check/src/run/response.rs:526-531", "crates/sc-jev-check/src/extract/command.rs:187"],
+      "issue": "`Envelope::run` and `Envelope::ask` (public, infallible signatures) contain `panic!` paths in `to_object`. The `# Panics` rustdoc says they are unreachable. Library code in extract/command.rs also uses `.expect(...)` on the piped stderr handle. No REQ text forbids this, so it is only a robustness note. The key-order claim in the D2.6 body is also unproven: Envelope.data is a plain `serde_json::Map` with no preserve_order feature.",
+      "required_correction": "Prefer a fallible Envelope constructor, or `serde_json::value::to_raw_value`, so a public method cannot panic. Add a test that pins the printed key order, or relax the documented order claim to 'unordered object'.",
+      "compliance_result": "partially-compliant"
+    }
+  ],
+  "summary": {
+    "total_findings": 9,
+    "blocking_findings": 1,
+    "overall_compliance": "non-compliant",
+    "deliverables_total": 9,
+    "deliverables_complete": 6,
+    "deliverables_incomplete": 3,
+    "deliverable_completion_percent": 66.7
+  },
+  "deliverable_completion_percent": 66.7,
+  "gate_reason": "FAIL. One Blocking finding: the sprint requirements list omits ids governed by the crates whose paths the sprint owns (REQ-SAG-0311/0309/0303/0611, 0702/0703/0711, 0801/0802, NFR-SAG-0004). Per the gate policy any omission is Blocking and requirement_checks cannot be closed. Also open: acceptance evidence is unverifiable until PR 27 CI is green (REQ-QA-R2-002). The facade is wider than D2.9 states (REQ-QA-R2-006), and the ask log-flush warning regression has no owning sprint (REQ-QA-R2-004). Code and ADR/REQ content otherwise match the sprint doc: the single prepare/run API, RunResponse serialization and pins, the stateless store, D11 and D13 are present. The ADR-SAG-0024 shape-pin bullet is verbatim. The r-2b markers are untouched. Only the r-2-owned requirement rows were flipped. All five judged deviations are acceptable or acceptable-with-note except the ask-warning drop, which is partial (REQ-QA-R2-004). Clearing REQ-QA-R2-001 and confirming CI green is required for PASS."
+}

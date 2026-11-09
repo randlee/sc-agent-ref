@@ -1,0 +1,50 @@
+{
+  "agent": "arch-qa",
+  "branch": "plan/phase-a-decision-apis",
+  "scope": {
+    "phase": "phase-a-refine",
+    "sprint": "r-7"
+  },
+  "commit": "1ecc725",
+  "reviewed_commit": "1ecc725",
+  "verdict": "PASS",
+  "blocking": 0,
+  "important": 0,
+  "findings": [],
+  "adr_checks": [
+    {
+      "adr": "ADR-SAG-0030",
+      "source": "docs/architecture.md:1564",
+      "listed_in_sprint_doc": true,
+      "result": "not-applicable",
+      "evidence_refs": [
+        ".claude/project/quality-policy.md:139-149 (Repository exceptions: Phase A.1 landing-sprint ADRs, names arch-qa, recorded by PR 32 ARCH-006)",
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:86 (listed; r-7 is the landing sprint)"
+      ]
+    },
+    {
+      "adr": "ADR-SAG-0031",
+      "source": "docs/architecture.md:1647",
+      "listed_in_sprint_doc": true,
+      "result": "not-applicable",
+      "evidence_refs": [
+        ".claude/project/quality-policy.md:139-149 (same exception; r-7 is the storage-schema landing sprint)",
+        "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:87 (listed)"
+      ]
+    }
+  ],
+  "gate_artifact_checks": [
+    {
+      "artifact": "docs/architecture.md (ADR-SAG-0030 and ADR-SAG-0031 Status lines and index cells)",
+      "status": "open",
+      "evidence_refs": [
+        "docs/architecture.md:1564 (Proposed)",
+        "docs/architecture.md:1647 (Proposed)",
+        ".claude/project/quality-policy.md:145-148 (flip is checked at r-7 sprint QA)"
+      ],
+      "notes": "Expected open at plan review. The landing sprint r-7 must flip ADR-SAG-0030 and ADR-SAG-0031, and their r-7 subsections, to Active on its sprint branch. Checked at r-7 sprint QA, not here."
+    }
+  ],
+  "merge_ready": true,
+  "notes": "Locked recheck of ARCH-006 only, at 1ecc725. Worktree ref refs/heads/plan/phase-a-decision-apis = 1ecc725142591c75c776da50b23450c082c2a7b6, matching the requested commit. ARCH-006 is closed. The new Repository exceptions entry in .claude/project/quality-policy.md:139-149 names arch-qa and covers the Proposed ids that r-7 lands, which resolves the RULE-ADR-PLAN binding question at plan review. Its conditions: the flip must be present on the r-7 sprint branch at sprint QA, and any other dependency on a Proposed ADR stays a finding. Observation only, not a finding under the locked scope: sprint-r-5 is later in dependency order than r-7 and its jev::v1 bullet depends on ADR-SAG-0030 (Proposed, r-5). I did not check the r-5 adrs list, so the entry's rule for sprints that land after r-7 should be confirmed at r-5 plan review. The jev::v1 wording question is unchanged: no conflict."
+}

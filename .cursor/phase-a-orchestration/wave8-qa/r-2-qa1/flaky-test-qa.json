@@ -1,0 +1,72 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-2-engine-shape",
+    "reviewed_commit": "0d643f2271997d73c8fbd3e98768dbf246ddfcbe",
+    "findings": [
+      {
+        "id": "FTQ-001",
+        "severity": "important",
+        "file": "crates/sc-jev-check/tests/run_response.rs",
+        "line": 564,
+        "test": "test_repo_root_from_subdirectory",
+        "mechanism": "env_leak",
+        "issue": "The git() fixture helper sets only GIT_CONFIG_GLOBAL, GIT_CONFIG_NOSYSTEM and GIT_TERMINAL_PROMPT. It does not remove GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, GIT_OBJECT_DIRECTORY or GIT_COMMON_DIR. When cargo test runs under a git hook (pre-commit or pre-push) or from a git alias or worktree script, those variables are inherited. `git -C <tmp> init` then targets the developer's repository, not the temp dir, so it re-initialises or mutates the caller's repo. Discovery from the temp subdirectory then resolves to the wrong root, so the canonical(from_sub) == canonical(top) assertion fails in that environment and passes elsewhere. The repo already has this scrub list in crates/sc-treesitter/tests/support/mod.rs:24-26 and crates/sc-agent-types/tests/git.rs:39-41. This sprint's helper does not use it.",
+        "recommendation": "Reuse the shared scrub list (GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, GIT_OBJECT_DIRECTORY, GIT_COMMON_DIR, GIT_CEILING_DIRECTORIES and so on) through a common test-support helper, applied with env_remove on every git Command. Also set GIT_CONFIG_SYSTEM to the null device and run the call through the tests/support/deadline.rs spawn_with_deadline helper so it is bounded.",
+        "evidence": "Command::new(\"git\").arg(\"-C\").arg(dir).args(args).env(\"GIT_CONFIG_GLOBAL\", null).env(\"GIT_CONFIG_NOSYSTEM\", \"1\").env(\"GIT_TERMINAL_PROMPT\", \"0\").status()"
+      },
+      {
+        "id": "FTQ-002",
+        "severity": "important",
+        "file": "crates/sc-ai/tests/cli.rs",
+        "line": 875,
+        "test": "cli_check_that_exists_only_at_rev_loads_with_rev",
+        "mechanism": "env_leak",
+        "issue": "The git() fixture helper runs `git init`, `git add -A` and `git commit` with only GIT_CONFIG_GLOBAL and GIT_TERMINAL_PROMPT overridden. It does not scrub GIT_DIR, GIT_WORK_TREE or GIT_INDEX_FILE. Under a pre-commit hook, GIT_INDEX_FILE and GIT_DIR point at the developer's repo. `git add -A` and `git commit -m init` can then stage and commit the fixture files into the developer's real repository, or the test fails. The same test passes in a clean CI environment. GIT_CONFIG_NOSYSTEM and GIT_CONFIG_SYSTEM are not set either, so system config (init.templateDir, core.hooksPath, commit.gpgsign at system scope) can change behaviour. Only the nogit test at line 672 sets GIT_DIR deliberately, to a missing path.",
+        "recommendation": "Use a single shared test-support git helper that applies the full GIT_* scrub list used in sc-treesitter/tests/support/mod.rs, plus GIT_CONFIG_NOSYSTEM=1 and GIT_CONFIG_SYSTEM set to the null device.",
+        "evidence": "Command::new(\"git\").arg(\"-C\").arg(cwd).env(\"GIT_CONFIG_GLOBAL\", null_device()).env(\"GIT_TERMINAL_PROMPT\", \"0\").args([\"-c\", \"commit.gpgsign=false\", ...]).args(args).run_with_deadline()"
+      },
+      {
+        "id": "FTQ-003",
+        "severity": "minor",
+        "file": "crates/sc-jev-check/tests/run_response.rs",
+        "line": 610,
+        "test": "test_repo_root_from_subdirectory",
+        "mechanism": "shared_state",
+        "issue": "The 'outside git' assertion is guarded by `if discover_toplevel(plain).is_none()`. tempfile::tempdir() uses TMPDIR. If TMPDIR is inside a git work tree (a developer or CI setup with TMPDIR under the checkout), the guard is false and the fallback assertion (root == start dir) is silently skipped. The test then passes without exercising the contract, so what it covers depends on the machine.",
+        "recommendation": "Create the 'plain' directory where no git ancestor can exist, or set GIT_CEILING_DIRECTORIES to the temp dir's parent for the discovery call. Then assert unconditionally. If that cannot be made deterministic, split the case out and say so.",
+        "evidence": "if sc_agent_types::git::discover_toplevel(plain.path()).expect(\"git runs\").is_none() { assert_eq!(canonical(outside.as_path()), canonical(plain.path())); }"
+      },
+      {
+        "id": "FTQ-004",
+        "severity": "minor",
+        "file": "crates/sc-jev-check/tests/command.rs",
+        "line": 203,
+        "test": "test_command_child_env_is_allowlisted",
+        "mechanism": "unbounded_wait",
+        "issue": "The test re-executes the test binary with Command::output(), which blocks until the child exits and has no hard deadline. The child runs a python producer. The producer has an engine timeout, but the test process itself has no bound. If the child hangs before reaching the producer, for example in test harness startup or on a stuck python3 resolution, the parent blocks forever and can only be killed by the CI job timeout. The repo already has tests/support/deadline.rs (spawn_with_deadline), which sc-ai/tests/cli.rs uses for every subprocess.",
+        "recommendation": "Run the re-executed child through spawn_with_deadline, or an equivalent hard deadline that kills and reaps the child and fails with a clear message. Do the same for the git status() calls in run_response.rs.",
+        "evidence": "Command::new(exe).args([\"--exact\", \"env_probe_child\", ...]).env(PROBE_KEY, PROBE_VALUE).env(\"OPENAI_API_KEY\", PROBE_VALUE).output()"
+      },
+      {
+        "id": "FTQ-005",
+        "severity": "minor",
+        "file": "crates/sc-jev-check/tests/run_response.rs",
+        "line": 119,
+        "test": "assert_pinned (all pinned RunResponse tests)",
+        "mechanism": "shared_state",
+        "issue": "assert_pinned rewrites the fixture file whenever SC_JEV_CHECK_BLESS is set in the ambient environment, then compares the file to itself. A leaked or stale variable in a developer shell or CI env makes the pinned-sample tests pass unconditionally and edits the checked-in fixtures. The failure story is a silent loss of the key-order and byte-for-byte guard. Serialization order itself is deterministic: no HashMap or HashSet appears in src/run, and the comparison is on to_string_pretty output.",
+        "recommendation": "Gate blessing behind an explicit non-test path, such as a separate #[ignore]d bless test or an xtask. Alternatively, fail the test when the variable is set under CI.",
+        "evidence": "if std::env::var_os(\"SC_JEV_CHECK_BLESS\").is_some() { std::fs::write(&path, &text).expect(\"bless\"); }"
+      }
+    ],
+    "summary": {
+      "total_findings": 5,
+      "critical": 0,
+      "important": 2,
+      "minor": 3
+    }
+  },
+  "error": null
+}

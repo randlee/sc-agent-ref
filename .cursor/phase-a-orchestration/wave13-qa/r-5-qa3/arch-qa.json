@@ -1,0 +1,184 @@
+{
+  "agent": "arch-qa",
+  "branch": "sprint/r-5-jev-wire-envelope",
+  "scope": {
+    "phase": "phase-a-refine",
+    "sprint": "r-5"
+  },
+  "commit": "6972530",
+  "verdict": "FAIL",
+  "blocking": 3,
+  "important": 1,
+  "findings": [
+    {
+      "id": "ARCH-010",
+      "rule": "RULE-ADR-PLAN",
+      "adr": "ADR-SAG-0029",
+      "severity": "BLOCKING",
+      "file": "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md",
+      "line": 42,
+      "description": "The adrs list (lines 42-56) omits ADR-SAG-0029 (Active). Its (c) row (docs/architecture.md:1095) governs every serde_json encode/decode failure: INPUT_INVALID with category and line/column only. The delta this sprint owns (decode_failed in payload.rs:104 and its call sites at payload.rs:428 and jev/v1.rs:565) implements that row, and the sprint's own deliverable 9 cites it in substance. The omission is a RULE-ADR-PLAN miss.",
+      "remediation": "Add `ADR-SAG-0029  # (c) serde_json encode/decode failure: INPUT_INVALID, category and line/column only` to the adrs list in the sprint doc."
+    },
+    {
+      "id": "ARCH-011",
+      "rule": "RULE-ADR-CODE",
+      "adr": "ADR-SAG-0012",
+      "severity": "BLOCKING",
+      "file": "crates/sc-decision-schema/src/jev/v1.rs",
+      "line": 760,
+      "description": "CheckResponse::into_answers maps a Jev reply to DecisionAnswers, including the answer-type, criteria, probability and range rules, inside sc-decision-schema. The sc-jev caller only delegates (crates/sc-jev/src/check.rs:156). ADR-SAG-0012 r-5 (docs/architecture.md:1035-1039) says sc-jev still implements every Jev HTTP operation, including 'mapping responses'. ADR-SAG-0030 r-5 (docs/architecture.md:1630-1637) sanctions CheckRequest for building and CheckResponse for parsing. It does not name response-to-answer mapping as moving out of sc-jev. Result: violated on the literal text. The ADR-SAG-0012 r-5 subsection is Active, so an amendment is the only path, and it has to be Active before code can stay. Interpretation risk: a reader who treats 'data-only' as covering pure mapping could read this as upheld. The reviewer reads the literal rule.",
+      "remediation": "Either move the response-to-answer mapping (into_answers, map_answer, check_ranked) into crates/sc-jev and keep CheckResponse as the parsed data type, or land an owner-approved ADR-SAG-0012 r-5 amendment (Active) that names response-to-answer mapping in sc_decision_schema::jev before the code stays. Not fixable inside this review."
+    },
+    {
+      "id": "ARCH-012",
+      "rule": "RULE-ADR-PLAN",
+      "adr": "ADR-SAG-0012",
+      "severity": "BLOCKING",
+      "file": "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md",
+      "line": 296,
+      "description": "The binding code sample for CheckResponse::into_answers (in the 'Explicit code samples' block) places response-to-answer mapping in sc_decision_schema::jev::v1. That contradicts ADR-SAG-0012 r-5 (see ARCH-011). RULE-ADR-PLAN treats a plan that contradicts a binding ADR as Blocking even when intended.",
+      "remediation": "Plan the ADR-SAG-0012 r-5 amendment first (or move the mapping to sc-jev in the plan), then update the sample and the deliverable text to match the Active ADR."
+    },
+    {
+      "id": "ARCH-013",
+      "rule": "RULE-ADR-CODE",
+      "adr": "ADR-SAG-0027",
+      "severity": "IMPORTANT",
+      "file": "crates/sc-decision-schema/src/payload.rs",
+      "line": 245,
+      "description": "ARCH-002 closure is complete for the two named entry points (CanonicalJudgePayload::from_bytes at payload.rs:428 and CheckRequest::parse at jev/v1.rs:565 now use decode_failed, which returns INPUT_INVALID with category and line/column only and a fix hint). Two decode-side sites still use encode_failed: Question::from_json (payload.rs:245) and PayloadBundle::decode (payload.rs:520). Their code is still INPUT_INVALID, which ADR-SAG-0027 and ADR-SAG-0029(c) accept. However, encode_failed's fix hint (crates/sc-agent-types/src/error.rs:833-835) reads '… could not be encoded as JSON' for a parse failure, which is misleading. The stated rule 'encode_failed kept for encode-side sites only' is not what the tree does. Note: the Question::from_json doc block (payload.rs:229-231) says 'EncodeFailed', and the Errors section says INPUT_INVALID.",
+      "remediation": "Route the two parse-side sites through decode_failed (for example decode_failed(\"question\", &error) at payload.rs:245 and decode_failed(\"canonical payload\", &error) at payload.rs:520), and update the Question::from_json doc. Keep encode_failed for encode-only sites (payload.rs:499, 501, 588; jev/v1.rs:545, 575)."
+    }
+  ],
+  "adr_checks": [
+    {
+      "adr": "ADR-SAG-0001",
+      "source": "docs/architecture.md:143-148",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": ["crates/sc-decision-schema/src/payload.rs:104-119", "crates/sc-decision-schema/src/jev/v1.rs:563-566", "crates/sc-decision-schema/src/jev/v1.rs:720-727"]
+    },
+    {
+      "adr": "ADR-SAG-0002",
+      "source": "docs/architecture.md:158-171 (r-5 amendment)",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": ["crates/sc-decision-schema/src/payload.rs:45-88", "crates/sc-decision-schema/src/payload.rs:138-143", "crates/sc-decision-schema/src/payload.rs:191-222", "crates/sc-decision-schema/src/payload.rs:151-165"]
+    },
+    {
+      "adr": "ADR-SAG-0004",
+      "source": "docs/architecture.md:639",
+      "listed_in_sprint_doc": true,
+      "result": "not-applicable",
+      "evidence_refs": []
+    },
+    {
+      "adr": "ADR-SAG-0005",
+      "source": "docs/architecture.md:173-182",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": ["crates/sc-decision-schema/src/jev/v1.rs:588-618", "crates/sc-jev/src/check.rs:63-68"]
+    },
+    {
+      "adr": "ADR-SAG-0006",
+      "source": "docs/architecture.md:656",
+      "listed_in_sprint_doc": true,
+      "result": "not-applicable",
+      "evidence_refs": []
+    },
+    {
+      "adr": "ADR-SAG-0007",
+      "source": "docs/architecture.md:673",
+      "listed_in_sprint_doc": true,
+      "result": "not-applicable",
+      "evidence_refs": []
+    },
+    {
+      "adr": "ADR-SAG-0012",
+      "source": "docs/architecture.md:1023-1039 (r-5 amendment)",
+      "listed_in_sprint_doc": true,
+      "result": "violated",
+      "evidence_refs": ["crates/sc-decision-schema/src/jev/v1.rs:760-776", "crates/sc-jev/src/check.rs:153-158"]
+    },
+    {
+      "adr": "ADR-SAG-0019",
+      "source": "docs/architecture.md:438-476",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": ["crates/sc-decision-schema/src/payload.rs:45-55", "crates/sc-decision-schema/src/payload.rs:484-508"]
+    },
+    {
+      "adr": "ADR-SAG-0020",
+      "source": "docs/architecture.md:549-578",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": ["crates/sc-decision-schema/src/payload.rs:104-119", "crates/sc-decision-schema/src/jev/v1.rs:563-566", "crates/sc-decision-schema/src/jev/v1.rs:720-727"]
+    },
+    {
+      "adr": "ADR-SAG-0025",
+      "source": "docs/architecture.md:1292 (ADR-SAG-0025, input_sha256 recovery)",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": ["crates/sc-decision-schema/src/jev/v1.rs:588-618", "crates/sc-jev/src/check.rs:63-68"]
+    },
+    {
+      "adr": "ADR-SAG-0026",
+      "source": "docs/architecture.md:1327",
+      "listed_in_sprint_doc": true,
+      "result": "not-applicable",
+      "evidence_refs": ["crates/sc-decision-schema/Cargo.toml:26-30"]
+    },
+    {
+      "adr": "ADR-SAG-0027",
+      "source": "docs/architecture.md:1409-1452",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": ["crates/sc-decision-schema/src/payload.rs:104-119", "crates/sc-decision-schema/src/payload.rs:428", "crates/sc-decision-schema/src/jev/v1.rs:565", "crates/sc-agent-types/src/error.rs:465-481", "crates/sc-agent-types/src/error.rs:833-835"]
+    },
+    {
+      "adr": "ADR-SAG-0029",
+      "source": "docs/architecture.md:1084-1095 (c) error-code dispositions",
+      "listed_in_sprint_doc": false,
+      "result": "upheld",
+      "evidence_refs": ["crates/sc-decision-schema/src/payload.rs:104-119", "crates/sc-decision-schema/src/jev/v1.rs:565"]
+    },
+    {
+      "adr": "ADR-SAG-0030",
+      "source": "docs/architecture.md:1594-1675 (r-5 Jev API structs, r-7 data-only crate)",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": ["crates/sc-decision-schema/Cargo.toml:26-30", "crates/sc-decision-schema/src/jev/v1.rs:1-12", "docs/architecture.md:1630-1637"]
+    },
+    {
+      "adr": "ADR-SAG-0031",
+      "source": "docs/architecture.md:1676",
+      "listed_in_sprint_doc": true,
+      "result": "not-applicable",
+      "evidence_refs": []
+    },
+    {
+      "adr": "RULE-ADR-AWAIT-MUTEX",
+      "source": "policy Architectural Rules",
+      "listed_in_sprint_doc": false,
+      "result": "not-applicable",
+      "evidence_refs": ["crates/sc-decision-schema/src/payload.rs", "crates/sc-decision-schema/src/jev/v1.rs"]
+    }
+  ],
+  "gate_artifact_checks": [
+    {
+      "artifact": "docs/architecture.md (ADR index and r-5 markers)",
+      "status": "closed",
+      "evidence_refs": ["docs/architecture.md:112", "docs/architecture.md:122", "docs/architecture.md:140", "docs/architecture.md:1630"],
+      "notes": "No '(Proposed, r-5)' marker remains; the only Proposed markers are r-6 and carry-over r-6/r-7 rows. The index row for ADR-SAG-0030 shows jev::v1 (Active, r-5). The marker gate is closed, but the ADR-SAG-0012 r-5 text still contradicts the code (ARCH-011)."
+    },
+    {
+      "artifact": "boundaries/sc-decision-schema/decision-schema.toml",
+      "status": "closed",
+      "evidence_refs": ["boundaries/sc-decision-schema/decision-schema.toml:17"],
+      "notes": "The jev root is listed for the facade deliverable. Manifest validation itself belongs to ruthless-boundary-qa and was not re-run."
+    }
+  ],
+  "merge_ready": false,
+  "notes": "ARCH-002 (the prior round's finding) is CLOSED for the two named sites: CanonicalJudgePayload::from_bytes (payload.rs:428) and CheckRequest::parse (jev/v1.rs:565) both route through decode_failed (payload.rs:104-119), which keeps only the serde category and line/column and gives a fix hint. encode_failed remains on encode-side sites. The closure is incomplete on two parse-side sites (ARCH-013, IMPORTANT). Finding ids use the ARCH-010 to ARCH-013 range so they do not collide with the prior ARCH-002. Limits: this agent has only Read, Glob and Grep, so no git diff, cargo, or test run was possible. The delta against 085dab4 could not be computed from a diff, and triage_records was not supplied. Delta scope is judged from the named files, the ARCH-002 notes, and the sprint doc. The ADR-SAG-0012 finding (ARCH-011) is not strictly a change in this round, but it sits in the reviewed file and RULE-ADR-CODE forbids dismissing it as pre-existing, so it is reported. Worktree and commit verified by reading .git/worktrees/r-5-jev-wire-envelope/HEAD (ref refs/heads/sprint/r-5-jev-wire-envelope) and .git/refs/heads/sprint/r-5-jev-wire-envelope (69725308455bd8827b0a46e31e3f598327d66f55, matching 6972530). Not reviewed: the rest of the sprint's deliverables (fixtures, sc-jev-backends validate.rs/wire.rs), which are outside review_targets."
+}

@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "found_in": "A1-R7",
+ "found_at": "2026-11-08T04:53:55Z",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "b58ffd2a55f03c54b63ab55db33819244b1a8a48"
+  },
+  {
+   "branch": "sprint/r-7-decision-schema",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-7-decision-schema",
+   "order_index": 1,
+   "head_sha": "20a46a88dcfcc1899d8baec0934837912d638b88"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a",
+  "sprint/r-7-decision-schema"
+ ],
+ "finding_id": "R7-QA4-ARCH-001",
+ "title": "Delta file (edited in this delta) still states the workspace-tests dev-dependencies as sc-agent-types, sc-jev-check, sc-jev-host, serde_json",
+ "description": "Delta file (edited in this delta) still states the workspace-tests dev-dependencies as sc-agent-types, sc-jev-check, sc-jev-host, serde_json and tempfile. The amended ADR-SAG-0028 (r-7 'Dev-only edges' bullet, docs/architecture.md:1580-1584) and crates/workspace-tests/Cargo.toml:24 add sc-decision-schema (features = [\"test-util\"]). The crate's own documentation therefore contradicts the amended ADR's dev-only edge set.",
+ "category": "RULE-ADR-CODE",
+ "severity": "blocking",
+ "pattern": "sc-jev-host`,",
+ "file_filter": "crates/workspace-tests/README.md"
+}

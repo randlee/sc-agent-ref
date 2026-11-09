@@ -1,0 +1,29 @@
+{
+  "success": true,
+  "data": {
+    "status": "skipped",
+    "reviewed_branch": "plan/phase-a-decision-apis",
+    "reviewed_commit": "197c24f",
+    "review_mode": "doc_review",
+    "service_indicators_found": [],
+    "topics_reviewed": [],
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": {
+        "critical": 0,
+        "important": 0,
+        "minor": 0
+      }
+    },
+    "notes": [
+      "Input validated: worktree_path /Volumes/Extreme Pro/github/sc-agent-worktrees/plan/phase-a-decision-apis, HEAD is ref refs/heads/plan/phase-a-decision-apis, which resolves to 197c24fbfc3b603026fd064f20b026bfb6459315 (matches commit 197c24f).",
+      "review_targets (docs/architecture.md, docs/plans/phase-a-refine/plan.md, docs/plans/phase-a-refine/sprint-r-7-decision-schema.md) are documentation only. No Cargo.toml and no Rust source file is in review scope, consistent with the input notes.",
+      "No listed service-indicator dependency (tokio, axum, hyper, tonic, warp, actix-web, reqwest) appears in any workspace Cargo.toml under the worktree. The only HTTP client dependency is ureq (crates/sc-agent-http), which is not in the default indicator list and is not in review scope.",
+      "No #[tokio::main], TcpListener, server startup, or long-running worker entrypoint was found in crates/**. The keyword hits in docs are descriptive text about timeouts and retries in planned sprint documents, not runtime code under review.",
+      "Result is skipped because no service indicators are present in the assigned scope. No service-hardening findings were raised, and no tests or quality gates were run.",
+      "Workspace read limitation: .claude/skills/rust-development/guidelines.txt was read only through line 1470 of 2428 because the tool output was truncated. The remaining lines were not needed for a skipped result."
+    ]
+  },
+  "error": null
+}

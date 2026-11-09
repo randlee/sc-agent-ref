@@ -1,0 +1,16 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/r-2b-multi-backend-semantics",
+    "reviewed_commit": "330986f574914ada17e79d074227527cce4eb9ba",
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "critical": 0,
+      "important": 0,
+      "minor": 0
+    }
+  },
+  "error": null
+}

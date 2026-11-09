@@ -1,0 +1,32 @@
+{
+  "agent": "arch-qa",
+  "branch": "plan/phase-a-refine-r6",
+  "scope": {"phase": "r", "sprint": "phase-a.1 (r-5, r-6, r-7)"},
+  "commit": "5836f1befb9550ff4f5125f928cbce0c74e5ef1c",
+  "verdict": "PASS",
+  "blocking": 0,
+  "important": 0,
+  "findings": [],
+  "carry_forward_closure": [
+    {"id": "ARCH-001", "status": "closed", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:62"], "notes": "r-6 adrs now lists ADR-SAG-0019 with the wire-body versus canonical-payload digest reason."},
+    {"id": "ARCH-002", "status": "closed", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:58"], "notes": "r-6 adrs now lists ADR-SAG-0012."},
+    {"id": "ARCH-003", "status": "closed", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:74"], "notes": "r-7 adrs now lists ADR-SAG-0024 (RunConfig::models)."},
+    {"id": "ARCH-004", "status": "closed", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:65"], "notes": "r-7 adrs now lists ADR-SAG-0012."},
+    {"id": "ARCH-005", "status": "closed", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:61"], "notes": "r-7 adrs now lists ADR-SAG-0006."}
+  ],
+  "adr_checks": [
+    {"adr": "ADR-SAG-0002 (r-5 amendment, Proposed)", "source": "docs/architecture.md:116-135", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:78", "docs/architecture.md:124-135", "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:32", "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:125-136", "docs/plans/phase-a-refine/plan.md:669"]},
+    {"adr": "ADR-SAG-0005 (r-5 amendment)", "source": "docs/architecture.md:164", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:34", "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:173"]},
+    {"adr": "ADR-SAG-0006", "source": "docs/architecture.md:590", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:61"]},
+    {"adr": "ADR-SAG-0012", "source": "docs/architecture.md:954", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:58", "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:65", "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:37"]},
+    {"adr": "ADR-SAG-0019", "source": "docs/architecture.md:381", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:62", "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:70", "docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:38"]},
+    {"adr": "ADR-SAG-0024", "source": "docs/architecture.md:1136", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:74", "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:67"]},
+    {"adr": "ADR-SAG-0030", "source": "docs/architecture.md:1427", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:43"]},
+    {"adr": "ADR-SAG-0031", "source": "docs/architecture.md:1501", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:44"]}
+  ],
+  "gate_artifact_checks": [
+    {"artifact": "docs/plans/phase-a-refine/plan.md (owner items)", "status": "closed", "evidence_refs": ["docs/plans/phase-a-refine/plan.md:642", "docs/plans/phase-a-refine/plan.md:660"], "notes": "plan.md states no owner questions remain open. Log-write policy is best-effort (item 9). The r-5 sprint doc treats D9 as resolved and a live-reply mismatch as a jev::v1 defect, not a gate (sprint-r-5:109-113)."}
+  ],
+  "merge_ready": true,
+  "notes": "All five QA-1 findings are closed. ADR-SAG-0002 r-5 amendment (Proposed, lands in r-5) is consistent with the r-5 sprint doc. Both put optional kind and descriptions on a question, set choice at 2-255, score at 2-10 and noul at none, keep payloads without the new fields byte-identical, and keep the version at canonical.v1. The index row at architecture.md:78 carries the A.1 subsection marker, and r-5 owns the amendment and lists ADR-SAG-0002. Being Proposed it is not yet binding, and no other sprint depends on it. Only r-5 uses it. r-5 follows r-7, which owns the ADR-SAG-0030 payload types. No new findings and no gates recommended."
+}

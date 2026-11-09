@@ -1,0 +1,76 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-3c-treesitter-cli",
+    "reviewed_commit": "39661a6d651223d7a15d514226f83f473f2337cb",
+    "review_mode": "sprint_review",
+    "findings": [
+      {
+        "id": "RBQA-F001",
+        "severity": "important",
+        "class": "boundary_tightening",
+        "file": "crates/sc-treesitter/src/git_io.rs",
+        "line": 243,
+        "issue": "git_io.rs keeps a second `Command::new(\"git\")` plus a hand-copied environment policy, next to the shared sc_agent_types::git owner.",
+        "recommendation": "Add a `hash_blob(repo: &RepoRoot, bytes: &[u8]) -> Result<BlobSha, JevError>` helper to sc_agent_types::git (feature `git`). Delete `git_command` and `hash_bytes` from git_io.rs. Do this in r-3b or a dedicated follow-up bead, before r-3b's Command::new ban lands. Until then, add a tracked exemption for git_io.rs to the ban.",
+        "evidence": "git_io.rs:243-257 re-declares `LC_ALL=C`, `GIT_TERMINAL_PROMPT=0` and five `env_remove` calls by hand. The doc comment says 'same environment policy as sc_agent_types::git'. Nothing enforces that the two stay equal: the next change to the shared env list will not reach this copy. Fixing it in the shared module also removes the duplicate Windows path and verbatim-path reasoning. Command::new(\"git\") appears in 6 places across the crates. This is the only one in a crate that otherwise uses the shared module, so it is the cheapest to remove. I did not read sc-agent-types/src/git.rs line 53 in full, so I did not diff the two env lists.",
+        "justification_check": "duplicated implementation (the hash helper is a retained, documented exception, but the env policy copy is not justified)",
+        "related_artifacts": [
+          "crates/sc-agent-types/src/git.rs",
+          "boundaries/sc-treesitter/treesitter.toml",
+          "docs/plans/phase-a-refine/sprint-r-3c-treesitter-cli.md"
+        ]
+      },
+      {
+        "id": "RBQA-F002",
+        "severity": "important",
+        "class": "lint_gap",
+        "file": "crates/sc-treesitter/Cargo.toml",
+        "line": 37,
+        "issue": "The `default-features = false` library tree (no judge, secret or obs features, and no clap or mimalloc) has no mechanical gate that I could find.",
+        "recommendation": "Add a gate that fails if the `--no-default-features` build of sc-treesitter pulls clap, mimalloc, or a sc-agent-types judge, secret, obs or git feature. For example, run `cargo tree -p sc-treesitter --no-default-features -e features` in just lint or CI and assert on the output. Alternatively, add an sc-lint feature-ownership record. Include a negative case, such as a canary fixture or a sed-injected edge, to show the gate can fail.",
+        "evidence": "A grep of the justfile, CI yml, sh and scripts files for `no-default-features` or `cargo tree` returned nothing. The treesitter.toml `notes` field is declarative text. sc-lint.toml gates clap and mimalloc only at the manifest and source-path level (lines 87-98). It does not check which features are enabled. Cargo's workspace feature unification means any other workspace member that enables sc-agent-types defaults will hide a regression in a workspace-wide build. That is the case only the `-p ... --no-default-features` form catches. `sc-agent-types/git` is non-default and enabled only by `cli`, which is correct in Cargo.toml (line 27). Nothing prevents the library from using a judge, secret or obs item, apart from compilation of a `-p` build.",
+        "justification_check": "Missing mechanical guard for ADR-SAG-0015, ADR-SAG-0027 and RBQA-F009",
+        "related_artifacts": [
+          "sc-lint.toml",
+          "boundaries/sc-treesitter/treesitter.toml",
+          "docs/architecture.md"
+        ]
+      },
+      {
+        "id": "RBQA-F003",
+        "severity": "minor",
+        "class": "boundary_tightening",
+        "file": "crates/sc-treesitter/src/git_io.rs",
+        "line": 36,
+        "issue": "MAX_INPUT_BYTES (8 MiB) is repeated here instead of owned once; the comment admits it duplicates sc-jev-check's value.",
+        "recommendation": "Move the constant into sc_agent_types (always-on module, or next to `git::read_at_rev`) and import it in both crates. Alternatively, have `git::read_at_rev` own the default.",
+        "evidence": "git_io.rs:33-36 says 'this crate does not depend on sc-jev-check, so the value is repeated'. Two copies of one limit can drift. This is duplicated decision logic with no owner.",
+        "justification_check": "duplicated implementation",
+        "related_artifacts": [
+          "crates/sc-agent-types/src/git.rs"
+        ]
+      }
+    ],
+    "summary": {
+      "total_findings": 3,
+      "by_severity": {
+        "critical": 0,
+        "important": 2,
+        "minor": 1
+      }
+    },
+    "notes": [
+      "No active leak that would ship. I found no critical issue.",
+      "Public facade: lib.rs exposes only `extract`, `grammar`, `query` and `render` items, all re-exported by name. `mod cli` and `mod git_io` are declared in main.rs (binary crate), not in lib.rs, so no clap type reaches the library surface. The facade list in the manifest matches lib.rs exactly (11 items).",
+      "Cargo.toml: clap and mimalloc are `optional = true` and gated by `cli`. `sc-agent-types/git` is enabled only through `cli`. The `[[bin]]` and both `[[test]]` targets have `required-features = [\"cli\"]`. This matches what the manifest and docs claim.",
+      "allowed_dependencies in treesitter.toml lists exactly the 7 normal dependencies in Cargo.toml (clap, mimalloc, sc-agent-types, serde_json, tree-sitter, tree-sitter-python, tree-sitter-rust). `tempfile` is a dev-dependency and correctly omitted. The manifest is truthful.",
+      "mimalloc and clap are both covered by sc-lint.toml ownership records (lines 87-98). The README's own admission that sc-lint does not enforce third-party names in allowed_dependencies is accurate. The sc-lint.toml records are the real gate.",
+      "I did not run the boundary validator and the assignment supplied no validator report. I reviewed the manifests against source and Cargo.toml directly. I did not read cli/mod.rs line by line, only its symbol surface (all items are `pub(crate)` in a private module of the bin crate). I did not verify the 9-file owned_paths diff, because I had no diff or owned_paths list. I did not verify docs/sc-treesitter/architecture.md.",
+      "Retained `git hash-object` call: a hashing helper in sc_agent_types::git is the right boundary fix (RBQA-F001). It belongs with the single-git-owner intent, so r-3b should either include it or exempt git_io.rs explicitly. A retained call that reads `bytes` once and hashes those same bytes is good design and should move as-is.",
+      "Unsolicited note: git_io.rs's `read_worktree` and its path normalization (repo_relative, normalize, canonicalize_lenient) are binary-private logic that sc-ai and sc-jev-check may also need. I did not check for duplication elsewhere. Worth a follow-up sweep."
+    ]
+  },
+  "error": null
+}

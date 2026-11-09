@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "R7-QA2-FTQ-004",
+ "found_in": "A1-R7",
+ "found_at": "2026-11-08T02:45:00Z",
+ "title": "The FTQ-001 fix (04584aa) closes the unbounded wait, but it does so by widening the cargo tree deadline from the 60 s runner default to 5 mi",
+ "description": "The FTQ-001 fix (04584aa) closes the unbounded wait, but it does so by widening the cargo tree deadline from the 60 s runner default to 5 minutes (CARGO_TREE_DEADLINE). The stated cause is a held Cargo file lock, which is contention with other cargo processes. The nondeterminism is not removed. tree() in this file is not serialized with bin_path()'s BUILD_LOCK (bin_path.rs:70), so cargo tree and cargo build run concurrently as threads of one test binary. Under cargo nextest or parallel CI jobs in the same workspace, separate processes contend for the same package-cache and build locks. The test passes only when the competing cargo process releases the lock within 5 minutes, and tree() is called twice per test (lines 81 and 97). The same widening pattern appears in features.rs:24 (CARGO_TREE_DEADLINE, four calls per test) and bin_path.rs:27 (BIN_BUILD_DEADLINE 20 min). A wider bound converts a fast failure into a slow one and hides the lock race rather than removing it. Under the fix standard this is timeout widening around a race.",
+ "category": "masking_fix",
+ "severity": "important",
+ "pattern": "masking_fix",
+ "file_filter": "crates/workspace-tests/tests/test_util_off.rs",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "81ffec2fcab6d1b18967a84963df35fe9fb91e80"
+  },
+  {
+   "branch": "sprint/r-7-decision-schema",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-7-decision-schema",
+   "order_index": 1,
+   "head_sha": "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a",
+  "sprint/r-7-decision-schema"
+ ]
+}

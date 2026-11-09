@@ -1,0 +1,9 @@
+[
+  {"agent": "critical-plan-reviewer", "task_id": "a16d68b82368a8f55", "spawn_actor": "parent-orchestrator", "model": "opus"},
+  {"agent": "arch-qa", "task_id": "ac5f346fbdcaff91c", "spawn_actor": "parent-orchestrator"},
+  {"agent": "req-qa", "task_id": "aaf91a09942558617", "spawn_actor": "parent-orchestrator"},
+  {"agent": "rust-best-practices-agent", "task_id": "a31426c2db151a39e", "spawn_actor": "parent-orchestrator"},
+  {"agent": "rust-service-hardening-agent", "task_id": "aae696a17d76feb57", "spawn_actor": "parent-orchestrator"},
+  {"agent": "extensibility-qa", "task_id": "ae2fb1b43828f0f6f", "spawn_actor": "parent-orchestrator"},
+  {"agent": "ruthless-boundary-qa", "task_id": "a697ecb6b83fc681d", "spawn_actor": "parent-orchestrator"}
+]

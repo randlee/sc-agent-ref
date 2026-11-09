@@ -1,0 +1,17 @@
+<cursor-task id="dev-r-4" sprint="r-4" assignee="rust-developer">
+  <description>Phase A.1 sprint r-4. The sprint doc is authoritative for scope, deliverables, deletions, validation and acceptance; this file only adds orchestration context. Wave 1 runs r-1 and r-4 in parallel; r-1 merges first (plan.md "Wave-1 merge order"). Owner decisions (PHASE-A-REVIEW.md section 4/7) are settled; do not reopen them. D9 remains pending (r-5 blocked; not your concern).</description>
+  <worktree>/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-4-adrs-and-manifests</worktree>
+  <branch>sprint/r-4-adrs-and-manifests</branch>
+  <pr-target>integrate/phase-a</pr-target>
+  <base-commit>34dfed0 (integrate/phase-a after PR 19 plan merge; worktree already at this commit)</base-commit>
+  <authoritative-sprint-doc>docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md (in your worktree)</authoritative-sprint-doc>
+  <plan>docs/plans/phase-a-refine/plan.md (conventions: test seams, lint hygiene, ADR index ownership, owned_paths discipline, gate table); docs/architecture.md ADR-SAG-0023..0029 and the (Proposed, r-4) amendment subsections you flip to Active/Accepted per the sprint doc</plan>
+  <deliverables>Every D-section of the sprint doc, in the order the doc gives (r-1: D0 spike FIRST and record its outcome in boundaries/README.md before any self dev-dependency). Touch only files listed in the sprint doc owned_paths; if a change you need is outside them, stop on that item and report it rather than editing.</deliverables>
+  <acceptance-criteria>
+- Every row of the sprint doc "Acceptance criteria (authoritative)" table satisfied, with the exact commands from "Required validation" run and their results quoted.
+- Workspace green: just lint; cargo clippy --workspace --all-targets --all-features -- -D warnings; cargo test --workspace; RUSTDOCFLAGS=-D warnings cargo doc --workspace --no-deps; just test-python; cargo hack --each-feature test -p sc-treesitter; bash scripts/sc-publish-dry-run.sh.
+- Sprint doc frontmatter: status complete, branch, worktree set; the (Proposed, r-4) ADR/requirement markers the doc tells you to flip are flipped, and nothing else in the ADR index changes.
+- Commits per D-section with trailer Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>; push; report pushed SHA + per-row acceptance table. No PR, no merge, no agents. Never edit kit-written release files (install.py-managed). zsh: never use a variable named status.
+  </acceptance-criteria>
+  <references>PHASE-A-REVIEW.md sections 4 and 7; docs/plans/phase-a-refine/plan-review-{1,2,3}-dispositions.md (why each rule exists); the a-10 hardening disposition table docs/plans/phase-a/a-10-hardening-dispositions.md (items deferred to this sprint).</references>
+</cursor-task>

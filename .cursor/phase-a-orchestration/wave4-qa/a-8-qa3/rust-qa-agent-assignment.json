@@ -1,0 +1,20 @@
+{
+  "worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+  "branch": "integrate/phase-a",
+  "commit": "0417aef60b6eba1fb4bf95fdfe8af0a1fa7d146b",
+  "review_mode": "sprint_review",
+  "review_targets": ["Cargo.lock", "boundaries/sc-agent-types/agent-types.toml", "boundaries/sc-jev-check/jev-check.toml", "boundaries/sc-jev-py/jev-py.toml", "boundaries/sc-ai/sc-ai-cli.toml", "crates/sc-jev-check/src/run/mod.rs", "crates/sc-jev-check/src/payload/caller.rs", "crates/sc-jev-check/src/payload/mod.rs", "crates/sc-jev-check/src/registry", "crates/sc-jev-py", "tests/fixtures/jev-python"],
+  "run_checks": {
+    "fmt": true,
+    "clippy": true,
+    "tests": true,
+    "coverage": false  },
+  "baseline_ref": "",
+  "artifact_regeneration_required": false,
+  "artifact_commands": "",
+  "round_limit": false,
+  "changed_files": ["Cargo.lock", "boundaries/sc-agent-types/agent-types.toml", "boundaries/sc-jev-check/jev-check.toml", "boundaries/sc-jev-py/jev-py.toml", "crates/sc-jev-check/Cargo.toml", "crates/sc-jev-check/src/registry/mod.rs", "crates/sc-jev-check/src/registry/scripted.rs", "crates/sc-jev-check/src/run/mod.rs", "crates/sc-jev-py/Cargo.toml", "crates/sc-jev-py/pyproject.toml", "crates/sc-jev-py/src/error.rs", "crates/sc-jev-py/src/lib.rs", "crates/sc-jev-py/src/logging.rs", "crates/sc-jev-py/src/run.rs", "docs/architecture.md", "docs/plans/phase-a/plan.md", "docs/plans/phase-a/sprint-a-8-pyo3-wrapper.md", "docs/sc-jev-check/architecture.md", "docs/sc-jev-py/architecture.md", "tests/fixtures/jev-python/.gitignore", "tests/fixtures/jev-python/pyproject.toml", "tests/fixtures/jev-python/tests/test_cross_impl_branches.py", "tests/fixtures/jev-python/tests/test_cross_impl_bytes.py", "tests/fixtures/jev-python/tests/test_run_check_and_ask.py"],
+  "triage_records": [],
+  "carry_forward_findings": [],
+  "notes": "Checklist: scan for infallible Result<T, E> shapes; check for Ok(x) as the sole return path in Result-returning functions; for deletion sprints, search the whole workspace for every removed legacy construct family named in the sprint doc, not just touched files. QA-3 recheck of sprint a-8 as landed on integrate/phase-a at merge commit 0417aef. Sprint tip bfd36cb passed QA-2 (PR #15); this round verifies the post-merge conflict resolution (a924e78: union boundary dependents for sc-ai and sc-jev-py; keep both build_request and prepare_caller_request tests) did not regress a-8 deliverables, boundaries, or tests. Quick recheck: scope findings to the merge-fix footprint."
+}

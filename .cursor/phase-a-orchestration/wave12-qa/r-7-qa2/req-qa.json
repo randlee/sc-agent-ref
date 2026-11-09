@@ -1,0 +1,31 @@
+{
+  "status": "PASS",
+  "reviewed_branch": "sprint/r-7-decision-schema",
+  "reviewed_commit": "4eb8265",
+  "errors": [],
+  "scope": {"phase": "phase-a-refine", "sprint": "r-7"},
+  "baselines_read": ["docs/requirements.md (via QA-1 record)", "docs/architecture.md (via QA-1 record)", "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md lines 1-761 plus targeted greps", ".cursor/phase-a-orchestration/wave12-qa/r-7-qa1/req-qa.json", ".cursor/phase-a-orchestration/wave12-qa/r-7-qa1/fix-assignment.xml", ".cursor/phase-a-orchestration/wave12-qa/r-7-qa1/acceptance-9497297.log"],
+  "phase_or_sprint_docs_read": ["docs/plans/phase-a-refine/sprint-r-7-decision-schema.md"],
+  "requirement_checks": [
+    {"id": "REQ-SAG-0140..0148, REQ-SAG-0613 seam, 0102-0109, 0130-0132, 0143, 0301, 0400, 0500-0501, 0602-0611, 0620, 0700-0710, 0800-0802, NFR-SAG-0001/0002/0004", "source": "docs/requirements.md; sprint doc frontmatter lines 17-57", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["acceptance-9497297.log: 51 command sections, 50 'rc=0' lines, 0 non-zero rc; the one section without an rc line (log line 184) is the grep for 'Proposed, r-7', which printed 0", "sprint doc lines 17-57"]}
+  ],
+  "deliverable_checks": [
+    {"item": "Acceptance table and required-validation commands (REQ-QA-001)", "status": "present", "closure_state": "closed", "evidence_refs": ["/Volumes/Extreme Pro/github/sc-agent/.cursor/phase-a-orchestration/wave12-qa/r-7-qa1/acceptance-9497297.log:1-258"], "notes": "The log header is 'HEAD 9497297'. It ends with DONE, and includes cargo-tree-gates, cargo hack/test targets, check-exact-pins.sh and sc-publish-dry-run.sh ('passed (all)'). These are the commands QA-1 could not run. I have no shell either, so I accepted the log as the execution evidence you named."},
+    {"item": "REQ-QA-002: sprint doc names client/mod.rs, not check.rs, for model_id", "status": "present", "closure_state": "closed", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:126", "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:407-409", "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:627", "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:964"], "notes": "The only remaining 'check.rs' in the doc is the line-964 implementation note, and it only says model_id is in client/mod.rs rather than check.rs. That is consistent."},
+    {"item": "QA-1 fixes break no requirement (static check)", "status": "present", "closure_state": "not-applicable", "evidence_refs": ["crates/sc-agent-types/src/git.rs:18-23,43,94,108,167,304,324,404", "crates/sc-jev-check/src/run/mod.rs:42,806-814", ".github/workflows/sc-agent-ci.yml (24 --locked occurrences)"], "notes": "RSH-002: git.rs has the 60 s GIT_DEADLINE, try_wait polling, GIT_TERMINAL_PROMPT=0 kept, and a typed extraction_timeout error. RSH-004: run/mod.rs skips the judge log event when the call was cancelled at entry, matching the module doc at line 42. RSH-006: --locked is present in the CI workflow. I only did a static spot check. Environment-sensitive and doc-only fixes (FTQ-001..003, RSH-003) were not diffed. No change contradicts a requirement, and the fixes do not touch wire bytes, digests or the moved types."}
+  ],
+  "findings": [
+    {
+      "id": "REQ-QA-003",
+      "severity": "Minor",
+      "category": "plan",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:88-179", ".cursor/phase-a-orchestration/wave12-qa/r-7-qa1/fix-assignment.xml:6"],
+      "target_refs": ["crates/sc-agent-types/src/git.rs"],
+      "issue": "The QA-1 fix R7-QA1-RSH-002 edits crates/sc-agent-types/src/git.rs. I found no owned_paths entry for that file (sc-agent-types entries are lib.rs, Cargo.toml, ids.rs, catalog.rs, models.rs, trace.rs and tests). I could not check whether another sprint owns it. This is informational and not a requirement violation.",
+      "required_correction": "Add 'crates/sc-agent-types/src/git.rs#subprocess deadline (QA-1 RSH-002)' to the sprint doc's owned_paths, with the same for any other QA-1 fix files outside the list.",
+      "compliance_result": "partially-compliant"
+    }
+  ],
+  "summary": {"total_findings": 1, "blocking_findings": 0, "overall_compliance": "compliant", "deliverables_total": 3, "deliverables_complete": 3, "deliverables_incomplete": 0, "deliverable_completion_percent": 100.0},
+  "gate_reason": "Worktree identity: the worktree's HEAD file is 'ref: refs/heads/sprint/r-7-decision-schema', and that ref file contains 4eb8265e0b5e2d3d27478945c30b08a9d4a2125c, so it matches the assigned commit. REQ-QA-001 is closed by the acceptance log: all 50 commands exit 0 at 9497297. REQ-QA-002 is fixed at the three named lines in the sprint doc. The QA-1 fixes I inspected break no requirement. Remaining: one Minor housekeeping finding (owned_paths for git.rs). Caveat: I had only read tools, so the log is parent-attested evidence for 9497297 and the post-9497297 gates (fmt, clippy, tests, just lint, PR 33 CI at 4eb8265) rest on the parent's report."
+}

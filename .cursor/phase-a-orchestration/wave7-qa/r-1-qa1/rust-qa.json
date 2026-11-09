@@ -1,0 +1,85 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-1-types-break",
+    "reviewed_commit": "22ef273",
+    "review_mode": "sprint_review",
+    "executed_checks": {
+      "fmt": {"status": "pass", "command": "cargo fmt --all --check"},
+      "clippy": {"status": "pass", "command": "cargo clippy --workspace --all-targets --all-features -- -D warnings"},
+      "tests": {"status": "pass", "command": "cargo test --workspace (run twice, both exit 0, no failures)"},
+      "coverage": {
+        "status": "pass",
+        "line": 91.07,
+        "branch": 0.0,
+        "function": 86.07,
+        "adequate_for_risk": true,
+        "per_crate_line": {"sc-agent-secrets": 96.53, "sc-agent-types": 94.16, "sc-ai": 82.92, "sc-jev": 87.89, "sc-jev-backends": 91.48, "sc-jev-check": 91.76, "sc-jev-py": 93.13, "sc-treesitter": 87.74},
+        "note": "Workspace line coverage is 91.07%, against the 90.95% baseline. I did not measure per-crate baselines, so I cannot report per-crate regressions greater than 1 point. Branch coverage is not reported by llvm-cov summary here (0.0 is a placeholder). sc-ai (82.92) and sc-treesitter (87.74) are the lowest crates and sit below the workspace figure. Compare them with per-crate numbers from the baseline if that matters."
+      },
+      "artifacts": {"status": "not_run", "command": ""},
+      "extra_gates": {
+        "types_test_util_mock": "pass (1 passed)",
+        "types_git_test": "pass (5 passed)",
+        "hack_feature_powerset_types_no_dev_deps": "pass (28/28)",
+        "hack_each_feature_test_sc_treesitter": "pass",
+        "just_lint": "pass (compatibility.check ok; lint.ci.consumer pass, 3 steps). The output has no literal sc-boundary text.",
+        "cargo_doc_D_warnings": "pass (--no-deps --workspace)",
+        "just_test_python": "pass (9 passed)",
+        "sc_publish_dry_run": "pass (all 7 crates packaged and dry-run uploaded, plus maturin wheel)",
+        "cargo_publish_dry_run_locked_per_crate": "Run singly with --allow-dirty (tree was clean): only sc-agent-types succeeds. The other six fail with 'no matching package named sc-agent-types found' because it is not yet on the registry. This is expected for an unpublished workspace, and the multi-package dry-run in sc-publish-dry-run.sh covers all 7 and passes.",
+        "silently_skipped_test_targets": "The only [[test]] required-features targets are sc-agent-types mock (test-util) and git (git). In a workspace run, mock executes because feature unification enables test-util. git does NOT run (it did not appear in the output), and a plain `cargo test -p sc-agent-types` runs neither. Run explicitly, both pass. No other required-features targets exist. One #[ignore] exists: sc-jev-check/src/extract/command.rs:602, a child-process helper, which is intentional."
+      }
+    },
+    "findings": [
+      {
+        "id": "QA-001",
+        "category": "tests",
+        "severity": "important",
+        "file": "crates/sc-agent-types/Cargo.toml",
+        "line": 53,
+        "issue": "The `git` integration target (crates/sc-agent-types/tests/git.rs, 5 tests covering read_at_rev, the size precheck and INPUT_TOO_LARGE) is not run by `cargo test --workspace` or by a plain `cargo test -p sc-agent-types`. Nothing in the default workspace gate exercises it.",
+        "recommendation": "Add `cargo test -p sc-agent-types --features git --test git` (and `--features test-util --test mock`) to CI and the just/test layers. Alternatively enable `git` through a dev-dependency or feature unification so the workspace run covers it.",
+        "evidence": "The `Running` lines of the workspace run include tests/mock.rs but no tests/git.rs. When run explicitly the target passes with 5 tests."
+      },
+      {
+        "id": "QA-002",
+        "category": "correctness",
+        "severity": "minor",
+        "file": "crates/sc-ai/src/observe.rs",
+        "line": 184,
+        "issue": "A new `expect(\"Operation spellings are valid action names\")` sits in a library (non-test) path. A future Operation spelling that is not a valid ActionName would panic at runtime. The unit test `every_log_operation_is_an_action_name` is the only guard.",
+        "recommendation": "Return a Result, or fall back to a fixed valid ActionName. Alternatively make the mapping a const or match so the invariant is checked at compile time. Keep the unit test either way.",
+        "evidence": "fn action_name(operation: Operation) -> ActionName { ActionName::new(operation.as_str()).expect(...) }. All other added unwrap/expect/panic hits are inside #[cfg(test)] or doc examples (sc-agent-secrets, sc-agent-types envelope/secret, sc-jev-check config/equal_input/table/questions, sc-jev-backends transport)."
+      },
+      {
+        "id": "QA-003",
+        "category": "correctness",
+        "severity": "minor",
+        "file": "crates/sc-jev-backends/src/transport.rs",
+        "line": 282,
+        "issue": "The ureq kind mapping classifies only ureq::Error::Timeout and Io(TimedOut) specially. Every other variant, including TLS/Rustls failures, DNS failures and protocol errors, maps to NetworkErrorKind::Connect. Only the pre-connect https-scheme check produces Tls (line 208), so TLS handshake failures are mislabeled as Connect.",
+        "recommendation": "Map ureq's TLS-specific variants (Rustls, Pki and similar) to NetworkErrorKind::Tls if retryable() or the fix_hint distinguish them. Otherwise document that Connect covers them. Add a mapping test for each branch.",
+        "evidence": "match error { Timeout(_) => Timeout, Io(io) => io_error_kind(io), _ => Connect }"
+      }
+    ],
+    "summary": {
+      "total_findings": 3,
+      "by_severity": {"critical": 0, "important": 1, "minor": 2}
+    },
+    "notes": [
+      "Review questions with no defect found:",
+      "EqualInputRecord Serialize (judge.rs:490): it writes the six fields in the same order, with `equal` computed from `self.equal()` and never stored. TryFrom<EqualInputWire> recomputes `equal` and rejects a mismatch with INPUT_INVALID, so the round trip is sound.",
+      "PayloadBundle::decode (payload.rs:194): it parses, re-encodes via encode (which also rejects duplicate question ids) and requires byte equality with the input. A parse failure yields encode_failed, whose code is INPUT_INVALID. The doc matches the behavior.",
+      "ErrorCode::ALL: the in-crate test at error.rs:878-912 uses a wildcard-free match (so a new variant fails to compile), checks ALL.contains, and checks uniqueness. tests/errors.rs checks ALL against errors.json. test_every_variant_code_golden compares against crate fixtures/error-codes.json, but its `every_variant()` list is hand-maintained. That is acceptable because the exhaustive in-crate match plus the errors.json comparison guard completeness.",
+      "Stderr golden fixture error-stderr.jsonl is newline-terminated JSONL (ends 0x0a) and the tests pass against it.",
+      "Session v2 reader: check_version (session/mod.rs:493) rejects a missing or older version and a newer version with session_document_invalid (INPUT_INVALID). The fixture tests/fixtures/session-v1.json is used in tests/session.rs, with the store clock set so version is the only possible failure.",
+      "read_at_rev without --no-textconv: the read path (extract/read.rs:120-190, and the same design in sc-agent-types/src/git.rs) uses `git cat-file blob <oid>`. cat-file applies no textconv or smudge filters unless --textconv or --filters is given, so output is raw filter-free blob bytes. The size precheck is intact: rev-parse --verify --end-of-options resolves once, then `cat-file -t` checks the type, `cat-file -s` is compared with MAX_INPUT_BYTES (8 MiB) before reading, and the read length is re-checked after. Tests oversize_blob_at_rev_is_input_too_large (read.rs:333) and sc-agent-types/tests/git.rs:85 cover it.",
+      "MockJudgeBackend (test_util.rs): it has no Clone and tests share it through Arc. The LLM-context refusal test exists in tests/mock.rs lines 86-104: AnthropicHaiku with a bare request returns INPUT_INVALID from both validate_for_send and judge, records nothing, and counts validations.",
+      "max_request_bytes removal: the 96 000 B limit is now BackendId::descriptor().request_limit_bytes() (catalog.rs:100-122). It is enforced pre-send on the Jev path: client/mod.rs:197 and :202 call check::prepare, which returns input_too_large (check.rs:65). The test oversized_input_is_refused_and_nothing_is_sent (sc-jev/tests/jev_api.rs:279) sends 100 000 bytes and asserts INPUT_TOO_LARGE with transport.sent() empty. packaged_config_holds_model_host_path asserts 96_000. LLM backends enforce it in sc-jev-backends validate.rs:68, with tests in tests/llm.rs lines 427 and 635. sc-jev/src/config.rs:193 tests that a `max_request_bytes` config key is now rejected.",
+      "No hardcoded /tmp paths in crates/. The worktree was clean at HEAD 22ef273 on sprint/r-1-types-break."
+    ]
+  },
+  "error": null
+}

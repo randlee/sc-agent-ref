@@ -1,0 +1,437 @@
+diff --git a/docs/architecture.md b/docs/architecture.md
+index 79b9a0c..07c4a6b 100644
+--- a/docs/architecture.md
++++ b/docs/architecture.md
+@@ -51,0 +52,8 @@ alongside `sc-ai`. Direct dependencies of every crate are listed in its
++## Phase A.1 crate graph
++
++**Status:** Proposed (Phase A.1) — lands in r-3b.
++
++The target graph is in [`plans/phase-a-refine/plan.md`](plans/phase-a-refine/plan.md)
++("Crate graph after A.1"). r-3b replaces this paragraph with that graph when
++`sc-agent-compose` and `workspace-tests` land.
++
+@@ -113,0 +122,25 @@ errors happens before any backend call (ADR-SAG-0004).
++### Amendment (Phase A.1, r-4)
++
++**Status:** Proposed (Phase A.1) — lands in r-4.
++
++- (Proposed, r-4) `sc-jev-check` runs the four consumer extractor kinds
++  (`file`, `table-column`, `subjects`, `command`); it is not the only
++  producer of subjects (ADR-SAG-0015).
++
++### Amendment (Phase A.1, r-2)
++
++**Status:** Proposed (Phase A.1) — lands in r-2.
++
++- (Proposed, r-2) The public assembly entry point is `prepare`
++  (ADR-SAG-0024). The sentences "`run::build_request` is the public assembly
++  entry" and "`run_check` uses that same assembly" above are superseded.
++
++### Amendment (Phase A.1, r-5 — blocked on vendor answer)
++
++**Status:** Proposed (Phase A.1) — lands in r-5; blocked (D9, owner decision (c)).
++
++- (Proposed, r-5) `CanonicalJudgePayload` is the only payload schema. Both backend families
++  validate by deserializing it. The Jev HTTP body is a JSON envelope built
++  around the canonical object (no byte-splice); `prompt_sha256` stays on
++  canonical bytes.
++
+@@ -122,0 +156,10 @@ with mode `0600` (sprint a-6).
++### Amendment (Phase A.1, r-2b)
++
++**Status:** Proposed (Phase A.1) — lands in r-2b.
++
++- (Proposed, r-2b) Multi-backend runs are **independent by default**: no backend receives
++  another's answers. `MultiBackendMode::ChainContext` passes prior successful
++  LLM answers to later LLM backends through the system prompt, and the mode is
++  recorded on `EqualInputRecord.mode`. Sessions continue to carry context for
++  `ask`. See ADR-SAG-0025.
++
+@@ -132,0 +176,25 @@ Amended by ADR-SAG-0022.
++### Amendment (Phase A.1, r-1)
++
++**Status:** Proposed (Phase A.1) — lands in r-1.
++
++- (Proposed, r-1) `BackendId` is `#[non_exhaustive]`. Static backend facts
++  (`family`, `key_id`, `requires_llm_context`, `supports_session_ask`,
++  `request_limit_bytes`) live on `BackendDescriptor` rows in `BACKENDS`;
++  `JudgeBackend::capabilities()` is a provided method derived from the
++  descriptor. The engine reads descriptors, never matches on ids, except the
++  one allowlisted factory in `sc-jev-check::registry`.
++- (Proposed, r-1) "Open" means additive: adding a backend is a minor
++  `sc-agent-types` change (variant + `BACKENDS` row) plus one registry factory
++  arm, with no caller signature change. It is not a runtime-open registry.
++- (Proposed, r-1) `JudgeBackend` is intentionally open (not sealed); every
++  method added after A.1 has a default body.
++
++### Amendment (Phase A.1, r-2)
++
++**Status:** Proposed (Phase A.1) — lands in r-2.
++
++- (Proposed, r-2) The sentence "Callers keep `run_check(..., backends:
++  &[BackendId])`" is superseded: callers use `prepare`/`run` (ADR-SAG-0024)
++  with `RunConfig::backends(BackendSet)`. `run_check` is deleted. A new
++  backend still needs no CLI or PyO3 signature change.
++
+@@ -168,0 +237,12 @@ and not a second `run_check` policy.
++### Amendment (Phase A.1, r-2)
++
++**Status:** Proposed (Phase A.1) — lands in r-2.
++
++- (Proposed, r-2) The scripted registry is passed via `RunConfig::registry`
++  (ADR-SAG-0024), not `RunOptions::registry`; the sentences "not a second
++  `run_check` policy" and "`run_check`'s parameters stay unchanged" now read
++  against `prepare`/`run`. `register_scripted_backends` and its `test-util`
++  gating are unchanged. The scripted backend builds over
++  `sc_agent_types::test_util::MockJudgeBackend` and reports the digest of the
++  bundle it received (r-2b).
++
+@@ -203,0 +284,16 @@ still records whether every backend saw the same canonical bytes.
++### Amendment (Phase A.1, r-2)
++
++**Status:** Proposed (Phase A.1) — lands in r-2.
++
++- (Proposed, r-2) The `RunOptions` field list above is replaced by
++  `RunConfig` (ADR-SAG-0024). The prompt precedence is unchanged.
++
++### Amendment (Phase A.1, r-2b)
++
++**Status:** Proposed (Phase A.1) — lands in r-2b.
++
++- (Proposed, r-2b) Equal-input records, per backend, an `Attestation`
++  computed from `JudgeOutcome.input_sha256`: the digest of the canonical blob
++  that backend recovered from its final serialized wire body. `equal` is true
++  only if every backend's attestation is `Matched`. See ADR-SAG-0025.
++
+@@ -214,0 +311,10 @@ Amended by ADR-SAG-0020.
++### Amendment (Phase A.1, r-2)
++
++**Status:** Proposed (Phase A.1) — lands in r-2.
++
++- (Proposed, r-2) "Repo root" for `.env` lookup is
++  `sc_jev_check::run::discover_repo_root`: the git toplevel of the start
++  directory, or the start directory (absolutized) outside git. Both `sc-ai`
++  and `sc-jev-py` use it. Behaviour change: `sc-jev-py` called from a
++  subdirectory now reads the toplevel `.env` instead of the subdirectory's.
++
+@@ -239,0 +346,31 @@ points and the secret-bearing return type.
++### Amendment (Phase A.1, r-1)
++
++**Status:** Proposed (Phase A.1) — lands in r-1.
++
++- (Proposed, r-1) `ResolvedApiKey::try_new` is the only constructor; the
++  hidden `new` is removed; the secret is held as `Arc<str>`. Backend
++  constructors (`JevClient::new`, Haiku, Luna, and their
++  `with_default_transport`) are infallible.
++
++### Amendment (Phase A.1, r-3)
++
++**Status:** Proposed (Phase A.1) — lands in r-3.
++
++- (Proposed, r-3) A secret travels only as a `SecretHeader` holding
++  `ResolvedApiKey` inside `sc_agent_http::HttpRequest`. The single read site
++  is a **lint-enforced workspace convention, not a type seal**:
++  `ResolvedApiKey::as_str` is listed in `clippy.toml` `disallowed-methods`;
++  its one call site, `crates/sc-agent-http/src/ureq.rs`, carries
++  `#[expect(clippy::disallowed_methods, reason = ...)]`; workspace lints deny
++  `allow_attributes` and `allow_attributes_without_reason`; and
++  `sc-agent-http`'s `secret_read_site` test fails if that `#[expect]` appears
++  anywhere else in `crates/*/src`. Crates outside the workspace are not
++  constrained. Redaction is applied once, in `send_with_busy_retry`.
++- (Proposed, r-3) The `Transport` trait is open; test transports see
++  `SecretHeader::redacted()` / `matches()` only.
++- (Proposed, r-3) Correction to the text above: `sc-agent-secrets` no longer has a
++  `test-util` feature (removed in a-10). `MapEnv`/`MapKeyring` doubles live in
++  its tests. Also as of a-10: `sc-jev`'s `api` module is renamed `config`,
++  `client` is private, and `RecordingSessionLog`/`RejectingSessionLog` are
++  deleted.
++
+@@ -246,0 +384,10 @@ via `validate_for_send` before `judge`.
++### Amendment (Phase A.1, r-2b)
++
++**Status:** Proposed (Phase A.1) — lands in r-2b.
++
++- (Proposed, r-2b) "Before `judge`" applies to the request actually sent. In
++  `MultiBackendMode::ChainContext`, each augmented request is re-validated
++  immediately before its own send; a refusal there marks that backend
++  `Failed` (`leak = true`) and sends nothing for it. The base request is still
++  validated on every backend before the first send (ADR-SAG-0025).
++
+@@ -254,0 +402,9 @@ Both use test doubles for unit tests.
++### Amendment (Phase A.1, r-3)
++
++**Status:** Proposed (Phase A.1) — lands in r-3.
++
++- (Proposed, r-3) HTTP transport, retry, caps and redaction live in `sc-agent-http`
++  (ADR-SAG-0026). `sc-jev` and `sc-jev-backends` are wire-format crates that
++  take an injected `sc_agent_http::Transport` at construction. Injection at
++  construction (not per `judge`) is unchanged.
++
+@@ -264,0 +421,22 @@ REQ-SAG-0505.
++### Amendment (Phase A.1, r-3)
++
++**Status:** Proposed (Phase A.1) — lands in r-3. Numbers decided by the
++owner (2026-11-07).
++
++- (Proposed, r-3) One busy-retry policy for every backend, in
++  `sc_agent_http::BusyPolicy`: statuses 429/502/529 only; at most 4 sends;
++  a valid Retry-After (integer or decimal seconds) is honoured, clamped to
++  0–30 s; when Retry-After is absent **or malformed** (treated the same), the
++  wait backs off exponentially from 1 s (1, 2, 4, 8 … capped at 30 s); every
++  wait adds up to 250 ms jitter. A 90 s budget from the first send governs
++  starting new attempts: no attempt starts after it, and every wait is capped
++  to the remaining budget; an in-flight attempt keeps its 120 s request
++  timeout (covering the body read). A `CancelToken` is checked before each
++  attempt and during sliced waits. A transport error or timeout after the
++  body was sent is never retried. A 502 retry can double-charge a provider
++  that processed the request.
++- (Proposed, r-3) No network-connectivity detection and no indefinite wait on
++  network loss: connect and DNS failures return `NETWORK_ERROR`
++  (`NetworkErrorKind::Connect`, `retryable() == true`) at once, and the caller
++  (CLI, Python, future MCP) decides whether to retry.
++
+@@ -271,0 +450,9 @@ Depends on **`sc-jev-check`** + full `sc-observability`, not on `sc-jev` directl
++### Amendment (Phase A.1, r-3b)
++
++**Status:** Proposed (Phase A.1) — lands in r-3b.
++
++- (Proposed, r-3b) `sc-ai` depends on `sc-agent-compose` (observability adapter, path policy)
++  and `sc-jev-check`. Argv parsing uses clap derive behind the default `cli`
++  feature. There is still no network code in the binary crate. It no longer
++  depends on `sc-observability` directly (ADR-SAG-0013 amendment).
++
+@@ -279,0 +467,9 @@ or canonicalization.
++### Amendment (Phase A.1, r-3b)
++
++**Status:** Proposed (Phase A.1) — lands in r-3b.
++
++- (Proposed, r-3b) The wheel's path is PyO3 → `sc-agent-compose` →
++  `sc-jev-check`. `sc-jev-py` keeps only argument conversion, the GIL release
++  and exception mapping; path policy, logging adapter and run wiring are
++  `sc-agent-compose`'s (`PathPolicy::python()`).
++
+@@ -298,0 +495,27 @@ preflight CI, and publish dry-run).
++### Amendment (Phase A.1, r-4)
++
++**Status:** Proposed (Phase A.1) — lands in r-4.
++
++- (Proposed, r-4) Two released binaries: `sc-ai` and `sc-treesitter`. Coverage: GitHub Release,
++  crates.io and Homebrew ship both. Scoop and WinGet expose only `sc-ai` as a
++  shim/alias; `sc-treesitter` ships in the archive without a shim (sc-publish
++  kit limitation; bead `agt-scoop-multi-shim`; upstream issue URL recorded by
++  r-4). REQ-SAG-0133.
++
++### Amendment (Phase A.1, r-3)
++
++**Status:** Proposed (Phase A.1) — lands in r-3.
++
++- (Proposed, r-3) Published library crates gain `sc-agent-http`. crates.io
++  publish order: `sc-agent-types`, `sc-agent-secrets`, `sc-agent-http`,
++  `sc-jev`, `sc-jev-backends`, `sc-jev-check`, `sc-treesitter`, `sc-ai`.
++
++### Amendment (Phase A.1, r-3b)
++
++**Status:** Proposed (Phase A.1) — lands in r-3b.
++
++- (Proposed, r-3b) Published library crates gain `sc-agent-compose`
++  (internal support, owner decision 2026-11-06), published directly after
++  `sc-jev-check`. `workspace-tests` is `publish = false`. No crate is
++  published to crates.io until D9 resolves (plan.md decision (c)).
++
+@@ -325,0 +549,9 @@ composition roots is ADR-SAG-0021.
++### Amendment (Phase A.1, r-3b)
++
++**Status:** Proposed (Phase A.1) — lands in r-3b.
++
++- (Proposed, r-3b) The sentence "Composition roots `sc-ai` and `sc-jev-py`
++  link full `sc-observability`" is superseded: `sc-agent-compose` is the only
++  crate that links `sc-observability` (`sc-lint.toml` ownership record) and
++  holds the one `SessionLog` adapter; both roots use it.
++
+@@ -366,0 +599,27 @@ the module** and drop the types dependency if possible (bead:
++### Amendment (Phase A.1, r-4)
++
++**Status:** Proposed (Phase A.1) — lands in r-4.
++
++- (Proposed, r-4) The pin is exact: `sc-observability = "=1.5.0"`, a
++  deliberate lockstep per ADR-SAG-0023.
++
++### Amendment (Phase A.1, r-1)
++
++**Status:** Proposed (Phase A.1) — lands in r-1.
++
++- (Proposed, r-1) `sc-agent-types` no longer depends on
++  `sc-observability-types`. `observability::v2::SessionLog::emit` returns the
++  local `LogRejected`. The `observability` module is behind the default-on
++  `obs` feature (ADR-SAG-0027).
++
++### Amendment (Phase A.1, r-3b)
++
++**Status:** Proposed (Phase A.1) — lands in r-3b.
++
++- (Proposed, r-3b) "Do not publish a separate observability crate" and "no
++  extra crate" are superseded for `sc-agent-compose`: the `sc-observability`
++  adapter lives once in that crate, which is published to crates.io as
++  internal support, `=`-pinned by `sc-ai` and `sc-jev-py`, with no semver
++  promise of its own (owner decision 2026-11-06; ADR-SAG-0026). The port
++  stays in `sc-agent-types`.
++
+@@ -402,0 +662,9 @@ endpoints extend `sc-jev` in place.
++### Amendment (Phase A.1, r-2)
++
++**Status:** Proposed (Phase A.1) — lands in r-2.
++
++- (Proposed, r-2) The "Extractor sealing" bullet (RBP-F004) is withdrawn: the
++  `Extractor` trait is removed and `extract_input` matches the four
++  `config::InputSpec` kinds directly. A new kind is an `InputSpec` variant
++  plus an ADR.
++
+@@ -420,0 +689,147 @@ comparison flows.
++
++
++## ADR-SAG-0023 — Dependency pins, allocator, released binaries
++
++**Status:** Proposed (Phase A.1) — lands in r-4; the compose-pin bullet is
++effective when the crate lands (r-3b).
++
++- (Proposed, r-4) Library crates declare caret ranges. Exact `=` pins are
++  allowed only for deliberate lockstep, and every one is listed here:
++  `sc-observability` (v2 shim alignment); `tree-sitter` and grammar crates
++  (output determinism). `.github/scripts/check-exact-pins.sh` enforces the
++  list. NFR-SAG-0004.
++- (Proposed, r-3b) The intra-workspace `sc-agent-compose` dependency of
++  `sc-ai` and `sc-jev-py` is `=`-pinned (lockstep internal support; owner
++  decision 2026-11-06). Effective when the crate lands in r-3b.
++- (Proposed, r-4) Global allocators and argv parsers are linked only by
++  binaries: `mimalloc` and `clap` are optional behind each binary crate's
++  default `cli` feature, and the `[[bin]]` targets use
++  `required-features = ["cli"]`. Libraries build with
++  `--no-default-features` without mimalloc (REQ-SAG-0134) or clap
++  (REQ-SAG-0135).
++- (Proposed, r-4) Released binaries are `sc-ai` and `sc-treesitter`.
++  Per-channel coverage is ADR-SAG-0017's r-4 amendment.
++
++## ADR-SAG-0024 — Engine entry point and response contract
++
++**Status:** Proposed (Phase A.1) — lands in r-2. Amends ADR-SAG-0005,
++ADR-SAG-0009, ADR-SAG-0019, ADR-SAG-0022.
++
++- (Proposed, r-2) `sc-jev-check`'s only run API is
++  `prepare(CheckSource, RunConfig) -> PreparedRun` then
++  `run(PreparedRun) -> RunResponse`, plus `discover_repo_root(&Path)`.
++  `PreparedRun` owns its config. `build_request`, `run_check`, `run_request`
++  and `prepare_caller_request` are deleted (no shims; nothing published).
++- (Proposed, r-2) Backend selection: `RunConfig::backends` if set, else the
++  source document's `backends`, else `[jev]`. `prepare` and dry-run read only
++  static `BackendDescriptor` facts and construct no backend.
++- (Proposed, r-2) `RunResponse` (`#[non_exhaustive]`) is the one result type
++  every consumer (CLI, PyO3, future MCP) prints, and its single `Serialize`
++  is the ADR-SAG-0014 `data` body: the primary backend (first `Ok` in
++  `BackendSet` order) contributes its answer fields at the top level, named by
++  `primary_backend`, followed by `session_id` (null unless `session_saved`),
++  `prompt_sha256`, `payload_bytes`, `results` (per backend `ok` + outcome or
++  `failed` + `ScAgentErrorResponse`) and `equal_input`. The
++  `{version, operation, data}` wrapper is `sc_jev_check::run::Envelope`.
++  `RunResponse::first_failure()` / `is_partial()` decide exit codes and
++  exceptions for every consumer. REQ-SAG-0620.
++- (Proposed, r-2) Dry-run reports `payload_bytes` and, per selected backend,
++  `request_limit_bytes` and `over_limit`; it does not fail on an over-limit
++  payload. Each backend owns its byte cap and enforces it in
++  `validate_for_send`; the engine does not pre-cap. REQ-SAG-0314.
++- (Proposed, r-2) `FileSessionStore` is stateless (`dir`, `ttl`, `clock`
++  fn pointer). `ask` takes the `&BackendRegistry` and does not rewrite the
++  file. No lock: `save` writes a `create_new` tmp named with pid + random,
++  fsyncs, renames, fsyncs the parent, removes the tmp on error; last writer
++  wins; readers are protected by digest and id re-verification; stale tmp
++  files are swept. The session is written once at the end of `run`, only
++  when a backend with `supports_session_ask` returned `Ok`. REQ-SAG-0607.
++- (Proposed, r-2) Repo-root discovery is the git toplevel for both consumers
++  (ADR-SAG-0003 r-2 amendment).
++
++## ADR-SAG-0025 — Multi-backend semantics and equal-input attestation
++
++**Status:** Proposed (Phase A.1) — lands in r-2b. Amends ADR-SAG-0004,
++ADR-SAG-0008, ADR-SAG-0019.
++
++- (Proposed, r-2b) The default mode is `Independent`; `ChainContext` is
++  explicit and recorded on `EqualInputRecord.mode`. REQ-SAG-0605.
++- (Proposed, r-2b) The base request is validated on every backend before any
++  send; each `ChainContext`-augmented request is re-validated before its own
++  send, and a refusal marks that backend `Failed`. Each backend yields
++  `BackendStatus::Ok | Failed(ScAgentErrorResponse + JevError)`; a failure
++  does not discard other answers; `leak = any Failed`; if all fail, `run`
++  returns `Err`. `judge` is called once per backend; only `BusyPolicy`
++  retries; a session-save failure keeps the answers with
++  `session_saved = false`. REQ-SAG-0604 (consumer output in r-3b: stdout
++  envelope, stderr first failure, exit 2).
++- (Proposed, r-2b) `equal` is derived from per-backend `Attestation`
++  (`Matched`, `Mismatched`, `Unattested`, `Failed`, `NotSent`). Each backend
++  reports `input_sha256`: the digest of the canonical blob recovered from its
++  final serialized wire body. The engine trusts the reported digest. This
++  re-encoding is attestation-only and never feeds the wire body, so it does
++  not breach ADR-SAG-0005's "backends must not re-canonicalize". REQ-SAG-0606.
++
++## ADR-SAG-0026 — Shared HTTP crate and composition crate
++
++### HTTP half
++
++**Status:** Proposed (Phase A.1) — lands in r-3.
++
++- (Proposed, r-3) `sc-agent-http` (published) owns `HttpRequest`
++  (`body: Arc<[u8]>`) / `HttpResponse`, `Endpoint`, `SecretHeader`,
++  `Transport`, `UreqTransport` (one `Agent` built in `new`, 8 MiB streaming
++  response cap), `BusyPolicy` / `send_with_busy_retry` (with `CancelToken`)
++  and redaction, and is the single secret-read site (ADR-SAG-0020 r-3
++  amendment). It depends only on `sc-agent-types` and `ureq`; no `ureq` type
++  is public. Phase B provider agents reuse it. REQ-SAG-0402.
++- (Proposed, r-3) ADR-SAG-0012 still holds: `sc-jev` owns every TypeSafe
++  Jev API operation (endpoints, wire body, response parsing);
++  `sc-agent-http` only carries bytes.
++
++### Compose half
++
++**Status:** Proposed (Phase A.1) — lands in r-3b.
++
++- (Proposed, r-3b) `sc-agent-compose` owns the `sc-observability` adapter,
++  `PathPolicy` (one data type; `cli()` and `python()` presets encode
++  ADR-SAG-0021 per root, unchanged), `ComposeInputs`, `run_from` and
++  `ask_from`. **Decided (owner, 2026-11-06):** it is published to crates.io
++  as an internal-support crate, `=`-pinned from `sc-ai` and `sc-jev-py`, with
++  no semver promise of its own, because `sc-ai` is published and cannot
++  depend on an unpublished crate. Publish order and the published-crate set
++  are ADR-SAG-0017's r-3b amendment.
++
++## ADR-SAG-0027 — Error taxonomy and extensibility
++
++**Status:** Proposed (Phase A.1) — lands in r-1. Amends ADR-SAG-0001.
++
++- (Proposed, r-1) `JevError`, `BackendId` and `BackendKeyId` are
++  `#[non_exhaustive]`, and struct-like `JevError` variants are
++  `#[non_exhaustive]` so downstream crates use constructors. Recovery
++  categories are explicit variants (`CredentialStoreInvalid`,
++  `RegistryInvalid`, `SessionStoreIo`, `Operational { area }`,
++  `SessionDocumentInvalid`, `EncodeFailed`, `IoFailed`). Producer variants are
++  neutral (`LanguageUnavailable { producer, language }`); producer stderr is
++  re-raised as `ProducerError { producer, code, message }`, whose `code()` is
++  the carried id. No string-prefix parsing. REQ-SAG-0106.
++- (Proposed, r-1) `code()` ids are unchanged. Every variant maps to exactly
++  one existing id; an id may have several variants (REQ-SAG-0101 amended).
++  The variant → id table is in sprint r-1 and pinned by a golden test. A new
++  stable code requires changing the README `errors.json` contract shared with
++  Python. Revisit when Phase B needs an `INTERNAL` class.
++- (Proposed, r-1) `retryable()` is true only for `NetworkError` kinds Busy,
++  Timeout, Connect. `ScAgentErrorResponse` carries optional `schema_version`,
++  `retryable`, `details`.
++- (Proposed, r-1) `Error::source()` is `None` for every redacted-cause
++  variant (`CredentialStoreInvalid`, `NetworkError`, `EncodeFailed`,
++  `IoFailed`, `SessionStoreIo`); no A.1 variant carries a non-redacted source.
++- (Proposed, r-1) Serde spelling of backend ids matches `Display`
++  (`openai_luna`, `openai`), with a one-release read alias for
++  `open_ai_luna` / `open_ai` in config and caller-request input.
++- (Proposed, r-1) Module seams are cargo features of `sc-agent-types`:
++  `judge`, `secret`, `obs`, `git` (all default-on); `error`, `envelope`,
++  `ids`, `schema` are always on. `sc-treesitter` uses
++  `default-features = false`. Module paths are the stable surface for a later
++  re-export split. Adding a backend is a minor `sc-agent-types` change plus
++  one registry factory arm (ADR-SAG-0009 r-1 amendment).

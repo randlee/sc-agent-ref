@@ -1,0 +1,88 @@
+<cursor-qa-task id="qa-a-7-2" sprint="a-7" assignee="cursor-quality-mgr">
+  <description>QA-2 closeout for PR #14 — sc-ai CLI</description>
+  <review-mode>sprint_review</review-mode>
+  <authoritative-sprint-doc>docs/plans/phase-a/sprint-a-7-sc-ai-cli.md</authoritative-sprint-doc>
+  <pr-number>14</pr-number>
+  <branch>sprint/a-7-sc-ai-cli</branch>
+  <worktree>/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-7-sc-ai-cli</worktree>
+  <commits>844fc6557157be79bb81ff8e899f77ead4c8b601</commits>
+  <enforcer-binding>cursor-quality-mgr only; spawn gate from parent handoff</enforcer-binding>
+  <parent-reviewer-handoff required="true">
+    <manifest>[
+  {"agent": "req-qa", "task_id": "838d9204-efd8-4ef3-8d1f-c0eb52055c76", "spawn_actor": "parent-orchestrator"},
+  {"agent": "arch-qa", "task_id": "cae7497c-16b6-4d6c-b1e3-b712486579e5", "spawn_actor": "parent-orchestrator"},
+  {"agent": "rust-qa-agent", "task_id": "d1e7452d-e88c-4564-8570-cf1faaae8f77", "spawn_actor": "parent-orchestrator"},
+  {"agent": "flaky-test-qa", "task_id": "5e153379-7b24-4ac8-8473-1239ecbdce5f", "spawn_actor": "parent-orchestrator"}
+]</manifest>
+    <reviewer-outputs>
+```json
+{
+  "status": "PASS",
+  "reviewed_branch": "sprint/a-7-sc-ai-cli",
+  "reviewed_commit": "844fc6557157be79bb81ff8e899f77ead4c8b601",
+  "scope": {"phase": "a", "sprint": "a-7"},
+  "findings": [],
+  "summary": {
+    "total_findings": 0,
+    "blocking_findings": 0,
+    "overall_compliance": "compliant",
+    "deliverables_total": 14,
+    "deliverables_complete": 14,
+    "deliverables_incomplete": 0,
+    "deliverable_completion_percent": 100.0
+  },
+  "gate_reason": "All listed REQ/NFR upheld; deliverables 100%; carry-forward REQ-SAG-0610 and ADR-SAG-0014 envelope fix verified at 844fc65."
+}
+```
+```json
+{
+  "agent": "arch-qa",
+  "branch": "sprint/a-7-sc-ai-cli",
+  "scope": {"phase": "a", "sprint": "a-7"},
+  "commit": "844fc6557157be79bb81ff8e899f77ead4c8b601",
+  "verdict": "PASS",
+  "blocking": 0,
+  "important": 0,
+  "findings": [],
+  "merge_ready": true,
+  "notes": "Carry-forward ARCH-013/014 and ADR-SAG-0014 resolved at 844fc65."
+}
+```
+```json
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/a-7-sc-ai-cli",
+    "reviewed_commit": "844fc6557157be79bb81ff8e899f77ead4c8b601",
+    "review_mode": "sprint_review",
+    "executed_checks": {
+      "fmt": {"status": "pass", "command": "cargo fmt --all --check"},
+      "clippy": {"status": "pass", "command": "cargo clippy --all-targets --all-features -- -D warnings"},
+      "tests": {"status": "pass", "command": "cargo test"}
+    },
+    "findings": [],
+    "summary": {"total_findings": 0, "by_severity": {"critical": 0, "important": 0, "minor": 0}}
+  },
+  "error": null
+}
+```
+```json
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/a-7-sc-ai-cli",
+    "reviewed_commit": "844fc65",
+    "findings": [],
+    "summary": {"total_findings": 0, "critical": 0, "important": 0, "minor": 0},
+    "carry_forward_recheck": {
+      "FTQ-001": {"disposition": "resolved", "note": "Bounded cleanup at 844fc65."}
+    }
+  },
+  "error": null
+}
+```
+    </reviewer-outputs>
+  </parent-reviewer-handoff>
+</cursor-qa-task>

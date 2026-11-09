@@ -1,0 +1,31 @@
+{
+  "status": "PASS",
+  "reviewed_branch": "sprint/r-7-decision-schema",
+  "reviewed_commit": "a6a1387",
+  "errors": [],
+  "scope": {"phase": "phase-a-refine", "sprint": "r-7"},
+  "baselines_read": ["docs/requirements.md (REQ-SAG-0610 row, line 102)", "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md"],
+  "phase_or_sprint_docs_read": ["docs/plans/phase-a-refine/sprint-r-7-decision-schema.md (lines 1-754 of 995; front matter, owned_paths and D1-D8 read, D9 and the acceptance rows were not)"],
+  "requirement_checks": [
+    {"id": "REQ-SAG-0610", "source": "docs/requirements.md:102", "listed_in_sprint_doc": true, "result": "upheld",
+     "evidence_refs": ["crates/sc-jev-check/src/run/mod.rs:798-821", "crates/sc-jev-check/src/run/mod.rs:41-44", "crates/sc-jev-check/src/run/tests.rs:644-680"]}
+  ],
+  "deliverable_checks": [
+    {"item": "REQ-QA-003: owned_paths carries the QA-fix entries (444ff86)", "status": "present", "closure_state": "closed",
+     "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:180-190"],
+     "notes": "Entries exist for git.rs, error.rs, tests/errors.rs plus error-codes.json, tests/support/deadline.rs, test_util_off.rs, sc-agent-http tests/support/mod.rs, run/tests.rs, backend.rs rustdoc, the CI workflow, extraction.md and plan.md. The delta also edits run/mod.rs, which the existing run/** entries cover. The GitTimeout work in docs/architecture.md and docs/sc-agent-types/architecture.md is covered by the existing docs/architecture.md and docs/sc-agent-types/** entries (lines 172, 175)."},
+    {"item": "QA-2 fixes (65f0637 and later) break no requirement, REQ-SAG-0610 in particular", "status": "present", "closure_state": "closed",
+     "evidence_refs": ["crates/sc-jev-check/src/run/mod.rs:800-821"],
+     "notes": "send() calls judge with a fresh SendTrace and then emit_log unconditionally. An Ok, a Failed and a cancelled-before-send call each emit one LogEvent. Only a validate_for_send refusal (NotSent, which returns before send) emits none, as the module doc says. test cancelled_call_still_emits_one_log_event asserts one event for a cancelled call and one more for a failed call."}
+  ],
+  "findings": [
+    {"id": "REQ-QA-004", "severity": "Minor", "category": "cross-doc-conflict",
+     "source_refs": ["docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:182"],
+     "target_refs": ["crates/sc-agent-types/tests/fixtures/error-codes.json"],
+     "issue": "The owned_paths entry reads 'crates/sc-agent-types/tests/errors.rs, tests/fixtures/error-codes.json#GitTimeout row'. The second path is relative to the crate (the real file is crates/sc-agent-types/tests/fixtures/error-codes.json) and could be read as the repo-root tests/fixtures/. The ownership claim is still unambiguous enough to count REQ-QA-003 as closed.",
+     "required_correction": "Spell the path in full: crates/sc-agent-types/tests/fixtures/error-codes.json#GitTimeout row. This is optional and not a gate item.",
+     "compliance_result": "partially-compliant"}
+  ],
+  "summary": {"total_findings": 1, "blocking_findings": 0, "overall_compliance": "compliant", "deliverables_total": 2, "deliverables_complete": 2, "deliverables_incomplete": 0, "deliverable_completion_percent": 100.0},
+  "gate_reason": "PASS. I confirmed worktree HEAD is sprint/r-7-decision-schema at a6a13879 through the .git refs and logs. I had no shell, so I could not run git diff 4eb8265..a6a1387. I scoped the delta from the reflog commit list and matched it against owned_paths. REQ-QA-003 is closed because the QA-fix entries are present. REQ-SAG-0610 is upheld because the shared send step logs every call that reaches judge. One Minor note (REQ-QA-004) is raised and does not affect the gate."
+}

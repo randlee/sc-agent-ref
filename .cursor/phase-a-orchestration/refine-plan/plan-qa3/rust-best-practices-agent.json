@@ -1,0 +1,29 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "plan/phase-a-refine",
+    "reviewed_commit": "c7c6f232d0cb08d8105d1e0a016e75748e81cc84",
+    "review_mode": "doc_review",
+    "practice_mode": "all",
+    "practices_reviewed": ["RBP-001","RBP-002","RBP-003","RBP-004","RBP-005","RBP-006","RBP-007","RBP-008","RBP-009","RBP-010"],
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": {"critical": 0, "important": 0, "minor": 0}
+    },
+    "notes": [
+      "Not verified: this session has no shell tool, so I could not confirm that the worktree HEAD equals c7c6f23 on plan/phase-a-refine. I read the files from the worktree path as given. The caller should confirm the commit.",
+      "Not done: I did not read the full text of every sprint doc. I read the dispositions file, the prior-round report, the r-1 sections D1.6, D6 and D10, the r-2 sections D2.5 and D2.6, the r-3b sections D2 and D3, the plan conventions, the plan's allocator and wave notes, and the r-4 sections D2 and D3. I also checked crate layout in the code baseline at integrate/phase-a.",
+      "RBP-F106 is closed. The plan conventions give one 'Test seams' mechanism: a non-default, additive test-util feature per crate. Integration targets enable it through a self-referencing dev-dependency. The hooks are named per crate (MockJudgeBackend, BusyPolicy::with_test_hooks, Endpoint::loopback_http, RunResponse::test_builder, register_scripted_backends, WireFault). Gates prove the feature is off in normal graphs: a cargo tree row and workspace-tests --test test_util_off. Tests that cannot use the hooks are named --lib unit tests. The self dev-dependency is valid for sc-jev-check and sc-agent-http. It is also valid for sc-ai and sc-treesitter, because the baseline shows both have src/lib.rs, so they are not bin-only.",
+      "RBP-F109 is closed. SubjectsDocument is the one validated type (private fields, deserialize through RawSubjectsDocument and try_from, built by SubjectsBuilder::build or TryFrom). ValidatedSubjects is dropped. SubjectsDocument and GitBlob are in the privacy triage table. EqualInputRecord::equal() is derived, written at serialize time, and a mismatching document is rejected on deserialize.",
+      "Observations a-e are closed as the dispositions state. (a) ChoiceId is a validated newtype, probabilities are finite and in [0,1], and QuestionAnswer derives PartialEq only. (b) The feature seams and the cargo hack powerset check are in place. (c) The BusyPolicy text and the constructors and accessors are in place. (d) BackendFailure stores only the JevError, and BackendId::Deserialize goes through FromStr. (e) read_at_rev returns GitBlob.",
+      "Review of the new design choices (FACTORIES table, ErrorCode::ALL, ChoiceId and JudgeOutcome::new, SubjectsDocument, GitBlob, the test-util hooks, ComposeInputs new plus setters, RunResponse warnings, BackendFailure, [[bin]] required-features, #[expect] with the grep gate) found no Important or higher practice violations. The FACTORIES table has a completeness test in both directions. ErrorCode::ALL is checked against errors.json, and as_str is an exhaustive match, so a variant missing from the id mapping fails to compile. Declining #[non_exhaustive] on ComposeInputs and RunResponse is sound because their fields are private. The sc-ai --scripted-answers flag exists only under test-util, and test_util_off asserts the published binary has no such flag.",
+      "Minor 1 (RBP-004, r-1 D10.2, sprint-r-1-types-break.md lines 313-319): JudgeOutcome::new checks only that the answer keys equal the request's QuestionId set. It does not state that each chosen ChoiceId, and each key in probabilities, belongs to that question's choices. Question.choices exists in the baseline at judge.rs:23. Without that check an outcome can hold a choice the question never offered. Consider adding it to the same RESPONSE_INVALID rule, or document that the backend wire validators own it.",
+      "Minor 2 (RBP-004/RBP-001, sprint-r-1-types-break.md line 227 vs line 257): the D6.1 table types ProducerError.code as &'static str. D6.6 types it as ErrorCode. Pick ErrorCode, since JevError::code() already returns ErrorCode.",
+      "Minor 3 (RBP-006 adjacent, plan.md lines 105-121): a self-referencing dev-dependency feature unifies across the build when cargo test --workspace builds several crates together. Hook code is then compiled into the library under test for all of them. This is acceptable, and the test_util_off and cargo tree gates cover the release graph. Run those gates with a plain cargo build, not a test build, so they do not pass on the unified graph.",
+      "Minor 4 (RBP-008 adjacent): the FACTORIES row type is a bare fn(ResolvedApiKey) -> Arc<dyn JudgeBackend>. Dynamic dispatch is intended, and the JudgeBackend trait states its object-safety and seal/open decision in r-1 D1.4. The plan could add a duplicate-BackendId assertion to test_every_backend_has_factory, which is cheap."
+    ]
+  },
+  "error": null
+}

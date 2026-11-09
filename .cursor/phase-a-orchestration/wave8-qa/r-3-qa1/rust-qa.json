@@ -1,0 +1,76 @@
+{
+  "success": true,
+  "data": {
+    "status": "findings",
+    "reviewed_branch": "sprint/r-3-shared-http",
+    "reviewed_commit": "cc9c4cb",
+    "review_mode": "sprint_review",
+    "executed_checks": {
+      "fmt": {"status": "pass", "command": "cargo fmt --all --check"},
+      "clippy": {"status": "pass", "command": "cargo clippy --workspace --all-targets [--all-features] -- -D warnings (both runs pass)"},
+      "tests": {"status": "pass", "command": "cargo test --workspace; -p sc-agent-http --features test-util (6 extra loops, 0 flakes); -p sc-agent-types --features git,test-util; -p sc-jev-check --features test-util; cargo hack --each-feature test -p sc-agent-http and -p sc-treesitter; cargo hack check -p sc-agent-http --feature-powerset --no-dev-deps"},
+      "coverage": {"status": "fail", "line": 90.08, "branch": 0.0, "function": 85.4, "adequate_for_risk": true},
+      "artifacts": {"status": "pass", "command": "bash scripts/sc-publish-dry-run.sh all; cargo publish --dry-run --locked --workspace --exclude sc-jev-py with fresh CARGO_TARGET_DIR (8 crates packaged, uploads aborted by dry run)"}
+    },
+    "gates_all_pass_at_cc9c4cb": {
+      "fetch_locked": "pass",
+      "test_util_absence": "cargo tree --workspace -e normal,features | grep test-util returned nothing",
+      "public_api_grep": "clean on the real tree; the canary (pub fn returning ureq::Agent) was caught: target/doc/sc_agent_http/fn._canary.html. It was run once and reverted in my own throwaway worktree. That worktree is now removed.",
+      "check_exact_pins": "pass (4 pins)",
+      "cargo_tree_gates": "pass",
+      "just_lint": "pass",
+      "rustdoc_D_warnings": "pass",
+      "just_test_python": "pass (9 pytest)",
+      "run_consumer_preflight": "pass",
+      "sc_publish_dry_run": "pass (all phases, wheel built)",
+      "hardcoded_tmp_grep": "none"
+    },
+    "findings": [
+      {
+        "id": "QA-001",
+        "category": "coverage",
+        "severity": "important",
+        "file": "crates/sc-jev/src/client/mod.rs",
+        "line": null,
+        "issue": "Workspace line coverage is 90.08%, below the 91.48 baseline. This is a 1.40 point drop with sc-jev-py excluded (see evidence). Per-crate lines: sc-agent-http 92.30 (695/753); sc-jev 78.94 (356/451); sc-jev-backends 87.76 (516/588). Baseline per-crate figures were not supplied. The earlier sc-jev-backends figure of 91.48 is from a stale file of unknown origin and is not a trustworthy comparison.",
+        "recommendation": "Add tests for the uncovered lines in the rewired sc-jev client and sc-jev-backends, or have the coordinator confirm 91.48 is the right baseline and how it was measured (crate set and flags). Within sc-agent-http, transport.rs (66.7%), redact.rs (80.0%) and test_util.rs (82.2%) have the lowest coverage.",
+        "evidence": "cargo llvm-cov --workspace --exclude sc-jev-py --all-features --json --summary-only. The flag form in the brief (--json-summary-only) is rejected by this cargo-llvm-cov version. sc-jev-py cannot compile as a lib test with --all-features here (extension-module), so it is excluded from the total. The CI coverage job (.github/workflows/sc-agent-ci.yml) may count it differently."
+      },
+      {
+        "id": "QA-002",
+        "category": "correctness",
+        "severity": "minor",
+        "file": "crates/sc-agent-http/src/retry.rs",
+        "line": 244,
+        "issue": "The two exhaustion errors (all sends used, 90 s budget spent) share NetworkErrorKind::Busy and differ only in detail text (\"N sends exhausted\" vs \"retry budget exhausted\"). A caller can tell them apart only by string matching.",
+        "recommendation": "Acceptable if the spec only requires distinguishable messages (tests assert both). If callers must branch on the cause, add a distinct kind or a typed field.",
+        "evidence": "retry_loop builds both with JevError::network(NetworkErrorKind::Busy, ...)"
+      }
+    ],
+    "summary": {
+      "total_findings": 2,
+      "by_severity": {"critical": 0, "important": 1, "minor": 1}
+    },
+    "review_results": {
+      "retry_numbers": "Correct. Backoff is 1/2/4 s (tests assert 1,2,4,8,16,30,30,30). Retry-After is clamped to 30 s. The parser is integer-only, with 32-byte and 32-digit saturation; the cases cover sign, exponent, inf, NaN, an HTTP-date, 33 bytes, empty, '1.', '.5' and '1.2.3'. Jitter is bounded to 250 ms in production (hash % 251) and in the test hook (jitter.min(250 ms)).",
+      "budget_semantics": "Matches the stated assumption. The budget is checked only after a busy reply and before waiting. The wait is min(base + jitter, remaining), so a capped wait ending exactly at 90 s goes straight to the next cancel check and send, with no second budget check. The 120 s in-flight request timeout is documented as outside the budget.",
+      "cancel": "Checked before each attempt and between wait slices of at most 100 ms (WAIT_SLICE). A cancel during an in-flight request is seen only when it returns, and this is documented.",
+      "redaction": "send_with_busy_retry applies redact() in a single map_err over the whole retry_loop, so every Err path is covered, including errors from third-party Transport impls. send_and_parse also redacts errors from parse.",
+      "agent_reuse": "UreqTransport builds one agent in new() and clones share it. The test test_agent_is_reused_across_sends exists and passes.",
+      "loopback_https_only": "loopback_for_tests and Endpoint::loopback_http are gated on feature test-util. Production UreqTransport refuses non-https with a Tls error (test_release_build_refuses_http passes). The test-util absence gate is clean.",
+      "body_cap": "8 MiB cap is applied while streaming via take(cap+1) for all statuses, 200 and 500 included. Over-cap returns response_invalid. test_response_body_cap_is_8_mib_while_streaming passes.",
+      "secret_single_site": "expose() (ureq_transport.rs, #[expect(clippy::disallowed_methods)]) is the only ResolvedApiKey::as_str call, and SecretHeader::matches goes through it.",
+      "panics": "No unwrap, expect or panic in library paths. The only unreachable! is retry.rs:172, a hook/start mismatch that is a programming error and cannot happen across public APIs. The remaining expect calls are in tests.",
+      "test_determinism": "The retry tests use FakeClock, RecordingSleeper and fixed jitter, so nothing sleeps. The loopback tests passed in 7 runs total (1 + 6 loops) with no failures. test_timeout uses a real 1 s stall."
+    },
+    "notes": [
+      "SCOPE CHANGE: the first part of my run began against 8f969ff. Mid-run the shared worktree (/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-3-shared-http) moved to 39454b4 and then showed uncommitted edits. I reran every gate on clean checkouts: first an isolated clone at 8f969ff, then a throwaway worktree at cc9c4cb. The cc9c4cb run is the one reported here. The 8f969ff run also passed every gate, with the same canary result.",
+      "DISCLOSURE: before your instruction, I ran one canary in the shared worktree. It appended a throwaway fn to crates/sc-agent-http/src/lib.rs and reverted it with git checkout within about a minute. It happened before the fix-round developer's edits at 07:44-07:45, so I believe it did not interfere. Please check that the lib.rs diff in that worktree contains only the developer's changes. I ran no other file-modifying command there.",
+      "Fixed since 8f969ff (all in cc9c4cb or its parents): f6bf365 (connect-phase test accepts Connect or Timeout on Windows), 39454b4 (stall timeout 1 s), and cc9c4cb (send_and_parse and HttpClient own the exchange). cc9c4cb also changes sc-jev-backends and sc-jev, so QA-001 is measured after that refactor.",
+      "Running cargo publish --dry-run per crate (-p) outside the workspace fails for dependents because their path deps are not on crates.io. That is expected. The workspace-wide dry-run and the repo script both pass.",
+      "ignoring test ... not included in the published package warnings come from sc-agent-types, as they did before this sprint. sc-agent-http includes tests/** as designed.",
+      "The throwaway worktree is removed and its scratch clones are deleted. The primary repo's worktree list no longer contains it."
+    ]
+  },
+  "error": null
+}

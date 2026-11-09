@@ -1,0 +1,54 @@
+{
+  "agent": "arch-qa",
+  "branch": "sprint/r-5-jev-wire-envelope",
+  "scope": {"phase": "phase-a-refine", "sprint": "r-5"},
+  "commit": "14f85f1",
+  "verdict": "PASS",
+  "blocking": 0,
+  "important": 0,
+  "findings": [
+    {
+      "id": "ARCH-001",
+      "rule": "RULE-ADR-CODE",
+      "adr": "ADR-SAG-0030",
+      "severity": "MINOR",
+      "file": "docs/architecture.md",
+      "line": 140,
+      "description": "The ADR-SAG-0030 index row Status reads 'Active (r-7); jev::v1 (r-5)'. It does not use the '(Active, r-5)' marker form that the other flipped rows use. The ADR body (line 1630) and the Status paragraph (line 1596) are correctly flipped.",
+      "remediation": "Optional wording change to 'Active (r-7); jev::v1 (Active, r-5)'. Not blocking, and no re-QA needed."
+    }
+  ],
+  "adr_checks": [
+    {"adr": "ADR-SAG-0001", "source": "docs/architecture.md", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-decision-schema/src/jev/v1.rs:109", "crates/sc-decision-schema/src/jev/v1.rs:655"]},
+    {"adr": "ADR-SAG-0002", "source": "docs/architecture.md:150", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:158-171", "crates/sc-decision-schema/src/jev/v1.rs:380"]},
+    {"adr": "ADR-SAG-0004", "source": "docs/architecture.md", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-backends/src/validate.rs:81-93", "crates/sc-jev/src/check.rs:39"]},
+    {"adr": "ADR-SAG-0005", "source": "docs/architecture.md:173", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:200-210", "crates/sc-jev/src/check.rs:39-41"]},
+    {"adr": "ADR-SAG-0006", "source": "docs/architecture.md", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev/src/client/mod.rs:12"]},
+    {"adr": "ADR-SAG-0007", "source": "docs/architecture.md", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev/src/client/mod.rs:12"]},
+    {"adr": "ADR-SAG-0012", "source": "docs/architecture.md:1025", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:1031-1039", "crates/sc-jev/src/check.rs:34-47", "crates/sc-jev/src/client/mod.rs:212"]},
+    {"adr": "ADR-SAG-0019", "source": "docs/architecture.md", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev-backends/src/validate.rs:71-93", "docs/architecture.md:208-210"]},
+    {"adr": "ADR-SAG-0020", "source": "docs/architecture.md", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-decision-schema/src/jev/v1.rs:60-81", "crates/sc-jev/src/client/mod.rs:212"]},
+    {"adr": "ADR-SAG-0025", "source": "docs/architecture.md", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev/src/check.rs:63-68", "crates/sc-decision-schema/src/jev/v1.rs:547-577"]},
+    {"adr": "ADR-SAG-0026", "source": "docs/architecture.md:136", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-jev/src/client/mod.rs:12", "crates/sc-jev/src/client/mod.rs:212"]},
+    {"adr": "ADR-SAG-0027", "source": "docs/architecture.md:137", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["crates/sc-decision-schema/src/jev/v1.rs:111", "crates/sc-decision-schema/src/jev/v1.rs:660-665"]},
+    {"adr": "ADR-SAG-0030", "source": "docs/architecture.md:1594", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/architecture.md:1630-1637", "crates/sc-decision-schema/Cargo.toml:26-30", "boundaries/sc-decision-schema/decision-schema.toml:7-17"]},
+    {"adr": "ADR-SAG-0031", "source": "docs/architecture.md", "listed_in_sprint_doc": true, "result": "not-applicable", "evidence_refs": ["No r-5 file touches the r-6 wiring. The (Proposed, r-6) markers are untouched."]},
+    {"adr": "ADR-RUN-0011", "source": "RULE-ADR-AWAIT-MUTEX", "listed_in_sprint_doc": false, "result": "upheld", "evidence_refs": ["No Mutex, .lock() or .await in crates/sc-jev/src or crates/sc-jev-backends/src (grep and read)."]}
+  ],
+  "gate_artifact_checks": [
+    {
+      "artifact": "docs/architecture.md (ADR index and r-5 markers)",
+      "status": "closed",
+      "evidence_refs": ["docs/architecture.md:112", "docs/architecture.md:115", "docs/architecture.md:122", "docs/architecture.md:140", "docs/architecture.md:162", "docs/architecture.md:204", "docs/architecture.md:1035", "docs/architecture.md:1630"],
+      "notes": "A grep of docs, boundaries and crates finds no '(Proposed, r-5)' marker. The only hits are the sprint doc's own acceptance row and the r-7 sprint doc's text. The ADR-0002, 0005, 0012 and 0030 r-5 bullets read '(Active, r-5)'. The ADR-SAG-0005 r-5 bullet carries the required 'ADR-SAG-0019 is unchanged' sentence. The (Proposed, r-6) markers that remain belong to a different sprint."
+    },
+    {
+      "artifact": "boundaries/sc-decision-schema/decision-schema.toml",
+      "status": "closed",
+      "evidence_refs": ["boundaries/sc-decision-schema/decision-schema.toml:7", "boundaries/sc-decision-schema/decision-schema.toml:8", "boundaries/sc-decision-schema/decision-schema.toml:17"],
+      "notes": "The facade lists sc_decision_schema::jev and QuestionKind, and the composition roots include jev. The notes text matches the data-only code. The crate dependencies are sc-agent-types, serde and serde_json only."
+    }
+  ],
+  "merge_ready": true,
+  "notes": "I checked this by reading files because I had no shell. The worktree HEAD (/Volumes/Extreme Pro/github/sc-agent/.git/worktrees/r-5-jev-wire-envelope/HEAD) points at refs/heads/sprint/r-5-jev-wire-envelope. I could not resolve the commit hash 14f85f1 without git, so that part of the commit verification is unconfirmed. Evidence that the sprint doc, docs and code agree: the splice and criteria_from_object are gone from code, and the only remaining hits are docs saying 'no byte-splice'. The sc-jev check.rs, validate.rs and jev/v1.rs code matches the sprint doc: one deserializing validator, noul refused for Haiku/Luna before send, recovery through to_canonical, and no new secret read site. README, sc-jev docs, sc-jev-backends docs and requirements text agree with the code. Stale-looking text at docs/architecture.md:810 and :821 ('until r-5 (D9) lands') is a publish-gate statement inside Active r-3b and r-7 amendments. It is not an ADR violation, so I did not raise it. Not checked, as they are outside arch-qa scope: test execution, req conformance, and boundary edges (ruthless-boundary-qa)."
+}

@@ -1,0 +1,52 @@
+{
+  "agent": "arch-qa",
+  "branch": "sprint/r-4-adrs-and-manifests",
+  "scope": {"phase": "a.1", "sprint": "r-4"},
+  "commit": "59ec83882480f05ff4b1203d48ecd834afd8aced",
+  "verdict": "PASS",
+  "blocking": 0,
+  "important": 0,
+  "findings": [
+    {
+      "id": "ARCH-001",
+      "rule": "RULE-ADR-CODE",
+      "adr": "ADR-SAG-0016",
+      "severity": "MINOR",
+      "file": "docs/architecture.md",
+      "line": 847,
+      "description": "The ADR-SAG-0029 section still carries a 'Deferred' note saying ADR-SAG-0016 still names \"1.5.0\" and the version-form text is left to the D8 amendment. r-4 has now landed that amendment (lines 707-713), so the note is stale. The ADR-SAG-0016 base text (line 701) correctly keeps the old text, superseded by the Active amendment.",
+      "remediation": "Drop or update the note in a later doc pass. It is outside r-4's owned sections, so it is not a violation."
+    }
+  ],
+  "adr_checks": [
+    {"adr": "ADR-SAG-0023", "source": "docs/architecture.md:904", "listed_in_sprint_doc": true, "result": "upheld",
+     "evidence_refs": ["docs/architecture.md:906", "docs/architecture.md:920-926", "docs/architecture.md:939 (r-3b subsection Proposed)", "docs/architecture.md:100 (index row)", "Cargo.toml:35-42", "crates/sc-ai/Cargo.toml:21-52", "crates/sc-treesitter/Cargo.toml:21-54"]},
+    {"adr": "ADR-SAG-0016", "source": "docs/architecture.md:694", "listed_in_sprint_doc": true, "result": "upheld",
+     "evidence_refs": ["docs/architecture.md:707-713 (r-4 amendment Active)", "docs/architecture.md:93 (index marker Active, r-4)", "Cargo.toml:38 (sc-observability =1.5.0)", "sc-lint.toml:79-84"]},
+    {"adr": "ADR-SAG-0017", "source": "docs/architecture.md:579", "listed_in_sprint_doc": true, "result": "upheld",
+     "evidence_refs": ["docs/architecture.md:589-611", "docs/architecture.md:94", "release/publish-artifacts.toml:127"]},
+    {"adr": "ADR-SAG-0005", "source": "docs/architecture.md:123", "listed_in_sprint_doc": true, "result": "upheld",
+     "evidence_refs": ["docs/architecture.md:134-140 (no ADR-SAG-0024 or prepare reference)", "docs/architecture.md:82 (index marker (Active, r-4), (Proposed, r-5) untouched)"]},
+    {"adr": "ADR-SAG-0010", "source": "docs/architecture.md", "listed_in_sprint_doc": true, "result": "upheld",
+     "evidence_refs": ["sc-lint.toml:41 (ureq ownership unchanged)", "crates/sc-ai/Cargo.toml:27-36 (no HTTP dep)"]},
+    {"adr": "ADR-SAG-0015", "source": "docs/architecture.md", "listed_in_sprint_doc": true, "result": "upheld",
+     "evidence_refs": ["sc-lint.toml:51-70 (tree-sitter ownership unchanged)", "crates/sc-treesitter/Cargo.toml:37-39 (listed lockstep)"]},
+    {"adr": "ADR-SAG-0018", "source": "docs/architecture.md", "listed_in_sprint_doc": true, "result": "upheld",
+     "evidence_refs": ["release/publish-artifacts.toml:127", ".github/workflows/sc-agent-ci.yml:213-266"]},
+    {"adr": "ADR-SAG-0024..0029 (Proposed, binding status not reached except 0029)", "source": "docs/architecture.md:101-106", "listed_in_sprint_doc": false, "result": "not-applicable",
+     "evidence_refs": ["index rows 0024-0028 unchanged and still Proposed; 0029 Active (a-10) not touched by r-4 files"]}
+  ],
+  "gate_artifact_checks": [
+    {"artifact": "docs/architecture.md (ADR index + lockstep-pins markers)", "status": "closed",
+     "evidence_refs": ["docs/architecture.md:100", "docs/architecture.md:920-926"],
+     "notes": "The 0023 row Status cell reads 'Active (r-4; compose pin r-3b)'. Its Amends cell is intact. Markers in rows 0005, 0016 and 0017 are flipped to Active, r-4. Other rows keep their Proposed markers."},
+    {"artifact": ".github/scripts/check-exact-pins.sh", "status": "closed",
+     "evidence_refs": [".github/scripts/check-exact-pins.sh:38-59", ".github/scripts/check-exact-pins.sh:122-182"],
+     "notes": "It reads the list only from between the markers in docs/architecture.md and keeps no copy. A missing or empty list fails, and --self-test injects an unlisted =."},
+    {"artifact": "release/sc-publish-consumer-input.json and release/publish-artifacts.toml", "status": "closed",
+     "evidence_refs": ["release/publish-artifacts.toml:127"],
+     "notes": "Both already name sc-treesitter. These files are unchanged by r-4. The ADR-SAG-0017 table is consistent with them to the extent that I inspected."}
+  ],
+  "merge_ready": true,
+  "notes": "I read files directly. I could not run git or cargo in this review, so the diff against the base was inferred from the content and the changed-files list. Items checked:\n- Worktree HEAD is the ref refs/heads/sprint/r-4-adrs-and-manifests. I could not resolve the commit hash itself to confirm 59ec838.\n- The ADR-SAG-0023 Status line is Active with the (Active, r-4) bullets. The r-3b subsection is Proposed.\n- The root Cargo.toml has caret ranges for serde, serde_json, sha2, thiserror, uuid, tempfile and clap 4, mimalloc 0.1.52 and the toml and ureq entries. Exact pins are only sc-observability and sc-observability-types.\n- The root Cargo.toml still carries sc-observability-types = \"=1.5.0\" (line 39). That is intended for r-1 to delete: the sprint doc and plan.md lines 124-128 say so. Until r-1 merges, check-exact-pins.sh fails on that line because the crate is not on the list. So r-4 must merge after r-1 and rebase first.\n- The sc-observability-types ownership record is absent from sc-lint.toml. The mimalloc and clap records are added.\n- Both crates have default cli, cli = [dep:mimalloc, dep:clap], optional mimalloc and clap, [[bin]] required-features = [cli] and [[test]] cli required-features = [cli]. The main.rs files still have the unconditional #[global_allocator]. The bin is gated, so that compiles.\n- tests/cli.rs is the only target using CARGO_BIN_EXE in each crate, and both are gated.\n- CI has the lib --no-default-features builds for both crates, the cargo-tree-gates and check-exact-pins steps, and the hack steps for sc-treesitter and sc-agent-types. cargo-tree-gates.sh has the two mimalloc rows in lib mode.\n- No std::sync::Mutex or .await code changed, so RULE-ADR-AWAIT-MUTEX does not apply.\n- Out of arch-qa scope, for req-qa: the ADR-SAG-0017 amendment says the upstream sc-publish issue URL is 'not yet filed', while the acceptance row asks for the bead and URL to be recorded. Also, boundary manifests for clap and mimalloc are deferred to r-3b and r-3c, as the sprint doc states, and the PR must state the deferral."
+}

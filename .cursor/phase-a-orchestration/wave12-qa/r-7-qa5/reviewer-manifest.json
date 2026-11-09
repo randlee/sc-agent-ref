@@ -1,0 +1,3 @@
+[{"agent":"req-qa","task_id":"a3946ef66db4bed13","spawn_actor":"parent-orchestrator","commit":"90c5ab1"},
+{"agent":"arch-qa","task_id":"afdc1da11d8141279","spawn_actor":"parent-orchestrator","commit":"90c5ab1"},
+{"agent":"rust-qa-agent","task_id":"a681d0c49070f5bfb","spawn_actor":"parent-orchestrator","commit":"90c5ab1"}]

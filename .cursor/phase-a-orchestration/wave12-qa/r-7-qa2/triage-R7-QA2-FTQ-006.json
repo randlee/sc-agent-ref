@@ -1,0 +1,38 @@
+{
+ "triage_mode": "initial_pass",
+ "phase_id": "phase-a-refine",
+ "integration_branch": "integrate/phase-a",
+ "integration_worktree_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+ "triage_root": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.triage",
+ "structure_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/structure.ttl",
+ "events_path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a/.sprints/A1/events.ttl",
+ "finding_id": "R7-QA2-FTQ-006",
+ "found_in": "A1-R7",
+ "found_at": "2026-11-08T02:45:00Z",
+ "title": "The test asserts `started.elapsed() < Duration::from_secs(10)` in addition to the typed EXTRACTION_TIMEOUT",
+ "description": "The test asserts `started.elapsed() < Duration::from_secs(10)` in addition to the typed EXTRACTION_TIMEOUT. The wall-clock check is redundant: run_with_deadline can only return Err here through the deadline (spawn of `sleep` cannot fail, and try_wait on a live child does not error), so the error assertion already proves the deadline fired. If the deadline did not fire, `sleep 30` would return Ok after 30 s and expect_err would fail. The 10 s check adds only flake exposure: a host stall of more than 10 s, or a suspended CI VM, fails the test even though the behaviour is correct. It also contradicts the FTQ-002 convention stated in the runner (deadline.rs:201-202, 'No wall-clock asserts (FTQ-002)').",
+ "category": "timing_assertion",
+ "severity": "minor",
+ "pattern": "timing_assertion",
+ "file_filter": "crates/sc-agent-types/src/git.rs",
+ "repeatable": false,
+ "sweep_scope": "file_only",
+ "worktrees": [
+  {
+   "branch": "integrate/phase-a",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/integrate/phase-a",
+   "order_index": 0,
+   "head_sha": "81ffec2fcab6d1b18967a84963df35fe9fb91e80"
+  },
+  {
+   "branch": "sprint/r-7-decision-schema",
+   "path": "/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/r-7-decision-schema",
+   "order_index": 1,
+   "head_sha": "4eb8265e0b5e2d3d27478945c30b08a9d4a2125c"
+  }
+ ],
+ "worktree_paths": [
+  "integrate/phase-a",
+  "sprint/r-7-decision-schema"
+ ]
+}

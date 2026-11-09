@@ -1,0 +1,87 @@
+{
+  "status": "FAIL",
+  "reviewed_branch": "integrate/phase-a",
+  "reviewed_commit": "91d36b3",
+  "errors": [],
+  "scope": {"phase": "phase-a-refine", "sprint": null},
+  "baselines_read": [
+    "docs/requirements.md",
+    "docs/plans/phase-a-refine/plan.md (read in full)",
+    ".claude/project/quality-policy.md",
+    "docs/<crate>/requirements.md for sc-agent-types, sc-jev-check, sc-jev, sc-ai, sc-jev-py, sc-jev-host, sc-decision-schema, sc-agent-http (greps, plus full reads of the sc-agent-types and sc-jev-check tables)"
+  ],
+  "phase_or_sprint_docs_read": [
+    "docs/plans/phase-a-refine/plan.md",
+    "docs/plans/phase-a-refine/sprint-r-*.md (frontmatter status and requirements counts; sprint-r-4 in detail)"
+  ],
+  "input_verification": "The worktree's .git points at gitdir .git/worktrees/phase-a. Its HEAD is ref refs/heads/integrate/phase-a, and that ref file holds 91d36b3ad309deb3350434acaecee0ab2938b13f. Branch and commit match the input. I had no shell and did not run git. I read the ref files directly.",
+  "requirement_checks": [
+    {"id": "REQ-SAG-0133", "source": "docs/requirements.md:162", "listed_in_sprint_doc": true, "result": "not-verifiable", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:183", "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:265-284"]},
+    {"id": "REQ-SAG-0105..0109, 0134, 0135, NFR-SAG-0004", "source": "docs/requirements.md:157-165", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/requirements.md:157-165 (all rows (Active, r-N))"]},
+    {"id": "REQ-SAG-0312-0314, 0402, 0403, 0604-0607, 0620, 0712", "source": "docs/requirements.md:166-176", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/requirements.md:166-176 (each owner matches the plan's REQ closure table)"]},
+    {"id": "REQ-SAG-0140-0148", "source": "docs/requirements.md:177-185", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/requirements.md:177-185 (owners r-7, r-5 as planned)"]},
+    {"id": "REQ-SAG-0612-0618", "source": "docs/requirements.md:186-192", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/requirements.md:186-192 (owner r-6)", "no sha2 or uuid in Cargo.toml or crates/*/Cargo.toml (rg, no matches)"]},
+    {"id": "amendment rows REQ-SAG-0101, 0103, 0107, 0120, 0121, 0130, 0505, 0600, 0601, 0611, 0701, 0710, 0711, NFR-SAG-0001", "source": "docs/requirements.md:198-214", "listed_in_sprint_doc": true, "result": "upheld", "evidence_refs": ["docs/requirements.md:198-214 (all Active)"]}
+  ],
+  "deliverable_checks": [
+    {"item": "Every sprint doc under docs/plans/phase-a-refine/ has status complete", "status": "present", "closure_state": "closed", "evidence_refs": ["sprint-r-1, r-2, r-2b, r-3, r-3b, r-3c, r-4, r-5, r-6 and r-7 each have frontmatter line 4 'status: complete'"], "notes": "All 10 sprint docs are complete. r-5, r-6 and r-7 carry no merge or QA reference in the status line, unlike the other seven (see REQ-QA-004)."},
+    {"item": "Every in-scope REQ/NFR in the plan's closure table is delivered by a completed sprint (35 ids)", "status": "partially-present", "closure_state": "open", "evidence_refs": ["docs/plans/phase-a-refine/plan.md:564-576", "docs/requirements.md:157-192"], "notes": "34 of 35 ids are Active with their owning sprint. REQ-SAG-0133 is Active, but its req: acceptance row is explicitly deferred (see REQ-QA-001)."},
+    {"item": "r-4 acceptance row req:REQ-SAG-0133 (ADR-SAG-0017 table, bead, and upstream issue URL recorded)", "status": "partially-present", "closure_state": "open", "evidence_refs": ["docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:183", "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:265-284", "docs/requirements.md:162"], "notes": "The URL is not recorded. The ADR and docs/development/sc-publish.md keep a 'not yet filed' placeholder, so the row is open even though the sprint is marked complete."},
+    {"item": "No (Proposed, r-N) markers remain in docs/requirements.md or docs/architecture.md", "status": "present", "closure_state": "closed", "evidence_refs": ["rg 'Proposed' over docs/*requirements.md and docs/*architecture.md matched only descriptive text at docs/requirements.md:150 and docs/architecture.md:106"], "notes": "All markers are flipped to Active."},
+    {"item": "plan.md phase status", "status": "partially-present", "closure_state": "open", "evidence_refs": ["docs/plans/phase-a-refine/plan.md:38"], "notes": "The plan still reads 'Status: proposed', although all sprints are complete."},
+    {"item": "Crate requirement tables agree with the root requirements table", "status": "partially-present", "closure_state": "not-applicable", "evidence_refs": ["docs/sc-agent-types/requirements.md:9-43", "docs/sc-jev-check/requirements.md:7-31"], "notes": "Where crate rows exist, their text and owning sprint agree with the root. Some root ids have no crate row (see REQ-QA-003)."},
+    {"item": "Phase acceptance command list and per-sprint execution evidence", "status": "not-verifiable", "closure_state": "not-applicable", "evidence_refs": ["docs/plans/phase-a-refine/plan.md:903-948"], "notes": "I have no shell. I did not run any command or inspect PRs 26-35. I relied on the sprint docs' status lines and the caller's statement that the PR QA reports hold the evidence."}
+  ],
+  "findings": [
+    {
+      "id": "REQ-QA-001",
+      "severity": "Blocking",
+      "category": "acceptance-gap",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:183", "docs/plans/phase-a-refine/sprint-r-4-adrs-and-manifests.md:265-284"],
+      "target_refs": ["docs/requirements.md:162", "docs/plans/phase-a-refine/plan.md:569"],
+      "issue": "REQ-SAG-0133 is Active and r-4 is its sole closing sprint. Its acceptance row 'req:REQ-SAG-0133 ... bead + upstream issue URL recorded' is deferred to the owner for a later docs commit. The sprint is nevertheless marked 'status: complete'. The ADR-SAG-0017 amendment and docs/development/sc-publish.md still say 'not yet filed'. The requirement row at docs/requirements.md:162 carries the qualifier 'upstream sc-publish issue URL pending', which means the requirement is not met as written. A requirement cannot be waived or deferred inside a review.",
+      "required_correction": "Choose one of two routes. (a) Have the owner file the randlee/sc-publish issue, record the URL in the ADR-SAG-0017 r-4 amendment and docs/development/sc-publish.md, and remove the 'pending' qualifier from docs/requirements.md:162 before this PR merges. (b) Edit REQ-SAG-0133 and the r-4 acceptance row through a planned, reviewed requirements change, so the URL is not part of the requirement, and amend the sprint doc to match.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-002",
+      "severity": "Important",
+      "category": "plan",
+      "source_refs": ["docs/plans/phase-a-refine/plan.md:38-44", "docs/plans/phase-a-refine/plan.md:905-906"],
+      "target_refs": ["docs/requirements.md:148-153"],
+      "issue": "plan.md still reads 'Status: **proposed**'. Its header covers review rounds 1-4 and 6 only, and does not mention round 5. The Phase acceptance section says it runs 'after r-1, r-4, r-2, r-3, r-3c, r-2b, r-3b merge', which omits r-7, r-5 and r-6. The next paragraph adds their blocks only 'after r-7 and r-6 merge'. docs/requirements.md:148 is headed 'Phase A.1 — refinement (proposed)', and its preamble says rows carry '(Proposed, r-N)' markers, but none remain. The anchor #phase-a1--refinement-proposed is linked from docs/sc-agent-types/requirements.md:28.",
+      "required_correction": "Set the plan status to complete, or to the state the phase-end gate defines. Update the Phase acceptance preamble to list all ten sprints. Retitle the docs/requirements.md heading, reword its preamble, and update the anchor link in docs/sc-agent-types/requirements.md:28.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-003",
+      "severity": "Important",
+      "category": "cross-doc-conflict",
+      "source_refs": ["docs/requirements.md:157-160", "docs/requirements.md:173"],
+      "target_refs": ["docs/sc-agent-types/requirements.md:25-43", "docs/sc-jev-check/requirements.md:7-31"],
+      "issue": "Crate tables do not carry every root id for the crate that owns the subject. REQ-SAG-0105, 0106 and 0108 are r-1 rows about sc-agent-types (backend descriptor, JevError variants, SubjectsDocument) and are absent from docs/sc-agent-types/requirements.md. The plan required only 0101, 0103, 0120, 0121 and NFR-0001 there, so this is a gap against the review brief, not against plan text. REQ-SAG-0606 (r-2b, equal from backend-reported digests) is absent from docs/sc-jev-check/requirements.md and from every other crate requirements doc. The same grep found 0606 only in the root table, architecture docs, sprint docs, code and boundary manifests.",
+      "required_correction": "Add crate-level rows with an owning sprint and test reference: 0105, 0106 and 0108 in docs/sc-agent-types/requirements.md, and 0606 in docs/sc-jev-check/requirements.md. Alternatively record in each crate doc that the root table is authoritative for these ids.",
+      "compliance_result": "partially-compliant"
+    },
+    {
+      "id": "REQ-QA-004",
+      "severity": "Minor",
+      "category": "deliverable-missing",
+      "source_refs": ["docs/plans/phase-a-refine/sprint-r-5-jev-wire-envelope.md:4", "docs/plans/phase-a-refine/sprint-r-6-session-log-record.md:4", "docs/plans/phase-a-refine/sprint-r-7-decision-schema.md:4"],
+      "target_refs": ["docs/plans/phase-a-refine/sprint-r-1-types-break.md:4"],
+      "issue": "r-5, r-6 and r-7 say bare 'status: complete'. The other seven sprints cite their merge PR and QA-2 result. The completion evidence for these three cannot be traced from the repository alone.",
+      "required_correction": "Add the merged PR and commit, and the QA result, to the status comment of each of the three docs, consistent with the other sprints.",
+      "compliance_result": "partially-compliant"
+    }
+  ],
+  "summary": {
+    "total_findings": 4,
+    "blocking_findings": 1,
+    "overall_compliance": "non-compliant",
+    "deliverables_total": 7,
+    "deliverables_complete": 2,
+    "deliverables_incomplete": 5,
+    "deliverable_completion_percent": 28.6
+  },
+  "gate_reason": "FAIL: REQ-QA-001 is Blocking. Active requirement REQ-SAG-0133 has a deferred acceptance row, so r-4 is marked complete while an acceptance gate is still open. Otherwise, all ten sprint docs are status complete. The plan's closure table has 35 ids, and 34 are Active at their owning sprint. No Proposed markers remain in the index docs. No sha2 or uuid dependency remains in the manifests. Not independently verified: no commands were run and the PR 26-35 QA reports were not opened."
+}

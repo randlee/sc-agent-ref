@@ -1,0 +1,19 @@
+<cursor-qa-task id="qa-a-6-2" sprint="a-6" assignee="cursor-quality-mgr">
+  <description>QA-2 closeout for PR #13 — sessions and orchestration</description>
+  <review-mode>sprint_review</review-mode>
+  <authoritative-sprint-doc>docs/plans/phase-a/sprint-a-6-sessions-and-orchestration.md</authoritative-sprint-doc>
+  <pr-number>13</pr-number>
+  <branch>sprint/a-6-sessions-and-orchestration</branch>
+  <worktree>/Volumes/Extreme Pro/github/sc-agent-worktrees/sprint/a-6-sessions-and-orchestration</worktree>
+  <commits>499ee1894130af12946ab9435dbf06944bbe2d54</commits>
+  <enforcer-binding>cursor-quality-mgr only; spawn gate from parent handoff</enforcer-binding>
+  <parent-reviewer-handoff required="true">
+    <manifest>[
+  {"agent": "req-qa", "task_id": "7b57c938-cf70-467e-a549-a7e7b718f96a", "spawn_actor": "parent-orchestrator"},
+  {"agent": "arch-qa", "task_id": "e3e704fa-9569-4e15-9eef-405af1554012", "spawn_actor": "parent-orchestrator"},
+  {"agent": "rust-qa-agent", "task_id": "f1ee5f61-08e9-4338-acc4-13831594e3de", "spawn_actor": "parent-orchestrator"},
+  {"agent": "flaky-test-qa", "task_id": "f7442e7b-d2e4-493a-be73-e5d55a1b2638", "spawn_actor": "parent-orchestrator"}
+]</manifest>
+    <reviewer-outputs>see orchestrator prompt</reviewer-outputs>
+  </parent-reviewer-handoff>
+</cursor-qa-task>

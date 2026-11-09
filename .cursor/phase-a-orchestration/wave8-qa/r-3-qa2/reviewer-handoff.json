@@ -1,0 +1,473 @@
+{
+ "manifest": [
+  {
+   "agent": "req-qa",
+   "task_id": "a4056a3e5b4a312c0",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "a08bda67c70dabb07",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "a78e53c2fd05d7e9e",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "rust-best-practices-agent",
+   "task_id": "ade47d218acb1d2c7",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "rust-service-hardening-agent",
+   "task_id": "a40461b6c3aaaba7b",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "a0a271a5a97428212",
+   "spawn_actor": "parent-orchestrator"
+  },
+  {
+   "agent": "ruthless-boundary-qa",
+   "task_id": "a4487ab8869c46ee6",
+   "spawn_actor": "parent-orchestrator"
+  }
+ ],
+ "reviewer_outputs": [
+  {
+   "agent": "req-qa",
+   "task_id": "a4056a3e5b4a312c0",
+   "fenced_json": {
+    "status": "PASS",
+    "reviewed_branch": "sprint/r-3-shared-http",
+    "reviewed_commit": "f19ce8df1d62f3ffe179d20b6a806f081db253bf",
+    "errors": [],
+    "scope": {
+     "phase": "a.1",
+     "sprint": "r-3"
+    },
+    "baselines_read": [
+     "docs/requirements.md (via QA-1 record)",
+     "docs/architecture.md",
+     "docs/plans/phase-a-refine/sprint-r-3-shared-http.md",
+     "release/publish-artifacts.toml",
+     "docs/plans/phase-a/a-10-hardening-dispositions.md"
+    ],
+    "phase_or_sprint_docs_read": [
+     "docs/plans/phase-a-refine/sprint-r-3-shared-http.md"
+    ],
+    "requirement_checks": [
+     {
+      "id": "REQ-SAG-0402",
+      "source": "docs/requirements.md:169",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "QA-1 upheld; CI green at 7cfd413"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0505",
+      "source": "docs/requirements.md:190",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "QA-1 verification; retry tests pass in CI run 42417451354"
+      ]
+     },
+     {
+      "id": "REQ-SAG-0130",
+      "source": "docs/requirements.md:191",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "release/publish-artifacts.toml:52-56 (sc-agent-http at publish_order 3)",
+       "docs/plans/phase-a-refine/sprint-r-3-shared-http.md:423-436"
+      ]
+     },
+     {
+      "id": "NFR-SAG-0002",
+      "source": "docs/requirements.md:114",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "QA-1 upheld; fix-round diff does not alter the timeout path"
+      ]
+     },
+     {
+      "id": "constrained_by set (REQ-SAG-0110/0400/0401/0500/0501/0502/0504/0131/0132, NFR-SAG-0001/0004)",
+      "source": "sprint doc frontmatter",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "PR 26 CI all green at 7cfd413 (run 42417451354, dry-run 42417451319); sprint doc line 503 cites it"
+      ]
+     }
+    ],
+    "deliverable_checks": [
+     {
+      "item": "Release/boundary gate artifact: kit re-render of consumer input and publish-artifacts.toml",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "release/publish-artifacts.toml:52-56",
+       "docs/plans/phase-a-refine/sprint-r-3-shared-http.md:423-436,502"
+      ],
+      "notes": "The doc now records the parent kit re-render (pin 11b5b049, install.py --dry-run exit 0, dry-run script passed) in 8f969ff. The 'open row' comment is gone from the frontmatter; status: in-review is the QA-2 hold only."
+     },
+     {
+      "item": "Test and gate acceptance rows backed by CI",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "docs/plans/phase-a-refine/sprint-r-3-shared-http.md:503",
+       ".cursor/phase-a-orchestration/wave8-qa/r-3-fix1/dev-report.json"
+      ],
+      "notes": "The doc cites green PR 26 CI at 7cfd413. The assignment says f19ce8d adds only that citation line."
+     },
+     {
+      "item": "ADR-SAG-0007 r-3 amendment: timeouts are construction state",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "docs/architecture.md:83,556,592-593"
+      ],
+      "notes": "An Active bullet at line 592 says with_timeouts is removed and supersedes the line-556 base sentence."
+     },
+     {
+      "item": "a-10 ARCHC-018 row supersession note",
+      "status": "present",
+      "closure_state": "closed",
+      "evidence_refs": [
+       "docs/plans/phase-a/a-10-hardening-dispositions.md:50"
+      ],
+      "notes": "The row reads 'implemented; superseded by r-3 (Timeouts on UreqTransport::new)'."
+     }
+    ],
+    "carry_forward_verdicts": {
+     "REQ-QA-R3-001": "closed",
+     "REQ-QA-R3-002": "closed",
+     "REQ-QA-R3-003": "closed",
+     "REQ-QA-R3-004": "closed"
+    },
+    "findings": [],
+    "limitations": "This session had no shell. I could not run git diff or the tests. I confirmed that the worktree HEAD is f19ce8d by reading the worktree's gitdir HEAD file. For the fix-round diff and the CI result, I relied on the dev report and the assignment, whose CI evidence the sprint doc also cites. I found no regression and no new Blocking finding in the doc, ADR, release and a-10 artifacts that I read directly. I did not read the code-level fix-round changes (HttpClient/send_and_parse, BusyExhaustion, new tests) line by line. CI green at 7cfd413 and the dev report's coverage figures stand in for them.",
+    "summary": {
+     "total_findings": 0,
+     "blocking_findings": 0,
+     "overall_compliance": "compliant",
+     "deliverables_total": 4,
+     "deliverables_complete": 4,
+     "deliverables_incomplete": 0,
+     "deliverable_completion_percent": 100.0
+    },
+    "gate_reason": "All four QA-1 carry-forward findings are closed. The sprint doc records the kit re-render and the 'open row' comment is removed, and publish-artifacts.toml has sc-agent-http at order 3. PR 26 CI is cited as green. The ADR-SAG-0007 r-3 bullet is present. The a-10 ARCHC-018 row carries the supersession note. No new Blocking findings or regressions were found."
+   }
+  },
+  {
+   "agent": "arch-qa",
+   "task_id": "a08bda67c70dabb07",
+   "fenced_json": {
+    "agent": "arch-qa",
+    "branch": "sprint/r-3-shared-http",
+    "scope": {
+     "phase": "a.1",
+     "sprint": "r-3"
+    },
+    "commit": "f19ce8df1d62f3ffe179d20b6a806f081db253bf",
+    "verdict": "PASS",
+    "blocking": 0,
+    "important": 0,
+    "findings": [],
+    "carry_forward_verdicts": [
+     {
+      "id": "ARCH-R3-001",
+      "verdict": "closed",
+      "evidence_refs": [
+       "docs/architecture.md:557-558 (base sentence marked superseded in part)",
+       "docs/architecture.md:587-593 (Active r-3 bullet: timeouts are UreqTransport::new(Timeouts) construction state, with_timeouts removed, supersedes 'configurable on backend builder for tests')",
+       "docs/plans/phase-a-refine/sprint-r-3-shared-http.md:293-302 (ADR text item 7 carries the same bullet)",
+       "docs/plans/phase-a-refine/sprint-r-3-shared-http.md:504 (disposition row, c85a8f6)",
+       "no with_timeouts in crates/"
+      ]
+     }
+    ],
+    "adr_checks": [
+     {
+      "adr": "ADR-SAG-0007",
+      "source": "docs/architecture.md:549",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/architecture.md:587-593"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0026",
+      "source": "docs/architecture.md:1087",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "docs/sc-agent-http/architecture.md:21,60-61 (send_and_parse and HttpClient are recorded inside the HTTP half's facade, in the crate architecture doc)",
+       "sprint-r-3-shared-http.md:507,526"
+      ]
+     },
+     {
+      "adr": "ADR-SAG-0020",
+      "source": "docs/architecture.md:425",
+      "listed_in_sprint_doc": true,
+      "result": "upheld",
+      "evidence_refs": [
+       "sprint-r-3-shared-http.md:507 (RBP-F007 redaction moved into send_and_parse, which strengthens the redaction contract)"
+      ]
+     },
+     {
+      "adr": "RULE-ADR-AWAIT-MUTEX (ADR-RUN-0011 pt 2)",
+      "source": ".claude/project/quality-policy.md",
+      "listed_in_sprint_doc": false,
+      "result": "not-applicable",
+      "evidence_refs": [
+       "No .await in crates/sc-agent-http, sc-jev or sc-jev-backends. The only Mutex hits are the synchronous test doubles in crates/sc-agent-http/src/test_util.rs."
+      ]
+     }
+    ],
+    "gate_artifact_checks": [
+     {
+      "artifact": "release/publish-artifacts.toml + release/sc-publish-consumer-input.json",
+      "status": "not-applicable",
+      "evidence_refs": [
+       "/Volumes/Extreme Pro/github/sc-agent/.cursor/phase-a-orchestration/wave8-qa/r-3-fix1/dev-report.json (kit re-render recorded at 8f969ff, nothing under release/ changed after)"
+      ],
+      "notes": "This was an open row in QA-1. The dev report says it was re-rendered. I did not open the release files. The check belongs to req-qa and the integrator, and it is not an ADR matter."
+     }
+    ],
+    "merge_ready": true,
+    "notes": "Locked QA-2 round. The only carry-forward, ARCH-R3-001, is closed. Regression check on the fix-round diff: the new public HttpClient<T> and send_and_parse sit inside the ADR-SAG-0026 HTTP half. They are recorded in docs/sc-agent-http/architecture.md and the sprint doc, and they add no dependency edge, feature gate or wire contract, so no new ADR is needed. Limitations: this was a read-only review with the Grep and Read tools, and I did not run cargo or the CI gates. I did not independently verify HEAD against the commit through git. I relied on the assigned worktree path and the dispatch metadata. The PR 26 CI evidence comes from the dispatch input."
+   }
+  },
+  {
+   "agent": "rust-qa-agent",
+   "task_id": "a78e53c2fd05d7e9e",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-3-shared-http",
+     "reviewed_commit": "f19ce8df1d62f3ffe179d20b6a806f081db253bf",
+     "review_mode": "sprint_review",
+     "executed_checks": {
+      "fmt": {
+       "status": "pass",
+       "command": "cargo fmt --all --check"
+      },
+      "clippy": {
+       "status": "pass",
+       "command": "cargo clippy --workspace --all-targets --all-features -- -D warnings"
+      },
+      "tests": {
+       "status": "pass",
+       "command": "cargo test --workspace; cargo test -p sc-agent-http --features test-util; bash .github/scripts/cargo-tree-gates.sh (exit 0)"
+      },
+      "coverage": {
+       "status": "pass",
+       "line": 92.44,
+       "branch": 0.0,
+       "function": 88.7,
+       "adequate_for_risk": true
+      },
+      "artifacts": {
+       "status": "not_run",
+       "command": "multi-crate cargo publish dry-run skipped per instruction; CI dry-run is green (run 42417451319)"
+      }
+     },
+     "carry_forward_verdicts": {
+      "QA-001": "closed. Workspace line coverage is 92.44%, above the 91.48 baseline. This was measured with `cargo llvm-cov --workspace --exclude sc-jev-py --all-features --json --summary-only`. Per-crate line coverage: sc-agent-http 97.52, sc-jev 97.83, sc-jev-backends 95.56, sc-jev-check 91.21, sc-agent-types 92.96, sc-agent-secrets 96.53, sc-treesitter 91.50, sc-ai 82.63. These match the developer's reported figures.",
+      "QA-002": "closed. The kind stays Busy, and the typed accessor BusyExhaustion::of is exported from the crate. It returns Sends or Budget. test_exhaustion_reason_distinguishable passes, and the doc example asserts Budget."
+     },
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "notes": [
+      "The worktree HEAD is f19ce8d. It is a detached review copy, so there is no branch name to compare against. The commit matches the assignment.",
+      "`git show f19ce8d` shows it changes only one sprint-doc line, consistent with the assignment.",
+      "All workspace test result lines are ok with 0 failed, including the loopback and stall tests. The `--features test-util` run for sc-agent-http also passes.",
+      "The hardcoded `/tmp/` grep over crates/ returned nothing.",
+      "I found no regressions from the fix-round diff. That covers the HttpClient and send_and_parse refactor, the new tree-gate rows, and the merge of integrate/phase-a.",
+      "Not re-run, by instruction or because CI covers them: the multi-crate publish dry-run, the Windows and Linux jobs, and the public-API canary and single-read-site CI greps. The developer reports these green at 7cfd413 and CI is green."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "rust-best-practices-agent",
+   "task_id": "ade47d218acb1d2c7",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-3-shared-http",
+     "reviewed_commit": "f19ce8df1d62f3ffe179d20b6a806f081db253bf",
+     "review_mode": "sprint_review",
+     "practice_mode": "all",
+     "practices_reviewed": [
+      "RBP-001"
+     ],
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "carry_forward_verdicts": {
+      "RBP-F007": "closed"
+     },
+     "notes": [
+      "RBP-F007 is closed. Locked round, so only this carry-forward id was assessed.",
+      "Redaction is now owned by one shared piece. sc-agent-http gained send_and_parse (retry.rs:300-309) and HttpClient<T> (retry.rs:330-386). send_and_parse redacts transport and retry errors through send_with_busy_retry, and it redacts the parse closure's error at retry.rs:308.",
+      "No manual redact call remains outside sc-agent-http. In sc-jev-backends and sc-jev, send_and_parse is the only redaction path: backend.rs:201 and client/mod.rs:171. The (HttpResponse, HttpRequest) tuple is gone.",
+      "Transport, BusyPolicy, CancelToken and the with_busy_policy and with_cancel builders now live once in HttpClient. The backend's exchange() (backend.rs:193-208) only adds the non-200 mapping and the provider label.",
+      "A tests/retry.rs test, test_send_and_parse_redacts_parse_errors, covers the parse-error redaction path.",
+      "I could not run git to confirm the worktree HEAD hash, because I had no shell. I reviewed the files at the assigned worktree path.",
+      "No Blocking findings or regressions from the fix-round diff in the RBP scope."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "rust-service-hardening-agent",
+   "task_id": "a40461b6c3aaaba7b",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-3-shared-http",
+     "reviewed_commit": "f19ce8df1d62f3ffe179d20b6a806f081db253bf",
+     "review_mode": "sprint_review",
+     "service_indicators_found": [
+      "ureq Agent / UreqTransport",
+      "busy-retry loop with sleeps",
+      "HttpClient<T>",
+      "loopback test server"
+     ],
+     "topics_reviewed": [
+      "carry_forward_RSH-005",
+      "carry_forward_RSH-006",
+      "carry_forward_QA1_observations_1_3_4",
+      "fix_round_regressions: timeouts, https_only/redirects, redaction"
+     ],
+     "carry_forward_verdicts": {
+      "RSH-005": "closed",
+      "RSH-006": "closed",
+      "QA1_observation_1_config_bounds": "closed",
+      "QA1_observation_3_double_charge_doc": "closed",
+      "QA1_observation_4_SecretHeader_matches": "closed"
+     },
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "notes": [
+      "Worktree HEAD (/Volumes/Extreme Pro/github/sc-agent/.git/worktrees/r3-qa2-review/HEAD) is f19ce8df1d62f3ffe179d20b6a806f081db253bf, matching the assignment. The branch name was not independently checked because the worktree is detached. This was a static read only. I ran no tests.",
+      "The QA-1 report had zero findings, so the carry-forward ids are RSH-005 and RSH-006, which that report named as closed. I re-verified both at f19ce8d. I also checked three QA-1 observations that the fix round said it addressed.",
+      "RSH-005 is closed. In crates/sc-agent-http/src/retry.rs the 90 s BUDGET (line 66), the jitter cap (line 62) and the 100 ms WAIT_SLICE cancellation slices (line 69, wait loop at line 208) are all still present. The wait is min(wait + jitter, remaining) at line 430. Every Err is redacted in one place, at line 250. send_and_parse (line 308) now redacts the parse closure's error as well.",
+      "RSH-006 is closed. In ureq_transport.rs, UreqTransport::new (line 87) builds one agent from AgentConfig::production. That config has max_redirects 0 and https_only true (lines 41-42), and connect and global timeouts are applied at lines 49-52. The only https_only false path is loopback_for_tests, which is gated by #[cfg(feature = \"test-util\")] (lines 96-103). send() still refuses a non-https endpoint (line 121).",
+      "QA-1 observation 1 is closed. crates/sc-jev/src/config.rs now enforces attempts 1..=4 (MAX_ATTEMPTS) and a timeout of at most 120 s (MAX_TIMEOUT), with a bounds test at line 194.",
+      "QA-1 observation 3 is closed. The developer report says the retry docs now state the double-charge rationale, and the retry.rs module docs follow that structure.",
+      "QA-1 observation 4 is closed. SecretHeader::matches is now behind #[cfg(feature = \"test-util\")] (request.rs:245).",
+      "Fix-round regression check: the new HttpClient/send_and_parse layer, BusyExhaustion::of, the endpoint-once-per-provider change and the INPUT_INVALID and RESPONSE_INVALID error mappings add no new unbounded waits, no new retry of non-idempotent failures, no secret leak path and no weakening of the HTTPS-only or no-redirect settings. The 120 s global timeout still bounds an in-flight request. Per the developer report, CI is green at 7cfd413 on all three OSes, including the new `cargo test -p sc-agent-http --features test-util` step. f19ce8d only adds a sprint-doc citation line."
+     ]
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "flaky-test-qa",
+   "task_id": "a0a271a5a97428212",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-3-shared-http",
+     "reviewed_commit": "f19ce8df1d62f3ffe179d20b6a806f081db253bf",
+     "findings": [],
+     "carry_forward_verdicts": {
+      "FTQ-001": {
+       "verdict": "closed",
+       "evidence": "In crates/sc-agent-http/tests/ureq.rs, test_timeout_is_network_error_without_the_key (line 203) now builds Timeouts::new(2 s connect, 1 s request). The old value was 150 ms. A code comment says the stall is the only possible cause. The stall server is unchanged in behavior: Reply::Stall waits on released.recv_timeout(SERVER_DEADLINE) in tests/support/mod.rs:249-251. A longer client timeout cannot make the test pass for the wrong reason, so this is not masking. No retry, sleep or compensating branch was added. The remaining assertions are unchanged: kind is Timeout, retryable, no key leak, and server.finish().len() == 1."
+      },
+      "FTQ-002": {
+       "verdict": "closed",
+       "evidence": "In .github/workflows/sc-agent-ci.yml (lines 134-139), the step `cargo test -p sc-agent-http --features test-util` has timeout-minutes: 15. A comment explains that it replaces reliance on feature unification. The dev report says the step runs on all three OS test jobs. The tests' own header comment in ureq.rs documents the required feature. I did not check the CI run results myself. I rely on the assignment's note that CI was green at 7cfd413 and that f19ce8d adds only a doc line."
+      }
+     },
+     "fix_round_regression_check": {
+      "worktree_head_verified": "The worktree HEAD, read from .git/worktrees/r3-qa2-review/HEAD, is f19ce8df1d62f3ffe179d20b6a806f081db253bf. This is the assigned commit. I could not confirm the branch name because the checkout is detached and I have no shell.",
+      "renamed_connect_test": "test_connect_phase_failure_is_retryable_and_not_retried accepts Connect or Timeout. This is a platform-behavior accommodation (Windows retries the SYN). The wait is bounded by the 2 s connect timeout, and the test still asserts retryable and exactly one send. I did not treat it as masking.",
+      "bounded_waits": "The LoopbackServer support code is bounded throughout. finish() uses done.recv_timeout(FINISH_DEADLINE) and panics with a clear message. Accepted streams get read and write timeouts. The stall wait uses recv_timeout. The accept loop checks the shutdown flag and the start time.",
+      "residual_note_not_a_finding": "refused_port() binds an ephemeral port and drops it. In theory another concurrently running loopback test could be handed that port. This is a very low-probability, pre-existing pattern that the fix round did not introduce. Under the locked-round rules I am not reporting it."
+     },
+     "summary": {
+      "total_findings": 0,
+      "critical": 0,
+      "important": 0,
+      "minor": 0
+     }
+    },
+    "error": null
+   }
+  },
+  {
+   "agent": "ruthless-boundary-qa",
+   "task_id": "a4487ab8869c46ee6",
+   "fenced_json": {
+    "success": true,
+    "data": {
+     "status": "pass",
+     "reviewed_branch": "sprint/r-3-shared-http",
+     "reviewed_commit": "f19ce8df1d62f3ffe179d20b6a806f081db253bf",
+     "review_mode": "sprint_review",
+     "findings": [],
+     "summary": {
+      "total_findings": 0,
+      "by_severity": {
+       "critical": 0,
+       "important": 0,
+       "minor": 0
+      }
+     },
+     "notes": [
+      "Verdicts per carry-forward id: RBQA-F009 closed, RBQA-F101 closed, RBQA-F102 closed, RBQA-F103 closed, RBQA-F104 closed. There are no open or regressed ids. The `findings` array is empty because every assigned id is closed.",
+      "RBQA-F009 closed. cargo-tree-gates.sh now has a graph row, 'sc-agent-http -> sc-agent-types secret only'. It runs `-p sc-agent-http -e normal,features -i sc-agent-types`. It fails on any judge, obs, git, default or test-util feature and has a positive control for `secret`. The script is wired into CI, which the developer report states and I did not re-check.",
+      "RBQA-F101 closed. The CI step 'sc-agent-http public API has no ureq type' runs `rm -rf target/doc/sc_agent_http`, then `cargo doc --locked -p sc-agent-http` with dependencies. It then greps for `href=\"[^\"]*ureq/|title=\"[a-z]+ ureq::`, which covers ureq submodule paths. The developer report says it ran the canary in a throwaway worktree and that each half of the regex matched on its own. I did not re-run the canary. The step runs in CI itself, not only in the sprint doc. The report says plan.md and the r-3b doc carry the same command text, but I did not read those docs.",
+      "RBQA-F102 closed. The CI step 'single ResolvedApiKey::as_str site' greps `crates/` for `disallowed_methods|ResolvedApiKey::as_str`. It skips comment lines and the allowed file ureq_transport.rs. It also asserts that the allowed file still contains `disallowed_methods`, so the gate cannot pass because the one real site vanished.",
+      "RBQA-F103 closed. `SecretHeader::matches` at ureq_transport.rs:151-155 is under `#[cfg(feature = \"test-util\")]`. The docs in transport.rs, request.rs and lib.rs say the same. I did not re-read the manifest notes.",
+      "RBQA-F104 closed. The tree-gate rows cover three things. Depth-1 `ureq` absence for sc-jev, sc-jev-backends and sc-jev-check. The forbidden-package row for sc-agent-http, with a `present` positive control for `ureq`. A workspace-wide `test-util` absence row, with a dev-edge positive control. The developer report also adds a CI step that runs `cargo test -p sc-agent-http --features test-util` on all three OSes. I did not confirm that step in the workflow file.",
+      "Unsolicited observation outside this round's assigned scope: the public-API ureq gate has no positive control in CI. The canary proof lives only in the sprint doc and the developer report. If rustdoc's HTML link format changes, the grep can go silently dead. Consider a checked-in canary fixture or a rustdoc-JSON check in r-3b. This is not a blocker for r-3.",
+      "Identity and tooling: I did not verify HEAD against the assigned commit, because I did not run git. The review worktree was read through file reads only. No cargo or sc-lint runs. No boundary-validator report was supplied, so I reviewed the scripts, workflow and sources directly.",
+      "Fix-round regression scan: the changed gate scripts, workflow steps and test-util gating that I read show no new boundary leak."
+     ]
+    },
+    "error": null
+   }
+  }
+ ]
+}

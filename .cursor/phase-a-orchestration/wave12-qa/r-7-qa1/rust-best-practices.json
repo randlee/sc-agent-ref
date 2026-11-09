@@ -1,0 +1,28 @@
+{
+  "success": true,
+  "data": {
+    "status": "pass",
+    "reviewed_branch": "sprint/r-7-decision-schema",
+    "reviewed_commit": "9497297",
+    "review_mode": "sprint_review",
+    "practice_mode": "all",
+    "practices_reviewed": ["RBP-001","RBP-002","RBP-003","RBP-004","RBP-005","RBP-006","RBP-007","RBP-008","RBP-009","RBP-010"],
+    "findings": [],
+    "summary": {
+      "total_findings": 0,
+      "by_severity": {"critical": 0, "important": 0, "minor": 0}
+    },
+    "notes": [
+      "HEAD check was done by reading git files, because this agent has no shell. The worktree HEAD points at sprint/r-7-decision-schema, and that ref is 94972978d9e6..., which matches 9497297.",
+      "Review was targeted rather than line-by-line. I read the required inventory and enforcement docs, grepped all six crates' src/ trees for interior mutability, pub traits, dyn usage, Cow, Infallible, PhantomData, unwrap and String-error Results, and read the key trait and newtype files. I did not read each per-pattern plan doc. I did not read the bodies of every file (for example sc-jev-check run/ and extract/, or sc-jev-backends wire.rs).",
+      "RBP-003 and RBP-008: JudgeBackend, Transport and SessionLog are the only pub traits in the reviewed src/ trees. Each has an explicit open-vs-sealed decision in its doc comment. All three are dyn-compatible (&self receivers, no generics, no Self in signatures) and are used as Arc<dyn _> or &dyn _. JudgeBackend also documents its additive-defaults semver rule.",
+      "RBP-004: semantic ids are newtypes (QuestionId, ChoiceId, Rev, SessionId, BackendId, Sha256Digest, RepoRelativePath, TimestampMs, ProjectLabel, ResolvedApiKey). QuestionAnswer::new validates confidence and probabilities in one place (check_unit), and the raw fields are private. A Probability newtype is optional and is not a finding. RowContext.repo stays a lossy String on purpose, and the field doc explains why.",
+      "RBP-006: Mutex appears only in test_util.rs (sc-decision-schema, sc-agent-http) and in a registry test. In sc-agent-http the Arc<Mutex> use is justified in the module doc, because Transport is Send + Sync. No RefCell or Cell.",
+      "RBP-007: no fake Result<_, String> or Infallible candidates found. Every unwrap hit is in a doctest, a unit test or a test body.",
+      "RBP-009: backend.rs already uses Cow<'a, str> in embedded_text. I found no eager-clone hot paths in the files I read.",
+      "RBP-001: errors go through the structured JevError and ErrorCode types with stable codes, such as RESPONSE_INVALID.",
+      "RBP-002, RBP-005 and RBP-010: nothing applicable or missing."
+    ]
+  },
+  "error": null
+}
