@@ -28,6 +28,11 @@ classifiers = [
 # `sync-python-version` rejects dynamic versions (sprint a-9).
 version = "0.1.0"
 
+[project.optional-dependencies]
+# `sc_observability.get_host_logger()` returns the logger this wheel installs
+# (import `sc_jev_py` first). Exact: the wheel links the 1.5.0 runtime.
+observability = ["sc-observability==1.5.0"]
+
 [project.urls]
 Homepage = "https://github.com/randlee/sc-agent"
 Repository = "https://github.com/randlee/sc-agent"

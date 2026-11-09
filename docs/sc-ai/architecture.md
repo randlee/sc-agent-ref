@@ -4,7 +4,7 @@
 **Depends on:** `sc-jev-host` (`=`-pinned, ADR-SAG-0023), `sc-jev-check`, `sc-agent-types`, `clap` and `mimalloc` (optional, `cli` feature)
 
 Binary crate. clap derive (bin-private `src/cli.rs`) → typed `Command` →
-`sc_ai::execute` → **`sc-jev-host`** (session-log adapter, `PathPolicy::cli()`,
+`sc_ai::execute` → **`sc-jev-host`** (session-log and general-log adapters, `PathPolicy::cli()`,
 repo discovery, `run_from` / `ask_from`) → **`sc-jev-check`** → stdout JSON /
 stderr errors. `sc-ai` no longer links `sc-observability` and holds no path
 defaults or logger adapter (ADR-SAG-0010 r-3b amendment).
@@ -79,3 +79,12 @@ redacted in the stderr line). The endpoint override exists only behind
 published binary rejects the flag (`test_release_binary_rejects_loopback_port`).
 Every `sc-ai` test drives the built binary; the a-10 library seam
 `execute_with_overrides` is gone.
+
+## Logging (agt-9eh)
+
+`sc-ai` injects no logger. `execute` builds a `ComposeInputs` with the CLI
+`PathPolicy` and `--log-dir`; `sc-jev-host` opens the default session log
+(`logs/sc-ai.log.jsonl`) and the default general log
+(`logs/sc-ai-general.log.jsonl`). A dry run opens neither. Injection is a Rust
+and Python API concern (ADR-SAG-0013 amendment 2026-11-09, owner direction
+2026-11-08).

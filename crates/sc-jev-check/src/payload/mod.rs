@@ -17,7 +17,11 @@ use sc_agent_types::{JevError, RepoRoot, Rev};
 use sc_decision_schema::{CanonicalJudgePayload, ChoiceAnswer, PayloadBundle, Question};
 
 use crate::config::CheckSpec;
-use crate::extract::{Extracted, extract_input, read_repo_text};
+use crate::extract::{Extracted, extract_input_logged, read_repo_text};
+use sc_agent_types::observability::v2::{GeneralEvent, GeneralLog};
+
+/// Logging target of this module.
+const TARGET: &str = "check.payload";
 
 pub(crate) use questions::parse_question_set;
 pub(crate) use questions::parse_state;
@@ -40,10 +44,55 @@ pub struct BuiltPayload {
 /// # Errors
 ///
 /// Returns [`JevError`] for config, input, or extraction failures.
+#[cfg(test)]
 pub fn build_payload(
     spec: &CheckSpec,
     repo: &RepoRoot,
     rev: &Rev,
+) -> Result<BuiltPayload, JevError> {
+    build_payload_logged(
+        spec,
+        repo,
+        rev,
+        &sc_agent_types::observability::v2::NoopGeneralLog,
+    )
+}
+
+/// [`build_payload`] that reports each step to `log`: the documents read,
+/// every extraction, and the final payload size and digest. The payload
+/// text itself is never logged.
+///
+/// # Errors
+///
+/// As [`build_payload`].
+pub fn build_payload_logged(
+    spec: &CheckSpec,
+    repo: &RepoRoot,
+    rev: &Rev,
+    log: &dyn GeneralLog,
+) -> Result<BuiltPayload, JevError> {
+    GeneralEvent::debug(TARGET, "payload.start", "payload assembly started")
+        .with_field("inputs", spec.inputs().len())
+        .with_field("has_state", spec.state_path().is_some())
+        .emit(log);
+    let built = build_payload_steps(spec, repo, rev, log);
+    match &built {
+        Ok(built) => GeneralEvent::debug(TARGET, "payload.done", "payload assembled")
+            .with_field("payload_bytes", built.bundle.bytes().len())
+            .with_field("payload_sha256", built.bundle.sha256().to_string())
+            .emit(log),
+        Err(error) => GeneralEvent::warn(TARGET, "payload.failed", "payload assembly failed")
+            .with_error_code(error.code().as_str())
+            .emit(log),
+    }
+    built
+}
+
+fn build_payload_steps(
+    spec: &CheckSpec,
+    repo: &RepoRoot,
+    rev: &Rev,
+    log: &dyn GeneralLog,
 ) -> Result<BuiltPayload, JevError> {
     let questions = parse_question_set(&read_repo_text(repo, rev, spec.questions_path())?)?;
     let state = match spec.state_path() {
@@ -52,7 +101,10 @@ pub fn build_payload(
     };
     let mut extractions = BTreeMap::new();
     for (name, input) in spec.inputs() {
-        extractions.insert(name.as_str().to_owned(), extract_input(repo, rev, input)?);
+        extractions.insert(
+            name.as_str().to_owned(),
+            extract_input_logged(repo, rev, input, log)?,
+        );
     }
     let questions = substitute_inputs(questions, &extractions);
     let bundle = encode_payload(&questions, &state)?;

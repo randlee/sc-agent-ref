@@ -194,10 +194,10 @@ fn a_timed_submit_to_a_full_queue_returns_the_job() {
         },
         |job, _| *job,
     );
-    assert!(pool.submit(0, None).is_ok());
+    assert!(pool.submit(0, Some(FAILSAFE)).is_ok());
     wait_until("a worker to start", || pool.running() > 0);
     // The worker holds job 0; one job fits in the queue; the next does not.
-    assert!(pool.submit(1, None).is_ok());
+    assert!(pool.submit(1, Some(FAILSAFE)).is_ok());
     match pool.submit(2, Some(Duration::from_millis(1))) {
         Err(PushError::Full(job)) => assert_eq!(job, 2),
         _ => panic!("expected a full queue"),
@@ -231,12 +231,15 @@ fn cancel_skips_queued_jobs_and_refuses_new_ones() {
         |job, why| (*job, Some(why)),
     );
     for job in 0..4 {
-        assert!(pool.submit(job, None).is_ok());
+        assert!(pool.submit(job, Some(FAILSAFE)).is_ok());
     }
     wait_until("a worker to start", || pool.running() > 0);
     pool.cancel();
     assert!(cancel.is_cancelled(), "the engine's token is the pool's");
-    assert!(matches!(pool.submit(9, None), Err(PushError::Closed(9))));
+    assert!(matches!(
+        pool.submit(9, Some(FAILSAFE)),
+        Err(PushError::Closed(9))
+    ));
     assert!(hold.arrive());
     let mut answers = drain(&pool);
     join(&pool);
@@ -267,7 +270,7 @@ fn a_panicking_job_is_answered_and_the_worker_survives() {
         |job, why| (*job, Some(why)),
     );
     for job in 0..3 {
-        assert!(pool.submit(job, None).is_ok());
+        assert!(pool.submit(job, Some(FAILSAFE)).is_ok());
     }
     pool.close_input();
     let answers = drain(&pool);
@@ -287,7 +290,7 @@ fn finished_needs_closed_input_empty_queue_and_idle_workers() {
         pool.recv_within(Some(Duration::from_millis(1))),
         Popped::Empty
     ));
-    assert!(pool.submit(7, None).is_ok());
+    assert!(pool.submit(7, Some(FAILSAFE)).is_ok());
     assert!(matches!(pool.recv_within(Some(FAILSAFE)), Popped::Item(7)));
     // Open input, empty queue, idle workers: still not finished.
     assert!(matches!(

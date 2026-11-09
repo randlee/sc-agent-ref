@@ -1,7 +1,7 @@
 # sc-jev-host
 
 Composition-root support for the `sc-ai` command-line tool and the `sc-jev-py`
-Python wheel: the `sc-observability` session-log adapter, the log and session
+Python wheel: the `sc-observability` session-log and general-log adapters, the log and session
 path policy, and the `run`/`ask` wiring over `sc-jev-check`.
 
 This is an **internal support crate**. It is published to crates.io only so

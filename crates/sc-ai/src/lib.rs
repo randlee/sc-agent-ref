@@ -16,6 +16,17 @@
 //! `<log-root>/logs/sc-ai.log.jsonl`. Session files default to
 //! `<repo-root>/.sc-ai/sessions`.
 //!
+//! # General log
+//!
+//! A second, separate log, `<log-root>/logs/sc-ai-general.log.jsonl`, records
+//! operator diagnostics (operation start and end, backend and model, path
+//! resolution, credential source, retries, extraction, session store actions,
+//! failures by typed id). It never holds a key, prompt text or a provider
+//! body. The CLI injects no logger: both logs are the sc-agent defaults under
+//! `--log-dir`, and a dry run opens neither. Injecting loggers is a Rust
+//! (`ComposeInputs`) and Python API concern (ADR-SAG-0013 amendment
+//! 2026-11-09).
+//!
 //! # Partial failure
 //!
 //! When any requested backend fails (every one included), [`Output`] carries the

@@ -74,7 +74,7 @@ use std::io::{BufRead, Write};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
-use sc_agent_types::observability::v2::SharedSessionLog;
+use sc_agent_types::observability::v2::{SharedGeneralLog, SharedSessionLog};
 use sc_agent_types::{
     BackendId, BackendSet, CancelToken, EXIT_FAILURE, EXIT_RETRYABLE, JevError, ModelAliases,
     NetworkErrorKind, ScAgentErrorResponse,
@@ -86,9 +86,9 @@ use sc_jev_check::run::{
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
 
+use crate::compose::Logs;
 use crate::compose::{ComposeInputs, ResolvedPaths};
-use crate::obs::ObservabilityAdapter;
-use log::StreamLog;
+use log::{RequestLog, StreamLog};
 use pool::{Popped, PushError, Skipped, WorkerPool};
 
 /// Longest request id, in bytes.
@@ -351,7 +351,7 @@ struct Tally {
 /// A running queue of decision requests (see the module documentation).
 pub struct DecisionStream {
     pool: WorkerPool<Job, StreamAnswer>,
-    adapter: ObservabilityAdapter,
+    logs: Logs,
     tally: Mutex<Tally>,
     log: Arc<StreamLog>,
 }
@@ -367,13 +367,19 @@ impl std::fmt::Debug for DecisionStream {
 }
 
 impl DecisionStream {
-    /// Opens the session logger once and starts `concurrency` workers.
+    /// Opens the loggers once and starts `concurrency` workers.
     ///
     /// `inputs` carries what `sc-ai jev run` would use: repo root, log and
     /// session directories, `--backend` override, registry, project label,
     /// mode and system prompt override. The stream owns its cancel token:
     /// it replaces any token set on `inputs`, and [`Self::cancel`] is the
     /// only way to cancel, so every request in flight sees it.
+    ///
+    /// **Logs.** A log injected with [`ComposeInputs::session_log`] or
+    /// [`ComposeInputs::general_log`] is used and its flush stays the
+    /// caller's; otherwise the defaults under the log root are opened once and
+    /// flushed by [`Self::finish`]. The stream has its own `run_id`; each
+    /// request is a run with its own (see `stream/log.rs`).
     ///
     /// # Errors
     ///
@@ -382,11 +388,15 @@ impl DecisionStream {
         let cancel = CancelToken::new();
         let inputs = inputs.cancel(cancel.clone());
         let resolved = inputs.resolve()?;
-        let adapter = ObservabilityAdapter::open(inputs.policy(), &resolved.log_root)?;
-        let log = Arc::new(StreamLog);
+        let logs = Logs::open(&inputs, &resolved, true)?;
+        let log = Arc::new(StreamLog::new(
+            Arc::clone(&logs.general),
+            logs.run_id.clone(),
+        ));
         let engine = Arc::new(Engine {
-            log_context: inputs.log_context(&resolved),
-            session_log: adapter.shared(),
+            log_context: inputs.log_context(&resolved, logs.general.as_ref()),
+            session_log: Arc::clone(&logs.session),
+            general_log: Arc::clone(&logs.general),
             registries: Mutex::new(HashMap::new()),
             log: Arc::clone(&log),
             inputs,
@@ -409,7 +419,7 @@ impl DecisionStream {
         );
         Ok(Self {
             pool,
-            adapter,
+            logs,
             tally: Mutex::new(Tally {
                 answered: 0,
                 failed: 0,
@@ -530,14 +540,11 @@ impl DecisionStream {
         self.close_input();
         while self.next_answer().is_some() {}
         self.pool.join();
-        let log_flush_warning = self
-            .adapter
-            .flush()
-            .err()
-            .map(|error| format!("session log was not flushed: {}", error.message()));
         let tally = self.tally.lock().unwrap_or_else(PoisonError::into_inner);
         self.log
             .queue_finished(tally.answered, tally.failed, self.pool.alive());
+        let log_flush_warning = self.logs.finish_session();
+        self.logs.finish_general();
         StreamSummary {
             answered: tally.answered,
             failed: tally.failed,
@@ -836,11 +843,26 @@ fn lost(job: &Job) -> StreamAnswer {
     )
 }
 
+/// A request failure and the stage it happened at (for the log).
+struct StageFailure {
+    stage: &'static str,
+    error: JevError,
+}
+
+impl StageFailure {
+    fn new(stage: &'static str, error: JevError) -> Self {
+        Self { stage, error }
+    }
+}
+
 /// Shared by every worker: everything one request needs.
 struct Engine {
     inputs: ComposeInputs,
     resolved: ResolvedPaths,
     session_log: SharedSessionLog,
+    /// The stream's own correlated general log; each request wraps it with
+    /// its own `run_id`.
+    general_log: SharedGeneralLog,
     log_context: LogContext,
     /// Registries built from the environment, one per backend selection, so
     /// a backend's client (and its connection pool) is shared by all workers.
@@ -850,24 +872,40 @@ struct Engine {
 
 impl Engine {
     fn answer(&self, job: &Job) -> StreamAnswer {
-        let answer = match job {
-            Job::Rejected(error) => StreamAnswer::failed(None, error.clone()),
+        match job {
+            Job::Rejected(error) => {
+                let log = self.log.request(None);
+                log.failed("read", error);
+                StreamAnswer::failed(None, error.clone())
+            }
             Job::Line(line) => match split_line(line) {
                 Ok((id, request)) => self.answer_request(id, request),
-                Err(failed) => StreamAnswer::failed(failed.id, failed.error),
+                Err(failed) => {
+                    let log = self.log.request(failed.id.as_deref());
+                    log.failed("parse", &failed.error);
+                    StreamAnswer::failed(failed.id, failed.error)
+                }
             },
             Job::Request(request) => self.answer_request(request.id.clone(), &request.json),
-        };
-        if let Err(error) = answer.outcome() {
-            self.log.request_failed(answer.id(), error.code());
         }
-        answer
     }
 
     fn answer_request(&self, id: RequestId, request_json: &str) -> StreamAnswer {
-        self.log.request_started(Some(id.as_str()));
+        let log = self.log.request(Some(id.as_str()));
+        log.started();
         let outcome = CallerRequest::from_json(request_json.as_bytes())
-            .and_then(|request| self.run_request(request));
+            .map_err(|error| Box::new(StageFailure::new("parse", error)))
+            .and_then(|request| self.run_request(request, &log));
+        let outcome = match outcome {
+            Ok(response) => {
+                log.finished(&response);
+                Ok(response)
+            }
+            Err(failure) => {
+                log.failed(failure.stage, &failure.error);
+                Err(failure.error)
+            }
+        };
         StreamAnswer {
             id: Some(id.0),
             outcome,
@@ -876,38 +914,55 @@ impl Engine {
 
     fn skipped(&self, job: &Job, why: Skipped) -> StreamAnswer {
         let id = job_id(job);
-        let error = match why {
-            Skipped::Cancelled => JevError::network(
-                NetworkErrorKind::Cancelled,
-                "the stream was cancelled before this request started",
+        let (stage, error) = match why {
+            Skipped::Cancelled => (
+                "cancelled",
+                JevError::network(
+                    NetworkErrorKind::Cancelled,
+                    "the stream was cancelled before this request started",
+                ),
             ),
-            Skipped::Panicked => JevError::io_failed_with(
-                "stream worker (internal error while running this request)",
-                std::io::ErrorKind::Other,
-                Some("Retry the request; report this if it repeats.".to_owned()),
+            Skipped::Panicked => (
+                "internal",
+                JevError::io_failed_with(
+                    "stream worker (internal error while running this request)",
+                    std::io::ErrorKind::Other,
+                    Some("Retry the request; report this if it repeats.".to_owned()),
+                ),
             ),
         };
-        self.log.request_failed(id.as_deref(), error.code());
+        self.log.request(id.as_deref()).failed(stage, &error);
         StreamAnswer::failed(id, error)
     }
 
-    fn run_request(&self, request: CallerRequest) -> Result<RunResponse, JevError> {
+    /// Runs one request as its own run: the engine gets the request's
+    /// correlated general log. The error carries the stage that failed.
+    fn run_request(
+        &self,
+        request: CallerRequest,
+        log: &RequestLog,
+    ) -> Result<RunResponse, Box<StageFailure>> {
         let selected = self
             .inputs
             .selected_backends()
             .or_else(|| request.backends())
             .cloned()
             .unwrap_or_default();
-        let registry = self.registry_for(&selected)?;
+        let registry = self
+            .registry_for(&selected)
+            .map_err(|error| Box::new(StageFailure::new("registry", error)))?;
         let config = self
             .inputs
             .run_config(
                 &self.resolved,
                 Arc::clone(&self.session_log),
+                log.shared(),
                 self.log_context.clone(),
             )
             .registry(registry);
-        run(prepare(CheckSource::CallerRequest(request), config)?)
+        prepare(CheckSource::CallerRequest(request), config)
+            .and_then(run)
+            .map_err(|error| Box::new(StageFailure::new("run", error)))
     }
 
     fn registry_for(&self, selected: &BackendSet) -> Result<Arc<BackendRegistry>, JevError> {
@@ -922,10 +977,11 @@ impl Engine {
         if let Some(found) = cache.get(&key) {
             return Ok(Arc::clone(found));
         }
-        let built = Arc::new(BackendRegistry::from_env_with_models(
+        let built = Arc::new(BackendRegistry::from_env_with_models_logged(
             &self.resolved.repo_root,
             selected,
             &ModelAliases::builtin(),
+            &self.general_log,
         )?);
         cache.insert(key, Arc::clone(&built));
         Ok(built)

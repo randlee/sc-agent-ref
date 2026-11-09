@@ -159,6 +159,38 @@ impl PathPolicy {
         self.default_log_root_with(repo, env)
     }
 
+    /// The log root when it is known without a repository: an explicit
+    /// argument, an environment variable, or a home or fixed default.
+    ///
+    /// `None` when the only source is the repo-relative default
+    /// (`DefaultRoot::UnderRepoRoot`), which needs a root that has not been
+    /// resolved yet. A failure before the repo root is known can then not be
+    /// logged (the silent-path table, ADR-SAG-0013 amendment 2026-11-09).
+    #[must_use]
+    pub fn log_root_if_known(&self, explicit: Option<&Path>) -> Option<PathBuf> {
+        self.log_root_if_known_with(explicit, &|name| std::env::var_os(name))
+    }
+
+    /// [`Self::log_root_if_known`] over an injected environment lookup.
+    #[must_use]
+    pub fn log_root_if_known_with(
+        &self,
+        explicit: Option<&Path>,
+        env: &dyn Fn(&str) -> Option<OsString>,
+    ) -> Option<PathBuf> {
+        let placeholder = RepoRoot::new(".");
+        if let Some(path) = non_empty(explicit) {
+            return Some(path.to_path_buf());
+        }
+        if let Some(path) = first_env_path(self.log_root_env, env) {
+            return Some(path);
+        }
+        match self.log_root_default {
+            DefaultRoot::UnderRepoRoot(_) => None,
+            _ => Some(self.default_log_root_with(&placeholder, env)),
+        }
+    }
+
     /// The log root when no argument or environment variable sets it.
     #[must_use]
     pub fn default_log_root(&self, repo: &RepoRoot) -> PathBuf {

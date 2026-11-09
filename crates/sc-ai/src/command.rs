@@ -10,7 +10,9 @@ use sc_agent_types::{
 use sc_decision_schema::MultiBackendMode;
 use sc_jev_check::registry::BackendRegistry;
 use sc_jev_check::run::{CallerRequest, CheckSource, Envelope};
-use sc_jev_host::compose::{ComposeInputs, ResolvedPaths, ask_from, explicit_repo_root, run_from};
+use sc_jev_host::compose::{
+    ComposeInputs, ResolvedPaths, ask_from, explicit_repo_root, log_failure, run_from,
+};
 use sc_jev_host::paths::PathPolicy;
 use sc_jev_host::stream::{Concurrency, DecisionStream, StreamSummary, serve_jsonl};
 use serde::Serialize;
@@ -155,11 +157,25 @@ pub fn execute(command: Command, stdin: &mut dyn Read) -> Result<Output, JevErro
 /// Inputs shared by `run` and `ask`: the working directory, the explicit
 /// repo root and log and session directories.
 fn base_inputs(
+    dry_run: bool,
     repo_root: Option<&Path>,
     log_dir: Option<PathBuf>,
     sessions_dir: Option<PathBuf>,
 ) -> Result<ComposeInputs, JevError> {
-    let explicit = repo_root.map(explicit_repo_root).transpose()?;
+    let explicit = match repo_root.map(explicit_repo_root).transpose() {
+        Ok(explicit) => explicit,
+        Err(error) => {
+            // The repo root is not known, so only a log root that needs no
+            // repository (`--log-dir`, `SC_LOG_ROOT`) can take the row.
+            let early = ComposeInputs::new(PathBuf::from("."), PathPolicy::cli()).dry_run(dry_run);
+            let early = match log_dir {
+                Some(dir) => early.log_dir(dir),
+                None => early,
+            };
+            log_failure(&early, None, "cli.repo_root", &error);
+            return Err(error);
+        }
+    };
     let cwd = match std::env::current_dir() {
         Ok(cwd) => cwd,
         // An explicit repo root never needs the working directory.
@@ -187,6 +203,7 @@ fn base_inputs(
 
 fn dispatch_run(command: RunCommand, stdin: &mut dyn Read) -> Result<Output, JevError> {
     let mut inputs = base_inputs(
+        command.dry_run,
         command.repo_root.as_deref(),
         command.log_dir.clone(),
         command.sessions_dir.clone(),
@@ -212,17 +229,29 @@ fn dispatch_run(command: RunCommand, stdin: &mut dyn Read) -> Result<Output, Jev
     if let Some(project) = &command.project {
         inputs = inputs.project(project.clone());
     }
-    let resolved = inputs.resolve()?;
+    let resolved = inputs
+        .resolve()
+        .inspect_err(|error| log_failure(&inputs, None, "cli.resolve", error))?;
     let repo = &resolved.repo_root;
+    let noted = |stage: &'static str| {
+        let inputs = &inputs;
+        let resolved = &resolved;
+        move |error: JevError| {
+            log_failure(inputs, Some(resolved), stage, &error);
+            error
+        }
+    };
     let source = if let Some(request_path) = &command.request_json {
-        let bytes = request_bytes(repo, request_path, stdin)?;
-        CheckSource::CallerRequest(CallerRequest::from_json(&bytes)?)
+        let bytes = request_bytes(repo, request_path, stdin).map_err(noted("cli.request_json"))?;
+        CheckSource::CallerRequest(
+            CallerRequest::from_json(&bytes).map_err(noted("cli.request_json"))?,
+        )
     } else {
         let check_path = command
             .check
             .clone()
             .unwrap_or_else(|| PathBuf::from("check.toml"));
-        CheckSource::check_file(repo, &check_path)?
+        CheckSource::check_file(repo, &check_path).map_err(noted("cli.check_source"))?
     };
     let readback = run_readback(&command, &resolved);
     // The root is resolved once; `run_from` does not discover it again.
@@ -250,6 +279,7 @@ fn dispatch_run(command: RunCommand, stdin: &mut dyn Read) -> Result<Output, Jev
 
 fn dispatch_ask(command: AskCommand) -> Result<Output, JevError> {
     let mut inputs = base_inputs(
+        false,
         command.repo_root.as_deref(),
         command.log_dir.clone(),
         command.sessions_dir.clone(),
@@ -260,7 +290,9 @@ fn dispatch_ask(command: AskCommand) -> Result<Output, JevError> {
     if let Some(project) = &command.project {
         inputs = inputs.project(project.clone());
     }
-    let resolved = inputs.resolve()?;
+    let resolved = inputs
+        .resolve()
+        .inspect_err(|error| log_failure(&inputs, None, "cli.resolve", error))?;
     let readback = AskReadback {
         repo_root: path_text(resolved.repo_root.as_path()),
         sessions_dir: path_text(&resolved.sessions_dir),
@@ -378,6 +410,7 @@ pub fn serve_stream(
     stdout: &mut dyn Write,
 ) -> Result<StreamSummary, JevError> {
     let mut inputs = base_inputs(
+        false,
         command.repo_root.as_deref(),
         command.log_dir.clone(),
         command.sessions_dir.clone(),

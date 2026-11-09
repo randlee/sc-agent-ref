@@ -38,10 +38,32 @@ First release. Channels once published: crates.io (ten crates), PyPI
 - Session logs: one JSONL line per send under `<repo-root>/.sc-ai`, each
   carrying one session-log row; no API keys, prompt text or request bodies are
   recorded.
+- General log (bead agt-9eh): a second, separate `sc-observability` log of
+  operator diagnostics, `<log-root>/logs/<service>-general.log.jsonl`, beside
+  the session log. Start and end of operations, backend selection and
+  resolved model, path resolution, credential source (never the value), busy
+  retries and waits, extraction and git steps, session store actions, flush
+  failures and failures by typed id; never keys, prompt text, state or
+  provider bodies. The open `GeneralLog` port (`SharedGeneralLog`,
+  `NoopGeneralLog`) sits beside `SessionLog` in `sc-agent-types`; both logs are
+  injectable (`RunConfig::general_log`, `ComposeInputs::{session_log,
+  general_log}`, Python `run_check(session_log=, general_log=)`) and fall back
+  to the sc-agent defaults. `sc-ai` keeps the default loggers and `--log-dir`
+  and has no logger flag. A dry run opens no log.
+- `sc_jev_py` links the `sc-observability` Python runtime in its own binary:
+  Rust writes the general log with no GIL, and
+  `sc_observability.get_host_logger()` (after `sc_jev_py.install_host_logger()`)
+  returns the same logger. New `general_log_file` and `install_host_logger`;
+  the `sc-jev-py[observability]` extra pins `sc-observability==1.5.0`.
 - A Rust/Python cross-implementation fixture for the canonical judge payload
   bytes (`tests/fixtures/README.md`).
 
 ### Changed (public API shape before the first release)
+
+- `pyo3` is pinned `=0.29.2` (the version the embedded `sc-observability`
+  runtime pins), with `sc-observability-py`, `-binding-runtime` and `-dto`
+  `=1.5.0`, on the lockstep list. The wheel's stable-ABI floor is `abi3-py310`;
+  `requires-python` stays `>=3.11`.
 
 - Errors (bead agt-2a3): the `sc-ai` stderr line is now `{error, kind, message,
   suggested_action, retryable, retry_after_seconds?, field?, details?,

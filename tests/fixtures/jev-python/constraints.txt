@@ -2,7 +2,7 @@
 # `just test-python` as `pip install --require-hashes -r <this file>`; the
 # versions pinned here are the harness tool versions.
 # Universal (all platforms), Python 3.11. Regenerate with:
-#   printf 'maturin==1.16.0\npytest==8.4.2\n' > /tmp/in.txt
+#   printf 'maturin==1.16.0\npytest==8.4.2\nsc-observability==1.5.0\n' > /tmp/in.txt
 #   uv pip compile /tmp/in.txt --universal --python-version 3.11 \
 #     --generate-hashes --no-header -o constraints.txt
 # Bump maturin here and in sc-publish-dry-run.yml's MATURIN_VERSION together.
@@ -45,4 +45,13 @@ pygments==2.21.0 \
 pytest==8.4.2 \
     --hash=sha256:86c0d0b93306b961d58d62a4db4879f27fe25513d4b969df351abdddb3c30e01 \
     --hash=sha256:872f880de3fc3a5bdc88a11b39c9710c3497a547cfa9320bc3c5e62fbf272e79
+    # via top-level (justfile test-python)
+sc-observability==1.5.0 \
+    --hash=sha256:0abf432bd6e6e5be22cf13360a68646acbf612028e8f743b80984554f0e8e25d \
+    --hash=sha256:4a72a45c8d9277941be8af4f26f88ef5640f360567c5aeac8dc16aec4c46ce24 \
+    --hash=sha256:58628eeae49e9962e7f7aa3d0b11daccca92ec9045fcf63bbbc311adb82ffc84 \
+    --hash=sha256:8dc9d69bd5ed9ae0234c715356c985634e5baf0bab76fadc7e4f6ff3e7ac3784 \
+    --hash=sha256:92a98747890d655bf0945d30a1fc4a071342ff83454049819bb4617f772e2d7b \
+    --hash=sha256:9e1695e48f1878ac7a26e15378fa4df77f4cb4782e134bedc1802dd2d0ecf5ca \
+    --hash=sha256:bdbd27eb160e1915d4a91125525fa990c46c159e4f662edc5a820b1f744f2690
     # via top-level (justfile test-python)

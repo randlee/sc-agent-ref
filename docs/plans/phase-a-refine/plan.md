@@ -1066,3 +1066,9 @@ sc-jev-py (PyO3) ─────────────────────
 sc-treesitter (bin; feature cli: clap + mimalloc + sc-agent-types/git) → sc-agent-types (default-features = false)
 crates/workspace-tests (publish = false; dev-deps only; drives built binaries; ADR-SAG-0028)
 ```
+
+## Later owner: general logging (agt-9eh)
+
+REQ-SAG-0630 to REQ-SAG-0640 (the general log, its injection, correlation and
+the Python shared logger) are owned by bead `agt-9eh` and ADR-SAG-0013's
+amendment of 2026-11-09, not by a sprint of this plan. There is no sprint doc.

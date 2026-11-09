@@ -15,6 +15,11 @@ acceptance root, when it differs, is shown as "root a-N"; the closure table in
 | REQ-SAG-0711 | Session log through `sc_jev_host::obs` | r-3b |
 | REQ-SAG-0615 | `run_check(project=...)` and `Session.ask(follow_up, project=...)` label that call's log row (≤ 256 bytes, no control characters, else `INPUT_INVALID`); session ids are ULIDs | r-6 |
 | REQ-SAG-0165 | The Python `JevError` carries the same fields as the CLI error body (`code` for `error`, `kind`, `message`, `suggested_action`, `retryable`, `retry_after_seconds`, `field`, `details`, `schema_version`) from the same serialization; never less than the CLI | agt-2a3 |
+| REQ-SAG-0632 | `run_check(session_log=, general_log=)` take callables that replace the defaults; unset, the defaults apply; a non-callable is `INPUT_INVALID`; a callable that raises is ignored | agt-9eh |
+| REQ-SAG-0636 | The wheel links the `sc-observability` Python runtime (`_native`), seeds `sys.modules["sc_observability._native"]`, installs the host logger (`install_host_logger`) and keeps it in a static; Rust writes each row with `try_log` inside `py.detach`, so no row needs the GIL; Python's `get_host_logger()` shares the queue and file | agt-9eh |
+| REQ-SAG-0638 | Python rows carry `run_id`, durations and failure `stage` like Rust's (same events) | agt-9eh |
+| REQ-SAG-0640 | A real key in the environment and a request that fails validation leave a log with the credential source and no key or prompt (pytest `test_a_real_key_reaching_a_send_path...`) | agt-9eh |
+| REQ-SAG-0637 | `pyo3 =0.29.2`, `sc-observability-py`, `-binding-runtime`, `-dto` `=1.5.0` | agt-9eh |
 
 ## Streaming (agt-1aq, ADR-SAG-0032)
 

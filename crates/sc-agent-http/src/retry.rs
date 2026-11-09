@@ -37,6 +37,7 @@ use std::hash::{BuildHasher, RandomState};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use sc_agent_types::observability::v2::{GeneralEvent, SharedGeneralLog};
 use sc_agent_types::{BusyCause, CancelToken, JevError, NetworkErrorKind, SendTrace, Sha256Digest};
 
 use crate::failure::{busy_reply, is_quota_reply};
@@ -73,6 +74,32 @@ const BUDGET: Duration = Duration::from_secs(90);
 /// Longest uninterrupted sleep, so a cancel is seen within this time.
 const WAIT_SLICE: Duration = Duration::from_millis(100);
 
+/// Logging target of this module.
+const TARGET: &str = "http.retry";
+
+/// The optional general log of a policy. Not part of the policy's identity.
+#[derive(Clone, Default)]
+struct LogHandle(Option<SharedGeneralLog>);
+
+impl std::fmt::Debug for LogHandle {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(if self.0.is_some() {
+            "GeneralLog(set)"
+        } else {
+            "GeneralLog(none)"
+        })
+    }
+}
+
+impl LogHandle {
+    /// Sends `event` to the injected log; no log means discard.
+    fn emit(&self, event: GeneralEvent) {
+        if let Some(log) = &self.0 {
+            event.emit(log.as_ref());
+        }
+    }
+}
+
 /// How busy replies are retried.
 ///
 /// Private fields. [`BusyPolicy::default`] is the decided policy (module
@@ -96,6 +123,7 @@ const WAIT_SLICE: Duration = Duration::from_millis(100);
 pub struct BusyPolicy {
     max_sends: u32,
     hooks: Hooks,
+    log: LogHandle,
 }
 
 impl BusyPolicy {
@@ -106,7 +134,18 @@ impl BusyPolicy {
         Self {
             max_sends: max_sends.clamp(1, MAX_SENDS),
             hooks: Hooks::System,
+            log: LogHandle::default(),
         }
+    }
+
+    /// Sends this policy's retry and busy-wait events to `log`.
+    ///
+    /// Without a log the policy records nothing. The events carry statuses,
+    /// counts and wait times; never a body, header or key.
+    #[must_use]
+    pub fn with_general_log(mut self, log: SharedGeneralLog) -> Self {
+        self.log = LogHandle(Some(log));
+        self
     }
 
     /// Replaces the number of sends (clamped to 1 through 5), keeping the
@@ -137,6 +176,7 @@ impl BusyPolicy {
                 sleeper,
                 jitter: jitter.min(JITTER_MAX),
             },
+            log: LogHandle::default(),
         }
     }
 }
@@ -365,10 +405,21 @@ impl<T: Transport> HttpClient<T> {
         }
     }
 
-    /// Replaces the busy policy.
+    /// Replaces the busy policy. A log already set on this client stays
+    /// unless `policy` carries its own.
     #[must_use]
-    pub fn with_busy_policy(mut self, policy: BusyPolicy) -> Self {
+    pub fn with_busy_policy(mut self, mut policy: BusyPolicy) -> Self {
+        if policy.log.0.is_none() {
+            policy.log = self.policy.log.clone();
+        }
         self.policy = policy;
+        self
+    }
+
+    /// Sends the busy-retry events of every exchange to `log`.
+    #[must_use]
+    pub fn with_general_log(mut self, log: SharedGeneralLog) -> Self {
+        self.policy = self.policy.with_general_log(log);
         self
     }
 
@@ -421,10 +472,15 @@ fn retry_loop(
     trace: &SendTrace,
 ) -> Result<HttpResponse, JevError> {
     let hooks = &policy.hooks;
+    let log = &policy.log;
     let started = hooks.start();
     let mut sends = 0_u32;
     loop {
         if cancel.is_cancelled() {
+            log.emit(
+                GeneralEvent::info(TARGET, "http.cancelled", "request cancelled before a send")
+                    .with_field("sends", sends),
+            );
             return Err(cancelled("before a send"));
         }
         if sends == 0 {
@@ -432,14 +488,41 @@ fn retry_loop(
             trace.record(Sha256Digest::of_text(request.body()));
         }
         sends += 1;
-        let response = transport.send(request)?;
+        log.emit(
+            GeneralEvent::debug(TARGET, "http.send", "sending request")
+                .with_field("method", request.method().as_str())
+                .with_field("endpoint", request.endpoint().log_form())
+                .with_field("attempt", sends)
+                .with_field("max_sends", policy.max_sends),
+        );
+        let response = match transport.send(request) {
+            Ok(response) => response,
+            Err(error) => {
+                log.emit(
+                    GeneralEvent::warn(TARGET, "http.transport_failed", "transport failed")
+                        .with_error_code(error.code().as_str())
+                        .with_field("attempt", sends),
+                );
+                return Err(error);
+            }
+        };
         let status = response.status();
         if !is_busy(&response) {
+            log.emit(
+                GeneralEvent::debug(TARGET, "http.response", "response received")
+                    .with_field("status", status)
+                    .with_field("attempt", sends),
+            );
             return Ok(response);
         }
         let retry_after = RetryAfter::parse(response.header("retry-after"));
         let reported_wait = retry_after.map(RetryAfter::report_seconds);
         if sends >= policy.max_sends {
+            log.emit(
+                GeneralEvent::warn(TARGET, "http.busy_exhausted", "busy retries exhausted")
+                    .with_field("status", status)
+                    .with_field("sends", sends),
+            );
             return Err(JevError::provider_busy(
                 format!("HTTP {status} busy; {sends} {} exhausted", plural(sends)),
                 status,
@@ -451,6 +534,15 @@ fn retry_loop(
         }
         let remaining = BUDGET.saturating_sub(hooks.elapsed(started));
         if remaining.is_zero() {
+            log.emit(
+                GeneralEvent::warn(
+                    TARGET,
+                    "http.budget_exhausted",
+                    "busy retry budget exhausted",
+                )
+                .with_field("status", status)
+                .with_field("sends", sends),
+            );
             return Err(JevError::provider_busy(
                 format!(
                     "HTTP {status} busy after {sends} {}; retry budget exhausted",
@@ -465,7 +557,31 @@ fn retry_loop(
         }
         let base = retry_after.map_or_else(|| backoff(sends), RetryAfter::wait);
         let wait = base.saturating_add(hooks.jitter()).min(remaining);
-        hooks.wait(wait, cancel)?;
+        log.emit(
+            GeneralEvent::warn(
+                TARGET,
+                "http.busy_wait",
+                "busy reply; waiting before a resend",
+            )
+            .with_field("status", status)
+            .with_field("attempt", sends)
+            .with_field(
+                "wait_ms",
+                u64::try_from(wait.as_millis()).unwrap_or(u64::MAX),
+            )
+            .with_field("retry_after_honoured", retry_after.is_some()),
+        );
+        if let Err(error) = hooks.wait(wait, cancel) {
+            log.emit(
+                GeneralEvent::info(
+                    TARGET,
+                    "http.cancelled",
+                    "request cancelled during a busy wait",
+                )
+                .with_field("sends", sends),
+            );
+            return Err(error);
+        }
     }
 }
 

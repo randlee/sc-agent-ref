@@ -44,3 +44,6 @@ Question-set files (`plan-anchoring/questions/1`, `check.toml`) stay
 with the rule text (question id, kind and counts, never the prompt). Haiku and
 Luna refuse a `noul` question before any send; only `jev` answers it.
 | REQ-SAG-0166 | A session-log flush failure as an error leaves is `details.log_flush_failure` on every variant (`JevError::with_log_flush_failure`), not text in the message; the session store is `IO_FAILED` (REQ-SAG-0162) | agt-2a3 |
+| REQ-SAG-0632 | `RunConfig::general_log` injects the general log (default: discard) next to the session log given to `RunConfig::new` | agt-9eh | `sc-jev-host` `--test general_log` |
+| REQ-SAG-0633 | `prepare`, `run`, `ask`, payload assembly, extraction, the registry and the session store log start, end, selection, resolved model, prompt source, payload size and digest, and failures by typed id; a session-log row rejection is logged | agt-9eh | `sc-jev-host` `--test general_log` (`defaults_write_two_separate_logs`) |
+| REQ-SAG-0634 | Nothing logged carries a key, prompt text, state or provider body | agt-9eh | `sc-jev-host` `--test general_log` (`the_general_log_never_holds_prompt_text`) |

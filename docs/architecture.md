@@ -26,13 +26,13 @@ features and labels.
 
 ```
 sc-ai (binary) ─────┐
-sc-jev-py (PyO3) ───┴── sc-jev-host (sc-observability =1.5.0 adapter, path policy, run/ask)
+sc-jev-py (PyO3) ───┴── sc-jev-host (sc-observability =1.5.0 adapters for the session and general logs, path policy, run/ask)
                           └── sc-jev-check (facade: check.toml, extractors, run_check, sessions)
                                 ├── sc-jev ────────────┐
                                 ├── sc-jev-backends ───┴── sc-agent-http (ureq transport)
                                 ├── sc-agent-secrets
                                 ├── sc-decision-schema
-                                └── sc-agent-types (observability::v2 port; no sc-observability* dep)
+                                └── sc-agent-types (observability::v2 ports: SessionLog, GeneralLog; no sc-observability* dep)
 
 sc-treesitter (library + binary) → sc-agent-types
 ```
@@ -46,10 +46,13 @@ shows each of those edges once, at the lowest node that carries it.
 Every workspace crate depends on `sc-agent-types`; `sc-decision-schema`
 sits directly above it (r-7). Since r-1 no crate depends on
 `sc-observability-types` (ADR-SAG-0016 r-1 amendment). **`sc-jev-host` is the
-only crate that links full `sc-observability`** (`crates/sc-jev-host/Cargo.toml`;
+only direct dependent of full `sc-observability`** (`crates/sc-jev-host/Cargo.toml`;
 ADR-SAG-0013 and ADR-SAG-0010 r-3b amendments). `sc-ai` and `sc-jev-py` are
 thin composition roots over `sc-jev-host` and have no direct `sc-observability`
-dependency.
+dependency. **`sc-jev-py` alone also links the `sc-observability` Python
+runtime** (`sc-observability-py` as an rlib, with `sc-observability-binding-runtime`
+and `sc-observability-dto`) so Rust writes the general log with no GIL and
+Python reaches the same logger (ADR-SAG-0013 amendment 2026-11-09).
 
 `sc-jev` and `sc-jev-backends` do not depend on each other. Both reach HTTP
 only through `sc-agent-http`.
@@ -86,7 +89,7 @@ sc-jev-py (PyO3) ─────────────────────
                                                  ├── sc-observability =1.5.0
                                                  └── sc-jev-check (prepare/run, RunResponse + Envelope, discover_repo_root, InputSpec)
                                                        ├── sc-jev ──────────┐
-                                                       ├── sc-jev-backends ─┴── sc-agent-http (ureq; sc-agent-types features = [secret])
+                                                       ├── sc-jev-backends ─┴── sc-agent-http (ureq; sc-agent-types features = [secret, obs])
                                                        ├── sc-agent-secrets
                                                        └── sc-agent-types (default secret/obs; git enabled by sc-jev-check; no observability dep)
 sc-treesitter (bin; feature cli: clap + mimalloc + sc-agent-types/git) → sc-agent-types (default-features = false)
@@ -96,7 +99,7 @@ crates/workspace-tests (publish = false; dev-deps only; drives built binaries; A
 The Phase A graph above is the starting point; r-3b moved the observability
 adapter, the path policy and the `run`/`ask` wiring out of `sc-ai` and
 `sc-jev-py` into `sc-jev-host` (ADR-SAG-0026 host half). `sc-jev-host` is the
-only crate that links `sc-observability`. `workspace-tests` links no
+only direct dependent of `sc-observability`. `workspace-tests` links no
 `pyo3` or `tree-sitter`; it runs `sc-ai` and `sc-treesitter` as built
 binaries. `sc-decision-schema` (r-7) sits directly above `sc-agent-types`
 and below `sc-jev`, `sc-jev-backends`, `sc-jev-check`, `sc-jev-host`, `sc-ai` and
@@ -134,7 +137,7 @@ own row's Status cell and its own marker text, and added or removed no entry).
 | ADR-SAG-0010 | CLI thin adapter | Active | Amended by ADR-SAG-0026 (Active, r-3b) |
 | ADR-SAG-0011 | Python via sc-jev-py wheel | Active | Amended by ADR-SAG-0026 (Active, r-3b) |
 | ADR-SAG-0012 | sc-jev owns Jev API | Active | Amended by ADR-SAG-0030 (Active, r-5) |
-| ADR-SAG-0013 | Session JSONL via sc-observability v2 | Active | Amended by ADR-SAG-0021; ADR-SAG-0026 (Active, r-3b); ADR-SAG-0031 (Active, r-6) |
+| ADR-SAG-0013 | Session and general logs via sc-observability v2 | Active | Amended by ADR-SAG-0021; ADR-SAG-0026 (Active, r-3b); ADR-SAG-0031 (Active, r-6); general log (Active, 2026-11-09, agt-9eh) |
 | ADR-SAG-0014 | CLI success body | Active | A.1 subsection (Active, r-1); amended by ADR-SAG-0024 (Active, r-2) |
 | ADR-SAG-0015 | Subjects artifact outside the judge | Active | — |
 | ADR-SAG-0016 | v2 shim in sc-agent-types; adapter in sc-jev-host | Active | Amended by ADR-SAG-0023 (Active, r-4); ADR-SAG-0027 (Active, r-1); ADR-SAG-0026 (Active, r-3b); ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6) |
@@ -143,11 +146,11 @@ own row's Status cell and its own marker text, and added or removed no entry).
 | ADR-SAG-0019 | LLM wire envelope vs canonical payload | Active | A.1 subsection (Active, r-1); amended by ADR-SAG-0024 (Active, r-2); ADR-SAG-0025 (Active, r-2b); ADR-SAG-0030 (Active, r-7) |
 | ADR-SAG-0020 | Secret injection and redaction | Active | Amends ADR-SAG-0003; amended by ADR-SAG-0029; A.1 subsection (Active, r-1); ADR-SAG-0026 (Active, r-3); A.1 subsection (Active, r-3b); agt-2a3 provider error detail (Active) |
 | ADR-SAG-0021 | Log and session path precedence | Active | Amends ADR-SAG-0013 |
-| ADR-SAG-0022 | Scripted backends are a test-util feature | Active | Amends ADR-SAG-0009; amended by ADR-SAG-0029; A.1 subsection (Active, r-1); ADR-SAG-0024 (Active, r-2); ADR-SAG-0025 (Active, r-2b); ADR-SAG-0030 (Active, r-7) |
+| ADR-SAG-0022 | Scripted backends are a test-util feature | Active | Amends ADR-SAG-0009; amended by ADR-SAG-0029; A.1 subsection (Active, r-1); ADR-SAG-0024 (Active, r-2); ADR-SAG-0025 (Active, r-2b); ADR-SAG-0030 (Active, r-7); agt-2a3 loopback test seam (Active) |
 | ADR-SAG-0023 | Dependency pins, allocator, released binaries | Active (r-4; host pin r-3b; Windows CRT phase-end) | Amends ADR-SAG-0016, ADR-SAG-0017 |
 | ADR-SAG-0024 | Engine entry point and response contract | Active (r-2) | Amends ADR-SAG-0003, ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0014, ADR-SAG-0019, ADR-SAG-0022; supersedes the ADR-SAG-0014 A.1 r-1 interim subsection |
 | ADR-SAG-0025 | Multi-backend semantics and equal-input attestation | Active (r-2b) | Amends ADR-SAG-0004, ADR-SAG-0008, ADR-SAG-0019, ADR-SAG-0022; amended by agt-2a3 (all-failed runs keep every error) (Active) |
-| ADR-SAG-0026 | Shared HTTP crate and host crate | Active (HTTP half, r-3; host half, r-3b) | Amends ADR-SAG-0006, ADR-SAG-0007, ADR-SAG-0020, ADR-SAG-0017 (HTTP half); ADR-SAG-0010, ADR-SAG-0011, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0017 (host half); amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6); agt-2a3 provider failure classification (Active); ADR-SAG-0032 (Active, agt-1aq: `sc-jev-host` gains `stream` and a direct `serde` edge) |
+| ADR-SAG-0026 | Shared HTTP crate and host crate | Active (HTTP half, r-3, amended 2026-11-09 agt-9eh: `secret` and `obs`; host half, r-3b) | Amends ADR-SAG-0006, ADR-SAG-0007, ADR-SAG-0020, ADR-SAG-0017 (HTTP half); ADR-SAG-0010, ADR-SAG-0011, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0017 (host half); amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6); agt-2a3 provider failure classification (Active); ADR-SAG-0032 (Active, agt-1aq: `sc-jev-host` gains `stream` and a direct `serde` edge) |
 | ADR-SAG-0027 | Error taxonomy and extensibility | Active (r-1) | Amends ADR-SAG-0001, ADR-SAG-0009, ADR-SAG-0016; amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6); agt-2a3 error contract (Active) |
 | ADR-SAG-0028 | workspace-tests crate | Active (r-3b) | Amended by ADR-SAG-0030 (Active, r-7) |
 | ADR-SAG-0029 | Phase A hardening amendments | Active (a-10) | Amends ADR-SAG-0020 and ADR-SAG-0022; A.1 supersedes named sentences of (a) (Active, r-1), (Active, r-3) and of (b) (Active, r-1), (Active, r-2) |
@@ -455,6 +458,33 @@ and not a second `run_check` policy.
   `sc-decision-schema`); `sc-jev-check`'s `test-util` feature enables it and
   `register_scripted_backends` is built over it as before (ADR-SAG-0030).
 
+### Amendment (agt-2a3, loopback test seam)
+
+**Status:** Active (bead `agt-2a3`, before the first release).
+
+- (Active, agt-2a3) The hidden `sc-ai jev run --loopback-port <PORT>` flag is
+  a second test seam next to `--scripted-answers`. It builds the **real HTTP**
+  backends (`BackendRegistry::loopback_from_env`) aimed at
+  `http://127.0.0.1:<PORT>`, one send each, so a binary test can drive a
+  mapped 401, a busy reply and a redacted key through the whole path.
+- (Active, agt-2a3) **Limits.** Only under the `test-util` cargo feature;
+  keys still come from the environment and `.env` like a real run (nothing is
+  faked); the only endpoint it can build is `Endpoint::loopback_http`, which
+  is `127.0.0.1` over plain HTTP and cannot name another host. The published
+  binary has neither the flag nor the code:
+  `workspace-tests --test test_util_off_binary`
+  (`test_release_binary_rejects_loopback_port`) builds the release binary and
+  asserts the flag is refused, and the dev-only graph check
+  (`test_util_off`) keeps `test-util` out of the normal graph.
+- (Active, agt-2a3) **Gated items** (all `#[cfg(feature = "test-util")]`):
+  `sc_jev::JevClient::loopback` (and the crate-private
+  `JevClientConfig::with_loopback_port`),
+  `sc_jev_backends::{AnthropicHaikuBackend, OpenAiLunaBackend}::loopback`,
+  `sc_jev_check::registry::BackendRegistry::loopback_from_env`, and the
+  `--loopback-port` argument in the `sc-ai` binary. The `test-util` features of
+  `sc-jev`, `sc-jev-backends` and `sc-jev-check` enable `sc-agent-http`'s
+  `test-util` (`Endpoint::loopback_http`, `UreqTransport::loopback_for_tests`).
+
 ## ADR-SAG-0019 — LLM wire envelope vs canonical payload
 
 **Status:** Active
@@ -658,6 +688,49 @@ points and the secret-bearing return type.
   crate stops inheriting the workspace lints or adds a per-crate
   `[lints.*]` override. From r-3b this replaces r-3's local `rg` check.
 
+### Amendment (agt-2a3, provider error detail)
+
+**Status:** Active (bead `agt-2a3`, before the first release).
+
+- (Active, agt-2a3) **Provider error text is allowed in errors.** The rule
+  that a failing reply's body is never echoed (status only) is replaced.
+  An error built from a non-200 reply from Jev, Haiku or Luna carries the
+  provider's status, error type, error code, message, blamed parameter and
+  request id, falling back to the raw body text when the body is not a
+  recognised error JSON. Prompt text and model output stay out: they can
+  appear only if the provider's own error text repeats them.
+- (Active, agt-2a3) **Scrubbing.** Provider text is made single-line
+  (control characters become spaces) and bounded to **1024 bytes per field**,
+  cut at a character boundary and ending in `...`
+  (`sc_agent_types::bound_provider_text`, `PROVIDER_TEXT_MAX_BYTES`), when the
+  error is built; the request's key is removed from the provider text
+  *before* the cut (`ResolvedApiKey::redact_text`), so a key straddling the
+  1024-byte boundary leaves no fragment (ERR-QA-3). The error then leaves
+  through `redact`, once, in
+  `send_and_parse` (r-3 amendment), so every occurrence of the request's key,
+  in any provider field or in the raw fallback, becomes `[redacted]`.
+  `ResolvedApiKey::redact_error` covers the provider fields and `details`
+  strings (`JevError::map_detail` reaches them; a test proves it). The raw
+  fallback scrubs the whole body, then bounds it. Session
+  logs still store only the `error_code`, never the text (NFR-SAG-0002,
+  ADR-SAG-0031).
+- (Active, agt-2a3) **Keyring read deadline.** A platform keyring read
+  (`PlatformKeyring::password`) runs on its own thread with a fixed 15 s
+  deadline (`KEYRING_READ_TIMEOUT`, not configurable). A keystore that waits
+  for a prompt it cannot show (a locked macOS Keychain in a headless run)
+  gives `IO_FAILED` with `io_kind` `other` (not retryable: the blocked
+  read does not clear until the user unlocks the keystore, so a retry
+  blocks again) instead of hanging. A read that has been stuck past the
+  deadline makes every later read in the process return the same error at
+  once, so several backends cost one wait and at most one thread is
+  stranded. The blocked thread is detached and left to finish; it holds no
+  state and reads only the keystore, so abandoning it is safe and the
+  process can still exit. A reader thread that cannot start or that panics
+  is a non-retryable `IO_FAILED` (`other`). The deadline applies to the
+  keyring only; the environment and `.env` sources are unchanged. The Python
+  entry points resolve keys inside `py.detach`, so the GIL is released
+  during the wait.
+
 ## ADR-SAG-0004 — One check, one request
 
 **Status:** Active
@@ -691,49 +764,6 @@ Both use test doubles for unit tests.
   (ADR-SAG-0026). `sc-jev` and `sc-jev-backends` are wire-format crates that
   take an injected `sc_agent_http::Transport` at construction. Injection at
   construction (not per `judge`) is unchanged.
-
-### Amendment (agt-2a3, provider error detail)
-
-**Status:** Active (bead `agt-2a3`, before the first release).
-
-- (Active, agt-2a3) **Provider error text is allowed in errors.** The rule
-  that a failing reply's body is never echoed (status only) is replaced.
-  An error built from a non-200 reply from Jev, Haiku or Luna carries the
-  provider's status, error type, error code, message, blamed parameter and
-  request id, falling back to the raw body text when the body is not a
-  recognised error JSON. Prompt text and model output stay out: they can
-  appear only if the provider's own error text repeats them.
-- (Active, agt-2a3) **Scrubbing.** Provider text is made single-line
-  (control characters become spaces) and bounded to **1024 bytes per field**,
-  cut at a character boundary and ending in `...`
-  (`sc_agent_types::bound_provider_text`, `PROVIDER_TEXT_MAX_BYTES`), when the
-  error is built; the request's key is removed from the provider text
-  *before* the cut (`ResolvedApiKey::redact_text`), so a key straddling the
-  1024-byte boundary leaves no fragment (ERR-QA-3). The error then leaves
-  through `redact`, once, in
-  `send_and_parse` (r-3 amendment), so every occurrence of the request's key,
-  in any provider field or in the raw fallback, becomes `[redacted]`.
-  `ResolvedApiKey::redact_error` covers the provider fields and `details`
-  strings (`JevError::map_detail` reaches them; a test proves it). The raw
-  fallback reads at most 4096 bytes of the body before bounding. Session
-  logs still store only the `error_code`, never the text (NFR-SAG-0002,
-  ADR-SAG-0031).
-- (Active, agt-2a3) **Keyring read deadline.** A platform keyring read
-  (`PlatformKeyring::password`) runs on its own thread with a fixed 15 s
-  deadline (`KEYRING_READ_TIMEOUT`, not configurable). A keystore that waits
-  for a prompt it cannot show (a locked macOS Keychain in a headless run)
-  gives `IO_FAILED` with `io_kind` `other` (not retryable: the blocked
-  read does not clear until the user unlocks the keystore, so a retry
-  blocks again) instead of hanging. A read that has been stuck past the
-  deadline makes every later read in the process return the same error at
-  once, so several backends cost one wait and at most one thread is
-  stranded. The blocked thread is detached and left to finish; it holds no
-  state and reads only the keystore, so abandoning it is safe and the
-  process can still exit. A reader thread that cannot start or that panics
-  is a non-retryable `IO_FAILED` (`other`). The deadline applies to the
-  keyring only; the environment and `.env` sources are unchanged. The Python
-  entry points resolve keys inside `py.detach`, so the GIL is released
-  during the wait.
 
 ## ADR-SAG-0007 — API-direct LLM backends
 
@@ -928,7 +958,7 @@ Delimited regions, in-facade tree-sitter, and Python `python-branches` extractor
 LLM system prompt loading: **ADR-SAG-0019** (`[llm_judge] system_prompt_file` in
 check.toml; default asset under `sc-jev-check`).
 
-## ADR-SAG-0013 — Session JSONL via sc-observability v2
+## ADR-SAG-0013 — Session and general logs via sc-observability v2
 
 **Status:** Active
 
@@ -962,6 +992,94 @@ composition roots is ADR-SAG-0021.
 - (Active, r-6) Envelope fields: `correlation_id` is the session id and
   `request_id` is the answer id; the level is `Warn` when `send_outcome` is
   `failed`, otherwise `Info`. `fields{}` is unchanged.
+
+### Amendment (2026-11-09, agt-9eh): the general log
+
+**Status:** Active. The accepted text above is unchanged; this subsection adds
+what it did not say. Owner direction (2026-11-08): the two logs are
+"instantiate and use". The gap was that general logging was not designed before
+code was written, so the code carried only the session log. This amendment adds
+the general log and requires the logger to be injected everywhere an operator
+needs to see what happened.
+
+- (Active, 2026-11-09) **Two logs, two files.** The *session log* is the
+  ADR-SAG-0031 row per judge send (`<log-root>/logs/<service>.log.jsonl`). The
+  *general log* is operator diagnostics
+  (`<log-root>/logs/<service>-general.log.jsonl`): start and end of operations,
+  backend selection and resolved model, config and path resolution, credential
+  source (a name, never a value), busy retries and waits, extraction and git
+  steps, session store actions, flush failures, and failures by typed error id.
+  Both are written with `sc-observability`; there is no bespoke writer and no
+  `tracing` or `log` dependency.
+- (Active, 2026-11-09) **`sc-jev`.** The sentence "`sc-jev` does not log" above
+  is amended: `sc-jev` logs only through the injected `GeneralLog` port
+  (`JevClient::with_general_log`) and still has no observability dependency.
+- (Active, 2026-11-09) **Correlation and failure detail.** Every event of one
+  run carries the same `run_id` (a ULID; `CorrelatedGeneralLog`, applied once per
+  run by `sc-jev-host`), so runs sharing a file can be told apart. `send.done` and
+  `run.done` carry `duration_ms`; `run.done` and the send events carry the
+  `session_id`. A failure event (`run.failed`, `ask.failed`, `prepare.failed`,
+  `operation.failed`) carries the fixed `stage` name, the `backend` and
+  `session_id` when known, `duration_ms` and the typed `error_code`. A stage
+  is a fixed string, never provider or prompt text.
+- (Active, 2026-11-09) **Failures before the run.** Root discovery in
+  `prepare_from` and `ask_from`, and in `sc-ai` the repo root, `--request-json`
+  and the check source, log `operation.failed` by typed id
+  (`compose::log_failure`), at the resolved log root or, when none yet, at a root
+  known without a repository (`--log-dir`, `SC_LOG_ROOT`, or a home default).
+- (Active, 2026-11-09) **Silent paths.** These log nothing, on purpose:
+
+  | Path | Why |
+  | --- | --- |
+  | A failure before any log root is known (CLI default root is repo-relative, no `--log-dir`, repo root not found) | There is nowhere to write; opening one in an unknown directory would create files. The error still reaches stderr. |
+  | A dry run | ARCHE-019: a dry run opens no log or directory. Injected loggers still receive events. |
+  | `sc-treesitter` (library and binary) | A stdout-JSON producer with no operation an operator diagnoses; `sc-jev-check` logs the extraction that runs it. |
+  | `sc-agent-types::git` and `sc-decision-schema` | Pure helpers with no logger by design (core crates link no port consumer); the caller logs the git failure (`git.main_repo_failed`, test `a_git_failure_is_logged_by_its_caller_and_the_run_still_succeeds`). |
+  | A failure of the general log itself (open, rejection, flush) | There is no log left to report to, and logging never changes a result. |
+- (Active, 2026-11-09) **Port.** `sc_agent_types::observability::v2` gains the
+  open `GeneralLog: Send + Sync` trait (`fn log(&self, GeneralEvent) ->
+  Result<(), LogRejected>`), `SharedGeneralLog = Arc<dyn GeneralLog>` and
+  `NoopGeneralLog`, beside `SessionLog`. A `GeneralEvent` is a level, a stable
+  `target` and `action`, a message and structured fields. Libraries receive the
+  logger as a value (`RunConfig::general_log`, `BusyPolicy::with_general_log`,
+  `HttpClient::with_general_log`, the backends' `with_general_log`,
+  `resolve_key_logged`, the `*_logged` registry constructors); there is no
+  global logger and no library crate links `sc-observability`.
+- (Active, 2026-11-09) **Injection and defaults.** `ComposeInputs::session_log`
+  and `ComposeInputs::general_log` each replace one default; unset, the host
+  opens sc-agent's default under the resolved log root
+  (`ObservabilityAdapter`, `GeneralLogAdapter`, the latter at `debug` and
+  above). A dry run opens no default log (ARCHE-019). The default general log
+  is best effort: if it cannot start the call carries on with none; the session
+  log keeps its contract. An injected log's flush is the caller's.
+- (Active, 2026-11-09) **CLI.** `sc-ai` injects nothing: it keeps the default
+  loggers and `--log-dir`. Injection is a Rust and Python API concern.
+- (Active, 2026-11-09) **Never leaks, never changes a result.** No event carries
+  an API key, prompt text, session state or a provider body; errors are logged by
+  `ErrorCode` only. A logger that rejects, raises or cannot flush changes no
+  result and fails no run. A session-log flush failure keeps its CR-014
+  warning and is also written to the general log.
+- (Active, 2026-11-09) **Python.** `sc-jev-py` links `sc-observability-py` (lib
+  `_native`) with `sc-observability-binding-runtime`, registers the module
+  inside its own binary (`wrap_pymodule!`), seeds
+  `sys.modules["sc_observability._native"]`, installs a core backend with
+  `install_host_logger`, and keeps it in a static. Rust writes each row with
+  `try_log` inside `py.detach`, so **no row takes the GIL**; Python gets the
+  same queue and file from `sc_observability.get_host_logger()`. `run_check`
+  also takes `session_log=` and `general_log=` callables (the GIL is taken per
+  row for those only; one that raises is ignored). Python may be more flexible
+  than the CLI, never less. The default path takes no GIL; an injected
+  callable takes it once per row, which is the cost of an arbitrary Python
+  logger, and there is no queue. One process has one host logger, installed by the
+  first default general log or by `install_host_logger(log_dir=None)`. `pyo3`
+  is pinned `=0.29.2` (the version `sc-observability-py` pins), and the three
+  `sc-observability-*` runtime crates join the lockstep list. The wheel's
+  stable-ABI floor is the lower of the two requests, `abi3-py310` (the
+  runtime asks for 310, this crate formerly asked for 311, and Cargo unions
+  the features), so the built wheel is tagged `cp310-abi3`, read from the
+  wheel. `Cargo.toml`, REQ-SAG-0802, `docs/development/sc-publish.md` and the
+  `wheel` CI job (which fails on any other tag) all state that floor.
+  `requires-python` stays `>=3.11`, the versions the tests cover.
 
 ## ADR-SAG-0021 — Log and session path precedence
 
@@ -1190,14 +1308,16 @@ REQ-SAG-0800).** Phase A hardening moved some failures to a different
 existing id. Every id below is in
 `tests/fixtures/jev/README-contract/errors.json` and is a `JevError`
 variant; no id was added or removed, and `JevError::code()` still matches
-the snapshot (test `codes_match_readme_contract_snapshot`).
+the snapshot (test `codes_match_readme_contract_snapshot`). *(Superseded by the
+agt-2a3 amendment to ADR-SAG-0027: six ids were added to `errors.json`, and
+the table's row for file or process I/O now reads `IO_FAILED`.)*
 
 | Surface | Failure | Before | After |
 | --- | --- | --- | --- |
 | `sc_jev_py.run_check` / `_testing.run_check_scripted` | unknown backend name | `CONFIG_INVALID` | `INPUT_INVALID` (`BackendId::from_str`, same as `sc-ai` and `check.toml`) |
 | same | kebab-case alias (`anthropic-haiku`, `openai-luna`) | accepted | `INPUT_INVALID` (one documented spelling) |
 | any crate | `serde_json` encode / decode failure (`JevError::encode_failed`) | mixed (`INPUT_INVALID`, `EXTRACTION_FAILED`) or raw text | `INPUT_INVALID`, detail keeps only category and line/column |
-| any crate | file or process I/O failure (`JevError::io_failed`) | mixed (`INPUT_MISSING` for any read error, `EXTRACTION_FAILED` for git spawn) | `INPUT_INVALID` with the `io::ErrorKind`; a missing file stays `INPUT_MISSING` |
+| any crate | file or process I/O failure (`JevError::io_failed`) | mixed (`INPUT_MISSING` for any read error, `EXTRACTION_FAILED` for git spawn) | `INPUT_INVALID` with the `io::ErrorKind`; a missing file stays `INPUT_MISSING` *(Superseded by agt-2a3: `IO_FAILED` with `details.what` and `details.io_kind`; a missing file stays `INPUT_MISSING`.)* |
 | `sc-treesitter` CLI | missing positional source path | `INPUT_MISSING` | `INPUT_INVALID` (an argument error, not a missing file) |
 | `sc-treesitter` library | span or line number does not fit `u32` | `INPUT_TOO_LARGE` | `INPUT_INVALID` naming the field and value |
 | `sc-treesitter` CLI | revision starting with `-`, path outside the repo or with a forbidden component, unresolvable revision, non-blob object | mixed | `INPUT_INVALID` (absent path at a revision stays `INPUT_MISSING`) |
@@ -1273,7 +1393,11 @@ comparison flows.
   fails on any `=` requirement in any `Cargo.toml` whose crate is not on it.
   NFR-SAG-0004. Reasons: `sc-observability` — v2 shim alignment;
   `tree-sitter`, `tree-sitter-python`, `tree-sitter-rust` — output
-  determinism; `sc-jev-host` — lockstep internal support (owner
+  determinism; `pyo3`, `sc-observability-py`,
+  `sc-observability-binding-runtime` and `sc-observability-dto` — the Python
+  wheel embeds the `sc-observability` Python runtime in its own binary, and
+  that runtime pins `pyo3 =0.29.2`, so both ride one exact version (agt-9eh,
+  ADR-SAG-0013 amendment 2026-11-09); `sc-jev-host` — lockstep internal support (owner
   decision 2026-11-06), in force from r-3b (subsection below; before the
   crate exists no `Cargo.toml` names it). `sc-observability-types` is not on
   the list: r-1 removed its only user and its root entry. The script reads
@@ -1286,6 +1410,10 @@ comparison flows.
   tree-sitter-python
   tree-sitter-rust
   sc-jev-host
+  pyo3
+  sc-observability-py
+  sc-observability-binding-runtime
+  sc-observability-dto
   <!-- lockstep-pins:end -->
 
 - (Active, r-4) Global allocators and argv parsers are linked only by
@@ -1329,7 +1457,7 @@ comparison flows.
   acceptance check: they build the release-shape wheel, install it in a fresh
   virtual environment and import `sc_jev_py` without `_testing`. The wheel
   matrix is six wheels (Linux, macOS and Windows on x86_64 and arm64,
-  `abi3-py311`), declared in `release/sc-publish-consumer-input.json`
+  `cp310-abi3`; amended agt-9eh from `abi3-py311`), declared in `release/sc-publish-consumer-input.json`
   (REQ-SAG-0802). Operational notes: `docs/development/sc-publish.md`.
 
 ## ADR-SAG-0024 — Engine entry point and response contract
@@ -1506,6 +1634,15 @@ HTTP half amends ADR-SAG-0006, 0007,
   Jev API operation (endpoints, wire body, response parsing);
   `sc-agent-http` only carries bytes.
 
+- (Active, 2026-11-09, agt-9eh) The "`features = [\"secret\"]`" clause above is
+  amended: `sc-agent-http` takes `sc-agent-types` features `secret` **and
+  `obs`**. `obs` is for the `GeneralLog` port only (`BusyPolicy::with_general_log`,
+  `HttpClient::with_general_log`); it adds no third-party edge and no
+  `sc-observability*` dependency. The `cargo tree` gate that held the edge to
+  `secret` now holds it to `secret` and `obs` and still forbids `git`, `default`
+  and `test-util`. Logs name an endpoint only through `Endpoint::log_form`
+  (scheme, host and path; no userinfo, port, query or fragment).
+
 ### Host half
 
 **Status:** Active (Phase A.1) — landed in r-3b.
@@ -1583,7 +1720,7 @@ HTTP half of ADR-SAG-0026.
   Anthropic and OpenAI `{"error": {type, code, message, param, details}}`
   and `request_id`; for Jev (undocumented here) `{"detail": "..."}`,
   `{"detail": [{"loc", "msg"}]}`, `{"message": "..."}`, a top-level
-  `code`, and, for any other body, the first 4096 bytes as bounded raw text.
+  `code`, and, for any other body, the whole body, scrubbed then bounded, as raw text.
   For Haiku and Luna "the input is too long" is recognised only from
   structured markers, status 413 and Anthropic's "prompt is too long"
   message (unverified wording); only Jev's message text is matched for

@@ -1,7 +1,7 @@
 # sc-jev-py — architecture
 
 **Boundary:** `jev-py`  
-**Depends on:** `sc-jev-host` (`=`-pinned, ADR-SAG-0023), `sc-jev-check` (Rust, statically linked in extension)
+**Depends on:** `sc-jev-host` (`=`-pinned, ADR-SAG-0023), `sc-jev-check` (Rust, statically linked in extension), `sc-observability-py`, `sc-observability-binding-runtime` and `sc-observability-dto` (`=1.5.0`, the shared host logger), `pyo3 =0.29.2`
 
 ## Role
 
@@ -101,3 +101,31 @@ chain_context=False)` exists only in `--features extension-module,test-util`
 builds (the pytest wheel). `scripted_answers` is the r-2b D5 JSON (shared or
 per-backend form). The release wheel has no `_testing` submodule (CI job
 `wheel`).
+
+## Logging (agt-9eh, ADR-SAG-0013 amendment 2026-11-09)
+
+`run_check` writes the session log and a separate general log. Both are
+injectable per call (`session_log=`, `general_log=` callables) and fall back to
+the defaults. The default session log is `sc-jev-host`'s. The default general
+log is the shared host logger (`logging.rs`):
+
+- `Cargo.toml` links `sc-observability-py =1.5.0` (lib name `_native`, an
+  rlib), `sc-observability-binding-runtime` and `sc-observability-dto`, and pins
+  `pyo3 =0.29.2` to match. `pyo3` features unify to `abi3-py310` (the runtime's
+  floor); `requires-python` stays `>=3.11`.
+- Module init registers `_native` with `wrap_pymodule!` and, when
+  `sys.modules` has no `sc_observability._native`, seeds it. The first default
+  general log (or `install_host_logger(log_dir=None)`) creates a core backend
+  with `create_core_backend`, installs it with `install_host_logger`, and keeps
+  the `Arc` and its owner in statics for the process.
+- Rust writes each row with `try_log` (`ProducerOrigin::RustHost`) from inside
+  the run's `py.detach`: no row takes the GIL. A unit test proves a row is
+  written by a thread while another holds the GIL and never releases it.
+- Python gets the same queue and file from `sc_observability.get_host_logger()`.
+  Import `sc_jev_py` first; if the real `sc_observability._native` loaded
+  first, installation reports `CONFIG_INVALID` and Rust rows still reach the
+  default file.
+- One process has one host logger: a call with another `log_dir` writes its
+  general log through its own backend, which `get_host_logger()` does not see.
+- Callables take the GIL once per row (`Python::attach`); an exception is
+  swallowed as a rejection.
