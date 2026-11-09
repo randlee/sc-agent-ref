@@ -299,8 +299,9 @@ fn build(
 
 /// Parses `backends=` into a [`BackendSet`] with `BackendSet::from_str`.
 ///
-/// Only `jev`, `haiku`, and `luna` are accepted, matching
-/// `sc-ai` and the engine. Kebab-case aliases (`anthropic-haiku`) are not
+/// `jev`, `haiku`, and `luna` (each the latest model), or a known model id
+/// of one of them such as `claude-haiku-5-5` (that backend pinned to it), are
+/// accepted, matching `sc-ai` and the engine. Kebab-case aliases (`anthropic-haiku`) are not
 /// accepted. An unknown id is `INPUT_INVALID`; an empty or repeated list is
 /// `CONFIG_INVALID`. `None` leaves the selection to the engine.
 pub(crate) fn parse_backends(names: Option<&[String]>) -> Result<Option<BackendSet>, JevError> {
@@ -687,7 +688,8 @@ fn finish_check(py: Python<'_>, spec: CheckRun) -> PyResult<CheckResult> {
 /// as `str` or `bytes`; exactly one of the two) through `sc-jev-check`.
 ///
 /// `backends` wins over `check.toml`'s `backends`; with neither the run uses
-/// `["jev"]`. Ids are `jev`, `haiku`, and `luna`. `dry_run`
+/// `["jev"]`. Ids are `jev`, `haiku`, and `luna` (each the latest model) or a known
+/// model id such as `claude-haiku-5-5` (that backend pinned to it). `dry_run`
 /// returns the payload digest and does not resolve keys, send, or create a
 /// session store or log. `chain_context=True` lets later backends see earlier
 /// answers; the default is independent (ADR-SAG-0008). Path arguments accept
@@ -879,6 +881,33 @@ pub(crate) fn canonical_sha256(py: Python<'_>, json_text: &str) -> PyResult<Stri
 /// The Python path policy; the repo root does not enter its defaults.
 fn policy_root() -> sc_agent_types::RepoRoot {
     sc_agent_types::RepoRoot::new(".")
+}
+
+/// Lists the resolved models and where each came from.
+///
+/// Returns `{"models_file", "models_file_present", "models": [{"alias",
+/// "model", "source", "released", "backend"}]}`. `source` is `crate` or
+/// `file`; `backend` is the short name `backends=` takes, or `None` for a
+/// model that is only a definition today. The file is
+/// `~/.sc-agent/models.toml` (`%USERPROFILE%` when `HOME` is unset), or
+/// `models_file`; `run_check` reads the default file the same way, with the
+/// same rules as `sc-ai jev models`.
+///
+/// # Errors
+///
+/// Raises `JevError` (`CONFIG_INVALID`) for a malformed file.
+#[pyfunction]
+#[pyo3(signature = (models_file=None))]
+pub(crate) fn models(py: Python<'_>, models_file: Option<PathBuf>) -> PyResult<Py<PyAny>> {
+    let models_file = non_empty(models_file);
+    let listing = map_err(
+        py,
+        sc_jev_host::compose::list_models(
+            models_file.as_deref(),
+            &sc_agent_types::observability::v2::NoopGeneralLog,
+        ),
+    )?;
+    to_py(py, "models", serde_json::to_value(&listing))
 }
 
 /// Returns the default log root (`~/.sc-agent/log`).

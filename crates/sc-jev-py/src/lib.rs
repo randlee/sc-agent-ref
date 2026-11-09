@@ -45,6 +45,13 @@
 //! 2. `SC_AGENT_SESSION_DIR`.
 //! 3. `{log_root}/sessions`.
 //!
+//! # Models
+//!
+//! `backends=` takes `jev`, `haiku` or `luna` (each the latest model) or a
+//! known model id such as `claude-haiku-5-5`. New models are added in
+//! `~/.sc-agent/models.toml` (`[[model]]` rows with `id`, `alias`,
+//! `released`); `models()` lists the resolved models and their source.
+//!
 //! # Streaming
 //!
 //! `DecisionStream` and `run_many` answer many requests in one process on a
@@ -109,6 +116,7 @@ fn sc_jev_py(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(run::run_check, module)?)?;
     module.add_function(wrap_pyfunction!(run::canonical_bytes, module)?)?;
     module.add_function(wrap_pyfunction!(run::canonical_sha256, module)?)?;
+    module.add_function(wrap_pyfunction!(run::models, module)?)?;
     module.add_function(wrap_pyfunction!(run::default_log_root, module)?)?;
     module.add_function(wrap_pyfunction!(run::resolve_log_root, module)?)?;
     module.add_function(wrap_pyfunction!(run::resolve_session_dir, module)?)?;
