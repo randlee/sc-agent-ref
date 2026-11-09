@@ -1,5 +1,6 @@
 //! Credential lookup: process env, repo-root `.env`, then keyring.
 
+#[cfg(test)]
 use std::collections::BTreeMap;
 #[cfg(test)]
 use std::fmt;
@@ -24,8 +25,9 @@ pub const OPENAI_API_KEY_VAR: &str = "OPENAI_API_KEY";
 
 /// Optional Anthropic keyring service override.
 ///
-/// When this variable is set to a non-empty value, Anthropic keyring lookups
-/// use it as the service name. It does not change the Anthropic environment
+/// When this process environment variable is set to a non-empty value,
+/// Anthropic keyring lookups use it as the service name. A repo-root `.env`
+/// is never consulted for it. It does not change the Anthropic environment
 /// variable, and other backends ignore it.
 pub const ANTHROPIC_KEYCHAIN_SERVICE_VAR: &str = "ANTHROPIC_KEYCHAIN_SERVICE";
 
@@ -61,7 +63,8 @@ pub trait KeyringSource: Send + Sync {
 /// Search order is the process environment, then `repo_root/.env`, then the
 /// platform keyring. `.env` does not override a variable that is already set.
 /// The keyring service is the variable name. The account is the OS user.
-/// Anthropic keyring lookups honor [`ANTHROPIC_KEYCHAIN_SERVICE_VAR`].
+/// Anthropic keyring lookups honor [`ANTHROPIC_KEYCHAIN_SERVICE_VAR`] from the
+/// process environment only.
 /// The returned [`ResolvedApiKey`] redacts the secret in `Debug` and `Display`.
 ///
 /// This function does not run git and does not contact the network.
@@ -198,24 +201,21 @@ fn resolve_in_order(
         return ResolvedApiKey::try_new(id, raw).map(|key| (key, "env"));
     }
 
-    let key_from_dotenv = process_value.is_none();
-    let override_from_dotenv =
-        id == BackendKeyId::Anthropic && env.var(ANTHROPIC_KEYCHAIN_SERVICE_VAR).is_none();
-    let dotenv = if key_from_dotenv || override_from_dotenv {
-        load_dotenv(repo_root.as_path())?
-    } else {
-        BTreeMap::new()
-    };
-
-    if key_from_dotenv && let Some(raw) = dotenv.get(var_name).filter(|value| is_present(value)) {
-        return ResolvedApiKey::try_new(id, raw.clone()).map(|key| (key, "dotenv"));
+    if process_value.is_none() {
+        let dotenv = load_dotenv(repo_root.as_path())?;
+        if let Some(raw) = dotenv.get(var_name).filter(|value| is_present(value)) {
+            return ResolvedApiKey::try_new(id, raw.clone()).map(|key| (key, "dotenv"));
+        }
     }
 
-    let service = keyring_service(id, env, &dotenv);
+    let service = keyring_service(id, env);
     if account.is_empty() {
         return Err(missing(id));
     }
-    match keyring.password(&service, account)? {
+    let stored = keyring
+        .password(&service, account)
+        .map_err(|error| name_key_variable(error, var_name))?;
+    match stored {
         Some(raw) if is_present(&raw) => {
             ResolvedApiKey::try_new(id, raw).map(|key| (key, "keyring"))
         }
@@ -239,27 +239,19 @@ const KEY_ENV_VARS: &[(BackendKeyId, &str)] = &[
     (BackendKeyId::OpenAi, OPENAI_API_KEY_VAR),
 ];
 
-fn keyring_service(
-    id: BackendKeyId,
-    env: &impl EnvSource,
-    dotenv: &BTreeMap<String, String>,
-) -> String {
-    if id == BackendKeyId::Anthropic {
-        match env.var(ANTHROPIC_KEYCHAIN_SERVICE_VAR) {
-            Some(value) => {
-                if let Some(service) = usable_secret(&value) {
-                    return service;
-                }
-            }
-            None => {
-                if let Some(service) = dotenv
-                    .get(ANTHROPIC_KEYCHAIN_SERVICE_VAR)
-                    .and_then(|value| usable_secret(value))
-                {
-                    return service;
-                }
-            }
-        }
+/// The keyring service for `id`.
+///
+/// The Anthropic override is read from the process environment only. A repo
+/// `.env` is repository content, and letting it pick which keychain item is
+/// sent to Anthropic as the key would let a checkout choose which stored
+/// secret leaves the machine.
+fn keyring_service(id: BackendKeyId, env: &impl EnvSource) -> String {
+    if id == BackendKeyId::Anthropic
+        && let Some(service) = env
+            .var(ANTHROPIC_KEYCHAIN_SERVICE_VAR)
+            .and_then(|value| usable_secret(&value))
+    {
+        return service;
     }
     env_var_name(id).unwrap_or_default().to_owned()
 }
@@ -279,6 +271,29 @@ fn usable_secret(value: &str) -> Option<String> {
         None
     } else {
         Some(trimmed.to_owned())
+    }
+}
+
+/// Adds the variable name to the recovery step of a keyring read failure.
+///
+/// The keyring adapter knows the service, not which variable a user can set
+/// instead, and a headless machine with no keystore needs that answer more
+/// than keystore advice. Error id, kind and retryability are unchanged.
+fn name_key_variable(error: JevError, var_name: &str) -> JevError {
+    match error {
+        JevError::IoFailed {
+            what,
+            kind,
+            recovery: Some(recovery),
+            ..
+        } => JevError::io_failed_with(
+            what,
+            kind,
+            Some(format!(
+                "{recovery} Or set {var_name} in the process environment or in the repo-root .env file; the keystore is then not read."
+            )),
+        ),
+        other => other,
     }
 }
 
@@ -500,7 +515,7 @@ mod tests {
     }
 
     #[test]
-    fn anthropic_override_comes_from_dotenv_when_unset() {
+    fn anthropic_override_in_dotenv_is_ignored() {
         let repo = TempRepo::new(Some("ANTHROPIC_KEYCHAIN_SERVICE=from-dotenv-service\n"));
         let keyring = MapKeyring::new(
             "alice",
@@ -517,11 +532,11 @@ mod tests {
             "alice",
         )
         .unwrap();
-        assert_eq!(key, sealed("from-custom"));
+        assert_eq!(key, sealed("from-default"));
     }
 
     #[test]
-    fn process_override_wins_over_dotenv_override() {
+    fn process_override_is_used_and_dotenv_override_is_not() {
         let repo = TempRepo::new(Some("ANTHROPIC_KEYCHAIN_SERVICE=from-dotenv-service\n"));
         let env = MapEnv::with([("ANTHROPIC_KEYCHAIN_SERVICE", "from-env-service")]);
         let keyring = MapKeyring::new(
@@ -618,6 +633,38 @@ mod tests {
         assert!(!error.suggested_action().contains("check.toml"));
         assert!(!hint.contains(SECRET), "{hint}");
         assert_no_secret(&error, SECRET);
+    }
+
+    /// A keystore failure still tells the user which variable to set.
+    #[test]
+    fn keyring_failure_names_the_backend_variable() {
+        struct Unavailable;
+        impl KeyringSource for Unavailable {
+            fn password(&self, _service: &str, _account: &str) -> Result<Option<String>, JevError> {
+                Err(JevError::io_failed_with(
+                    format!("{KEYRING_UNREADABLE} (platform keystore returned an error)"),
+                    std::io::ErrorKind::Other,
+                    Some(KEYRING_RECOVERY.to_owned()),
+                ))
+            }
+        }
+        let repo = TempRepo::new(None);
+        for (id, var) in [
+            (BackendKeyId::TypeSafe, "TYPESAFE_API_KEY"),
+            (BackendKeyId::Anthropic, "ANTHROPIC_API_KEY"),
+            (BackendKeyId::OpenAi, "OPENAI_API_KEY"),
+        ] {
+            let error = resolve_key_with(id, &repo.root(), &MapEnv::default(), &Unavailable, "u")
+                .unwrap_err();
+            assert_eq!(error.code(), "IO_FAILED");
+            assert!(!error.retryable());
+            assert_eq!(
+                error.suggested_action(),
+                format!(
+                    "{KEYRING_RECOVERY} Or set {var} in the process environment or in the repo-root .env file; the keystore is then not read."
+                )
+            );
+        }
     }
 
     #[test]
