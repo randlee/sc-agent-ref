@@ -53,7 +53,7 @@ def _run(repo: Path, log_dir: Path, **kwargs):
     return run_check_scripted(
         "check.toml",
         scripted_answers={"relevant": "yes"},
-        backends=["anthropic_haiku"],
+        backends=["haiku"],
         repo_root=repo,
         log_dir=log_dir,
         session_dir=log_dir / "sessions",
@@ -96,7 +96,7 @@ def test_injected_loggers_replace_the_defaults(tmp_path: Path) -> None:
     _run(repo, logs, session_log=sessions.append, general_log=events.append)
     assert len(sessions) == 1
     assert sessions[0]["operation"] == "judge"
-    assert sessions[0]["fields"]["backend"] == "anthropic_haiku"
+    assert sessions[0]["fields"]["backend"] == "haiku"
     assert {"run.start", "run.done"} <= {event["action"] for event in events}
     assert all(event["level"] in {"debug", "info", "warn", "error"} for event in events)
     assert PROMPT_TEXT not in json.dumps(events)
@@ -186,7 +186,7 @@ def test_a_real_key_reaching_a_send_path_never_reaches_the_general_log(
     with pytest.raises(sc_jev_py.JevError) as caught:
         sc_jev_py.run_check(
             "check.toml",
-            backends=["anthropic_haiku"],
+            backends=["haiku"],
             repo_root=repo,
             log_dir=logs,
             session_dir=logs / "sessions",
@@ -199,7 +199,7 @@ def test_a_real_key_reaching_a_send_path_never_reaches_the_general_log(
     assert credential["fields"]["source"] == "env"
     failed = next(row for row in rows if row["action"] == "run.failed")
     assert failed["fields"]["stage"] == "validate"
-    assert failed["fields"]["backend"] == "anthropic_haiku"
+    assert failed["fields"]["backend"] == "haiku"
     assert failed["fields"]["error_code"] == "INPUT_TOO_LARGE"
     assert KEY_TEXT not in text
     assert PROMPT_TEXT not in text
@@ -224,7 +224,7 @@ def go(i):
     barrier.wait()
     try:
         sc_jev_py._testing.run_check_scripted("check.toml", scripted_answers={"relevant": "yes"},
-            backends=["anthropic_haiku"], repo_root=repos[i], log_dir=root, session_dir=root / f"s{i}")
+            backends=["haiku"], repo_root=repos[i], log_dir=root, session_dir=root / f"s{i}")
     except Exception as error:
         errors.append(repr(error))
 threads = [threading.Thread(target=go, args=(i,)) for i in range(n)]

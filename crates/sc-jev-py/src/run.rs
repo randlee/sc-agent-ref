@@ -299,8 +299,9 @@ fn build(
 
 /// Parses `backends=` into a [`BackendSet`] with `BackendSet::from_str`.
 ///
-/// Only `jev`, `anthropic_haiku`, and `openai_luna` are accepted, matching
-/// `sc-ai` and the engine. Kebab-case aliases (`anthropic-haiku`) are not
+/// `jev`, `haiku`, and `luna` (each the latest model), or a known model id
+/// of one of them such as `claude-haiku-5-5` (that backend pinned to it), are
+/// accepted, matching `sc-ai` and the engine. Kebab-case aliases (`anthropic-haiku`) are not
 /// accepted. An unknown id is `INPUT_INVALID`; an empty or repeated list is
 /// `CONFIG_INVALID`. `None` leaves the selection to the engine.
 pub(crate) fn parse_backends(names: Option<&[String]>) -> Result<Option<BackendSet>, JevError> {
@@ -529,7 +530,7 @@ impl CheckResult {
                 py,
                 &JevError::input_invalid_field(
                     "backends",
-                    "this run saved no session: only Haiku and Luna support ask, and Jev has no rationale field; run with backends=[\"anthropic_haiku\"] or [\"openai_luna\"] to ask",
+                    "this run saved no session: only Haiku and Luna support ask, and Jev has no rationale field; run with backends=[\"haiku\"] or [\"luna\"] to ask",
                 ),
             ));
         };
@@ -687,7 +688,8 @@ fn finish_check(py: Python<'_>, spec: CheckRun) -> PyResult<CheckResult> {
 /// as `str` or `bytes`; exactly one of the two) through `sc-jev-check`.
 ///
 /// `backends` wins over `check.toml`'s `backends`; with neither the run uses
-/// `["jev"]`. Ids are `jev`, `anthropic_haiku`, and `openai_luna`. `dry_run`
+/// `["jev"]`. Ids are `jev`, `haiku`, and `luna` (each the latest model) or a known
+/// model id such as `claude-haiku-5-5` (that backend pinned to it). `dry_run`
 /// returns the payload digest and does not resolve keys, send, or create a
 /// session store or log. `chain_context=True` lets later backends see earlier
 /// answers; the default is independent (ADR-SAG-0008). Path arguments accept
@@ -879,6 +881,33 @@ pub(crate) fn canonical_sha256(py: Python<'_>, json_text: &str) -> PyResult<Stri
 /// The Python path policy; the repo root does not enter its defaults.
 fn policy_root() -> sc_agent_types::RepoRoot {
     sc_agent_types::RepoRoot::new(".")
+}
+
+/// Lists the resolved models and where each came from.
+///
+/// Returns `{"models_file", "models_file_present", "models": [{"alias",
+/// "model", "source", "released", "backend"}]}`. `source` is `crate` or
+/// `file`; `backend` is the short name `backends=` takes, or `None` for a
+/// model that is only a definition today. The file is
+/// `~/.sc-agent/models.toml` (`%USERPROFILE%` when `HOME` is unset), or
+/// `models_file`; `run_check` reads the default file the same way, with the
+/// same rules as `sc-ai jev models`.
+///
+/// # Errors
+///
+/// Raises `JevError` (`CONFIG_INVALID`) for a malformed file.
+#[pyfunction]
+#[pyo3(signature = (models_file=None))]
+pub(crate) fn models(py: Python<'_>, models_file: Option<PathBuf>) -> PyResult<Py<PyAny>> {
+    let models_file = non_empty(models_file);
+    let listing = map_err(
+        py,
+        sc_jev_host::compose::list_models(
+            models_file.as_deref(),
+            &sc_agent_types::observability::v2::NoopGeneralLog,
+        ),
+    )?;
+    to_py(py, "models", serde_json::to_value(&listing))
 }
 
 /// Returns the default log root (`~/.sc-agent/log`).
@@ -1128,8 +1157,7 @@ mod tests {
         std::fs::create_dir_all(&repo).expect("repo");
         let sentinel = "sentinel-question-text-not-for-logs";
         write_questions(&repo, sentinel);
-        let finished =
-            execute(run_spec(&repo, &logs, &sessions, "anthropic_haiku", false)).expect("run");
+        let finished = execute(run_spec(&repo, &logs, &sessions, "haiku", false)).expect("run");
         assert!(finished.session_id().is_some());
         assert!(finished.payload.contains(sentinel));
         assert!(!finished.system_prompt.as_deref().unwrap_or("").is_empty());
@@ -1137,12 +1165,12 @@ mod tests {
         assert_eq!(lines.len(), 1, "{lines:?}");
         assert!(lines[0].contains("judge"));
         assert!(lines[0].contains(finished.payload_sha256().as_str()));
-        assert!(lines[0].contains("anthropic_haiku"));
+        assert!(lines[0].contains("haiku"));
         assert!(!lines[0].contains(sentinel));
         assert!(!lines[0].to_ascii_lowercase().contains("api_key"));
         let follow = ask_live(&finished, "why?");
         let outcome = follow.expect("ask");
-        assert_eq!(outcome.backend(), BackendId::AnthropicHaiku);
+        assert_eq!(outcome.backend(), BackendId::Haiku);
         let lines = jsonl_lines(&logs);
         assert_eq!(lines.len(), 2, "{lines:?}");
         assert!(lines[1].contains("ask"));
@@ -1176,19 +1204,11 @@ mod tests {
     #[test]
     fn backend_ids_use_from_str_and_reject_kebab_aliases() {
         assert_eq!(
-            parse_backends(Some(&[
-                "jev".into(),
-                "anthropic_haiku".into(),
-                "openai_luna".into()
-            ]))
-            .expect("documented ids")
-            .expect("set")
-            .as_slice(),
-            [
-                BackendId::Jev,
-                BackendId::AnthropicHaiku,
-                BackendId::OpenAiLuna
-            ]
+            parse_backends(Some(&["jev".into(), "haiku".into(), "luna".into()]))
+                .expect("documented ids")
+                .expect("set")
+                .as_slice(),
+            [BackendId::Jev, BackendId::Haiku, BackendId::Luna]
         );
         assert!(parse_backends(None).expect("unset").is_none());
         for alias in ["anthropic-haiku", "openai-luna", "not-a-backend"] {
@@ -1347,7 +1367,7 @@ mod tests {
                 None,
                 py.eval(c"{'relevant': 'yes'}", None, None)
                     .expect("answers"),
-                Some(vec!["anthropic_haiku".to_owned()]),
+                Some(vec!["haiku".to_owned()]),
                 false,
                 Some(repo.clone()),
                 "WORKTREE",
@@ -1368,7 +1388,7 @@ mod tests {
                 .expect("backend")
                 .extract()
                 .expect("str");
-            assert_eq!(backend, "anthropic_haiku");
+            assert_eq!(backend, "haiku");
             assert!(outcomes.is(live.outcomes(py)), "converted once");
             let session = live.session().expect("session");
             assert_eq!(Some(session.session_id()), live.session_id());

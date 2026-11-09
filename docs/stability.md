@@ -27,11 +27,24 @@ service.
 
 ### Models
 
-sc-agent accepts `jev` or any supported version such as `jev-1.13.0`
+Backends are named `jev`, `haiku` and `luna`, each meaning the latest model of
+that line; `--backend`, `backends=` and `check.toml` `backends` also take a
+known model id of one of them (`claude-haiku-5-5`: that backend pinned to that
+model). The names `anthropic_haiku` and `openai_luna` and the aliases
+`open_ai_luna` and `open_ai` do not exist. `sonnet`, `opus`, `fable`, `terra`,
+`sol` and `astra` (`claude-sonnet-5-5`, `claude-opus-5-5`, `claude-fable-5-1`,
+`gpt-6.1-terra`, `gpt-6.1-sol`, `gpt-6-astra`) are defined for future agent work
+and are `INPUT_INVALID` as a backend today. Models added after a release go in
+`~/.sc-agent/models.toml` (`[[model]]` with `id`, `alias`, `released`; existing
+aliases only; a malformed file is `CONFIG_INVALID`); the newest `released`
+across crate and file wins, then `check.toml` `[models]`, then a pin.
+`sc-ai jev models` and `sc_jev_py.models()` print the result with its source.
+
+sc-agent accepts `jev` or any supported version such as `jev-1.14.0`
 (`ModelId`). `jev` means the latest Jev model. It follows the vendor's
 releases, so an API change this build does not know can break it. That is
 expected; the remedy is upgrading sc-agent. Pin a version such as
-`jev-1.13.0` (`check.toml` `[models]`) to avoid it.
+`jev-1.14.0` (`check.toml` `[models]`, or `--backend jev-1.14.0`) to avoid it.
 
 The wire value for `jev` is `jev-latest`, the value plan-anchor's `jev-api.md`
 documents; `jev::v1::wire_model` is the one place that maps it. This is
@@ -136,7 +149,7 @@ the byte cap.
 | `RESPONSE_INVALID` | `cause` (`truncated`, `too_large`, `not_json`, `schema`) |
 | `INPUT_MISSING`, `PROMPT_FILE_MISSING` | `path` |
 | a producer's error | the producer's own `details`, plus `producer` |
-| any stored backend failure (a result in `results`, the first failure on stderr) | `backend` (the descriptor name, such as `jev` or `anthropic_haiku`) |
+| any stored backend failure (a result in `results`, the first failure on stderr) | `backend` (the descriptor name, such as `jev` or `haiku`) |
 | any, when the session log could not be flushed as the error left | `log_flush_failure` |
 
 `details.io_kind` is one of a closed set, from an explicit table (never the
@@ -269,6 +282,5 @@ These are not decided in any ADR or README, so no promise is made:
    `sc/subjects/2`.
 4. Whether the Python `sc_jev_py` API (names, signatures, `CheckResult` and
    `JevError` shapes) has any compatibility promise before 1.0.
-5. How long a deprecated spelling such as the backend alias
-   `open_ai_luna` / `open_ai` is kept, and when it is removed (bead
-   `agt-ho2`).
+5. (Decided, agt-akp) The old backend spellings were removed before any
+   release; there is no deprecated spelling to keep (bead `agt-ho2` closed).

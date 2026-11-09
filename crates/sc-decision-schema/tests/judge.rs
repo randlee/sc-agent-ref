@@ -154,7 +154,7 @@ fn test_equal_input_equal_is_derived() {
         MultiBackendMode::Independent,
         vec![
             BackendAttestation::new(BackendId::Jev, Attestation::Matched),
-            BackendAttestation::new(BackendId::AnthropicHaiku, Attestation::Matched),
+            BackendAttestation::new(BackendId::Haiku, Attestation::Matched),
         ],
         false,
         None,
@@ -186,7 +186,7 @@ fn test_equal_input_equal_is_derived() {
             MultiBackendMode::ChainContext,
             vec![
                 BackendAttestation::new(BackendId::Jev, Attestation::Matched),
-                BackendAttestation::new(BackendId::OpenAiLuna, other.clone()),
+                BackendAttestation::new(BackendId::Luna, other.clone()),
             ],
             false,
             None,
@@ -253,7 +253,7 @@ fn test_capabilities_come_from_the_descriptor() {
 
     impl JudgeBackend for Minimal {
         fn id(&self) -> BackendId {
-            BackendId::OpenAiLuna
+            BackendId::Luna
         }
 
         fn validate_for_send(&self, _req: &JudgeRequest) -> Result<(), JevError> {
@@ -268,7 +268,7 @@ fn test_capabilities_come_from_the_descriptor() {
     let caps = Minimal.capabilities();
     assert_eq!(
         caps,
-        BackendCapabilities::from_descriptor(BackendId::OpenAiLuna.descriptor())
+        BackendCapabilities::from_descriptor(BackendId::Luna.descriptor())
     );
     assert!(caps.requires_llm_context());
     assert!(caps.supports_session_ask());

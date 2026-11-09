@@ -45,7 +45,9 @@ use sc_agent_types::observability::v2::{
     CorrelatedGeneralLog, GeneralEvent, GeneralLog, NoopGeneralLog, NoopSessionLog,
     SharedGeneralLog, SharedSessionLog, new_run_id,
 };
-use sc_agent_types::{BackendSet, CancelToken, JevError, ProjectLabel, RepoRoot, Rev, SessionId};
+use sc_agent_types::{
+    BackendSet, CancelToken, JevError, ModelAliases, ProjectLabel, RepoRoot, Rev, SessionId,
+};
 use sc_decision_schema::MultiBackendMode;
 use sc_jev_check::registry::BackendRegistry;
 use sc_jev_check::run::{
@@ -99,6 +101,7 @@ pub struct ComposeInputs {
     project: Option<ProjectLabel>,
     session_log: Option<SharedSessionLog>,
     general_log: Option<SharedGeneralLog>,
+    models_file: Option<PathBuf>,
 }
 
 impl std::fmt::Debug for ComposeInputs {
@@ -157,6 +160,7 @@ impl ComposeInputs {
             project: None,
             session_log: None,
             general_log: None,
+            models_file: None,
         }
     }
 
@@ -268,6 +272,23 @@ impl ComposeInputs {
         self
     }
 
+    /// The models file to read instead of `~/.sc-agent/models.toml`
+    /// (`--models-file`, `models_file=`): the same `[[model]]` rows.
+    #[must_use]
+    pub fn models_file(mut self, path: impl Into<PathBuf>) -> Self {
+        self.models_file = Some(path.into());
+        self
+    }
+
+    /// The catalog of this call: the crate table plus the models file.
+    ///
+    /// # Errors
+    ///
+    /// `CONFIG_INVALID` for a malformed file; see [`load_global_models`].
+    pub(crate) fn load_models(&self, general: &dyn GeneralLog) -> Result<ModelAliases, JevError> {
+        load_global_models(self.models_file.as_deref(), general)
+    }
+
     pub(crate) fn injected_registry(&self) -> Option<&Arc<BackendRegistry>> {
         self.registry.as_ref()
     }
@@ -345,9 +366,11 @@ impl ComposeInputs {
         log: SharedSessionLog,
         general: SharedGeneralLog,
         context: LogContext,
+        models: &ModelAliases,
     ) -> RunConfig {
         let mut config = RunConfig::new(resolved.repo_root.clone(), log)
             .general_log(general)
+            .global_models(models.clone())
             .log_context(context)
             .dry_run(self.dry_run)
             .sessions_dir(resolved.sessions_dir.clone())
@@ -367,6 +390,138 @@ impl ComposeInputs {
         }
         config
     }
+}
+
+/// Reads the global models file and logs the outcome.
+///
+/// `explicit` is the file to read; without it the file is
+/// `~/.sc-agent/models.toml` ([`crate::paths::models_file`]). A missing file
+/// is the crate table, not an error. The outcome goes to `general` at debug
+/// (no file) or info (read, with the path and how many aliases the file
+/// moved); a malformed file is a warning there and `CONFIG_INVALID` to the
+/// caller. Nothing here logs at `error`.
+///
+/// # Errors
+///
+/// `CONFIG_INVALID` for a malformed file; `IO_FAILED` for an unreadable one.
+pub fn load_global_models(
+    explicit: Option<&Path>,
+    general: &dyn GeneralLog,
+) -> Result<ModelAliases, JevError> {
+    let path = explicit
+        .map(Path::to_path_buf)
+        .or_else(crate::paths::models_file);
+    let Some(path) = path else {
+        GeneralEvent::debug(
+            TARGET,
+            "models.file",
+            "no home directory; crate models only",
+        )
+        .emit(general);
+        return Ok(ModelAliases::builtin());
+    };
+    match sc_jev_check::models_file::load_models_file(&path) {
+        Ok(models) => {
+            let from_file = models
+                .resolved()
+                .iter()
+                .filter(|row| row.source() == sc_agent_types::ModelSource::File)
+                .count();
+            let event = if path.exists() {
+                GeneralEvent::info(TARGET, "models.file", "models file read")
+            } else {
+                GeneralEvent::debug(TARGET, "models.file", "no models file; crate models only")
+            };
+            event
+                .with_field("path", path.display().to_string())
+                .with_field("aliases_from_file", from_file)
+                .emit(general);
+            Ok(models)
+        }
+        Err(error) => {
+            GeneralEvent::warn(TARGET, "models.file_invalid", "the models file is invalid")
+                .with_field("path", path.display().to_string())
+                .with_error_code(error.code().as_str())
+                .emit(general);
+            Err(error)
+        }
+    }
+}
+
+/// The resolved models of a call, for `sc-ai jev models` and
+/// `sc_jev_py.models()`: one row per alias, and where the file was.
+///
+/// Serializes as `{"models_file","models_file_present","models":[...]}`;
+/// each model row is `{"alias","model","source","released","backend"}`
+/// where `source` is `crate` or `file` and `backend` is the `--backend`
+/// short name, or `null` for a model that is only a definition today.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct ModelListing {
+    models_file: Option<String>,
+    models_file_present: bool,
+    models: Vec<ModelRow>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+struct ModelRow {
+    alias: &'static str,
+    model: String,
+    source: &'static str,
+    released: String,
+    backend: Option<&'static str>,
+}
+
+impl ModelListing {
+    /// The models file that was read, if home is known.
+    #[must_use]
+    pub fn models_file(&self) -> Option<&str> {
+        self.models_file.as_deref()
+    }
+
+    /// Alias, model and source per row, sorted by alias.
+    #[must_use]
+    pub fn rows(&self) -> Vec<(&'static str, &str, &'static str)> {
+        self.models
+            .iter()
+            .map(|row| (row.alias, row.model.as_str(), row.source))
+            .collect()
+    }
+}
+
+/// Lists the resolved models: the crate table plus the models file
+/// (`explicit`, else `~/.sc-agent/models.toml`). Check-file overrides and
+/// pins are per run and are not part of this listing.
+///
+/// # Errors
+///
+/// `CONFIG_INVALID` for a malformed file; see [`load_global_models`].
+pub fn list_models(
+    explicit: Option<&Path>,
+    general: &dyn GeneralLog,
+) -> Result<ModelListing, JevError> {
+    let models = load_global_models(explicit, general)?;
+    let path = explicit
+        .map(Path::to_path_buf)
+        .or_else(crate::paths::models_file);
+    let rows = models
+        .resolved()
+        .into_iter()
+        .map(|row| ModelRow {
+            alias: row.alias(),
+            model: row.model().to_string(),
+            source: row.source().as_str(),
+            released: row.released().to_owned(),
+            backend: sc_agent_types::BACKENDS
+                .iter()
+                .find(|backend| backend.default_model_alias() == row.alias())
+                .map(sc_agent_types::BackendDescriptor::name),
+        })
+        .collect();
+    Ok(ModelListing {
+        models_file_present: path.as_ref().is_some_and(|path| path.is_file()),
+        models_file: path.map(|path| path.display().to_string()),
+        models: rows,
+    })
 }
 
 /// An explicit repo root (`--repo-root`): it must be a directory and is made
@@ -602,11 +757,19 @@ pub fn prepare_from(source: CheckSource, inputs: ComposeInputs) -> Result<HostRu
         .resolve()
         .inspect_err(|error| log_failure(&inputs, None, "resolve", error))?;
     let logs = Logs::open(&inputs, &resolved, !inputs.dry_run)?;
+    let models = match inputs.load_models(logs.general.as_ref()) {
+        Ok(models) => models,
+        Err(error) => {
+            logs.finish_general();
+            return Err(error);
+        }
+    };
     let config = inputs.run_config(
         &resolved,
         Arc::clone(&logs.session),
         Arc::clone(&logs.general),
         inputs.log_context(&resolved, logs.general.as_ref()),
+        &models,
     );
     match prepare(source, config) {
         Ok(prepared) => Ok(HostRun { prepared, logs }),
@@ -666,11 +829,19 @@ pub fn ask_from(
             return Err(error);
         }
     };
+    let models = match inputs.load_models(logs.general.as_ref()) {
+        Ok(models) => models,
+        Err(error) => {
+            logs.finish_general();
+            return Err(error);
+        }
+    };
     let config = inputs.run_config(
         &resolved,
         Arc::clone(&logs.session),
         Arc::clone(&logs.general),
         inputs.log_context(&resolved, logs.general.as_ref()),
+        &models,
     );
     let result = match ask(&sessions, session_id, follow_up, config) {
         Ok(mut response) => {

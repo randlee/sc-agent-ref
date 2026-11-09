@@ -15,7 +15,7 @@
           }
         }
       },
-      "backend": "anthropic_haiku",
+      "backend": "haiku",
       "decision_schema": "canonical.v1",
       "error_code": null,
       "model_id": "claude-haiku-5-5",
@@ -50,7 +50,7 @@
     "fields": {
       "answer_id": "01JC4Z8M3K5N7P9Q1R2S3T4V5X",
       "answers_json": null,
-      "backend": "anthropic_haiku",
+      "backend": "haiku",
       "decision_schema": "canonical.v1",
       "error_code": "NETWORK_ERROR",
       "model_id": "claude-haiku-5-5",
@@ -86,7 +86,7 @@
     "fields": {
       "answer_id": "01JC4Z8M3K5N7P9Q1R2S3T4V5Y",
       "answers_json": null,
-      "backend": "openai_luna",
+      "backend": "luna",
       "decision_schema": "canonical.v1",
       "error_code": "KEY_MISSING",
       "model_id": "gpt-6-luna",

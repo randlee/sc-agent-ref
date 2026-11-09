@@ -263,6 +263,25 @@ impl PathPolicy {
     }
 }
 
+/// The global models file, `<home>/.sc-agent/models.toml` (agt-akp), from the
+/// process environment. Home is `HOME`, else `USERPROFILE`.
+///
+/// `None` when home is unknown (unlike the log root there is no temp
+/// fallback: a models file in a temp directory would be a surprise).
+#[must_use]
+pub fn models_file() -> Option<PathBuf> {
+    models_file_with(&|name| std::env::var_os(name))
+}
+
+/// [`models_file`] over an injected environment lookup.
+#[must_use]
+pub fn models_file_with(env: &dyn Fn(&str) -> Option<OsString>) -> Option<PathBuf> {
+    env("HOME")
+        .or_else(|| env("USERPROFILE"))
+        .filter(|home| !home.is_empty())
+        .map(|home| PathBuf::from(home).join(".sc-agent").join("models.toml"))
+}
+
 fn non_empty(path: Option<&Path>) -> Option<&Path> {
     path.filter(|path| !path.as_os_str().is_empty())
 }

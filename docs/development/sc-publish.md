@@ -211,16 +211,12 @@ global `[build] build-dir` does not conflict.
 
 `sc-jev-py` publishes six `cp310-abi3` wheels (the `abi3-py310` floor comes from the embedded `sc-observability` runtime; `requires-python` stays `>=3.11`; the `wheel` CI job checks the tag): `manylinux_2_28` x86_64 and
 aarch64, macOS 11.0 arm64 and x86_64, and Windows x86_64 (`win_amd64`) and
-arm64 (`win_arm64`). The first five are explicit targets in
-`python_distributions[0].wheels`, copied from sc-lint. Windows arm64 is the
-legacy runner string `windows-11-arm`, because the kit at the pin
-(`34dab3f`) accepts only `x86_64-pc-windows-msvc` as an explicit Windows
-target; the job builds natively on that runner.
-
-Known kit limit: `release_python.verify_platforms` treats a legacy entry as
-declaring no platform, so the published-asset check can reject the extra
-`win_arm64` wheel. Fix upstream (accept `aarch64-pc-windows-msvc` /
-`win_arm64`), then replace the string with an explicit object and bump the pin.
+arm64 (`win_arm64`). All six are explicit targets in
+`python_distributions[0].wheels` (the first five copied from sc-lint). Windows
+arm64 is `aarch64-pc-windows-msvc` / `win_arm64` on the `windows-11-arm`
+runner and builds natively there. The kit accepts it since sc-publish
+`44cebf2`; the earlier legacy `"windows-11-arm"` string workaround (kit
+`34dab3f` accepted only `x86_64-pc-windows-msvc` explicitly) is gone.
 
 ## Pin bump
 

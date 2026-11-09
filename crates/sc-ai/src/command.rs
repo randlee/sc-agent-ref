@@ -4,6 +4,7 @@ use std::io::{BufRead, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use sc_agent_types::observability::v2::NoopGeneralLog;
 use sc_agent_types::{
     BackendSet, JevError, ProjectLabel, RepoRoot, Rev, ScAgentErrorResponse, SessionId,
 };
@@ -11,7 +12,7 @@ use sc_decision_schema::MultiBackendMode;
 use sc_jev_check::registry::BackendRegistry;
 use sc_jev_check::run::{CallerRequest, CheckSource, Envelope};
 use sc_jev_host::compose::{
-    ComposeInputs, ResolvedPaths, ask_from, explicit_repo_root, log_failure, run_from,
+    ComposeInputs, ResolvedPaths, ask_from, explicit_repo_root, list_models, log_failure, run_from,
 };
 use sc_jev_host::paths::PathPolicy;
 use sc_jev_host::stream::{Concurrency, DecisionStream, StreamSummary, serve_jsonl};
@@ -26,6 +27,15 @@ pub enum Command {
     Run(RunCommand),
     /// `jev ask`.
     Ask(AskCommand),
+    /// `jev models`: the resolved models and their source.
+    Models(ModelsCommand),
+}
+
+/// Arguments of `jev models`.
+#[derive(Debug)]
+pub struct ModelsCommand {
+    /// `--models-file`: read instead of `~/.sc-agent/models.toml`.
+    pub models_file: Option<PathBuf>,
 }
 
 /// Arguments of `jev run` and `jev dry-run`.
@@ -39,8 +49,8 @@ pub struct RunCommand {
     pub check: Option<PathBuf>,
     /// `--rev`; `WORKTREE` when absent.
     pub rev: Option<Rev>,
-    /// `--backend`, in order.
-    pub backends: Vec<sc_agent_types::BackendId>,
+    /// `--backend`, in order: a short name or a known model id.
+    pub backends: Vec<sc_agent_types::BackendChoice>,
     /// `--request-json`: a path, or `-` for stdin.
     pub request_json: Option<String>,
     /// `--llm-system-prompt-file`.
@@ -49,6 +59,8 @@ pub struct RunCommand {
     pub sessions_dir: Option<PathBuf>,
     /// `--log-dir`.
     pub log_dir: Option<PathBuf>,
+    /// `--models-file`: read instead of `~/.sc-agent/models.toml`.
+    pub models_file: Option<PathBuf>,
     /// `--chain-context`: later backends see earlier answers.
     pub chain_context: bool,
     /// `--project`: label for this call's log rows (not scrubbed).
@@ -73,6 +85,8 @@ pub struct AskCommand {
     pub sessions_dir: Option<PathBuf>,
     /// `--log-dir`.
     pub log_dir: Option<PathBuf>,
+    /// `--models-file`: read instead of `~/.sc-agent/models.toml`.
+    pub models_file: Option<PathBuf>,
     /// Backends used instead of `BackendRegistry::from_env` (test seam).
     pub registry: Option<Arc<BackendRegistry>>,
 }
@@ -84,7 +98,7 @@ pub struct StreamCommand {
     /// `--repo-root`.
     pub repo_root: Option<PathBuf>,
     /// `--backend`; wins over a request's own `backends`, as in `jev run`.
-    pub backends: Vec<sc_agent_types::BackendId>,
+    pub backends: Vec<sc_agent_types::BackendChoice>,
     /// `--input`: a path, or `-` (the default) for stdin.
     pub input: Option<String>,
     /// `--llm-system-prompt-file`.
@@ -93,6 +107,8 @@ pub struct StreamCommand {
     pub sessions_dir: Option<PathBuf>,
     /// `--log-dir`.
     pub log_dir: Option<PathBuf>,
+    /// `--models-file`: read instead of `~/.sc-agent/models.toml`.
+    pub models_file: Option<PathBuf>,
     /// `--chain-context`.
     pub chain_context: bool,
     /// `--project`.
@@ -151,7 +167,27 @@ pub fn execute(command: Command, stdin: &mut dyn Read) -> Result<Output, JevErro
     match command {
         Command::Run(run) => dispatch_run(run, stdin),
         Command::Ask(ask) => dispatch_ask(ask),
+        Command::Models(models) => dispatch_models(&models),
     }
+}
+
+/// `jev models`: a read command. The envelope is
+/// `{"version","operation":"models","data":{"models_file","models_file_present","models":[...]}}`.
+/// It opens no log and sends nothing.
+fn dispatch_models(command: &ModelsCommand) -> Result<Output, JevError> {
+    let listing = list_models(command.models_file.as_deref(), &NoopGeneralLog)?;
+    let mut stdout = serde_json::to_vec(&serde_json::json!({
+        "version": sc_jev_check::run::ENVELOPE_VERSION,
+        "operation": "models",
+        "data": listing,
+    }))
+    .map_err(|error| JevError::encode_failed("response JSON", &error))?;
+    stdout.push(b'\n');
+    Ok(Output {
+        stdout,
+        failure: None,
+        exit_code: 0,
+    })
 }
 
 /// Inputs shared by `run` and `ask`: the working directory, the explicit
@@ -161,6 +197,7 @@ fn base_inputs(
     repo_root: Option<&Path>,
     log_dir: Option<PathBuf>,
     sessions_dir: Option<PathBuf>,
+    models_file: Option<PathBuf>,
 ) -> Result<ComposeInputs, JevError> {
     let explicit = match repo_root.map(explicit_repo_root).transpose() {
         Ok(explicit) => explicit,
@@ -198,6 +235,9 @@ fn base_inputs(
     if let Some(dir) = sessions_dir {
         inputs = inputs.sessions_dir(dir);
     }
+    if let Some(path) = models_file {
+        inputs = inputs.models_file(path);
+    }
     Ok(inputs)
 }
 
@@ -207,6 +247,7 @@ fn dispatch_run(command: RunCommand, stdin: &mut dyn Read) -> Result<Output, Jev
         command.repo_root.as_deref(),
         command.log_dir.clone(),
         command.sessions_dir.clone(),
+        command.models_file.clone(),
     )?
     .dry_run(command.dry_run)
     .mode(if command.chain_context {
@@ -283,6 +324,7 @@ fn dispatch_ask(command: AskCommand) -> Result<Output, JevError> {
         command.repo_root.as_deref(),
         command.log_dir.clone(),
         command.sessions_dir.clone(),
+        command.models_file.clone(),
     )?;
     if let Some(registry) = &command.registry {
         inputs = inputs.registry(Arc::clone(registry));
@@ -414,6 +456,7 @@ pub fn serve_stream(
         command.repo_root.as_deref(),
         command.log_dir.clone(),
         command.sessions_dir.clone(),
+        command.models_file.clone(),
     )?
     .mode(if command.chain_context {
         MultiBackendMode::ChainContext

@@ -27,6 +27,14 @@
 //! (`ComposeInputs`) and Python API concern (ADR-SAG-0013 amendment
 //! 2026-11-09).
 //!
+//! # Models
+//!
+//! `jev models` prints the resolved models and where each came from (`crate`
+//! or `file`), reading `~/.sc-agent/models.toml` (`--models-file` to
+//! override). `--backend` takes a short name (`jev`, `haiku`, `luna`: the
+//! latest model) or a known model id of one of them (that backend pinned to
+//! that model). The resolved model and its source go to the general log.
+//!
 //! # Partial failure
 //!
 //! When any requested backend fails (every one included), [`Output`] carries the
@@ -59,4 +67,6 @@ mod command;
 mod envelope;
 
 #[doc(inline)]
-pub use command::{AskCommand, Command, Output, RunCommand, StreamCommand, execute, serve_stream};
+pub use command::{
+    AskCommand, Command, ModelsCommand, Output, RunCommand, StreamCommand, execute, serve_stream,
+};

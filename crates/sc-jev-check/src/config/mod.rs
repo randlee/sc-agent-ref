@@ -18,7 +18,9 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::str::FromStr;
 
-use sc_agent_types::{BackendId, BackendSet, JevError, ModelAliases, ModelId, RepoRelativePath};
+use sc_agent_types::{
+    BackendChoice, BackendSet, JevError, ModelAliases, ModelId, RepoRelativePath,
+};
 use serde::{Deserialize, Serialize};
 
 pub use command::CommandSpec;
@@ -475,7 +477,7 @@ struct RawCheck {
     #[serde(default)]
     inputs: BTreeMap<String, RawInputSpec>,
     #[serde(default)]
-    backends: Option<Vec<BackendId>>,
+    backends: Option<Vec<BackendChoice>>,
     #[serde(default)]
     models: BTreeMap<String, String>,
 }
@@ -499,6 +501,7 @@ mod tests {
     use super::*;
     use crate::config::InputSpec;
     use crate::extract::test_support::rel;
+    use sc_agent_types::BackendId;
 
     #[test]
     fn payload_packaged_system_prompt_matches_asset() {
@@ -542,13 +545,12 @@ mod tests {
             let error = load_check_str(bad).expect_err(bad);
             assert_eq!(error.code(), "CONFIG_INVALID", "{bad}");
         }
-        let spec = load_check_str(
-            "backends = [\"anthropic_haiku\", \"jev\"]\n[questions]\npath = \"q.json\"\n",
-        )
-        .expect("backends");
+        let spec =
+            load_check_str("backends = [\"haiku\", \"jev\"]\n[questions]\npath = \"q.json\"\n")
+                .expect("backends");
         assert_eq!(
             spec.backends().expect("set").as_slice(),
-            [BackendId::AnthropicHaiku, BackendId::Jev]
+            [BackendId::Haiku, BackendId::Jev]
         );
     }
 

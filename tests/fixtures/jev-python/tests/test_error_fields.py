@@ -175,7 +175,7 @@ def test_usage_error_names_the_field(tmp_path: Path) -> None:
         run_check_scripted(
             "check.toml",
             scripted_answers={"relevant": "yes"},
-            backends=["anthropic_haiku"],
+            backends=["haiku"],
             repo_root=repo,
             log_dir=tmp_path / "log",
             session_dir=tmp_path / "sessions",

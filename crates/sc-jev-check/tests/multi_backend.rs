@@ -174,13 +174,13 @@ fn dyn_judge(judge: &Arc<MockJudgeBackend>) -> Arc<dyn JudgeBackend> {
     Arc::clone(judge) as Arc<dyn JudgeBackend>
 }
 
-const JEV_HAIKU: [BackendId; 2] = [BackendId::Jev, BackendId::AnthropicHaiku];
+const JEV_HAIKU: [BackendId; 2] = [BackendId::Jev, BackendId::Haiku];
 
 #[test]
 fn test_partial_failure_keeps_answers() {
     let (repo, sessions) = dirs();
     let jev = Arc::new(mock(BackendId::Jev, "yes").with_failure(busy()));
-    let haiku = Arc::new(mock(BackendId::AnthropicHaiku, "no"));
+    let haiku = Arc::new(mock(BackendId::Haiku, "no"));
     let response = run_with(
         config(repo.path(), sessions.path()),
         &JEV_HAIKU,
@@ -199,7 +199,7 @@ fn test_partial_failure_keeps_answers() {
     ));
     assert_eq!(
         response.primary().expect("primary").backend(),
-        BackendId::AnthropicHaiku
+        BackendId::Haiku
     );
     let attestations: Vec<&Attestation> = response
         .equal_input()
@@ -217,9 +217,8 @@ fn test_partial_failure_keeps_answers() {
 fn test_all_failed_keeps_every_backends_error() {
     let (repo, sessions) = dirs();
     let jev = Arc::new(mock(BackendId::Jev, "yes").with_failure(busy()));
-    let haiku = Arc::new(
-        mock(BackendId::AnthropicHaiku, "no").with_failure(JevError::response_invalid("later")),
-    );
+    let haiku =
+        Arc::new(mock(BackendId::Haiku, "no").with_failure(JevError::response_invalid("later")));
     let response = run_with(
         config(repo.path(), sessions.path()),
         &JEV_HAIKU,
@@ -245,7 +244,7 @@ fn test_all_failed_keeps_every_backends_error() {
         codes,
         [
             ("jev".to_owned(), "PROVIDER_BUSY".to_owned()),
-            ("anthropic_haiku".to_owned(), "RESPONSE_INVALID".to_owned())
+            ("haiku".to_owned(), "RESPONSE_INVALID".to_owned())
         ]
     );
     assert_eq!(
@@ -262,7 +261,7 @@ fn test_leak_true_iff_any_failed() {
         &JEV_HAIKU,
         vec![
             dyn_judge(&Arc::new(mock(BackendId::Jev, "yes"))),
-            dyn_judge(&Arc::new(mock(BackendId::AnthropicHaiku, "no"))),
+            dyn_judge(&Arc::new(mock(BackendId::Haiku, "no"))),
         ],
     )
     .expect("run");
@@ -273,9 +272,7 @@ fn test_leak_true_iff_any_failed() {
         &JEV_HAIKU,
         vec![
             dyn_judge(&Arc::new(mock(BackendId::Jev, "yes"))),
-            dyn_judge(&Arc::new(
-                mock(BackendId::AnthropicHaiku, "no").with_failure(busy()),
-            )),
+            dyn_judge(&Arc::new(mock(BackendId::Haiku, "no").with_failure(busy()))),
         ],
     )
     .expect("run");
@@ -286,7 +283,7 @@ fn test_leak_true_iff_any_failed() {
 fn test_independent_default_no_prior_answers_in_prompt() {
     let (repo, sessions) = dirs();
     let jev = Arc::new(mock(BackendId::Jev, "yes"));
-    let haiku = Arc::new(mock(BackendId::AnthropicHaiku, "no"));
+    let haiku = Arc::new(mock(BackendId::Haiku, "no"));
     let response = run_with(
         config(repo.path(), sessions.path()),
         &JEV_HAIKU,
@@ -306,7 +303,7 @@ fn test_independent_default_no_prior_answers_in_prompt() {
 fn test_chain_context_recorded_and_applied() {
     let (repo, sessions) = dirs();
     let jev = Arc::new(mock(BackendId::Jev, "yes"));
-    let haiku = Arc::new(mock(BackendId::AnthropicHaiku, "no"));
+    let haiku = Arc::new(mock(BackendId::Haiku, "no"));
     let response = run_with(
         config(repo.path(), sessions.path()).mode(MultiBackendMode::ChainContext),
         &JEV_HAIKU,
@@ -337,7 +334,7 @@ fn test_chain_context_augmented_request_revalidated() {
     let (repo, sessions) = dirs();
     let sink = Arc::new(Sink::default());
     let jev = Arc::new(mock(BackendId::Jev, "yes"));
-    let mut probe = Probe::new(mock(BackendId::AnthropicHaiku, "no"));
+    let mut probe = Probe::new(mock(BackendId::Haiku, "no"));
     probe.refuse_context = true;
     let haiku = Arc::new(probe);
     let log: SharedSessionLog = sink.clone();
@@ -377,7 +374,7 @@ fn test_no_resend_on_timeout() {
         mock(BackendId::Jev, "yes")
             .with_failure(JevError::network(NetworkErrorKind::Timeout, "slow")),
     );
-    let haiku = Arc::new(mock(BackendId::AnthropicHaiku, "no"));
+    let haiku = Arc::new(mock(BackendId::Haiku, "no"));
     let response = run_with(
         config(repo.path(), sessions.path()),
         &JEV_HAIKU,
@@ -391,7 +388,7 @@ fn test_no_resend_on_timeout() {
 /// Removes `dir` while a backend judges, so the end-of-run save fails.
 fn removing_sessions(dir: &Path) -> Arc<Probe> {
     let dir = dir.to_path_buf();
-    let mut probe = Probe::new(mock(BackendId::AnthropicHaiku, "no"));
+    let mut probe = Probe::new(mock(BackendId::Haiku, "no"));
     probe.during_judge = Some(Box::new(move || {
         let _ = fs::remove_dir_all(&dir);
     }));
@@ -405,7 +402,7 @@ fn test_session_save_failure_keeps_answers() {
     let haiku = removing_sessions(&dir);
     let response = run_with(
         config(repo.path(), &dir),
-        &[BackendId::AnthropicHaiku],
+        &[BackendId::Haiku],
         vec![Arc::clone(&haiku) as Arc<dyn JudgeBackend>],
     )
     .expect("a save failure keeps the answers");
@@ -439,7 +436,7 @@ fn test_equal_false_when_backend_digest_differs() {
     let (repo, sessions) = dirs();
     let other = PayloadSha256::of_text("another payload");
     let jev = Arc::new(mock(BackendId::Jev, "yes"));
-    let haiku = Arc::new(mock(BackendId::AnthropicHaiku, "no").with_reported_digest(other.clone()));
+    let haiku = Arc::new(mock(BackendId::Haiku, "no").with_reported_digest(other.clone()));
     let response = run_with(
         config(repo.path(), sessions.path()),
         &JEV_HAIKU,
@@ -463,7 +460,7 @@ fn test_equal_true_when_all_digests_match() {
         &JEV_HAIKU,
         vec![
             dyn_judge(&Arc::new(mock(BackendId::Jev, "yes"))),
-            dyn_judge(&Arc::new(mock(BackendId::AnthropicHaiku, "no"))),
+            dyn_judge(&Arc::new(mock(BackendId::Haiku, "no"))),
         ],
     )
     .expect("run");
@@ -487,7 +484,7 @@ fn test_failed_backend_emits_one_log_event() {
         sc_agent_types::RepoRelativePath::try_from("check.toml").expect("path"),
     );
     let jev = Arc::new(mock(BackendId::Jev, "yes").with_failure(busy()));
-    let haiku = Arc::new(mock(BackendId::AnthropicHaiku, "no"));
+    let haiku = Arc::new(mock(BackendId::Haiku, "no"));
     let config = RunConfig::new(RepoRoot::new(repo.path()), log)
         .sessions_dir(sessions.path())
         .backends(set(&JEV_HAIKU))
@@ -501,10 +498,7 @@ fn test_failed_backend_emits_one_log_event() {
         events[0],
         ("jev".to_owned(), "judge".to_owned(), digest.clone())
     );
-    assert_eq!(
-        events[1],
-        ("anthropic_haiku".to_owned(), "judge".to_owned(), digest)
-    );
+    assert_eq!(events[1], ("haiku".to_owned(), "judge".to_owned(), digest));
 }
 
 #[test]
@@ -519,7 +513,7 @@ fn test_session_save_failure_log_events_unchanged() {
     let haiku = removing_sessions(&dir);
     let config = RunConfig::new(RepoRoot::new(repo.path()), log)
         .sessions_dir(&dir)
-        .backends(set(&[BackendId::AnthropicHaiku]))
+        .backends(set(&[BackendId::Haiku]))
         .registry(registry(vec![haiku as Arc<dyn JudgeBackend>]));
     let response = run(prepare(source, config).expect("prepare")).expect("run");
     assert!(!response.session_saved());

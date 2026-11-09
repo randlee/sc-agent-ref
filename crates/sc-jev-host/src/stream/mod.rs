@@ -78,9 +78,9 @@ use std::time::Duration;
 use sc_agent_types::observability::v2::{SharedGeneralLog, SharedSessionLog};
 use sc_agent_types::{
     BackendId, BackendSet, CancelToken, EXIT_FAILURE, EXIT_RETRYABLE, JevError, ModelAliases,
-    NetworkErrorKind, ScAgentErrorResponse,
+    ModelId, NetworkErrorKind, ScAgentErrorResponse,
 };
-use sc_jev_check::registry::BackendRegistry;
+use sc_jev_check::registry::{BackendRegistry, pin_models};
 use sc_jev_check::run::{
     CallerRequest, CheckSource, Envelope, LogContext, RunResponse, prepare, run,
 };
@@ -396,6 +396,13 @@ impl DecisionStream {
         let inputs = inputs.cancel(cancel.clone());
         let resolved = inputs.resolve()?;
         let logs = Logs::open(&inputs, &resolved, true)?;
+        let models = match inputs.load_models(logs.general.as_ref()) {
+            Ok(models) => models,
+            Err(error) => {
+                logs.finish_general();
+                return Err(error);
+            }
+        };
         let log = Arc::new(StreamLog::new(
             Arc::clone(&logs.general),
             logs.run_id.clone(),
@@ -405,6 +412,7 @@ impl DecisionStream {
             session_log: Arc::clone(&logs.session),
             general_log: Arc::clone(&logs.general),
             registries: Mutex::new(HashMap::new()),
+            models,
             log: Arc::clone(&log),
             inputs,
             resolved,
@@ -904,6 +912,10 @@ impl StageFailure {
     }
 }
 
+/// A backend selection with its model pins: two selections share a registry
+/// only when they would build the same backends.
+type RegistryKey = Vec<(BackendId, Option<ModelId>)>;
+
 /// Shared by every worker: everything one request needs.
 struct Engine {
     inputs: ComposeInputs,
@@ -915,7 +927,9 @@ struct Engine {
     log_context: LogContext,
     /// Registries built from the environment, one per backend selection, so
     /// a backend's client (and its connection pool) is shared by all workers.
-    registries: Mutex<HashMap<Vec<BackendId>, Arc<BackendRegistry>>>,
+    registries: Mutex<HashMap<RegistryKey, Arc<BackendRegistry>>>,
+    /// The crate table plus the global models file, read once at start.
+    models: ModelAliases,
     log: Arc<StreamLog>,
 }
 
@@ -1007,6 +1021,7 @@ impl Engine {
                 Arc::clone(&self.session_log),
                 log.shared(),
                 self.log_context.clone(),
+                &self.models,
             )
             .registry(registry);
         prepare(CheckSource::CallerRequest(request), config)
@@ -1018,7 +1033,10 @@ impl Engine {
         if let Some(injected) = self.inputs.injected_registry() {
             return Ok(Arc::clone(injected));
         }
-        let key: Vec<BackendId> = selected.iter().collect();
+        let key: RegistryKey = selected
+            .iter()
+            .map(|id| (id, selected.pin(id).cloned()))
+            .collect();
         let mut cache = self
             .registries
             .lock()
@@ -1029,7 +1047,7 @@ impl Engine {
         let built = Arc::new(BackendRegistry::from_env_with_models_logged(
             &self.resolved.repo_root,
             selected,
-            &ModelAliases::builtin(),
+            &pin_models(self.models.clone(), selected),
             &self.general_log,
         )?);
         cache.insert(key, Arc::clone(&built));

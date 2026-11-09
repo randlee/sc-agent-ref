@@ -192,7 +192,7 @@ fn test_multi_backend_rows_carry_own_request_sha256() {
     let repo = repo();
     let sessions = tempfile::tempdir().expect("sessions");
     let sink = Arc::new(Sink::default());
-    let ids = [BackendId::Jev, BackendId::AnthropicHaiku];
+    let ids = [BackendId::Jev, BackendId::Haiku];
     let scripted =
         register_scripted_backends(&ids, serde_json::json!({"relevant": "yes"})).expect("scripted");
     let source = CheckSource::CheckFile(
@@ -215,11 +215,11 @@ fn test_multi_backend_rows_carry_own_request_sha256() {
     assert_eq!(digests[0], Some(digest_of(&scripted_body(BackendId::Jev))));
     assert_eq!(
         digests[1],
-        Some(digest_of(&scripted_body(BackendId::AnthropicHaiku)))
+        Some(digest_of(&scripted_body(BackendId::Haiku)))
     );
     assert_ne!(digests[0], digests[1], "each backend has its own trace");
     assert_eq!(rows[0].context().backend, BackendId::Jev);
-    assert_eq!(rows[1].context().backend, BackendId::AnthropicHaiku);
+    assert_eq!(rows[1].context().backend, BackendId::Haiku);
 }
 
 #[test]
@@ -228,7 +228,7 @@ fn test_failed_row_carries_model_id() {
     let sessions = tempfile::tempdir().expect("sessions");
     let sink = Arc::new(Sink::default());
     let model: ModelId = "claude-haiku-5-5".parse().expect("model");
-    let haiku = mock(BackendId::AnthropicHaiku, "yes")
+    let haiku = mock(BackendId::Haiku, "yes")
         .with_model_id(model.clone())
         .with_failure(busy());
     let expected = haiku.model_id();
@@ -236,7 +236,7 @@ fn test_failed_row_carries_model_id() {
     let jev_model = jev.model_id();
     run_with(
         config(repo.path(), sessions.path(), &sink),
-        &[BackendId::Jev, BackendId::AnthropicHaiku],
+        &[BackendId::Jev, BackendId::Haiku],
         vec![dyn_judge(jev), dyn_judge(haiku)],
     )
     .expect("partial run");
@@ -287,16 +287,12 @@ fn test_one_row_per_send_failed_included_not_sent_none() {
     let repo = repo();
     let sessions = tempfile::tempdir().expect("sessions");
     let sink = Arc::new(Sink::default());
-    let ids = [
-        BackendId::Jev,
-        BackendId::AnthropicHaiku,
-        BackendId::OpenAiLuna,
-    ];
+    let ids = [BackendId::Jev, BackendId::Haiku, BackendId::Luna];
     let judges: Vec<Arc<dyn JudgeBackend>> = vec![
         dyn_judge(mock(BackendId::Jev, "yes").with_sent_body("{}")),
-        Arc::new(RefusesContext(mock(BackendId::AnthropicHaiku, "no"))),
+        Arc::new(RefusesContext(mock(BackendId::Haiku, "no"))),
         dyn_judge(
-            mock(BackendId::OpenAiLuna, "no")
+            mock(BackendId::Luna, "no")
                 .with_sent_body("{}")
                 .with_failure(busy()),
         ),
@@ -315,7 +311,7 @@ fn test_one_row_per_send_failed_included_not_sent_none() {
             .collect::<Vec<_>>(),
         [
             (BackendId::Jev, SendOutcome::Ok),
-            (BackendId::OpenAiLuna, SendOutcome::Failed),
+            (BackendId::Luna, SendOutcome::Failed),
         ],
         "Haiku was NotSent and has no row"
     );
@@ -351,11 +347,11 @@ fn test_ask_writes_one_row_in_the_sessions_context() {
     let repo = repo();
     let sessions = tempfile::tempdir().expect("sessions");
     let sink = Arc::new(Sink::default());
-    let haiku = Arc::new(mock(BackendId::AnthropicHaiku, "yes").with_sent_body("{\"ask\":1}"));
+    let haiku = Arc::new(mock(BackendId::Haiku, "yes").with_sent_body("{\"ask\":1}"));
     let judge: Arc<dyn JudgeBackend> = Arc::clone(&haiku) as _;
     let response = run_with(
         config(repo.path(), sessions.path(), &sink),
-        &[BackendId::AnthropicHaiku],
+        &[BackendId::Haiku],
         vec![Arc::clone(&judge)],
     )
     .expect("run");
@@ -397,12 +393,12 @@ fn test_every_row_carries_context() {
         RepoRoot::new("/logged/main-repo"),
         Some(ProjectLabel::new("billing").expect("label")),
     );
-    let haiku = Arc::new(mock(BackendId::AnthropicHaiku, "yes"));
+    let haiku = Arc::new(mock(BackendId::Haiku, "yes"));
     let jev = mock(BackendId::Jev, "no").with_failure(busy());
     let judge: Arc<dyn JudgeBackend> = Arc::clone(&haiku) as _;
     let response = run_with(
         config(repo.path(), sessions.path(), &sink).log_context(context.clone()),
-        &[BackendId::Jev, BackendId::AnthropicHaiku],
+        &[BackendId::Jev, BackendId::Haiku],
         vec![dyn_judge(jev), Arc::clone(&judge)],
     )
     .expect("partial run");
@@ -471,10 +467,10 @@ fn test_row_has_no_body_prompt_or_key_bytes() {
     let response = run_with(
         config(repo.path(), sessions.path(), &sink)
             .system_prompt_override(repo.path().join("override.md")),
-        &[BackendId::Jev, BackendId::AnthropicHaiku],
+        &[BackendId::Jev, BackendId::Haiku],
         vec![
             dyn_judge(mock(BackendId::Jev, "yes").with_sent_body(body)),
-            dyn_judge(mock(BackendId::AnthropicHaiku, "no").with_sent_body(body)),
+            dyn_judge(mock(BackendId::Haiku, "no").with_sent_body(body)),
         ],
     )
     .expect("run");
@@ -509,8 +505,8 @@ fn test_rejected_log_row_keeps_run_ok() {
     });
     let response = run_with(
         config(repo.path(), sessions.path(), &sink),
-        &[BackendId::AnthropicHaiku],
-        vec![dyn_judge(mock(BackendId::AnthropicHaiku, "yes"))],
+        &[BackendId::Haiku],
+        vec![dyn_judge(mock(BackendId::Haiku, "yes"))],
     )
     .expect("a rejected row never fails the run");
     assert!(response.session_id().is_some());
@@ -522,10 +518,8 @@ fn test_rejected_log_row_keeps_run_ok() {
         &store,
         id,
         "again?",
-        config(repo.path(), sessions.path(), &sink).registry(registry(vec![dyn_judge(mock(
-            BackendId::AnthropicHaiku,
-            "no",
-        ))])),
+        config(repo.path(), sessions.path(), &sink)
+            .registry(registry(vec![dyn_judge(mock(BackendId::Haiku, "no"))])),
     );
     assert!(asked.is_ok(), "ask also survives a rejected row");
 }

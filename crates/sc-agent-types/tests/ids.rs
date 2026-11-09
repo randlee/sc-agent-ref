@@ -3,8 +3,8 @@
 use std::collections::BTreeSet;
 
 use sc_agent_types::{
-    AnswerId, BACKENDS, BackendFamily, BackendId, BackendKeyId, BackendSet, BlobSha, ModelAliases,
-    ProjectLabel, RepoRelativePath, SessionId, Sha256Digest,
+    AnswerId, BACKENDS, BackendChoice, BackendFamily, BackendId, BackendKeyId, BackendSet, BlobSha,
+    ModelAliases, ModelId, ProjectLabel, RepoRelativePath, SessionId, Sha256Digest,
 };
 
 /// serde, `Display`, `FromStr`, and the aliases agree for every descriptor.
@@ -23,14 +23,6 @@ fn test_backend_catalog_roundtrip() {
             serde_json::from_value::<BackendId>(serde_json::json!(row.name())).expect("serde"),
             id
         );
-        for alias in row.aliases() {
-            assert!(names.insert(alias), "alias {alias} collides");
-            assert_eq!(alias.parse::<BackendId>().expect("alias"), id);
-            assert_eq!(
-                serde_json::from_value::<BackendId>(serde_json::json!(alias)).expect("alias"),
-                id
-            );
-        }
         assert_eq!(id.key_id(), row.key_id());
         assert_eq!(id.family(), row.family());
         assert_eq!(
@@ -46,7 +38,17 @@ fn test_backend_catalog_roundtrip() {
             row.name()
         );
     }
-    for rejected in ["anthropic-haiku", "openai-luna", "Jev", "", "haiku"] {
+    for rejected in [
+        "anthropic-haiku",
+        "openai-luna",
+        "anthropic_haiku",
+        "openai_luna",
+        "open_ai_luna",
+        "Jev",
+        "",
+        "sonnet",
+        "claude-haiku-5-5",
+    ] {
         let error = rejected.parse::<BackendId>().expect_err("rejected");
         assert_eq!(error.code(), "INPUT_INVALID");
     }
@@ -56,8 +58,8 @@ fn test_backend_catalog_roundtrip() {
 fn test_backend_serde_documented_spelling() {
     let wire = |id: BackendId| serde_json::to_value(id).expect("serialize");
     assert_eq!(wire(BackendId::Jev), "jev");
-    assert_eq!(wire(BackendId::AnthropicHaiku), "anthropic_haiku");
-    assert_eq!(wire(BackendId::OpenAiLuna), "openai_luna");
+    assert_eq!(wire(BackendId::Haiku), "haiku");
+    assert_eq!(wire(BackendId::Luna), "luna");
     assert_eq!(
         serde_json::to_value(BackendKeyId::OpenAi).expect("key"),
         "openai"
@@ -73,22 +75,83 @@ fn test_backend_serde_documented_spelling() {
 }
 
 #[test]
-fn test_backend_serde_reads_old_alias() {
-    let luna: BackendId = serde_json::from_str("\"open_ai_luna\"").expect("old luna");
-    assert_eq!(luna, BackendId::OpenAiLuna);
-    let key: BackendKeyId = serde_json::from_str("\"open_ai\"").expect("old key");
-    assert_eq!(key, BackendKeyId::OpenAi);
-    // The alias is read only; writing uses the documented spelling.
+fn test_old_backend_and_key_aliases_are_gone() {
+    for old in ["anthropic_haiku", "openai_luna", "open_ai_luna"] {
+        assert!(serde_json::from_str::<BackendId>(&format!("\"{old}\"")).is_err());
+    }
+    assert!(serde_json::from_str::<BackendKeyId>("\"open_ai\"").is_err());
+}
+
+#[test]
+fn test_backend_choice_short_name_or_known_model_id() {
+    let latest: BackendChoice = "luna".parse().expect("short name");
+    assert_eq!((latest.id(), latest.model()), (BackendId::Luna, None));
+    let pinned: BackendChoice = "claude-haiku-5-5".parse().expect("model id");
+    assert_eq!(pinned.id(), BackendId::Haiku);
+    assert_eq!(pinned.model(), Some(&ModelId::ClaudeHaiku5_5));
+    let old_jev: BackendChoice = "jev-1.13.0".parse().expect("older jev");
+    assert_eq!(old_jev.model(), Some(&ModelId::Jev1_13_0));
+}
+
+/// The definition-only models are not selectable; the error lists what is.
+#[test]
+fn test_definition_only_models_are_not_backends() {
+    for text in [
+        "sonnet",
+        "opus",
+        "fable",
+        "terra",
+        "sol",
+        "astra",
+        "claude-sonnet-5-5",
+        "claude-opus-5-5",
+        "claude-fable-5-1",
+        "gpt-6.1-terra",
+        "gpt-6.1-sol",
+        "gpt-6-astra",
+        "claude-haiku-9",
+        "openai_luna",
+    ] {
+        let error = text.parse::<BackendChoice>().expect_err(text);
+        assert_eq!(error.code(), "INPUT_INVALID", "{text}");
+        let message = error.message();
+        for valid in [
+            "jev",
+            "haiku",
+            "luna",
+            "claude-haiku-5-5",
+            "gpt-6-luna",
+            "jev-1.14.0",
+        ] {
+            assert!(message.contains(valid), "{text}: {message}");
+        }
+        let listed = message.split("known model id:").nth(1).expect("list");
+        for hidden in ["sonnet", "opus", "fable", "terra", "sol", "astra"] {
+            assert!(!listed.contains(hidden), "{message}");
+        }
+        assert!(text.parse::<BackendSet>().is_err());
+    }
+}
+
+#[test]
+fn test_backend_set_carries_pins_and_rejects_a_repeat() {
+    let set: BackendSet = "jev, claude-haiku-5-5, luna".parse().expect("set");
     assert_eq!(
-        serde_json::to_string(&luna).expect("write"),
-        "\"openai_luna\""
+        set.as_slice(),
+        [BackendId::Jev, BackendId::Haiku, BackendId::Luna]
     );
+    assert_eq!(set.pin(BackendId::Haiku), Some(&ModelId::ClaudeHaiku5_5));
+    assert_eq!(set.pin(BackendId::Luna), None);
+    let repeat = "haiku,claude-haiku-5-5"
+        .parse::<BackendSet>()
+        .expect_err("repeat");
+    assert_eq!(repeat.code(), "CONFIG_INVALID");
 }
 
 #[test]
 fn test_backend_set_rules() {
-    let set: BackendSet = "jev, anthropic_haiku".parse().expect("set");
-    assert_eq!(set.as_slice(), [BackendId::Jev, BackendId::AnthropicHaiku]);
+    let set: BackendSet = "jev, haiku".parse().expect("set");
+    assert_eq!(set.as_slice(), [BackendId::Jev, BackendId::Haiku]);
     assert_eq!(set.len(), 2);
     for bad in ["", "jev,jev"] {
         assert_eq!(
@@ -97,7 +160,9 @@ fn test_backend_set_rules() {
         );
     }
     assert_eq!(
-        BackendSet::try_from(Vec::new()).expect_err("empty").code(),
+        BackendSet::try_from(Vec::<BackendId>::new())
+            .expect_err("empty")
+            .code(),
         "CONFIG_INVALID"
     );
     assert_eq!(

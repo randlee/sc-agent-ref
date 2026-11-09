@@ -148,7 +148,7 @@ fn test_new_store_sweeps_expired_session_documents() {
     fresh_store
         .save(&StoredSession {
             session_id: fresh_id,
-            backend: BackendId::AnthropicHaiku,
+            backend: BackendId::Haiku,
             created_at: SystemTime::now(),
             payload,
             system_prompt: None,
@@ -212,7 +212,7 @@ fn test_expired_document_inside_grace_survives_sweep_and_reads_expired() {
     store
         .save(&StoredSession {
             session_id: id,
-            backend: BackendId::AnthropicHaiku,
+            backend: BackendId::Haiku,
             created_at: SystemTime::now() - Duration::from_secs(30 * 60 * 60),
             payload,
             system_prompt: None,
@@ -340,13 +340,11 @@ fn stored(store: &FileSessionStore, id: SessionId, choice: &str) -> StoredSessio
         .expect("answers");
     StoredSession {
         session_id: id,
-        backend: BackendId::AnthropicHaiku,
+        backend: BackendId::Haiku,
         created_at: store.now(),
         payload: bundle,
         system_prompt: Some(format!("prompt-{choice}")),
-        outcomes: vec![
-            JudgeOutcome::new(BackendId::AnthropicHaiku, &request, answers).expect("outcome"),
-        ],
+        outcomes: vec![JudgeOutcome::new(BackendId::Haiku, &request, answers).expect("outcome")],
         follow_ups: Vec::new(),
     }
 }
@@ -369,11 +367,11 @@ fn test_session_written_once_only_with_llm() {
     );
 
     let jev = judge(BackendId::Jev, "yes");
-    let haiku = judge(BackendId::AnthropicHaiku, "no");
+    let haiku = judge(BackendId::Haiku, "no");
     let both = live_run(
         repo.path(),
         sessions.path(),
-        &[BackendId::Jev, BackendId::AnthropicHaiku],
+        &[BackendId::Jev, BackendId::Haiku],
         &[&jev, &haiku],
     );
     assert!(both.session_saved());
@@ -385,14 +383,14 @@ fn test_session_written_once_only_with_llm() {
     );
     let store = FileSessionStore::new(sessions.path()).expect("store");
     let loaded = store.load(&id).expect("load");
-    assert_eq!(loaded.backend, BackendId::AnthropicHaiku);
+    assert_eq!(loaded.backend, BackendId::Haiku);
     assert_eq!(
         loaded
             .outcomes
             .iter()
             .map(JudgeOutcome::backend)
             .collect::<Vec<_>>(),
-        [BackendId::Jev, BackendId::AnthropicHaiku],
+        [BackendId::Jev, BackendId::Haiku],
         "the one write happens after the last backend"
     );
     assert_eq!(loaded.payload.sha256(), both.payload_sha256());
@@ -412,11 +410,11 @@ fn test_session_written_once_only_with_llm() {
 fn test_ask_takes_registry() {
     let repo = repo();
     let sessions = temp("ask");
-    let run_judge = judge(BackendId::AnthropicHaiku, "yes");
+    let run_judge = judge(BackendId::Haiku, "yes");
     let response = live_run(
         repo.path(),
         sessions.path(),
-        &[BackendId::AnthropicHaiku],
+        &[BackendId::Haiku],
         &[&run_judge],
     );
     let id = response.session_id().expect("saved");
@@ -424,7 +422,7 @@ fn test_ask_takes_registry() {
     let path = store.path(&id);
     let before = fs::read(&path).expect("session bytes");
 
-    let ask_judge = judge(BackendId::AnthropicHaiku, "no");
+    let ask_judge = judge(BackendId::Haiku, "no");
     let log: SharedSessionLog = Arc::new(NoopSessionLog);
     let ask_config = |registry: BackendRegistry| {
         RunConfig::new(RepoRoot::new(repo.path()), Arc::clone(&log)).registry(Arc::new(registry))

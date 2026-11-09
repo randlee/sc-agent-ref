@@ -21,7 +21,7 @@ fn request() -> JudgeRequest {
     )
 }
 
-const IDS: [BackendId; 2] = [BackendId::Jev, BackendId::AnthropicHaiku];
+const IDS: [BackendId; 2] = [BackendId::Jev, BackendId::Haiku];
 
 #[test]
 fn test_scripted_shared_form_unchanged() {
@@ -49,7 +49,7 @@ fn test_scripted_per_backend_failure() {
         &IDS,
         json!({"backends": {
             "jev": {"failure": {"error": "PROVIDER_BUSY"}},
-            "anthropic_haiku": {"relevant": "yes"}
+            "haiku": {"relevant": "yes"}
         }}),
     )
     .expect("per-backend form");
@@ -61,7 +61,7 @@ fn test_scripted_per_backend_failure() {
     assert_eq!(failure.code(), "PROVIDER_BUSY");
     assert!(failure.retryable());
     let outcome = registry
-        .get(BackendId::AnthropicHaiku)
+        .get(BackendId::Haiku)
         .expect("haiku")
         .judge(&request(), &SendTrace::new())
         .expect("answers");
@@ -74,7 +74,7 @@ fn test_scripted_validate_stage_not_sent() {
         &IDS,
         json!({"backends": {
             "jev": {"failure": {"error": "INPUT_TOO_LARGE", "stage": "validate"}},
-            "anthropic_haiku": {"relevant": "no"}
+            "haiku": {"relevant": "no"}
         }}),
     )
     .expect("per-backend form");
@@ -100,20 +100,20 @@ fn test_scripted_invalid_form_rejected() {
         ("only question id is backends", json!({"backends": "yes"})),
         (
             "unknown backend id",
-            json!({"backends": {"jev": {"q": "yes"}, "anthropic_haiku": {"q": "no"}, "openai_luna": {"q": "no"}}}),
+            json!({"backends": {"jev": {"q": "yes"}, "haiku": {"q": "no"}, "luna": {"q": "no"}}}),
         ),
         ("missing entry", json!({"backends": {"jev": {"q": "yes"}}})),
         (
             "unknown error",
-            json!({"backends": {"jev": {"failure": {"error": "KEY_MISSING"}}, "anthropic_haiku": {"q": "no"}}}),
+            json!({"backends": {"jev": {"failure": {"error": "KEY_MISSING"}}, "haiku": {"q": "no"}}}),
         ),
         (
             "network error without kind",
-            json!({"backends": {"jev": {"failure": {"error": "NETWORK_ERROR"}}, "anthropic_haiku": {"q": "no"}}}),
+            json!({"backends": {"jev": {"failure": {"error": "NETWORK_ERROR"}}, "haiku": {"q": "no"}}}),
         ),
         (
             "unknown stage",
-            json!({"backends": {"jev": {"failure": {"error": "RESPONSE_INVALID", "stage": "later"}}, "anthropic_haiku": {"q": "no"}}}),
+            json!({"backends": {"jev": {"failure": {"error": "RESPONSE_INVALID", "stage": "later"}}, "haiku": {"q": "no"}}}),
         ),
     ]);
     for (name, answers) in cases {

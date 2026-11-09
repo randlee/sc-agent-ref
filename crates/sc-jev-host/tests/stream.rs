@@ -391,12 +391,12 @@ fn answers_echo_ids_and_a_failure_does_not_stop_the_stream() {
 fn exit_code_is_three_only_when_every_failure_is_retryable() {
     let repo = tempfile::tempdir().expect("repo");
     let busy = Arc::new(
-        MockJudgeBackend::new(BackendId::AnthropicHaiku, answers())
+        MockJudgeBackend::new(BackendId::Haiku, answers())
             .with_failure(JevError::network(NetworkErrorKind::Timeout, "slow")),
     );
     let ok = HeldJudge::new(BackendId::Jev, Hold::None);
     let registry = registry(vec![ok, busy]);
-    let retryable = r#"{"id":"slow","request":{"questions":[{"id":"q","prompt":"p","choices":["a","b"]}],"backends":["anthropic_haiku"]}}"#;
+    let retryable = r#"{"id":"slow","request":{"questions":[{"id":"q","prompt":"p","choices":["a","b"]}],"backends":["haiku"]}}"#;
     let caller_mistake = r#"{"id":"bad","request":{"questions":[]}}"#;
     let run = |lines: &[&str]| {
         let stream = start(&repo, Arc::clone(&registry), 2);
@@ -421,12 +421,12 @@ fn exit_code_is_three_only_when_every_failure_is_retryable() {
 fn a_partial_failure_line_has_both_envelope_and_error() {
     let repo = tempfile::tempdir().expect("repo");
     let failing = Arc::new(
-        MockJudgeBackend::new(BackendId::AnthropicHaiku, answers())
+        MockJudgeBackend::new(BackendId::Haiku, answers())
             .with_failure(JevError::network(NetworkErrorKind::Timeout, "slow")),
     );
     let ok = HeldJudge::new(BackendId::Jev, Hold::None);
     let stream = start(&repo, registry(vec![ok, failing]), 1);
-    let request = r#"{"id":"both","request":{"questions":[{"id":"q","prompt":"p","choices":["a","b"]}],"backends":["jev","anthropic_haiku"]}}"#;
+    let request = r#"{"id":"both","request":{"questions":[{"id":"q","prompt":"p","choices":["a","b"]}],"backends":["jev","haiku"]}}"#;
     stream
         .submit_line(request.to_owned(), None)
         .expect("submit");
@@ -794,14 +794,14 @@ fn a_parallel_stream_writes_a_whole_general_log_correlated_by_run_id() {
     const COUNT: usize = 40;
     let repo = tempfile::tempdir().expect("repo");
     let failing = Arc::new(
-        MockJudgeBackend::new(BackendId::AnthropicHaiku, answers())
+        MockJudgeBackend::new(BackendId::Haiku, answers())
             .with_failure(JevError::network(NetworkErrorKind::Timeout, "slow")),
     );
     let ok = HeldJudge::new(BackendId::Jev, Hold::None);
     let stream = start(&repo, registry(vec![ok, failing]), 8);
     let good = format!(r#"{{"questions":[{{"id":"q","prompt":"{MARKER}","choices":["a","b"]}}]}}"#);
     let partial = format!(
-        r#"{{"questions":[{{"id":"q","prompt":"{MARKER}","choices":["a","b"]}}],"backends":["jev","anthropic_haiku"]}}"#
+        r#"{{"questions":[{{"id":"q","prompt":"{MARKER}","choices":["a","b"]}}],"backends":["jev","haiku"]}}"#
     );
     let reader = {
         let stream = Arc::clone(&stream);
@@ -921,7 +921,7 @@ fn a_parallel_stream_writes_a_whole_general_log_correlated_by_run_id() {
                 .iter()
                 .find(|row| action(row) == "stream.request.backend_failed")
                 .unwrap_or_else(|| panic!("{id}: no backend_failed row"));
-            assert_eq!(field(backend, "backend"), "anthropic_haiku");
+            assert_eq!(field(backend, "backend"), "haiku");
             assert_eq!(field(backend, "error_code"), "NETWORK_ERROR");
         } else {
             assert_eq!(field(done, "ok"), true, "{id}");

@@ -6,7 +6,7 @@
 //! by `crate::run::prepare` from the override file or the packaged asset
 //! (ADR-SAG-0019).
 
-use sc_agent_types::{BackendId, JevError};
+use sc_agent_types::{BackendChoice, JevError};
 use sc_decision_schema::{ChoiceAnswer, PayloadBundle, Question};
 use serde::Deserialize;
 use serde_json::Value;
@@ -20,7 +20,7 @@ pub(crate) struct ParsedCallerRequest {
     /// Sorted compact JSON and its digest.
     pub(crate) bundle: PayloadBundle,
     /// Backend ids named in the document. Empty when the document omits them.
-    pub(crate) backends: Vec<BackendId>,
+    pub(crate) backends: Vec<BackendChoice>,
 }
 
 /// Validates `bytes` and builds one canonical payload.
@@ -50,7 +50,7 @@ pub(crate) fn parse_caller_request(bytes: &[u8]) -> Result<ParsedCallerRequest, 
     let bundle = encode_payload(&questions, &document.state)?;
     let mut backends = Vec::with_capacity(document.backends.len());
     for name in &document.backends {
-        backends.push(name.parse::<BackendId>()?);
+        backends.push(name.parse::<BackendChoice>()?);
     }
     Ok(ParsedCallerRequest { bundle, backends })
 }
@@ -108,6 +108,7 @@ fn request_json_error_data() -> JevError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sc_agent_types::BackendId;
 
     const QUESTIONS: &str = r#"{
         "questions": [{
@@ -116,13 +117,13 @@ mod tests {
             "choices": ["no", "yes"]
         }],
         "state": [{"question_id": "relevant", "choice": "yes"}],
-        "backends": ["anthropic_haiku"]
+        "backends": ["haiku"]
     }"#;
 
     #[test]
     fn caller_request_builds_a_canonical_bundle() {
         let parsed = parse_caller_request(QUESTIONS.as_bytes()).expect("request");
-        assert_eq!(parsed.backends, vec![BackendId::AnthropicHaiku]);
+        assert_eq!(parsed.backends, vec![BackendId::Haiku.into()]);
         let text = std::str::from_utf8(parsed.bundle.bytes()).expect("utf8");
         assert!(text.contains("\"id\":\"relevant\""));
         assert!(text.contains("\"choice\":\"yes\""));

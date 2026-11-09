@@ -14,10 +14,9 @@ use std::sync::Arc;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use ulid::Ulid;
 
-use crate::catalog::{
-    ANTHROPIC_HAIKU, BACKENDS, BackendDescriptor, BackendFamily, JEV, OPENAI_LUNA,
-};
+use crate::catalog::{BACKENDS, BackendDescriptor, BackendFamily, HAIKU, JEV, LUNA};
 use crate::error::JevError;
+use crate::models::{MODELS, ModelId};
 
 /// Git toplevel used for path resolution.
 ///
@@ -263,8 +262,8 @@ impl<'de> Deserialize<'de> for SessionId {
 ///
 /// The documented spelling is the [`Display`](fmt::Display) form
 /// (`typesafe`, `anthropic`, `openai`). Serde writes that form and reads it
-/// through [`FromStr`], which also accepts the one-release alias `open_ai`
-/// (bead `agt-ho2`).
+/// through [`FromStr`]; there is no other spelling (bead `agt-ho2` removed
+/// the `open_ai` read alias).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[non_exhaustive]
 pub enum BackendKeyId {
@@ -289,16 +288,6 @@ impl BackendKeyId {
             Self::OpenAi => "openai",
         }
     }
-
-    /// Read aliases accepted beside the documented spelling.
-    ///
-    /// The match is exhaustive, so a new id must decide its aliases.
-    const fn aliases(self) -> &'static [&'static str] {
-        match self {
-            Self::TypeSafe | Self::Anthropic => &[],
-            Self::OpenAi => &["open_ai"],
-        }
-    }
 }
 
 impl fmt::Display for BackendKeyId {
@@ -310,13 +299,11 @@ impl fmt::Display for BackendKeyId {
 impl FromStr for BackendKeyId {
     type Err = JevError;
 
-    /// Parses the documented id or its read alias (`open_ai`).
-    ///
-    /// Kebab-case and other spellings are rejected.
+    /// Parses the documented id. Kebab-case and other spellings are rejected.
     fn from_str(text: &str) -> Result<Self, Self::Err> {
         Self::ALL
             .iter()
-            .find(|id| id.as_str() == text || id.aliases().contains(&text))
+            .find(|id| id.as_str() == text)
             .copied()
             .ok_or_else(|| {
                 JevError::input_invalid(format!(
@@ -341,19 +328,19 @@ impl<'de> Deserialize<'de> for BackendKeyId {
 
 /// Judge implementation id.
 ///
-/// The documented spelling is [`BackendDescriptor::name`]. Serde writes it;
-/// `Deserialize` goes through [`FromStr`], which also accepts the
-/// descriptor's [`BackendDescriptor::aliases`] (one alias source; there is no
-/// `#[serde(alias)]`).
+/// The one spelling is [`BackendDescriptor::name`]: the short name `jev`,
+/// `haiku` or `luna`, each meaning the latest model of that line. Serde
+/// writes it and `Deserialize` goes through [`FromStr`]; there is no other
+/// spelling (agt-akp, agt-ho2). To pin a model, use [`BackendChoice`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[non_exhaustive]
 pub enum BackendId {
     /// TypeSafe Jev.
     Jev,
     /// Anthropic Haiku, API-direct.
-    AnthropicHaiku,
+    Haiku,
     /// OpenAI Luna, API-direct.
-    OpenAiLuna,
+    Luna,
 }
 
 impl BackendId {
@@ -366,8 +353,8 @@ impl BackendId {
     /// ```
     /// use sc_agent_types::{BackendFamily, BackendId, BackendKeyId};
     ///
-    /// let luna = BackendId::OpenAiLuna.descriptor();
-    /// assert_eq!(luna.name(), "openai_luna");
+    /// let luna = BackendId::Luna.descriptor();
+    /// assert_eq!(luna.name(), "luna");
     /// assert_eq!(luna.key_id(), Some(BackendKeyId::OpenAi));
     /// assert_eq!(luna.family(), BackendFamily::Llm);
     /// ```
@@ -375,8 +362,8 @@ impl BackendId {
     pub const fn descriptor(self) -> &'static BackendDescriptor {
         match self {
             Self::Jev => &JEV,
-            Self::AnthropicHaiku => &ANTHROPIC_HAIKU,
-            Self::OpenAiLuna => &OPENAI_LUNA,
+            Self::Haiku => &HAIKU,
+            Self::Luna => &LUNA,
         }
     }
 
@@ -402,31 +389,132 @@ impl BackendId {
 impl FromStr for BackendId {
     type Err = JevError;
 
-    /// Parses a descriptor name or alias.
+    /// Parses a short name: `jev`, `haiku` or `luna`.
     ///
-    /// `jev`, `anthropic_haiku`, and `openai_luna` are the documented ids;
-    /// `open_ai_luna` is a one-release read alias. Kebab-case spellings such
-    /// as `anthropic-haiku` are rejected.
+    /// Other spellings, such as `anthropic-haiku`, are rejected. A model id
+    /// is accepted by [`BackendChoice`], not here.
     ///
     /// # Examples
     ///
     /// ```
     /// use sc_agent_types::BackendId;
     ///
-    /// assert_eq!("openai_luna".parse::<BackendId>().unwrap(), BackendId::OpenAiLuna);
-    /// assert_eq!("open_ai_luna".parse::<BackendId>().unwrap(), BackendId::OpenAiLuna);
-    /// assert_eq!("openai-luna".parse::<BackendId>().unwrap_err().code(), "INPUT_INVALID");
+    /// assert_eq!("luna".parse::<BackendId>().unwrap(), BackendId::Luna);
+    /// assert_eq!("openai_luna".parse::<BackendId>().unwrap_err().code(), "INPUT_INVALID");
     /// ```
     fn from_str(text: &str) -> Result<Self, Self::Err> {
         BACKENDS
             .iter()
-            .find(|row| row.name() == text || row.aliases().contains(&text))
+            .find(|row| row.name() == text)
             .map(BackendDescriptor::id)
-            .ok_or_else(|| {
-                JevError::input_invalid(format!(
-                    "backend {text} is not jev, anthropic_haiku, or openai_luna"
-                ))
+            .ok_or_else(|| JevError::input_invalid(invalid_backend_message(text)))
+    }
+}
+
+/// The `INPUT_INVALID` text for a spelling that selects no backend: it lists
+/// every valid name and every pinnable model id. `sonnet`, `claude-sonnet-5-5`
+/// and the other definition-only models land here.
+fn invalid_backend_message(text: &str) -> String {
+    let names: Vec<&str> = BACKENDS.iter().map(BackendDescriptor::name).collect();
+    format!(
+        "backend {text} is not selectable; use one of {} (each means the latest model) or a known model id: {}",
+        names.join(", "),
+        pinnable_models().join(", ")
+    )
+}
+
+/// The model ids a backend can be pinned to: every `MODELS` row whose alias
+/// is a backend's default alias.
+fn pinnable_models() -> Vec<&'static str> {
+    MODELS
+        .iter()
+        .filter(|row| backend_for_alias(row.alias()).is_some())
+        .map(|row| row.model_str())
+        .collect()
+}
+
+fn backend_for_alias(alias: &str) -> Option<BackendId> {
+    BACKENDS
+        .iter()
+        .find(|row| row.default_model_alias() == alias)
+        .map(BackendDescriptor::id)
+}
+
+/// One `--backend` entry: a backend, optionally pinned to a model.
+///
+/// The text is a short name (`jev`, `haiku`, `luna`: the latest model) or a
+/// known model id of one of those backends (`claude-haiku-5-5`: that backend
+/// pinned to that model). Models such as `sonnet` are defined in [`MODELS`]
+/// but are not selectable; they are `INPUT_INVALID` with the valid names
+/// listed. Only the crate's `MODELS` ids are pinnable; a model added in
+/// `~/.sc-agent/models.toml` is reached through its short name.
+///
+/// # Examples
+///
+/// ```
+/// use sc_agent_types::{BackendChoice, BackendId, ModelId};
+///
+/// let latest: BackendChoice = "haiku".parse()?;
+/// assert_eq!((latest.id(), latest.model()), (BackendId::Haiku, None));
+/// let pinned: BackendChoice = "claude-haiku-5-5".parse()?;
+/// assert_eq!(pinned.id(), BackendId::Haiku);
+/// assert_eq!(pinned.model(), Some(&ModelId::ClaudeHaiku5_5));
+/// assert_eq!("sonnet".parse::<BackendChoice>().unwrap_err().code(), "INPUT_INVALID");
+/// # Ok::<(), sc_agent_types::JevError>(())
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BackendChoice {
+    id: BackendId,
+    model: Option<ModelId>,
+}
+
+impl BackendChoice {
+    /// The backend.
+    #[must_use]
+    pub const fn id(&self) -> BackendId {
+        self.id
+    }
+
+    /// The pinned model, or `None` for the backend's latest.
+    #[must_use]
+    pub const fn model(&self) -> Option<&ModelId> {
+        self.model.as_ref()
+    }
+}
+
+impl From<BackendId> for BackendChoice {
+    fn from(id: BackendId) -> Self {
+        Self { id, model: None }
+    }
+}
+
+impl FromStr for BackendChoice {
+    type Err = JevError;
+
+    /// # Errors
+    ///
+    /// `INPUT_INVALID` when the text is neither a short name nor a known
+    /// model id of a selectable backend; the message lists the valid ones.
+    fn from_str(text: &str) -> Result<Self, Self::Err> {
+        if let Ok(id) = text.parse::<BackendId>() {
+            return Ok(id.into());
+        }
+        MODELS
+            .iter()
+            .find(|row| row.model_str() == text)
+            .and_then(|row| Some((backend_for_alias(row.alias())?, row.model())))
+            .map(|(id, model)| Self {
+                id,
+                model: Some(model),
             })
+            .ok_or_else(|| JevError::input_invalid(invalid_backend_message(text)))
+    }
+}
+
+impl<'de> Deserialize<'de> for BackendChoice {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let text = String::deserialize(deserializer)?;
+        text.parse().map_err(serde::de::Error::custom)
     }
 }
 
@@ -449,42 +537,57 @@ impl<'de> Deserialize<'de> for BackendId {
     }
 }
 
-/// A non-empty, duplicate-free list of backends, in request order.
+/// A non-empty, duplicate-free list of backends, in request order, with the
+/// models any entry pinned.
 ///
 /// # Examples
 ///
 /// ```
-/// use sc_agent_types::{BackendId, BackendSet};
+/// use sc_agent_types::{BackendId, BackendSet, ModelId};
 ///
-/// let set: BackendSet = "jev,anthropic_haiku".parse().unwrap();
-/// assert_eq!(set.as_slice(), [BackendId::Jev, BackendId::AnthropicHaiku]);
+/// let set: BackendSet = "jev,claude-haiku-5-5".parse().unwrap();
+/// assert_eq!(set.as_slice(), [BackendId::Jev, BackendId::Haiku]);
+/// assert_eq!(set.pin(BackendId::Haiku), Some(&ModelId::ClaudeHaiku5_5));
+/// assert_eq!(set.pin(BackendId::Jev), None);
 /// assert_eq!("jev,jev".parse::<BackendSet>().unwrap_err().code(), "CONFIG_INVALID");
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BackendSet(Vec<BackendId>);
+pub struct BackendSet {
+    ids: Vec<BackendId>,
+    pins: Vec<(BackendId, ModelId)>,
+}
 
 impl BackendSet {
     /// The backends, in request order.
     #[must_use]
     pub fn as_slice(&self) -> &[BackendId] {
-        &self.0
+        &self.ids
     }
 
     /// Iterates the backends in request order.
     pub fn iter(&self) -> impl Iterator<Item = BackendId> + '_ {
-        self.0.iter().copied()
+        self.ids.iter().copied()
+    }
+
+    /// The model `id` was pinned to (`--backend claude-haiku-5-5`), if any.
+    #[must_use]
+    pub fn pin(&self, id: BackendId) -> Option<&ModelId> {
+        self.pins
+            .iter()
+            .find(|(pinned, _)| *pinned == id)
+            .map(|(_, model)| model)
     }
 
     /// Number of backends (never zero).
     #[must_use]
     pub fn len(&self) -> usize {
-        self.0.len()
+        self.ids.len()
     }
 
     /// Always false: a `BackendSet` has at least one backend.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        self.ids.is_empty()
     }
 }
 
@@ -494,10 +597,13 @@ impl From<BackendId> for BackendSet {
     /// ```
     /// use sc_agent_types::{BackendId, BackendSet};
     ///
-    /// assert_eq!(BackendSet::from(BackendId::AnthropicHaiku).as_slice(), [BackendId::AnthropicHaiku]);
+    /// assert_eq!(BackendSet::from(BackendId::Haiku).as_slice(), [BackendId::Haiku]);
     /// ```
     fn from(id: BackendId) -> Self {
-        Self(vec![id])
+        Self {
+            ids: vec![id],
+            pins: Vec::new(),
+        }
     }
 }
 
@@ -511,7 +617,7 @@ impl Default for BackendSet {
     /// assert_eq!(BackendSet::default().as_slice(), [BackendId::Jev]);
     /// ```
     fn default() -> Self {
-        Self(vec![BackendId::Jev])
+        BackendId::Jev.into()
     }
 }
 
@@ -522,37 +628,59 @@ impl TryFrom<Vec<BackendId>> for BackendSet {
     ///
     /// `CONFIG_INVALID` when the list is empty or repeats a backend.
     fn try_from(ids: Vec<BackendId>) -> Result<Self, Self::Error> {
-        if ids.is_empty() {
-            return Err(JevError::config_invalid(
-                "the backend list is empty; name at least one of jev, anthropic_haiku, or openai_luna",
-            ));
+        Self::try_from(ids.into_iter().map(BackendChoice::from).collect::<Vec<_>>())
+    }
+}
+
+impl TryFrom<Vec<BackendChoice>> for BackendSet {
+    type Error = JevError;
+
+    /// # Errors
+    ///
+    /// `CONFIG_INVALID` when the list is empty or repeats a backend (a
+    /// short name and a model id of the same backend count as a repeat).
+    fn try_from(choices: Vec<BackendChoice>) -> Result<Self, Self::Error> {
+        if choices.is_empty() {
+            let names: Vec<&str> = BACKENDS.iter().map(BackendDescriptor::name).collect();
+            return Err(JevError::config_invalid(format!(
+                "the backend list is empty; name at least one of {}",
+                names.join(", ")
+            )));
         }
         let mut seen = BTreeSet::new();
-        for id in &ids {
-            if !seen.insert(*id) {
+        let mut ids = Vec::with_capacity(choices.len());
+        let mut pins = Vec::new();
+        for choice in choices {
+            if !seen.insert(choice.id) {
                 return Err(JevError::config_invalid(format!(
-                    "backend {id} is listed more than once"
+                    "backend {} is listed more than once",
+                    choice.id
                 )));
             }
+            ids.push(choice.id);
+            if let Some(model) = choice.model {
+                pins.push((choice.id, model));
+            }
         }
-        Ok(Self(ids))
+        Ok(Self { ids, pins })
     }
 }
 
 impl FromStr for BackendSet {
     type Err = JevError;
 
-    /// Parses a comma-separated list (`jev,anthropic_haiku`).
+    /// Parses a comma-separated list (`jev,claude-haiku-5-5`) of
+    /// [`BackendChoice`] entries.
     ///
     /// Surrounding whitespace on each entry is ignored.
     fn from_str(text: &str) -> Result<Self, Self::Err> {
-        let ids = text
+        let choices = text
             .split(',')
             .map(str::trim)
             .filter(|part| !part.is_empty())
             .map(str::parse)
-            .collect::<Result<Vec<BackendId>, JevError>>()?;
-        Self::try_from(ids)
+            .collect::<Result<Vec<BackendChoice>, JevError>>()?;
+        Self::try_from(choices)
     }
 }
 
@@ -1160,14 +1288,8 @@ mod tests {
         for id in BackendKeyId::ALL {
             assert_eq!(id.as_str().parse::<BackendKeyId>().unwrap(), *id);
             assert_eq!(id.to_string().parse::<BackendKeyId>().unwrap(), *id);
-            for alias in id.aliases() {
-                assert_eq!(alias.parse::<BackendKeyId>().unwrap(), *id, "{alias}");
-            }
         }
-        assert_eq!(
-            "open_ai".parse::<BackendKeyId>().unwrap(),
-            BackendKeyId::OpenAi
-        );
+        assert!("open_ai".parse::<BackendKeyId>().is_err());
         assert!("open-ai".parse::<BackendKeyId>().is_err());
     }
 

@@ -58,7 +58,7 @@
       }
     },
     {
-      "backend": "anthropic_haiku",
+      "backend": "haiku",
       "status": "ok",
       "outcome": {
         "answers": {
@@ -66,7 +66,7 @@
             "choice": "yes"
           }
         },
-        "backend": "anthropic_haiku",
+        "backend": "haiku",
         "provider_meta": {
           "commands": 0,
           "input_tokens": 412,
@@ -90,7 +90,7 @@
         }
       },
       {
-        "backend": "anthropic_haiku",
+        "backend": "haiku",
         "attestation": {
           "status": "unattested"
         }

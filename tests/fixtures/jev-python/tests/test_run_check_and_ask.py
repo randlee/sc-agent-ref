@@ -168,7 +168,7 @@ def test_run_check_and_ask_append_jsonl_without_secrets(
     result = run_check_scripted(
         "check.toml",
         scripted_answers={"relevant": "yes"},
-        backends=["anthropic_haiku"],
+        backends=["haiku"],
         dry_run=False,
         repo_root=repo,
         log_dir=log_dir,
@@ -178,13 +178,13 @@ def test_run_check_and_ask_append_jsonl_without_secrets(
     assert result.session.session_id == result.session_id
     assert sentinel in result.payload
     assert SECRET not in result.payload
-    assert result.outcomes[0]["backend"] == "anthropic_haiku"
+    assert result.outcomes[0]["backend"] == "haiku"
     assert result.outcomes[0]["answers"]["relevant"]["choice"] == "yes"
     # r-2b: the scripted backend reports the digest of the bundle it received,
     # so the attestation is "matched" and the derived `equal` is True.
     assert result.equal_input["equal"] is True
     assert result.equal_input["backends"] == [
-        {"backend": "anthropic_haiku", "attestation": {"status": "matched"}}
+        {"backend": "haiku", "attestation": {"status": "matched"}}
     ]
     assert result.equal_input["payload_sha256"] == result.payload_sha256
     lines = _lines(log_dir)
@@ -194,7 +194,7 @@ def test_run_check_and_ask_append_jsonl_without_secrets(
     assert sentinel not in lines[0]
     assert SECRET not in lines[0]
     asked = result.ask("why this choice?")
-    assert asked["backend"] == "anthropic_haiku"
+    assert asked["backend"] == "haiku"
     assert SECRET not in json.dumps(asked)
     lines = _lines(log_dir)
     assert len(lines) == 2
@@ -202,7 +202,7 @@ def test_run_check_and_ask_append_jsonl_without_secrets(
     assert "why this choice?" not in lines[1]
     assert SECRET not in lines[1]
     session_asked = result.session.ask("one more")
-    assert session_asked["backend"] == "anthropic_haiku"
+    assert session_asked["backend"] == "haiku"
     assert len(_lines(log_dir)) == 3
 
 
@@ -228,7 +228,7 @@ def test_session_ids_are_ulids(tmp_path: Path) -> None:
     result = run_check_scripted(
         "check.toml",
         scripted_answers={"relevant": "yes"},
-        backends=["anthropic_haiku"],
+        backends=["haiku"],
         repo_root=repo,
         log_dir=log_dir,
         session_dir=sessions,
@@ -243,7 +243,7 @@ def test_session_ids_are_ulids(tmp_path: Path) -> None:
     assert {row["session_id"] for row in _rows(log_dir)} == {session_id}
     # A UUID-named file (a Phase A session) is not found by any ULID id.
     (sessions / "3f2b8a9e-6c1d-4e7a-9b25-0d4c1a7e5f10.json").write_text("{}", encoding="utf-8")
-    assert result.session.ask("still works")["backend"] == "anthropic_haiku"
+    assert result.session.ask("still works")["backend"] == "haiku"
 
 
 def test_project_kwarg_reaches_log(tmp_path: Path) -> None:
@@ -252,7 +252,7 @@ def test_project_kwarg_reaches_log(tmp_path: Path) -> None:
     result = run_check_scripted(
         "check.toml",
         scripted_answers={"relevant": "yes"},
-        backends=["anthropic_haiku"],
+        backends=["haiku"],
         repo_root=repo,
         log_dir=log_dir,
         session_dir=tmp_path / "sessions",
@@ -280,7 +280,7 @@ def test_project_kwarg_control_char_is_input_invalid(tmp_path: Path) -> None:
             run_check_scripted(
                 "check.toml",
                 scripted_answers={"relevant": "yes"},
-                backends=["anthropic_haiku"],
+                backends=["haiku"],
                 repo_root=repo,
                 log_dir=log_dir,
                 session_dir=tmp_path / "sessions",
@@ -291,7 +291,7 @@ def test_project_kwarg_control_char_is_input_invalid(tmp_path: Path) -> None:
     result = run_check_scripted(
         "check.toml",
         scripted_answers={"relevant": "yes"},
-        backends=["anthropic_haiku"],
+        backends=["haiku"],
         repo_root=repo,
         log_dir=log_dir,
         session_dir=tmp_path / "sessions",

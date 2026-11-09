@@ -15,6 +15,7 @@
 pub mod config;
 pub(crate) mod equal_input;
 pub(crate) mod extract;
+pub mod models_file;
 pub(crate) mod payload;
 pub mod registry;
 pub mod run;

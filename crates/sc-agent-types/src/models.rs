@@ -62,10 +62,25 @@ pub enum ModelId {
     Jev,
     /// `jev-1.13.0`.
     Jev1_13_0,
+    /// `jev-1.14.0`: the version live replies answered.
+    Jev1_14_0,
     /// `claude-haiku-5-5`.
     ClaudeHaiku5_5,
+    /// `claude-sonnet-5-5`. A definition for future agent work; not a
+    /// `--backend` today.
+    ClaudeSonnet5_5,
+    /// `claude-opus-5-5`. A definition; not a `--backend` today.
+    ClaudeOpus5_5,
+    /// `claude-fable-5-1`. A definition; not a `--backend` today.
+    ClaudeFable5_1,
     /// `gpt-6-luna`.
     Gpt6Luna,
+    /// `gpt-6.1-terra`. A definition; not a `--backend` today.
+    Gpt6_1Terra,
+    /// `gpt-6.1-sol`. A definition; not a `--backend` today.
+    Gpt6_1Sol,
+    /// `gpt-6-astra`. A definition; not a `--backend` today.
+    Gpt6Astra,
     /// Any other valid model string; never a known string.
     Other(UnknownModel),
 }
@@ -76,8 +91,15 @@ impl ModelId {
         match text {
             "jev" => Some(Self::Jev),
             "jev-1.13.0" => Some(Self::Jev1_13_0),
+            "jev-1.14.0" => Some(Self::Jev1_14_0),
             "claude-haiku-5-5" => Some(Self::ClaudeHaiku5_5),
+            "claude-sonnet-5-5" => Some(Self::ClaudeSonnet5_5),
+            "claude-opus-5-5" => Some(Self::ClaudeOpus5_5),
+            "claude-fable-5-1" => Some(Self::ClaudeFable5_1),
             "gpt-6-luna" => Some(Self::Gpt6Luna),
+            "gpt-6.1-terra" => Some(Self::Gpt6_1Terra),
+            "gpt-6.1-sol" => Some(Self::Gpt6_1Sol),
+            "gpt-6-astra" => Some(Self::Gpt6Astra),
             _ => None,
         }
     }
@@ -88,8 +110,15 @@ impl ModelId {
         match self {
             Self::Jev => "jev",
             Self::Jev1_13_0 => "jev-1.13.0",
+            Self::Jev1_14_0 => "jev-1.14.0",
             Self::ClaudeHaiku5_5 => "claude-haiku-5-5",
+            Self::ClaudeSonnet5_5 => "claude-sonnet-5-5",
+            Self::ClaudeOpus5_5 => "claude-opus-5-5",
+            Self::ClaudeFable5_1 => "claude-fable-5-1",
             Self::Gpt6Luna => "gpt-6-luna",
+            Self::Gpt6_1Terra => "gpt-6.1-terra",
+            Self::Gpt6_1Sol => "gpt-6.1-sol",
+            Self::Gpt6Astra => "gpt-6-astra",
             Self::Other(unknown) => unknown.as_str(),
         }
     }
@@ -176,6 +205,12 @@ pub struct ModelDescriptor {
 }
 
 impl ModelDescriptor {
+    /// The model string of this row, without parsing it.
+    #[must_use]
+    pub const fn model_str(&self) -> &'static str {
+        self.model
+    }
+
     /// The model of this row.
     ///
     /// # Panics
@@ -195,7 +230,8 @@ impl ModelDescriptor {
         self.family
     }
 
-    /// The alias this row answers to (`"jev"`, `"haiku"`, `"luna"`).
+    /// The alias this row answers to (`"jev"`, `"haiku"`, `"luna"`,
+    /// `"sonnet"`, `"opus"`, `"fable"`, `"terra"`, `"sol"`, `"astra"`).
     #[must_use]
     pub const fn alias(&self) -> &'static str {
         self.alias
@@ -209,42 +245,168 @@ impl ModelDescriptor {
 }
 
 /// The known models. Per alias, the newest `released` row is the default.
+///
+/// Only `jev`, `haiku` and `luna` are selectable as `--backend`; the other
+/// aliases are definitions for future agent work (agt-akp). Models added
+/// after this build go in `~/.sc-agent/models.toml` ([`ModelAliases::with_file_model`]);
+/// a local freshness test tells maintainers when this table is behind
+/// (randlee/sc-agent#48).
 pub static MODELS: &[ModelDescriptor] = &[
-    ModelDescriptor {
-        model: "jev-1.13.0",
-        family: ModelFamily::TypeSafeJev,
-        alias: "jev",
-        released: "2026-06-01",
-    },
-    ModelDescriptor {
-        model: "claude-haiku-5-5",
-        family: ModelFamily::AnthropicClaude,
-        alias: "haiku",
-        released: "2026-09-01",
-    },
-    ModelDescriptor {
-        model: "gpt-6-luna",
-        family: ModelFamily::OpenAiGpt,
-        alias: "luna",
-        released: "2026-08-01",
-    },
+    row("jev-1.13.0", ModelFamily::TypeSafeJev, "jev", "2026-06-01"),
+    row("jev-1.14.0", ModelFamily::TypeSafeJev, "jev", "2026-10-22"),
+    row(
+        "claude-haiku-5-5",
+        ModelFamily::AnthropicClaude,
+        "haiku",
+        "2026-09-01",
+    ),
+    row(
+        "claude-sonnet-5-5",
+        ModelFamily::AnthropicClaude,
+        "sonnet",
+        "2026-09-01",
+    ),
+    row(
+        "claude-opus-5-5",
+        ModelFamily::AnthropicClaude,
+        "opus",
+        "2026-09-01",
+    ),
+    row(
+        "claude-fable-5-1",
+        ModelFamily::AnthropicClaude,
+        "fable",
+        "2026-10-01",
+    ),
+    row("gpt-6-luna", ModelFamily::OpenAiGpt, "luna", "2026-08-01"),
+    row(
+        "gpt-6.1-terra",
+        ModelFamily::OpenAiGpt,
+        "terra",
+        "2026-10-01",
+    ),
+    row("gpt-6.1-sol", ModelFamily::OpenAiGpt, "sol", "2026-10-01"),
+    row("gpt-6-astra", ModelFamily::OpenAiGpt, "astra", "2026-08-01"),
 ];
 
-/// Alias to model lookup: the newest known model per alias, with overrides.
+const fn row(
+    model: &'static str,
+    family: ModelFamily,
+    alias: &'static str,
+    released: &'static str,
+) -> ModelDescriptor {
+    ModelDescriptor {
+        model,
+        family,
+        alias,
+        released,
+    }
+}
+
+/// Where a resolved model came from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[serde(rename_all = "lowercase")]
+#[non_exhaustive]
+pub enum ModelSource {
+    /// The [`MODELS`] table of this build.
+    Crate,
+    /// A `[[model]]` row of `~/.sc-agent/models.toml`.
+    File,
+    /// A `check.toml` `[models]` entry, a `--backend` model pin, or a caller
+    /// override ([`ModelAliases::with_override`]).
+    Override,
+}
+
+impl ModelSource {
+    /// `crate`, `file` or `override`.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Crate => "crate",
+            Self::File => "file",
+            Self::Override => "override",
+        }
+    }
+}
+
+impl fmt::Display for ModelSource {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+/// One alias with the model it resolves to and where that came from.
+///
+/// Serializes as `{"alias","model","source"}` plus `released` (absent for an
+/// override).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ResolvedModel {
+    alias: &'static str,
+    model: ModelId,
+    source: ModelSource,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    released: String,
+}
+
+impl ResolvedModel {
+    /// The alias (`haiku`, `luna`, ...).
+    #[must_use]
+    pub const fn alias(&self) -> &'static str {
+        self.alias
+    }
+
+    /// The model the alias resolves to.
+    #[must_use]
+    pub const fn model(&self) -> &ModelId {
+        &self.model
+    }
+
+    /// Where the model came from.
+    #[must_use]
+    pub const fn source(&self) -> ModelSource {
+        self.source
+    }
+
+    /// Release date `YYYY-MM-DD`; empty for an override.
+    #[must_use]
+    pub fn released(&self) -> &str {
+        &self.released
+    }
+}
+
+/// Alias to model lookup: the newest known model per alias, with the global
+/// file's additions and overrides.
+///
+/// Resolution order, last wins: the newest `released` row across [`MODELS`]
+/// and the models file ([`Self::with_file_model`]); then overrides
+/// ([`Self::with_override`], which `check.toml` `[models]` and a
+/// `--backend` model pin use).
 ///
 /// # Examples
 ///
 /// ```
-/// use sc_agent_types::{ModelAliases, ModelId};
+/// use sc_agent_types::{ModelAliases, ModelId, ModelSource};
 ///
 /// let aliases = ModelAliases::builtin();
 /// assert_eq!(aliases.latest("haiku"), Some(ModelId::ClaudeHaiku5_5));
-/// let pinned = aliases.with_override("haiku", "claude-haiku-9".parse()?)?;
-/// assert_eq!(pinned.latest("haiku").unwrap().as_str(), "claude-haiku-9");
+/// assert_eq!(aliases.source("haiku"), Some(ModelSource::Crate));
+/// let newer = aliases.with_file_model("claude-haiku-9", "haiku", "2027-01-01")?;
+/// assert_eq!(newer.latest("haiku").unwrap().as_str(), "claude-haiku-9");
+/// assert_eq!(newer.source("haiku"), Some(ModelSource::File));
+/// let pinned = newer.with_override("haiku", "claude-haiku-5-5".parse()?)?;
+/// assert_eq!(pinned.latest("haiku"), Some(ModelId::ClaudeHaiku5_5));
+/// assert_eq!(pinned.source("haiku"), Some(ModelSource::Override));
 /// # Ok::<(), sc_agent_types::JevError>(())
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ModelAliases(BTreeMap<&'static str, ModelId>);
+pub struct ModelAliases(BTreeMap<&'static str, Entry>);
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Entry {
+    model: ModelId,
+    source: ModelSource,
+    released: String,
+}
 
 impl ModelAliases {
     /// The newest `MODELS` row per alias.
@@ -262,7 +424,14 @@ impl ModelAliases {
         Self(
             newest
                 .into_iter()
-                .map(|(alias, row)| (alias, row.model()))
+                .map(|(alias, row)| {
+                    let entry = Entry {
+                        model: row.model(),
+                        source: ModelSource::Crate,
+                        released: row.released.to_owned(),
+                    };
+                    (alias, entry)
+                })
                 .collect(),
         )
     }
@@ -270,7 +439,67 @@ impl ModelAliases {
     /// The model `alias` currently names, or `None` for an unknown alias.
     #[must_use]
     pub fn latest(&self, alias: &str) -> Option<ModelId> {
-        self.0.get(alias).cloned()
+        self.0.get(alias).map(|entry| entry.model.clone())
+    }
+
+    /// Where the model `alias` names came from, or `None` for an unknown
+    /// alias.
+    #[must_use]
+    pub fn source(&self, alias: &str) -> Option<ModelSource> {
+        self.0.get(alias).map(|entry| entry.source)
+    }
+
+    /// Every alias with its model and source, sorted by alias.
+    #[must_use]
+    pub fn resolved(&self) -> Vec<ResolvedModel> {
+        self.0
+            .iter()
+            .map(|(alias, entry)| ResolvedModel {
+                alias,
+                model: entry.model.clone(),
+                source: entry.source,
+                released: entry.released.clone(),
+            })
+            .collect()
+    }
+
+    /// Adds one `[[model]]` row of `~/.sc-agent/models.toml`: `alias` names
+    /// `id` when `released` is not older than what the alias has now.
+    ///
+    /// A row only extends an existing alias; it cannot create one, so it
+    /// cannot create a backend. A tie goes to the file. An alias already
+    /// overridden stays overridden.
+    ///
+    /// # Errors
+    ///
+    /// `CONFIG_INVALID` for an unknown alias (the message lists the valid
+    /// ones), an invalid model string, or a `released` that is not a
+    /// `YYYY-MM-DD` date.
+    pub fn with_file_model(
+        mut self,
+        id: &str,
+        alias: &str,
+        released: &str,
+    ) -> Result<Self, JevError> {
+        let model: ModelId = id.parse().map_err(|error: JevError| {
+            JevError::config_invalid(format!("models file: model id {id:?}: {error}"))
+        })?;
+        check_date(released)?;
+        let valid = self.aliases().join(", ");
+        let Some(entry) = self.0.get_mut(alias) else {
+            return Err(JevError::config_invalid(format!(
+                "models file: unknown model alias {alias:?}; valid aliases: {valid}"
+            )));
+        };
+        let newer = entry.source != ModelSource::Override && released >= entry.released.as_str();
+        if newer {
+            *entry = Entry {
+                model,
+                source: ModelSource::File,
+                released: released.to_owned(),
+            };
+        }
+        Ok(self)
     }
 
     /// Makes `alias` name `model`.
@@ -282,7 +511,11 @@ impl ModelAliases {
     pub fn with_override(mut self, alias: &str, model: ModelId) -> Result<Self, JevError> {
         match self.0.get_mut(alias) {
             Some(slot) => {
-                *slot = model;
+                *slot = Entry {
+                    model,
+                    source: ModelSource::Override,
+                    released: String::new(),
+                };
                 Ok(self)
             }
             None => Err(JevError::config_invalid(format!(
@@ -292,9 +525,48 @@ impl ModelAliases {
         }
     }
 
+    /// Applies every override of `top` (an entry whose source is
+    /// [`ModelSource::Override`]) over `self`. `top` is the `check.toml`
+    /// `[models]` layer, built on the catalog; its other entries are
+    /// ignored so the global file's rows are not undone by the catalog.
+    #[must_use]
+    pub fn overlay_overrides(mut self, top: &Self) -> Self {
+        for (alias, entry) in &top.0 {
+            if entry.source == ModelSource::Override {
+                self.0.insert(alias, entry.clone());
+            }
+        }
+        self
+    }
+
     /// The valid aliases, sorted.
     #[must_use]
     pub fn aliases(&self) -> Vec<&'static str> {
         self.0.keys().copied().collect()
+    }
+}
+
+/// `YYYY-MM-DD` with a month 1..=12 and a day 1..=31.
+fn check_date(text: &str) -> Result<(), JevError> {
+    let bytes = text.as_bytes();
+    let digits = |range: std::ops::Range<usize>| {
+        bytes
+            .get(range)
+            .filter(|part| part.iter().all(u8::is_ascii_digit))
+            .and_then(|part| std::str::from_utf8(part).ok())
+            .and_then(|part| part.parse::<u32>().ok())
+    };
+    let ok = bytes.len() == 10
+        && bytes[4] == b'-'
+        && bytes[7] == b'-'
+        && digits(0..4).is_some()
+        && digits(5..7).is_some_and(|month| (1..=12).contains(&month))
+        && digits(8..10).is_some_and(|day| (1..=31).contains(&day));
+    if ok {
+        Ok(())
+    } else {
+        Err(JevError::config_invalid(format!(
+            "models file: released {text:?} is not a YYYY-MM-DD date"
+        )))
     }
 }
