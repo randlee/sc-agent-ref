@@ -234,18 +234,23 @@ assert not errors, errors
 '''
 
 
-@pytest.mark.parametrize("attempt", range(5))
+@pytest.mark.parametrize(
+    ("runs", "attempt"),
+    [(2, n) for n in range(20)] + [(3, n) for n in range(20)] + [(8, n) for n in range(5)],
+)
 def test_returned_runs_are_on_disk_when_the_process_exits_at_once(
-    tmp_path: Path, attempt: int
+    tmp_path: Path, runs: int, attempt: int
 ) -> None:
-    """Eight concurrent runs in a fresh process that exits right after they
-    return: every run's last rows (`session.saved`, `run.done`) are present.
-    Concurrent flushes used to be refused and ignored, losing tail rows."""
+    """Two or three concurrent runs in a fresh process that exits right after
+    they return: every run's last rows (`session.saved`, `run.done`) are
+    present. Concurrent flushes used to be refused and ignored, losing tail
+    rows; two and three threads are where that showed (eight did not), so the
+    small counts are repeated 20 times each. With the flush fix reverted, this
+    test fails (see the commit message)."""
     import subprocess
     import sys
 
-    runs = 8
-    work = tmp_path / f"w{attempt}"
+    work = tmp_path / f"w{runs}-{attempt}"
     work.mkdir()
     done = subprocess.run(
         [sys.executable, "-c", _CHILD, str(work), str(runs)],

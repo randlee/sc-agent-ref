@@ -26,7 +26,9 @@ use sc_jev_host::stream::{
 use serde_json::Value;
 
 use crate::error::{map_err, to_py_err};
+use crate::logging::{self, HostGeneralLog, Injected};
 use crate::run::{base_inputs, non_empty, parse_backends, parse_project, to_py};
+use sc_jev_host::paths::PathPolicy;
 
 /// How long one blocking wait lasts before Python signals are checked.
 const SLICE: Duration = Duration::from_millis(50);
@@ -42,6 +44,7 @@ struct StreamSpec {
     system_prompt_file: Option<PathBuf>,
     chain_context: bool,
     project: Option<String>,
+    loggers: Injected,
     #[cfg(any(test, feature = "test-util"))]
     scripted_answers: Option<Value>,
 }
@@ -58,6 +61,7 @@ impl StreamSpec {
         system_prompt_file: Option<PathBuf>,
         chain_context: bool,
         project: Option<String>,
+        loggers: Injected,
     ) -> Result<Self, JevError> {
         Ok(Self {
             concurrency: Concurrency::new(concurrency)?,
@@ -69,12 +73,17 @@ impl StreamSpec {
             system_prompt_file: non_empty(system_prompt_file),
             chain_context,
             project,
+            loggers,
             #[cfg(any(test, feature = "test-util"))]
             scripted_answers: None,
         })
     }
 
-    fn start(self) -> Result<HostStream, JevError> {
+    /// Starts the stream. The general log is the caller's, else the shared
+    /// host logger at this log root (the one `run_check` and
+    /// `sc_observability.get_host_logger()` use, so one file has one writer);
+    /// the host logger is returned so the caller flushes it on every exit.
+    fn start(self) -> Result<(HostStream, Option<Arc<HostGeneralLog>>), JevError> {
         let mut inputs = base_inputs(self.repo_root.as_deref(), self.log_dir, self.session_dir)?
             .mode(if self.chain_context {
                 sc_decision_schema::MultiBackendMode::ChainContext
@@ -97,8 +106,24 @@ impl StreamSpec {
         if let Some(answers) = self.scripted_answers {
             inputs = inputs.registry(crate::run::scripted_registry(answers)?);
         }
+        if let Some(log) = self.loggers.session.clone() {
+            inputs = inputs.session_log(log);
+        }
         let resolved = inputs.resolve()?;
-        HostStream::start(inputs.repo_root(resolved.repo_root), self.concurrency)
+        let mut host = None;
+        match self.loggers.general.clone() {
+            Some(log) => inputs = inputs.general_log(log),
+            None => {
+                // A default that cannot start leaves the sc-jev-host default.
+                if let Ok(opened) = HostGeneralLog::open(&PathPolicy::python(), &resolved.log_root)
+                {
+                    inputs = inputs.general_log(opened.shared());
+                    host = Some(Arc::new(opened));
+                }
+            }
+        }
+        let stream = HostStream::start(inputs.repo_root(resolved.repo_root), self.concurrency)?;
+        Ok((stream, host))
     }
 }
 
@@ -139,6 +164,8 @@ fn answer_dict(py: Python<'_>, answer: &sc_jev_host::stream::StreamAnswer) -> Py
 #[pyclass(module = "sc_jev_py", name = "DecisionStream", frozen)]
 pub(crate) struct DecisionStream {
     inner: Arc<HostStream>,
+    /// The shared host logger, flushed on every way out of the stream.
+    host: Option<Arc<HostGeneralLog>>,
 }
 
 #[pymethods]
@@ -148,7 +175,11 @@ impl DecisionStream {
     /// `concurrency` is the number of worker threads, 1 to 64 (default 8; the
     /// default was exercised against scripted and loopback backends only,
     /// never a live provider). Other arguments are as `run_check`; `backends`,
-    /// when given, wins over a request's own `backends`.
+    /// when given, wins over a request's own `backends`. `session_log=` and
+    /// `general_log=` are callables taking one dict, as in `run_check`; unset,
+    /// the general log is the shared host logger (so
+    /// `sc_observability.get_host_logger()` shares its writer) and the session
+    /// log is the default under the log root.
     #[new]
     #[pyo3(signature = (
         *,
@@ -161,6 +192,8 @@ impl DecisionStream {
         system_prompt_file=None,
         chain_context=false,
         project=None,
+        session_log=None,
+        general_log=None,
     ))]
     #[expect(clippy::too_many_arguments, reason = "Python keyword API")]
     fn new(
@@ -174,7 +207,10 @@ impl DecisionStream {
         system_prompt_file: Option<PathBuf>,
         chain_context: bool,
         project: Option<String>,
+        session_log: Option<Py<PyAny>>,
+        general_log: Option<Py<PyAny>>,
     ) -> PyResult<Self> {
+        let loggers = map_err(py, logging::injected(session_log, general_log, py))?;
         let spec = map_err(
             py,
             StreamSpec::new(
@@ -187,6 +223,7 @@ impl DecisionStream {
                 system_prompt_file,
                 chain_context,
                 project,
+                loggers,
             ),
         )?;
         Self::from_spec(py, spec)
@@ -271,11 +308,16 @@ impl DecisionStream {
         self.inner.close_input();
     }
 
-    /// Stops new work and cancels the engine's token. Requests still queued
+    /// Stops new work and cancels the engine's token. It also cuts the wait
+    /// for room in a full general-log queue to 250 ms per row (then the row is
+    /// counted as dropped), so a stuck log file cannot hold `finish()`. Requests still queued
     /// are answered with a `NETWORK_ERROR` ("cancelled") line; a request
     /// already sent is not interrupted. Further `submit` calls raise.
     fn cancel(&self) {
         self.inner.cancel();
+        if let Some(host) = &self.host {
+            host.cancel();
+        }
     }
 
     /// Requests accepted whose answer was not yet returned.
@@ -306,7 +348,13 @@ impl DecisionStream {
             }
         }
         let stream = Arc::clone(&self.inner);
-        summary_dict(py, &py.detach(move || stream.finish()))
+        let host = self.host.clone();
+        let (summary, dropped) = py.detach(move || {
+            let summary = stream.finish();
+            let dropped = flush_host(host.as_deref());
+            (summary, dropped)
+        });
+        summary_dict(py, &summary, dropped)
     }
 
     fn __enter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
@@ -314,14 +362,31 @@ impl DecisionStream {
     }
 
     /// Leaving the block cancels the stream and drops unread answers.
+    ///
+    /// Waits at most 2 s for the workers (`ABANDON_WAIT`), then writes
+    /// `stream.end` and flushes both logs, so the rows of every request that
+    /// finished are on disk when the process exits at once.
     #[pyo3(signature = (*_exc))]
-    fn __exit__(&self, _exc: &Bound<'_, pyo3::types::PyTuple>) {
-        self.inner.cancel();
-        self.inner.abandon();
+    fn __exit__(&self, py: Python<'_>, _exc: &Bound<'_, pyo3::types::PyTuple>) {
+        self.leave(py);
     }
 }
 
 impl DecisionStream {
+    /// Cancels, abandons (bounded) and flushes, with the GIL released so a
+    /// worker that needs it for a Python logger can finish.
+    fn leave(&self, py: Python<'_>) {
+        if let Some(host) = &self.host {
+            host.cancel();
+        }
+        let stream = Arc::clone(&self.inner);
+        let host = self.host.clone();
+        py.detach(move || {
+            stream.abandon();
+            let _ = flush_host(host.as_deref());
+        });
+    }
+
     /// Retries `try_queue` in slices until it is accepted, the stream is
     /// closed, or `timeout` passes, checking for Python signals between.
     fn queue(
@@ -349,24 +414,34 @@ impl DecisionStream {
 
     fn from_spec(py: Python<'_>, spec: StreamSpec) -> PyResult<Self> {
         let started = py.detach(move || spec.start());
+        let (stream, host) = map_err(py, started)?;
         Ok(Self {
-            inner: Arc::new(map_err(py, started)?),
+            inner: Arc::new(stream),
+            host,
         })
     }
 }
 
 impl Drop for DecisionStream {
     fn drop(&mut self) {
-        self.inner.abandon();
+        Python::attach(|py| self.leave(py));
     }
 }
 
-fn summary_dict(py: Python<'_>, summary: &StreamSummary) -> PyResult<Py<PyAny>> {
+/// Flushes the shared host logger; returns the rows it had to give up on.
+fn flush_host(host: Option<&HostGeneralLog>) -> u64 {
+    host.map_or(0, HostGeneralLog::flush)
+}
+
+fn summary_dict(py: Python<'_>, summary: &StreamSummary, dropped: u64) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     dict.set_item("answered", summary.answered())?;
     dict.set_item("failed", summary.failed())?;
     dict.set_item("exit_code", summary.exit_code())?;
     dict.set_item("log_flush_warning", summary.log_flush_warning())?;
+    // General-log rows given up on after the bounded wait (0 when none); the
+    // same count is a Warn row `general_log.rows_dropped`.
+    dict.set_item("general_log_rows_dropped", dropped)?;
     Ok(dict.into_any().unbind())
 }
 
@@ -429,6 +504,8 @@ fn remaining(deadline: Option<Instant>, slice: Duration) -> Duration {
     system_prompt_file=None,
     chain_context=false,
     project=None,
+    session_log=None,
+    general_log=None,
 ))]
 #[expect(clippy::too_many_arguments, reason = "Python keyword API")]
 pub(crate) fn run_many(
@@ -443,7 +520,10 @@ pub(crate) fn run_many(
     system_prompt_file: Option<PathBuf>,
     chain_context: bool,
     project: Option<String>,
+    session_log: Option<Py<PyAny>>,
+    general_log: Option<Py<PyAny>>,
 ) -> PyResult<(Vec<Py<PyAny>>, Py<PyAny>)> {
+    let loggers = map_err(py, logging::injected(session_log, general_log, py))?;
     let spec = map_err(
         py,
         StreamSpec::new(
@@ -456,6 +536,7 @@ pub(crate) fn run_many(
             system_prompt_file,
             chain_context,
             project,
+            loggers,
         ),
     )?;
     run_batch(py, spec, requests)
@@ -484,19 +565,37 @@ fn run_batch(
     // Validate everything before a stream, a log or a send exists.
     let batch = validated(py, requests)?;
     let started = py.detach(move || spec.start());
-    let stream = Arc::new(map_err(py, started)?);
-    // Dropping `batch` on any early exit (`?`, Ctrl-C) cancels the stream.
-    let batch = Batch::start(stream, batch);
+    let (stream, host) = map_err(py, started)?;
+    let batch = Batch::start(Arc::new(stream), batch);
     let mut answers = Vec::new();
-    loop {
-        match py.detach(|| batch.next_within(SLICE)) {
-            Poll::Answer(answer) => answers.push(answer_dict(py, &answer)?),
-            Poll::Pending => py.check_signals()?,
-            Poll::Finished => break,
+    let polled = (|| -> PyResult<()> {
+        loop {
+            match py.detach(|| batch.next_within(SLICE)) {
+                Poll::Answer(answer) => answers.push(answer_dict(py, &answer)?),
+                Poll::Pending => py.check_signals()?,
+                Poll::Finished => return Ok(()),
+            }
         }
+    })();
+    if let Err(error) = polled {
+        if let Some(host) = &host {
+            host.cancel();
+        }
+        // Ctrl-C or a failure: cancel and abandon (bounded to 2 s, GIL
+        // released), which writes `stream.end` and flushes the session log;
+        // then flush the shared host logger.
+        py.detach(move || {
+            drop(batch);
+            let _ = flush_host(host.as_deref());
+        });
+        return Err(error);
     }
-    let summary = py.detach(move || batch.finish());
-    Ok((answers, summary_dict(py, &summary)?))
+    let (summary, dropped) = py.detach(move || {
+        let summary = batch.finish();
+        let dropped = flush_host(host.as_deref());
+        (summary, dropped)
+    });
+    Ok((answers, summary_dict(py, &summary, dropped)?))
 }
 
 /// Test-only entry points, registered in `sc_jev_py._testing`.
@@ -516,7 +615,10 @@ pub(crate) mod testing {
         repo_root=None,
         log_dir=None,
         session_dir=None,
+        session_log=None,
+        general_log=None,
     ))]
+    #[expect(clippy::too_many_arguments, reason = "Python keyword API")]
     pub(crate) fn decision_stream_scripted(
         py: Python<'_>,
         scripted_answers: Bound<'_, PyAny>,
@@ -525,7 +627,10 @@ pub(crate) mod testing {
         repo_root: Option<PathBuf>,
         log_dir: Option<PathBuf>,
         session_dir: Option<PathBuf>,
+        session_log: Option<Py<PyAny>>,
+        general_log: Option<Py<PyAny>>,
     ) -> PyResult<DecisionStream> {
+        let loggers = map_err(py, logging::injected(session_log, general_log, py))?;
         let answers = map_err(py, py_to_value(&scripted_answers))?;
         let mut spec = map_err(
             py,
@@ -539,6 +644,7 @@ pub(crate) mod testing {
                 None,
                 false,
                 None,
+                loggers,
             ),
         )?;
         spec.scripted_answers = Some(answers);
@@ -556,6 +662,8 @@ pub(crate) mod testing {
         repo_root=None,
         log_dir=None,
         session_dir=None,
+        session_log=None,
+        general_log=None,
     ))]
     #[expect(clippy::too_many_arguments, reason = "Python keyword API")]
     pub(crate) fn run_many_scripted(
@@ -567,7 +675,10 @@ pub(crate) mod testing {
         repo_root: Option<PathBuf>,
         log_dir: Option<PathBuf>,
         session_dir: Option<PathBuf>,
+        session_log: Option<Py<PyAny>>,
+        general_log: Option<Py<PyAny>>,
     ) -> PyResult<(Vec<Py<PyAny>>, Py<PyAny>)> {
+        let loggers = map_err(py, logging::injected(session_log, general_log, py))?;
         let answers = map_err(py, py_to_value(&scripted_answers))?;
         let mut spec = map_err(
             py,
@@ -581,6 +692,7 @@ pub(crate) mod testing {
                 None,
                 false,
                 None,
+                loggers,
             ),
         )?;
         spec.scripted_answers = Some(answers);

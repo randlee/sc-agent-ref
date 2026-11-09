@@ -980,3 +980,105 @@ fn injected_logs_replace_the_defaults() {
         "an injected pair opens no default log file"
     );
 }
+
+fn general_actions(repo: &TempDir) -> Vec<String> {
+    let path = repo.path().join(".sc-ai/logs/sc-ai-general.log.jsonl");
+    std::fs::read_to_string(path)
+        .unwrap_or_default()
+        .lines()
+        .map(|row| {
+            let row: Value = serde_json::from_str(row).expect("whole row");
+            row["action"].as_str().unwrap_or_default().to_owned()
+        })
+        .collect()
+}
+
+/// A repeated `finish` returns the summary again and writes one `stream.end`.
+#[test]
+fn a_repeated_finish_logs_stream_end_once() {
+    let repo = tempfile::tempdir().expect("repo");
+    let stream = start(
+        &repo,
+        registry(vec![HeldJudge::new(BackendId::Jev, Hold::None)]),
+        2,
+    );
+    stream.submit_request(req("a"), None).expect("submit");
+    let first = bounded("first finish", {
+        let stream = Arc::clone(&stream);
+        move || stream.finish()
+    });
+    let second = bounded("second finish", {
+        let stream = Arc::clone(&stream);
+        move || stream.finish()
+    });
+    assert_eq!(first.answered(), second.answered());
+    let ends = general_actions(&repo)
+        .iter()
+        .filter(|action| *action == "stream.end")
+        .count();
+    assert_eq!(ends, 1);
+}
+
+/// Every way out that is not `finish` still logs `stream.end` and flushes the
+/// session log: `abandon` (a `with` exit, an interrupted batch) and a plain
+/// drop. The rows are on disk when the call returns.
+#[test]
+fn abandon_and_drop_log_stream_end_and_flush() {
+    for by_drop in [false, true] {
+        let repo = tempfile::tempdir().expect("repo");
+        let stream = start(
+            &repo,
+            registry(vec![HeldJudge::new(BackendId::Jev, Hold::None)]),
+            4,
+        );
+        for index in 0..12 {
+            stream
+                .submit_request(req(&format!("x{index}")), Some(FAILSAFE))
+                .expect("submit");
+        }
+        if by_drop {
+            let stream = Arc::into_inner(stream).expect("sole owner");
+            bounded("drop", move || drop(stream));
+        } else {
+            bounded("abandon", {
+                let stream = Arc::clone(&stream);
+                move || stream.abandon()
+            });
+        }
+        let actions = general_actions(&repo);
+        assert!(
+            actions.contains(&"stream.end".to_owned()),
+            "by_drop={by_drop}: {actions:?}"
+        );
+        assert!(
+            actions.contains(&"session_log.flushed".to_owned()),
+            "by_drop={by_drop}: {actions:?}"
+        );
+        // Whatever the session log holds is whole rows.
+        let session = std::fs::read_to_string(repo.path().join(".sc-ai/logs/sc-ai.log.jsonl"))
+            .unwrap_or_default();
+        for row in session.lines() {
+            serde_json::from_str::<Value>(row).expect("whole session row");
+        }
+    }
+}
+
+/// A leading UTF-8 byte order mark is not part of the first line.
+#[test]
+fn a_leading_byte_order_mark_is_stripped() {
+    let repo = tempfile::tempdir().expect("repo");
+    let stream = start(
+        &repo,
+        registry(vec![HeldJudge::new(BackendId::Jev, Hold::None)]),
+        1,
+    );
+    let input = format!("\u{feff}{}\n{}\n", line("bom-1"), line("bom-2"));
+    let out = SharedOut::default();
+    let summary = serve(
+        &stream,
+        std::io::Cursor::new(input.into_bytes()),
+        out.clone(),
+    )
+    .expect("serve");
+    assert_eq!((summary.answered(), summary.failed()), (2, 0));
+}

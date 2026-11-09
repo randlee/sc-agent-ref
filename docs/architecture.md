@@ -776,6 +776,19 @@ in `sc-jev-backends` against documented REST endpoints. **HTTP timeouts:** conne
 REQ-SAG-0505. *Superseded in part by the r-3 amendment below:* timeouts are
 configured on the injected `UreqTransport`, not on a backend builder.
 
+### Amendment (agt-1aq, stream cancel)
+
+- (Active) **The judge request's `CancelToken` governs the send.** A cancel
+  set on `JudgeRequest::cancel()` (the `RunConfig::cancel` token, and a
+  stream's own) ends a busy-retry wait within the 100 ms wait slice and stops
+  any further send, the same as the client's own token; either one cancelling
+  is enough. `HttpClient::send_and_parse_for` takes the request's token and
+  `JevClient` and the LLM backends pass it. A request already on the wire is
+  not interrupted. Proof: `sc-ai` `stream_cancel_ends_a_real_busy_wait_and_sends_nothing_more`
+  (a real `Retry-After: 30` wait over loopback HTTP). `UreqTransport` keeps up to
+  64 idle connections per host (one constant), so a stream at its maximum
+  concurrency reuses connections.
+
 ### Amendment (Phase A.1, r-3)
 
 **Status:** Active (Phase A.1) — landed in r-3. Numbers decided by the
@@ -1022,7 +1035,7 @@ needs to see what happened.
   `operation.failed`) carries the fixed `stage` name, the `backend` and
   `session_id` when known, `duration_ms` and the typed `error_code`. A stage
   is a fixed string, never provider or prompt text.
-- (Active, 2026-11-09) **Durability.** When `run_check` returns, its default general-log rows are on disk, including with several threads: the runtime allows one flush at a time and refuses a second, so the wheel serializes its flushes and retries a refusal (a failed flush is a Warn row `general_log.flush_failed`). A fresh-process test with eight concurrent runs that exits at once checks it. The wheel job also builds on macOS; `.cargo/config.toml` sets `-undefined dynamic_lookup` for both darwin targets.
+- (Active, 2026-11-09) **Durability.** When `run_check` returns, its default general-log rows are on disk, including with several threads: the runtime allows one flush at a time and refuses a second, so the wheel serializes its flushes and retries a refusal (a failed flush is a Warn row `general_log.flush_failed`). A fresh-process test that exits at once checks it with two and three concurrent runs (20 repeats each, where the loss showed) and eight (5 repeats). The wheel job also builds on macOS. `.cargo/config.toml` sets `-undefined dynamic_lookup` for both darwin targets because maturin 1.9.4 (what the kit's release workflows install, inside the allowed `>=1.8,<2`) does not link `sc-observability-py`'s cdylib without it; maturin 1.16 does, so no kit repin is needed. The flag applies to every darwin build, `sc-ai` included, where a missing symbol would link and then crash at run time. CI job `darwin-link` closes that gap: `.github/scripts/check-undefined-symbols.sh` fails if `nm -um` lists any `(dynamically looked up)` symbol in the release `sc-ai` or `sc-treesitter`, and its `--self-test` proves it fails a binary with a missing extern.
 - (Active, 2026-11-09) **Failures before the run.** Root discovery in
   `prepare_from` and `ask_from`, and in `sc-ai` the repo root, `--request-json`
   and the check source, log `operation.failed` by typed id
@@ -2439,7 +2452,11 @@ queries, so callers do not spawn a process per query.
   cancelling is only through the stream), so a busy-retry wait ends within
   100 ms, and answers each request still queued with a `NETWORK_ERROR` "cancelled" line.
   A request already sent is not interrupted. The CLI cancels on a write
-  failure; it installs no signal handler (SIGINT ends the process, as for
+  failure, which it sees **at the next write**: a closed reader (`| head -1`)
+  is not noticed while nothing finishes, so when every worker is in a long
+  `Retry-After` wait the process keeps going until an answer is written or the
+  retry budget (about 90 s) ends (a possible later improvement, bead
+  agt-8e2); it installs no signal handler (SIGINT ends the process, as for
   `jev run`).
 - (Active) **Logging.** All workers share one session logger (one writer;
   concurrent writing is `sc-observability`'s) and one general logger. An
@@ -2454,6 +2471,26 @@ queries, so callers do not spawn a process per query.
   `.backend_failed` (backend id and `error_code`) are the rows. Never a prompt,
   a question, state or a secret; a request id is caller text, so it must
   carry no secret. All of it goes through `stream/log.rs`.
+- (Active) **Python general-log rows are not dropped at full rate.** The
+  shared host logger admits a row without blocking and the runtime's queue is
+  bounded, so a stream at full rate used to lose about 80% of its rows with no
+  warning. `HostGeneralLog::log` now waits out a full queue (pauses of 200 µs,
+  at most 10 s per row, on threads that hold no GIL); `run_check` shares the same
+  path. The pause doubles from 200 µs to 20 ms, so a stuck writer is not polled hard. `cancel()` (and a `with` exit or an interrupted `run_many`) cuts the wait to 250 ms per row, then the row is counted (so the tail rows `stream.end` and the session flush row survive an interrupt on a healthy disk). With a log file that nobody reads, `cancel()` then `finish()` returns in about 8 s instead of 18 to 19 s. A row still refused after the bound is counted, reported as a Warn row
+  `general_log.rows_dropped` at flush, and returned as
+  `general_log_rows_dropped` in the Python `finish()` and `run_many` summary.
+  3,000 requests at concurrency 16 on scripted backends: 30,005 of 30,005 rows
+  in about 1.5 s (before: 6,659 rows in 0.4 s). The CLI path was never affected.
+- (Active) **Leaving a stream flushes, within a bound.** Every way out
+  other than `finish` (`abandon`, a drop, a Python `with` exit, an interrupted
+  `run_many`, `Batch` drop) cancels, waits at most **2 s** (`ABANDON_WAIT`) for
+  the workers, then writes `stream.end` and flushes the default session and
+  general logs, once (a repeated `finish` writes no second `stream.end`). A
+  request still on the wire after the bound can lose its rows; no exit waits
+  longer than the bound. Python `DecisionStream` and `run_many` take
+  `session_log=` and `general_log=` like `run_check` and default to the shared
+  host logger, flushed on every exit, so `get_host_logger()` shares its writer.
+  A leading UTF-8 byte order mark on the input is ignored.
 - (Active) **Lifecycle edges.** `finish` closes the input and drops unread
   answers instead of waiting for a reader, so it never hangs on them. An
   unread answer holds capacity: a caller that submits more than `capacity`

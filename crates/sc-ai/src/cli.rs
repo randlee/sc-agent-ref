@@ -60,7 +60,11 @@ succeeded; read it even when ok is false) and error (the first failure). A
 failed request (a bad line, a failed backend) is an error on its own line and
 the stream continues. id is null only when no usable id could be read from the
 line; otherwise it is echoed, even if the rest of the line is invalid.
---concurrency N (1 to 64, default 8) sets the worker threads; the queue is bounded, so a slow reader slows the input. The
+--concurrency N (1 to 64, default 8) sets the worker threads; the queue is bounded, so a slow reader slows the input.
+A closed output pipe (for example | head -1) is noticed at the next write, so
+when nothing finishes for a long time (every worker in a long Retry-After
+wait) the process keeps going until an answer is written or the retry budget
+(about 90 s) ends; then it cancels the rest. The
 stream ends when the input is closed, the queue is empty and the workers are
 idle. Exit 0 when no request failed; else 3 if every failure is retryable, else
 2. Per-request errors go on stdout lines, not stderr. Ids are not checked for
@@ -375,7 +379,7 @@ fn stream_registry(
         &backends,
         &sc_agent_types::RepoRoot::new(root),
         port,
-        1,
+        3,
     )
     .map(|registry| Some(std::sync::Arc::new(registry)))
 }
@@ -649,6 +653,8 @@ mod tests {
             "the stream continues",
             "--concurrency N (1 to 64, default 8)",
             "the queue is bounded",
+            "A closed output pipe (for example | head -1) is noticed at the next write",
+            "the process keeps going until an answer is written or the retry budget",
             "the input is closed, the queue is empty and the workers are",
             "Exit 0 when no request failed; else 3 if every failure is retryable, else",
             "Ids are not checked for",

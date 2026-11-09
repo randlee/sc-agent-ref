@@ -71,6 +71,11 @@ First release. Channels once published: crates.io (ten crates), PyPI
 - A Rust/Python cross-implementation fixture for the canonical judge payload
   bytes (`tests/fixtures/README.md`).
 
+- Streams: a cancel reaches a real busy-retry wait (the judge request's token
+  governs the send), leaving a stream flushes its logs within 2 s, Python
+  streams take `session_log=` and `general_log=`, `UreqTransport` keeps 64 idle
+  connections per host, and a leading byte order mark on the input is ignored.
+
 ### Changed (public API shape before the first release)
 
 - `pyo3` is pinned `=0.29.2` (the version the embedded `sc-observability`

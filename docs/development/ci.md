@@ -22,6 +22,7 @@ retries; bounded cargo network-fetch retries only (`CARGO_NET_RETRY=2`).
 | --- | --- | --- |
 | `test` | ubuntu-24.04, macos-15, windows-2022 | `just setup` and `just lint` (ubuntu-24.04 only), then on every OS `cargo clippy --workspace --all-targets --all-features -- -D warnings` and `cargo test --workspace` |
 | `python` | ubuntu-24.04, macos-15, windows-2022 | `just test-python` |
+| `darwin-link` | macos-14 | `bash .github/scripts/check-undefined-symbols.sh --self-test`, then `cargo build --release -p sc-ai -p sc-treesitter --features sc-treesitter/cli` and `bash .github/scripts/check-undefined-symbols.sh` (macOS only: no release binary has a symbol left to run-time lookup) |
 | `features` | ubuntu-24.04 | `cargo hack --each-feature test -p sc-treesitter` |
 | `doc` | ubuntu-24.04 | `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps` |
 | `coverage` | ubuntu-24.04 | `cargo llvm-cov --workspace --no-report`, then `cargo llvm-cov --no-report -p sc-ai --features cli,test-util`, then `cargo llvm-cov report` |

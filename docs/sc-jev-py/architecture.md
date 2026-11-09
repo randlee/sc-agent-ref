@@ -21,8 +21,23 @@ thread, drop guard) lives in the host. `run_many` returns `(answers, summary)`
 and validates every `RequestId` and body before a stream starts;
 `DecisionStream.submit_line` takes the CLI's JSONL line form; `finish()` closes
 the input and drops unread answers instead of hanging. An unread answer holds
-capacity, so a single thread must read concurrently or submit with `timeout=`. Answers are the CLI's output lines as
-dicts (`{"id", "ok", "envelope"?, "error"?}`). Every blocking call runs under
+capacity, so a single thread must read concurrently or submit with `timeout=`.
+`timeout` is validated once at the boundary (NaN or negative is `INPUT_INVALID`
+naming `timeout`; `inf` or a value too large to represent is no deadline).
+
+**Loggers.** `DecisionStream` and `run_many` take `session_log=` and
+`general_log=` like `run_check`. Unset, the general log is the shared host
+logger (`HostGeneralLog`, the one `run_check` and
+`sc_observability.get_host_logger()` use, so one file has one writer), flushed
+on every way out. Every way out of a stream (`finish`, a `with` exit, a drop,
+an interrupted `run_many`) logs `stream.end` and flushes both default logs;
+all but `finish` wait at most 2 s for workers first (`ABANDON_WAIT`), with the
+GIL released. A repeated `finish` writes one `stream.end`. The shared host logger admits a
+row without blocking, so `HostGeneralLog::log` waits out a full runtime queue
+(at most 10 s per row, no GIL held) instead of dropping; a row refused after the
+bound is counted and reported (Warn row `general_log.rows_dropped`, and
+`general_log_rows_dropped` in the `finish()`/`run_many` summary). Answers are the
+CLI's output lines as dicts (`{"id", "ok", "envelope"?, "error"?}`). Every blocking call runs under
 `py.detach` in 50 ms slices with a signal check, so the GIL is released while
 workers run and `Ctrl-C` raises `KeyboardInterrupt`. A failed request is an
 answer, never an exception. The test-util entry points are

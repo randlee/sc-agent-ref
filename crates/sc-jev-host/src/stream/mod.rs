@@ -71,6 +71,7 @@ mod pool;
 
 use std::collections::HashMap;
 use std::io::{BufRead, Write};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
@@ -93,6 +94,10 @@ use pool::{Popped, PushError, Skipped, WorkerPool};
 
 /// Longest request id, in bytes.
 pub const MAX_ID_BYTES: usize = 256;
+
+/// Longest [`DecisionStream::abandon`] (and so a drop or a `with` exit) waits
+/// for workers before it logs `stream.end` and flushes.
+pub const ABANDON_WAIT: Duration = Duration::from_secs(2);
 
 /// Longest input line, in bytes. A request is capped near 96 KB per backend,
 /// so this is generous; it bounds memory for a hostile or broken producer.
@@ -354,6 +359,8 @@ pub struct DecisionStream {
     logs: Logs,
     tally: Mutex<Tally>,
     log: Arc<StreamLog>,
+    /// Set once `stream.end` was logged and the logs were flushed.
+    ended: AtomicBool,
 }
 
 impl std::fmt::Debug for DecisionStream {
@@ -434,6 +441,7 @@ impl DecisionStream {
                 all_retryable: true,
             }),
             log,
+            ended: AtomicBool::new(false),
         })
     }
 
@@ -548,11 +556,8 @@ impl DecisionStream {
         self.close_input();
         while self.next_answer().is_some() {}
         self.pool.join();
+        let log_flush_warning = self.end();
         let tally = self.tally.lock().unwrap_or_else(PoisonError::into_inner);
-        self.log
-            .queue_finished(tally.answered, tally.failed, self.pool.alive());
-        let log_flush_warning = self.logs.finish_session();
-        self.logs.finish_general();
         StreamSummary {
             answered: tally.answered,
             failed: tally.failed,
@@ -561,10 +566,47 @@ impl DecisionStream {
         }
     }
 
+    /// Logs `stream.end` and flushes the default logs, once: a second call
+    /// (a repeated `finish`, or `abandon` after `finish`) writes nothing.
+    /// Returns the session-log flush warning of the first call.
+    fn end(&self) -> Option<String> {
+        if self.ended.swap(true, Ordering::AcqRel) {
+            return None;
+        }
+        let tally = self.tally.lock().unwrap_or_else(PoisonError::into_inner);
+        self.log
+            .queue_finished(tally.answered, tally.failed, self.pool.alive());
+        drop(tally);
+        let warning = self.logs.finish_session();
+        self.logs.finish_general();
+        warning
+    }
+
     /// Stops everything and drops unreturned answers, for a caller that is
-    /// leaving. Does not wait for in-flight requests.
+    /// leaving (`with` exit, a drop, an interrupted batch).
+    ///
+    /// It cancels, waits at most [`ABANDON_WAIT`] (2 s) for the workers to
+    /// stop (a busy wait ends within 100 ms; a request already on the wire
+    /// cannot be interrupted and is left behind when the bound passes), then
+    /// logs `stream.end` and flushes the default session and general logs, so
+    /// the rows of every request that finished are on disk when the process
+    /// exits. Rows of a request still on the wire after the bound can be
+    /// lost. Safe to call more than once; only the first writes `stream.end`.
     pub fn abandon(&self) {
         self.pool.abandon();
+        let deadline = std::time::Instant::now() + ABANDON_WAIT;
+        while self.pool.alive() > 0 && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        let _ = self.end();
+    }
+}
+
+impl Drop for DecisionStream {
+    fn drop(&mut self) {
+        if !self.ended.load(Ordering::Acquire) {
+            self.abandon();
+        }
     }
 }
 
@@ -713,6 +755,7 @@ where
 /// stream refuses work.
 fn feed<R: BufRead>(stream: &DecisionStream, mut input: R) -> Result<(), JevError> {
     let mut buffer = Vec::new();
+    let mut first = true;
     loop {
         let read = read_line_bounded(&mut input, MAX_LINE_BYTES, &mut buffer)
             .map_err(|error| JevError::io_failed("stream input", &error))?;
@@ -723,6 +766,12 @@ fn feed<R: BufRead>(stream: &DecisionStream, mut input: R) -> Result<(), JevErro
             ))),
             LineRead::Line => match std::str::from_utf8(&buffer) {
                 Ok(text) => {
+                    // A UTF-8 byte order mark can only start the input.
+                    let text = if std::mem::take(&mut first) {
+                        text.strip_prefix('\u{feff}').unwrap_or(text)
+                    } else {
+                        text
+                    };
                     let text = text.trim_end_matches(['\n', '\r']);
                     if text.trim().is_empty() {
                         continue;

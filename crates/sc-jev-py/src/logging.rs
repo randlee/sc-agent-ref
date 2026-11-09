@@ -41,7 +41,7 @@
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 use std::time::Duration;
 
@@ -57,7 +57,7 @@ use sc_jev_host::paths::PathPolicy;
 use sc_observability_binding_runtime::{
     CoreLoggerBackend, CoreLoggerOwner, HostLoggingBackend, ProducerOrigin, create_core_backend,
 };
-use sc_observability_dto::LogEventDto;
+use sc_observability_dto::{Failure, LogEventDto};
 use serde_json::{Value, json};
 
 /// The module name the `sc_observability` Python package imports.
@@ -65,6 +65,27 @@ const NATIVE_NAME: &str = "sc_observability._native";
 
 /// How long a flush waits for the writer, per run.
 const FLUSH_WAIT: Duration = Duration::from_secs(5);
+
+/// Longest one row waits for room in the runtime's bounded queue. The queue
+/// admits without blocking and refuses when full, and a stream at full rate
+/// fills it; a full queue is waited out (the writer drains it in
+/// microseconds on Linux and macOS, much slower on a slow Windows disk) instead of
+/// dropping the row. A row still refused after this
+/// is counted and reported, never lost silently.
+const LOG_WAIT: Duration = Duration::from_secs(10);
+
+/// Longest one row waits for room once its stream is cancelled. A healthy
+/// writer still frees room in this time, so the tail rows (`stream.end`, the
+/// session flush row) survive an interrupt; a stuck one costs each worker this
+/// much once instead of [`LOG_WAIT`] per row.
+const CANCELLED_WAIT: Duration = Duration::from_millis(250);
+
+/// First pause between attempts while the queue is full; it doubles up to
+/// [`LOG_RETRY_PAUSE_MAX`].
+const LOG_RETRY_PAUSE_MIN: Duration = Duration::from_micros(200);
+
+/// Longest pause between attempts.
+const LOG_RETRY_PAUSE_MAX: Duration = Duration::from_millis(20);
 
 /// The registered `_native` module of this binary.
 static NATIVE: OnceLock<Py<PyModule>> = OnceLock::new();
@@ -86,6 +107,9 @@ pub(crate) struct HostEntry {
     log_file: PathBuf,
     /// Serializes this process's flushes (see [`HostEntry::flush`]).
     flush_lock: Mutex<()>,
+    /// Rows given up on after [`LOG_WAIT`] (see [`HostGeneralLog::log`]),
+    /// counted until [`HostGeneralLog::flush`] reports them.
+    dropped: AtomicU64,
 }
 
 type Key = (String, PathBuf);
@@ -150,6 +174,7 @@ impl HostEntry {
             _owner: owner,
             log_file: canonical.join("logs").join(format!("{service}.log.jsonl")),
             flush_lock: Mutex::new(()),
+            dropped: AtomicU64::new(0),
         });
         live.insert((service, canonical), Arc::clone(&entry));
         Ok(entry)
@@ -233,6 +258,10 @@ impl HostEntry {
 /// Holds the backend; `flush` makes its rows durable.
 pub(crate) struct HostGeneralLog {
     entry: Arc<HostEntry>,
+    /// Set when the owning stream is cancelled: a full queue is no longer
+    /// waited out (see [`HostGeneralLog::cancel`]). Shared by this log and
+    /// the ports made from it.
+    cancelled: Arc<AtomicBool>,
 }
 
 impl HostGeneralLog {
@@ -242,7 +271,10 @@ impl HostGeneralLog {
         let entry = HostEntry::open(policy, log_root)?;
         // A host logger that cannot be installed (another wheel loaded the
         // runtime first) leaves Rust rows working; Python just cannot attach.
-        let host = Self { entry };
+        let host = Self {
+            entry,
+            cancelled: Arc::new(AtomicBool::new(false)),
+        };
         if let Err(error) = host.entry.install_once() {
             // Rust rows still reach the file; Python just cannot attach.
             // Say so in the log, by typed id.
@@ -261,12 +293,34 @@ impl HostGeneralLog {
     pub(crate) fn shared(&self) -> SharedGeneralLog {
         Arc::new(Self {
             entry: Arc::clone(&self.entry),
+            cancelled: Arc::clone(&self.cancelled),
         })
     }
 
+    /// Shortens the wait for room to [`CANCELLED_WAIT`]: from now on a row that
+    /// finds the queue full waits at most that long, then is counted as dropped. Called when the stream that
+    /// owns this log is cancelled, so a stuck writer cannot hold `finish()` or
+    /// a `with` exit for the row wait of every worker.
+    pub(crate) fn cancel(&self) {
+        self.cancelled.store(true, Ordering::Release);
+    }
+
     /// Makes this log's admitted rows durable; a failure is a Warn row, never
-    /// an error (logging never changes a result).
-    pub(crate) fn flush(&self) {
+    /// an error (logging never changes a result). Returns the number of rows
+    /// given up on since the last call (0 when none), after writing a Warn
+    /// row `general_log.rows_dropped` with that count, so a loss is never
+    /// silent.
+    pub(crate) fn flush(&self) -> u64 {
+        let dropped = self.entry.dropped.swap(0, Ordering::AcqRel);
+        if dropped > 0 {
+            GeneralEvent::warn(
+                "py.host_logger",
+                "general_log.rows_dropped",
+                "general-log rows were dropped because the queue stayed full",
+            )
+            .with_field("dropped", dropped)
+            .emit(self);
+        }
         if !self.entry.flush() {
             GeneralEvent::warn(
                 "py.host_logger",
@@ -275,17 +329,50 @@ impl HostGeneralLog {
             )
             .emit(self);
         }
+        dropped
+    }
+}
+
+impl HostGeneralLog {
+    /// How long a row may wait for room: [`LOG_WAIT`], or [`CANCELLED_WAIT`]
+    /// once the stream is cancelled.
+    fn wait_limit(&self) -> Duration {
+        if self.cancelled.load(Ordering::Acquire) {
+            CANCELLED_WAIT
+        } else {
+            LOG_WAIT
+        }
     }
 }
 
 impl GeneralLog for HostGeneralLog {
+    /// Admits the row. A full queue is waited out for at most [`LOG_WAIT`]
+    /// (the caller holds no GIL: workers and detached calls), so a stream at
+    /// full rate keeps every row; a row refused after the bound is counted in
+    /// the entry and reported by [`HostGeneralLog::flush`].
     fn log(&self, event: GeneralEvent) -> Result<(), LogRejected> {
         let dto = event_dto(&event).map_err(LogRejected::new)?;
-        self.entry
-            .backend
-            .try_log(dto, ProducerOrigin::RustHost)
-            .map(|_| ())
-            .map_err(|failure| LogRejected::new(format!("{failure:?}")))
+        let started = std::time::Instant::now();
+        let mut pause = LOG_RETRY_PAUSE_MIN;
+        loop {
+            match self
+                .entry
+                .backend
+                .try_log(dto.clone(), ProducerOrigin::RustHost)
+            {
+                Ok(_) => return Ok(()),
+                Err(Failure::QueueFull { .. }) if started.elapsed() < self.wait_limit() => {
+                    std::thread::sleep(pause);
+                    // Back off: a healthy writer frees room in microseconds,
+                    // a stuck one should not be polled by every worker.
+                    pause = (pause * 2).min(LOG_RETRY_PAUSE_MAX);
+                }
+                Err(failure) => {
+                    self.entry.dropped.fetch_add(1, Ordering::AcqRel);
+                    return Err(LogRejected::new(format!("{failure:?}")));
+                }
+            }
+        }
     }
 }
 

@@ -16,6 +16,8 @@
 #             .github/scripts/check-exact-pins.sh and its --self-test
 #             (NFR-SAG-0004, ADR-SAG-0023)
 #   advisories cargo deny --locked check advisories (deny.toml; RustSec)
+#   darwin-link  macOS: the release sc-ai and sc-treesitter have no symbol left to
+#             run-time lookup (`nm -um`); proven on a binary with a missing extern
 #   wheel     default `maturin build` of sc-jev-py: the release wheel has no
 #             `_testing` submodule (ADR-SAG-0029 (b))
 #   workspace-tests  cargo test -p workspace-tests (cross-crate proofs,
@@ -369,6 +371,50 @@ jobs:
       - name: check-exact-pins --self-test
         timeout-minutes: 5
         run: bash .github/scripts/check-exact-pins.sh --self-test
+
+  darwin-link:
+    # `.cargo/config.toml` sets `-undefined dynamic_lookup` for the darwin
+    # targets (the wheel needs it with maturin 1.9.4). It applies to every
+    # darwin build, so a symbol missing from a release binary would link and
+    # crash at run time. This job fails if `nm -um` lists any symbol left to
+    # run-time lookup in the release `sc-ai` or `sc-treesitter`, and proves
+    # the check catches a binary with a missing extern.
+    name: darwin link check (no looked-up symbols)
+    runs-on: macos-14
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        timeout-minutes: 5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        timeout-minutes: 10
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Cache cargo
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        timeout-minutes: 10
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: sc-agent-ci-darwin-link-${{ runner.os }}-${{ runner.arch }}-rust-${{ env.RUST_TOOLCHAIN }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            sc-agent-ci-darwin-link-${{ runner.os }}-${{ runner.arch }}-rust-${{ env.RUST_TOOLCHAIN }}-
+
+      - name: check-undefined-symbols --self-test
+        timeout-minutes: 5
+        run: bash .github/scripts/check-undefined-symbols.sh --self-test
+
+      - name: Build the release binaries
+        timeout-minutes: 20
+        run: cargo build --release --locked -p sc-ai -p sc-treesitter --features sc-treesitter/cli
+
+      - name: No symbol is left to run-time lookup
+        timeout-minutes: 5
+        run: bash .github/scripts/check-undefined-symbols.sh
 
   advisories:
     name: RustSec advisories

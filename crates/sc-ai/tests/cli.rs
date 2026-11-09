@@ -1860,3 +1860,150 @@ fn stream_runs_concurrent_requests_over_real_http_with_one_shared_client() {
     assert!(!String::from_utf8_lossy(&output.stderr).contains(KEY));
     server.finish(&output);
 }
+
+/// B1: a cancel reaches a real busy-retry wait. The loopback server answers
+/// the first request at once, answers the second only after the reader has
+/// closed stdout (`| head -1`), and tells every other one to retry in 30 s.
+/// The second answer's write fails, the CLI cancels, and the waiting requests
+/// end within the wait slice instead of sleeping the 30 s out. No resend
+/// reaches the server.
+#[test]
+fn stream_cancel_ends_a_real_busy_wait_and_sends_nothing_more() {
+    use std::io::{BufRead, BufReader, Read, Write};
+    use std::net::TcpListener;
+    use std::process::Stdio;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+    use std::time::{Duration, Instant};
+
+    const KEY: &str = "sk-stream-cancel-1234567890";
+    let repo = temp_dir("stream-cancel");
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
+    let port = listener.local_addr().expect("addr").port();
+    let requests = Arc::new(AtomicUsize::new(0));
+    let stop = Arc::new(AtomicBool::new(false));
+    let closed = Arc::new(AtomicBool::new(false));
+    let body = r#"{"model":"jev-1.13.0","answers":{"q":{"type":"choice","choice":"a","confidence":1,"probabilities":{"a":1,"b":0}}},"usage":{}}"#;
+    let server = {
+        let requests = Arc::clone(&requests);
+        let stop = Arc::clone(&stop);
+        let closed = Arc::clone(&closed);
+        std::thread::spawn(move || {
+            let mut handlers = Vec::new();
+            while let Ok((mut stream, _)) = listener.accept() {
+                if stop.load(Ordering::Acquire) {
+                    break;
+                }
+                let order = requests.fetch_add(1, Ordering::AcqRel);
+                let closed = Arc::clone(&closed);
+                handlers.push(std::thread::spawn(move || -> std::io::Result<()> {
+                    stream.set_read_timeout(Some(Duration::from_secs(20)))?;
+                    stream.set_write_timeout(Some(Duration::from_secs(20)))?;
+                    let mut received = Vec::new();
+                    let mut chunk = [0_u8; 4096];
+                    loop {
+                        let read = stream.read(&mut chunk)?;
+                        received.extend_from_slice(&chunk[..read]);
+                        let text = String::from_utf8_lossy(&received).to_ascii_lowercase();
+                        if let Some(end) = text.find("\r\n\r\n") {
+                            let length = text
+                                .lines()
+                                .find_map(|line| line.strip_prefix("content-length:"))
+                                .and_then(|value| value.trim().parse::<usize>().ok())
+                                .unwrap_or(0);
+                            if received.len() >= end + 4 + length || read == 0 {
+                                break;
+                            }
+                        } else if read == 0 {
+                            break;
+                        }
+                    }
+                    if order == 1 {
+                        // Answer only once the reader is gone, so the write
+                        // of this answer is the one that fails.
+                        let give_up = Instant::now() + Duration::from_secs(20);
+                        while !closed.load(Ordering::Acquire) && Instant::now() < give_up {
+                            std::thread::sleep(Duration::from_millis(5));
+                        }
+                    }
+                    let reply = if order <= 1 {
+                        format!(
+                            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                            body.len()
+                        )
+                    } else {
+                        "HTTP/1.1 429 Too Many Requests\r\nRetry-After: 30\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_owned()
+                    };
+                    stream.write_all(reply.as_bytes())
+                }));
+            }
+            for handler in handlers {
+                let _ = handler.join();
+            }
+        })
+    };
+    let port_text = port.to_string();
+    let mut child = cli(&[
+        "jev",
+        "stream",
+        "--repo-root",
+        text(repo.path()),
+        "--concurrency",
+        "4",
+        "--loopback-port",
+        &port_text,
+    ])
+    .env("TYPESAFE_API_KEY", KEY)
+    .stdin(Stdio::piped())
+    .stdout(Stdio::piped())
+    .stderr(Stdio::piped())
+    .spawn()
+    .expect("spawn sc-ai");
+    let mut stdin = child.stdin.take().expect("stdin");
+    for id in ["c0", "c1", "c2", "c3"] {
+        writeln!(stdin, "{}", stream_line(id)).expect("write request");
+    }
+    drop(stdin);
+    // `| head -1`: read one answer line, then close the pipe.
+    let mut stdout = BufReader::new(child.stdout.take().expect("stdout"));
+    let mut first = String::new();
+    stdout.read_line(&mut first).expect("first line");
+    drop(stdout);
+    closed.store(true, Ordering::Release);
+    let first: Value = serde_json::from_str(&first).expect("the first answer is JSON");
+    assert_eq!(first["ok"], true, "{first}");
+    // The child must exit well before the 30 s Retry-After. The deadline is
+    // a failure bound, not a measurement.
+    let deadline = Instant::now() + Duration::from_secs(15);
+    let status = loop {
+        if let Some(status) = child.try_wait().expect("try_wait") {
+            break status;
+        }
+        if Instant::now() >= deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            panic!(
+                "sc-ai kept waiting after stdout closed: the cancel did not reach the busy wait"
+            );
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    let mut stderr = String::new();
+    if let Some(mut pipe) = child.stderr.take() {
+        let _ = pipe.read_to_string(&mut stderr);
+    }
+    assert!(
+        !status.success(),
+        "a closed stdout is a stream failure: {stderr}"
+    );
+    assert!(!stderr.contains(KEY));
+    // Four first sends and no resend.
+    assert_eq!(
+        requests.load(Ordering::Acquire),
+        4,
+        "no resend after cancel"
+    );
+    stop.store(true, Ordering::Release);
+    let _ = std::net::TcpStream::connect(("127.0.0.1", port));
+    server.join().expect("server thread");
+}

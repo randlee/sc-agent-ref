@@ -136,6 +136,8 @@ class DecisionStream:
         system_prompt_file: StrPath | None = None,
         chain_context: bool = False,
         project: str | None = None,
+        session_log: Callable[[dict[str, Any]], object] | None = None,
+        general_log: Callable[[dict[str, Any]], object] | None = None,
     ) -> None: ...
     def submit(
         self,
@@ -166,7 +168,7 @@ class DecisionStream:
     def finish(self) -> dict[str, Any]:
         """Close input, drop unread answers, wait for workers, flush the log.
 
-        Returns `{"answered", "failed", "exit_code", "log_flush_warning"}`.
+        Returns `{"answered", "failed", "exit_code", "log_flush_warning", "general_log_rows_dropped"}`.
         """
     def __enter__(self) -> DecisionStream: ...
     def __exit__(self, *exc: object) -> None: ...
@@ -183,6 +185,8 @@ def run_many(
     system_prompt_file: StrPath | None = None,
     chain_context: bool = False,
     project: str | None = None,
+    session_log: Callable[[dict[str, Any]], object] | None = None,
+    general_log: Callable[[dict[str, Any]], object] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Run a batch in parallel: `(answers, summary)`.
 

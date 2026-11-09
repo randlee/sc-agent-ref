@@ -246,7 +246,7 @@ impl Hooks {
 
     /// Waits `total` in slices of at most [`WAIT_SLICE`], checking `cancel`
     /// before each slice.
-    fn wait(&self, total: Duration, cancel: &CancelToken) -> Result<(), JevError> {
+    fn wait(&self, total: Duration, cancel: &Cancels<'_>) -> Result<(), JevError> {
         #[cfg(feature = "test-util")]
         if let Self::Test { sleeper, .. } = self {
             sleeper.record_wait(total);
@@ -307,7 +307,8 @@ pub fn send_with_busy_retry(
     cancel: &CancelToken,
     trace: SendTrace,
 ) -> Result<HttpResponse, JevError> {
-    retry_loop(transport, request, policy, cancel, &trace).map_err(|error| redact(error, request))
+    retry_loop(transport, request, policy, &Cancels::one(cancel), &trace)
+        .map_err(|error| redact(error, request))
 }
 
 /// Sends `request` like [`send_with_busy_retry`], then runs `parse` on the
@@ -455,14 +456,51 @@ impl<T: Transport> HttpClient<T> {
         trace: SendTrace,
         parse: impl FnOnce(HttpResponse) -> Result<R, JevError>,
     ) -> Result<R, JevError> {
-        send_and_parse(
-            &self.transport,
-            request,
-            &self.policy,
-            &self.cancel,
-            trace,
-            parse,
-        )
+        self.send_and_parse_for(request, trace, None, parse)
+    }
+
+    /// [`Self::send_and_parse`] that a second token also governs: the
+    /// token of the judge request being sent. Either token being cancelled
+    /// ends a busy wait within one wait slice (100 ms) and stops any further
+    /// send (ADR-SAG-0007).
+    ///
+    /// # Errors
+    ///
+    /// As [`send_and_parse`].
+    pub fn send_and_parse_for<R>(
+        &self,
+        request: &HttpRequest,
+        trace: SendTrace,
+        request_cancel: Option<&CancelToken>,
+        parse: impl FnOnce(HttpResponse) -> Result<R, JevError>,
+    ) -> Result<R, JevError> {
+        let cancels = Cancels {
+            client: &self.cancel,
+            request: request_cancel,
+        };
+        let response = retry_loop(&self.transport, request, &self.policy, &cancels, &trace)
+            .map_err(|error| redact(error, request))?;
+        parse(response).map_err(|error| redact(error, request))
+    }
+}
+
+/// The tokens that can stop one exchange: the client's own and, when the
+/// caller has one, the request's. Either one cancelling stops the exchange.
+struct Cancels<'a> {
+    client: &'a CancelToken,
+    request: Option<&'a CancelToken>,
+}
+
+impl<'a> Cancels<'a> {
+    fn one(client: &'a CancelToken) -> Self {
+        Self {
+            client,
+            request: None,
+        }
+    }
+
+    fn is_cancelled(&self) -> bool {
+        self.client.is_cancelled() || self.request.is_some_and(CancelToken::is_cancelled)
     }
 }
 
@@ -470,7 +508,7 @@ fn retry_loop(
     transport: &dyn Transport,
     request: &HttpRequest,
     policy: &BusyPolicy,
-    cancel: &CancelToken,
+    cancel: &Cancels<'_>,
     trace: &SendTrace,
 ) -> Result<HttpResponse, JevError> {
     let hooks = &policy.hooks;

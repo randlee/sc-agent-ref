@@ -46,6 +46,8 @@ impl AgentConfig {
 
     fn build(self) -> ureq::Agent {
         ureq::Agent::config_builder()
+            .max_idle_connections(MAX_IDLE_CONNECTIONS)
+            .max_idle_connections_per_host(MAX_IDLE_CONNECTIONS)
             .timeout_connect(Some(self.connect))
             .timeout_global(Some(self.global))
             .max_redirects(self.max_redirects)
@@ -56,6 +58,12 @@ impl AgentConfig {
             .into()
     }
 }
+
+/// Idle connections kept per host, and in total. A stream runs up to 64
+/// requests at once against one host (`Concurrency::MAX` in `sc-jev-host`);
+/// ureq's default of 3 idle per host would close and reopen most of them
+/// after every burst. One constant here, not plumbed through.
+const MAX_IDLE_CONNECTIONS: usize = 64;
 
 /// Blocking HTTPS transport.
 ///
