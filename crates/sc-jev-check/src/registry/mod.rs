@@ -33,7 +33,8 @@ mod scripted;
 use sc_agent_secrets::{resolve_key, resolve_key_logged};
 use sc_agent_types::observability::v2::{GeneralEvent, NoopGeneralLog, SharedGeneralLog};
 use sc_agent_types::{
-    BackendId, BackendKeyId, BackendSet, JevError, ModelAliases, ModelId, RepoRoot, ResolvedApiKey,
+    BackendId, BackendKeyId, BackendSet, JevError, ModelAliases, ModelId, ModelSource, RepoRoot,
+    ResolvedApiKey,
 };
 use sc_decision_schema::JudgeBackend;
 use sc_jev::JevClient;
@@ -66,6 +67,23 @@ pub(crate) fn model_for(id: BackendId, aliases: &ModelAliases) -> ModelId {
     aliases
         .latest(descriptor.default_model_alias())
         .unwrap_or_else(|| descriptor.default_model())
+}
+
+/// `models` with each pinned backend's model (`--backend claude-haiku-5-5`)
+/// set over its alias, as an override. A composition root that builds its
+/// own registries calls this so a pin is honoured the same way.
+#[must_use]
+pub fn pin_models(models: ModelAliases, backends: &BackendSet) -> ModelAliases {
+    backends.iter().fold(models, |models, id| {
+        match backends.pin(id) {
+            // The alias is the descriptor's, so it is always a known alias.
+            Some(pin) => models
+                .clone()
+                .with_override(id.descriptor().default_model_alias(), pin.clone())
+                .unwrap_or(models),
+            None => models,
+        }
+    })
 }
 
 fn jev_factory(
@@ -347,6 +365,12 @@ impl BackendRegistry {
             GeneralEvent::info(TARGET, "backend.selected", "backend built")
                 .with_field("backend", id.to_string())
                 .with_field("model", backend.model_id().to_string())
+                .with_field(
+                    "model_source",
+                    models
+                        .source(id.descriptor().default_model_alias())
+                        .map_or("unknown", ModelSource::as_str),
+                )
                 .emit(log.as_ref());
             registry.register(backend)?;
         }

@@ -38,8 +38,8 @@
 //!
 //! # Environment ownership
 //!
-//! Log and session path environment variables are read only by
-//! [`paths::PathPolicy`]. API-key environment and `.env` reading stay in
+//! Log and session path environment variables, and the home that locates
+//! `~/.sc-agent/models.toml`, are read only by [`paths`]. API-key environment and `.env` reading stay in
 //! `sc-jev-check` (`BackendRegistry::from_env`).
 
 #![warn(missing_docs)]

@@ -280,6 +280,7 @@ pub struct RunConfig {
     cancel: CancelToken,
     mode: MultiBackendMode,
     models: Option<ModelAliases>,
+    global_models: Option<ModelAliases>,
     log_context: Option<LogContext>,
     general_log: SharedGeneralLog,
 }
@@ -301,6 +302,7 @@ impl RunConfig {
             cancel: CancelToken::new(),
             mode: MultiBackendMode::Independent,
             models: None,
+            global_models: None,
             log_context: None,
             general_log: Arc::new(NoopGeneralLog),
         }
@@ -399,6 +401,19 @@ impl RunConfig {
     #[must_use]
     pub fn models(mut self, models: ModelAliases) -> Self {
         self.models = Some(models);
+        self
+    }
+
+    /// The model catalog the run starts from: the crate table plus the
+    /// global `~/.sc-agent/models.toml` additions
+    /// ([`crate::models_file::load_models_file`]). Default: the crate table.
+    ///
+    /// Layers over it, last wins: the check's `[models]`, then a
+    /// `--backend` model pin. [`Self::models`] replaces this catalog and the
+    /// check layer.
+    #[must_use]
+    pub fn global_models(mut self, models: ModelAliases) -> Self {
+        self.global_models = Some(models);
         self
     }
 
@@ -631,11 +646,7 @@ fn prepare_steps(
     };
     let request = JudgeRequest::new(Arc::new(bundle), system_prompt.map(LlmWireContext::new))
         .with_cancel(config.cancel.clone());
-    let models = config
-        .models
-        .clone()
-        .or_else(|| spec.as_ref().map(|spec| spec.models().clone()))
-        .unwrap_or_else(ModelAliases::builtin);
+    let models = run_models(&config, spec.as_ref(), &backends);
     Ok(PreparedRun {
         config,
         request,
@@ -643,6 +654,22 @@ fn prepare_steps(
         producer,
         models,
     })
+}
+
+/// The aliases a run resolves models with, last layer wins: the catalog and
+/// global file ([`RunConfig::global_models`]); the check's `[models]` (or
+/// [`RunConfig::models`], which replaces both layers); a `--backend` model pin.
+fn run_models(config: &RunConfig, spec: Option<&CheckSpec>, backends: &BackendSet) -> ModelAliases {
+    let base = config
+        .global_models
+        .clone()
+        .unwrap_or_else(ModelAliases::builtin);
+    let layered = match (&config.models, spec) {
+        (Some(explicit), _) => explicit.clone(),
+        (None, Some(spec)) => base.overlay_overrides(spec.models()),
+        (None, None) => base,
+    };
+    crate::registry::pin_models(layered, backends)
 }
 
 type Assembled = (
@@ -1163,6 +1190,19 @@ pub fn ask(
     result
 }
 
+/// The aliases a follow-up resolves models with: the catalog and global file,
+/// then [`RunConfig::models`] when set.
+fn ask_models(config: &RunConfig) -> ModelAliases {
+    let base = config
+        .global_models
+        .clone()
+        .unwrap_or_else(ModelAliases::builtin);
+    match &config.models {
+        Some(explicit) => explicit.clone(),
+        None => base,
+    }
+}
+
 fn ask_steps(
     store: &FileSessionStore,
     session_id: SessionId,
@@ -1185,7 +1225,7 @@ fn ask_steps(
         None => Arc::new(BackendRegistry::from_env_with_models_logged(
             &config.repo_root,
             &BackendSet::from(stored.backend),
-            &config.models.clone().unwrap_or_else(ModelAliases::builtin),
+            &ask_models(config),
             &config.general_log,
         )?),
     };

@@ -61,7 +61,7 @@ fn test_check_toml_models_override_reaches_backend() {
     );
     assert_eq!(model_of(&from_toml, BackendId::Luna), ModelId::Gpt6Luna);
     // Unlisted aliases keep the catalog default.
-    assert_eq!(model_of(&from_toml, BackendId::Jev), ModelId::Jev1_13_0);
+    assert_eq!(model_of(&from_toml, BackendId::Jev), ModelId::Jev1_14_0);
 
     // No `[models]` table: the catalog defaults for every backend.
     let plain = prepared(&repo(""), |config| config);
@@ -88,7 +88,7 @@ fn test_check_toml_models_override_reaches_backend() {
 #[test]
 fn test_unknown_model_alias_is_config_invalid() {
     for (models, needle) in [
-        ("\n[models]\nsonnet = \"claude-sonnet-9\"\n", "sonnet"),
+        ("\n[models]\nnope = \"claude-sonnet-9\"\n", "nope"),
         ("\n[models]\nhaiku = \"\"\n", "[models].haiku"),
         ("\n[models]\nluna = \"a\\nb\"\n", "[models].luna"),
         ("\n[models]\nluna = 7\n", "luna"),
@@ -103,10 +103,52 @@ fn test_unknown_model_alias_is_config_invalid() {
         assert_eq!(error.code(), "CONFIG_INVALID", "{models}");
         let rendered = format!("{error} {}", error.message());
         assert!(rendered.contains(needle), "{needle}: {rendered}");
-        if needle == "sonnet" {
+        if needle == "nope" {
             for alias in ["jev", "haiku", "luna"] {
                 assert!(rendered.contains(alias), "{rendered}");
             }
         }
     }
+}
+
+/// The global file layer sits under `check.toml` `[models]`, and a
+/// `--backend` model pin sits over both.
+#[test]
+fn test_global_models_check_toml_and_pin_layers() {
+    let global = sc_jev_check::models_file::models_from_str(
+        "[[model]]\nid = \"claude-haiku-9\"\nalias = \"haiku\"\nreleased = \"2099-01-01\"\n\
+         [[model]]\nid = \"gpt-9-luna\"\nalias = \"luna\"\nreleased = \"2099-01-01\"\n",
+    )
+    .expect("file");
+    let dir = repo("\n[models]\nluna = \"gpt-7-luna\"\n");
+
+    // File row for haiku; check.toml [models] beats the file row for luna.
+    let layered = prepared(&dir, |config| config.global_models(global.clone()));
+    assert_eq!(
+        model_of(&layered, BackendId::Haiku).as_str(),
+        "claude-haiku-9"
+    );
+    assert_eq!(model_of(&layered, BackendId::Luna).as_str(), "gpt-7-luna");
+    assert_eq!(
+        layered.models().source("haiku"),
+        Some(sc_agent_types::ModelSource::File)
+    );
+    assert_eq!(
+        layered.models().source("luna"),
+        Some(sc_agent_types::ModelSource::Override)
+    );
+
+    // A pin (`--backend claude-haiku-5-5`) beats the file row.
+    let pinned: BackendSet = "jev,claude-haiku-5-5".parse().expect("set");
+    let with_pin = prepared(&dir, |config| {
+        config.global_models(global.clone()).backends(pinned)
+    });
+    assert_eq!(
+        model_of(&with_pin, BackendId::Haiku),
+        ModelId::ClaudeHaiku5_5
+    );
+    assert_eq!(
+        with_pin.models().source("haiku"),
+        Some(sc_agent_types::ModelSource::Override)
+    );
 }
