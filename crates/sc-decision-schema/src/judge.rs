@@ -165,10 +165,7 @@ impl QuestionAnswer {
     /// The prior-state form of this answer for `question_id`.
     #[must_use]
     pub fn to_choice_answer(&self, question_id: &QuestionId) -> ChoiceAnswer {
-        ChoiceAnswer {
-            question_id: question_id.clone(),
-            choice: self.choice.clone(),
-        }
+        ChoiceAnswer::new(question_id.clone(), self.choice.clone())
     }
 }
 

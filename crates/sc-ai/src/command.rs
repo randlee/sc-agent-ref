@@ -12,7 +12,8 @@ use sc_decision_schema::MultiBackendMode;
 use sc_jev_check::registry::BackendRegistry;
 use sc_jev_check::run::{CallerRequest, CheckSource, Envelope};
 use sc_jev_host::compose::{
-    ComposeInputs, ResolvedPaths, ask_from, explicit_repo_root, list_models, log_failure, run_from,
+    ComposeInputs, ResolvedPaths, ask_from, backend_set_from_names, explicit_repo_root,
+    list_models, log_failure, run_from,
 };
 use sc_jev_host::paths::PathPolicy;
 use sc_jev_host::stream::{Concurrency, DecisionStream, StreamSummary, serve_jsonl};
@@ -49,8 +50,9 @@ pub struct RunCommand {
     pub check: Option<PathBuf>,
     /// `--rev`; `WORKTREE` when absent.
     pub rev: Option<Rev>,
-    /// `--backend`, in order: a short name or a known model id.
-    pub backends: Vec<sc_agent_types::BackendChoice>,
+    /// `--backend`, in order: a short name or a model id of the resolved
+    /// catalog. Checked against the models file when the command runs.
+    pub backends: Vec<String>,
     /// `--request-json`: a path, or `-` for stdin.
     pub request_json: Option<String>,
     /// `--llm-system-prompt-file`.
@@ -98,7 +100,7 @@ pub struct StreamCommand {
     /// `--repo-root`.
     pub repo_root: Option<PathBuf>,
     /// `--backend`; wins over a request's own `backends`, as in `jev run`.
-    pub backends: Vec<sc_agent_types::BackendChoice>,
+    pub backends: Vec<String>,
     /// `--input`: a path, or `-` (the default) for stdin.
     pub input: Option<String>,
     /// `--llm-system-prompt-file`.
@@ -252,6 +254,17 @@ fn base_inputs(
     Ok(inputs)
 }
 
+/// The `--backend` names as a set, checked against the catalog of this call
+/// (the crate table plus `--models-file` or `~/.sc-agent/models.toml`).
+fn backend_set(names: &[String], models_file: Option<&Path>) -> Result<BackendSet, JevError> {
+    backend_set_from_names(
+        names.iter().map(String::as_str),
+        models_file,
+        &NoopGeneralLog,
+    )
+    .map_err(|error| error.with_field("--backend"))
+}
+
 fn dispatch_run(command: RunCommand, stdin: &mut dyn Read) -> Result<Output, JevError> {
     let mut inputs = base_inputs(
         command.dry_run,
@@ -270,7 +283,10 @@ fn dispatch_run(command: RunCommand, stdin: &mut dyn Read) -> Result<Output, Jev
         inputs = inputs.rev(rev);
     }
     if !command.backends.is_empty() {
-        inputs = inputs.backends(BackendSet::try_from(command.backends.clone())?);
+        inputs = inputs.backends(backend_set(
+            &command.backends,
+            command.models_file.as_deref(),
+        )?);
     }
     if let Some(path) = &command.prompt_file {
         inputs = inputs.system_prompt_override(path.clone());
@@ -477,7 +493,10 @@ pub fn serve_stream(
         MultiBackendMode::Independent
     });
     if !command.backends.is_empty() {
-        inputs = inputs.backends(BackendSet::try_from(command.backends.clone())?);
+        inputs = inputs.backends(backend_set(
+            &command.backends,
+            command.models_file.as_deref(),
+        )?);
     }
     if let Some(path) = &command.prompt_file {
         inputs = inputs.system_prompt_override(path.clone());

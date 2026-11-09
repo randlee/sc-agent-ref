@@ -1,8 +1,12 @@
 //! Child-process environment and stderr hygiene.
 //!
 //! Extractor and git children never inherit provider credentials. Their
-//! stderr reaches [`JevError`] details only as a bounded tail with any
-//! credential-looking environment value replaced by `[redacted]`.
+//! stderr reaches [`JevError`] details only as a bounded tail with two kinds
+//! of text replaced by `[redacted]`: the value of any credential-looking
+//! environment variable of this process (`*_API_KEY`, `SC_*`), and any
+//! bearer-token shape, whatever its source (`Bearer <token>`, or an
+//! `sk-` prefixed key). A secret of another shape that is not in this
+//! process's environment is not recognized.
 
 use std::ffi::{OsStr, OsString};
 use std::process::Command;
@@ -71,19 +75,84 @@ fn redact_text(text: &str, secrets: &[OsString]) -> String {
     let mut out = text.to_owned();
     for secret in secrets {
         if let Some(secret) = secret.to_str() {
-            out = out.replace(secret, "[redacted]");
+            out = out.replace(secret, REDACTED);
         }
     }
     out
 }
 
-/// Redacts credential-looking environment values from every text field of `error`.
+const REDACTED: &str = "[redacted]";
+
+/// Fewest characters after `sk-` that make a token key-shaped.
+const MIN_KEY_TAIL: usize = 8;
+
+fn is_token_byte(byte: u8) -> bool {
+    byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~' | b'+' | b'/' | b'=')
+}
+
+/// End of the run of token bytes starting at `start`.
+fn token_end(bytes: &[u8], start: usize) -> usize {
+    bytes[start..]
+        .iter()
+        .position(|byte| !is_token_byte(*byte))
+        .map_or(bytes.len(), |length| start + length)
+}
+
+/// Replaces bearer-token shapes in `text`, whether or not the token is held
+/// in this process's environment:
+///
+/// - `Bearer <token>` (any case, spaces or tabs between): the token goes,
+///   the word `Bearer` stays so the line still reads;
+/// - a key-shaped token `sk-` plus at least [`MIN_KEY_TAIL`] token
+///   characters, at a word start: the whole token goes.
+///
+/// A token is a run of letters, digits and `-._~+/=`.
+fn redact_shapes(text: &str) -> String {
+    const BEARER: &[u8] = b"bearer";
+    let bytes = text.as_bytes();
+    let mut out = String::with_capacity(text.len());
+    let mut copied = 0;
+    let mut at = 0;
+    while at < bytes.len() {
+        let word_start = at == 0 || !bytes[at - 1].is_ascii_alphanumeric();
+        // Cut points are ASCII bytes, so slicing `text` there is valid.
+        let cut = if !word_start {
+            None
+        } else if bytes[at..]
+            .get(..BEARER.len())
+            .is_some_and(|word| word.eq_ignore_ascii_case(BEARER))
+        {
+            let after = at + BEARER.len();
+            let gap = bytes[after..]
+                .iter()
+                .take_while(|byte| matches!(byte, b' ' | b'\t'))
+                .count();
+            let start = after + gap;
+            (gap > 0 && token_end(bytes, start) > start).then(|| (start, token_end(bytes, start)))
+        } else if bytes[at..].starts_with(b"sk-") {
+            let end = token_end(bytes, at);
+            (end - at >= b"sk-".len() + MIN_KEY_TAIL).then_some((at, end))
+        } else {
+            None
+        };
+        if let Some((start, end)) = cut {
+            out.push_str(&text[copied..start]);
+            out.push_str(REDACTED);
+            copied = end;
+            at = end;
+        } else {
+            at += 1;
+        }
+    }
+    out.push_str(&text[copied..]);
+    out
+}
+
+/// Redacts credential-looking environment values and bearer-token shapes
+/// from every text field of `error`.
 pub(crate) fn redact_error(error: JevError) -> JevError {
     let secrets = secret_values();
-    if secrets.is_empty() {
-        return error;
-    }
-    error.map_detail(|text| redact_text(text, &secrets))
+    error.map_detail(|text| redact_shapes(&redact_text(text, &secrets)))
 }
 
 /// Last [`STDERR_TAIL_BYTES`] of `stderr` as trimmed, lossy UTF-8.
@@ -123,6 +192,57 @@ mod tests {
             redact_text("failed with sk-secret-value-123 here", &secrets),
             "failed with [redacted] here"
         );
+    }
+
+    #[test]
+    fn redact_shapes_covers_bearer_tokens_and_sk_keys() {
+        for (input, expected) in [
+            (
+                "401: Authorization: Bearer sk-live-0123456789abcdef",
+                "401: Authorization: Bearer [redacted]",
+            ),
+            (
+                "bearer\tabc.def-ghi_jkl==\nnext",
+                "bearer\t[redacted]\nnext",
+            ),
+            (
+                "BEARER   tok123 and BeArEr  x.y",
+                "BEARER   [redacted] and BeArEr  [redacted]",
+            ),
+            (
+                "key sk-ant-api03-abcdefghij failed",
+                "key [redacted] failed",
+            ),
+            ("(sk-proj-ABCDEFGH12345678)", "([redacted])"),
+            (
+                "non-ascii \u{e9} Bearer abc\u{e9}",
+                "non-ascii \u{e9} Bearer [redacted]\u{e9}",
+            ),
+        ] {
+            assert_eq!(redact_shapes(input), expected, "{input}");
+        }
+        // Plain text, a short `sk-` word and a word that ends in `sk-` stay.
+        for input in [
+            "no secrets here",
+            "sk-short",
+            "task-assessment-complete",
+            "risk-assessment-completed",
+            "Bearer",
+            "Bearer ",
+            "bearers are people",
+        ] {
+            assert_eq!(redact_shapes(input), input, "{input}");
+        }
+    }
+
+    #[test]
+    fn redact_error_covers_a_literal_bearer_token_without_an_environment_secret() {
+        let error = redact_error(JevError::extraction_failed(
+            "curl: (22) 401\nAuthorization: Bearer sk-literal-not-in-env-0123456789",
+        ));
+        let rendered = format!("{error} {}", error.message());
+        assert!(!rendered.contains("sk-literal"), "{rendered}");
+        assert!(rendered.contains("Bearer [redacted]"), "{rendered}");
     }
 
     #[test]

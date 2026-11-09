@@ -12,6 +12,8 @@ use std::time::Duration;
 
 use sc_agent_types::{JevError, NetworkErrorKind, ResolvedApiKey, ResponseInvalidCause};
 use ureq::http::Uri;
+use ureq::unversioned::resolver::{DefaultResolver, ResolvedSocketAddrs, Resolver};
+use ureq::unversioned::transport::{DefaultConnector, NextTimeout};
 
 use crate::request::{HttpRequest, HttpResponse};
 use crate::transport::{Timeouts, Transport};
@@ -45,7 +47,7 @@ impl AgentConfig {
     }
 
     fn build(self) -> ureq::Agent {
-        ureq::Agent::config_builder()
+        let config = ureq::Agent::config_builder()
             .max_idle_connections(MAX_IDLE_CONNECTIONS)
             .max_idle_connections_per_host(MAX_IDLE_CONNECTIONS)
             .timeout_connect(Some(self.connect))
@@ -54,8 +56,41 @@ impl AgentConfig {
             .https_only(self.https_only)
             .user_agent(self.user_agent)
             .http_status_as_error(false)
-            .build()
-            .into()
+            .build();
+        ureq::Agent::with_parts(
+            config,
+            DefaultConnector::default(),
+            LookupResolver::default(),
+        )
+    }
+}
+
+/// ureq's own resolver, with a failed lookup reported as `HostNotFound`.
+///
+/// `getaddrinfo` failures reach ureq as `Error::Io` with an uncategorized
+/// `io::ErrorKind` (std has no kind for them), so they cannot be told apart
+/// from other I/O errors by kind and would be `other` (not retryable). Only
+/// the name lookup runs here, so any I/O error from it is a lookup failure
+/// and becomes `HostNotFound` (`connect`, retryable) without reading any
+/// message text. A lookup timeout and every other ureq error pass through.
+#[derive(Debug, Default)]
+struct LookupResolver {
+    inner: DefaultResolver,
+}
+
+impl Resolver for LookupResolver {
+    fn resolve(
+        &self,
+        uri: &Uri,
+        config: &ureq::config::Config,
+        timeout: NextTimeout,
+    ) -> Result<ResolvedSocketAddrs, ureq::Error> {
+        self.inner
+            .resolve(uri, config, timeout)
+            .map_err(|error| match error {
+                ureq::Error::Io(_) => ureq::Error::HostNotFound,
+                other => other,
+            })
     }
 }
 
@@ -284,9 +319,10 @@ fn ureq_error(error: ureq::Error) -> JevError {
 /// Classifies a ureq failure for [`JevError::retryable`].
 ///
 /// TLS, certificate and https-only refusals are `Tls` (not retryable); a
-/// timeout is `Timeout`; a connection-class I/O error, DNS or proxy-connect failure is `Connect`;
-/// any other I/O error and an
-/// error that is none of these is `Other` (not retryable).
+/// timeout is `Timeout`; a connection-class I/O error, a DNS failure (made
+/// `HostNotFound` by [`LookupResolver`]) or a proxy-connect failure is
+/// `Connect`; any other I/O error and an error that is none of these is
+/// `Other` (not retryable).
 fn ureq_error_kind(error: &ureq::Error) -> NetworkErrorKind {
     match error {
         ureq::Error::Timeout(_) => NetworkErrorKind::Timeout,
@@ -308,14 +344,26 @@ fn ureq_error_kind(error: &ureq::Error) -> NetworkErrorKind {
 
 /// The kind of an I/O error from the connection: `Timeout` for a timed-out
 /// read, `Connect` only for connection-class kinds (refused, reset, aborted,
-/// not connected, broken pipe, unreachable, address unavailable), and `Other`
-/// (not retryable) for anything else, which is not known to be transient.
+/// not connected, broken pipe, unreachable, address unavailable), `Tls` for
+/// `InvalidData`, and `Other` (not retryable) for anything else, which is not
+/// known to be transient.
+///
+/// ureq runs the rustls handshake through `ClientConnection::complete_io`,
+/// which reports every rustls failure (an untrusted or expired certificate,
+/// a name mismatch, a peer that does not speak TLS, an alert) as an
+/// `io::Error` of kind `InvalidData` wrapping the `rustls::Error`; ureq's
+/// `Error::Rustls` variant is not used on that path. Nothing else in the
+/// request path reports `InvalidData` (protocol faults are
+/// `ureq::Error::Protocol`), so the kind is the TLS signal. Matching the
+/// wrapped `rustls::Error` instead would need a direct `rustls` dependency
+/// that must track ureq's version.
 /// `UnexpectedEof` is `Other`: it happens when the peer closes mid-reply,
 /// after the request was sent, and resending could double-charge.
 fn io_error_kind(error: &std::io::Error) -> NetworkErrorKind {
     use std::io::ErrorKind as Kind;
     match error.kind() {
         Kind::TimedOut => NetworkErrorKind::Timeout,
+        Kind::InvalidData => NetworkErrorKind::Tls,
         Kind::ConnectionRefused
         | Kind::ConnectionReset
         | Kind::ConnectionAborted
@@ -384,7 +432,6 @@ mod tests {
         );
         for kind in [
             Kind::PermissionDenied,
-            Kind::InvalidData,
             Kind::Other,
             Kind::OutOfMemory,
             Kind::UnexpectedEof,
@@ -394,7 +441,13 @@ mod tests {
                 NetworkErrorKind::Other
             );
         }
-        let other = ureq_error(ureq::Error::Io(std::io::Error::from(Kind::InvalidData)));
+        // `InvalidData` is how ureq surfaces a rustls failure (see
+        // `io_error_kind`); the real handshake is in tests/ureq.rs.
+        assert_eq!(
+            io_error_kind(&std::io::Error::from(Kind::InvalidData)),
+            NetworkErrorKind::Tls
+        );
+        let other = ureq_error(ureq::Error::Io(std::io::Error::from(Kind::OutOfMemory)));
         assert!(!other.retryable());
         assert!(
             other.message().contains("transport error"),
@@ -483,6 +536,13 @@ mod tests {
             (
                 ureq::Error::Io(std::io::Error::from(std::io::ErrorKind::ConnectionReset)),
                 NetworkErrorKind::Connect,
+            ),
+            (
+                ureq::Error::Io(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "invalid peer certificate",
+                )),
+                NetworkErrorKind::Tls,
             ),
             (ureq::Error::Tls("handshake"), NetworkErrorKind::Tls),
             (ureq::Error::TlsRequired, NetworkErrorKind::Tls),

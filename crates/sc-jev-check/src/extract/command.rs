@@ -15,8 +15,10 @@
 //! by the 4 KiB stderr tail) is tried as an `ScAgentErrorResponse`. A
 //! response with a known id becomes [`JevError::ProducerError`] carrying
 //! that id and the producer name (the file stem of `argv[0]`); anything else
-//! is `EXTRACTION_FAILED` with the stderr tail. Credential-looking values are
-//! redacted from either error.
+//! is `EXTRACTION_FAILED` with the stderr tail. Either error has the value of
+//! any `*_API_KEY` or `SC_*` variable of this process, and any bearer-token
+//! shape (`Bearer <token>`, `sk-...`), replaced by `[redacted]`; a secret of
+//! another shape that is not in this process's environment is not recognized.
 
 use std::collections::BTreeMap;
 use std::io::Read;
@@ -500,6 +502,24 @@ sys.stdout.write(json.dumps(doc))
         assert!(text.contains("exit 3"), "{text}");
         assert!(text.contains("boom-diagnostic"), "{text}");
         assert!(text.len() < 5000, "stderr tail is bounded");
+    }
+
+    /// A literal bearer token on stderr is redacted though no environment
+    /// variable holds it.
+    #[test]
+    fn command_extractor_stderr_redacts_literal_bearer_tokens() {
+        let dir = temp_dir("bearer");
+        let repo = RepoRoot::new(dir.path());
+        let input: Vec<String> = vec![
+            test_support::python().into(),
+            "-c".into(),
+            "import sys; sys.stderr.write('curl: 401 Authorization: Bearer sk-literal-0123456789abcdef'); sys.exit(3)".into(),
+        ];
+        let error = run(&repo, &input, 30).expect_err("exit");
+        assert_eq!(error.code(), "EXTRACTION_FAILED");
+        let text = format!("{error} {}", error.message());
+        assert!(!text.contains("sk-literal"), "{text}");
+        assert!(text.contains("Bearer [redacted]"), "{text}");
     }
 
     #[test]

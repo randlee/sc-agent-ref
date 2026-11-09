@@ -92,6 +92,16 @@ fn test_version_flag_exits_zero() {
 }
 
 #[test]
+fn test_help_banner_names_every_jev_command() {
+    let dir = TempDir::new().expect("temp");
+    let text = stdout_text(&run(dir.path(), &["--help"]));
+    assert!(
+        text.contains("Jev check client: run, dry-run, ask, stream, and models."),
+        "{text}"
+    );
+}
+
+#[test]
 fn test_help_prints_usage_and_exits_zero() {
     let dir = TempDir::new().expect("temp");
     for args in [
@@ -408,6 +418,78 @@ fn test_backend_takes_a_model_id_and_refuses_definition_only_models() {
     }
 }
 
+/// REQ-SAG-0149: a model id from `--models-file` is a `--backend` (a pin of
+/// that backend); an id the catalog lacks, or one of a definition-only alias,
+/// is still `INPUT_INVALID`.
+#[test]
+fn test_backend_takes_a_model_id_from_the_models_file() {
+    let repo = repo();
+    let root = repo.path().to_str().expect("utf8");
+    let dir = TempDir::new().expect("temp");
+    let file = dir.path().join("models.toml");
+    std::fs::write(
+        &file,
+        "[[model]]\nid = \"jev-1.15.0\"\nalias = \"jev\"\nreleased = \"2026-11-01\"\n\
+         [[model]]\nid = \"claude-haiku-5-6\"\nalias = \"haiku\"\nreleased = \"2026-11-02\"\n\
+         [[model]]\nid = \"claude-sonnet-6\"\nalias = \"sonnet\"\nreleased = \"2026-11-02\"\n",
+    )
+    .expect("file");
+    let models = file.to_str().expect("utf8");
+    let accepted = run(
+        repo.path(),
+        &[
+            "jev",
+            "dry-run",
+            "--repo-root",
+            root,
+            "--models-file",
+            models,
+            "--backend",
+            "jev-1.15.0",
+            "--backend",
+            "claude-haiku-5-6",
+        ],
+    );
+    let envelope: Value = serde_json::from_str(&stdout_text(&accepted)).expect("envelope");
+    assert_eq!(envelope["data"]["limits"][0]["backend"], "jev");
+    assert_eq!(envelope["data"]["limits"][1]["backend"], "haiku");
+    for refused in ["jev-9.9.9", "claude-sonnet-6", "claude-haiku-9"] {
+        let output = run(
+            repo.path(),
+            &[
+                "jev",
+                "dry-run",
+                "--repo-root",
+                root,
+                "--models-file",
+                models,
+                "--backend",
+                refused,
+            ],
+        );
+        assert_eq!(error_code(&output), "INPUT_INVALID", "{refused}");
+        let text = message(&output);
+        // The list names the file's ids too.
+        assert!(text.contains("jev-1.15.0"), "{refused}: {text}");
+        assert_eq!(error_of(&output)["field"], "--backend");
+    }
+    // Without the file the same id is refused.
+    let output = run(
+        repo.path(),
+        &[
+            "jev",
+            "dry-run",
+            "--repo-root",
+            root,
+            "--models-file",
+            dir.path().join("none.toml").to_str().expect("utf8"),
+            "--backend",
+            "jev-1.15.0",
+        ],
+    );
+    assert_eq!(error_code(&output), "INPUT_INVALID");
+}
+
 #[test]
 fn test_models_lists_resolved_models_with_their_source() {
     let dir = TempDir::new().expect("temp");
@@ -465,4 +547,68 @@ fn test_models_lists_resolved_models_with_their_source() {
         ],
     );
     assert_eq!(error_code(&output), "CONFIG_INVALID");
+}
+
+/// The Quick start and the reference page show the tested files verbatim, and
+/// those files work: `check.toml` and `--request-json` both dry-run.
+#[test]
+fn test_quickstart_files_work_and_docs_show_them() {
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/jev/quickstart");
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let read = |path: &Path| std::fs::read_to_string(path).expect("read");
+    let check = read(&fixture.join("check.toml"));
+    let questions = read(&fixture.join("questions.json"));
+    let request = read(&fixture.join("request.json"));
+    for doc in [
+        root.join("README.md"),
+        root.join("crates/sc-ai/README.md"),
+        root.join("docs/check-reference.md"),
+    ] {
+        let text = read(&doc);
+        assert!(text.contains(check.trim_end()), "{doc:?} lacks check.toml");
+    }
+    let reference = read(&root.join("docs/check-reference.md"));
+    assert!(reference.contains(questions.trim_end()), "questions.json");
+    assert!(reference.contains(request.trim_end()), "request.json");
+    for doc in [root.join("README.md"), root.join("crates/sc-ai/README.md")] {
+        let text = read(&doc);
+        assert!(
+            text.contains("\"schema\": \"plan-anchoring/questions/1\""),
+            "{doc:?}"
+        );
+        assert!(text.contains("TYPESAFE_API_KEY"), "{doc:?}");
+    }
+
+    let dir = TempDir::new().expect("temp");
+    std::fs::create_dir(dir.path().join("notes")).expect("notes");
+    for name in [
+        "check.toml",
+        "questions.json",
+        "request.json",
+        "notes/readme.txt",
+    ] {
+        std::fs::copy(fixture.join(name), dir.path().join(name)).expect("copy");
+    }
+    for args in [
+        &[
+            "jev",
+            "dry-run",
+            "--repo-root",
+            ".",
+            "--check",
+            "check.toml",
+        ][..],
+        &[
+            "jev",
+            "dry-run",
+            "--repo-root",
+            ".",
+            "--request-json",
+            "request.json",
+        ],
+    ] {
+        let value: Value =
+            serde_json::from_str(&stdout_text(&run(dir.path(), args))).expect("envelope");
+        assert_eq!(value["operation"], "jev.dry-run", "{args:?}");
+    }
 }

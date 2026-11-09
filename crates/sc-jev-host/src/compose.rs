@@ -450,6 +450,28 @@ pub fn load_global_models(
     }
 }
 
+/// The backends a caller named (`--backend`, Python `backends=`), one name
+/// per entry, checked against this call's catalog: the crate table plus the
+/// models file (`explicit`, else `~/.sc-agent/models.toml`).
+///
+/// A name is `jev`, `haiku` or `luna`, or a model id the catalog lists for one
+/// of them (`jev-1.15.0` from a models-file row). Both entry points call this,
+/// so they accept and refuse the same names (REQ-SAG-0149).
+///
+/// # Errors
+///
+/// `INPUT_INVALID` for a name that selects no backend; `CONFIG_INVALID` for an
+/// empty or repeating list or a malformed models file; see
+/// [`load_global_models`].
+pub fn backend_set_from_names<'a>(
+    names: impl IntoIterator<Item = &'a str>,
+    explicit: Option<&Path>,
+    general: &dyn GeneralLog,
+) -> Result<BackendSet, JevError> {
+    let models = load_global_models(explicit, general)?;
+    BackendSet::from_names_in(names, &models)
+}
+
 /// The resolved models of a call, for `sc-ai jev models` and
 /// `sc_jev_py.models()`: one row per alias, and where the file was.
 ///

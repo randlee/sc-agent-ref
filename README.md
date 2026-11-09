@@ -1,23 +1,11 @@
 # sc-agent
 
-`sc-ai` is the JSON-first CLI for Jev check parity (`run`, `dry-run`, `ask`, and `stream`).
+`sc-ai` is the JSON-first CLI for Jev check parity (`run`, `dry-run`, `ask`, `stream`, and `models`).
 
 ## Install
 
-From source (works today):
-
-```bash
-just install-sc-ai
-```
-
-The same install without `just`:
-
-```bash
-cargo install --path crates/sc-ai --locked
-```
-
-Available after the first release (nothing has been published yet; see
-[`CHANGELOG.md`](CHANGELOG.md)):
+The 0.1.0 channels, as listed in [`CHANGELOG.md`](CHANGELOG.md). Each works
+once its 0.1.0 release has been published there:
 
 ```bash
 # crates.io
@@ -25,7 +13,84 @@ cargo install sc-ai --locked
 
 # Homebrew (installs sc-ai and sc-treesitter)
 brew install randlee/tap/sc-ai
+
+# Scoop (Windows; installs sc-ai and sc-treesitter)
+scoop bucket add randlee https://github.com/randlee/scoop-bucket
+scoop install sc-ai
+
+# WinGet (Windows; sc-ai only)
+winget install randlee.sc-ai
+
+# PyPI: the Python wheel (sc_jev_py), not the CLI
+pip install sc-jev-py
 ```
+
+From source, which works at any time:
+
+```bash
+just install-sc-ai
+# or, without just:
+cargo install --path crates/sc-ai --locked
+```
+
+## Quick start
+
+Build prerequisites for `cargo install`: Rust 1.94.1 or newer (the workspace
+`rust-version`) and a C compiler (`mimalloc`, `ring` and the tree-sitter
+grammars compile C). `cargo install sc-ai` installs only `sc-ai`; for
+`sc-treesitter` run `cargo install sc-treesitter --locked` or use Homebrew.
+
+In a git repository, write a `check.toml`, the `questions.json` it names, and
+the file it reads:
+
+```toml
+[questions]
+path = "questions.json"
+
+[inputs.note]
+kind = "file"
+path = "notes/readme.txt"
+```
+
+```json
+{
+  "schema": "plan-anchoring/questions/1",
+  "version": 1,
+  "questions": {
+    "relevant": {
+      "type": "choice",
+      "instructions": "Does the note apply?\n\n{note}",
+      "criteria": {"no": "The note does not apply.", "yes": "The note applies."}
+    }
+  }
+}
+```
+
+Build the request without sending it, then send it:
+
+```bash
+sc-ai jev dry-run --repo-root . --check check.toml
+sc-ai jev run --repo-root . --check check.toml --backend jev
+```
+
+`dry-run` needs no key, but it runs any `command` input in `check.toml`, so a
+`check.toml` from a pull request is code execution in CI: review it first.
+`run` needs the backend's key: `TYPESAFE_API_KEY` for `jev`,
+`ANTHROPIC_API_KEY` for `haiku`, `OPENAI_API_KEY` for `luna`. `sc-ai` reads it
+from the process environment, then `.env` in the repo root (skipped when the
+variable is set in the environment, even empty), then the platform keyring
+(service = the variable name, account = your OS user). With no keystore, such
+as a headless Linux container, set the variable or use `.env`. If no source
+has a key, `run` fails with `KEY_MISSING`, whose `suggested_action` names the
+variable. Only the process environment can set `ANTHROPIC_KEYCHAIN_SERVICE`
+(an Anthropic keyring service override); a repo `.env` cannot.
+
+The `check.toml` fields, both question file formats (the `plan-anchoring`
+file above and the `--request-json` document with `choices` and `prompt`), a
+worked `--request-json` example and the same flow in Python (`run_check`) are
+in [`docs/check-reference.md`](https://github.com/randlee/sc-agent/blob/develop/docs/check-reference.md).
+A TLS-inspecting proxy is not supported: the HTTP client trusts only the
+bundled web PKI roots.
 
 ## Stability
 
@@ -101,6 +166,18 @@ is bounded, so a slow reader slows the input. The exit code is 0, or 3 when
 every failure is retryable, else 2. The default of 8 was tested only against
 scripted and loopback backends, not live providers. Python has the same
 capability: `sc_jev_py.run_many` and `sc_jev_py.DecisionStream`.
+
+`jev models` and `jev stream` have their own outputs: `models` prints an
+envelope whose `data` is `{"models_file","models_file_present","models"}` and
+`stream` prints one JSONL answer per request (above), not the envelope
+below.
+
+`jev ask` needs a saved session: only `haiku` and `luna` runs save one. A
+`jev` run returns `session_id` as `null` and has nothing to ask about. The
+CLI's log root is `<repo>/.sc-ai` and Python's is `~/.sc-agent/log` (it also
+reads `SC_AGENT_LOG_DIR`; the CLI does not), so a CLI `ask` does not find a
+Python session unless both are given the same sessions directory
+([`docs/stability.md`](docs/stability.md)).
 
 For `run`, `dry-run` and `ask`, success writes one JSON object to stdout:
 

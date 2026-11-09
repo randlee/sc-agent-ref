@@ -34,7 +34,7 @@ pub const SESSION_LOG_DDL: &str = include_str!("schema.sql");
 
 /// Version of the row layout. Adding or renaming a column, or changing a
 /// type or nullability, bumps it with a migration note.
-pub const SESSION_LOG_SCHEMA_VERSION: u32 = 2;
+pub const SESSION_LOG_SCHEMA_VERSION: u32 = 3;
 
 /// The `fields{}` keys, in order.
 pub const COLUMNS: &[&str] = &[
@@ -53,6 +53,7 @@ pub const COLUMNS: &[&str] = &[
     "operation",
     "backend",
     "model_id",
+    "answered_model_id",
     "send_outcome",
     "error_code",
     "answers_json",
@@ -147,8 +148,13 @@ pub struct RowContext {
     pub operation: Operation,
     /// How we called.
     pub backend: BackendId,
-    /// Which model.
+    /// The model requested: what the backend was configured to send
+    /// (`jev`, or a pinned version such as `jev-1.14.0`).
     pub model_id: ModelId,
+    /// The model the reply named (`jev-1.14.0` for a request of `jev`), so
+    /// the log says which version judged. `None` when the send failed or the
+    /// reply named no valid model.
+    pub answered_model_id: Option<ModelId>,
 }
 
 /// Builds a [`RowContext`]; every value but `project` and `request_sha256`
@@ -169,6 +175,7 @@ pub struct RowContextBuilder {
     operation: Option<Operation>,
     backend: Option<BackendId>,
     model_id: Option<ModelId>,
+    answered_model_id: Option<ModelId>,
 }
 
 impl RowContextBuilder {
@@ -270,10 +277,17 @@ impl RowContextBuilder {
         self
     }
 
-    /// Which model.
+    /// The model requested.
     #[must_use]
     pub fn model_id(mut self, value: ModelId) -> Self {
         self.model_id = Some(value);
+        self
+    }
+
+    /// The model the reply named; left out, it is written as `null`.
+    #[must_use]
+    pub fn answered_model_id(mut self, value: Option<ModelId>) -> Self {
+        self.answered_model_id = value;
         self
     }
 
@@ -303,6 +317,7 @@ impl RowContextBuilder {
             operation: need(self.operation, "operation")?,
             backend: need(self.backend, "backend")?,
             model_id: need(self.model_id, "model_id")?,
+            answered_model_id: self.answered_model_id,
         })
     }
 }
@@ -328,7 +343,7 @@ enum RowOutcome {
 /// ```
 /// use sc_decision_schema::session_log::{COLUMNS, SendOutcome};
 ///
-/// assert_eq!(COLUMNS.len(), 18);
+/// assert_eq!(COLUMNS.len(), 19);
 /// assert_eq!(serde_json::to_string(&SendOutcome::Failed)?, "\"failed\"");
 /// # Ok::<(), serde_json::Error>(())
 /// ```
@@ -437,6 +452,13 @@ impl SessionLogRow {
         fields.insert("backend".into(), text(&context.backend));
         fields.insert("model_id".into(), text(&context.model_id));
         fields.insert(
+            "answered_model_id".into(),
+            context
+                .answered_model_id
+                .as_ref()
+                .map_or(Value::Null, |model| text(model)),
+        );
+        fields.insert(
             "send_outcome".into(),
             Value::String(self.send_outcome().as_str().to_owned()),
         );
@@ -500,6 +522,12 @@ impl SessionLogRow {
             operation: parse(fields, "operation")?,
             backend: parse(fields, "backend")?,
             model_id: parse(fields, "model_id")?,
+            answered_model_id: optional_str(fields, "answered_model_id")?
+                .map(|text| {
+                    text.parse::<ModelId>()
+                        .map_err(|e| wrap("answered_model_id", &e))
+                })
+                .transpose()?,
         };
         let error_code = optional_str(fields, "error_code")?;
         let answers = &fields["answers_json"];

@@ -45,8 +45,8 @@ def load(connection, fields):
     connection.execute(
         "INSERT INTO answers (answer_id, schema_version, session_id, questions_sha256,"
         " payload_sha256, decision_schema, repo, project, request_sha256, ts, operation, backend,"
-        " model_id, send_outcome, error_code, answers_json)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        " model_id, answered_model_id, send_outcome, error_code, answers_json)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             fields["answer_id"],
             fields["schema_version"],
@@ -61,6 +61,7 @@ def load(connection, fields):
             fields["operation"],
             fields["backend"],
             fields["model_id"],
+            fields["answered_model_id"],
             fields["send_outcome"],
             fields["error_code"],
             None if answers_json is None else json.dumps(answers_json),
@@ -104,6 +105,16 @@ def test_fixture_loads_into_sqlite(connection):
 
     # A row with no project keeps NULL.
     assert count("SELECT COUNT(*) FROM answers WHERE project IS NULL") == 1
+
+    # The requested model (`jev`) and the version that answered are both kept;
+    # a failed send has no answered model.
+    asked, answered = connection.execute(
+        "SELECT model_id, answered_model_id FROM answers WHERE model_id = 'jev'"
+    ).fetchone()
+    assert (asked, answered) == ("jev", "jev-1.14.0")
+    assert count(
+        "SELECT COUNT(*) FROM answers WHERE send_outcome = 'failed' AND answered_model_id IS NOT NULL"
+    ) == 0
 
 
 def test_check_constraints_reject_inconsistent_rows(connection):
@@ -156,7 +167,7 @@ def test_same_questions_against_different_state(connection):
             "INSERT INTO answers (answer_id, schema_version, session_id, questions_sha256,"
             " payload_sha256, decision_schema, repo, project, request_sha256, ts, operation,"
             " backend, model_id, send_outcome, error_code, answers_json)"
-            " VALUES (?, 2, ?, ?, ?, 'canonical.v1', '/r', NULL, NULL, 't', 'judge', 'jev',"
+            " VALUES (?, 3, ?, ?, ?, 'canonical.v1', '/r', NULL, NULL, 't', 'judge', 'jev',"
             " 'm', 'failed', 'NETWORK_ERROR', NULL)",
             (row["answer_id"], row["session_id"], row["questions_sha256"], row["payload_sha256"]),
         )

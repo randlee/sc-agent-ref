@@ -1906,7 +1906,8 @@ impl JevError {
                 format!("Check that {what} exists and is readable or writable, then retry.")
             }),
             Self::KeyMissing { backend } => format!(
-                "Provide a credential for {backend} via the process environment, the repo-root .env file, or the keyring, then retry."
+                "Set {var} in the process environment or in the .env file at the repo root (or store it in the platform keyring under the service name {var}), then retry.",
+                var = backend.env_var()
             ),
             Self::InputTooLarge {
                 limit,
@@ -2043,6 +2044,22 @@ impl JevError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn key_missing_action_names_the_variable_and_dotenv() {
+        for (id, var) in [
+            (BackendKeyId::TypeSafe, "TYPESAFE_API_KEY"),
+            (BackendKeyId::Anthropic, "ANTHROPIC_API_KEY"),
+            (BackendKeyId::OpenAi, "OPENAI_API_KEY"),
+        ] {
+            assert_eq!(
+                JevError::key_missing(id).suggested_action(),
+                format!(
+                    "Set {var} in the process environment or in the .env file at the repo root (or store it in the platform keyring under the service name {var}), then retry."
+                )
+            );
+        }
+    }
 
     /// Completeness of [`ErrorCode::ALL`]: this `match` has no wildcard arm,
     /// so a new variant fails to compile until it is listed here, and each

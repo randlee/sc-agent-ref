@@ -34,7 +34,9 @@ control character is `CONFIG_INVALID` with a credential-store hint. A blank
 value counts as absent, so the next source is tried.
 
 The keyring service is the environment variable name. Anthropic lookups honor
-`ANTHROPIC_KEYCHAIN_SERVICE`.
+`ANTHROPIC_KEYCHAIN_SERVICE` from the process environment only: a repo-root
+`.env` is repository content and must not choose which keychain item is sent
+to Anthropic as the key.
 
 `ResolvedApiKey` lives in `sc-agent-types` so a sending transport can accept
 it without depending on this crate. `Debug` and `Display` redact the secret.

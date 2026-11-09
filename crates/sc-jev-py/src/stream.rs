@@ -90,11 +90,13 @@ impl StreamSpec {
             } else {
                 sc_decision_schema::MultiBackendMode::Independent
             });
+        if let Some(backends) =
+            parse_backends(self.backends.as_deref(), self.models_file.as_deref())?
+        {
+            inputs = inputs.backends(backends);
+        }
         if let Some(path) = self.models_file {
             inputs = inputs.models_file(path);
-        }
-        if let Some(backends) = parse_backends(self.backends.as_deref())? {
-            inputs = inputs.backends(backends);
         }
         if let Some(path) = self.system_prompt_file {
             inputs = inputs.system_prompt_override(path);

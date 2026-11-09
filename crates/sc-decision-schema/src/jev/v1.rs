@@ -527,8 +527,12 @@ fn in_question(id: &QuestionId, error: &JevError) -> JevError {
 /// The top-level keys of an object keep their order. Nested values are
 /// `serde_json` values, whose object keys are sorted, so only the top level
 /// round-trips verbatim.
+///
+/// `#[non_exhaustive]`: a later form of `state` is a new variant, not a
+/// breaking change, so a `match` outside this crate needs a wildcard arm.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(untagged)]
+#[non_exhaustive]
 pub enum JevState {
     /// Free text.
     Text(String),

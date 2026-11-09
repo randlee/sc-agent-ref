@@ -36,7 +36,8 @@ thiserror = "2"
 ulid = "1"
 sc-sha = "1.7.0"
 toml = "1.1.8"
-ureq = "3.5.1"
+# Exact: the transport uses ureq::unversioned, which upstream excludes from semver.
+ureq = "=3.5.1"
 # The decision schema crate (ADR-SAG-0030). Caret; not on the lockstep list.
 sc-decision-schema = { version = "0.1.0", path = "crates/sc-decision-schema" }
 # The shared HTTP layer (ADR-SAG-0026). Caret, like every workspace library.

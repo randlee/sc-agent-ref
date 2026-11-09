@@ -302,3 +302,46 @@ fn test_sha256_reference_vectors() {
         Sha256Digest::of_text("a\nb\nc")
     );
 }
+
+/// A models-file row makes its id selectable for the alias's family; ids the
+/// catalog does not list, and ids of definition-only aliases, stay refused.
+#[test]
+fn test_backend_choice_accepts_models_file_ids_of_selectable_families() {
+    let aliases = ModelAliases::builtin()
+        // Older than the crate's newest row: still pinnable, not the default.
+        .with_file_model("jev-1.15.0", "jev", "2026-11-01")
+        .and_then(|aliases| aliases.with_file_model("claude-haiku-5-6", "haiku", "2026-11-02"))
+        .and_then(|aliases| aliases.with_file_model("gpt-6-luna-2", "luna", "2020-01-01"))
+        .and_then(|aliases| aliases.with_file_model("claude-sonnet-6", "sonnet", "2026-11-02"))
+        .expect("rows");
+    for (text, backend) in [
+        ("jev-1.15.0", BackendId::Jev),
+        ("claude-haiku-5-6", BackendId::Haiku),
+        ("gpt-6-luna-2", BackendId::Luna),
+    ] {
+        let choice = BackendChoice::parse_in(text, &aliases).expect(text);
+        assert_eq!(choice.id(), backend, "{text}");
+        assert_eq!(choice.model().map(ModelId::as_str), Some(text));
+        // The crate table alone still refuses it.
+        assert_eq!(
+            text.parse::<BackendChoice>().expect_err(text).code(),
+            "INPUT_INVALID"
+        );
+    }
+    for text in ["claude-sonnet-6", "jev-9.9.9", "claude-haiku-9", "sonnet"] {
+        let error = BackendChoice::parse_in(text, &aliases).expect_err(text);
+        assert_eq!(error.code(), "INPUT_INVALID", "{text}");
+        assert!(error.message().contains("jev-1.15.0"), "{text}");
+    }
+    let set = BackendSet::parse_in("jev-1.15.0, claude-haiku-5-6", &aliases).expect("set");
+    assert_eq!(set.as_slice(), [BackendId::Jev, BackendId::Haiku]);
+    assert_eq!(
+        set.pin(BackendId::Jev).map(ModelId::as_str),
+        Some("jev-1.15.0")
+    );
+    // An override is not a catalog row.
+    let overridden = ModelAliases::builtin()
+        .with_override("jev", "jev-2.0.0".parse().expect("model"))
+        .expect("override");
+    assert!(BackendChoice::parse_in("jev-2.0.0", &overridden).is_err());
+}
