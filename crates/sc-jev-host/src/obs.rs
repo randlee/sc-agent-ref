@@ -29,6 +29,7 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock, PoisonError, Weak};
 
 use serde_json::Value;
@@ -39,7 +40,7 @@ use sc_agent_types::observability::v2::{
     SharedGeneralLog, SharedSessionLog,
 };
 use sc_agent_types::{JevError, Operation};
-use sc_observability::v2::{Logger, LoggerBuilder};
+use sc_observability::v2::{JsonlFileSink, Logger, LoggerBuilder};
 use sc_observability::{
     ActionName, Level, LogEvent, LoggerConfig, OBSERVATION_ENVELOPE_VERSION, ProcessIdentity,
     SchemaVersion, ServiceName, TargetCategory, Timestamp,
@@ -65,18 +66,145 @@ macro_rules! envelope_id {
     }};
 }
 
+/// The process that first used this library (see [`note_process`]).
+static FIRST_PID: OnceLock<u32> = OnceLock::new();
+
+/// Records the current process as the one that owns this library's state.
+///
+/// A root that can be forked (the Python wheel, at import) calls this once
+/// early. In a forked child, blocking waits on the forking thread are moved
+/// to a fresh thread: on macOS `std` parks a thread on a Mach-port semaphore
+/// that does not survive `fork`, so the first park of a thread that had
+/// already parked before the fork aborts the child (SIGTRAP). Idempotent.
+pub fn note_process() {
+    let _ = FIRST_PID.set(std::process::id());
+}
+
+/// Whether this process is a fork of the one that called [`note_process`].
+fn in_forked_child() -> bool {
+    FIRST_PID
+        .get()
+        .is_some_and(|first| *first != std::process::id())
+}
+
+/// Runs `work` on `logger`, on a fresh thread in a forked child (see
+/// [`note_process`]), else on this one. `None` when the thread could not run.
+fn blocking<R: Send + 'static>(
+    logger: &Arc<Logger>,
+    work: impl FnOnce(&Logger) -> R + Send + 'static,
+) -> Option<R> {
+    if !in_forked_child() {
+        return Some(work(logger));
+    }
+    let logger = Arc::clone(logger);
+    std::thread::Builder::new()
+        .spawn(move || work(&logger))
+        .ok()?
+        .join()
+        .ok()
+}
+
 /// Owns one running logger. Dropping it flushes and shuts the writer down.
 ///
 /// Shutdown runs exactly once, when the last [`Arc`] goes away, so there is
 /// no reference-count race between concurrent drops.
-struct LoggerInner(Logger);
+///
+/// # Fork
+///
+/// The writer is a thread, and a forked child has only the forking thread. A
+/// logger started by another process (`pid` differs) is never used or shut
+/// down here: its channel is dead and a send on it can abort the child. The
+/// registry skips it, so the child starts a writer of its own, and dropping
+/// it leaks the dead one instead of touching it.
+struct LoggerInner {
+    logger: Arc<Logger>,
+    /// The process that started the writer thread.
+    pid: u32,
+    /// Rows already reported as lost (see [`LoggerInner::take_lost_rows`]).
+    reported_lost: AtomicU64,
+    /// `<log_root>/logs`, to keep its files owner-only.
+    logs_dir: PathBuf,
+    /// The active file name; rotated files are `<name>.<n>`.
+    file_name: String,
+}
+
+impl LoggerInner {
+    fn new(logger: Logger, log_root: &Path, service: &ServiceName) -> Self {
+        Self {
+            logger: Arc::new(logger),
+            pid: std::process::id(),
+            reported_lost: AtomicU64::new(0),
+            logs_dir: logs_dir(log_root),
+            file_name: file_name(service),
+        }
+    }
+
+    /// Whether this process started the writer thread.
+    fn is_local(&self) -> bool {
+        self.pid == std::process::id()
+    }
+
+    /// Flushes admitted events, keeps the files owner-only (rotation makes a
+    /// new file under the process umask), and maps a failure to `IO_FAILED`.
+    fn flush(&self, label: &str) -> Result<(), JevError> {
+        let flushed = blocking(&self.logger, |logger| {
+            logger
+                .flush()
+                .map_err(|error| error.diagnostic().message.clone())
+        })
+        .unwrap_or_else(|| Err("the flush thread could not run".to_owned()))
+        .map_err(|message| {
+            JevError::io_failed_with(
+                format!("{label} flush ({message})"),
+                std::io::ErrorKind::Other,
+                Some("Check that the log root is writable.".to_owned()),
+            )
+        });
+        harden_log_files(&self.logs_dir, &self.file_name);
+        flushed
+    }
+
+    /// Text for the rows the writer could not write since the last call, or
+    /// `None` when none were lost.
+    ///
+    /// The writer counts a row it fails to write (`dropped_events_total`) but
+    /// a flush still succeeds, so a read-only directory or a full disk loses
+    /// rows with no error. Call after [`Self::flush`]: the flush is a barrier,
+    /// so every admitted row is counted by then.
+    fn take_lost_rows(&self, label: &str) -> Option<String> {
+        let health = self.logger.health();
+        let total = health.dropped_events_total;
+        let seen = self.reported_lost.fetch_max(total, Ordering::AcqRel);
+        let lost = total.saturating_sub(seen);
+        if lost == 0 {
+            return None;
+        }
+        let cause = health
+            .last_error
+            .or(health.last_writer_error)
+            .map_or_else(String::new, |summary| format!(" ({})", summary.message));
+        Some(format!(
+            "{lost} {label} row(s) could not be written to {}{cause}",
+            self.logs_dir.join(&self.file_name).display()
+        ))
+    }
+}
 
 impl Drop for LoggerInner {
     fn drop(&mut self) {
+        if !self.is_local() {
+            // Forked from the process that owns the writer: leak it. The
+            // extra strong count is never released, so the dead logger is
+            // never dropped.
+            std::mem::forget(Arc::clone(&self.logger));
+            return;
+        }
         // Best effort: the process is done with this writer and a failure
         // here has no caller left to report to.
-        let _ = self.0.flush();
-        let _ = self.0.shutdown();
+        let _ = blocking(&self.logger, |logger| {
+            let _ = logger.flush();
+            let _ = logger.shutdown();
+        });
     }
 }
 
@@ -158,13 +286,19 @@ impl ObservabilityAdapter {
     /// Returns `IO_FAILED` when the sink cannot flush. The action tells the
     /// caller to check the log root and does not mention `check.toml`.
     pub fn flush(&self) -> Result<(), JevError> {
-        self.inner.0.flush().map_err(|error| {
-            JevError::io_failed_with(
-                format!("session log flush ({})", error.diagnostic().message),
-                std::io::ErrorKind::Other,
-                Some("Check that the log root is writable.".to_owned()),
-            )
-        })
+        self.inner.flush("session log")
+    }
+
+    /// The rows the writer could not write since the last call, as warning
+    /// text; `None` when none were lost.
+    ///
+    /// A flush succeeds even when the writer failed to write rows (a
+    /// read-only directory, a full disk), so a caller that must not lose
+    /// audit rows silently asks here after [`Self::flush`]. Each lost row is
+    /// reported once.
+    #[must_use]
+    pub fn take_lost_rows(&self) -> Option<String> {
+        self.inner.take_lost_rows("session-log")
     }
 
     /// Whether `self` and `other` write through the same logger.
@@ -217,7 +351,7 @@ impl ObservabilityAdapter {
 impl SessionLog for ObservabilityAdapter {
     fn emit(&self, event: SessionEvent) -> Result<(), LogRejected> {
         self.inner
-            .0
+            .logger
             .log(self.log_event(&event)?)
             .map_err(|error| LogRejected::new(error.to_string()))
     }
@@ -246,7 +380,7 @@ fn open_shared(
             "Use a name of letters, digits, '-' and '_'.",
         )
     })?;
-    std::fs::create_dir_all(log_root).map_err(|error| {
+    create_private_dirs(log_root).map_err(|error| {
         JevError::io_failed_with(
             format!("log directory {} (create)", log_root.display()),
             error.kind(),
@@ -255,6 +389,7 @@ fn open_shared(
             )),
         )
     })?;
+    note_process();
     let key = std::fs::canonicalize(log_root).map_err(|error| {
         JevError::io_failed_with(
             format!("log directory {} (resolve)", log_root.display()),
@@ -265,16 +400,17 @@ fn open_shared(
     let mut live = registry().lock().unwrap_or_else(PoisonError::into_inner);
     live.retain(|_, weak| weak.strong_count() > 0);
     let registry_key = (service.to_owned(), key.clone());
-    if let Some(inner) = live.get(&registry_key).and_then(Weak::upgrade) {
+    // A writer started by another process (this one is a fork of it) is dead
+    // here; start our own beside it.
+    if let Some(inner) = live
+        .get(&registry_key)
+        .and_then(Weak::upgrade)
+        .filter(|inner| inner.is_local())
+    {
         return Ok((inner, service_name));
     }
-    let inner = Arc::new(LoggerInner(start_logger(
-        service_name.clone(),
-        &key,
-        flag,
-        level,
-        label,
-    )?));
+    let logger = start_logger(service_name.clone(), &key, flag, level, label)?;
+    let inner = Arc::new(LoggerInner::new(logger, &key, &service_name));
     live.insert(registry_key, Arc::downgrade(&inner));
     Ok((inner, service_name))
 }
@@ -301,6 +437,9 @@ fn start_logger(
     label: &str,
 ) -> Result<Logger, JevError> {
     let config = logger_config(service, log_root, level);
+    // Best effort: a directory that cannot be prepared is reported when the
+    // writer fails to write (`take_lost_rows`), not by refusing to start.
+    let _ = prepare_log_files(&config);
     LoggerBuilder::new(config)
         .and_then(LoggerBuilder::build)
         .map_err(|error| {
@@ -314,6 +453,112 @@ fn start_logger(
             )
         })
 }
+
+/// `<log_root>/logs`, the directory `sc-observability` writes in.
+fn logs_dir(log_root: &Path) -> PathBuf {
+    log_root.join("logs")
+}
+
+/// The active file name of `service`: `<service>.log.jsonl`.
+fn file_name(service: &ServiceName) -> String {
+    format!("{}.log.jsonl", service.as_str())
+}
+
+/// Creates `dir` and any missing parents, owner-only (`0700`) on Unix.
+///
+/// Only the components this call creates get the mode; an existing directory
+/// is left as the user made it. Log files hold answers and repo paths.
+///
+/// # Errors
+///
+/// The `io::Error` of the failed create.
+pub fn create_private_dirs(dir: &Path) -> std::io::Result<()> {
+    let mut builder = std::fs::DirBuilder::new();
+    builder.recursive(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::DirBuilderExt;
+        builder.mode(0o700);
+    }
+    builder.create(dir)
+}
+
+/// Prepares the log directory and active file of `config` before a logger
+/// starts on them:
+///
+/// 1. `<log_root>/logs` is created owner-only, if missing;
+/// 2. the active file is created owner-only (`0600`), if missing (an
+///    existing file is not opened), because
+///    `sc-observability` would create it under the process umask;
+/// 3. one retention pass runs now (rotate an active file over
+///    `rotation_max_bytes`, prune rotated files by count and age).
+///    `sc-observability` runs its first pass only 60 s after the logger
+///    starts, so a short-lived process (a CLI call) would otherwise never
+///    rotate; this is its public startup pass (`JsonlFileSink::open`);
+/// 4. the active and rotated files are made owner-only (a rotation creates a
+///    new active file under the umask).
+///
+/// # Errors
+///
+/// The `io::Error` of the directory or file create. The retention pass and
+/// the mode changes are best effort and never fail this call.
+pub fn prepare_log_files(config: &LoggerConfig) -> std::io::Result<()> {
+    let dir = logs_dir(&config.log_root);
+    create_private_dirs(&dir)?;
+    let name = file_name(&config.service_name);
+    let active = dir.join(&name);
+    // `create_new` only: it never opens an existing file, so a FIFO or a
+    // device the user pointed the log at cannot block this call.
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    match options.open(&active) {
+        Ok(_) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+        Err(error) => return Err(error),
+    }
+    // Startup retention pass; a failure resurfaces as a lost row.
+    let _ = JsonlFileSink::open(active, config.retained_log_policy);
+    harden_log_files(&dir, &name);
+    Ok(())
+}
+
+/// Makes the active log file `name` and its rotated files (`name.<n>`) in
+/// `dir` owner-only (`0600`). Best effort; a no-op off Unix.
+#[cfg(unix)]
+fn harden_log_files(dir: &Path, name: &str) {
+    use std::os::unix::fs::PermissionsExt;
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let file = entry.file_name();
+        let Some(file) = file.to_str() else { continue };
+        let ours = file == name
+            || file
+                .strip_prefix(name)
+                .and_then(|rest| rest.strip_prefix('.'))
+                .is_some_and(|index| {
+                    !index.is_empty() && index.bytes().all(|b| b.is_ascii_digit())
+                });
+        if !ours {
+            continue;
+        }
+        let Ok(metadata) = entry.metadata() else {
+            continue;
+        };
+        if metadata.is_file() && metadata.permissions().mode() & 0o077 != 0 {
+            let _ = std::fs::set_permissions(entry.path(), std::fs::Permissions::from_mode(0o600));
+        }
+    }
+}
+
+#[cfg(not(unix))]
+fn harden_log_files(_dir: &Path, _name: &str) {}
 
 /// A spelling that is not a valid action name is a rejected event, never a
 /// panic. The test `every_operation_is_an_action_name` proves every
@@ -420,13 +665,15 @@ impl GeneralLogAdapter {
     ///
     /// Returns `IO_FAILED` when the sink cannot flush.
     pub fn flush(&self) -> Result<(), JevError> {
-        self.inner.0.flush().map_err(|error| {
-            JevError::io_failed_with(
-                format!("general log flush ({})", error.diagnostic().message),
-                std::io::ErrorKind::Other,
-                Some("Check that the log root is writable.".to_owned()),
-            )
-        })
+        self.inner.flush("general log")
+    }
+
+    /// The rows the writer could not write since the last call, as warning
+    /// text; `None` when none were lost. See
+    /// [`ObservabilityAdapter::take_lost_rows`].
+    #[must_use]
+    pub fn take_lost_rows(&self) -> Option<String> {
+        self.inner.take_lost_rows("general-log")
     }
 
     /// Whether `self` and `other` write through the same logger.
@@ -477,7 +724,7 @@ impl GeneralLogAdapter {
 impl GeneralLog for GeneralLogAdapter {
     fn log(&self, event: GeneralEvent) -> Result<(), LogRejected> {
         self.inner
-            .0
+            .logger
             .log(self.log_event(&event)?)
             .map_err(|error| LogRejected::new(error.to_string()))
     }

@@ -52,12 +52,15 @@ use sc_agent_types::JevError;
 use sc_agent_types::observability::v2::{
     GeneralEvent, GeneralLog, LogEvent, LogRejected, SessionLog, SharedGeneralLog, SharedSessionLog,
 };
-use sc_jev_host::obs::GeneralLogAdapter;
+use sc_jev_host::obs::{GeneralLogAdapter, create_private_dirs, prepare_log_files};
 use sc_jev_host::paths::PathPolicy;
 use sc_observability_binding_runtime::{
-    CoreLoggerBackend, CoreLoggerOwner, HostLoggingBackend, ProducerOrigin, create_core_backend,
+    CoreLoggerBackend, CoreLoggerOwner, HostLoggingBackend, Operation, ProducerOrigin,
+    create_core_backend,
 };
-use sc_observability_dto::{Failure, LogEventDto};
+use sc_observability_dto::{
+    AdmissionDto, CompletionDto, Failure, LogEventDto, LogHealthDto, LogQueryDto, LogSnapshotDto,
+};
 use serde_json::{Value, json};
 
 /// The module name the `sc_observability` Python package imports.
@@ -99,11 +102,104 @@ static INSTALL_LOCK: Mutex<()> = Mutex::new(());
 /// The entry installed as the host logger, once one is.
 static INSTALLED: OnceLock<Arc<HostEntry>> = OnceLock::new();
 
-/// One running core backend and the owner that keeps it alive.
-pub(crate) struct HostEntry {
-    backend: Arc<CoreLoggerBackend>,
+/// One core backend that survives `fork()`, and the owner that keeps it alive.
+///
+/// The runtime's writer is a thread. A forked child (gunicorn or Celery
+/// prefork, `multiprocessing` with the fork start method, `os.fork`) has only
+/// the forking thread: the parent's writer, queue and timers are gone, and
+/// the first `try_log` on that queue aborts the child (SIGTRAP). Every call
+/// compares the process id with the one that started the backend; in a
+/// different process it starts a fresh backend on the same log root, so the
+/// child's rows are written by a writer of its own to the same file. The dead
+/// backend is leaked, never dropped or shut down (that would touch the dead
+/// queue). This is also what Python's `get_host_logger()` calls, because the
+/// wrapper is what is installed as the host logger.
+pub(crate) struct ForkSafeBackend {
+    policy: PathPolicy,
+    /// The canonical log root, to rebuild on.
+    root: PathBuf,
+    slot: Mutex<Slot>,
+}
+
+/// The backend of one process.
+struct Slot {
+    /// The process that started `backend`.
+    pid: u32,
+    backend: CoreLoggerBackend,
     /// Held for the life of the process: dropping it would close the backend.
     _owner: CoreLoggerOwner,
+}
+
+fn unavailable(message: impl Into<String>) -> Failure {
+    Failure::Unavailable {
+        diagnostic: Box::new(sc_observability_dto::boundary_diagnostic(
+            sc_observability_dto::error_codes::SC_OBSERVABILITY_BINDING_INTERNAL,
+            message,
+        )),
+    }
+}
+
+impl ForkSafeBackend {
+    fn start(policy: &PathPolicy, root: &Path) -> Result<Self, Failure> {
+        let slot = Self::build(policy, root)?;
+        Ok(Self {
+            policy: policy.clone(),
+            root: root.to_path_buf(),
+            slot: Mutex::new(slot),
+        })
+    }
+
+    /// A running backend for this process: the log directory and file are
+    /// prepared (owner-only, one retention pass: a short-lived process never
+    /// reaches the runtime's own first pass), then the runtime starts.
+    fn build(policy: &PathPolicy, root: &Path) -> Result<Slot, Failure> {
+        let config = GeneralLogAdapter::logger_config(policy, root)
+            .map_err(|error| unavailable(error.message()))?;
+        // Best effort: a directory that cannot be prepared surfaces as rows
+        // the writer cannot write, not as a refusal to log.
+        let _ = prepare_log_files(&config);
+        let (owner, backend) = create_core_backend(config)?;
+        Ok(Slot {
+            pid: std::process::id(),
+            backend,
+            _owner: owner,
+        })
+    }
+
+    /// The backend of this process, rebuilt first if this is a forked child.
+    fn current(&self) -> Result<CoreLoggerBackend, Failure> {
+        let mut slot = self.slot.lock().unwrap_or_else(PoisonError::into_inner);
+        if slot.pid != std::process::id() {
+            let fresh = Self::build(&self.policy, &self.root)?;
+            // The parent's writer thread does not exist here: leak the old
+            // backend and owner instead of dropping them.
+            std::mem::forget(std::mem::replace(&mut *slot, fresh));
+        }
+        Ok(slot.backend.clone())
+    }
+}
+
+impl HostLoggingBackend for ForkSafeBackend {
+    fn try_log(&self, event: LogEventDto, origin: ProducerOrigin) -> Result<AdmissionDto, Failure> {
+        self.current()?.try_log(event, origin)
+    }
+
+    fn start_query(&self, query: LogQueryDto) -> Result<Operation<LogSnapshotDto>, Failure> {
+        self.current()?.start_query(query)
+    }
+
+    fn health(&self) -> Result<LogHealthDto, Failure> {
+        self.current()?.health()
+    }
+
+    fn start_flush(&self, native_timeout: Duration) -> Result<Operation<CompletionDto>, Failure> {
+        self.current()?.start_flush(native_timeout)
+    }
+}
+
+/// One running core backend (fork-safe) for a service and log root.
+pub(crate) struct HostEntry {
+    backend: Arc<ForkSafeBackend>,
     log_file: PathBuf,
     /// Serializes this process's flushes (see [`HostEntry::flush`]).
     flush_lock: Mutex<()>,
@@ -126,6 +222,8 @@ fn entries() -> &'static Mutex<HashMap<Key, Arc<HostEntry>>> {
 ///
 /// Called once from the module initializer.
 pub(crate) fn register_native(py: Python<'_>) -> PyResult<()> {
+    // Import is before any fork the application does with this library.
+    sc_jev_host::obs::note_process();
     let native: Py<PyModule> = pyo3::wrap_pymodule!(_native)(py);
     let modules = py.import("sys")?.getattr("modules")?;
     let seeded = !modules.contains(NATIVE_NAME)?;
@@ -148,7 +246,7 @@ fn core_failure(error: impl std::fmt::Debug) -> JevError {
 impl HostEntry {
     /// The entry for `log_root`, started on first use.
     fn open(policy: &PathPolicy, log_root: &Path) -> Result<Arc<Self>, JevError> {
-        std::fs::create_dir_all(log_root).map_err(|error| {
+        create_private_dirs(log_root).map_err(|error| {
             JevError::io_failed_with(
                 format!("log directory {} (create)", log_root.display()),
                 error.kind(),
@@ -167,11 +265,11 @@ impl HostEntry {
         if let Some(entry) = live.get(&(service.clone(), canonical.clone())) {
             return Ok(Arc::clone(entry));
         }
-        let config = GeneralLogAdapter::logger_config(policy, &canonical)?;
-        let (owner, backend) = create_core_backend(config).map_err(core_failure)?;
+        // Validates the service name; the backend rebuilds from the policy.
+        GeneralLogAdapter::logger_config(policy, &canonical)?;
+        let backend = ForkSafeBackend::start(policy, &canonical).map_err(core_failure)?;
         let entry = Arc::new(Self {
             backend: Arc::new(backend),
-            _owner: owner,
             log_file: canonical.join("logs").join(format!("{service}.log.jsonl")),
             flush_lock: Mutex::new(()),
             dropped: AtomicU64::new(0),

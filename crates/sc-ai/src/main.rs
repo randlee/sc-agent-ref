@@ -31,13 +31,17 @@ fn main() -> ExitCode {
     match execute(command, &mut io::stdin().lock()) {
         Ok(output) => {
             let printed = print_stdout(output.stdout());
-            match output.failure() {
+            let outcome = match output.failure() {
                 Some(failure) => {
                     emit(failure);
                     ExitCode::from(output.exit_code())
                 }
                 None => printed,
+            };
+            for warning in output.warnings() {
+                warn(warning);
             }
+            outcome
         }
         Err(error) => fail(&error),
     }
@@ -52,14 +56,22 @@ fn stream(command: sc_ai::StreamCommand) -> ExitCode {
     match serve_stream(command, stdin, &mut io::stdout().lock()) {
         Ok(summary) => {
             if let Some(warning) = summary.log_flush_warning() {
-                emit(&ScAgentErrorResponse::from_jev_error(
-                    &JevError::io_failed_with(warning, io::ErrorKind::Other, None),
-                ));
+                warn(warning);
             }
             ExitCode::from(summary.exit_code())
         }
         Err(error) => fail(&error),
     }
+}
+
+/// A warning on a run that succeeded: one stderr line,
+/// `{"warning": "<text>", "schema_version": 1}`, with the exit code
+/// unchanged. The text is the envelope's `data.warnings` entry. It has no
+/// `error` key, so it is never mistaken for a failure.
+fn warn(warning: &str) {
+    let line = serde_json::json!({ "warning": warning, "schema_version": 1 });
+    // Best effort: a closed stderr leaves nowhere to report the warning.
+    let _ = writeln!(io::stderr(), "{line}");
 }
 
 fn print_stdout(bytes: &[u8]) -> ExitCode {

@@ -44,6 +44,7 @@
 
 #![warn(missing_docs)]
 
+mod agent_dir;
 pub mod compose;
 pub mod obs;
 pub mod paths;
