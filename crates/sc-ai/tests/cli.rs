@@ -209,7 +209,10 @@ fn test_multi_backend_cli_equal_input() {
     assert_eq!(data["equal_input"]["equal"], true);
     assert_eq!(data["equal_input"]["leak"], false);
     assert_eq!(data["equal_input"]["mode"], "independent");
-    assert_eq!(data["equal_input"]["prompt_sha256"], data["prompt_sha256"]);
+    assert_eq!(
+        data["equal_input"]["payload_sha256"],
+        data["payload_sha256"]
+    );
     assert_eq!(
         data["equal_input"]["backends"],
         json!([
@@ -628,8 +631,8 @@ fn test_cli_chain_context_flag() {
     }
     // Same payload either way.
     assert_eq!(
-        independent["data"]["prompt_sha256"],
-        chained["data"]["prompt_sha256"]
+        independent["data"]["payload_sha256"],
+        chained["data"]["payload_sha256"]
     );
 }
 
@@ -750,8 +753,8 @@ fn test_cli_system_prompt_file_overrides_check_toml() {
     assert!(!flag_prompt.contains(PACKAGED_SYSTEM_PROMPT.trim()));
     // The prompt changes the wire, never the payload digest.
     assert_eq!(
-        from_check["data"]["prompt_sha256"],
-        from_flag["data"]["prompt_sha256"]
+        from_check["data"]["payload_sha256"],
+        from_flag["data"]["payload_sha256"]
     );
     assert_eq!(
         from_flag["data"]["readback"]["llm_system_prompt_file"],
@@ -796,7 +799,7 @@ fn cli_dry_run_readback_run_ask_and_expiry() {
     assert!(dry["data"]["session_id"].is_null());
     assert_eq!(dry["data"]["session_saved"], false);
     assert_eq!(
-        dry["data"]["prompt_sha256"].as_str().expect("sha").len(),
+        dry["data"]["payload_sha256"].as_str().expect("sha").len(),
         64
     );
     assert!(dry["data"]["payload"]["questions"].is_array());
@@ -838,7 +841,7 @@ fn cli_dry_run_readback_run_ask_and_expiry() {
         .as_str()
         .expect("session")
         .to_owned();
-    assert_eq!(ran["data"]["prompt_sha256"], dry["data"]["prompt_sha256"]);
+    assert_eq!(ran["data"]["payload_sha256"], dry["data"]["payload_sha256"]);
     let saved = session_doc(sessions.path(), &session_id);
     assert!(
         saved["system_prompt"]
@@ -892,7 +895,10 @@ fn cli_dry_run_readback_run_ask_and_expiry() {
         asked["data"].get("results").is_none(),
         "ask data is the outcome"
     );
-    assert_eq!(asked["data"]["prompt_sha256"], ran["data"]["prompt_sha256"]);
+    assert_eq!(
+        asked["data"]["payload_sha256"],
+        ran["data"]["payload_sha256"]
+    );
     assert!(asked["data"].get("warnings").is_none(), "no flush failure");
     assert_no_prompt_leak(&asked.to_string());
 
@@ -946,7 +952,7 @@ fn cli_logger_adapter_records_session_without_secrets() {
         "--scripted-answers",
         text(&answers),
     ]));
-    let digest = value["data"]["prompt_sha256"].as_str().expect("sha");
+    let digest = value["data"]["payload_sha256"].as_str().expect("sha");
     let session_id = value["data"]["session_id"].as_str().expect("session");
     let log_path = logs.path().join("logs").join("sc-ai.log.jsonl");
     let log = std::fs::read_to_string(&log_path)

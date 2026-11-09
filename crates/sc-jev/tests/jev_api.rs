@@ -339,12 +339,28 @@ mod jev_api {
     }
 
     #[test]
-    fn wrong_model_and_non_json_are_response_invalid() {
+    fn answered_model_may_differ_and_non_json_is_response_invalid() {
+        // A reply naming another model than the request is not an error
+        // (agt-cac): the answered model is recorded and reachable.
         let harness = scripted(vec![ok("other-model")]);
-        let error = harness
+        let outcome = harness
             .client
             .judge(&request(payload("x"), None), &SendTrace::new())
-            .expect_err("model");
+            .expect("a different answered model is accepted");
+        assert_eq!(
+            outcome.answered_model().expect("answered").as_str(),
+            "other-model"
+        );
+        assert_eq!(
+            outcome.provider_meta().expect("meta")["model"],
+            "other-model"
+        );
+        // A reply with no model is still not a check reply.
+        let no_model = scripted(vec![reply(json!({"answers": {}, "usage": {}}))]);
+        let error = no_model
+            .client
+            .judge(&request(payload("x"), None), &SendTrace::new())
+            .expect_err("model required");
         assert_eq!(error.code(), "RESPONSE_INVALID");
 
         let not_json = scripted(vec![HttpResponse::new(

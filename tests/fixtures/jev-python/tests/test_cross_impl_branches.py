@@ -53,9 +53,9 @@ def test_branches_fixture_digest_is_stable(tmp_path: Path) -> None:
         log_dir=str(tmp_path / "log"),
         session_dir=str(tmp_path / "sessions"),
     )
-    assert built["prompt_sha256"] == dry.prompt_sha256
+    assert built["payload_sha256"] == dry.payload_sha256
     assert built["payload"] == dry.payload
-    assert sc_jev_py.canonical_sha256(built["payload"]) == built["prompt_sha256"]
+    assert sc_jev_py.canonical_sha256(built["payload"]) == built["payload_sha256"]
 
     payload = json.loads(built["payload"])
     prompt = payload["questions"][0]["prompt"]
@@ -71,4 +71,4 @@ def test_branches_fixture_digest_is_stable(tmp_path: Path) -> None:
     assert producer["mode"] == "matches"
     assert producer["query_sha256"] == document["producer"]["query_sha256"]
     again = sc_jev_py.build_request("check.toml", repo_root=str(repo))
-    assert again["prompt_sha256"] == built["prompt_sha256"]
+    assert again["payload_sha256"] == built["payload_sha256"]

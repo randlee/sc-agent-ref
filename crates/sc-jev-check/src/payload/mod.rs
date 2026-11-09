@@ -228,7 +228,7 @@ mod tests {
         assert!(!text.contains(crate::config::PACKAGED_SYSTEM_PROMPT.trim()));
         assert_eq!(
             built.bundle.sha256(),
-            &sc_agent_types::Sha256Digest::of_text(built.bundle.as_str())
+            &sc_agent_types::PayloadSha256::of_text(built.bundle.as_str())
         );
     }
 

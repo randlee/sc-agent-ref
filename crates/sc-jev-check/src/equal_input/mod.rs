@@ -1,11 +1,11 @@
 //! Equal-input record for one check run (REQ-SAG-0602).
 //!
 //! Every backend in the run is attested against the same canonical payload
-//! bytes. `prompt_sha256` is the digest of those bytes. LLM system-prompt text
+//! bytes. `payload_sha256` is the digest of those bytes. LLM system-prompt text
 //! is not part of the digest (ADR-SAG-0019). `equal` is derived from the
 //! per-backend [`Attestation`]s. Each backend reports the digest of the
 //! canonical blob it recovered from its own final wire body; the engine
-//! compares it to `prompt_sha256` and trusts it (REQ-SAG-0606,
+//! compares it to `payload_sha256` and trusts it (REQ-SAG-0606,
 //! ADR-SAG-0025), so `equal` can be `false` on a live run.
 
 #![warn(missing_docs)]
@@ -88,7 +88,7 @@ pub fn producer_from_extractions(
 mod tests {
     use super::*;
     use sc_agent_types::schema::subjects::{GrammarRef, SubjectsDocument};
-    use sc_agent_types::{BackendId, Sha256Digest};
+    use sc_agent_types::{BackendId, PayloadSha256};
     use sc_decision_schema::{Attestation, CanonicalJudgePayload};
 
     fn bundle() -> PayloadBundle {
@@ -112,8 +112,8 @@ mod tests {
         )
         .expect("record");
         assert_eq!(
-            built.prompt_sha256(),
-            &Sha256Digest::of_text(bundle.as_str())
+            built.payload_sha256(),
+            &PayloadSha256::of_text(bundle.as_str())
         );
         assert!(built.leak());
         assert!(!built.equal());
@@ -134,8 +134,8 @@ mod tests {
                 "equal",
                 "leak",
                 "mode",
-                "producer",
-                "prompt_sha256"
+                "payload_sha256",
+                "producer"
             ]
         );
         let parsed: EqualInputRecord = serde_json::from_value(value).expect("parse");
@@ -213,8 +213,10 @@ mod tests {
                 grammar: "tree-sitter-python".to_owned(),
                 grammar_version: "0.23.6".to_owned(),
             },
-            Sha256Digest::parse("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-                .expect("digest"),
+            sc_agent_types::Sha256Digest::parse(
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            )
+            .expect("digest"),
         )
     }
 }

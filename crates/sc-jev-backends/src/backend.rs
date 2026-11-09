@@ -29,7 +29,8 @@ use sc_agent_http::{
 };
 use sc_agent_types::observability::v2::{GeneralEvent, NoopGeneralLog, SharedGeneralLog};
 use sc_agent_types::{
-    BackendId, CancelToken, JevError, ModelId, ResolvedApiKey, ResponseInvalidCause, SendTrace,
+    BackendId, CancelToken, JevError, ModelId, RequestSha256, ResolvedApiKey, ResponseInvalidCause,
+    SendTrace,
 };
 use sc_decision_schema::llm::v1;
 use sc_decision_schema::{JudgeBackend, JudgeOutcome, JudgeRequest};
@@ -88,6 +89,46 @@ impl Provider {
             kind: ProviderKind::OpenAi,
         }
     }
+}
+
+/// The SHA-256 of the first body `judge` sends for `request` with `model`
+/// on backend `id`, computed before sending and without an API key.
+///
+/// An LLM backend sends the token-count body first, and `SendTrace` (so the
+/// session-log `request_sha256`) records the first send; that is the digest
+/// returned. The count body holds the model, the canonical payload and the
+/// system prompt, the same inputs as the message body that follows.
+///
+/// # Errors
+///
+/// `INPUT_INVALID` when `id` is not an LLM backend, the request has no system
+/// prompt, or a question is one the backend refuses (such as `noul`); in that
+/// last case nothing would be sent.
+pub fn request_sha256(
+    id: BackendId,
+    model: &ModelId,
+    request: &JudgeRequest,
+) -> Result<RequestSha256, JevError> {
+    let kind = match id {
+        BackendId::AnthropicHaiku => ProviderKind::Anthropic,
+        BackendId::OpenAiLuna => ProviderKind::OpenAi,
+        other => {
+            return Err(JevError::input_invalid(format!(
+                "backend {other} is not an LLM backend"
+            )));
+        }
+    };
+    let prompt = request
+        .llm()
+        .ok_or_else(|| JevError::input_invalid("LLM system prompt is required"))?;
+    validate::validate_questions(request.payload())?;
+    let body = wire::count_body(
+        kind,
+        model.as_str(),
+        request.payload().as_str(),
+        &prompt.system_prompt,
+    );
+    Ok(RequestSha256::of_text(&body))
 }
 
 struct Prepared {

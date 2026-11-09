@@ -176,6 +176,14 @@ owned_paths:
 
 # Sprint r-6 — Session log wiring: ULID, sc-sha, request digest, repo, project
 
+> **Historical record (phase-end digests, 2026-11-08).** This document records
+> the pre-rename names and the version 1 session-log DDL as they were planned
+> and built: `prompt_sha256` is now `payload_sha256`, the `questions` table
+> keyed by the payload digest is now `question_sets` plus `payloads`
+> (`schema_version` 2), and `questions_sha256` and per-backend `request_sha256`
+> were added. It is not rewritten. The current schema and migration notes are in
+> [`docs/sc-decision-schema/session-log-schema.md`](../../sc-decision-schema/session-log-schema.md).
+
 ## Outcome
 
 Every Jev and LLM send (`judge` and `ask`, `Ok` or `Failed`) writes one v2
