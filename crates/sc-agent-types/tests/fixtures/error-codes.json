@@ -308,7 +308,7 @@
     "message": "API key for typesafe is missing",
     "retryable": false,
     "schema_version": 1,
-    "suggested_action": "Provide a credential for typesafe via the process environment, the repo-root .env file, or the keyring, then retry."
+    "suggested_action": "Set TYPESAFE_API_KEY in the process environment or in the .env file at the repo root (or store it in the platform keyring under the service name TYPESAFE_API_KEY), then retry."
   },
   "LanguageUnavailable": {
     "error": "LANGUAGE_UNAVAILABLE",

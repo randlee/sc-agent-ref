@@ -288,6 +288,16 @@ impl BackendKeyId {
             Self::OpenAi => "openai",
         }
     }
+
+    /// The environment variable (and `.env` key) that supplies this credential.
+    #[must_use]
+    pub const fn env_var(self) -> &'static str {
+        match self {
+            Self::TypeSafe => "TYPESAFE_API_KEY",
+            Self::Anthropic => "ANTHROPIC_API_KEY",
+            Self::OpenAi => "OPENAI_API_KEY",
+        }
+    }
 }
 
 impl fmt::Display for BackendKeyId {

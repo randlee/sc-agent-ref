@@ -1,0 +1,6 @@
+[questions]
+path = "questions.json"
+
+[inputs.note]
+kind = "file"
+path = "notes/readme.txt"
