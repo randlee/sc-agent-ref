@@ -33,6 +33,24 @@ First release. Channels once published: crates.io (ten crates), PyPI
 
 ### Changed (public API shape before the first release)
 
+- Jev layer (phase-end digests): `jev` is accepted as the latest Jev model
+  next to versions such as `jev-1.13.0` (sent as `jev-latest`, not yet tested
+  against the live API; it may break on an API change, so upgrade sc-agent),
+  and a reply naming another model is no longer an error. Jev probability sums
+  are accepted within 0.01 per option and never rounded. Question-set
+  `criteria` descriptions are now sent, which changes the payload digest for
+  sets whose criteria differ from their keys. Run output, Python and
+  `RunResponse` gain `questions_sha256` (a question set, any state or order;
+  `score` level order counts) and per-backend `request_sha256` (the exact
+  first request body, computed before sending, for cached-response
+  substitution; cache on pinned versions, not `jev`). `prompt_sha256` is
+  renamed `payload_sha256` with no alias, and is a distinct type from the other
+  two digests in Rust (`PayloadSha256`, `QuestionsSha256`, `RequestSha256`;
+  wire and Python strings are unchanged). Python gains `request_json=` on
+  `run_check` and `build_request`. The session log is schema version 2
+  (`questions_sha256` on every row; tables `sessions`, `question_sets`,
+  `payloads`, `answers`); version 1 rows and earlier session documents are
+  refused.
 - `Probability` moved from `sc_decision_schema::jev::v1` to the crate root
   (`sc_decision_schema::Probability`) and gained `complement()`.
   `QuestionAnswer::new` now takes `Option<Probability>` and

@@ -101,6 +101,11 @@ ensure_ascii=False)` encoded as UTF-8), over this object:
   control characters are escaped (`\n`, `\u001f`).
 
 The digest does not cover `state` or the model, so it is not `payload_sha256`.
+It does not depend on question order or on a `choice` question's option
+order. A `score` question's levels are ordered, so its `criteria` is the array
+`[[level, description], ...]` in level order and reversing the levels changes
+the digest (the one departure from plan-anchor's form, which has `choice`
+only).
 Descriptions are covered: tuning a description changes the digest. The
 question order in the payload does not matter. Example (checked by
 `cargo test -p sc-decision-schema --test jev -- test_questions_sha256_is_pinned_to_the_documented_bytes`):

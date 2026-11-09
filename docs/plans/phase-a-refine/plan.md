@@ -35,6 +35,14 @@ adrs:
 
 # Phase A.1 — architectural refinement
 
+> **Historical record (phase-end digests, 2026-11-08).** This document records
+> the pre-rename names and the version 1 session-log DDL as they were planned
+> and built: `prompt_sha256` is now `payload_sha256`, the `questions` table
+> keyed by the payload digest is now `question_sets` plus `payloads`
+> (`schema_version` 2), and `questions_sha256` and per-backend `request_sha256`
+> were added. It is not rewritten. The current schema and migration notes are in
+> [`docs/sc-decision-schema/session-log-schema.md`](../../sc-decision-schema/session-log-schema.md).
+
 Status: **complete** — all ten sprints (r-1, r-4, r-2, r-3, r-3c, r-2b, r-3b,
 r-7, r-5, r-6) have landed on `integrate/phase-a`. Plan review rounds 1 to 6
 (round 5 included) are recorded in these dispositions:

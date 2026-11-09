@@ -11,7 +11,9 @@ A loader reads the `fields{}` object of each v2 log line (the keys are
 `payloads` with `INSERT OR IGNORE` (deriving `first_seen_at` from `ts`) and into
 `answers` with `INSERT`. This is lossless because the deduplicated tables hold
 only values fixed by their key (`session_created_at` by the session,
-`question_ids` by the question set, `questions_sha256` by the payload bytes). `repo`, `project` and `decision_schema` are per send, on
+`questions_sha256` and `question_ids` by the payload bytes; the question
+set holds nothing but when it was first seen, because `questions_sha256` does
+not depend on question order). `repo`, `project` and `decision_schema` are per send, on
 `answers`, so two sends of one session with different `project` values both keep
 theirs. The envelope `timestamp` is write time and the loader ignores it; `ts`
 is the row's time.
@@ -28,8 +30,8 @@ probably written by a newer sc-agent).
 - Version 2 (phase-end digests): the digest column `prompt_sha256` is
   `payload_sha256`; `questions_sha256` is added to every row. The `questions`
   table, keyed by the payload digest, becomes `question_sets` (keyed by
-  `questions_sha256`, holding `question_ids`) plus `payloads` (keyed by
-  `payload_sha256`, holding its `questions_sha256`). `answers` carries
+  `questions_sha256`) plus `payloads` (keyed by `payload_sha256`, holding its
+  `questions_sha256` and its `question_ids` in payload order). `answers` carries
   `questions_sha256` and `payload_sha256` under a composite foreign key to
   `payloads`, and its index `answers_by_question_model` on `(prompt_sha256,
   model_id)` is replaced by `answers_by_questions_model` on `(questions_sha256,
