@@ -2475,7 +2475,7 @@ queries, so callers do not spawn a process per query.
   shared host logger admits a row without blocking and the runtime's queue is
   bounded, so a stream at full rate used to lose about 80% of its rows with no
   warning. `HostGeneralLog::log` now waits out a full queue (pauses of 200 µs,
-  at most 1 s per row, on threads that hold no GIL); `run_check` shares the same
+  at most 10 s per row, on threads that hold no GIL); `run_check` shares the same
   path. A row still refused after the bound is counted, reported as a Warn row
   `general_log.rows_dropped` at flush, and returned as
   `general_log_rows_dropped` in the Python `finish()` and `run_many` summary.

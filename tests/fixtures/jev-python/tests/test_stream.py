@@ -337,9 +337,27 @@ def plain_iteration():
         pass
 
 def interrupted_run_many():
-    threading.Timer(0.01, lambda: os.kill(os.getpid(), signal.SIGINT)).start()
+    # Interrupt only once the stream is running (its `stream.start` row is on
+    # disk), so the test is about leaving a started stream and not about how
+    # fast the process reaches it. `raise_signal` works on every platform;
+    # `os.kill(pid, SIGINT)` terminates the process on Windows.
+    import time
+    log = sc_jev_py.general_log_file(work / "log")
+
+    def interrupt():
+        deadline = time.monotonic() + 60
+        while time.monotonic() < deadline:
+            try:
+                if "stream.start" in log.read_text(encoding="utf-8"):
+                    break
+            except OSError:
+                pass
+            time.sleep(0.001)
+        signal.raise_signal(signal.SIGINT)
+
+    threading.Thread(target=interrupt, daemon=True).start()
     try:
-        sc_jev_py._testing.run_many_scripted({f"r{i}": request for i in range(4000)}, **common)
+        sc_jev_py._testing.run_many_scripted({f"r{i}": request for i in range(20000)}, **common)
     except KeyboardInterrupt:
         pass
 

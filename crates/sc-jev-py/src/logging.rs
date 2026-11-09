@@ -69,9 +69,10 @@ const FLUSH_WAIT: Duration = Duration::from_secs(5);
 /// Longest one row waits for room in the runtime's bounded queue. The queue
 /// admits without blocking and refuses when full, and a stream at full rate
 /// fills it; a full queue is waited out (the writer drains it in
-/// microseconds) instead of dropping the row. A row still refused after this
+/// microseconds on Linux and macOS, much slower on a slow Windows disk) instead of
+/// dropping the row. A row still refused after this
 /// is counted and reported, never lost silently.
-const LOG_WAIT: Duration = Duration::from_secs(1);
+const LOG_WAIT: Duration = Duration::from_secs(10);
 
 /// Pause between attempts while the queue is full.
 const LOG_RETRY_PAUSE: Duration = Duration::from_micros(200);

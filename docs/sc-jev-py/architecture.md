@@ -34,7 +34,7 @@ an interrupted `run_many`) logs `stream.end` and flushes both default logs;
 all but `finish` wait at most 2 s for workers first (`ABANDON_WAIT`), with the
 GIL released. A repeated `finish` writes one `stream.end`. The shared host logger admits a
 row without blocking, so `HostGeneralLog::log` waits out a full runtime queue
-(at most 1 s per row, no GIL held) instead of dropping; a row refused after the
+(at most 10 s per row, no GIL held) instead of dropping; a row refused after the
 bound is counted and reported (Warn row `general_log.rows_dropped`, and
 `general_log_rows_dropped` in the `finish()`/`run_many` summary). Answers are the
 CLI's output lines as dicts (`{"id", "ok", "envelope"?, "error"?}`). Every blocking call runs under
