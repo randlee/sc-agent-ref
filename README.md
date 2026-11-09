@@ -36,9 +36,10 @@ cargo install --path crates/sc-ai --locked
 ## Quick start
 
 Build prerequisites for `cargo install`: Rust 1.94.1 or newer (the workspace
-`rust-version`) and a C compiler (`mimalloc`, `ring` and the tree-sitter
-grammars compile C). `cargo install sc-ai` installs only `sc-ai`; for
-`sc-treesitter` run `cargo install sc-treesitter --locked` or use Homebrew.
+`rust-version`) and a C compiler (`mimalloc` and `ring` compile C).
+`cargo install sc-ai` installs only `sc-ai`, which has no tree-sitter
+grammars. For `sc-treesitter`, whose grammars compile C too, run
+`cargo install sc-treesitter --locked` or use Homebrew.
 
 In a git repository, write a `check.toml`, the `questions.json` it names, and
 the file it reads:

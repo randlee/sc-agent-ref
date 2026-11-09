@@ -27,13 +27,13 @@ winget install randlee.sc-ai
 pip install sc-jev-py
 ```
 
-
 ## Quick start
 
 Build prerequisites for `cargo install`: Rust 1.94.1 or newer (the workspace
-`rust-version`) and a C compiler (`mimalloc`, `ring` and the tree-sitter
-grammars compile C). `cargo install sc-ai` installs only `sc-ai`; for
-`sc-treesitter` run `cargo install sc-treesitter --locked` or use Homebrew.
+`rust-version`) and a C compiler (`mimalloc` and `ring` compile C).
+`cargo install sc-ai` installs only `sc-ai`, which has no tree-sitter
+grammars. For `sc-treesitter`, whose grammars compile C too, run
+`cargo install sc-treesitter --locked` or use Homebrew.
 
 In a git repository, write a `check.toml`, the `questions.json` it names, and
 the file it reads:
@@ -86,7 +86,6 @@ worked `--request-json` example and the same flow in Python (`run_check`) are
 in [`docs/check-reference.md`](https://github.com/randlee/sc-agent/blob/develop/docs/check-reference.md).
 A TLS-inspecting proxy is not supported: the HTTP client trusts only the
 bundled web PKI roots.
-
 
 `jev ask` needs a saved session: only `haiku` and `luna` runs save one; a `jev` run has `session_id` null. See the [repository README](https://github.com/randlee/sc-agent#readme) for `stream`, `models`, output shapes and session logs.
 

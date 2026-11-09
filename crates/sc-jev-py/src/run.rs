@@ -20,9 +20,7 @@ use sc_agent_types::{
 };
 use sc_decision_schema::{MultiBackendMode, canonical_json_bytes};
 use sc_jev_check::run::{CallerRequest, CheckSource, RunResponse};
-use sc_jev_host::compose::{
-    ComposeInputs, ask_from, backend_set_from_names, explicit_repo_root, prepare_from,
-};
+use sc_jev_host::compose::{ComposeInputs, ask_from, explicit_repo_root, prepare_from};
 use sc_jev_host::paths::PathPolicy;
 use serde_json::Value;
 
@@ -188,7 +186,7 @@ pub(crate) fn base_inputs(
 }
 
 fn execute(spec: CheckRun) -> Result<FinishedRun, JevError> {
-    let backends = parse_backends(spec.backends.as_deref(), spec.models_file.as_deref())?;
+    let backends = parse_backends(spec.backends.as_deref())?;
     let rev = Rev::parse(&spec.rev)?;
     let mut inputs = base_inputs(spec.repo_root.as_deref(), spec.log_dir, spec.session_dir)?
         .dry_run(spec.dry_run)
@@ -202,7 +200,7 @@ fn execute(spec: CheckRun) -> Result<FinishedRun, JevError> {
         inputs = inputs.models_file(path);
     }
     if let Some(backends) = backends {
-        inputs = inputs.backends(backends);
+        inputs = inputs.backend_names(backends, None);
     }
     if let Some(path) = spec.system_prompt_file {
         inputs = inputs.system_prompt_override(path);
@@ -308,33 +306,32 @@ fn build(
     })
 }
 
-/// Parses `backends=` into a [`BackendSet`], checked against the catalog of
-/// this call (the crate table plus `models_file=` or
-/// `~/.sc-agent/models.toml`), exactly as `sc-ai --backend` is.
+/// Checks `backends=` before any I/O and returns the names to select, one
+/// per list item, exactly as `sc-ai --backend` takes them.
 ///
-/// `jev`, `haiku`, and `luna` (each the latest model), or a model id the
-/// catalog lists for one of them such as `claude-haiku-5-5` or a models-file
-/// row `jev-1.15.0` (that backend pinned to it), are accepted. Kebab-case
-/// aliases (`anthropic-haiku`) are not accepted. An unknown id is
-/// `INPUT_INVALID`; an empty or repeated list is `CONFIG_INVALID`. `None`
-/// leaves the selection to the engine.
-pub(crate) fn parse_backends(
-    names: Option<&[String]>,
-    models_file: Option<&Path>,
-) -> Result<Option<BackendSet>, JevError> {
-    names
-        .map(|names| {
-            let joined = names.join(",");
-            backend_set_from_names(
-                joined
-                    .split(',')
-                    .map(str::trim)
-                    .filter(|part| !part.is_empty()),
-                models_file,
-                &sc_agent_types::observability::v2::NoopGeneralLog,
-            )
-        })
-        .transpose()
+/// `jev`, `haiku`, and `luna` (each the latest model), or a model id of one
+/// of them such as `claude-haiku-5-5` or a models-file row `jev-1.15.0` (that
+/// backend pinned to it), are accepted. An item is one name and is never split
+/// on commas (`["jev,haiku"]` is refused, like `--backend jev,haiku`).
+/// Kebab-case aliases (`anthropic-haiku`) are not accepted. A value no catalog
+/// could make valid is `INPUT_INVALID` here; whether the catalog (the crate
+/// table plus `models_file=` or `~/.sc-agent/models.toml`) lists a well-formed
+/// id is checked once the run has loaded the file through its general log
+/// (`ComposeInputs::backend_names`), where an unknown id is `INPUT_INVALID`
+/// and an empty or repeated list is `CONFIG_INVALID`. `None` leaves the
+/// selection to the engine.
+pub(crate) fn parse_backends(names: Option<&[String]>) -> Result<Option<&[String]>, JevError> {
+    let Some(names) = names else {
+        return Ok(None);
+    };
+    if names.is_empty() {
+        // The same refusal as an empty set.
+        BackendSet::try_from(Vec::<sc_agent_types::BackendChoice>::new())?;
+    }
+    for name in names {
+        sc_agent_types::BackendChoice::check_shape(name)?;
+    }
+    Ok(Some(names))
 }
 
 /// Drops an empty path, which Python callers use to mean "unset".
@@ -1256,7 +1253,7 @@ pub(crate) fn install_host_logger(py: Python<'_>, log_dir: Option<PathBuf>) -> P
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sc_agent_types::BackendId;
+    use sc_agent_types::observability::v2::RecordingGeneralLog;
     use tempfile::TempDir;
 
     fn workspace_root() -> PathBuf {
@@ -1475,37 +1472,60 @@ mod tests {
     }
 
     #[test]
-    fn backend_ids_use_from_str_and_reject_kebab_aliases() {
-        // A models file that is absent: the crate table alone, whatever HOME holds.
-        let dir = temp_dir("backend-ids");
-        let none = dir.path().join("absent.toml");
-        let none = Some(none.as_path());
+    fn backend_ids_are_checked_in_shape_and_reject_kebab_aliases() {
+        let names = ["jev".to_owned(), "haiku".to_owned(), "luna".to_owned()];
         assert_eq!(
-            parse_backends(Some(&["jev".into(), "haiku".into(), "luna".into()]), none)
-                .expect("documented ids")
-                .expect("set")
-                .as_slice(),
-            [BackendId::Jev, BackendId::Haiku, BackendId::Luna]
+            parse_backends(Some(&names)).expect("documented ids"),
+            Some(names.as_slice())
         );
-        assert!(parse_backends(None, none).expect("unset").is_none());
+        assert!(parse_backends(None).expect("unset").is_none());
         for alias in ["anthropic-haiku", "openai-luna", "not-a-backend"] {
-            let error = parse_backends(Some(&[alias.to_owned()]), none).expect_err(alias);
+            let error = parse_backends(Some(&[alias.to_owned()])).expect_err(alias);
             assert_eq!(error.code(), "INPUT_INVALID", "{alias}");
             assert!(error.to_string().contains(alias), "{error}");
         }
         assert_eq!(
-            parse_backends(Some(&[]), none).expect_err("empty").code(),
+            parse_backends(Some(&[])).expect_err("empty").code(),
             "CONFIG_INVALID"
         );
     }
 
+    /// A list item is one name: a comma is not a separator, so
+    /// `["jev,haiku"]` is refused exactly like `--backend jev,haiku`.
+    #[test]
+    fn a_list_item_is_not_split_on_commas() {
+        for joined in ["jev,haiku", "haiku, luna", " jev"] {
+            let error = parse_backends(Some(&[joined.to_owned()])).expect_err(joined);
+            assert_eq!(error.code(), "INPUT_INVALID", "{joined:?}");
+        }
+        let root = temp_dir("comma");
+        let repo = root.path().join("repo");
+        std::fs::create_dir_all(&repo).expect("repo");
+        write_questions(&repo, "Applies?");
+        let mut spec = run_spec(
+            &repo,
+            &root.path().join("log"),
+            &root.path().join("s"),
+            "jev,haiku",
+            true,
+        );
+        spec.models_file = Some(root.path().join("absent.toml"));
+        let Err(error) = execute(spec) else {
+            panic!("a joined item should be refused");
+        };
+        assert_eq!(error.code(), "INPUT_INVALID");
+    }
+
     /// REQ-SAG-0149: a model id in the models file is a `backends=` entry;
     /// one the catalog does not list, and one of a definition-only alias,
-    /// are not.
+    /// are not. The file is read once, through the run's general log.
     #[test]
     fn backends_take_model_ids_of_the_models_file() {
-        let dir = temp_dir("backend-models-file");
-        let file = dir.path().join("models.toml");
+        let root = temp_dir("backend-models-file");
+        let repo = root.path().join("repo");
+        std::fs::create_dir_all(&repo).expect("repo");
+        write_questions(&repo, "Applies?");
+        let file = root.path().join("models.toml");
         std::fs::write(
             &file,
             "[[model]]\nid = \"jev-1.15.0\"\nalias = \"jev\"\nreleased = \"2026-11-01\"\n\
@@ -1513,25 +1533,80 @@ mod tests {
              [[model]]\nid = \"claude-sonnet-6\"\nalias = \"sonnet\"\nreleased = \"2026-11-02\"\n",
         )
         .expect("write");
-        let names = ["jev-1.15.0".to_owned(), "claude-haiku-5-6".to_owned()];
-        let set = parse_backends(Some(&names), Some(&file))
-            .expect("file ids")
-            .expect("set");
-        assert_eq!(set.as_slice(), [BackendId::Jev, BackendId::Haiku]);
-        assert_eq!(
-            set.pin(BackendId::Jev).map(|m| m.as_str()),
-            Some("jev-1.15.0")
-        );
+        let attempt = |id: &str, models: &Path| {
+            let recorder = RecordingGeneralLog::new();
+            let mut spec = run_spec(
+                &repo,
+                &root.path().join("log"),
+                &root.path().join("s"),
+                id,
+                true,
+            );
+            spec.models_file = Some(models.to_path_buf());
+            spec.loggers.general = Some(Arc::new(recorder.clone()));
+            (execute(spec), recorder)
+        };
+        for ok in ["jev-1.15.0", "claude-haiku-5-6"] {
+            let (finished, recorder) = attempt(ok, &file);
+            finished.unwrap_or_else(|error| panic!("{ok}: {error}"));
+            let reads = recorder
+                .actions()
+                .iter()
+                .filter(|a| **a == "models.file")
+                .count();
+            assert_eq!(reads, 1, "{ok}: the file is read once");
+        }
         for refused in ["jev-9.9.9", "claude-sonnet-6", "claude-haiku-9"] {
-            let error =
-                parse_backends(Some(&[refused.to_owned()]), Some(&file)).expect_err(refused);
+            let (finished, _) = attempt(refused, &file);
+            let Err(error) = finished else {
+                panic!("{refused} should be refused");
+            };
             assert_eq!(error.code(), "INPUT_INVALID", "{refused}");
         }
         // Without the file the same id is refused.
-        let absent = dir.path().join("absent.toml");
-        let error =
-            parse_backends(Some(&["jev-1.15.0".to_owned()]), Some(&absent)).expect_err("no file");
+        let (finished, _) = attempt("jev-1.15.0", &root.path().join("absent.toml"));
+        let Err(error) = finished else {
+            panic!("no file, no id");
+        };
         assert_eq!(error.code(), "INPUT_INVALID");
+    }
+
+    /// A malformed models file with `backends=` given leaves the same
+    /// `models.file_invalid` warning as a run without it.
+    #[test]
+    fn a_malformed_models_file_is_logged_with_backends_given() {
+        let root = temp_dir("backend-bad-file");
+        let repo = root.path().join("repo");
+        std::fs::create_dir_all(&repo).expect("repo");
+        write_questions(&repo, "Applies?");
+        let file = root.path().join("models.toml");
+        std::fs::write(
+            &file,
+            "[[model]]\nid = \"x\"\nalias = \"nope\"\nreleased = \"2099-01-01\"\n",
+        )
+        .expect("bad");
+        for backends in [Some(vec!["haiku".to_owned()]), None] {
+            let recorder = RecordingGeneralLog::new();
+            let mut spec = run_spec(
+                &repo,
+                &root.path().join("log"),
+                &root.path().join("s"),
+                "haiku",
+                true,
+            );
+            spec.backends = backends.clone();
+            spec.models_file = Some(file.clone());
+            spec.loggers.general = Some(Arc::new(recorder.clone()));
+            let Err(error) = execute(spec) else {
+                panic!("a malformed file should fail");
+            };
+            assert_eq!(error.code(), "CONFIG_INVALID", "{backends:?}");
+            assert!(
+                recorder.actions().contains(&"models.file_invalid"),
+                "{backends:?}: {:?}",
+                recorder.actions()
+            );
+        }
     }
 
     #[test]

@@ -19,29 +19,36 @@ commands are in [`README.md`](README.md).
   without recompiling. Ids no row lists, and ids of `sonnet`, `opus` and the
   other definition-only aliases, stay `INPUT_INVALID`. New API:
   `BackendChoice::parse_in`, `BackendSet::{parse_in, from_names_in}`,
-  `ModelAliases::{alias_of, known_models}` and
+  `BackendChoice::check_shape`, `ModelAliases::{alias_of, known_models}`,
+  `ComposeInputs::backend_names` and
   `sc_jev_host::compose::backend_set_from_names`; `check.toml` `backends`
-  still takes the crate table's ids only.
+  takes the crate table's ids only. A value no catalog could make valid
+  (`--backend nonsense`, `jev,haiku`, a Python list item with a comma) is
+  `INPUT_INVALID` before any file is read or log row written; a well-formed id
+  is checked once the models file is loaded, through the run's general log, so
+  a malformed file leaves its `models.file_invalid` warning. A models-file row
+  that gives a crate id (`claude-haiku-5-5`) another alias is `CONFIG_INVALID`.
 - Session-log rows carry `answered_model_id`, the model the reply named
   (`jev-1.14.0`), next to `model_id`, the model requested (`jev`); it is null
   for a failed send. `SESSION_LOG_SCHEMA_VERSION` is 3 (a new column), with
   `RowContext::answered_model_id` and `RowContextBuilder::answered_model_id`.
 - The stderr of a `check.toml` `command` extractor has bearer-token shapes
-  (`Bearer <token>` and `sk-` keys) replaced by `[redacted]` in errors, not
-  only the values of `*_API_KEY` and `SC_*` environment variables. A secret
+  (`Bearer <token>`, quoted or after `:`, and `sk-` keys in any case) replaced
+  by `[redacted]` in errors, not only the values of `*_API_KEY` and `SC_*`
+  environment variables. Plain English after `bearer` is kept, and a hyphenated
+  name that starts `sk-` (`sk-learn-...`) is redacted with the keys. A secret
   of another shape that this process does not hold is not recognized.
 - A Quick start in `README.md` and the `sc-ai` crate page (a minimal
   `check.toml`, `dry-run`, `run`, the key variable per backend and its lookup
   order, build prerequisites) and `docs/check-reference.md` (`check.toml`, both
   question formats, a `--request-json` example, Python `run_check`). Their
   examples are tested.
-- `KEY_MISSING` and a keystore `IO_FAILED` now name the backend's variable
+- `KEY_MISSING` and a keystore `IO_FAILED` name the backend's variable
   (`TYPESAFE_API_KEY`, `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`) and the
-  repo-root `.env` in `suggested_action`; the error ids and retryability are
-  unchanged. `sc_jev_py.JevError` carries the same text.
+  repo-root `.env` in `suggested_action`. `sc_jev_py.JevError` carries the
+  same text.
 - `ANTHROPIC_KEYCHAIN_SERVICE` is read from the process environment only; a
-  repo-root `.env` can no longer choose the keychain item (REQ-SAG-0201).
-
+  repo-root `.env` cannot choose the keychain item (REQ-SAG-0201).
 - `sc_jev_py.ask(session_id, follow_up, *, project, repo_root, session_dir,
   log_dir, models_file, session_log, general_log)` resumes a stored session by
   ULID, from any process, through the same `ask_from` as `sc-ai jev ask`.

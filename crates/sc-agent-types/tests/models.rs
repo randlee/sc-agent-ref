@@ -90,6 +90,38 @@ fn test_file_rows_resolve_to_the_newest_released() {
     }
 }
 
+/// A file row cannot move a model id to another alias: that would silently
+/// stop `--backend claude-haiku-5-5` working. The conflict is `CONFIG_INVALID`
+/// (like the file's other errors); repeating the id under its own alias is fine.
+#[test]
+fn test_file_row_cannot_redeclare_an_id_under_another_alias() {
+    let base = ModelAliases::builtin();
+    let error = base
+        .clone()
+        .with_file_model("claude-haiku-5-5", "sonnet", "2099-01-01")
+        .expect_err("redeclared");
+    assert_eq!(error.code(), "CONFIG_INVALID");
+    assert!(error.message().contains("claude-haiku-5-5"), "{error}");
+    assert!(error.message().contains("haiku"), "{error}");
+    // Two file rows with one id under two aliases conflict too.
+    let first = base
+        .clone()
+        .with_file_model("claude-shared", "sonnet", "2099-01-01")
+        .expect("first");
+    assert_eq!(
+        first
+            .with_file_model("claude-shared", "haiku", "2099-01-01")
+            .expect_err("second")
+            .code(),
+        "CONFIG_INVALID"
+    );
+    // The same alias again is not a conflict, and the catalog is unchanged.
+    let again = base
+        .with_file_model("claude-haiku-5-5", "haiku", "2000-01-01")
+        .expect("same alias");
+    assert_eq!(again.alias_of("claude-haiku-5-5"), Some("haiku"));
+}
+
 #[test]
 fn test_unknown_model_string_parses_as_other() {
     let model: ModelId = "claude-haiku-9".parse().expect("unknown is open");

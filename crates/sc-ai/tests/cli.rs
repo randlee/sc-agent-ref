@@ -108,6 +108,7 @@ fn stdout_json(output: &Output) -> Value {
 
 /// The one stderr line of a successful run that warned:
 /// `{"warning", "schema_version"}`, no `error` key. Returns the warning text.
+#[cfg(unix)]
 fn stderr_warning(output: &Output) -> String {
     let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
     assert_eq!(stderr.lines().count(), 1, "{stderr}");
