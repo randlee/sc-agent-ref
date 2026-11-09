@@ -461,7 +461,7 @@ impl<T: Transport> HttpClient<T> {
 
     /// [`Self::send_and_parse`] that a second token also governs: the
     /// token of the judge request being sent. Either token being cancelled
-    /// ends a busy wait within [`WAIT_SLICE`] (100 ms) and stops any further
+    /// ends a busy wait within one wait slice (100 ms) and stops any further
     /// send (ADR-SAG-0007).
     ///
     /// # Errors
