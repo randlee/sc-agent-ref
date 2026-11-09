@@ -15,7 +15,8 @@ use std::path::PathBuf;
 use clap::error::ErrorKind;
 use clap::{Args, Parser, Subcommand};
 use sc_agent_types::{BackendId, JevError, ProjectLabel, Rev, SessionId};
-use sc_ai::{AskCommand, Command, RunCommand};
+use sc_ai::{AskCommand, Command, RunCommand, StreamCommand};
+use sc_jev_host::stream::Concurrency;
 
 /// Usage notes appended to `--help`.
 const NOTES: &str = "\
@@ -39,6 +40,20 @@ control characters). The text is stored as given and is not scrubbed, so put
 no secret in it. The default is none.
 --chain-context appends earlier backends' answers to later LLM backends'
 prompts; the default is independent.
+
+jev stream answers many requests through one process (no process per query):
+JSONL in (--input FILE, or stdin), JSONL out on stdout, one line per request,
+in completion order, not input order. Each input line is
+{\"id\":\"<your id>\",\"request\":<the --request-json document>} and its answer
+line echoes the id: {\"id\",\"ok\",\"envelope\"?,\"error\"?}. envelope is the jev run
+envelope; error is the stderr body above. A failed request (a bad line, a failed
+backend) is an error on its own line and the stream continues. A line that
+cannot be read has \"id\": null. --concurrency N (1 to 64, default 8) sets the
+worker threads; the queue is bounded, so a slow reader slows the input. The
+stream ends when the input is closed, the queue is empty and the workers are
+idle. Exit 0 when no request failed; else 3 if every failure is retryable, else
+2. Per-request errors go on stdout lines, not stderr. Ids are not checked for
+uniqueness; --backend, if given, wins over a request's own backends.
 
 Default log root: <repo-root>/.sc-ai
 Override with --log-dir or SC_LOG_ROOT.
@@ -84,6 +99,49 @@ enum JevCmd {
     DryRun(RunArgs),
     /// Send a follow-up to a saved session.
     Ask(AskArgs),
+    /// Answer many requests (JSONL in, JSONL out) through one process.
+    Stream(StreamArgs),
+}
+
+/// Arguments of `jev stream`.
+#[derive(Debug, Args)]
+struct StreamArgs {
+    /// Repository root (default: git toplevel of the current directory).
+    #[arg(long, value_name = "PATH", allow_hyphen_values = true, value_parser = non_empty_path)]
+    repo_root: Option<PathBuf>,
+    /// Backend id for every request; repeat for several. Wins over a
+    /// request's own `backends`, as in `jev run`.
+    #[arg(long = "backend", value_name = "ID", allow_hyphen_values = true, value_parser = parse_backend)]
+    backends: Vec<BackendId>,
+    /// JSONL requests: a path, or - for stdin (the default).
+    #[arg(long, value_name = "PATH|-", allow_hyphen_values = true, value_parser = non_empty_text)]
+    input: Option<String>,
+    /// Number of worker threads, 1 to 64 (default: 8).
+    #[arg(long, value_name = "N", allow_hyphen_values = true, value_parser = parse_concurrency)]
+    concurrency: Option<Concurrency>,
+    /// Prompt file that overrides the LLM system prompt.
+    #[arg(long, value_name = "PATH", allow_hyphen_values = true, value_parser = non_empty_path)]
+    llm_system_prompt_file: Option<PathBuf>,
+    /// Directory for session files.
+    #[arg(long, value_name = "PATH", allow_hyphen_values = true, value_parser = non_empty_path)]
+    sessions_dir: Option<PathBuf>,
+    /// Log root (default: SC_LOG_ROOT, then <repo-root>/.sc-ai).
+    #[arg(long, value_name = "PATH", allow_hyphen_values = true, value_parser = non_empty_path)]
+    log_dir: Option<PathBuf>,
+    /// Let later backends see earlier answers (default: independent).
+    #[arg(long)]
+    chain_context: bool,
+    /// Project label for the log rows (not scrubbed; no secrets).
+    #[arg(long, value_name = "TEXT", allow_hyphen_values = true, value_parser = parse_project)]
+    project: Option<ProjectLabel>,
+    /// Scripted backend answers (test builds only).
+    #[cfg(feature = "test-util")]
+    #[arg(long, value_name = "FILE", hide = true, value_parser = non_empty_path)]
+    scripted_answers: Option<PathBuf>,
+    /// Send over real HTTP to `http://127.0.0.1:<PORT>` (test builds only).
+    #[cfg(feature = "test-util")]
+    #[arg(long, value_name = "PORT", hide = true)]
+    loopback_port: Option<u16>,
 }
 
 /// Arguments of `jev run` and `jev dry-run`.
@@ -177,6 +235,8 @@ pub(crate) enum Parsed {
     /// Boxed so the enum stays small on Windows, where `Command` is much
     /// larger than `Print`'s `String` (`clippy::large_enum_variant`).
     Run(Box<Command>),
+    /// Serve a JSONL stream (`jev stream`).
+    Stream(Box<StreamCommand>),
     /// Print this text to stdout and exit 0 (`--help`, `--version`).
     Print(String),
 }
@@ -195,6 +255,9 @@ where
     T: Into<std::ffi::OsString> + Clone,
 {
     match Cli::try_parse_from(args) {
+        Ok(Cli {
+            command: Group::Jev(JevCmd::Stream(args)),
+        }) => stream_command(args).map(|command| Parsed::Stream(Box::new(command))),
         Ok(cli) => into_command(cli).map(|command| Parsed::Run(Box::new(command))),
         Err(error)
             if matches!(
@@ -211,6 +274,7 @@ where
 fn into_command(cli: Cli) -> Result<Command, JevError> {
     let Group::Jev(command) = cli.command;
     Ok(match command {
+        JevCmd::Stream(_) => unreachable!("parse routes `jev stream` to stream_command"),
         JevCmd::Run(args) => Command::Run(run_command(args, false)?),
         JevCmd::DryRun(args) => Command::Run(run_command(args, true)?),
         JevCmd::Ask(args) => Command::Ask(AskCommand {
@@ -226,6 +290,53 @@ fn into_command(cli: Cli) -> Result<Command, JevError> {
             registry: None,
         }),
     })
+}
+
+fn stream_command(args: StreamArgs) -> Result<StreamCommand, JevError> {
+    #[cfg(feature = "test-util")]
+    let registry = stream_registry(&args)?;
+    Ok(StreamCommand {
+        repo_root: args.repo_root,
+        backends: args.backends,
+        input: args.input,
+        prompt_file: args.llm_system_prompt_file,
+        sessions_dir: args.sessions_dir,
+        log_dir: args.log_dir,
+        chain_context: args.chain_context,
+        project: args.project,
+        concurrency: args.concurrency.unwrap_or_default(),
+        #[cfg(feature = "test-util")]
+        registry,
+        #[cfg(not(feature = "test-util"))]
+        registry: None,
+    })
+}
+
+/// The test registry of a `stream`: as [`run_registry`].
+#[cfg(feature = "test-util")]
+fn stream_registry(
+    args: &StreamArgs,
+) -> Result<Option<std::sync::Arc<sc_jev_check::registry::BackendRegistry>>, JevError> {
+    if let Some(registry) = scripted_registry(args.scripted_answers.as_deref())? {
+        return Ok(Some(registry));
+    }
+    let Some(port) = args.loopback_port else {
+        return Ok(None);
+    };
+    let ids = if args.backends.is_empty() {
+        vec![BackendId::Jev]
+    } else {
+        args.backends.clone()
+    };
+    let backends = sc_agent_types::BackendSet::try_from(ids)?;
+    let root = args.repo_root.clone().unwrap_or_else(|| PathBuf::from("."));
+    sc_jev_check::registry::BackendRegistry::loopback_from_env(
+        &backends,
+        &sc_agent_types::RepoRoot::new(root),
+        port,
+        1,
+    )
+    .map(|registry| Some(std::sync::Arc::new(registry)))
 }
 
 fn run_command(args: RunArgs, dry_run: bool) -> Result<RunCommand, JevError> {
@@ -349,7 +460,8 @@ fn message(error: &clap::Error) -> String {
     if error.kind() == ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand
         || error.kind() == ErrorKind::MissingSubcommand
     {
-        return "a command is required: jev run, jev dry-run or jev ask (see --help)".to_owned();
+        return "a command is required: jev run, jev dry-run, jev ask or jev stream (see --help)"
+            .to_owned();
     }
     let rendered = error.render().to_string();
     let first = rendered.lines().next().unwrap_or_default();
@@ -372,6 +484,18 @@ fn non_empty_path(value: &str) -> Result<PathBuf, JevError> {
 
 fn parse_rev(value: &str) -> Result<Rev, JevError> {
     Rev::parse(value).map_err(|error| error.with_field("--rev"))
+}
+
+fn parse_concurrency(value: &str) -> Result<Concurrency, JevError> {
+    let workers: usize = value.parse().map_err(|_| {
+        JevError::input_invalid_field("--concurrency", "--concurrency must be a whole number")
+    })?;
+    Concurrency::new(workers).map_err(|_| {
+        JevError::input_invalid_field(
+            "--concurrency",
+            format!("--concurrency must be between 1 and {}", Concurrency::MAX),
+        )
+    })
 }
 
 fn parse_backend(value: &str) -> Result<BackendId, JevError> {
@@ -447,6 +571,53 @@ mod tests {
             assert!(text.contains(key), "{key}: {text}");
         }
         assert!(!text.contains("{\"schema_version\",\"error\",\"message\"}"));
+    }
+
+    /// The `--help` notes pin the stream wire format and exit rule
+    /// (REQ-SAG-0725).
+    #[test]
+    fn help_notes_describe_the_stream() {
+        let Ok(Parsed::Print(text)) = parse(["sc-ai", "--help"]) else {
+            panic!("--help must print");
+        };
+        for key in [
+            "jev stream answers many requests through one process",
+            "{\"id\":\"<your id>\",\"request\":",
+            "in completion order, not input order",
+            "echoes the id",
+            "A failed request (a bad line, a failed",
+            "the stream continues",
+            "--concurrency N (1 to 64, default 8)",
+            "the queue is bounded",
+            "the input is closed, the queue is empty and the workers are",
+            "Exit 0 when no request failed; else 3 if every failure is retryable, else",
+            "Ids are not checked for",
+        ] {
+            assert!(text.contains(key), "{key}: {text}");
+        }
+    }
+
+    /// `--concurrency` is a whole number from 1 to 64; the default is 8.
+    #[test]
+    fn stream_concurrency_is_validated() {
+        let run = |extra: &[&str]| {
+            let mut argv = vec!["sc-ai", "jev", "stream"];
+            argv.extend_from_slice(extra);
+            parse(argv)
+        };
+        let Ok(Parsed::Stream(command)) = run(&[]) else {
+            panic!("stream parses");
+        };
+        assert_eq!(command.concurrency.get(), 8);
+        let Ok(Parsed::Stream(command)) = run(&["--concurrency", "3"]) else {
+            panic!("stream parses");
+        };
+        assert_eq!(command.concurrency.get(), 3);
+        for bad in ["0", "65", "x", "-1"] {
+            let error = run(&["--concurrency", bad]).expect_err(bad);
+            assert_eq!(error.code(), "INPUT_INVALID", "{bad}");
+            assert_eq!(error.field(), Some("--concurrency"), "{bad}");
+        }
     }
 
     /// Usage text names `sc-ai`, never argv\[0\] such as `sc-ai.exe`.

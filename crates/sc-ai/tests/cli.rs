@@ -1506,3 +1506,251 @@ fn cli_check_that_exists_only_at_rev_loads_with_rev() {
     assert_eq!(value["operation"], OP_DRY_RUN);
     assert!(value["data"]["payload"]["questions"].is_array());
 }
+
+// ---------------------------------------------------------------------------
+// `jev stream` (REQ-SAG-0720..REQ-SAG-0727, ADR-SAG-0032)
+// ---------------------------------------------------------------------------
+
+const STREAM_REQUEST: &str = r#"{"questions":[{"id":"q","prompt":"p","choices":["a","b"]}]}"#;
+
+fn stream_line(id: &str) -> String {
+    format!(r#"{{"id":"{id}","request":{STREAM_REQUEST}}}"#)
+}
+
+/// Parses every stdout line of a `jev stream` run.
+fn stream_lines(output: &Output) -> Vec<Value> {
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .map(|line| serde_json::from_str(line).expect("each stdout line is JSON"))
+        .collect()
+}
+
+fn by_id(lines: &[Value]) -> std::collections::BTreeMap<String, &Value> {
+    lines
+        .iter()
+        .filter_map(|line| Some((line["id"].as_str()?.to_owned(), line)))
+        .collect()
+}
+
+/// Many requests on stdin: one answer line each, ids echoed, a bad line fails
+/// alone and the stream continues; exit 2 (a non-retryable failure), stderr
+/// empty (per-request errors are on their lines).
+#[test]
+fn stream_answers_every_request_and_a_failure_does_not_stop_it() {
+    let repo = temp_dir("stream");
+    let answers = scripted(repo.path(), &json!({"q": "a"}));
+    let input = [
+        stream_line("one"),
+        "not json".to_owned(),
+        stream_line("two"),
+        r#"{"id":"empty","request":{"questions":[]}}"#.to_owned(),
+        stream_line("three"),
+    ]
+    .join("\n");
+    let output = spawn_with_deadline(
+        &mut cli(&[
+            "jev",
+            "stream",
+            "--repo-root",
+            text(repo.path()),
+            "--concurrency",
+            "3",
+            "--scripted-answers",
+            text(&answers),
+        ]),
+        Some(input.as_bytes()),
+    );
+    assert_eq!(output.status.code(), Some(2), "{output:?}");
+    assert!(output.stderr.is_empty(), "{:?}", output.stderr);
+    let lines = stream_lines(&output);
+    assert_eq!(lines.len(), 5);
+    let ids = by_id(&lines);
+    for ok in ["one", "two", "three"] {
+        assert_eq!(ids[ok]["ok"], true, "{ok}");
+        assert_eq!(ids[ok]["envelope"]["operation"], OP_RUN);
+        assert_eq!(ids[ok]["envelope"]["data"]["answers"]["q"]["choice"], "a");
+    }
+    assert_eq!(ids["empty"]["ok"], false);
+    assert_eq!(ids["empty"]["error"]["error"], "INPUT_INVALID");
+    assert_eq!(ids["empty"]["error"]["schema_version"], 1);
+    let anonymous: Vec<_> = lines.iter().filter(|line| line["id"].is_null()).collect();
+    assert_eq!(anonymous.len(), 1);
+    assert_eq!(anonymous[0]["error"]["error"], "INPUT_INVALID");
+}
+
+/// Success is exit 0; `--input FILE` reads a JSONL file (relative to the repo
+/// root).
+#[test]
+fn stream_reads_a_jsonl_file_and_exits_zero_on_success() {
+    let repo = temp_dir("stream-file");
+    let answers = scripted(repo.path(), &json!({"q": "a"}));
+    let jsonl: String = (0..20)
+        .map(|i| stream_line(&format!("f{i}")) + "\n")
+        .collect();
+    std::fs::write(repo.path().join("in.jsonl"), jsonl).expect("jsonl");
+    let output = run_cli(&[
+        "jev",
+        "stream",
+        "--repo-root",
+        text(repo.path()),
+        "--input",
+        "in.jsonl",
+        "--scripted-answers",
+        text(&answers),
+    ]);
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    assert!(output.stderr.is_empty());
+    let lines = stream_lines(&output);
+    assert_eq!(lines.len(), 20);
+    assert!(lines.iter().all(|line| line["ok"] == true));
+    assert_eq!(by_id(&lines).len(), 20, "all ids echoed, none repeated");
+    let missing = run_cli(&[
+        "jev",
+        "stream",
+        "--repo-root",
+        text(repo.path()),
+        "--input",
+        "absent.jsonl",
+        "--scripted-answers",
+        text(&answers),
+    ]);
+    assert_eq!(stderr_json(&missing)["error"], "INPUT_MISSING");
+    assert!(missing.stdout.is_empty());
+}
+
+/// Exit 3 only when every failure in the stream is retryable.
+#[test]
+fn stream_exit_code_follows_the_retryable_rule() {
+    let repo = temp_dir("stream-exit");
+    let answers = scripted(
+        repo.path(),
+        &json!({"backends": {"jev": {"failure": {"error": "PROVIDER_BUSY"}}}}),
+    );
+    let run = |lines: &[String]| {
+        spawn_with_deadline(
+            &mut cli(&[
+                "jev",
+                "stream",
+                "--repo-root",
+                text(repo.path()),
+                "--scripted-answers",
+                text(&answers),
+            ]),
+            Some(lines.join("\n").as_bytes()),
+        )
+    };
+    let busy = run(&[stream_line("a"), stream_line("b")]);
+    assert_eq!(busy.status.code(), Some(3), "{busy:?}");
+    let lines = stream_lines(&busy);
+    assert!(lines.iter().all(|line| line["error"]["retryable"] == true));
+    assert!(
+        lines
+            .iter()
+            .all(|line| line["error"]["error"] == "PROVIDER_BUSY")
+    );
+    let mixed = run(&[
+        stream_line("a"),
+        r#"{"id":"b","request":{"questions":[]}}"#.to_owned(),
+    ]);
+    assert_eq!(mixed.status.code(), Some(2), "{mixed:?}");
+}
+
+/// Real HTTP through the one shared `JevClient`: the loopback server holds
+/// every response until all four connections are open at once, so the
+/// answers arrive only if four requests were in flight together over HTTP.
+/// This is the thread-safety check for the shared client.
+#[test]
+fn stream_runs_concurrent_requests_over_real_http_with_one_shared_client() {
+    use std::io::{Read, Write};
+    use std::sync::{Arc, Condvar, Mutex};
+    use std::time::{Duration, Instant};
+
+    const WORKERS: usize = 4;
+    const KEY: &str = "sk-stream-loopback-1234567890";
+    let repo = temp_dir("stream-http");
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+    listener.set_nonblocking(true).expect("nonblocking");
+    let port = listener.local_addr().expect("addr").port().to_string();
+    let arrived = Arc::new((Mutex::new(0_usize), Condvar::new()));
+    let server = {
+        let arrived = Arc::clone(&arrived);
+        std::thread::spawn(move || {
+            let failsafe = Instant::now() + Duration::from_secs(50);
+            let mut handlers = Vec::new();
+            while handlers.len() < WORKERS && Instant::now() < failsafe {
+                let Ok((mut stream, _)) = listener.accept() else {
+                    std::thread::yield_now();
+                    continue;
+                };
+                let arrived = Arc::clone(&arrived);
+                handlers.push(std::thread::spawn(move || {
+                    stream.set_nonblocking(false).expect("blocking");
+                    let mut received = Vec::new();
+                    let mut chunk = [0_u8; 4096];
+                    loop {
+                        let read = stream.read(&mut chunk).expect("read");
+                        received.extend_from_slice(&chunk[..read]);
+                        let text = String::from_utf8_lossy(&received).to_ascii_lowercase();
+                        if let Some(end) = text.find("\r\n\r\n") {
+                            let length = text
+                                .lines()
+                                .find_map(|line| line.strip_prefix("content-length:"))
+                                .and_then(|value| value.trim().parse::<usize>().ok())
+                                .unwrap_or(0);
+                            if received.len() >= end + 4 + length {
+                                break;
+                            }
+                        }
+                        if read == 0 {
+                            break;
+                        }
+                    }
+                    // Hold the reply until all WORKERS connections are open.
+                    let (count, changed) = &*arrived;
+                    let mut open = count.lock().expect("lock");
+                    *open += 1;
+                    changed.notify_all();
+                    let (open, _) = changed
+                        .wait_timeout_while(open, Duration::from_secs(50), |open| *open < WORKERS)
+                        .expect("wait");
+                    let all_here = *open >= WORKERS;
+                    drop(open);
+                    let body = r#"{"model":"jev-1.13.0","answers":{"q":{"type":"choice","choice":"a","confidence":1,"probabilities":{"a":1,"b":0}}},"usage":{}}"#;
+                    let status = if all_here { "200 OK" } else { "500 X" };
+                    let reply = format!(
+                        "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                        body.len()
+                    );
+                    stream.write_all(reply.as_bytes()).expect("write");
+                }));
+            }
+            for handler in handlers {
+                handler.join().expect("handler");
+            }
+        })
+    };
+    let input: String = (0..WORKERS)
+        .map(|i| stream_line(&format!("h{i}")) + "\n")
+        .collect();
+    let output = spawn_with_deadline(
+        cli(&[
+            "jev",
+            "stream",
+            "--repo-root",
+            text(repo.path()),
+            "--concurrency",
+            "4",
+            "--loopback-port",
+            &port,
+        ])
+        .env("TYPESAFE_API_KEY", KEY),
+        Some(input.as_bytes()),
+    );
+    server.join().expect("server");
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    let lines = stream_lines(&output);
+    assert_eq!(lines.len(), WORKERS);
+    assert!(lines.iter().all(|line| line["ok"] == true), "{lines:?}");
+    assert!(!String::from_utf8_lossy(&output.stdout).contains(KEY));
+    assert!(!String::from_utf8_lossy(&output.stderr).contains(KEY));
+}

@@ -3,14 +3,16 @@
 //! Argv is parsed by [`cli::parse`] (clap). A partial multi-backend failure
 //! prints the envelope on stdout, the first failure on stderr, and exits 2, or 3 when
 //! every failed backend's error is retryable (retry only the failed backends).
-//! An all-failed run does the same, with no answers.
+//! An all-failed run does the same, with no answers. `jev stream` instead
+//! writes one JSON line per request as each completes and exits by the whole
+//! stream's failures.
 
 use std::io::{self, Write};
 use std::process::ExitCode;
 
 use mimalloc::MiMalloc;
 use sc_agent_types::{JevError, ScAgentErrorResponse};
-use sc_ai::execute;
+use sc_ai::{execute, serve_stream};
 
 use crate::cli::Parsed;
 
@@ -22,6 +24,7 @@ static GLOBAL: MiMalloc = MiMalloc;
 fn main() -> ExitCode {
     let command = match cli::parse(std::env::args_os()) {
         Ok(Parsed::Print(text)) => return print_stdout(text.as_bytes()),
+        Ok(Parsed::Stream(command)) => return stream(*command),
         Ok(Parsed::Run(command)) => *command,
         Err(error) => return fail(&error),
     };
@@ -35,6 +38,25 @@ fn main() -> ExitCode {
                 }
                 None => printed,
             }
+        }
+        Err(error) => fail(&error),
+    }
+}
+
+/// `jev stream`: answers are written as they complete. Per-request failures
+/// are on their lines; the exit code applies the stability rule to the whole
+/// stream. A stream-level error (unreadable input, closed stdout) is one
+/// stderr line, as for every other command.
+fn stream(command: sc_ai::StreamCommand) -> ExitCode {
+    let stdin = Box::new(io::BufReader::new(io::stdin()));
+    match serve_stream(command, stdin, &mut io::stdout().lock()) {
+        Ok(summary) => {
+            if let Some(warning) = summary.log_flush_warning() {
+                emit(&ScAgentErrorResponse::from_jev_error(
+                    &JevError::io_failed_with(warning, io::ErrorKind::Other, None),
+                ));
+            }
+            ExitCode::from(summary.exit_code())
         }
         Err(error) => fail(&error),
     }

@@ -526,7 +526,7 @@ pub fn serve_jsonl<R, W>(
 ) -> Result<StreamSummary, JevError>
 where
     R: BufRead + Send + 'static,
-    W: Write,
+    W: Write + ?Sized,
 {
     let read_failure = Arc::new(Mutex::new(None::<JevError>));
     {

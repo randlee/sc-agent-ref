@@ -1,6 +1,6 @@
 //! `jev` command dispatch over [`sc_jev_host`].
 
-use std::io::Read;
+use std::io::{BufRead, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -12,6 +12,7 @@ use sc_jev_check::registry::BackendRegistry;
 use sc_jev_check::run::{CallerRequest, CheckSource, Envelope};
 use sc_jev_host::compose::{ComposeInputs, ResolvedPaths, ask_from, explicit_repo_root, run_from};
 use sc_jev_host::paths::PathPolicy;
+use sc_jev_host::stream::{Concurrency, DecisionStream, StreamSummary, serve_jsonl};
 use serde::Serialize;
 
 use crate::envelope;
@@ -70,6 +71,32 @@ pub struct AskCommand {
     pub sessions_dir: Option<PathBuf>,
     /// `--log-dir`.
     pub log_dir: Option<PathBuf>,
+    /// Backends used instead of `BackendRegistry::from_env` (test seam).
+    pub registry: Option<Arc<BackendRegistry>>,
+}
+
+/// Arguments of `jev stream`: many requests through one process
+/// (ADR-SAG-0032).
+#[derive(Debug)]
+pub struct StreamCommand {
+    /// `--repo-root`.
+    pub repo_root: Option<PathBuf>,
+    /// `--backend`; wins over a request's own `backends`, as in `jev run`.
+    pub backends: Vec<sc_agent_types::BackendId>,
+    /// `--input`: a path, or `-` (the default) for stdin.
+    pub input: Option<String>,
+    /// `--llm-system-prompt-file`.
+    pub prompt_file: Option<PathBuf>,
+    /// `--sessions-dir`.
+    pub sessions_dir: Option<PathBuf>,
+    /// `--log-dir`.
+    pub log_dir: Option<PathBuf>,
+    /// `--chain-context`.
+    pub chain_context: bool,
+    /// `--project`.
+    pub project: Option<ProjectLabel>,
+    /// `--concurrency`: the number of worker threads.
+    pub concurrency: Concurrency,
     /// Backends used instead of `BackendRegistry::from_env` (test seam).
     pub registry: Option<Arc<BackendRegistry>>,
 }
@@ -332,4 +359,65 @@ fn path_text(path: &Path) -> String {
         .unwrap_or_else(|_| path.to_path_buf())
         .display()
         .to_string()
+}
+
+/// Runs `sc-ai jev stream`: JSONL requests in from `--input` (or `stdin`),
+/// JSONL answers out to `stdout`, one line per request, in completion order.
+///
+/// Returns when the input is closed, the queue is empty and the workers are
+/// idle. The caller exits with [`StreamSummary::exit_code`]; per-request
+/// failures are on their output lines, not an `Err`.
+///
+/// # Errors
+///
+/// Returns [`JevError`] for an unreadable input file, root discovery or
+/// logger start, or a failure to read the input or write `stdout`.
+pub fn serve_stream(
+    command: StreamCommand,
+    stdin: Box<dyn BufRead + Send>,
+    stdout: &mut dyn Write,
+) -> Result<StreamSummary, JevError> {
+    let mut inputs = base_inputs(
+        command.repo_root.as_deref(),
+        command.log_dir.clone(),
+        command.sessions_dir.clone(),
+    )?
+    .mode(if command.chain_context {
+        MultiBackendMode::ChainContext
+    } else {
+        MultiBackendMode::Independent
+    });
+    if !command.backends.is_empty() {
+        inputs = inputs.backends(BackendSet::try_from(command.backends.clone())?);
+    }
+    if let Some(path) = &command.prompt_file {
+        inputs = inputs.system_prompt_override(path.clone());
+    }
+    if let Some(registry) = &command.registry {
+        inputs = inputs.registry(Arc::clone(registry));
+    }
+    if let Some(project) = &command.project {
+        inputs = inputs.project(project.clone());
+    }
+    let resolved = inputs.resolve()?;
+    let input: Box<dyn BufRead + Send> = match command.input.as_deref() {
+        None | Some("-") => stdin,
+        Some(spec) => {
+            let path = joined_path(resolved.repo_root.as_path(), Path::new(spec));
+            let file = std::fs::File::open(&path).map_err(|error| {
+                JevError::read_failed_with(
+                    path.display().to_string(),
+                    format!("stream input {}", path.display()),
+                    "Pass an existing file as --input (or - for stdin).",
+                    &error,
+                )
+            })?;
+            Box::new(std::io::BufReader::new(file))
+        }
+    };
+    let stream = Arc::new(DecisionStream::start(
+        inputs.repo_root(resolved.repo_root),
+        command.concurrency,
+    )?);
+    serve_jsonl(&stream, input, stdout)
 }
