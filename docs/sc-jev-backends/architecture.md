@@ -49,3 +49,10 @@ unless `with_model` sets one (the `sc-jev-check` factory passes
 backend sends `model.to_string()` verbatim, even for a model string this build
 does not know, and `JudgeBackend::model_id()` returns it. Reply text is parsed
 by `sc_decision_schema::llm::v1::parse_output`; provider envelopes stay here.
+
+## General log (agt-9eh)
+
+`with_general_log` on both backends logs judge start, the provider token count,
+end and failure (typed id) with the backend name and model, and hands the log
+to the `HttpClient`. Prompt text, question text, the key and reply bodies are
+never logged (`--test general_log`).

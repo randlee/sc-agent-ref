@@ -18,6 +18,14 @@
 //! so neither consumer builds log context. `repo` changes only the log field:
 //! session and log paths keep using the worktree's own root (ADR-SAG-0021).
 //!
+//! # Two logs
+//!
+//! A call writes a session log (one row per judge send) and a general log
+//! (operator diagnostics) to separate files under the log root. Each is the
+//! sc-agent default unless injected with [`ComposeInputs::session_log`] or
+//! [`ComposeInputs::general_log`]; an injected log's flush is the caller's.
+//! A dry run opens no default log. Logging never changes a result.
+//!
 //! # Warnings
 //!
 //! When the logger reports a flush failure (CR-014), the failure is not an

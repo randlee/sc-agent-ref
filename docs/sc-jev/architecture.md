@@ -50,3 +50,9 @@ doubles through the dev-dependency.
    `yes`/`no` with no confidence. There is no byte-splice.
 
 Comparison backends are registered and invoked only from **`sc-jev-check`**.
+
+## General log (agt-9eh)
+
+`JevClient::with_general_log` logs judge start, end and failure (typed id) with
+the model and endpoint, and hands the log to its `HttpClient` for busy-retry
+events. Unset, nothing is logged.

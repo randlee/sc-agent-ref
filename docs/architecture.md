@@ -26,13 +26,13 @@ features and labels.
 
 ```
 sc-ai (binary) ─────┐
-sc-jev-py (PyO3) ───┴── sc-jev-host (sc-observability =1.5.0 adapter, path policy, run/ask)
+sc-jev-py (PyO3) ───┴── sc-jev-host (sc-observability =1.5.0 adapters for the session and general logs, path policy, run/ask)
                           └── sc-jev-check (facade: check.toml, extractors, run_check, sessions)
                                 ├── sc-jev ────────────┐
                                 ├── sc-jev-backends ───┴── sc-agent-http (ureq transport)
                                 ├── sc-agent-secrets
                                 ├── sc-decision-schema
-                                └── sc-agent-types (observability::v2 port; no sc-observability* dep)
+                                └── sc-agent-types (observability::v2 ports: SessionLog, GeneralLog; no sc-observability* dep)
 
 sc-treesitter (library + binary) → sc-agent-types
 ```
@@ -49,7 +49,10 @@ sits directly above it (r-7). Since r-1 no crate depends on
 only crate that links full `sc-observability`** (`crates/sc-jev-host/Cargo.toml`;
 ADR-SAG-0013 and ADR-SAG-0010 r-3b amendments). `sc-ai` and `sc-jev-py` are
 thin composition roots over `sc-jev-host` and have no direct `sc-observability`
-dependency.
+dependency. **`sc-jev-py` alone also links the `sc-observability` Python
+runtime** (`sc-observability-py` as an rlib, with `sc-observability-binding-runtime`
+and `sc-observability-dto`) so Rust writes the general log with no GIL and
+Python reaches the same logger (ADR-SAG-0013 amendment 2026-11-09).
 
 `sc-jev` and `sc-jev-backends` do not depend on each other. Both reach HTTP
 only through `sc-agent-http`.
@@ -134,7 +137,7 @@ own row's Status cell and its own marker text, and added or removed no entry).
 | ADR-SAG-0010 | CLI thin adapter | Active | Amended by ADR-SAG-0026 (Active, r-3b) |
 | ADR-SAG-0011 | Python via sc-jev-py wheel | Active | Amended by ADR-SAG-0026 (Active, r-3b) |
 | ADR-SAG-0012 | sc-jev owns Jev API | Active | Amended by ADR-SAG-0030 (Active, r-5) |
-| ADR-SAG-0013 | Session JSONL via sc-observability v2 | Active | Amended by ADR-SAG-0021; ADR-SAG-0026 (Active, r-3b); ADR-SAG-0031 (Active, r-6) |
+| ADR-SAG-0013 | Session and general logs via sc-observability v2 | Active | Amended by ADR-SAG-0021; ADR-SAG-0026 (Active, r-3b); ADR-SAG-0031 (Active, r-6); general log (Active, 2026-11-09, agt-9eh) |
 | ADR-SAG-0014 | CLI success body | Active | A.1 subsection (Active, r-1); amended by ADR-SAG-0024 (Active, r-2) |
 | ADR-SAG-0015 | Subjects artifact outside the judge | Active | — |
 | ADR-SAG-0016 | v2 shim in sc-agent-types; adapter in sc-jev-host | Active | Amended by ADR-SAG-0023 (Active, r-4); ADR-SAG-0027 (Active, r-1); ADR-SAG-0026 (Active, r-3b); ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6) |
@@ -927,7 +930,7 @@ Delimited regions, in-facade tree-sitter, and Python `python-branches` extractor
 LLM system prompt loading: **ADR-SAG-0019** (`[llm_judge] system_prompt_file` in
 check.toml; default asset under `sc-jev-check`).
 
-## ADR-SAG-0013 — Session JSONL via sc-observability v2
+## ADR-SAG-0013 — Session and general logs via sc-observability v2
 
 **Status:** Active
 
@@ -961,6 +964,63 @@ composition roots is ADR-SAG-0021.
 - (Active, r-6) Envelope fields: `correlation_id` is the session id and
   `request_id` is the answer id; the level is `Warn` when `send_outcome` is
   `failed`, otherwise `Info`. `fields{}` is unchanged.
+
+### Amendment (2026-11-09, agt-9eh): the general log
+
+**Status:** Active. The accepted text above is unchanged; this subsection adds
+what it did not say. Owner direction (2026-11-08): the two logs are
+"instantiate and use". The gap was that general logging was not designed before
+code was written, so the code carried only the session log. This amendment adds
+the general log and requires the logger to be injected everywhere an operator
+needs to see what happened.
+
+- (Active, 2026-11-09) **Two logs, two files.** The *session log* is the
+  ADR-SAG-0031 row per judge send (`<log-root>/logs/<service>.log.jsonl`). The
+  *general log* is operator diagnostics
+  (`<log-root>/logs/<service>-general.log.jsonl`): start and end of operations,
+  backend selection and resolved model, config and path resolution, credential
+  source (a name, never a value), busy retries and waits, extraction and git
+  steps, session store actions, flush failures, and failures by typed error id.
+  Both are written with `sc-observability`; there is no bespoke writer and no
+  `tracing` or `log` dependency.
+- (Active, 2026-11-09) **Port.** `sc_agent_types::observability::v2` gains the
+  open `GeneralLog: Send + Sync` trait (`fn log(&self, GeneralEvent) ->
+  Result<(), LogRejected>`), `SharedGeneralLog = Arc<dyn GeneralLog>` and
+  `NoopGeneralLog`, beside `SessionLog`. A `GeneralEvent` is a level, a stable
+  `target` and `action`, a message and structured fields. Libraries receive the
+  logger as a value (`RunConfig::general_log`, `BusyPolicy::with_general_log`,
+  `HttpClient::with_general_log`, the backends' `with_general_log`,
+  `resolve_key_logged`, the `*_logged` registry constructors); there is no
+  global logger and no library crate links `sc-observability`.
+- (Active, 2026-11-09) **Injection and defaults.** `ComposeInputs::session_log`
+  and `ComposeInputs::general_log` each replace one default; unset, the host
+  opens sc-agent's default under the resolved log root
+  (`ObservabilityAdapter`, `GeneralLogAdapter`, the latter at `debug` and
+  above). A dry run opens no default log (ARCHE-019). The default general log
+  is best effort: if it cannot start the call carries on with none; the session
+  log keeps its contract. An injected log's flush is the caller's.
+- (Active, 2026-11-09) **CLI.** `sc-ai` injects nothing: it keeps the default
+  loggers and `--log-dir`. Injection is a Rust and Python API concern.
+- (Active, 2026-11-09) **Never leaks, never changes a result.** No event carries
+  an API key, prompt text, session state or a provider body; errors are logged by
+  `ErrorCode` only. A logger that rejects, raises or cannot flush changes no
+  result and fails no run. A session-log flush failure keeps its CR-014
+  warning and is also written to the general log.
+- (Active, 2026-11-09) **Python.** `sc-jev-py` links `sc-observability-py` (lib
+  `_native`) with `sc-observability-binding-runtime`, registers the module
+  inside its own binary (`wrap_pymodule!`), seeds
+  `sys.modules["sc_observability._native"]`, installs a core backend with
+  `install_host_logger`, and keeps it in a static. Rust writes each row with
+  `try_log` inside `py.detach`, so **no row takes the GIL**; Python gets the
+  same queue and file from `sc_observability.get_host_logger()`. `run_check`
+  also takes `session_log=` and `general_log=` callables (the GIL is taken per
+  row for those only; one that raises is ignored). Python may be more flexible
+  than the CLI, never less. One process has one host logger, installed by the
+  first default general log or by `install_host_logger(log_dir=None)`. `pyo3`
+  is pinned `=0.29.2` (the version `sc-observability-py` pins), and the three
+  `sc-observability-*` runtime crates join the lockstep list. The wheel's
+  stable-ABI floor follows the stricter dependency (`abi3-py310`) while
+  `requires-python` stays `>=3.11`.
 
 ## ADR-SAG-0021 — Log and session path precedence
 
@@ -1272,7 +1332,11 @@ comparison flows.
   fails on any `=` requirement in any `Cargo.toml` whose crate is not on it.
   NFR-SAG-0004. Reasons: `sc-observability` — v2 shim alignment;
   `tree-sitter`, `tree-sitter-python`, `tree-sitter-rust` — output
-  determinism; `sc-jev-host` — lockstep internal support (owner
+  determinism; `pyo3`, `sc-observability-py`,
+  `sc-observability-binding-runtime` and `sc-observability-dto` — the Python
+  wheel embeds the `sc-observability` Python runtime in its own binary, and
+  that runtime pins `pyo3 =0.29.2`, so both ride one exact version (agt-9eh,
+  ADR-SAG-0013 amendment 2026-11-09); `sc-jev-host` — lockstep internal support (owner
   decision 2026-11-06), in force from r-3b (subsection below; before the
   crate exists no `Cargo.toml` names it). `sc-observability-types` is not on
   the list: r-1 removed its only user and its root entry. The script reads
@@ -1285,6 +1349,10 @@ comparison flows.
   tree-sitter-python
   tree-sitter-rust
   sc-jev-host
+  pyo3
+  sc-observability-py
+  sc-observability-binding-runtime
+  sc-observability-dto
   <!-- lockstep-pins:end -->
 
 - (Active, r-4) Global allocators and argv parsers are linked only by
