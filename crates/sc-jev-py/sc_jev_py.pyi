@@ -51,14 +51,16 @@ class CheckResult:
     def ask(self, follow_up: str, *, project: str | None = None) -> dict[str, Any]: ...
 
 def build_request(
-    check_path: StrPath,
+    check_path: StrPath | None = None,
     *,
+    request_json: str | bytes | None = None,
     repo_root: StrPath | None = None,
     rev: str = "WORKTREE",
 ) -> dict[str, Any]: ...
 def run_check(
-    check_path: StrPath,
+    check_path: StrPath | None = None,
     *,
+    request_json: str | bytes | None = None,
     backends: Sequence[str] | None = None,
     dry_run: bool = False,
     repo_root: StrPath | None = None,

@@ -13,4 +13,5 @@ acceptance root, when it differs, is shown as "root a-N"; the closure table in
 | REQ-SAG-0604 | Partial failure raises `JevError` with `.response` (the response body as a dict); all-failed has no `.response` | r-3b |
 | REQ-SAG-0605 | `run_check(chain_context=...)`; independent is the default | r-3b |
 | REQ-SAG-0711 | Session log through `sc_jev_host::obs` | r-3b |
+| REQ-SAG-0622 | `run_check` and `build_request` take `request_json=` (`str` or `bytes`, the CLI's `--request-json` questions document) as an alternative to `check_path`; exactly one is given, else `INPUT_INVALID`. Same payload and digests as `sc-ai jev --request-json` (pinned in `consumer_parity.rs` and `test_request_json.py`) | phase-end |
 | REQ-SAG-0615 | `run_check(project=...)` and `Session.ask(follow_up, project=...)` label that call's log row (≤ 256 bytes, no control characters, else `INPUT_INVALID`); session ids are ULIDs | r-6 |
