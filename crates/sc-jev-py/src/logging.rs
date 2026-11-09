@@ -84,6 +84,8 @@ pub(crate) struct HostEntry {
     /// Held for the life of the process: dropping it would close the backend.
     _owner: CoreLoggerOwner,
     log_file: PathBuf,
+    /// Serializes this process's flushes (see [`HostEntry::flush`]).
+    flush_lock: Mutex<()>,
 }
 
 type Key = (String, PathBuf);
@@ -147,6 +149,7 @@ impl HostEntry {
             backend: Arc::new(backend),
             _owner: owner,
             log_file: canonical.join("logs").join(format!("{service}.log.jsonl")),
+            flush_lock: Mutex::new(()),
         });
         live.insert((service, canonical), Arc::clone(&entry));
         Ok(entry)
@@ -192,10 +195,30 @@ impl HostEntry {
         }
     }
 
-    /// Waits for admitted rows to reach the file. Best effort.
-    pub(crate) fn flush(&self) {
-        if let Ok(operation) = self.backend.start_flush(FLUSH_WAIT) {
-            let _ = operation.wait(FLUSH_WAIT);
+    /// Waits until every row admitted before this call is on disk.
+    ///
+    /// The runtime allows one flush at a time and refuses a second with
+    /// "flush in progress". Several runs of one process share this backend,
+    /// so a refused flush used to be ignored and its run returned with rows
+    /// still queued; a process that exited right after lost them. Flushes of
+    /// this entry are now serialized by `flush_lock`, and a refusal (another
+    /// embedder flushing the same backend, e.g. Python's own logger) is
+    /// retried until `FLUSH_WAIT` runs out. Returns whether the flush
+    /// completed; a caller reports `false` as a warning.
+    pub(crate) fn flush(&self) -> bool {
+        let _one_at_a_time = self
+            .flush_lock
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        let deadline = std::time::Instant::now() + FLUSH_WAIT;
+        loop {
+            match self.backend.start_flush(FLUSH_WAIT) {
+                Ok(operation) => return operation.wait(FLUSH_WAIT).is_ok(),
+                Err(_) if std::time::Instant::now() < deadline => {
+                    std::thread::sleep(Duration::from_millis(5));
+                }
+                Err(_) => return false,
+            }
         }
     }
 
@@ -241,8 +264,17 @@ impl HostGeneralLog {
         })
     }
 
+    /// Makes this log's admitted rows durable; a failure is a Warn row, never
+    /// an error (logging never changes a result).
     pub(crate) fn flush(&self) {
-        self.entry.flush();
+        if !self.entry.flush() {
+            GeneralEvent::warn(
+                "py.host_logger",
+                "general_log.flush_failed",
+                "the general log was not flushed; recent rows may be missing",
+            )
+            .emit(self);
+        }
     }
 }
 
@@ -457,6 +489,7 @@ mod tests {
         let dir = tempfile::tempdir().expect("temp");
         let host = HostGeneralLog::open(&PathPolicy::python(), dir.path()).expect("host");
         let log = host.shared();
+        Python::initialize();
         Python::attach(|_py| {
             // This thread holds the GIL and does not release it. If a row
             // needed the GIL, the writer thread would never answer.
@@ -480,6 +513,7 @@ mod tests {
 
     #[test]
     fn a_callable_that_raises_is_a_rejection_not_a_panic() {
+        Python::initialize();
         Python::attach(|py| {
             let raising = py
                 .eval(c"(lambda event: 1 / 0)", None, None)

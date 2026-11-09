@@ -557,3 +557,82 @@ fn test_attribute_reader_sees_spaced_and_multiline_forms() {
     let calls = call_items(&found[2].code, &expect_word());
     assert!(calls[0].iter().any(|item| item == "warnings"), "{calls:?}");
 }
+
+/// Every general-log `target` and `action` written as a literal, and every
+/// `TARGET` constant, is a valid sc-observability name (`[A-Za-z0-9._-]+`).
+/// The adapter rejects anything else (such as a `::` path) and the event
+/// silently vanishes, so the scan makes that impossible to miss.
+#[test]
+fn general_log_targets_and_actions_are_valid_names() {
+    fn valid(name: &str) -> bool {
+        !name.is_empty()
+            && name
+                .chars()
+                .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '.' | '_' | '-'))
+    }
+    let level_calls = ["trace", "debug", "info", "warn", "error", "new"];
+    let mut bad = Vec::new();
+    let mut seen = 0_usize;
+    for (path, text) in rust_files() {
+        if !path.contains("/src/") {
+            continue;
+        }
+        for line in text.lines() {
+            let line = line.trim();
+            if let Some(rest) = line.strip_prefix("const TARGET: &str = ")
+                && let Some(literal) = rest.trim_end_matches(';').trim().strip_prefix('"')
+            {
+                seen += 1;
+                let value = literal.trim_end_matches('"');
+                if !valid(value) {
+                    bad.push(format!("{path}: TARGET {value:?}"));
+                }
+            }
+        }
+        let needle = concat!("General", "Event::");
+        let mut rest = text.as_str();
+        while let Some(at) = rest.find(needle) {
+            rest = &rest[at + needle.len()..];
+            let Some(open) = rest.find('(') else { break };
+            if !level_calls.contains(&&rest[..open]) {
+                continue;
+            }
+            // The first two arguments, split at depth-0 commas.
+            let mut depth = 0_i32;
+            let mut args: Vec<String> = vec![String::new()];
+            for ch in rest[open + 1..].chars() {
+                match ch {
+                    '(' | '[' | '{' => depth += 1,
+                    ')' | ']' | '}' if depth == 0 => break,
+                    ')' | ']' | '}' => depth -= 1,
+                    ',' if depth == 0 => {
+                        if args.len() == 2 {
+                            break;
+                        }
+                        args.push(String::new());
+                        continue;
+                    }
+                    _ => {}
+                }
+                args.last_mut().expect("arg").push(ch);
+            }
+            // Level-less `new` has the level first; the others do not.
+            let names: &[String] = if &rest[..open] == "new" {
+                &args[1..]
+            } else {
+                &args[..]
+            };
+            for arg in names {
+                let arg = arg.trim();
+                if let Some(inner) = arg.strip_prefix('"').and_then(|a| a.strip_suffix('"')) {
+                    seen += 1;
+                    if !valid(inner) {
+                        bad.push(format!("{path}: {inner:?}"));
+                    }
+                }
+            }
+        }
+    }
+    assert!(seen > 20, "the scan found only {seen} names; it is broken");
+    assert!(bad.is_empty(), "invalid general-log names: {bad:?}");
+}

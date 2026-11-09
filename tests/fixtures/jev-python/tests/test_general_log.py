@@ -203,3 +203,58 @@ def test_a_real_key_reaching_a_send_path_never_reaches_the_general_log(
     assert failed["fields"]["error_code"] == "INPUT_TOO_LARGE"
     assert KEY_TEXT not in text
     assert PROMPT_TEXT not in text
+
+
+_CHILD = r'''
+import json, sys, threading
+from pathlib import Path
+import sc_jev_py
+
+tmp = Path(sys.argv[1]); root = tmp / "log"; n = int(sys.argv[2])
+errors = []
+def repo(i):
+    r = tmp / f"r{i}"; r.mkdir()
+    (r / "questions.json").write_text(json.dumps({"schema": "plan-anchoring/questions/1", "version": 1,
+        "questions": {"relevant": {"type": "choice", "instructions": "Q?", "criteria": {"no": "No.", "yes": "Yes."}}}}))
+    (r / "check.toml").write_text('[questions]\npath = "questions.json"\n')
+    return r
+repos = [repo(i) for i in range(n)]
+barrier = threading.Barrier(n)
+def go(i):
+    barrier.wait()
+    try:
+        sc_jev_py._testing.run_check_scripted("check.toml", scripted_answers={"relevant": "yes"},
+            backends=["anthropic_haiku"], repo_root=repos[i], log_dir=root, session_dir=root / f"s{i}")
+    except Exception as error:
+        errors.append(repr(error))
+threads = [threading.Thread(target=go, args=(i,)) for i in range(n)]
+[t.start() for t in threads]; [t.join() for t in threads]
+assert not errors, errors
+# Exit immediately: every row must already be on disk.
+'''
+
+
+@pytest.mark.parametrize("attempt", range(5))
+def test_returned_runs_are_on_disk_when_the_process_exits_at_once(
+    tmp_path: Path, attempt: int
+) -> None:
+    """Eight concurrent runs in a fresh process that exits right after they
+    return: every run's last rows (`session.saved`, `run.done`) are present.
+    Concurrent flushes used to be refused and ignored, losing tail rows."""
+    import subprocess
+    import sys
+
+    runs = 8
+    work = tmp_path / f"w{attempt}"
+    work.mkdir()
+    done = subprocess.run(
+        [sys.executable, "-c", _CHILD, str(work), str(runs)],
+        capture_output=True, text=True, timeout=120, check=False,
+    )
+    assert done.returncode == 0, done.stderr
+    rows = _rows(sc_jev_py.general_log_file(work / "log"))
+    by_run: dict[str, set[str]] = {}
+    for row in rows:
+        by_run.setdefault(row["fields"].get("run_id"), set()).add(row["action"])
+    complete = [r for r, a in by_run.items() if {"run.start", "run.done", "session.saved"} <= a]
+    assert len(complete) == runs, {r: sorted(a) for r, a in by_run.items()}
