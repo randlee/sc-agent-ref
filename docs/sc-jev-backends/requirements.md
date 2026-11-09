@@ -23,3 +23,11 @@ The transport, busy retry (REQ-SAG-0505 as amended: absent or malformed
 `Retry-After` backs off 1, 2, 4, 8 s), caps and redaction are
 [`sc-agent-http`](../sc-agent-http/requirements.md) (REQ-SAG-0402). This crate
 keeps the wire builders and reply parsers (ADR-SAG-0019).
+
+## General log (agt-9eh, ADR-SAG-0013 amendment 2026-11-09)
+
+| ID | Requirement | Sprint | Proof |
+| --- | --- | --- | --- |
+| REQ-SAG-0633 | `with_general_log` on both backends logs judge start, token count, end and failure by typed id, with the model | agt-9eh | `--test general_log` |
+| REQ-SAG-0634 | The key, system prompt, question text and provider reply bodies never reach the general log | agt-9eh | `--test general_log` (`busy_wait_and_judge_are_logged_without_key_prompt_or_body`, `a_failure_is_logged_with_its_typed_id_only`) |
+| REQ-SAG-0635 | A rejecting general log leaves the judged answers identical | agt-9eh | `--test general_log` (`a_rejecting_log_changes_nothing`) |

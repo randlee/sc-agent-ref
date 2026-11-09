@@ -30,7 +30,8 @@ use std::sync::Arc;
 #[cfg(any(test, feature = "test-util"))]
 mod scripted;
 
-use sc_agent_secrets::resolve_key;
+use sc_agent_secrets::{resolve_key, resolve_key_logged};
+use sc_agent_types::observability::v2::{GeneralEvent, NoopGeneralLog, SharedGeneralLog};
 use sc_agent_types::{
     BackendId, BackendKeyId, BackendSet, JevError, ModelAliases, ModelId, RepoRoot, ResolvedApiKey,
 };
@@ -44,7 +45,10 @@ pub use scripted::register_scripted_backends;
 
 /// Builds one production backend from its resolved key and the model
 /// aliases (the catalog, or the `check.toml` `[models]` override).
-type Factory = fn(ResolvedApiKey, &ModelAliases) -> Arc<dyn JudgeBackend>;
+type Factory = fn(ResolvedApiKey, &ModelAliases, &SharedGeneralLog) -> Arc<dyn JudgeBackend>;
+
+/// Logging target of this module.
+const TARGET: &str = "registry";
 
 /// One row per built-in backend (test-and-review convention, ADR-SAG-0027).
 static FACTORIES: &[(BackendId, Factory)] = &[
@@ -64,21 +68,39 @@ pub(crate) fn model_for(id: BackendId, aliases: &ModelAliases) -> ModelId {
         .unwrap_or_else(|| descriptor.default_model())
 }
 
-fn jev_factory(key: ResolvedApiKey, aliases: &ModelAliases) -> Arc<dyn JudgeBackend> {
-    Arc::new(JevClient::with_default_transport(key).with_model(model_for(BackendId::Jev, aliases)))
-}
-
-fn haiku_factory(key: ResolvedApiKey, aliases: &ModelAliases) -> Arc<dyn JudgeBackend> {
+fn jev_factory(
+    key: ResolvedApiKey,
+    aliases: &ModelAliases,
+    log: &SharedGeneralLog,
+) -> Arc<dyn JudgeBackend> {
     Arc::new(
-        AnthropicHaikuBackend::with_default_transport(key)
-            .with_model(model_for(BackendId::AnthropicHaiku, aliases)),
+        JevClient::with_default_transport(key)
+            .with_model(model_for(BackendId::Jev, aliases))
+            .with_general_log(Arc::clone(log)),
     )
 }
 
-fn luna_factory(key: ResolvedApiKey, aliases: &ModelAliases) -> Arc<dyn JudgeBackend> {
+fn haiku_factory(
+    key: ResolvedApiKey,
+    aliases: &ModelAliases,
+    log: &SharedGeneralLog,
+) -> Arc<dyn JudgeBackend> {
+    Arc::new(
+        AnthropicHaikuBackend::with_default_transport(key)
+            .with_model(model_for(BackendId::AnthropicHaiku, aliases))
+            .with_general_log(Arc::clone(log)),
+    )
+}
+
+fn luna_factory(
+    key: ResolvedApiKey,
+    aliases: &ModelAliases,
+    log: &SharedGeneralLog,
+) -> Arc<dyn JudgeBackend> {
     Arc::new(
         OpenAiLunaBackend::with_default_transport(key)
-            .with_model(model_for(BackendId::OpenAiLuna, aliases)),
+            .with_model(model_for(BackendId::OpenAiLuna, aliases))
+            .with_general_log(Arc::clone(log)),
     )
 }
 
@@ -190,6 +212,24 @@ impl BackendRegistry {
         Self::from_resolver_with_models(backends, models, |key_id| resolve_key(key_id, repo_root))
     }
 
+    /// [`Self::from_env_with_models`] that reports the credential source,
+    /// the resolved model and the backend order to `log`, and gives each
+    /// backend the same log for its own and its busy-retry events.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::from_env`].
+    pub fn from_env_with_models_logged(
+        repo_root: &RepoRoot,
+        backends: &BackendSet,
+        models: &ModelAliases,
+        log: &SharedGeneralLog,
+    ) -> Result<Self, JevError> {
+        Self::from_resolver_with_models_logged(backends, models, log, |key_id| {
+            resolve_key_logged(key_id, repo_root, log.as_ref())
+        })
+    }
+
     /// Constructs one production backend per `backends` entry from keys
     /// returned by `resolve`.
     ///
@@ -280,6 +320,22 @@ impl BackendRegistry {
         models: &ModelAliases,
         resolve: impl Fn(BackendKeyId) -> Result<ResolvedApiKey, JevError>,
     ) -> Result<Self, JevError> {
+        let silent: SharedGeneralLog = Arc::new(NoopGeneralLog);
+        Self::from_resolver_with_models_logged(backends, models, &silent, resolve)
+    }
+
+    /// [`Self::from_resolver_with_models`] that reports each backend's
+    /// resolved model to `log` and hands the log to every backend.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::from_resolver`].
+    pub fn from_resolver_with_models_logged(
+        backends: &BackendSet,
+        models: &ModelAliases,
+        log: &SharedGeneralLog,
+        resolve: impl Fn(BackendKeyId) -> Result<ResolvedApiKey, JevError>,
+    ) -> Result<Self, JevError> {
         let mut registry = Self::new();
         for id in backends.iter() {
             let factory = factory_for(id)?;
@@ -289,7 +345,12 @@ impl BackendRegistry {
                     "Report this build as a bug.",
                 )
             })?;
-            registry.register(factory(resolve(key_id)?, models))?;
+            let backend = factory(resolve(key_id)?, models, log);
+            GeneralEvent::info(TARGET, "backend.selected", "backend built")
+                .with_field("backend", id.to_string())
+                .with_field("model", backend.model_id().to_string())
+                .emit(log.as_ref());
+            registry.register(backend)?;
         }
         Ok(registry)
     }
@@ -339,7 +400,11 @@ mod tests {
                 "test-key".to_owned(),
             )
             .expect("key");
-            let backend = factory_for(row.id()).expect("factory")(key, &ModelAliases::builtin());
+            let backend = factory_for(row.id()).expect("factory")(
+                key,
+                &ModelAliases::builtin(),
+                &(Arc::new(NoopGeneralLog) as SharedGeneralLog),
+            );
             assert_eq!(backend.id(), row.id());
             assert_eq!(backend.model_id(), row.default_model());
         }

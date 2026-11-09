@@ -675,6 +675,10 @@ fn test_cli_log_flush_warning_in_data() {
         "{warning}"
     );
     assert!(!warning.contains("check.toml"), "{warning}");
+    // The flush failure is also written to the general log (REQ-SAG-0633).
+    let general =
+        std::fs::read_to_string(log_dir.join("sc-ai-general.log.jsonl")).expect("general log");
+    assert!(general.contains("session_log.flush_failed"), "{general}");
 }
 
 #[cfg(unix)]
@@ -959,6 +963,16 @@ fn cli_logger_adapter_records_session_without_secrets() {
     assert!(log.contains("anthropic_haiku"), "{log}");
     assert_no_prompt_leak(&log);
     assert_no_prompt_leak(&value.to_string());
+    // The general log is a separate file with the operator view of the run
+    // and never the prompt (REQ-SAG-0630, REQ-SAG-0634).
+    let general_path = logs.path().join("logs").join("sc-ai-general.log.jsonl");
+    let general = std::fs::read_to_string(&general_path)
+        .unwrap_or_else(|error| panic!("read {}: {error}", general_path.display()));
+    for action in ["paths.resolved", "prepare.done", "run.start", "run.done"] {
+        assert!(general.contains(action), "{action} missing from {general}");
+    }
+    assert!(!general.contains("answers_json"), "{general}");
+    assert_no_prompt_leak(&general);
     // The secret-looking prompt text reached the saved wire context only.
     let saved = session_doc(sessions.path(), session_id);
     assert!(
@@ -1558,4 +1572,44 @@ fn cli_check_that_exists_only_at_rev_loads_with_rev() {
     ]));
     assert_eq!(value["operation"], OP_DRY_RUN);
     assert!(value["data"]["payload"]["questions"].is_array());
+}
+
+/// A failure before the run (bad `--request-json`, bad `--repo-root`) leaves a
+/// general-log row by typed id, at the resolved or explicit root.
+#[test]
+fn test_cli_failures_before_the_run_leave_general_log_rows() {
+    let repo = temp_dir("early");
+    write_repo(repo.path());
+    let logs = temp_dir("early-logs");
+    let output = run_cli(&[
+        "jev",
+        "run",
+        "--repo-root",
+        text(repo.path()),
+        "--log-dir",
+        text(logs.path()),
+        "--request-json",
+        "missing-request.json",
+    ]);
+    assert_eq!(output.status.code(), Some(2));
+    let general = logs.path().join("logs").join("sc-ai-general.log.jsonl");
+    let text_ = std::fs::read_to_string(&general).expect("general log");
+    assert!(text_.contains("operation.failed"), "{text_}");
+    assert!(text_.contains("cli.request_json"), "{text_}");
+    assert!(text_.contains("INPUT_MISSING"), "{text_}");
+
+    let logs = temp_dir("early-logs-root");
+    let missing = repo.path().join("no-such-dir");
+    let output = run_cli(&[
+        "jev",
+        "run",
+        "--repo-root",
+        text(&missing),
+        "--log-dir",
+        text(logs.path()),
+    ]);
+    assert_eq!(output.status.code(), Some(2));
+    let general = logs.path().join("logs").join("sc-ai-general.log.jsonl");
+    let text_ = std::fs::read_to_string(&general).expect("general log");
+    assert!(text_.contains("cli.repo_root"), "{text_}");
 }

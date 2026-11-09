@@ -49,3 +49,5 @@ are in [`../requirements.md`](../requirements.md#phase-a1--refinement-landed).
 | REQ-SAG-0163 | `INPUT_TOO_LARGE` carries `limit`, `actual`, `unit` — (Active, agt-2a3) |
 | REQ-SAG-0164 | `ResponseInvalidCause` (`truncated`, `too_large`, `not_json`, `schema`) — (Active, agt-2a3) |
 | REQ-SAG-0166 | `JevError::with_log_flush_failure` wraps an error with its flush failure as its own field — (Active, agt-2a3) |
+| REQ-SAG-0631 | `observability::v2` holds `GeneralLog` (open, `Send + Sync`), `SharedGeneralLog`, `NoopGeneralLog`, `GeneralEvent`, `GeneralLevel` and the `RecordingGeneralLog` and `RejectingGeneralLog` test doubles, beside `SessionLog` (proof: doctests, `general_tests`) | agt-9eh |
+| REQ-SAG-0634 | `GeneralEvent::with_error_code` records the typed id only; no helper takes error text | agt-9eh |

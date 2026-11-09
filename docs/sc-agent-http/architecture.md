@@ -148,3 +148,13 @@ before the first `Transport::send` (r-6, REQ-SAG-0613): retries resend the
 same bytes, so a send has one value; a cancel before the first attempt
 records nothing; headers are not hashed, so no secret is. `trace.rs` pins this
 (`--features test-util --test trace`).
+
+## General log (agt-9eh)
+
+`BusyPolicy::with_general_log` and `HttpClient::with_general_log` take a
+`SharedGeneralLog`. `retry_loop` logs each send (method, endpoint, attempt),
+the response status, each busy wait (status, attempt, wait milliseconds,
+whether `Retry-After` was honoured), exhaustion by sends or budget, a
+transport failure by `ErrorCode`, and cancellation. `HttpClient::with_busy_policy`
+keeps a log set on the client unless the new policy carries its own. No body,
+header or key is logged. The crate enables `sc-agent-types/obs` for the port.

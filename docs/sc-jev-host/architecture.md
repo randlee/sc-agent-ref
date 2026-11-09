@@ -23,6 +23,22 @@ with `=` (ADR-SAG-0023) and `cargo tree -d` gates keep one version of
   the envelope `outcome` stays `null` (ADR-SAG-0013, no bespoke writer). The
   `tests/fixtures/observability/session-event.json` golden pins judge `ok`,
   judge `failed` with and without a body, and `ask`.
+- **`obs::GeneralLogAdapter`** implements the `GeneralLog` port over the same
+  v2 logger machinery and the same per-`(service, root)` writer registry, as a
+  second file: service `<service>-general`
+  (`<log-root>/logs/<service>-general.log.jsonl`), level `debug` and above,
+  console sink off. It maps an event's target, action, message and fields to
+  the v2 event unchanged. `logger_config(policy, root)` exposes the
+  configuration so a root that runs its own writer (the Python wheel) writes
+  the same file shape.
+- **`compose::ComposeInputs::{session_log, general_log}`** inject a
+  replacement for either log; unset, `Logs::open` opens the default under the
+  resolved log root. It emits `paths.resolved` (repo root source, log root,
+  sessions dir, and whether each log is injected, default or none), logs the
+  main-repo git step and session-log flush results, and flushes the defaults it
+  opened. A dry run opens no default log. A default general log that cannot
+  start is dropped (the call carries on); a default session log that cannot
+  start is the call's error. An injected log's flush is the caller's.
 - **`paths::PathPolicy`** is one plain data type with public fields
   (`service`, `log_root_flag`, `log_root_env`, `log_root_default`,
   `session_dir_env`, `session_dir_default`) and the enums `DefaultRoot` /

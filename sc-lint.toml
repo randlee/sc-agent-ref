@@ -98,6 +98,27 @@ manifest_message = "Only sc-jev-host may depend on full sc-observability; sc-ai 
 source_message = "Only sc-jev-host may depend on full sc-observability; sc-ai and sc-jev-py are thin adapters over it (ADR-SAG-0016 r-3b amendment)."
 
 [[tool.sc-lint.analyzers.boundary.global_dependency_ownership]]
+dependency = "sc-observability-py"
+allowed_manifest_paths = ["crates/sc-jev-py/Cargo.toml"]
+allowed_source_roots = ["crates/sc-jev-py"]
+manifest_message = "Only sc-jev-py may depend on sc-observability-py: the wheel links the sc-observability Python runtime so Rust writes rows with no GIL (ADR-SAG-0013 amendment 2026-11-09)."
+source_message = "Only sc-jev-py may depend on sc-observability-py: the wheel links the sc-observability Python runtime so Rust writes rows with no GIL (ADR-SAG-0013 amendment 2026-11-09)."
+
+[[tool.sc-lint.analyzers.boundary.global_dependency_ownership]]
+dependency = "sc-observability-binding-runtime"
+allowed_manifest_paths = ["crates/sc-jev-py/Cargo.toml"]
+allowed_source_roots = ["crates/sc-jev-py"]
+manifest_message = "Only sc-jev-py may depend on sc-observability-binding-runtime: the wheel links the sc-observability Python runtime so Rust writes rows with no GIL (ADR-SAG-0013 amendment 2026-11-09)."
+source_message = "Only sc-jev-py may depend on sc-observability-binding-runtime: the wheel links the sc-observability Python runtime so Rust writes rows with no GIL (ADR-SAG-0013 amendment 2026-11-09)."
+
+[[tool.sc-lint.analyzers.boundary.global_dependency_ownership]]
+dependency = "sc-observability-dto"
+allowed_manifest_paths = ["crates/sc-jev-py/Cargo.toml"]
+allowed_source_roots = ["crates/sc-jev-py"]
+manifest_message = "Only sc-jev-py may depend on sc-observability-dto: the wheel links the sc-observability Python runtime so Rust writes rows with no GIL (ADR-SAG-0013 amendment 2026-11-09)."
+source_message = "Only sc-jev-py may depend on sc-observability-dto: the wheel links the sc-observability Python runtime so Rust writes rows with no GIL (ADR-SAG-0013 amendment 2026-11-09)."
+
+[[tool.sc-lint.analyzers.boundary.global_dependency_ownership]]
 dependency = "mimalloc"
 allowed_manifest_paths = ["crates/sc-ai/Cargo.toml", "crates/sc-treesitter/Cargo.toml"]
 allowed_source_roots = ["crates/sc-ai", "crates/sc-treesitter"]

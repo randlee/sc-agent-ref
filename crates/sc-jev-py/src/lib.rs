@@ -6,6 +6,21 @@
 //! stay in the Rust crates. This crate does not
 //! depend on `sc-jev`.
 //!
+//! # Two logs
+//!
+//! `run_check` writes two separate `sc-observability` logs: the **session
+//! log** below (one row per judge send) and a **general log** of operator
+//! diagnostics at `{log_root}/logs/sc-jev-py-general.log.jsonl` (start and
+//! end of operations, backend and model, path resolution, credential source
+//! as a name never a value, retries and busy waits, extraction and git steps,
+//! session store actions, failures by typed id). Neither carries API keys,
+//! prompt text, state or provider bodies. Both have sc-agent defaults and
+//! both can be replaced per call with `session_log=` and `general_log=`
+//! callables. The default general log is the shared host logger of the
+//! `logging` module: Rust writes it with no GIL and Python reaches the same
+//! logger through `sc_observability.get_host_logger()` after
+//! `install_host_logger()`.
+//!
 //! # Session log
 //!
 //! Log and session paths follow ADR-SAG-0021. Log root resolution, first
@@ -43,6 +58,7 @@
 #![warn(missing_docs)]
 
 mod error;
+mod logging;
 mod run;
 
 use pyo3::prelude::*;
@@ -76,6 +92,7 @@ use crate::error::JevError;
 /// (ADR-SAG-0022). Live runs resolve keys inside `sc-jev-check`.
 #[pymodule]
 fn sc_jev_py(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    logging::register_native(module.py())?;
     module.add_class::<run::CheckResult>()?;
     module.add_class::<run::Session>()?;
     module.add_function(wrap_pyfunction!(run::build_request, module)?)?;
@@ -86,6 +103,8 @@ fn sc_jev_py(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(run::resolve_log_root, module)?)?;
     module.add_function(wrap_pyfunction!(run::resolve_session_dir, module)?)?;
     module.add_function(wrap_pyfunction!(run::log_file, module)?)?;
+    module.add_function(wrap_pyfunction!(run::general_log_file, module)?)?;
+    module.add_function(wrap_pyfunction!(run::install_host_logger, module)?)?;
     let jev_error = module.py().get_type::<JevError>();
     // `response` is the run body of a partial failure; absent otherwise.
     jev_error.setattr("response", module.py().None())?;

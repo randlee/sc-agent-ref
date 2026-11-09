@@ -95,7 +95,7 @@ the **`sc-ai`** CLI. Behavioural contract for errors and parity rows:
 
 | ID | Requirement |
 | --- | --- |
-| REQ-SAG-0802 | `sc-jev-py` publishes six `abi3-py311` wheels (Linux, macOS, Windows on x86_64 and arm64); Windows MSVC targets link the CRT statically (ADR-SAG-0023, phase-end amendment); the `wheel` CI job builds the release-shape wheel on `windows-2022` and `windows-11-arm`, installs it in a fresh venv and imports `sc_jev_py` without `_testing` — (Active, phase-end) |
+| REQ-SAG-0802 | `sc-jev-py` publishes six `cp310-abi3` wheels (`abi3-py310`, the floor the embedded sc-observability runtime sets; `requires-python` stays `>=3.11`; Linux, macOS, Windows on x86_64 and arm64); Windows MSVC targets link the CRT statically (ADR-SAG-0023, phase-end amendment); the `wheel` CI job builds the release-shape wheel on `windows-2022` and `windows-11-arm`, installs it in a fresh venv and imports `sc_jev_py` without `_testing`, and checks the wheel tag is `cp310-abi3` — (Active, phase-end; tag amended agt-9eh) |
 | REQ-SAG-0133 | A repo-owned check (`scripts/check-scoop-manifest.py`, run by `scripts/sc-publish-dry-run.sh checks`) renders the Scoop manifest at the pin and fails unless both binaries are shimmed — (Active, phase-end) |
 | REQ-SAG-0600 | Session store: UUID, mode 0600, expiry from `created_at` |
 | REQ-SAG-0601 | `run_check` / dry-run library API |
@@ -259,3 +259,23 @@ New requirements:
 | REQ-SAG-0164 | `RESPONSE_INVALID` has a `cause` (`truncated`, `too_large`, `not_json`, `schema`), a distinct `suggested_action` per cause, and `retryable` false for all, with no action that says to retry unchanged — (Active, agt-2a3) |
 | REQ-SAG-0165 | The Python `JevError` carries the same fields as the CLI body (`code` for `error`, `kind`, `message`, `suggested_action`, `retryable`, `retry_after_seconds`, `field`, `details`, `schema_version`), produced from the same serialization — (Active, agt-2a3) |
 | REQ-SAG-0166 | A session-log flush failure that happens as an error leaves is `details.log_flush_failure` on every variant, not text in the message — (Active, agt-2a3) |
+
+## Amendments: general log (bead agt-9eh, ADR-SAG-0013 amendment 2026-11-09)
+
+The session log was the only log. These rows add the general log and the
+injection that was missing from the first design. Per-crate proofs are in each
+crate's requirements file.
+
+| ID | Requirement |
+| --- | --- |
+| REQ-SAG-0630 | Two logs, two files, both written with `sc-observability`: the session log (`<service>.log.jsonl`) and the general log (`<service>-general.log.jsonl`); no `tracing` or `log` dependency, no bespoke writer — (Active, agt-9eh) |
+| REQ-SAG-0631 | The general-log port (`GeneralLog`, `SharedGeneralLog`, `NoopGeneralLog`) sits beside `SessionLog` in `sc-agent-types`, open and `Send + Sync`; libraries take the logger as a value, with no global — (Active, agt-9eh) |
+| REQ-SAG-0632 | Each log is injectable (`RunConfig::general_log`, `ComposeInputs::{session_log, general_log}`, Python `session_log=` and `general_log=`) and falls back to the default sc-agent sets; the CLI injects nothing and keeps the defaults and `--log-dir`; Python is never less capable than the CLI — (Active, agt-9eh) |
+| REQ-SAG-0633 | The general log records start and end of operations, backend selection and resolved model, config and path resolution, credential source (never the value), busy retries and waits, extraction and git steps, session store actions, flush failures, and failures by typed error id — (Active, agt-9eh) |
+| REQ-SAG-0634 | No general-log event carries an API key, prompt text, session state or a provider body; errors are logged by `ErrorCode` only (NFR-SAG-0002) — (Active, agt-9eh) |
+| REQ-SAG-0635 | A logger that rejects, raises or cannot flush changes no result and fails no run; a dry run opens no default log — (Active, agt-9eh) |
+| REQ-SAG-0638 | Every general-log event of a run carries one per-run `run_id`; `send.done` and `run.done` carry `duration_ms` and the `session_id`; a failure event carries the fixed `stage`, the `backend` and `session_id` when known and the typed `error_code`, never provider or prompt text — (Active, agt-9eh) |
+| REQ-SAG-0639 | A failure before the run (root discovery, `--repo-root`, `--request-json`, the check source) is logged by typed id at the resolved or an early-known log root; a path with no known root is named in the ADR-SAG-0013 silent-paths table — (Active, agt-9eh) |
+| REQ-SAG-0640 | Logs name an endpoint only as scheme, host and path (`Endpoint::log_form`); userinfo, port, query and fragment never reach a log — (Active, agt-9eh) |
+| REQ-SAG-0636 | The Python wheel links the `sc-observability` Python runtime in its own binary and registers it, so Rust writes general-log rows with no GIL (the default path takes no GIL; an injected callable takes it once per row; no queue) and `sc_observability.get_host_logger()` returns the same logger; Rust and Python rows land in one log — (Active, agt-9eh) |
+| REQ-SAG-0637 | `pyo3` is pinned `=0.29.2` and `sc-observability-py`, `sc-observability-binding-runtime` and `sc-observability-dto` `=1.5.0`, all on the ADR-SAG-0023 lockstep list — (Active, agt-9eh) |

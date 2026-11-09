@@ -83,7 +83,10 @@ a type or nullability, bumps the version and adds a migration note to
 `SessionLogRow::try_from_fields` refuses any other version with
 `INPUT_INVALID`. Logs never contain API keys, prompt text or request bodies.
 Session logs default to `<repo-root>/.sc-ai`; add that directory to your
-`.gitignore`.
+`.gitignore`. A separate general log (`<log-root>/logs/<service>-general.log.jsonl`)
+holds operator diagnostics; its action names and field names are diagnostic
+text, not a stable contract, unlike the session-log record above. It never
+contains API keys, prompt text, session state or provider bodies.
 
 ## Subjects schema: `sc/subjects/1`
 

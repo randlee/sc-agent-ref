@@ -267,6 +267,47 @@ impl Endpoint {
     }
 }
 
+impl Endpoint {
+    /// The endpoint as it may appear in a log: scheme, host and path only.
+    ///
+    /// Userinfo (`user:pass@`), the port, the query and the fragment are
+    /// dropped, so a credential carried in a URL cannot reach a log. This is
+    /// the one form logs use.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sc_agent_http::Endpoint;
+    ///
+    /// let endpoint = Endpoint::parse("https://user:pw@api.example.test:8443/v1/x?key=SECRET#f")?;
+    /// assert_eq!(endpoint.log_form(), "https://api.example.test/v1/x");
+    /// # Ok::<(), sc_agent_types::JevError>(())
+    /// ```
+    #[must_use]
+    pub fn log_form(&self) -> String {
+        let text = self.as_str();
+        let (scheme, rest) = text.split_once("://").unwrap_or(("", text));
+        let end = rest.find(['/', '?', '#']).unwrap_or(rest.len());
+        let (authority, tail) = rest.split_at(end);
+        let host_port = authority
+            .rsplit_once('@')
+            .map_or(authority, |(_, host)| host);
+        let host = if host_port.starts_with('[') {
+            host_port
+                .split_once(']')
+                .map_or(host_port, |(h, _)| &host_port[..=h.len()])
+        } else {
+            host_port.split(':').next().unwrap_or(host_port)
+        };
+        let path = tail.split(['?', '#']).next().unwrap_or("");
+        if scheme.is_empty() {
+            format!("{host}{path}")
+        } else {
+            format!("{scheme}://{host}{path}")
+        }
+    }
+}
+
 impl fmt::Display for Endpoint {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(&self.url)

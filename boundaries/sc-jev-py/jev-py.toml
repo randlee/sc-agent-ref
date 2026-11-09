@@ -27,8 +27,8 @@ name = "jev-py"
 # behind it are pub(crate) pyfunctions and pyclasses (ADR-SAG-0011).
 # `_testing::run_check_scripted` (`sc_jev_py._testing.run_check_scripted`)
 # exists only in `test-util` builds.
-facade = "sc_jev_py::build_request, sc_jev_py::run_check, sc_jev_py::Session, sc_jev_py::CheckResult, sc_jev_py::canonical_bytes, sc_jev_py::canonical_sha256, sc_jev_py::default_log_root, sc_jev_py::resolve_log_root, sc_jev_py::resolve_session_dir, sc_jev_py::log_file, sc_jev_py::JevError, sc_jev_py::_testing::run_check_scripted"
-notes = "PyO3 over sc-jev-check; facade items are the Python module surface. Payload bytes and Jev HTTP stay in Rust. Session JSONL, path policy and run wiring come from sc-jev-host (sc-observability v2 lives only there). CheckResult.data is the run response body; run_check takes chain_context; a partial failure raises JevError with a response dict. Production run_check does not register a judge (ADR-SAG-0009). run_check has one signature and never takes scripted_answers. Feature test-util registers the _testing submodule whose run_check_scripted forwards scripted answers to sc-jev-check register_scripted_backends (ADR-SAG-0022, ADR-SAG-0029)."
+facade = "sc_jev_py::build_request, sc_jev_py::run_check, sc_jev_py::Session, sc_jev_py::CheckResult, sc_jev_py::canonical_bytes, sc_jev_py::canonical_sha256, sc_jev_py::default_log_root, sc_jev_py::resolve_log_root, sc_jev_py::resolve_session_dir, sc_jev_py::log_file, sc_jev_py::general_log_file, sc_jev_py::install_host_logger, sc_jev_py::JevError, sc_jev_py::_testing::run_check_scripted"
+notes = "PyO3 over sc-jev-check; facade items are the Python module surface. Payload bytes and Jev HTTP stay in Rust. Session JSONL, path policy and run wiring come from sc-jev-host (sc-observability v2 lives only there). The general log: run_check takes session_log= and general_log= callables (each replaces its default; unset, the defaults apply); the default general log is the shared host logger, the sc-observability Python runtime (`_native`, an rlib) linked and registered inside this binary so Rust writes rows with no GIL and sc_observability.get_host_logger() returns the same logger (ADR-SAG-0013 amendment 2026-11-09). This is the only crate that links sc-observability-py, sc-observability-binding-runtime and sc-observability-dto. CheckResult.data is the run response body; run_check takes chain_context; a partial failure raises JevError with a response dict. Production run_check does not register a judge (ADR-SAG-0009). run_check has one signature and never takes scripted_answers. Feature test-util registers the _testing submodule whose run_check_scripted forwards scripted answers to sc-jev-check register_scripted_backends (ADR-SAG-0022, ADR-SAG-0029)."
 
 [implementation]
 type = "marker"
@@ -41,7 +41,7 @@ roots = ["build_request", "run_check", "Session", "canonical_bytes"]
 
 [dependencies]
 allowed_dependents = []
-allowed_dependencies = ["pyo3", "sc-agent-types", "sc-decision-schema", "sc-jev-check", "sc-jev-host", "serde_json"]
+allowed_dependencies = ["pyo3", "sc-agent-types", "sc-decision-schema", "sc-jev-check", "sc-jev-host", "sc-observability-binding-runtime", "sc-observability-dto", "sc-observability-py", "serde_json"]
 forbidden_edges = [
     { from = "sc-jev-py", to = "sc-jev" },
     { from = "sc-jev-py", to = "sc-observability" },

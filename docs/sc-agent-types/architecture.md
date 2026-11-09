@@ -21,7 +21,7 @@ Later changes are additive: new enum variants (every public enum is
   `sc-decision-schema`, one layer above this crate (ADR-SAG-0030). This crate
   re-exports none of them (a re-export would be a Cargo cycle).
 - The `sc/subjects/1` schema (`schema::subjects`) and its id builder.
-- The session log port (`observability::v2`) and argv-only git helpers.
+- The session and general log ports (`observability::v2`) and argv-only git helpers.
 
 ## Cargo features (module seams)
 
@@ -29,7 +29,7 @@ Later changes are additive: new enum variants (every public enum is
 | --- | --- | --- | --- |
 | (core) | always | `error`, `envelope`, `ids`, `models`, `schema`, `cancel`, `trace` | `JevError`, `ErrorCode`, `ErrorCategory`, `NetworkErrorKind`, `BusyCause`, `ResponseInvalidCause`, `LimitUnit`, `ProviderFailure`; `ScAgentErrorResponse`, `ErrorDetails`; `BackendId`, `BackendKeyId`, `BackendFamily`, `BackendDescriptor`, `BACKENDS`, `BackendSet`, `SessionId`, `Rev` (built only by `Rev::parse` or `Rev::worktree()`; no unchecked constructor), `RepoRoot`, `RepoRelativePath`, `BlobSha`, `Sha256Digest` (`of_text`), `AnswerId`, `ProjectLabel`, `Operation`; `ModelId`, `UnknownModel`, `ModelFamily`, `ModelDescriptor`, `MODELS`, `ModelAliases`; `schema::subjects::*` (`SubjectsDocument`, `SubjectsBuilder`, `SubjectsSource` and `SubjectsProducer` with private fields, constructors and accessors, `GrammarRef` (the language, grammar crate and version a producer takes), `QueryMode`, `Span`, `Subject`); `CancelToken`, `SendTrace` |
 | `secret` | yes | `secret` | `ResolvedApiKey` |
-| `obs` | yes | `observability::v2` | `SessionLog`, `SharedSessionLog`, `LogEvent`, `LogRejected`, `NoopSessionLog` |
+| `obs` | yes | `observability::v2` | `SessionLog`, `SharedSessionLog`, `LogEvent`, `LogRejected`, `NoopSessionLog`; `GeneralLog`, `SharedGeneralLog`, `GeneralEvent`, `GeneralLevel`, `NoopGeneralLog`, `RecordingGeneralLog`, `RejectingGeneralLog` |
 | `git` | no | `git` | `discover_toplevel`, `read_at_rev`, `GitBlob` |
 
 `secret`, `obs` and `git` are independent. The `judge` and `test-util` features were deleted in r-7 with the moved modules (REQ-SAG-0107 amended). Every
@@ -123,6 +123,20 @@ SHA-256 of the bytes only for text without CR (all compact JSON). With the
 worktree belongs to; it reuses the one argv-only spawn site. `sc-ai` and `sc-jev-py` adapt their `sc_observability::v2::Logger` to
 it; `sc-jev-check` takes a `SharedSessionLog`. Removal of the module still
 waits on upstream v2 (bead `agt-obs-v2-shim-removal`).
+
+## General log port (`observability::v2`, agt-9eh)
+
+Beside `SessionLog` sits the general log for operator diagnostics
+(ADR-SAG-0013 amendment 2026-11-09). `GeneralLog::log(GeneralEvent) ->
+Result<(), LogRejected>` is an open `Send + Sync` trait; `SharedGeneralLog` is
+`Arc<dyn GeneralLog>`; `NoopGeneralLog` is the library default. A
+`GeneralEvent` is a `GeneralLevel`, a `'static` `target` and `action`, a
+message and structured fields; `GeneralEvent::emit(&dyn GeneralLog)` sends it
+and drops a rejection, because logging never changes a result.
+`with_error_code` records the typed `ErrorCode` id only, never error text.
+`RecordingGeneralLog` and `RejectingGeneralLog` are the test doubles. The port
+links no `sc-observability*` crate; `sc-agent-http` enables `obs` for it, and
+`sc-treesitter` and `sc-decision-schema` stay off it.
 
 ## Subjects (`schema::subjects`)
 

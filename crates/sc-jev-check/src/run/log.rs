@@ -7,7 +7,9 @@
 
 use std::time::SystemTime;
 
-use sc_agent_types::observability::v2::{LogEvent, SharedSessionLog};
+use sc_agent_types::observability::v2::{
+    GeneralEvent, LogEvent, SharedGeneralLog, SharedSessionLog,
+};
 use sc_agent_types::{AnswerId, JevError, Operation, ProjectLabel, RepoRoot, SendTrace, SessionId};
 use sc_decision_schema::session_log::{RowContext, RowContextBuilder, SessionLogRow, TimestampMs};
 use sc_decision_schema::{DecisionSchemaId, JudgeBackend, JudgeOutcome, JudgeRequest};
@@ -64,6 +66,7 @@ impl LogContext {
 /// What the send step needs to write one row: fixed per run or `ask`.
 pub(crate) struct SendLog<'a> {
     pub(crate) log: &'a SharedSessionLog,
+    pub(crate) general: &'a SharedGeneralLog,
     pub(crate) session_id: SessionId,
     pub(crate) session_created_at: SystemTime,
     pub(crate) repo: String,
@@ -92,6 +95,7 @@ impl<'a> SendLog<'a> {
         };
         Self {
             log: &config.session_log,
+            general: &config.general_log,
             session_id,
             session_created_at,
             repo: RowContext::repo_text(repo.as_path()),
@@ -140,11 +144,19 @@ impl<'a> SendLog<'a> {
             Err(error) => SessionLogRow::failed(context, error.code()),
         };
         // Best effort: a rejected row never fails the run (REQ-SAG-0617).
-        let _ = self.log.emit(LogEvent::new(
+        if let Err(rejected) = self.log.emit(LogEvent::new(
             self.session_id,
             self.operation,
             row.to_fields(),
-        ));
+        )) {
+            GeneralEvent::warn(
+                "check.session_log",
+                "session_log.rejected",
+                "the session log rejected a row",
+            )
+            .with_field("reason", rejected.reason())
+            .emit(self.general.as_ref());
+        }
     }
 }
 

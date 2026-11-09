@@ -51,6 +51,20 @@ answers. Logs do not record API keys, prompt text or request bodies.
 `--project <TEXT>` (on `jev run` and `jev ask`) labels that call's rows; the text is stored as given and is
 not scrubbed, so put no secret in it.
 
+### General log
+
+A second, separate log records what an operator needs to diagnose a run:
+`<log-root>/logs/sc-ai-general.log.jsonl`. It holds start and end of
+operations, backend selection and the resolved model, path resolution, the
+credential source (a name such as `env`, never the value), busy retries and
+waits, extraction and git steps, session store actions, flush failures, and
+failures by typed error id. It never records API keys, prompt text, session
+state or provider bodies. A dry run opens neither log. `sc-ai` has no logger
+flag: it writes both default logs under `--log-dir`. Rust and Python callers
+can inject their own session and general loggers (`ComposeInputs::session_log`
+and `general_log`; Python `run_check(session_log=, general_log=)`), each
+falling back to the default.
+
 ## Commands
 
 ```bash

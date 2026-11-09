@@ -30,3 +30,9 @@ byte-splice); replies parse through `CheckResponse`. `payload_sha256` stays on
 the canonical bytes. `input_sha256` is recovered by inverting the body. REQ-SAG-0401 is now the shared
 `BusyPolicy` with the packaged `attempts = 5` (4 at r-5, 5 since the
 ADR-SAG-0007 phase-end amendment).
+
+## General log (agt-9eh, ADR-SAG-0013 amendment 2026-11-09)
+
+| ID | Requirement | Sprint | Proof |
+| --- | --- | --- | --- |
+| REQ-SAG-0633 | `JevClient::with_general_log` logs judge start, end and failure by typed id, with the model and endpoint | agt-9eh | `cargo test -p sc-jev` |

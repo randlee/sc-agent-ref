@@ -72,3 +72,10 @@ writes the process environment.
 - A quoted value may be followed by whitespace and a `#` comment. Any other
   text after the closing quote makes the whole value unquoted text.
 - No variable expansion, no command substitution, no multi-line values.
+
+## General log (agt-9eh)
+
+`resolve_key_logged` and `resolve_key_with_logged` report the winning source
+(`env`, `dotenv` or `keyring`) and the key id at `debug`, and the typed error id
+at `warn` on a miss. The value is never logged. `resolve_key` and
+`resolve_key_with` are unchanged and log nothing.

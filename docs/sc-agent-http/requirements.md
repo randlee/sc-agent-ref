@@ -16,3 +16,11 @@ authoritative.
 `test-util` is non-default and enabled only by dev-dependencies; it never
 appears in a normal-dependency graph (`cargo tree -p sc-agent-http -e
 normal,features`).
+
+## General log (agt-9eh, ADR-SAG-0013 amendment 2026-11-09)
+
+| ID | Requirement | Sprint | Proof |
+| --- | --- | --- | --- |
+| REQ-SAG-0633 | `BusyPolicy::with_general_log` and `HttpClient::with_general_log` log each send, response status, busy wait (status, attempt, wait milliseconds), exhaustion, budget end and cancellation | agt-9eh | `sc-jev-backends` `--test general_log` (`busy_wait_and_judge_are_logged_without_key_prompt_or_body`) |
+| REQ-SAG-0640 | `Endpoint::log_form` is scheme, host and path only; used at every endpoint log site | agt-9eh | `--test general_log` (`userinfo_and_query_secrets_are_absent_from_recorded_events`) |
+| REQ-SAG-0634 | Those events carry statuses, counts and times only, never a body, header or key | agt-9eh | same |

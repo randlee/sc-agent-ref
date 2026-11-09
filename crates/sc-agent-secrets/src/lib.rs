@@ -70,7 +70,8 @@ pub use platform::{PlatformKeyring, ProcessEnv};
 #[doc(inline)]
 pub use resolve::{
     ANTHROPIC_API_KEY_VAR, ANTHROPIC_KEYCHAIN_SERVICE_VAR, EnvSource, KeyringSource,
-    OPENAI_API_KEY_VAR, TYPESAFE_API_KEY_VAR, resolve_key, resolve_key_with,
+    OPENAI_API_KEY_VAR, TYPESAFE_API_KEY_VAR, resolve_key, resolve_key_logged, resolve_key_with,
+    resolve_key_with_logged,
 };
 #[doc(inline)]
 pub use sc_agent_types::ResolvedApiKey;

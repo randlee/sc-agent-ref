@@ -77,3 +77,17 @@ pass `--features test-util`. There is no self dev-dependency
 
 - TypeSafe / Anthropic / OpenAI HTTP (backend crates).
 - CLI argv, PyO3 glue (thin adapters only).
+
+## General log (agt-9eh)
+
+`RunConfig::general_log` takes a `SharedGeneralLog` (default `NoopGeneralLog`)
+beside the session log. `prepare` logs the source, rev, selected backends,
+prompt source and the payload size and digest; `payload::build_payload_logged`
+and `extract::extract_input_logged` log each extraction (kind, whether it reads
+git, subject count); `run` logs start, per-backend send start and end, session
+store open and save, and the outcome; `ask` logs the session load and the
+follow-up. `BackendRegistry::from_env_with_models_logged` and
+`from_resolver_with_models_logged` log the credential source (through
+`resolve_key_logged`) and each backend's resolved model, and give every backend
+the same log. A rejected session-log row is logged to the general log. Failures
+are logged by `ErrorCode` only.

@@ -5,7 +5,12 @@
 //! half; a future MCP server is a third adapter):
 //!
 //! - [`obs`]: the `sc-observability` v2 logger adapted to the
-//!   [`SessionLog`](sc_agent_types::observability::v2::SessionLog) port.
+//!   [`SessionLog`](sc_agent_types::observability::v2::SessionLog) port
+//!   (the session log) and to the
+//!   [`GeneralLog`](sc_agent_types::observability::v2::GeneralLog) port (the
+//!   general log), as two separate files. Either can be injected through
+//!   [`ComposeInputs`](compose::ComposeInputs); unset, each uses the sc-agent
+//!   default under the log root.
 //! - [`paths`]: [`PathPolicy`](paths::PathPolicy), the log-root and
 //!   session-directory precedence of ADR-SAG-0021.
 //! - [`compose`]: [`run_from`](compose::run_from) and
