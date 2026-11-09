@@ -240,7 +240,7 @@ fn execute(spec: CheckRun) -> Result<FinishedRun, JevError> {
     let prepared = prepare_from(source, call_inputs)?;
     let request = prepared.prepared().request();
     let payload = request.payload().as_str().to_owned();
-    let system_prompt = request.llm().map(|llm| llm.system_prompt.clone());
+    let system_prompt = request.llm().map(|llm| llm.system_prompt().to_owned());
     let response = prepared.run()?;
     // A live run's follow-ups use the paths this run resolved.
     let live = (!spec.dry_run).then(|| LiveSession {

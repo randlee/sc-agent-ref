@@ -443,7 +443,7 @@ fn test_ask_takes_registry() {
     );
     let requests = ask_judge.requests();
     assert_eq!(requests.len(), 1, "ask uses the registry it is given");
-    let prompt = &requests[0].llm().expect("prompt").system_prompt;
+    let prompt = requests[0].llm().expect("prompt").system_prompt();
     assert!(prompt.contains("why the choice?"), "{prompt}");
     assert!(prompt.contains("Session context:"), "{prompt}");
     assert_eq!(

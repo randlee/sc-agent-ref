@@ -61,6 +61,7 @@ pub const COLUMNS: &[&str] = &[
 /// How one send ended.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum SendOutcome {
     /// The backend answered.
     Ok,

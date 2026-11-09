@@ -28,8 +28,10 @@ First release. Channels once published: crates.io (ten crates), PyPI
 
 - `sc-ai`, the JSON-first CLI for Jev check parity: `jev run`, `jev dry-run`
   and `jev ask` (`jev stream` is below). Success writes one `{"version","operation","data"}` envelope
-  to stdout; failure writes one `{"schema_version","error","message"}` line to
-  stderr and exits 2. Backends: `jev` (default), `haiku`,
+  to stdout; failure writes one error line to stderr, with `error`, `kind`, `message`,
+  `suggested_action`, `retryable`, `schema_version` and, when they apply,
+  `retry_after_seconds`, `field` and `details`. Exit is 0 on success, 3 when the
+  failure is retryable, otherwise 2. Backends: `jev` (default), `haiku`,
   `luna` (each the latest model of its line, or a known model id such as
   `claude-haiku-5-5` to pin it). Multi-backend runs report equal-input attestation.
 - `sc-ai jev stream` and Python `run_many` / `DecisionStream` (bead agt-1aq,
@@ -80,6 +82,10 @@ First release. Channels once published: crates.io (ten crates), PyPI
   connections per host, and a leading byte order mark on the input is ignored.
 
 ### Changed (public API shape before the first release)
+
+None of this shipped in a release. It records how the API changed during
+development, for anyone who used a pre-release build. Where an entry here
+describes an older shape, the `Added` section above is what 0.1.0 does.
 
 - `pyo3` is pinned `=0.29.2` (the version the embedded `sc-observability`
   runtime pins), with `sc-observability-py`, `-binding-runtime` and `-dto`
@@ -175,6 +181,12 @@ First release. Channels once published: crates.io (ten crates), PyPI
 - `sc_decision_schema::jev::v1::JevAnswer` struct variants and
   `sc_decision_schema::QuestionKind` are `#[non_exhaustive]`: match struct
   variants with `..` and add a wildcard arm for `QuestionKind`.
+- `sc_decision_schema::LlmWireContext` has a private `system_prompt` field;
+  read it with `system_prompt() -> &str`. `LlmWireContext::new` is the only
+  constructor.
+- `sc_decision_schema::session_log::SendOutcome` is `#[non_exhaustive]`: add a
+  wildcard arm when matching it outside the crate. Serde values (`ok` /
+  `failed`) are unchanged.
 - `BackendSet` implements `From<BackendId>` (a one-backend set, infallible).
 - `sc_agent_types::schema::subjects::SubjectsProducer::new` takes a named
   `GrammarRef { language, grammar, grammar_version }` instead of three
@@ -200,5 +212,3 @@ First release. Channels once published: crates.io (ten crates), PyPI
   package but has no alias yet.
 - The Luna live token count is unverified (bead `agt-luna-live-count`).
 - Backend ids are written `jev`, `haiku` and `luna`; no other spelling is read.
-  Removal is tracked by bead `agt-ho2`; no removal is
-  scheduled and it would be announced here.

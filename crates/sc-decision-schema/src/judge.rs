@@ -27,8 +27,7 @@ use crate::probability::Probability;
 /// `payload_sha256`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LlmWireContext {
-    /// System prompt resolved by the facade.
-    pub system_prompt: String,
+    system_prompt: String,
 }
 
 impl LlmWireContext {
@@ -38,6 +37,12 @@ impl LlmWireContext {
         Self {
             system_prompt: system_prompt.into(),
         }
+    }
+
+    /// The system prompt resolved by the facade.
+    #[must_use]
+    pub fn system_prompt(&self) -> &str {
+        &self.system_prompt
     }
 }
 

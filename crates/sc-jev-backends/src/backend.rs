@@ -126,7 +126,7 @@ pub fn request_sha256(
         kind,
         model.as_str(),
         request.payload().as_str(),
-        &prompt.system_prompt,
+        prompt.system_prompt(),
     );
     Ok(RequestSha256::of_text(&body))
 }
@@ -281,13 +281,13 @@ impl<T: Transport> Client<T> {
             self.provider.kind,
             self.provider.model.as_str(),
             &payload_text,
-            &prompt.system_prompt,
+            prompt.system_prompt(),
         )));
         let count_body: Arc<str> = Arc::from(wire::count_body(
             self.provider.kind,
             self.provider.model.as_str(),
             &payload_text,
-            &prompt.system_prompt,
+            prompt.system_prompt(),
         ));
         Ok(Prepared {
             message_body,

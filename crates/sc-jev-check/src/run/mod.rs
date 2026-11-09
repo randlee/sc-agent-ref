@@ -1078,7 +1078,7 @@ fn save_session(
         backend,
         created_at,
         payload: request.payload().clone(),
-        system_prompt: request.llm().map(|llm| llm.system_prompt.clone()),
+        system_prompt: request.llm().map(|llm| llm.system_prompt().to_owned()),
         outcomes: outcomes.to_vec(),
         follow_ups: Vec::new(),
     })?;
@@ -1132,7 +1132,7 @@ fn request_for(
     if prior.is_empty() {
         return Ok(base.clone());
     }
-    let prompt = contextual_prompt(base.llm().map(|llm| llm.system_prompt.as_str()), prior, &[])?;
+    let prompt = contextual_prompt(base.llm().map(|llm| llm.system_prompt()), prior, &[])?;
     Ok(JudgeRequest::new(
         Arc::clone(base.payload_arc()),
         Some(LlmWireContext::new(prompt)),

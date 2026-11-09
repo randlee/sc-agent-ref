@@ -128,7 +128,7 @@ impl JudgeBackend for Probe {
     fn validate_for_send(&self, request: &JudgeRequest) -> Result<(), JevError> {
         let chained = request
             .llm()
-            .is_some_and(|llm| llm.system_prompt.contains(SESSION_CONTEXT_HEADER));
+            .is_some_and(|llm| llm.system_prompt().contains(SESSION_CONTEXT_HEADER));
         if self.refuse_context && chained {
             return Err(JevError::input_too_large(10, 20));
         }
@@ -291,7 +291,7 @@ fn test_independent_default_no_prior_answers_in_prompt() {
     )
     .expect("run");
     let seen = haiku.requests();
-    let prompt = &seen[0].llm().expect("prompt").system_prompt;
+    let prompt = seen[0].llm().expect("prompt").system_prompt();
     assert_eq!(prompt, PACKAGED_SYSTEM_PROMPT);
     assert!(!prompt.contains(SESSION_CONTEXT_HEADER));
     assert!(jev.requests()[0].llm().is_none());
@@ -311,7 +311,7 @@ fn test_chain_context_recorded_and_applied() {
     )
     .expect("run");
     let seen = haiku.requests();
-    let prompt = &seen[0].llm().expect("prompt").system_prompt;
+    let prompt = seen[0].llm().expect("prompt").system_prompt();
     assert!(prompt.starts_with(PACKAGED_SYSTEM_PROMPT));
     assert!(prompt.contains(SESSION_CONTEXT_HEADER));
     assert!(prompt.contains("\"choice\":\"yes\""));
