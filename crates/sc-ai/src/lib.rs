@@ -34,6 +34,14 @@
 //! `ScAgentErrorResponse` for stderr; the process exits 2, or 3 when every failed backend's error is
 //! retryable (REQ-SAG-0604, [`Output::exit_code`]).
 //!
+//! # Streaming
+//!
+//! `jev stream` ([`serve_stream`]) reads JSONL requests, runs them on a
+//! bounded queue with N worker threads, and writes one JSONL answer per
+//! request in completion order. It is the only command that writes stdout
+//! while it runs. See `sc_jev_host::stream` for the wire format, the finish
+//! rule and the exit code.
+//!
 //! # Examples
 //!
 //! The envelope type, its version and its operation names live in
@@ -51,4 +59,4 @@ mod command;
 mod envelope;
 
 #[doc(inline)]
-pub use command::{AskCommand, Command, Output, RunCommand, execute};
+pub use command::{AskCommand, Command, Output, RunCommand, StreamCommand, execute, serve_stream};

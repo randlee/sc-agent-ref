@@ -1505,6 +1505,7 @@ dependencies = [
  "sc-decision-schema",
  "sc-jev-check",
  "sc-observability",
+ "serde",
  "serde_json",
  "tempfile",
 ]

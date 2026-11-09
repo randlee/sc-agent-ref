@@ -12,10 +12,20 @@ First release. Channels once published: crates.io (ten crates), PyPI
 ### Added
 
 - `sc-ai`, the JSON-first CLI for Jev check parity: `jev run`, `jev dry-run`
-  and `jev ask`. Success writes one `{"version","operation","data"}` envelope
+  and `jev ask` (`jev stream` is below). Success writes one `{"version","operation","data"}` envelope
   to stdout; failure writes one `{"schema_version","error","message"}` line to
   stderr and exits 2. Backends: `jev` (default), `anthropic_haiku`,
   `openai_luna`. Multi-backend runs report equal-input attestation.
+- `sc-ai jev stream` and Python `run_many` / `DecisionStream` (bead agt-1aq,
+  ADR-SAG-0032): many decision requests through one process on a bounded queue
+  with N worker threads (`--concurrency`, default 8, 1 to 64). JSONL
+  `{"id","request"}` in, one `{"id","ok","envelope"?,"error"?}` line out per
+  request in completion order; a failed request is a typed error on its line
+  and the stream continues; exit 0, or 3 when every failure is retryable, else
+  2. Memory is bounded (backpressure to the producer); cancel stops new work.
+  The default of 8 was tested only against scripted and loopback backends, not
+  live providers. Out of scope: resume, sha256 lookup or any cache, a shared
+  rate limiter.
 - `sc-treesitter`, a tree-sitter producer of `sc/subjects/1` documents
   (Python and Rust grammars behind features).
 - `sc_jev_py`, a Python wheel (PyO3, maturin) that runs the same engine

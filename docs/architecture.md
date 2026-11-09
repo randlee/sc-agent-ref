@@ -150,12 +150,13 @@ own row's Status cell and its own marker text, and added or removed no entry).
 | ADR-SAG-0023 | Dependency pins, allocator, released binaries | Active (r-4; host pin r-3b; Windows CRT phase-end) | Amends ADR-SAG-0016, ADR-SAG-0017 |
 | ADR-SAG-0024 | Engine entry point and response contract | Active (r-2) | Amends ADR-SAG-0003, ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0014, ADR-SAG-0019, ADR-SAG-0022; supersedes the ADR-SAG-0014 A.1 r-1 interim subsection |
 | ADR-SAG-0025 | Multi-backend semantics and equal-input attestation | Active (r-2b) | Amends ADR-SAG-0004, ADR-SAG-0008, ADR-SAG-0019, ADR-SAG-0022; amended by agt-2a3 (all-failed runs keep every error) (Active) |
-| ADR-SAG-0026 | Shared HTTP crate and host crate | Active (HTTP half, r-3, amended 2026-11-09 agt-9eh: `secret` and `obs`; host half, r-3b) | Amends ADR-SAG-0006, ADR-SAG-0007, ADR-SAG-0020, ADR-SAG-0017 (HTTP half); ADR-SAG-0010, ADR-SAG-0011, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0017 (host half); amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6); agt-2a3 provider failure classification (Active) |
+| ADR-SAG-0026 | Shared HTTP crate and host crate | Active (HTTP half, r-3, amended 2026-11-09 agt-9eh: `secret` and `obs`; host half, r-3b) | Amends ADR-SAG-0006, ADR-SAG-0007, ADR-SAG-0020, ADR-SAG-0017 (HTTP half); ADR-SAG-0010, ADR-SAG-0011, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0017 (host half); amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6); agt-2a3 provider failure classification (Active); ADR-SAG-0032 (Active, agt-1aq: `sc-jev-host` gains `stream` and a direct `serde` edge) |
 | ADR-SAG-0027 | Error taxonomy and extensibility | Active (r-1) | Amends ADR-SAG-0001, ADR-SAG-0009, ADR-SAG-0016; amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6); agt-2a3 error contract (Active) |
 | ADR-SAG-0028 | workspace-tests crate | Active (r-3b) | Amended by ADR-SAG-0030 (Active, r-7) |
 | ADR-SAG-0029 | Phase A hardening amendments | Active (a-10) | Amends ADR-SAG-0020 and ADR-SAG-0022; A.1 supersedes named sentences of (a) (Active, r-1), (Active, r-3) and of (b) (Active, r-1), (Active, r-2) |
 | ADR-SAG-0030 | Decision schema crate and model catalog | Active (r-7); jev::v1 (Active, r-5) | Amends ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0012, ADR-SAG-0016, ADR-SAG-0017, ADR-SAG-0019, ADR-SAG-0022, ADR-SAG-0026, ADR-SAG-0027, ADR-SAG-0028 |
 | ADR-SAG-0031 | Session log storage schema | Active (r-7 storage schema, r-6 wiring) | Amends ADR-SAG-0008, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0026, ADR-SAG-0027 (wiring) |
+| ADR-SAG-0032 | Streaming decision calls | Active (agt-1aq) | Amends ADR-SAG-0014 (one envelope per run), ADR-SAG-0026 (host crate gains `stream` and a direct `serde` edge); uses ADR-SAG-0013, ADR-SAG-0024, ADR-SAG-0027 |
 
 ## ADR-SAG-0001 — Error enum is CLI authority
 
@@ -2322,3 +2323,89 @@ ADR-SAG-0027 (an r-6 subsection in each). Owner decisions 2026-11-07.
   still flushed; a flush failure there is appended once to the error detail
   and the error code is unchanged, because no response exists to carry a
   `data.warnings` entry.
+
+## ADR-SAG-0032 — Streaming decision calls
+
+**Status:** Active (agt-1aq). Owner decision 2026-11-08: streaming is a small
+change, not a redesign. One `sc-ai` instance answers thousands of decision
+queries, so callers do not spawn a process per query.
+
+- (Active) **A bounded queue with N worker threads around the existing
+  per-request work.** `sc_jev_host::stream::DecisionStream` runs
+  `sc_jev_check::run::{prepare, run}` for one caller-built request per job. No
+  async runtime. The engine, `JudgeBackend`, `Transport` and `SessionLog` are
+  unchanged; the host wraps them. The job queue and the answer queue each hold
+  `2 x N` items, so at most `5 x N` requests are in the process at once
+  (queued, running, answered and unread). A slow reader stops the workers, then
+  fills the job queue, then blocks the submitter: backpressure reaches the
+  producer (the stdin pipe, or Python `submit`). An input line is capped at
+  1 MiB.
+- (Active) **Same capability from every adapter.** One input is a JSONL file
+  (`--input`), a stdio stream (`sc-ai jev stream`), or a Python call
+  (`run_many`, `DecisionStream`). Requests can keep arriving while earlier
+  answers come back, so a caller may feed an early decision back in as a
+  follow-up query on the same stream.
+- (Active) **Wire format.** Input line:
+  `{"id": "<caller id>", "request": <the --request-json document>}`. Output
+  line, one per request, in completion order (not input order):
+  `{"id", "ok", "envelope"?, "error"?}`. `envelope` is the existing `jev run`
+  envelope without the path readback; `error` is the existing
+  `ScAgentErrorResponse`. `ok` is false whenever `error` is present. A failed
+  request has only `error`; a request with some failed backends has both
+  `envelope` and `error` (as `jev run` prints stdout and stderr), so a client
+  reads `envelope` whenever it is present. `id` is echoed whenever a usable id
+  could be read from the line, even if the rest is invalid; it is `null` only
+  when none could. Ids are 1 to 256 bytes with no control character and are
+  not checked for uniqueness. `sc-jev-host` gains a direct `serde` dependency
+  for the wire structs (and the `serde_json` `raw_value` feature, so the
+  request document is passed through byte for byte); it adds no new crate to
+  the lockfile.
+- (Active) **Per-request failure never stops the stream.** The failure is a
+  typed error on that request's line. **Exit code**, the existing rule applied
+  across the stream: 0 when no request failed; 3 when every failure is
+  retryable; otherwise 2. A stream-level failure (unreadable input, closed
+  stdout) is one stderr `ScAgentErrorResponse` line and its own exit code.
+- (Active) **Finished** means: input closed, queue empty, workers idle. The
+  last worker out closes the answer queue, so reading answers ends exactly
+  then.
+- (Active) **Concurrency** is one global setting, `--concurrency` /
+  `concurrency=`, 1 to 64, default 8. The default is a hardcoded owner
+  suggestion. The mechanism is tested with scripted and loopback backends
+  only; **the default was not tested against live providers.**
+- (Active) **Thread safety.** `JevClient` has no interior mutability and its
+  transport is `Send + Sync` (`JudgeBackend: Send + Sync` makes this a compile
+  fact; a loopback HTTP test holds four requests in flight over one shared
+  client). The stream builds **one registry, so one client, per backend
+  selection** and shares it across workers; there is no client per worker.
+- (Active) **Cancellation** stops new work: `cancel` closes the input, cancels
+  the stream's own `CancelToken` (`start` replaces any token on the inputs, so
+  cancelling is only through the stream), so a busy-retry wait ends within
+  100 ms, and answers each request still queued with a `NETWORK_ERROR` "cancelled" line.
+  A request already sent is not interrupted. The CLI cancels on a write
+  failure; it installs no signal handler (SIGINT ends the process, as for
+  `jev run`).
+- (Active) **Logging.** All workers share one session logger (one writer;
+  concurrent writing is `sc-observability`'s) and one general logger. An
+  injected `ComposeInputs::session_log` or `general_log` is used (its flush is
+  the caller's); otherwise the defaults under the log root are opened once and
+  flushed by `finish`. The stream has its own `run_id` (on `stream.start` and
+  `stream.end`, with worker counts, answered and failed counts and the
+  duration). **Each request is a run with its own `run_id`**, stamped on every
+  event of that request, the engine's included, together with the stream's id
+  and the caller's `request_id`; `stream.request.start`, `.done` (with
+  `duration_ms`), `.failed` (typed `error_code`, coarse `stage`) and
+  `.backend_failed` (backend id and `error_code`) are the rows. Never a prompt,
+  a question, state or a secret; a request id is caller text, so it must
+  carry no secret. All of it goes through `stream/log.rs`.
+- (Active) **Lifecycle edges.** `finish` closes the input and drops unread
+  answers instead of waiting for a reader, so it never hangs on them. An
+  unread answer holds capacity: a caller that submits more than `capacity`
+  requests from the thread that should read the answers waits forever unless it
+  reads from another thread or submits with a timeout. A worker's exit is
+  accounted by a drop guard, and the path for a job that is not run is guarded
+  too, so every accepted job gets exactly one answer even if logging panics
+  there. The Python batch driver is `sc_jev_host::stream::Batch`; the PyO3
+  crate only converts arguments, detaches the GIL and maps errors (ADR-SAG-0011).
+- (Active) **Out of scope.** Resume, sha256 lookup and any result cache (a
+  general concern for all calls); a shared rate limiter (each request keeps its
+  own busy retry); a new session-log writer.

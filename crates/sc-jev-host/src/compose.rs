@@ -268,6 +268,14 @@ impl ComposeInputs {
         self
     }
 
+    pub(crate) fn injected_registry(&self) -> Option<&Arc<BackendRegistry>> {
+        self.registry.as_ref()
+    }
+
+    pub(crate) fn selected_backends(&self) -> Option<&BackendSet> {
+        self.backends.as_ref()
+    }
+
     /// Resolves the repo root and the log and session paths.
     ///
     /// The repo root is the explicit one ([`Self::repo_root`]), else
@@ -298,7 +306,11 @@ impl ComposeInputs {
     /// repository of the explicit repo root, else of the working directory; a
     /// discovery failure falls back to the resolved root, because the log is
     /// best effort.
-    fn log_context(&self, resolved: &ResolvedPaths, general: &dyn GeneralLog) -> LogContext {
+    pub(crate) fn log_context(
+        &self,
+        resolved: &ResolvedPaths,
+        general: &dyn GeneralLog,
+    ) -> LogContext {
         if self.dry_run {
             // A dry run logs nothing, so it does not run git for `repo`.
             return LogContext::new(resolved.repo_root.clone(), self.project.clone());
@@ -326,15 +338,17 @@ impl ComposeInputs {
         LogContext::new(repo, self.project.clone())
     }
 
-    fn run_config(
+    /// `context` is passed in so a stream computes it (a git call) once.
+    pub(crate) fn run_config(
         &self,
         resolved: &ResolvedPaths,
         log: SharedSessionLog,
         general: SharedGeneralLog,
+        context: LogContext,
     ) -> RunConfig {
         let mut config = RunConfig::new(resolved.repo_root.clone(), log)
-            .general_log(Arc::clone(&general))
-            .log_context(self.log_context(resolved, general.as_ref()))
+            .general_log(general)
+            .log_context(context)
             .dry_run(self.dry_run)
             .sessions_dir(resolved.sessions_dir.clone())
             .mode(self.mode)
@@ -384,9 +398,12 @@ pub fn explicit_repo_root(path: &Path) -> Result<RepoRoot, JevError> {
 /// An injected log ([`ComposeInputs::session_log`],
 /// [`ComposeInputs::general_log`]) replaces the default and its flush is the
 /// caller's. A default log is the file adapter under the resolved log root.
-struct Logs {
-    session: SharedSessionLog,
-    general: SharedGeneralLog,
+pub(crate) struct Logs {
+    pub(crate) session: SharedSessionLog,
+    pub(crate) general: SharedGeneralLog,
+    /// The correlation id stamped on `general`: a run's own id, or a
+    /// stream's.
+    pub(crate) run_id: String,
     session_adapter: Option<ObservabilityAdapter>,
     general_adapter: Option<GeneralLogAdapter>,
 }
@@ -408,7 +425,7 @@ impl Logs {
     /// (ARCHE-019). The general log is best effort: when its default cannot
     /// start the call carries on with no general log. The session log keeps
     /// its contract: a default that cannot start is the call's error.
-    fn open(
+    pub(crate) fn open(
         inputs: &ComposeInputs,
         resolved: &ResolvedPaths,
         live: bool,
@@ -424,7 +441,8 @@ impl Logs {
         };
         // One correlation id per run: every layer that receives this log
         // stamps `run_id` on its events.
-        let general: SharedGeneralLog = Arc::new(CorrelatedGeneralLog::new(base, new_run_id()));
+        let run_id = new_run_id();
+        let general: SharedGeneralLog = Arc::new(CorrelatedGeneralLog::new(base, run_id.clone()));
         GeneralEvent::debug(TARGET, "paths.resolved", "paths resolved")
             .with_field(
                 "repo_root",
@@ -475,6 +493,7 @@ impl Logs {
         Ok(Self {
             session,
             general,
+            run_id,
             session_adapter,
             general_adapter,
         })
@@ -482,7 +501,7 @@ impl Logs {
 
     /// Flushes the default session log; a failure is logged to the general
     /// log and returned as the response warning text (CR-014).
-    fn finish_session(&self) -> Option<String> {
+    pub(crate) fn finish_session(&self) -> Option<String> {
         let warning = self.session_adapter.as_ref().and_then(finish_log);
         if self.session_adapter.is_some() {
             match &warning {
@@ -501,7 +520,7 @@ impl Logs {
 
     /// Flushes the default general log. A failure has nowhere to be
     /// reported and never changes the outcome.
-    fn finish_general(&self) {
+    pub(crate) fn finish_general(&self) {
         flush_general(self.general_adapter.as_ref());
     }
 }
@@ -587,6 +606,7 @@ pub fn prepare_from(source: CheckSource, inputs: ComposeInputs) -> Result<HostRu
         &resolved,
         Arc::clone(&logs.session),
         Arc::clone(&logs.general),
+        inputs.log_context(&resolved, logs.general.as_ref()),
     );
     match prepare(source, config) {
         Ok(prepared) => Ok(HostRun { prepared, logs }),
@@ -650,6 +670,7 @@ pub fn ask_from(
         &resolved,
         Arc::clone(&logs.session),
         Arc::clone(&logs.general),
+        inputs.log_context(&resolved, logs.general.as_ref()),
     );
     let result = match ask(&sessions, session_id, follow_up, config) {
         Ok(mut response) => {

@@ -45,11 +45,18 @@
 //! 2. `SC_AGENT_SESSION_DIR`.
 //! 3. `{log_root}/sessions`.
 //!
+//! # Streaming
+//!
+//! `DecisionStream` and `run_many` answer many requests in one process on a
+//! bounded queue with N worker threads (default 8), releasing the GIL while
+//! the workers run. See `sc_jev_host::stream` for the wire lines.
+//!
 //! # Examples
 //!
 //! ```text
 //! import sc_jev_py as jev
 //! result = jev.run_check("check.toml", backends=["jev"], dry_run=False)
+//! answers, summary = jev.run_many({"q-1": {"questions": [...]}, "q-2": {"questions": [...]}})
 //! ```
 //!
 //! The wheel ships type stubs (`sc_jev_py.pyi`, installed as `__init__.pyi`)
@@ -60,6 +67,7 @@
 mod error;
 mod logging;
 mod run;
+mod stream;
 
 use pyo3::prelude::*;
 use pyo3::types::PyModuleMethods;
@@ -95,6 +103,8 @@ fn sc_jev_py(module: &Bound<'_, PyModule>) -> PyResult<()> {
     logging::register_native(module.py())?;
     module.add_class::<run::CheckResult>()?;
     module.add_class::<run::Session>()?;
+    module.add_class::<stream::DecisionStream>()?;
+    module.add_function(wrap_pyfunction!(stream::run_many, module)?)?;
     module.add_function(wrap_pyfunction!(run::build_request, module)?)?;
     module.add_function(wrap_pyfunction!(run::run_check, module)?)?;
     module.add_function(wrap_pyfunction!(run::canonical_bytes, module)?)?;
@@ -114,6 +124,14 @@ fn sc_jev_py(module: &Bound<'_, PyModule>) -> PyResult<()> {
         let testing = PyModule::new(module.py(), "_testing")?;
         testing.add_function(wrap_pyfunction!(
             run::testing::run_check_scripted,
+            &testing
+        )?)?;
+        testing.add_function(wrap_pyfunction!(
+            stream::testing::decision_stream_scripted,
+            &testing
+        )?)?;
+        testing.add_function(wrap_pyfunction!(
+            stream::testing::run_many_scripted,
             &testing
         )?)?;
         module.add_submodule(&testing)?;
