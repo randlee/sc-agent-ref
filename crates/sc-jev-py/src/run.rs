@@ -89,7 +89,7 @@ pub(crate) fn canonical_of(json_text: &str) -> Result<Vec<u8>, JevError> {
 }
 
 /// The host inputs shared by every Python entry point.
-fn base_inputs(
+pub(crate) fn base_inputs(
     repo_root: Option<&Path>,
     log_dir: Option<PathBuf>,
     session_dir: Option<PathBuf>,
@@ -170,7 +170,7 @@ fn execute(spec: CheckRun) -> Result<FinishedRun, JevError> {
 /// unchanged to `register_scripted_backends`. The per-backend form names the
 /// backends it scripts; the shared form scripts every built-in backend.
 #[cfg(any(test, feature = "test-util"))]
-fn scripted_registry(
+pub(crate) fn scripted_registry(
     answers: Value,
 ) -> Result<Arc<sc_jev_check::registry::BackendRegistry>, JevError> {
     let ids: Vec<sc_agent_types::BackendId> = match answers
@@ -215,17 +215,17 @@ fn build(
 /// `sc-ai` and the engine. Kebab-case aliases (`anthropic-haiku`) are not
 /// accepted. An unknown id is `INPUT_INVALID`; an empty or repeated list is
 /// `CONFIG_INVALID`. `None` leaves the selection to the engine.
-fn parse_backends(names: Option<&[String]>) -> Result<Option<BackendSet>, JevError> {
+pub(crate) fn parse_backends(names: Option<&[String]>) -> Result<Option<BackendSet>, JevError> {
     names.map(|names| names.join(",").parse()).transpose()
 }
 
 /// Drops an empty path, which Python callers use to mean "unset".
-fn non_empty(path: Option<PathBuf>) -> Option<PathBuf> {
+pub(crate) fn non_empty(path: Option<PathBuf>) -> Option<PathBuf> {
     path.filter(|path| !path.as_os_str().is_empty())
 }
 
 #[cfg(any(test, feature = "test-util"))]
-fn py_to_value(obj: &Bound<'_, PyAny>) -> Result<Value, JevError> {
+pub(crate) fn py_to_value(obj: &Bound<'_, PyAny>) -> Result<Value, JevError> {
     let text = python_json(obj).map_err(|error| {
         JevError::input_invalid(format!("scripted_answers is not JSON: {error}"))
     })?;
@@ -233,7 +233,7 @@ fn py_to_value(obj: &Bound<'_, PyAny>) -> Result<Value, JevError> {
 }
 
 #[cfg(any(test, feature = "test-util"))]
-fn python_json(obj: &Bound<'_, PyAny>) -> PyResult<String> {
+pub(crate) fn python_json(obj: &Bound<'_, PyAny>) -> PyResult<String> {
     let json = obj.py().import("json")?;
     json.call_method1("dumps", (obj,))?.extract()
 }
@@ -243,7 +243,11 @@ fn encode_py_err(py: Python<'_>, label: &str, error: &serde_json::Error) -> PyEr
 }
 
 /// Converts `value` (from `serde_json::to_value`) to a Python object via JSON.
-fn to_py(py: Python<'_>, label: &str, value: serde_json::Result<Value>) -> PyResult<Py<PyAny>> {
+pub(crate) fn to_py(
+    py: Python<'_>,
+    label: &str,
+    value: serde_json::Result<Value>,
+) -> PyResult<Py<PyAny>> {
     let text = value
         .and_then(|value| serde_json::to_string(&value))
         .map_err(|error| encode_py_err(py, label, &error))?;
@@ -252,7 +256,7 @@ fn to_py(py: Python<'_>, label: &str, value: serde_json::Result<Value>) -> PyRes
 
 /// Validates the `project=` text of one call (`INPUT_INVALID` when it is over
 /// 256 bytes or has a control character). `None` is "no label".
-fn parse_project(project: Option<String>) -> Result<Option<ProjectLabel>, JevError> {
+pub(crate) fn parse_project(project: Option<String>) -> Result<Option<ProjectLabel>, JevError> {
     project.map(ProjectLabel::new).transpose()
 }
 
