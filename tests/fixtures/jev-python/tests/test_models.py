@@ -53,6 +53,40 @@ def test_other_names_are_input_invalid_and_list_the_valid_ones(tmp_path, name):
         assert valid in caught.value.message
 
 
+def test_models_file_ids_are_backends_and_unknown_ids_stay_refused(tmp_path, monkeypatch):
+    _home(monkeypatch, tmp_path / "home")
+    file = tmp_path / "models.toml"
+    file.write_text(
+        '[[model]]\nid = "jev-1.15.0"\nalias = "jev"\nreleased = "2026-11-01"\n'
+        '[[model]]\nid = "claude-haiku-5-6"\nalias = "haiku"\nreleased = "2026-11-02"\n'
+        '[[model]]\nid = "claude-sonnet-6"\nalias = "sonnet"\nreleased = "2026-11-02"\n',
+        encoding="utf-8",
+    )
+
+    def dry(backends):
+        return sc_jev_py.run_check(
+            request_json=REQUEST,
+            backends=backends,
+            models_file=str(file),
+            dry_run=True,
+            repo_root=str(tmp_path),
+            log_dir=str(tmp_path / "log"),
+            session_dir=str(tmp_path / "sessions"),
+        )
+
+    accepted = dry(["jev-1.15.0", "claude-haiku-5-6"])
+    assert set(dict(accepted.request_sha256)) == {"jev", "haiku"}
+    for refused in ("jev-9.9.9", "claude-sonnet-6", "claude-haiku-9"):
+        with pytest.raises(sc_jev_py.JevError) as caught:
+            dry([refused])
+        assert caught.value.code == "INPUT_INVALID"
+        assert "jev-1.15.0" in caught.value.message
+    # Without the file the same id is refused.
+    with pytest.raises(sc_jev_py.JevError) as caught:
+        _dry(tmp_path, ["jev-1.15.0"])
+    assert caught.value.code == "INPUT_INVALID"
+
+
 def test_models_lists_crate_and_file_rows(tmp_path):
     file = tmp_path / "models.toml"
     file.write_text(

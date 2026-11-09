@@ -55,10 +55,10 @@ fn ddl_columns() -> Vec<(String, String)> {
 
 #[test]
 fn test_session_log_row_matches_ddl() {
-    assert_eq!(SESSION_LOG_SCHEMA_VERSION, 2);
-    assert!(SESSION_LOG_DDL.starts_with("-- schema_version 2."));
-    assert_eq!(COLUMNS.len(), 18);
-    assert_eq!(COLUMNS.iter().collect::<BTreeSet<_>>().len(), 18);
+    assert_eq!(SESSION_LOG_SCHEMA_VERSION, 3);
+    assert!(SESSION_LOG_DDL.starts_with("-- schema_version 3."));
+    assert_eq!(COLUMNS.len(), 19);
+    assert_eq!(COLUMNS.iter().collect::<BTreeSet<_>>().len(), 19);
 
     let columns = ddl_columns();
     let tables: BTreeSet<&str> = columns.iter().map(|(table, _)| table.as_str()).collect();
@@ -79,6 +79,7 @@ fn test_session_log_row_matches_ddl() {
         "decision_schema",
         "request_sha256",
         "model_id",
+        "answered_model_id",
     ] {
         assert!(
             columns.contains(&("answers".to_owned(), varying.to_owned())),
@@ -106,6 +107,8 @@ fn test_session_log_row_matches_ddl() {
         assert_eq!(ok, fields["error_code"].is_null());
         assert_eq!(ok, !fields["answers_json"].is_null());
         assert!(!fields["model_id"].is_null());
+        // The answered model is set exactly when the send answered.
+        assert_eq!(ok, !fields["answered_model_id"].is_null());
     }
 }
 
@@ -209,11 +212,18 @@ fn test_unknown_or_missing_key_rejected() {
     }
 
     // A schema_version other than the supported one is refused with a hint.
-    for version in [json!(1), json!(3), json!(0), json!("2"), json!(null)] {
+    for version in [
+        json!(1),
+        json!(2),
+        json!(4),
+        json!(0),
+        json!("3"),
+        json!(null),
+    ] {
         let mut other = good.clone();
         other.insert("schema_version".to_owned(), version);
         let message = refuse(&other);
-        assert!(message.contains("reads version 2"), "{message}");
+        assert!(message.contains("reads version 3"), "{message}");
         assert!(message.contains("written by a newer sc-agent"), "{message}");
     }
 
@@ -229,6 +239,8 @@ fn test_unknown_or_missing_key_rejected() {
         ("decision_schema", json!("canonical.v9")),
         ("question_ids", json!("relevant")),
         ("question_ids", json!([""])),
+        ("answered_model_id", json!("")),
+        ("answered_model_id", json!(5)),
         ("request_sha256", json!("abc")),
         ("ts", json!("2026-11-07 10:00:01")),
         ("ts", json!("2026-02-30T10:00:01.000Z")),

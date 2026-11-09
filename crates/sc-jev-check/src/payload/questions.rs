@@ -134,29 +134,30 @@ pub(crate) fn validate_state(
 ) -> Result<(), JevError> {
     let mut seen = BTreeSet::new();
     for answer in answers {
-        if !seen.insert(answer.question_id.as_str()) {
+        if !seen.insert(answer.question_id().as_str()) {
             return Err(JevError::input_invalid(format!(
                 "state repeats question {}",
-                answer.question_id
+                answer.question_id()
             )));
         }
         let Some(question) = questions
             .iter()
-            .find(|question| question.id() == &answer.question_id)
+            .find(|question| question.id() == answer.question_id())
         else {
             return Err(JevError::input_invalid(format!(
                 "state question {} is not in the question set",
-                answer.question_id
+                answer.question_id()
             )));
         };
         if !question
             .choices()
             .iter()
-            .any(|choice| choice == &answer.choice)
+            .any(|choice| choice == answer.choice())
         {
             return Err(JevError::input_invalid(format!(
                 "state question {} has choice {}, which is not in the question's choices",
-                answer.question_id, answer.choice
+                answer.question_id(),
+                answer.choice()
             )));
         }
     }
@@ -232,10 +233,10 @@ mod tests {
     }
 
     fn answer(id: &str, choice: &str) -> ChoiceAnswer {
-        ChoiceAnswer {
-            question_id: QuestionId::try_from(id).expect("id"),
-            choice: ChoiceId::try_from(choice).expect("choice"),
-        }
+        ChoiceAnswer::new(
+            QuestionId::try_from(id).expect("id"),
+            ChoiceId::try_from(choice).expect("choice"),
+        )
     }
 
     fn set(criteria: &str) -> String {

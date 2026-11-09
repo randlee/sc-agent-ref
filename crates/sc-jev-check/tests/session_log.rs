@@ -252,6 +252,44 @@ fn test_failed_row_carries_model_id() {
     );
 }
 
+/// `model_id` is the model requested; `answered_model_id` is the model the
+/// reply named, and is null for a failed send and for a reply that names none
+/// (REQ-SAG-0616).
+#[test]
+fn test_row_records_the_answered_model() {
+    let repo = repo();
+    let sessions = tempfile::tempdir().expect("sessions");
+    let sink = Arc::new(Sink::default());
+    let jev = mock(BackendId::Jev, "yes")
+        .with_model_id(ModelId::Jev)
+        .with_provider_meta(serde_json::json!({"model": "jev-1.14.0"}));
+    let haiku = mock(BackendId::Haiku, "yes");
+    let luna = mock(BackendId::Luna, "yes").with_failure(busy());
+    run_with(
+        config(repo.path(), sessions.path(), &sink),
+        &[BackendId::Jev, BackendId::Haiku, BackendId::Luna],
+        vec![dyn_judge(jev), dyn_judge(haiku), dyn_judge(luna)],
+    )
+    .expect("partial run");
+    let rows = sink.rows();
+    assert_eq!(rows.len(), 3);
+    // Requested `jev`, answered by a version: both are kept.
+    assert_eq!(rows[0].context().model_id, ModelId::Jev);
+    assert_eq!(
+        rows[0].context().answered_model_id,
+        Some(ModelId::Jev1_14_0)
+    );
+    assert_eq!(sink.events()[0].fields()["model_id"], "jev");
+    assert_eq!(sink.events()[0].fields()["answered_model_id"], "jev-1.14.0");
+    // No model in the reply: null.
+    assert_eq!(rows[1].send_outcome(), SendOutcome::Ok);
+    assert_eq!(rows[1].context().answered_model_id, None);
+    assert!(sink.events()[1].fields()["answered_model_id"].is_null());
+    // A failed send has no answering model.
+    assert_eq!(rows[2].send_outcome(), SendOutcome::Failed);
+    assert_eq!(rows[2].context().answered_model_id, None);
+}
+
 /// A judge that refuses any request carrying chained session context, so the
 /// engine's re-validation turns it into `NotSent`.
 struct RefusesContext(MockJudgeBackend);

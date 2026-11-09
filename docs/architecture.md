@@ -2346,6 +2346,13 @@ ADR-SAG-0027 (an r-6 subsection in each). Owner decisions 2026-11-07.
   substitution. Version 1 rows are refused (`INPUT_INVALID`); nothing was
   released at version 1. The principle of the old key still holds: every
   deduplicated table is keyed by the digest that fixes its other columns.
+- (Active, `schema_version` 3) **Requested and answered model.** `model_id`
+  is the model requested (`jev` for the latest). A reply names the model that
+  answered (`jev-1.14.0`), and `JudgeOutcome::answered_model` reads it, so the
+  row gains the nullable column `answered_model_id`, set from the reply on an
+  `ok` send and `NULL` on a `failed` one. Version 2 rows are refused; nothing
+  was released at version 2. `model_id` is unchanged, so `request_sha256`
+  and the `(…, model_id)` indexes keep their meaning.
 - (Active, r-7) **Projection.** The MVP store is JSONL; the projection of
   one send is the `fields{}` object of one sc-observability v2 log line
   (ADR-SAG-0013). It has exactly the schema's column keys: nullable columns
@@ -2359,7 +2366,7 @@ ADR-SAG-0027 (an r-6 subsection in each). Owner decisions 2026-11-07.
   schema_version 2 the `INSERT OR IGNORE` tables are `sessions`,
   `question_sets` and `payloads`, not `sessions` and `questions`.)*
 - (Active, r-7) **Nullability.** `request_sha256` is NULL when the send
-  failed before a body was built; `model_id` is never NULL; `project` is NULL
+  failed before a body was built; `model_id` is never NULL; `answered_model_id` is NULL unless the send answered and the reply named a valid model; `project` is NULL
   when absent; `error_code` is set iff `send_outcome = failed`;
   `answers_json` is set iff `send_outcome = ok`.
 - (Active, r-7) **Content.** No secret, payload text, prompt text or raw

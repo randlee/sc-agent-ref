@@ -5,6 +5,7 @@
     "diagnostic": null,
     "fields": {
       "answer_id": "01JC4Z8M3K5N7P9Q1R2S3T4V5Z",
+      "answered_model_id": "claude-haiku-5-5",
       "answers_json": {
         "q": {
           "choice": "no",
@@ -28,7 +29,7 @@
       "questions_sha256": "f6386f880379322f8324a5002f27afc4c31923a90dbfd8ab22d96f555e1dc7a5",
       "repo": "/work/repos/sc-agent",
       "request_sha256": "96c3a7a41b1c455cf951fea9932680430cc73f23ce6ae386508e44e40e385c73",
-      "schema_version": 2,
+      "schema_version": 3,
       "send_outcome": "ok",
       "session_created_at": "2026-11-07T10:05:00.000Z",
       "session_id": "01JC4Z7A5B0000000000000002",
@@ -49,6 +50,7 @@
     "diagnostic": null,
     "fields": {
       "answer_id": "01JC4Z8M3K5N7P9Q1R2S3T4V5X",
+      "answered_model_id": null,
       "answers_json": null,
       "backend": "haiku",
       "decision_schema": "canonical.v1",
@@ -64,7 +66,7 @@
       "questions_sha256": "631002bdbbfff62ab6dbf11144d121d0563594c6f56e5aecb0f5e3d3b0499803",
       "repo": "/work/repos/sc-agent",
       "request_sha256": "67035e7769447d3518281fb23dd61e9ee637af081f666a0a2e778ed65d7bf195",
-      "schema_version": 2,
+      "schema_version": 3,
       "send_outcome": "failed",
       "session_created_at": "2026-11-07T10:05:00.000Z",
       "session_id": "01JC4Z7A5B0000000000000002",
@@ -85,6 +87,7 @@
     "diagnostic": null,
     "fields": {
       "answer_id": "01JC4Z8M3K5N7P9Q1R2S3T4V5Y",
+      "answered_model_id": null,
       "answers_json": null,
       "backend": "luna",
       "decision_schema": "canonical.v1",
@@ -99,7 +102,7 @@
       "questions_sha256": "f6386f880379322f8324a5002f27afc4c31923a90dbfd8ab22d96f555e1dc7a5",
       "repo": "/work/repos/sc-agent",
       "request_sha256": null,
-      "schema_version": 2,
+      "schema_version": 3,
       "send_outcome": "failed",
       "session_created_at": "2026-11-07T10:10:00.000Z",
       "session_id": "01JC4Z7A5B0000000000000003",
@@ -120,6 +123,7 @@
     "diagnostic": null,
     "fields": {
       "answer_id": "01JC4Z8M3K5N7P9Q1R2S3T4V5W",
+      "answered_model_id": "jev-1.13.0",
       "answers_json": {
         "relevant": {
           "choice": "yes",
@@ -152,7 +156,7 @@
       "questions_sha256": "631002bdbbfff62ab6dbf11144d121d0563594c6f56e5aecb0f5e3d3b0499803",
       "repo": "/work/repos/sc-agent",
       "request_sha256": "610ec5214900ff84d2c5f9cf16fd15af0a93b8940c02fe4305078e6bbeb2099a",
-      "schema_version": 2,
+      "schema_version": 3,
       "send_outcome": "ok",
       "session_created_at": "2026-11-07T10:00:00.000Z",
       "session_id": "01JC4Z7A5B0000000000000001",

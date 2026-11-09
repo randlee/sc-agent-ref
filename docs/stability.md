@@ -28,9 +28,12 @@ service.
 ### Models
 
 Backends are named `jev`, `haiku` and `luna`, each meaning the latest model of
-that line; `--backend`, `backends=` and `check.toml` `backends` also take a
-known model id of one of them (`claude-haiku-5-5`: that backend pinned to that
-model). The names `anthropic_haiku` and `openai_luna` and the aliases
+that line; `--backend` and `backends=` also take any model id of the resolved
+catalog (the crate table plus `~/.sc-agent/models.toml` or `--models-file` /
+`models_file=`) that belongs to one of them: `claude-haiku-5-5`, or a
+models-file row such as `jev-1.15.0`, pins that backend to that model, with no
+recompile. An id the catalog does not list is `INPUT_INVALID`. `check.toml`
+`backends` takes the crate table's ids only. The names `anthropic_haiku` and `openai_luna` and the aliases
 `open_ai_luna` and `open_ai` do not exist. `sonnet`, `opus`, `fable`, `terra`,
 `sol` and `astra` (`claude-sonnet-5-5`, `claude-opus-5-5`, `claude-fable-5-1`,
 `gpt-6.1-terra`, `gpt-6.1-sol`, `gpt-6-astra`) are defined for future agent work
@@ -94,7 +97,7 @@ in `[0, 1]`.
 
 The record is the `fields` object of each log line (the keys are
 `session_log::COLUMNS`), stored by the SQLite DDL in `sc-decision-schema`.
-`SESSION_LOG_SCHEMA_VERSION` is `2` (version 2 added `questions_sha256` and split the digest tables; see the migration notes). Adding or renaming a column, or changing
+`SESSION_LOG_SCHEMA_VERSION` is `3` (version 2 added `questions_sha256` and split the digest tables; version 3 added `answered_model_id`; see the migration notes). `model_id` is the model requested (`jev`); `answered_model_id` is the model the reply named (`jev-1.14.0`), `null` for a failed send, so the log says which version judged. Adding or renaming a column, or changing
 a type or nullability, bumps the version and adds a migration note to
 [`docs/sc-decision-schema/session-log-schema.md`](sc-decision-schema/session-log-schema.md).
 `SessionLogRow::try_from_fields` refuses any other version with

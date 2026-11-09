@@ -12,6 +12,24 @@ commands are in [`README.md`](README.md).
 
 ### Added
 
+- `--backend` and Python `backends=` accept any model id of the resolved
+  catalog (the crate table plus `~/.sc-agent/models.toml`, `--models-file` and
+  `models_file=` included) that belongs to `jev`, `haiku` or `luna`, so a
+  models-file row such as `jev-1.15.0` or `claude-haiku-5-6` can be pinned
+  without recompiling. Ids no row lists, and ids of `sonnet`, `opus` and the
+  other definition-only aliases, stay `INPUT_INVALID`. New API:
+  `BackendChoice::parse_in`, `BackendSet::{parse_in, from_names_in}`,
+  `ModelAliases::{alias_of, known_models}` and
+  `sc_jev_host::compose::backend_set_from_names`; `check.toml` `backends`
+  still takes the crate table's ids only.
+- Session-log rows carry `answered_model_id`, the model the reply named
+  (`jev-1.14.0`), next to `model_id`, the model requested (`jev`); it is null
+  for a failed send. `SESSION_LOG_SCHEMA_VERSION` is 3 (a new column), with
+  `RowContext::answered_model_id` and `RowContextBuilder::answered_model_id`.
+- The stderr of a `check.toml` `command` extractor has bearer-token shapes
+  (`Bearer <token>` and `sk-` keys) replaced by `[redacted]` in errors, not
+  only the values of `*_API_KEY` and `SC_*` environment variables. A secret
+  of another shape that this process does not hold is not recognized.
 - A Quick start in `README.md` and the `sc-ai` crate page (a minimal
   `check.toml`, `dry-run`, `run`, the key variable per backend and its lookup
   order, build prerequisites) and `docs/check-reference.md` (`check.toml`, both
@@ -100,6 +118,14 @@ None of this shipped in a release. It records how the API changed during
 development, for anyone who used a pre-release build. Where an entry here
 describes an older shape, the `Added` section above is what 0.1.0 does.
 
+- `sc_decision_schema::jev::v1::JevState` is `#[non_exhaustive]`, so a later
+  `state` form is a new variant, not a breaking change; a `match` outside the
+  crate needs a wildcard arm.
+- `sc_decision_schema::ChoiceAnswer` has private fields, like `Question` and
+  `QuestionAnswer`: build it with `ChoiceAnswer::new(question_id, choice)` and
+  read it with `question_id()` and `choice()`. The JSON form is unchanged.
+- `sc_ai::RunCommand::backends` and `StreamCommand::backends` are `Vec<String>`
+  (checked against the catalog when the command runs), not `Vec<BackendChoice>`.
 - `pyo3` is pinned `=0.29.2` (the version the embedded `sc-observability`
   runtime pins), with `sc-observability-py`, `-binding-runtime` and `-dto`
   `=1.5.0`, on the lockstep list. The wheel's stable-ABI floor is `abi3-py310`;

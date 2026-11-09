@@ -1,7 +1,7 @@
 # Session log storage schema (SQLite, authoritative)
 
 The DDL is `crates/sc-decision-schema/src/session_log/schema.sql`
-(`SESSION_LOG_DDL`, `SESSION_LOG_SCHEMA_VERSION = 2`). This document does not
+(`SESSION_LOG_DDL`, `SESSION_LOG_SCHEMA_VERSION = 3`). This document does not
 copy it or its column comments.
 
 ## Loader rule
@@ -41,6 +41,16 @@ probably written by a newer sc-agent).
   question-set query was impossible. Version 1 rows are refused by
   `SessionLogRow::try_from_fields`; a version 1 log has no `questions_sha256` and
   cannot be migrated from its row alone (compute it from the questions).
+
+- Version 3 (answered model): the column `answered_model_id` (nullable text, a
+  `ModelId` string) is added to `answers` and to `fields{}` after `model_id`.
+  `model_id` keeps its meaning, the model requested (`jev` for the latest);
+  `answered_model_id` is the model the reply named (`jev-1.14.0`), `NULL` for a
+  failed send or a reply that named no valid model. Why: a request for `jev`
+  was logged as `jev` only, so the log could not say which version judged.
+  Version 2 rows are refused by `SessionLogRow::try_from_fields`; a version 2
+  row migrates by setting `answered_model_id` to `NULL` (the answering version
+  was not recorded) and `schema_version` to 3.
 
 ## Queries
 

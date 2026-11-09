@@ -36,7 +36,7 @@ are in [`../requirements.md`](../requirements.md#phase-a1--refinement-landed).
 | REQ-SAG-0108 | `SubjectsDocument` is the one validated subjects type, built by the id-assigning `SubjectsBuilder`; producer and consumer share it. Sprint r-1. Tests: `crates/sc-agent-types/tests/subjects.rs` (`test_subjects_builder_ids_match_golden`, `test_unvalidated_subjects_rejected_on_deserialize`) — (Active, r-1) |
 | REQ-SAG-0107 | `sc-agent-types` loses the `judge` and `test-util` features with the moved modules; features are `secret`, `obs` (default) and `git` (non-default); every combination builds — (Active, r-7) |
 | REQ-SAG-0147 | Model catalog: open `ModelId` (known variants, including `Jev` = the latest Jev model, plus `Other(UnknownModel)`, which only parsing can build) — (Active, r-7) |
-| REQ-SAG-0149 | `BackendChoice` / `BackendSet::pin`: a short name or a known model id of `jev`, `haiku`, `luna`; the other defined models are `INPUT_INVALID` — (Active, agt-akp) |
+| REQ-SAG-0149 | `BackendChoice` / `BackendSet::pin`: a short name or a known model id of `jev`, `haiku`, `luna`; `BackendChoice::parse_in` / `BackendSet::parse_in` check ids against a `ModelAliases` catalog (`alias_of`, `known_models`), so models-file rows are pinnable; the other defined models are `INPUT_INVALID` — (Active, agt-akp) |
 | REQ-SAG-0150 | `ModelAliases::with_file_model` (newest `released` wins; unknown alias, bad id or bad date is `CONFIG_INVALID`), `source`, `resolved`, `ModelSource` — (Active, agt-akp) |
 | REQ-SAG-0152 | `tests/model_freshness.rs`, local only — (Active, agt-akp) |
 | REQ-SAG-0148 | `ModelAliases::latest(alias)` for `jev`, `haiku`, `luna`; `with_override`; `BackendDescriptor::default_model_alias` / `default_model` — (Active, r-7) |

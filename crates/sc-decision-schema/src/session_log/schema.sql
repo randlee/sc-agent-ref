@@ -1,4 +1,4 @@
--- schema_version 2. Authoritative.
+-- schema_version 3. Authoritative.
 -- Every column that can vary between two sends of one session, one payload or
 -- one question set lives on `answers`, so the loader's INSERT OR IGNORE loses
 -- nothing. `questions_sha256` identifies a question set (same questions, any
@@ -32,7 +32,8 @@ CREATE TABLE answers (
   ts               TEXT NOT NULL,              -- RFC 3339 UTC, ms; when the send finished
   operation        TEXT NOT NULL CHECK (operation IN ('judge','ask')),
   backend          TEXT NOT NULL,              -- BackendId: how we called
-  model_id         TEXT NOT NULL,              -- ModelId string: which model (never NULL)
+  model_id         TEXT NOT NULL,              -- ModelId string: the model requested (never NULL), e.g. jev
+  answered_model_id TEXT,                      -- ModelId string the reply named, e.g. jev-1.14.0; NULL when failed or the reply named none
   send_outcome     TEXT NOT NULL CHECK (send_outcome IN ('ok','failed')),
   error_code       TEXT,                       -- ErrorCode id; NOT NULL iff failed
   answers_json     TEXT,                       -- DecisionAnswers JSON; NOT NULL iff ok
