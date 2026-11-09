@@ -126,6 +126,7 @@ pub struct StreamCommand {
 pub struct Output {
     stdout: Vec<u8>,
     failure: Option<ScAgentErrorResponse>,
+    warnings: Vec<String>,
     exit_code: u8,
 }
 
@@ -141,6 +142,15 @@ impl Output {
     #[must_use]
     pub fn failure(&self) -> Option<&ScAgentErrorResponse> {
         self.failure.as_ref()
+    }
+
+    /// The envelope's `data.warnings`: the run succeeded but something worth
+    /// knowing happened (the session log was not flushed, or rows could not
+    /// be written). The binary prints each as one stderr line; the exit code
+    /// is not changed.
+    #[must_use]
+    pub fn warnings(&self) -> &[String] {
+        &self.warnings
     }
 
     /// The process exit code: 0 with no failure; otherwise 3 only when
@@ -188,6 +198,7 @@ fn dispatch_models(command: &ModelsCommand) -> Result<Output, JevError> {
     Ok(Output {
         stdout,
         failure: None,
+        warnings: Vec::new(),
         exit_code: 0,
     })
 }
@@ -330,6 +341,7 @@ fn dispatch_run(command: RunCommand, stdin: &mut dyn Read) -> Result<Output, Jev
     Ok(Output {
         stdout: envelope::to_bytes(&Envelope::run(&response).with_readback(&readback)?)?,
         failure,
+        warnings: response.warnings().to_vec(),
         exit_code,
     })
 }
@@ -364,6 +376,7 @@ fn dispatch_ask(command: AskCommand) -> Result<Output, JevError> {
     Ok(Output {
         stdout: envelope::to_bytes(&Envelope::ask(&response).with_readback(&readback)?)?,
         failure: None,
+        warnings: response.warnings().to_vec(),
         exit_code: 0,
     })
 }

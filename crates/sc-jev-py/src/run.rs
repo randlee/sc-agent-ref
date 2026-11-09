@@ -372,6 +372,24 @@ pub(crate) fn to_py(
     Ok(py.import("json")?.call_method1("loads", (text,))?.unbind())
 }
 
+/// Raises each of `warnings` as a Python `RuntimeWarning`, so a log problem
+/// that does not fail the run (the same text as `data["warnings"]`) also
+/// reaches stderr, as the CLI's stderr line does. A warnings filter set to
+/// `error` would raise; that is dropped, because a warning must not fail a
+/// run that already has its answer.
+pub(crate) fn warn_python(py: Python<'_>, warnings: &[String]) {
+    if warnings.is_empty() {
+        return;
+    }
+    let Ok(module) = py.import("warnings") else {
+        return;
+    };
+    let category = py.get_type::<pyo3::exceptions::PyRuntimeWarning>();
+    for text in warnings {
+        let _ = module.call_method1("warn", (text.as_str(), &category));
+    }
+}
+
 /// Validates the `project=` text of one call (`INPUT_INVALID` when it is over
 /// 256 bytes or has a control character). `None` is "no label".
 pub(crate) fn parse_project(project: Option<String>) -> Result<Option<ProjectLabel>, JevError> {
@@ -397,6 +415,7 @@ fn ask_with(
         ask_from(id, &follow_up, inputs)
     });
     let response = map_err(py, outcome)?;
+    warn_python(py, response.warnings());
     to_py(py, "outcome JSON", serde_json::to_value(response.outcome()))
 }
 
@@ -429,7 +448,8 @@ fn parse_session_id(value: &str) -> Result<SessionId, JevError> {
     })
 }
 
-fn execute_ask(spec: AskRun) -> Result<Value, JevError> {
+/// The outcome as JSON, and the warnings of the call.
+fn execute_ask(spec: AskRun) -> Result<(Value, Vec<String>), JevError> {
     let mut inputs = base_inputs(spec.repo_root.as_deref(), spec.log_dir, spec.session_dir)?;
     if let Some(path) = spec.models_file {
         inputs = inputs.models_file(path);
@@ -461,13 +481,15 @@ fn execute_ask(spec: AskRun) -> Result<Value, JevError> {
         .log_dir(resolved.log_root)
         .sessions_dir(resolved.sessions_dir);
     let response = ask_from(spec.session_id, &spec.follow_up, inputs)?;
-    serde_json::to_value(response.outcome())
-        .map_err(|error| JevError::encode_failed("outcome JSON", &error))
+    let outcome = serde_json::to_value(response.outcome())
+        .map_err(|error| JevError::encode_failed("outcome JSON", &error))?;
+    Ok((outcome, response.warnings().to_vec()))
 }
 
 fn finish_ask(py: Python<'_>, spec: AskRun) -> PyResult<Py<PyAny>> {
     let outcome = py.detach(move || execute_ask(spec));
-    let outcome = map_err(py, outcome)?;
+    let (outcome, warnings) = map_err(py, outcome)?;
+    warn_python(py, &warnings);
     to_py(py, "outcome JSON", Ok(outcome))
 }
 
@@ -851,6 +873,7 @@ fn check_run(
 fn finish_check(py: Python<'_>, spec: CheckRun) -> PyResult<CheckResult> {
     let finished = py.detach(move || execute(spec));
     let finished = map_err(py, finished)?;
+    warn_python(py, finished.response.warnings());
     // REQ-SAG-0604: a partial response raises, carrying the first failure's
     // code and the whole body as `.response` (the answers that succeeded).
     if let Some(failure) = finished

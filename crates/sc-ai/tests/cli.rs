@@ -106,6 +106,17 @@ fn stdout_json(output: &Output) -> Value {
     serde_json::from_slice(&output.stdout).expect("stdout json")
 }
 
+/// The one stderr line of a successful run that warned:
+/// `{"warning", "schema_version"}`, no `error` key. Returns the warning text.
+fn stderr_warning(output: &Output) -> String {
+    let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+    assert_eq!(stderr.lines().count(), 1, "{stderr}");
+    let line: Value = serde_json::from_str(stderr.trim_end()).expect("stderr json");
+    assert!(line.get("error").is_none(), "{line}");
+    assert_eq!(line["schema_version"], 1);
+    line["warning"].as_str().expect("warning text").to_owned()
+}
+
 /// The one stderr line as JSON. The exit code must be the one the error asks
 /// for: 3 when `retryable`, otherwise 2 (`docs/stability.md`).
 fn stderr_json(output: &Output) -> Value {
@@ -713,7 +724,8 @@ fn test_cli_log_flush_warning_in_data() {
         "--scripted-answers",
         text(&answers),
     ]);
-    let value = stdout_json(&output);
+    assert!(output.status.success(), "{:?}", output.status);
+    let value: Value = serde_json::from_slice(&output.stdout).expect("stdout json");
     assert_eq!(value["operation"], OP_RUN);
     assert_eq!(value["data"]["answers"]["relevant"]["choice"], "yes");
     let warnings = value["data"]["warnings"].as_array().expect("warnings");
@@ -723,6 +735,9 @@ fn test_cli_log_flush_warning_in_data() {
         warning.starts_with("session log was not flushed:"),
         "{warning}"
     );
+    // The same text is the one stderr line, which is not an error.
+    let line = stderr_warning(&output);
+    assert_eq!(line, warning);
     assert!(!warning.contains("check.toml"), "{warning}");
     // The flush failure is also written to the general log (REQ-SAG-0633).
     let general =
@@ -2006,4 +2021,96 @@ fn stream_cancel_ends_a_real_busy_wait_and_sends_nothing_more() {
     stop.store(true, Ordering::Release);
     let _ = std::net::TcpStream::connect(("127.0.0.1", port));
     server.join().expect("server thread");
+}
+
+/// Audit rows lost silently: with an unwritable `logs/` directory the run
+/// still answers and exits 0, but the loss is in `data.warnings` and on
+/// stderr as one line.
+#[cfg(unix)]
+#[test]
+fn test_cli_unwritable_log_dir_warns_on_stderr_and_in_the_envelope() {
+    use std::os::unix::fs::PermissionsExt;
+    let repo = temp_dir("lost-rows");
+    write_repo(repo.path());
+    let sessions = temp_dir("lost-rows-sessions");
+    let log_root = temp_dir("lost-rows-log");
+    let logs = log_root.path().join("logs");
+    std::fs::create_dir(&logs).expect("logs");
+    std::fs::set_permissions(&logs, std::fs::Permissions::from_mode(0o555)).expect("chmod");
+    if std::fs::write(logs.join(".probe"), b"x").is_ok() {
+        return; // root can write anywhere
+    }
+    let answers = scripted(repo.path(), &shared("yes"));
+    let output = run_cli(&[
+        "jev",
+        "run",
+        "--repo-root",
+        text(repo.path()),
+        "--check",
+        "check.toml",
+        "--sessions-dir",
+        text(sessions.path()),
+        "--log-dir",
+        text(log_root.path()),
+        "--backend",
+        "jev",
+        "--scripted-answers",
+        text(&answers),
+    ]);
+    std::fs::set_permissions(&logs, std::fs::Permissions::from_mode(0o700)).expect("restore");
+    assert_eq!(output.status.code(), Some(0), "the run keeps its answer");
+    let value: Value = serde_json::from_slice(&output.stdout).expect("stdout json");
+    assert_eq!(value["data"]["answers"]["relevant"]["choice"], "yes");
+    let warnings = value["data"]["warnings"].as_array().expect("warnings");
+    assert_eq!(warnings.len(), 1, "{warnings:?}");
+    let warning = warnings[0].as_str().expect("text");
+    assert!(warning.contains("row(s) could not be written"), "{warning}");
+
+    assert_eq!(stderr_warning(&output), warning);
+}
+
+/// `.sc-ai/` shows as untracked in `git status`, so `git add -A` would commit
+/// session files holding prompts: the directory sc-agent creates ignores
+/// itself, and log and session files are owner-only.
+#[cfg(unix)]
+#[test]
+fn test_cli_created_agent_dir_is_ignored_by_git_and_owner_only() {
+    use std::os::unix::fs::PermissionsExt;
+    let repo = temp_dir("agent-dir");
+    write_repo(repo.path());
+    git(repo.path(), &["init", "-q"]);
+    let answers_dir = temp_dir("agent-dir-answers");
+    let answers = scripted(answers_dir.path(), &shared("yes"));
+    let output = run_cli(&[
+        "jev",
+        "run",
+        "--repo-root",
+        text(repo.path()),
+        "--check",
+        "check.toml",
+        "--backend",
+        "haiku",
+        "--scripted-answers",
+        text(&answers),
+    ]);
+    let _ = stdout_json(&output);
+    let agent = repo.path().join(".sc-ai");
+    assert_eq!(
+        std::fs::read_to_string(agent.join(".gitignore")).expect("gitignore"),
+        "*\n"
+    );
+    let status = spawn_with_deadline(
+        git_env::git_command(repo.path()).args(["status", "--porcelain"]),
+        None,
+    );
+    let status = String::from_utf8_lossy(&status.stdout).into_owned();
+    assert!(!status.contains(".sc-ai"), "{status}");
+
+    let mode = |path: &Path| std::fs::metadata(path).expect("meta").permissions().mode() & 0o777;
+    assert_eq!(mode(&agent), 0o700);
+    assert_eq!(mode(&agent.join("logs")), 0o700);
+    assert_eq!(mode(&agent.join("sessions")), 0o700);
+    for file in ["sc-ai.log.jsonl", "sc-ai-general.log.jsonl"] {
+        assert_eq!(mode(&agent.join("logs").join(file)), 0o600, "{file}");
+    }
 }

@@ -28,9 +28,11 @@
 //!
 //! # Warnings
 //!
-//! When the logger reports a flush failure (CR-014), the failure is not an
-//! error: [`run_from`] appends it with `RunResponse::with_warning`, so every
-//! consumer emits it identically in `data.warnings`.
+//! When the logger reports a flush failure (CR-014), or the writer could not
+//! write rows (a read-only log directory, a full disk: the flush itself still
+//! succeeds), the failure is not an error: [`run_from`] appends it with
+//! `RunResponse::with_warning`, so every consumer emits it identically in
+//! `data.warnings`. The run already has its answer and keeps it.
 //!
 //! # Types owned by other crates
 //!
@@ -607,6 +609,11 @@ impl Logs {
         resolved: &ResolvedPaths,
         live: bool,
     ) -> Result<Self, JevError> {
+        if live {
+            // Before any file lands: a repo-local `.sc-ai/` is created
+            // owner-only and ignored by git.
+            crate::agent_dir::prepare(&inputs.policy, resolved);
+        }
         let general_adapter = match (&inputs.general_log, live) {
             (None, true) => GeneralLogAdapter::open(&inputs.policy, &resolved.log_root).ok(),
             _ => None,
@@ -676,23 +683,35 @@ impl Logs {
         })
     }
 
-    /// Flushes the default session log; a failure is logged to the general
-    /// log and returned as the response warning text (CR-014).
+    /// Flushes the default session log; a failure, or rows the writer could
+    /// not write, is logged to the general log and returned as the response
+    /// warning text (CR-014).
     pub(crate) fn finish_session(&self) -> Option<String> {
-        let warning = self.session_adapter.as_ref().and_then(finish_log);
-        if self.session_adapter.is_some() {
-            match &warning {
-                Some(_) => GeneralEvent::warn(
-                    TARGET,
-                    "session_log.flush_failed",
-                    "the session log was not flushed",
-                )
+        let adapter = self.session_adapter.as_ref()?;
+        let flush_warning = finish_log(adapter);
+        let lost = adapter.take_lost_rows();
+        match &flush_warning {
+            Some(_) => GeneralEvent::warn(
+                TARGET,
+                "session_log.flush_failed",
+                "the session log was not flushed",
+            )
+            .emit(self.general.as_ref()),
+            None => GeneralEvent::debug(TARGET, "session_log.flushed", "session log flushed")
                 .emit(self.general.as_ref()),
-                None => GeneralEvent::debug(TARGET, "session_log.flushed", "session log flushed")
-                    .emit(self.general.as_ref()),
-            }
         }
-        warning
+        if lost.is_some() {
+            GeneralEvent::warn(
+                TARGET,
+                "session_log.rows_lost",
+                "session-log rows could not be written",
+            )
+            .emit(self.general.as_ref());
+        }
+        join_warnings(
+            flush_warning,
+            lost.map(|lost| format!("session log rows lost: {lost}")),
+        )
     }
 
     /// Flushes the default general log. A failure has nowhere to be
@@ -938,6 +957,14 @@ fn note_flush(error: JevError, warning: Option<String>) -> JevError {
 /// warning string and does not change the outcome (CR-014).
 fn finish_log(adapter: &ObservabilityAdapter) -> Option<String> {
     flush_warning(adapter.flush())
+}
+
+/// Two optional warnings as one text, `; ` apart.
+fn join_warnings(first: Option<String>, second: Option<String>) -> Option<String> {
+    match (first, second) {
+        (Some(first), Some(second)) => Some(format!("{first}; {second}")),
+        (first, second) => first.or(second),
+    }
 }
 
 fn flush_warning(flushed: Result<(), JevError>) -> Option<String> {

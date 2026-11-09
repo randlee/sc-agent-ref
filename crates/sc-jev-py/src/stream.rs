@@ -441,6 +441,10 @@ fn summary_dict(py: Python<'_>, summary: &StreamSummary, dropped: u64) -> PyResu
     dict.set_item("failed", summary.failed())?;
     dict.set_item("exit_code", summary.exit_code())?;
     dict.set_item("log_flush_warning", summary.log_flush_warning())?;
+    // The summary key is for code; the warning also reaches stderr.
+    if let Some(warning) = summary.log_flush_warning() {
+        crate::run::warn_python(py, &[warning.to_owned()]);
+    }
     // General-log rows given up on after the bounded wait (0 when none); the
     // same count is a Warn row `general_log.rows_dropped`.
     dict.set_item("general_log_rows_dropped", dropped)?;
