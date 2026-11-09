@@ -300,7 +300,7 @@ fn test_session_expiry_uses_created_at() {
     set_modified(&path, UNIX_EPOCH + Duration::from_millis(1_700_000_000_000));
     let error = store.load(&id).expect_err("expired from created_at");
     assert_eq!(error.code(), "SESSION_EXPIRED");
-    assert!(error.fix_hint().contains(&id.to_string()));
+    assert!(error.message().contains(&id.to_string()));
 }
 
 fn set_modified(path: &Path, time: SystemTime) {

@@ -104,7 +104,7 @@ fn test_unknown_model_alias_is_config_invalid() {
         // raised while the check is loaded.
         let error = prepare(source, config).expect_err(models);
         assert_eq!(error.code(), "CONFIG_INVALID", "{models}");
-        let rendered = format!("{error} {}", error.fix_hint());
+        let rendered = format!("{error} {}", error.message());
         assert!(rendered.contains(needle), "{needle}: {rendered}");
         if needle == "sonnet" {
             for alias in ["jev", "haiku", "luna"] {

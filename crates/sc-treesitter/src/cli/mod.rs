@@ -24,7 +24,7 @@ Synopsis:
 blob with `git cat-file`. --rev WORKTREE reads the working tree. A revision may
 not start with `-`. --captures is an allow-list. Execution always uses matches
 mode. Success writes JSON to stdout; failure writes one error object to stderr
-and exits 2.";
+and exits 2, or 3 when the error is retryable.";
 
 /// Value name of the positional source path; [`message`] reports it as
 /// "a source path".
@@ -139,10 +139,7 @@ where
         {
             Ok(Parsed::Print(error.render().to_string()))
         }
-        Err(error) => {
-            Err(value_parser_error(&error)
-                .unwrap_or_else(|| JevError::input_invalid(message(&error))))
-        }
+        Err(error) => Err(value_parser_error(&error).unwrap_or_else(|| usage_error(&error))),
     }
 }
 
@@ -152,6 +149,20 @@ fn value_parser_error(error: &clap::Error) -> Option<JevError> {
     std::error::Error::source(error)?
         .downcast_ref::<JevError>()
         .cloned()
+}
+
+/// `INPUT_INVALID` for a usage error, naming the flag clap blames when it
+/// names one (a stray positional value is never a `field`).
+fn usage_error(error: &clap::Error) -> JevError {
+    let detail = message(error);
+    let field = error
+        .get(ContextKind::InvalidArg)
+        .map(ToString::to_string)
+        .and_then(|argument| JevError::usage_field(&argument));
+    match field {
+        Some(field) => JevError::input_invalid_field(field, detail),
+        None => JevError::input_invalid(detail),
+    }
 }
 
 /// One-line, colour-free description of a clap error.
@@ -184,13 +195,14 @@ fn message(error: &clap::Error) -> String {
 
 /// `--rev` value parser: [`Rev::parse`].
 fn parse_rev(value: &str) -> Result<Rev, JevError> {
-    Rev::parse(value)
+    Rev::parse(value).map_err(|error| error.with_field("--rev"))
 }
 
 /// `--captures` value parser: comma-separated, trimmed, no empty names.
 fn parse_captures(value: &str) -> Result<Captures, JevError> {
     if value.is_empty() {
-        return Err(JevError::input_invalid(
+        return Err(JevError::input_invalid_field(
+            "--captures",
             "--captures requires a comma-separated allow-list",
         ));
     }
@@ -199,7 +211,10 @@ fn parse_captures(value: &str) -> Result<Captures, JevError> {
         .map(|part| {
             let name = part.trim();
             if name.is_empty() {
-                Err(JevError::input_invalid("--captures contains an empty name"))
+                Err(JevError::input_invalid_field(
+                    "--captures",
+                    "--captures contains an empty name",
+                ))
             } else {
                 Ok(name.to_owned())
             }

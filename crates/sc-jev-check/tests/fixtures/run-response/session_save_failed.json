@@ -51,6 +51,6 @@
     "producer": null
   },
   "warnings": [
-    "session not saved: CONFIG_INVALID"
+    "session not saved: IO_FAILED"
   ]
 }

@@ -10,7 +10,8 @@ use std::sync::{Arc, Mutex};
 
 use sc_agent_types::observability::v2::{LogEvent, LogRejected, SessionLog, SharedSessionLog};
 use sc_agent_types::{
-    BackendId, BackendSet, JevError, NetworkErrorKind, PayloadSha256, RepoRoot, SendTrace,
+    BackendId, BackendSet, BusyCause, JevError, NetworkErrorKind, PayloadSha256, RepoRoot,
+    SendTrace,
 };
 use sc_decision_schema::test_util::MockJudgeBackend;
 use sc_decision_schema::{Attestation, JudgeBackend, JudgeOutcome, JudgeRequest, MultiBackendMode};
@@ -57,7 +58,7 @@ fn mock(id: BackendId, choice: &str) -> MockJudgeBackend {
 }
 
 fn busy() -> JevError {
-    JevError::network(NetworkErrorKind::Busy, "scripted busy")
+    JevError::provider_busy("scripted busy", 429, 4, BusyCause::Sends, None)
 }
 
 fn set(ids: &[BackendId]) -> BackendSet {
@@ -189,7 +190,7 @@ fn test_partial_failure_keeps_answers() {
     assert!(response.is_partial());
     assert_eq!(response.results().len(), 2);
     match response.results()[0].status() {
-        BackendStatus::Failed(failure) => assert_eq!(failure.error().code(), "NETWORK_ERROR"),
+        BackendStatus::Failed(failure) => assert_eq!(failure.error().code(), "PROVIDER_BUSY"),
         _ => panic!("jev should have failed"),
     }
     assert!(matches!(
@@ -210,21 +211,47 @@ fn test_partial_failure_keeps_answers() {
     assert!(!response.equal_input().equal());
 }
 
+/// ADR-SAG-0025 as amended (agt-2a3): an all-failed run returns the response,
+/// so every backend's own typed error survives, each naming its backend.
 #[test]
-fn test_all_failed_returns_err() {
+fn test_all_failed_keeps_every_backends_error() {
     let (repo, sessions) = dirs();
     let jev = Arc::new(mock(BackendId::Jev, "yes").with_failure(busy()));
     let haiku = Arc::new(
         mock(BackendId::AnthropicHaiku, "no").with_failure(JevError::response_invalid("later")),
     );
-    let error = run_with(
+    let response = run_with(
         config(repo.path(), sessions.path()),
         &JEV_HAIKU,
         vec![dyn_judge(&jev), dyn_judge(&haiku)],
     )
-    .expect_err("every backend failed");
-    assert_eq!(error.code(), "NETWORK_ERROR", "the first error is returned");
+    .expect("an all-failed run still returns its response");
+    assert!(response.is_partial());
+    assert!(response.primary().is_none());
+    assert!(!response.session_saved());
     assert_eq!(haiku.requests().len(), 1, "a later backend is still judged");
+    let codes: Vec<(String, String)> = response
+        .results()
+        .iter()
+        .map(|result| match result.status() {
+            BackendStatus::Failed(failure) => (
+                failure.error().backend().unwrap_or_default().to_owned(),
+                failure.error().code().to_string(),
+            ),
+            _ => panic!("{result:?} should have failed"),
+        })
+        .collect();
+    assert_eq!(
+        codes,
+        [
+            ("jev".to_owned(), "PROVIDER_BUSY".to_owned()),
+            ("anthropic_haiku".to_owned(), "RESPONSE_INVALID".to_owned())
+        ]
+    );
+    assert_eq!(
+        response.first_failure().expect("first").error().code(),
+        "PROVIDER_BUSY"
+    );
 }
 
 #[test]

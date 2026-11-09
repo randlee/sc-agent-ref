@@ -1390,6 +1390,7 @@ name = "sc-agent-http"
 version = "0.1.0"
 dependencies = [
  "sc-agent-types",
+ "serde_json",
  "ureq",
 ]
 

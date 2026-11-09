@@ -40,14 +40,14 @@ pub trait EnvSource: Send + Sync {
 /// `Ok(None)` means the entry is absent. The trait is an open extension point
 /// (ADR-SAG-0020) so tests can inject a store. It is intentionally not sealed.
 /// Implementations must not put secret material in errors. A store that cannot
-/// be read returns [`JevError::credential_store_invalid`] with a sanitized
-/// cause.
+/// be read returns [`JevError::io_failed_with`] (`IO_FAILED`) with a
+/// sanitized cause in `what`.
 pub trait KeyringSource: Send + Sync {
     /// Returns the secret for `service` and `account`.
     ///
     /// # Errors
     ///
-    /// Returns [`JevError::ConfigInvalid`] when the store cannot be read.
+    /// Returns [`JevError::IoFailed`] when the store cannot be read.
     /// The error must not include secret bytes or passwords.
     fn password(&self, service: &str, account: &str) -> Result<Option<String>, JevError>;
 }
@@ -65,11 +65,11 @@ pub trait KeyringSource: Send + Sync {
 /// # Errors
 ///
 /// Returns [`JevError::KeyMissing`] (`KEY_MISSING`) when every source lacks a
-/// non-empty key. Returns [`JevError::ConfigInvalid`] when `.env` or the
-/// keyring cannot be read, or when the first non-empty key contains interior
-/// whitespace or a control character ([`ResolvedApiKey::try_new`]). That
-/// error carries a sanitized cause and a recovery hint
-/// ([`JevError::credential_store_invalid`]). Neither error includes secret
+/// non-empty key. Returns [`JevError::IoFailed`] (`IO_FAILED`) when `.env` or
+/// the keyring cannot be read, and [`JevError::CredentialStoreInvalid`]
+/// (`CONFIG_INVALID`) when the first non-empty key contains interior
+/// whitespace or a control character ([`ResolvedApiKey::try_new`]). Each
+/// carries a sanitized cause and a recovery step. No error includes secret
 /// material.
 ///
 /// # Panics
@@ -106,9 +106,10 @@ pub fn resolve_key(id: BackendKeyId, repo_root: &RepoRoot) -> Result<ResolvedApi
 /// # Errors
 ///
 /// Returns [`JevError::KeyMissing`] when no source has a non-empty key.
-/// Returns [`JevError::ConfigInvalid`] when `.env` or `keyring` cannot be
-/// read, or when the selected key fails [`ResolvedApiKey::try_new`].
-/// The config error names a sanitized cause and a recovery step. Error text
+/// Returns [`JevError::IoFailed`] when `.env` or `keyring` cannot be
+/// read, and [`JevError::CredentialStoreInvalid`] when the selected key fails
+/// [`ResolvedApiKey::try_new`]. Each names a sanitized cause and a recovery
+/// step. Error text
 /// does not include secret material.
 ///
 /// # Examples
@@ -331,7 +332,7 @@ mod tests {
     }
 
     fn assert_no_secret(error: &JevError, secret: &str) {
-        let rendered = format!("{error} {error:?} {}", error.fix_hint());
+        let rendered = format!("{error} {error:?} {}", error.message());
         assert!(!rendered.contains(secret), "{rendered}");
         assert!(!rendered.to_ascii_lowercase().contains("bearer "));
     }
@@ -376,7 +377,7 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(error.code(), "KEY_MISSING");
-        assert!(error.fix_hint().contains("keyring"));
+        assert!(error.suggested_action().contains("keyring"));
         assert_no_secret(&error, SECRET);
         assert!(matches!(
             error,
@@ -489,19 +490,18 @@ mod tests {
     }
 
     #[test]
-    fn unreadable_dotenv_is_config_invalid_without_secrets() {
+    fn unreadable_dotenv_is_io_failed_without_secrets() {
         let repo = TempRepo::new(None);
         fs::create_dir(repo.path().join(".env")).unwrap();
         let env = MapEnv::with([("UNRELATED_SECRET", SECRET)]);
         let keyring = MapKeyring::new("tester", [("OPENAI_API_KEY", SECRET)]);
         let error = resolve_key_with(BackendKeyId::OpenAi, &repo.root(), &env, &keyring, "tester")
             .unwrap_err();
-        assert_eq!(error.code(), "CONFIG_INVALID");
-        let hint = error.fix_hint();
-        assert!(hint.contains(DOTENV_UNREADABLE), "{hint}");
-        assert!(hint.contains("cause:"), "{hint}");
-        assert!(hint.contains(DOTENV_RECOVERY), "{hint}");
-        assert!(!hint.contains("check.toml"), "{hint}");
+        assert_eq!(error.code(), "IO_FAILED");
+        let message = error.message();
+        assert!(message.contains(DOTENV_UNREADABLE), "{message}");
+        assert!(error.suggested_action().contains(DOTENV_RECOVERY));
+        assert!(!error.suggested_action().contains("check.toml"));
         assert_no_secret(&error, SECRET);
     }
 
@@ -522,10 +522,10 @@ mod tests {
         impl KeyringSource for Unavailable {
             fn password(&self, service: &str, _account: &str) -> Result<Option<String>, JevError> {
                 let _ = service;
-                Err(JevError::credential_store_invalid(
-                    KEYRING_UNREADABLE,
-                    "platform keystore returned an error",
-                    KEYRING_RECOVERY,
+                Err(JevError::io_failed_with(
+                    format!("{KEYRING_UNREADABLE} (platform keystore returned an error)"),
+                    std::io::ErrorKind::Other,
+                    Some(KEYRING_RECOVERY.to_owned()),
                 ))
             }
         }
@@ -538,15 +538,15 @@ mod tests {
             "tester",
         )
         .unwrap_err();
-        assert_eq!(error.code(), "CONFIG_INVALID");
-        let hint = error.fix_hint();
+        assert_eq!(error.code(), "IO_FAILED");
+        let hint = error.message();
         assert!(hint.contains(KEYRING_UNREADABLE), "{hint}");
         assert!(
-            hint.contains("cause: platform keystore returned an error"),
+            hint.contains("platform keystore returned an error"),
             "{hint}"
         );
-        assert!(hint.contains(KEYRING_RECOVERY), "{hint}");
-        assert!(!hint.contains("check.toml"), "{hint}");
+        assert!(error.suggested_action().contains(KEYRING_RECOVERY));
+        assert!(!error.suggested_action().contains("check.toml"));
         assert!(!hint.contains(SECRET), "{hint}");
         assert_no_secret(&error, SECRET);
     }
@@ -615,7 +615,7 @@ mod tests {
             assert_eq!(error.code(), "CONFIG_INVALID");
             assert!(
                 error
-                    .fix_hint()
+                    .message()
                     .contains("whitespace or a control character")
             );
             assert_no_secret(&error, SECRET);

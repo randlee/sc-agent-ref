@@ -2,7 +2,8 @@
 //!
 //! Argv is parsed by [`cli::parse`] (clap). Success writes JSON (or the
 //! `--help` / `--version` text) to stdout and exits 0. Failure writes one
-//! `ScAgentErrorResponse` line to stderr and exits 2.
+//! `ScAgentErrorResponse` line to stderr and exits 2, or 3 when the error is
+//! retryable (`docs/stability.md`).
 
 use std::io::{self, Write};
 use std::process::ExitCode;
@@ -25,19 +26,16 @@ fn main() -> ExitCode {
     match cli::parse(std::env::args_os()).and_then(run) {
         Ok(bytes) => {
             if let Err(error) = io::stdout().write_all(&bytes) {
-                emit(&JevError::io_failed("stdout", &error));
-                return ExitCode::from(2);
+                return emit(&JevError::io_failed("stdout", &error));
             }
             ExitCode::SUCCESS
         }
-        Err(error) => {
-            emit(&error);
-            ExitCode::from(2)
-        }
+        Err(error) => emit(&error),
     }
 }
 
-fn emit(error: &JevError) {
+/// Writes the error line and returns the exit code the error asks for.
+fn emit(error: &JevError) -> ExitCode {
     let body = ScAgentErrorResponse::from_jev_error(error);
     let line = serde_json::to_string(&body).unwrap_or_else(|_| {
         serde_json::to_string(&ScAgentErrorResponse::from_jev_error(
@@ -46,6 +44,7 @@ fn emit(error: &JevError) {
         .expect("ScAgentErrorResponse from JevError must serialize")
     });
     let _ = writeln!(io::stderr(), "{line}");
+    ExitCode::from(body.exit_code())
 }
 
 fn run(parsed: Parsed) -> Result<Vec<u8>, JevError> {

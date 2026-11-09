@@ -65,12 +65,16 @@ fn test_phase_a_session_is_invalid() {
         "{error:?}"
     );
     assert_eq!(error.code(), "INPUT_INVALID");
-    let hint = error.fix_hint();
+    let hint = error.suggested_action();
     assert!(
         hint.contains("re-run the check; session files from before Phase A.1 cannot be resumed"),
         "{hint}"
     );
-    assert!(hint.contains(OLD_SESSION_ID), "hint names the file: {hint}");
+    assert!(
+        error.message().contains(OLD_SESSION_ID),
+        "the message names the file: {}",
+        error.message()
+    );
 
     let mut unversioned: serde_json::Value = serde_json::from_str(&fixture()).expect("json");
     unversioned
@@ -80,7 +84,7 @@ fn test_phase_a_session_is_invalid() {
     let error = load(&unversioned.to_string());
     assert!(
         error
-            .fix_hint()
+            .suggested_action()
             .contains("session files from before Phase A.1 cannot be resumed"),
         "{error:?}"
     );
@@ -98,10 +102,13 @@ fn test_v2_session_document_is_invalid() {
         "{error:?}"
     );
     assert_eq!(error.code(), "INPUT_INVALID");
-    let hint = error.fix_hint();
-    assert!(hint.contains("is version 2"), "{hint}");
-    assert!(hint.contains("re-run the check"), "{hint}");
-    assert!(hint.contains(OLD_SESSION_ID), "hint names the file: {hint}");
+    let message = error.message();
+    assert!(message.contains("is version 2"), "{message}");
+    assert!(
+        message.contains(OLD_SESSION_ID),
+        "message names the file: {message}"
+    );
+    assert!(error.suggested_action().contains("re-run the check"));
 }
 
 /// `FileSessionStore::new` removes expired session documents, version 1 and 2
@@ -233,10 +240,10 @@ fn test_newer_session_version_is_invalid() {
     assert_eq!(error.code(), "INPUT_INVALID");
     assert!(
         error
-            .fix_hint()
+            .suggested_action()
             .contains("written by a newer sc-agent; upgrade or re-run the check"),
         "{}",
-        error.fix_hint()
+        error.suggested_action()
     );
 }
 
@@ -547,11 +554,11 @@ fn test_save_error_removes_tmp() {
     let error = store
         .save(&stored(&store, id, "yes"))
         .expect_err("rename fails");
-    assert_eq!(error.code(), "CONFIG_INVALID");
+    assert_eq!(error.code(), "IO_FAILED");
     assert!(
-        error.fix_hint().contains(&blocker.display().to_string()),
+        error.message().contains(&blocker.display().to_string()),
         "{}",
-        error.fix_hint()
+        error.message()
     );
     assert_eq!(
         names(dir.path()),

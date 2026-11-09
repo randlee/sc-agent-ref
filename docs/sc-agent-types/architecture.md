@@ -27,7 +27,7 @@ Later changes are additive: new enum variants (every public enum is
 
 | Feature | Default | Modules | Types |
 | --- | --- | --- | --- |
-| (core) | always | `error`, `envelope`, `ids`, `models`, `schema`, `cancel`, `trace` | `JevError`, `ErrorCode`, `NetworkErrorKind`, `OperationalArea`; `ScAgentErrorResponse`; `BackendId`, `BackendKeyId`, `BackendFamily`, `BackendDescriptor`, `BACKENDS`, `BackendSet`, `SessionId`, `Rev` (built only by `Rev::parse` or `Rev::worktree()`; no unchecked constructor), `RepoRoot`, `RepoRelativePath`, `BlobSha`, `Sha256Digest` (`of_text`), `AnswerId`, `ProjectLabel`, `Operation`; `ModelId`, `UnknownModel`, `ModelFamily`, `ModelDescriptor`, `MODELS`, `ModelAliases`; `schema::subjects::*` (`SubjectsDocument`, `SubjectsBuilder`, `SubjectsSource` and `SubjectsProducer` with private fields, constructors and accessors, `GrammarRef` (the language, grammar crate and version a producer takes), `QueryMode`, `Span`, `Subject`); `CancelToken`, `SendTrace` |
+| (core) | always | `error`, `envelope`, `ids`, `models`, `schema`, `cancel`, `trace` | `JevError`, `ErrorCode`, `ErrorCategory`, `NetworkErrorKind`, `BusyCause`, `ResponseInvalidCause`, `LimitUnit`, `ProviderFailure`; `ScAgentErrorResponse`, `ErrorDetails`; `BackendId`, `BackendKeyId`, `BackendFamily`, `BackendDescriptor`, `BACKENDS`, `BackendSet`, `SessionId`, `Rev` (built only by `Rev::parse` or `Rev::worktree()`; no unchecked constructor), `RepoRoot`, `RepoRelativePath`, `BlobSha`, `Sha256Digest` (`of_text`), `AnswerId`, `ProjectLabel`, `Operation`; `ModelId`, `UnknownModel`, `ModelFamily`, `ModelDescriptor`, `MODELS`, `ModelAliases`; `schema::subjects::*` (`SubjectsDocument`, `SubjectsBuilder`, `SubjectsSource` and `SubjectsProducer` with private fields, constructors and accessors, `GrammarRef` (the language, grammar crate and version a producer takes), `QueryMode`, `Span`, `Subject`); `CancelToken`, `SendTrace` |
 | `secret` | yes | `secret` | `ResolvedApiKey` |
 | `obs` | yes | `observability::v2` | `SessionLog`, `SharedSessionLog`, `LogEvent`, `LogRejected`, `NoopSessionLog` |
 | `git` | no | `git` | `discover_toplevel`, `read_at_rev`, `GitBlob` |
@@ -44,13 +44,25 @@ reports a type cycle inside one module.
 
 Every variant maps to exactly one `errors.json` id; an id may have several
 variants (REQ-SAG-0101 as amended). Recovery categories are explicit
-variants (`CredentialStoreInvalid`, `RegistryInvalid`, `SessionStoreIo`,
-`Operational { area }`, `SessionDocumentInvalid`, `EncodeFailed`, `IoFailed`);
-producer variants carry a `producer: String`; `ProducerError` re-raises a
-producer's stderr with its own `code`. Every struct-like variant has a
-snake-case constructor. `fix_hint()` is the one renderer of recovery text;
-`retryable()` is true only for `NetworkError` of kind `Busy`, `Timeout`,
-`Connect`; `Error::source()` is `None` for every variant.
+variants (`CredentialStoreInvalid`, `RegistryInvalid`,
+`SessionDocumentInvalid`, `EncodeFailed`, `IoFailed`); the provider-reply
+variants (`AuthFailed`, `ApiRequestInvalid`, `QuotaExhausted`, `ApiError`)
+carry a `ProviderFailure`, and `ProviderBusy` carries `status`, `sends`,
+`cause` and `retry_after_seconds`; producer variants carry a
+`producer: String`; `ProducerError` re-raises a producer's stderr with its
+own `code` and every other field the producer sent. Every struct-like variant
+has a snake-case constructor. `message()` (the `Display` text, what failed)
+and `suggested_action()` (what to do) are the two renderers of text, and
+`details()` is the machine fields; `fix_hint()` is gone. The wrapper variant
+`Annotated { error, flush_failure, backend }` carries `details.backend` and
+`details.log_flush_failure` while keeping the inner error's id, message,
+action and retryability (ADR-SAG-0027 agt-2a3 amendment). `NetworkErrorKind`
+includes `other` (unclassified, not retryable). `retryable()` is
+true for `NetworkError` of kind `Timeout` or `Connect`, `ProviderBusy`,
+`ApiError` from status 500 and above, and a producer's error as the producer says;
+`Error::source()` is `None` for every variant. The id rule (`INPUT_INVALID`
+vs `CONFIG_INVALID` vs `INPUT_MISSING` vs `IO_FAILED`) is in the `error`
+module documentation and `docs/stability.md`.
 
 **Git deadline (r-7, ADR-SAG-0027).** Every git subprocess in `git` has a fixed
 60 s wall-clock deadline (`GIT_DEADLINE`, crate-private, not configurable). The
@@ -61,10 +73,13 @@ own `Display` ("git did not finish within Ns") and hint (a stalled git
 process, a lock file or a slow filesystem), not the extractor's "raise
 `timeout_seconds`".
 
-`ScAgentErrorResponse` keys, in order: `error`, `message`, `schema_version`
-(always `1`), `retryable` (only when `true`), `details` (only for
-`ProducerError`, `{"producer": ...}`). Readers deny unknown keys and accept
-`schema_version` absent or `1`.
+`ScAgentErrorResponse` keys, in order: `error`, `kind`, `message`,
+`suggested_action`, `retryable` (always), `retry_after_seconds`, `field`,
+`details` (the closed `ErrorDetails` object, keys in `docs/stability.md`),
+`schema_version` (always `1`; unchanged because nothing was published).
+Readers ignore unknown keys, accept `schema_version` absent or `1`, and require
+only `error` and `message`. A golden test (`error-codes.json`) pins the whole
+body of every variant shape; `SC_UPDATE_GOLDEN=1` rewrites it.
 
 ## Backends
 
@@ -88,7 +103,7 @@ probability key) was not offered. `QuestionAnswer` keeps `choice`, optional
 derived from per-backend `Attestation`s.
 
 `JudgeBackend` is intentionally open; calls block (async hosts use
-`spawn_blocking`). `test_util::MockJudgeBackend` is the one double: it
+`spawn_blocking`). `MockJudgeBackend` (in `sc-decision-schema`'s `test_util`, not this crate) is the one double: it
 answers through `JudgeOutcome::new`, records requests, counts validations,
 reports the received digest, and enforces LLM context from the descriptor.
 

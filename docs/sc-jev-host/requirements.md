@@ -6,7 +6,7 @@
 
 | ID | Requirement | Sprint | Proof |
 | --- | --- | --- | --- |
-| REQ-SAG-0604 | `run_from` returns the `RunResponse` unchanged so each consumer decides on `is_partial()` / `first_failure()`; an all-backends-failed run is an `Err` | r-3b | `sc-ai` `test_cli_partial_failure_both_streams_exit_2`; pytest `test_partial_failure_raises_with_response` |
+| REQ-SAG-0604 | `run_from` returns the `RunResponse` unchanged so each consumer decides on `is_partial()` / `first_failure()`; an all-backends-failed run is also returned (no answers, every backend's typed error, `details.backend`; agt-2a3), `Err` only when no backend was selected | r-3b | `sc-ai` `test_cli_partial_failure_both_streams_exit_2`; pytest `test_partial_failure_raises_with_response` |
 | REQ-SAG-0605 | `ComposeInputs::new` defaults to `MultiBackendMode::Independent`; `mode(..)` selects chain context | r-3b | `test_cli_chain_context_flag`; pytest `test_chain_context_kwarg`; `compose::tests::defaults_are_independent_and_unset` |
 | REQ-SAG-0711 | One `SessionLog` adapter (`obs::ObservabilityAdapter`) shared by both roots; one logger per `(service, canonical log root)`; flush failure is a warning in `data.warnings` | r-3b | `cargo test -p sc-jev-host --test obs`; `test_cli_log_flush_warning_in_data` |
 | REQ-SAG-0610 | One JSONL line per judge send and per `ask`, action = operation | r-3b | `cargo test -p sc-jev-host --test obs test_log_line_fields_is_one_session_log_row` (one line per event, `action` = operation, no secret-bearing key); `test_every_operation_is_an_action_name` |

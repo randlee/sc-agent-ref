@@ -17,7 +17,8 @@
 //! Failures use [`JevError`](sc_agent_types::JevError). Oversize input is
 //! `INPUT_TOO_LARGE` and is not sent. Busy HTTP statuses (429, 502, 529)
 //! retry under `sc_agent_http::BusyPolicy` (REQ-SAG-0505) before a
-//! `NETWORK_ERROR` kind `Busy`. A reply that fails the answer contract is
+//! `PROVIDER_BUSY`; other failing statuses are `AUTH_FAILED`,
+//! `API_REQUEST_INVALID`, `QUOTA_EXHAUSTED` or `API_ERROR`. A reply that fails the answer contract is
 //! `RESPONSE_INVALID`.
 
 #![warn(missing_docs)]

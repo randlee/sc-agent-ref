@@ -140,8 +140,15 @@ fn test_e2e_producer_error_reraised() {
     assert!(matches!(error, JevError::ProducerError { .. }), "{error:?}");
     assert_eq!(error.code(), "LANGUAGE_UNAVAILABLE");
     assert!(
-        error.fix_hint().starts_with("sc-treesitter:"),
+        error
+            .message()
+            .starts_with("sc-treesitter failed with LANGUAGE_UNAVAILABLE"),
         "{}",
-        error.fix_hint()
+        error.message()
+    );
+    assert!(
+        error.suggested_action().starts_with("sc-treesitter:"),
+        "{}",
+        error.suggested_action()
     );
 }

@@ -2,11 +2,13 @@
 
 **Boundary:** `agent-http` (`boundaries/sc-agent-http/agent-http.toml`)
 **Depends on:** `sc-agent-types` (`default-features = false`,
-`features = ["secret"]`), `ureq`
+`features = ["secret"]`), `serde_json` (only in `failure`, ADR-SAG-0026
+agt-2a3 amendment), `ureq`
 **Dependents:** `sc-jev`, `sc-jev-backends`
 **Governing ADRs:** ADR-SAG-0026 (HTTP half), ADR-SAG-0006 / 0007 / 0017 /
 0020 r-3 amendments, ADR-SAG-0012 (unchanged: `sc-jev` owns every Jev API
-operation; this crate only carries bytes).
+operation; this crate carries bytes and, in `failure`, reads only a failing
+reply's error fields: ADR-SAG-0026 agt-2a3 amendment).
 
 ## Modules
 
@@ -18,7 +20,9 @@ All modules are private; the crate root re-exports the public items, plus the
 | `request` | `HttpRequest`, `HttpResponse`, `Method`, `HeaderName`, `SecretHeader`, `Endpoint` | Values with private fields, constructors and accessors. `HttpRequest::new(method, endpoint, body: Arc<str>)`, `with_header`, `with_secret`; `HttpResponse::new(status, headers, body)`, `status`, `header` (case-insensitive), `body`, `into_body`. `HeaderName` is a `&'static str` RFC 9110 token (`const fn new`). `Endpoint::parse` accepts only `https://` URLs |
 | `transport` | `Transport`, `Timeouts` | The open transport trait; connect and request deadlines (10 s / 120 s default) |
 | `ureq_transport` | `UreqTransport` | The production transport and the single secret read site |
-| `retry` | `BusyPolicy`, `BusyExhaustion`, `send_with_busy_retry`, `send_and_parse`, `HttpClient` | Busy retry with the decided numbers and the cancel hook; the one exchange (send, retry, parse, redact) and the transport + policy + token state every backend holds |
+| `retry` | `BusyPolicy`, `send_with_busy_retry`, `send_and_parse`, `HttpClient` | Busy retry with the decided numbers and the cancel hook; the one exchange (send, retry, parse, redact) and the transport + policy + token state every backend holds |
+| `retry_after` | (crate-private) | The one `Retry-After` parser: a wait view (clamped 0–30 s) for the retry loop and a report view (whole seconds, rounded up, capped at a day) for error fields |
+| `failure` | `api_failure` | Maps a reply with a failing status to its error id, keeping the provider's status, type, code, message, parameter and request id (bounded); also the quota hook of the busy retry |
 | `redact` | `redact` | Removes the request's secret from every text field of an error |
 | `test_util` (`test-util`) | `FakeClock`, `RecordingSleeper`, `ScriptedTransport`, `RecordingTransport` | Doubles for this crate's and the backend crates' tests |
 
@@ -26,8 +30,9 @@ All modules are private; the crate root re-exports the public items, plus the
 
 `Transport::send(&self, &HttpRequest) -> Result<HttpResponse, JevError>` sends
 once. Every HTTP status is `Ok`; connection, send, read and timeout failures
-are `NETWORK_ERROR` with a `NetworkErrorKind`; a body over the cap is
-`RESPONSE_INVALID`. The trait is open (ADR-SAG-0006) and object-safe, with
+are `NETWORK_ERROR` with a `NetworkErrorKind` (`timeout`, `connect`, `tls`,
+`cancelled`, `other`); a body over the cap is `RESPONSE_INVALID` with cause
+`too_large`. The trait is open (ADR-SAG-0006) and object-safe, with
 blanket impls for `&T` and `Arc<T>`. A direct `send` caller bypasses busy
 retry **and** redaction; production code calls only `send_and_parse` (which wraps `send_with_busy_retry`).
 A transport other than `UreqTransport` cannot read the key: it sees
@@ -81,10 +86,31 @@ the first send, every wait `min(wait + jitter, remaining)`, no attempt
 starts once it is spent. Exhausting the sends gives detail
 "HTTP <s> busy; N sends exhausted"; exhausting the budget gives
 "HTTP <s> busy after N sends; retry budget exhausted". Both are
-`NETWORK_ERROR` kind `Busy`, `retryable() == true`; `BusyExhaustion::of(&error)`
-returns `Sends` or `Budget` from the fixed detail endings
-(`BusyExhaustion::SENDS_SUFFIX` / `BUDGET_SUFFIX`), so callers never match on
-text themselves.
+`PROVIDER_BUSY` (`retryable() == true`) and carry machine fields: `cause`
+(`sends` or `budget`), `attempts` (N), the last busy `http_status`, and
+`retry_after_seconds`, the last valid `Retry-After` in whole seconds (rounded
+up, capped at one day, unclamped by the 30 s wait clamp; absent when none was
+valid). Callers never match on text.
+
+**Quota is not busy.** A busy status (429, 502, 529) whose body marks quota,
+credit or spend-limit exhaustion (the documented Anthropic and OpenAI
+shapes in `failure`, e.g. `insufficient_quota`, `credit_balance_exhausted`,
+`enforced_spend_limit_reached`) is not resent: the retry loop returns it on
+the first send, and the caller maps it with `api_failure` to
+`QUOTA_EXHAUSTED`. An unknown 429 body stays busy. The hook is
+`is_quota_reply` (called from `is_busy` in `retry`) and does not touch retry
+timing.
+
+**Failing statuses.** `api_failure(provider, shape, &response)` is the one mapping
+for a non-200 reply: 401 and 403 are `AUTH_FAILED`; 402 or a quota body is
+`QUOTA_EXHAUSTED`; a 413, or a 400/422 with a structured marker
+(`context_length_exceeded`, `request_too_large`), or for Jev only
+(`ReplyShape::Jev`) a message naming `max_tokens` or tokens exceeded, is
+`INPUT_TOO_LARGE`; a Haiku or Luna message about `max_tokens` (the output cap)
+is an ordinary invalid request; other 400 and 422 are `API_REQUEST_INVALID`; every
+other status is `API_ERROR` (retryable from 500 up). Provider text is
+single-line and bounded to 1024 bytes per field, and leaves through `redact`
+(ADR-SAG-0020 amendment).
 
 The `CancelToken` is checked before every attempt and before each wait slice
 (≤ 100 ms), so a cancel during a wait returns `Cancelled` within 100 ms. A

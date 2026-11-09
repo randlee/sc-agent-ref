@@ -16,8 +16,8 @@ Non-Jev **comparison** backends only. TypeSafe Jev HTTP lives in **`sc-jev`**.
 | --- | --- |
 | `backend` | `AnthropicHaikuBackend` (Haiku) and `OpenAiLunaBackend` (Luna), API-direct; each implements `JudgeBackend` from `sc-agent-types` |
 | `wire` | Provider request and reply shapes (Haiku `system`, Luna `instructions`; not the Jev wire document) |
-| `validate` | Pre-send checks on the canonical payload and injected prompt: the payload deserialized as `CanonicalJudgePayload` (question-kind rules run there: `choice` 2 to 255 choices, `score` 2 to 10; a `noul` question is refused before any send), byte cap on the assembled body |
-| `backend` (HTTP part) | Builds each `sc_agent_http::HttpRequest` (endpoint, headers, `SecretHeader`) and sends it with `send_with_busy_retry`; maps non-200 to `NETWORK_ERROR` kind `Status` with the status only (the response body is not echoed) |
+| `validate` | Pre-send checks on the canonical payload and injected prompt: the payload deserialized as `CanonicalJudgePayload` (question-kind rules run there: `choice` 2 to 255 choices, `score` 2 to 10; a `noul` question is refused before any send), byte cap on the assembled body and the token cap, both `INPUT_TOO_LARGE` with `limit`, `actual` and `unit` (REQ-SAG-0163) |
+| `backend` (HTTP part) | Builds each `sc_agent_http::HttpRequest` (endpoint, headers, `SecretHeader`) and sends it with `send_with_busy_retry`; maps every non-200 reply with `sc_agent_http::api_failure` (`AUTH_FAILED`, `QUOTA_EXHAUSTED`, `INPUT_TOO_LARGE`, `API_REQUEST_INVALID` or `API_ERROR`), keeping the provider's status, type, message and request id, bounded to 1024 bytes per field and redacted (ADR-SAG-0020 amendment) |
 
 All modules are private; the crate root re-exports the public items.
 

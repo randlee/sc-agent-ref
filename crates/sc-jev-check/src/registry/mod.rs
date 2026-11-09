@@ -223,6 +223,51 @@ impl BackendRegistry {
         Self::from_resolver_with_models(backends, &ModelAliases::builtin(), resolve)
     }
 
+    /// Real HTTP backends aimed at `http://127.0.0.1:<port>` (feature
+    /// `test-util`), keys resolved from the environment like
+    /// [`Self::from_env`], each making at most `sends` sends per call.
+    ///
+    /// Haiku and Luna send `/count` then `/message`; Jev sends its packaged
+    /// path. For the `sc-ai` binary's loopback test seam; the endpoint
+    /// override does not exist in production builds.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::from_env`].
+    #[cfg(feature = "test-util")]
+    pub fn loopback_from_env(
+        backends: &BackendSet,
+        repo_root: &RepoRoot,
+        port: u16,
+        sends: u32,
+    ) -> Result<Self, JevError> {
+        let mut registry = Self::new();
+        for id in backends.iter() {
+            let key_id = id.key_id().ok_or_else(|| {
+                JevError::registry_invalid(
+                    format!("Backend {id} needs no credential"),
+                    "Report this build as a bug.",
+                )
+            })?;
+            let key = resolve_key(key_id, repo_root)?;
+            let backend: Arc<dyn JudgeBackend> = match id {
+                BackendId::Jev => Arc::new(JevClient::loopback(key, port, sends)),
+                BackendId::AnthropicHaiku => {
+                    Arc::new(AnthropicHaikuBackend::loopback(key, port, sends))
+                }
+                BackendId::OpenAiLuna => Arc::new(OpenAiLunaBackend::loopback(key, port, sends)),
+                other => {
+                    return Err(JevError::registry_invalid(
+                        format!("Backend {other} has no loopback constructor"),
+                        "Use jev, anthropic_haiku or openai_luna.",
+                    ));
+                }
+            };
+            registry.register(backend)?;
+        }
+        Ok(registry)
+    }
+
     /// [`Self::from_resolver`] with `models` deciding each backend's model:
     /// each backend is built with
     /// `models.latest(descriptor.default_model_alias())`.
@@ -316,7 +361,7 @@ mod tests {
             )))
             .expect_err("duplicate");
         assert_eq!(error.code(), "CONFIG_INVALID");
-        let duplicate_hint = error.fix_hint();
+        let duplicate_hint = error.message();
         assert!(duplicate_hint.contains("jev"), "{duplicate_hint}");
         assert!(!duplicate_hint.contains("check.toml"), "{duplicate_hint}");
         assert!(registry.get(BackendId::Jev).is_ok());
@@ -325,7 +370,7 @@ mod tests {
             Err(error) => error,
         };
         assert_eq!(missing.code(), "CONFIG_INVALID");
-        let missing_hint = missing.fix_hint();
+        let missing_hint = missing.message();
         assert!(missing_hint.contains("openai_luna"), "{missing_hint}");
         assert!(!missing_hint.contains("check.toml"), "{missing_hint}");
     }

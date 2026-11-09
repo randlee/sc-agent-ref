@@ -61,16 +61,22 @@ reached through the CLI.
 `chain_context=True` sets `MultiBackendMode::ChainContext` (ADR-SAG-0008).
 `CheckResult.data` is the run response body (the `data` the `sc-ai` envelope
 prints, without `readback`). When some, not all, backends fail, `run_check`
-raises `JevError` carrying the first failure's `code`/`message` and a
+raises `JevError` carrying the first failure's fields and a
 `.response` attribute holding that body as a dict (the successful answers
-included). When every backend fails, `JevError.response` is `None`.
+included). When every backend fails, `JevError` carries the first failure and `.response`
+is the same body with no answers and one typed error per backend
+(`details.backend`); a run that selected no backend has no `.response`.
 
 ## Stderr-shaped `schema_version` (ADR-SAG-0027, EXT-030)
 
 Code that parses the `sc-ai` stderr line treats a `schema_version` other than
 `1` as an **unknown error shape** and falls back to the exit code and the raw
-line. The Python exception does not carry `schema_version`; `code` and
-`message` are its fields.
+line. The Python exception carries the same fields as that line, produced
+from the same serialization: `code` (the line's `error`), `kind`, `message`,
+`suggested_action`, `retryable`, `retry_after_seconds`, `field`, `details`
+(a dict or `None`) and `schema_version`; the optional ones are `None` when
+the line omits them (REQ-SAG-0165). `str(exc)` is `CODE: message.
+suggested_action`.
 
 ## Test seam and release wheel (ADR-SAG-0029 (b))
 

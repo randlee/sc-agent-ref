@@ -195,7 +195,7 @@ fn test_unknown_or_missing_key_rejected() {
     let refuse = |fields: &Map<String, Value>| {
         let error = SessionLogRow::try_from_fields(fields).expect_err("refused");
         assert_eq!(error.code(), "INPUT_INVALID");
-        error.to_string() + &error.fix_hint()
+        error.to_string() + &error.message()
     };
 
     let mut extra = good.clone();

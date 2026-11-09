@@ -143,7 +143,7 @@ fn test_project_label_limits() {
     ] {
         let error = ProjectLabel::new(bad.clone()).expect_err("rejected");
         assert_eq!(error.code(), "INPUT_INVALID");
-        let hint = error.fix_hint();
+        let hint = error.message();
         assert!(hint.contains("256 bytes"), "{hint}");
         assert!(hint.contains("control"), "{hint}");
         assert!(bad.parse::<ProjectLabel>().is_err());
@@ -170,11 +170,7 @@ fn test_answer_id_is_ulid_text() {
     ] {
         let error = bad.parse::<AnswerId>().expect_err("rejected");
         assert_eq!(error.code(), "INPUT_INVALID");
-        assert!(
-            error.fix_hint().contains("answer_id"),
-            "{}",
-            error.fix_hint()
-        );
+        assert!(error.message().contains("answer_id"), "{}", error.message());
     }
 }
 

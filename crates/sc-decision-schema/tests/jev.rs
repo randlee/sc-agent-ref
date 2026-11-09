@@ -340,9 +340,9 @@ fn test_duplicate_key_rejected() {
         let error = CheckRequest::parse(body).expect_err("duplicate");
         assert_eq!(error.code(), "INPUT_INVALID", "{key}");
         assert!(
-            error.fix_hint().contains(&format!("duplicate key `{key}`")),
+            error.message().contains(&format!("duplicate key `{key}`")),
             "{}",
-            error.fix_hint()
+            error.message()
         );
     }
 
@@ -371,9 +371,9 @@ fn test_duplicate_key_rejected() {
     let error = CheckResponse::parse(reply.as_bytes()).expect_err("duplicate answer");
     assert_eq!(error.code(), "RESPONSE_INVALID");
     assert!(
-        error.fix_hint().contains("duplicate key `q`"),
+        error.message().contains("duplicate key `q`"),
         "{}",
-        error.fix_hint()
+        error.message()
     );
 
     // The criteria counts hold on parse: one choice option is refused.
@@ -395,7 +395,7 @@ fn test_malformed_body_hint_is_fix_the_body() {
         CanonicalJudgePayload::from_bytes(format!("{{{secret}").as_bytes()).expect_err("syntax"),
     ] {
         assert_eq!(error.code(), "INPUT_INVALID");
-        let hint = error.fix_hint();
+        let hint = error.message();
         assert!(hint.contains("fix the"), "{hint}");
         assert!(!hint.contains("encoded"), "{hint}");
         assert!(!hint.contains("bug"), "{hint}");

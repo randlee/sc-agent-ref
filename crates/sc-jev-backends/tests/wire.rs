@@ -134,7 +134,7 @@ fn test_digest_recovery_error_carries_no_body_bytes() {
         assert_eq!(sends, 0, "{name}: nothing is sent");
         let rendered = format!(
             "{backend_error} {} {}",
-            backend_error.fix_hint(),
+            backend_error.message(),
             serde_json::to_string(&ScAgentErrorResponse::from_jev_error(&backend_error))
                 .expect("json")
         );

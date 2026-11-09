@@ -108,6 +108,15 @@ fn git(dir: &Path) -> Command {
     command
 }
 
+/// `IO_FAILED` for a `git` process that cannot be started, naming the fix.
+fn git_unavailable(error: &io::Error) -> JevError {
+    JevError::io_failed_with(
+        "git",
+        error.kind(),
+        Some("Check that git is installed, on PATH and executable, then retry.".to_owned()),
+    )
+}
+
 fn run(command: Command) -> Result<Output, JevError> {
     run_with_deadline(command, GIT_DEADLINE)
 }
@@ -116,9 +125,7 @@ fn run(command: Command) -> Result<Output, JevError> {
 /// deadline (`GitTimeout`).
 fn run_with_deadline(mut command: Command, limit: Duration) -> Result<Output, JevError> {
     command.stdout(Stdio::piped()).stderr(Stdio::piped());
-    let mut child = command
-        .spawn()
-        .map_err(|error| JevError::io_failed("git", &error))?;
+    let mut child = command.spawn().map_err(|error| git_unavailable(&error))?;
     let started = Instant::now();
     let stdout = child.stdout.take().map(drain);
     let stderr = child.stderr.take().map(drain);
@@ -186,7 +193,7 @@ fn wait_bounded(
             Ok(None) => thread::sleep(POLL_INTERVAL),
             Err(error) => {
                 kill_and_reap(child);
-                return Err(JevError::io_failed("git", &error));
+                return Err(git_unavailable(&error));
             }
         }
     }
@@ -267,7 +274,7 @@ pub fn discover_common_dir(start: &Path) -> Result<Option<PathBuf>, JevError> {
 ///   not resolve, or `path` names something other than a file;
 /// - `INPUT_MISSING` when `rev` resolves but has no `path`;
 /// - `INPUT_TOO_LARGE` when the blob is larger than `max_bytes`;
-/// - `INPUT_INVALID` (`io_failed`) when git cannot be started or read.
+/// - `IO_FAILED` when git cannot be started or read.
 pub fn read_at_rev(
     root: &RepoRoot,
     rev: &Rev,
@@ -297,7 +304,11 @@ pub fn read_at_rev(
         .map(str::trim)
         .unwrap_or_default();
     let sha = BlobSha::try_from(sha_text).map_err(|_| {
-        JevError::extraction_failed("git rev-parse returned an unexpected object id")
+        JevError::io_failed_with(
+            "git rev-parse (it returned an unexpected object id)",
+            io::ErrorKind::InvalidData,
+            None,
+        )
     })?;
 
     let mut kind = git(root.as_path());
@@ -325,9 +336,7 @@ pub fn read_at_rev(
     read.args(["cat-file", "blob", sha.as_str()])
         .stdout(Stdio::piped())
         .stderr(Stdio::null());
-    let mut child = read
-        .spawn()
-        .map_err(|error| JevError::io_failed("git", &error))?;
+    let mut child = read.spawn().map_err(|error| git_unavailable(&error))?;
     let started = Instant::now();
     let limit = max_bytes.saturating_add(1);
     // The read runs on its own thread so a hung git cannot block this one.
@@ -384,10 +393,10 @@ pub fn read_at_rev(
 ///
 /// # Errors
 ///
-/// - `INPUT_INVALID` (`io_failed`) when git cannot be started or its pipes
-///   fail;
-/// - `EXTRACTION_FAILED` when git exits non-zero (the detail carries the
-///   start of git's stderr) or prints something other than an object id.
+/// - `IO_FAILED` when git cannot be started, its pipes fail, git exits
+///   non-zero (`what` carries the start of git's stderr) or prints something
+///   other than an object id: a dependency failing during the work, by the
+///   `IO_FAILED` rule in `docs/stability.md`.
 pub fn hash_blob(root: &RepoRoot, bytes: &[u8]) -> Result<BlobSha, JevError> {
     let mut command = git(root.as_path());
     command
@@ -395,17 +404,17 @@ pub fn hash_blob(root: &RepoRoot, bytes: &[u8]) -> Result<BlobSha, JevError> {
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    let mut child = command
-        .spawn()
-        .map_err(|error| JevError::io_failed("git", &error))?;
+    let mut child = command.spawn().map_err(|error| git_unavailable(&error))?;
     let (stdin, stdout, stderr) =
         match (child.stdin.take(), child.stdout.take(), child.stderr.take()) {
             (Some(stdin), Some(stdout), Some(stderr)) => (stdin, stdout, stderr),
             _ => {
                 let _ = child.kill();
                 let _ = child.wait();
-                return Err(JevError::extraction_failed(
-                    "git hash-object pipes are unavailable",
+                return Err(JevError::io_failed_with(
+                    "git hash-object pipes",
+                    io::ErrorKind::BrokenPipe,
+                    None,
                 ));
             }
         };
@@ -446,16 +455,30 @@ pub fn hash_blob(root: &RepoRoot, bytes: &[u8]) -> Result<BlobSha, JevError> {
     if !exit.success() || written.is_err() {
         let detail = detail.unwrap_or_default();
         let reason = String::from_utf8_lossy(detail.trim_ascii());
-        let reason = reason.lines().next().unwrap_or("no stderr");
-        return Err(JevError::extraction_failed(format!(
-            "git hash-object failed: {reason}"
-        )));
+        let reason: String = reason
+            .lines()
+            .next()
+            .unwrap_or("no stderr")
+            .chars()
+            .take(256)
+            .collect();
+        return Err(JevError::io_failed_with(
+            format!("git hash-object (exit failure: {reason})"),
+            io::ErrorKind::Other,
+            Some(
+                "Check that the repository is readable and git works there, then retry.".to_owned(),
+            ),
+        ));
     }
     std::str::from_utf8(id.trim_ascii())
         .ok()
         .and_then(|text| BlobSha::try_from(text).ok())
         .ok_or_else(|| {
-            JevError::extraction_failed("git hash-object returned an unexpected object id")
+            JevError::io_failed_with(
+                "git hash-object (it returned an unexpected object id)",
+                io::ErrorKind::InvalidData,
+                None,
+            )
         })
 }
 
@@ -569,7 +592,7 @@ mod tests {
         assert!(
             matches!(
                 &error,
-                JevError::IoFailed { what, kind }
+                JevError::IoFailed { what, kind, .. }
                     if what == "git output" && *kind == io::ErrorKind::TimedOut
             ),
             "{error:?}"

@@ -51,6 +51,27 @@ First release. Channels once published: crates.io (ten crates), PyPI
   (`questions_sha256` on every row; tables `sessions`, `question_sets`,
   `payloads`, `answers`); version 1 rows and earlier session documents are
   refused.
+- Errors (bead agt-2a3): the `sc-ai` stderr line is now `{error, kind, message,
+  suggested_action, retryable, retry_after_seconds?, field?, details?,
+  schema_version}` (`schema_version` stays 1; `retryable` is always present;
+  `message` no longer holds the fix). New ids `AUTH_FAILED`,
+  `API_REQUEST_INVALID`, `QUOTA_EXHAUSTED`, `PROVIDER_BUSY`, `API_ERROR` and
+  `IO_FAILED`. Non-200 replies keep the provider's status, type, message and
+  request id (1024 bytes per field, secrets redacted) instead of
+  `NETWORK_ERROR` kind `status`; a 429 reporting exhausted quota is not
+  retried. The token limit is `INPUT_TOO_LARGE` with `limit`/`actual`/`unit`.
+  I/O failures are `IO_FAILED`; usage errors are `INPUT_INVALID` with `field`.
+  `sc_jev_py.JevError` carries the same fields. Rust: `fix_hint()` is replaced
+  by `message()` and `suggested_action()`; `Operational`, `OperationalArea`,
+  `SessionStoreIo` and `BusyExhaustion` are removed.
+  Exit codes: 2 for a failure that is not retryable, 3 for a retryable one
+  (`sc-ai`, `sc-treesitter`). A run in which every backend failed now prints
+  the envelope (no answers, each backend's typed error with
+  `details.backend`) with the first failure on stderr, and `sc_jev_py`
+  sets `.response`. A platform keyring read that blocks now fails with a
+  retryable `IO_FAILED` after 15 s. A reader of an error line ignores unknown
+  keys.
+
 - `Probability` moved from `sc_decision_schema::jev::v1` to the crate root
   (`sc_decision_schema::Probability`) and gained `complement()`.
   `QuestionAnswer::new` now takes `Option<Probability>` and

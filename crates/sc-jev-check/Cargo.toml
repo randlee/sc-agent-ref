@@ -23,7 +23,11 @@ default = []
 # Test seams (ADR-SAG-0022, plan "Test seams"): `register_scripted_backends`
 # and `RunResponse::test_builder`. Production builds leave this off; it adds
 # no run API (ADR-SAG-0009).
-test-util = ["sc-decision-schema/test-util"]
+test-util = [
+    "sc-decision-schema/test-util",
+    "sc-jev/test-util",
+    "sc-jev-backends/test-util",
+]
 
 [dependencies]
 sc-agent-secrets = { path = "../sc-agent-secrets", version = "0.1.0" }

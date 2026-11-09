@@ -24,12 +24,12 @@ use std::fmt;
 use std::sync::Arc;
 
 use sc_agent_http::{
-    BusyPolicy, Endpoint, HttpClient, HttpRequest, HttpResponse, Method, Timeouts, Transport,
-    UreqTransport,
+    BusyPolicy, Endpoint, HttpClient, HttpRequest, HttpResponse, Method, ReplyShape, Timeouts,
+    Transport, UreqTransport, api_failure,
 };
 use sc_agent_types::{
     BackendId, CancelToken, JevError, ModelId, NetworkErrorKind, RequestSha256, ResolvedApiKey,
-    SendTrace,
+    ResponseInvalidCause, SendTrace,
 };
 use sc_decision_schema::llm::v1;
 use sc_decision_schema::{JudgeBackend, JudgeOutcome, JudgeRequest};
@@ -215,7 +215,10 @@ impl<T: Transport> Client<T> {
             |response| {
                 let reply = wire::parse_vendor(self.provider.kind, response.body())?;
                 if let Some(reason) = &reply.truncation {
-                    return Err(JevError::response_invalid(reason.clone()));
+                    return Err(JevError::response_invalid_because(
+                        ResponseInvalidCause::Truncated,
+                        reason.clone(),
+                    ));
                 }
                 let answers =
                     v1::parse_output(self.provider.model.family(), &reply.text, request.payload())?;
@@ -269,11 +272,16 @@ impl<T: Transport> Client<T> {
         self.http
             .send_and_parse(&request, trace.clone(), |response| {
                 if response.status() != 200 {
-                    return Err(http_failure(&response));
+                    return Err(api_failure(
+                        self.provider.name,
+                        ReplyShape::Llm,
+                        &request,
+                        &response,
+                    ));
                 }
                 parse(response)
             })
-            .map_err(|error| error.map_detail(|detail| format!("{} {detail}", self.provider.name)))
+            .map_err(|error| error.prefix_detail(self.provider.name))
     }
 
     fn http_request(&self, endpoint: &Endpoint, body: &Arc<str>) -> HttpRequest {
@@ -288,15 +296,6 @@ impl<T: Transport> Client<T> {
                 self.api_key.clone(),
             ))
     }
-}
-
-/// `NETWORK_ERROR` kind `Status` with the status only. The response body is
-/// not echoed (it can repeat request or account text), as in `sc-jev`.
-fn http_failure(response: &HttpResponse) -> JevError {
-    JevError::network(
-        NetworkErrorKind::Status,
-        format!("HTTP {}", response.status()),
-    )
 }
 
 /// Generates one public backend type over [`Client`].
@@ -323,6 +322,28 @@ macro_rules! llm_backend {
             #[must_use]
             pub fn with_default_transport(api_key: ResolvedApiKey) -> Self {
                 Self::new(api_key, UreqTransport::new(Timeouts::default()))
+            }
+        }
+
+        #[cfg(feature = "test-util")]
+        impl $name<UreqTransport> {
+            /// A backend for `http://127.0.0.1:<port>` over a real loopback
+            /// HTTP transport, making at most `sends` sends per call
+            /// (feature `test-util`).
+            ///
+            /// For the binary's loopback test seam only. Production builds
+            /// have no such constructor.
+            #[must_use]
+            pub fn loopback(api_key: ResolvedApiKey, port: u16, sends: u32) -> Self {
+                let mut backend = Self::new(
+                    api_key,
+                    UreqTransport::loopback_for_tests(Timeouts::default()),
+                )
+                .with_busy_policy(BusyPolicy::new(sends));
+                let provider = &mut backend.client.provider;
+                provider.message_endpoint = Endpoint::loopback_http(port, "/message");
+                provider.count_endpoint = Endpoint::loopback_http(port, "/count");
+                backend
             }
         }
 

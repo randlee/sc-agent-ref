@@ -35,7 +35,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::marker::PhantomData;
 
-use sc_agent_types::{JevError, ModelId, QuestionsSha256};
+use sc_agent_types::{JevError, ModelId, QuestionsSha256, ResponseInvalidCause};
 use serde::de::value::MapAccessDeserializer;
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::ser::SerializeMap;
@@ -993,7 +993,10 @@ impl CheckResponse {
         let parsed: RawCheckResponse =
             serde_json::from_slice(raw).map_err(|error| match error.classify() {
                 serde_json::error::Category::Data => JevError::response_invalid(MODEL_OR_SHAPE),
-                _ => JevError::response_invalid("response is not JSON"),
+                _ => JevError::response_invalid_because(
+                    ResponseInvalidCause::NotJson,
+                    "response is not JSON",
+                ),
             })?;
         Self::try_from(parsed)
     }

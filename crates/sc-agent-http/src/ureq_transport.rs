@@ -10,7 +10,7 @@ use std::io::Read;
 use std::str::FromStr;
 use std::time::Duration;
 
-use sc_agent_types::{JevError, NetworkErrorKind, ResolvedApiKey};
+use sc_agent_types::{JevError, NetworkErrorKind, ResolvedApiKey, ResponseInvalidCause};
 use ureq::http::Uri;
 
 use crate::request::{HttpRequest, HttpResponse};
@@ -153,9 +153,11 @@ fn build_outbound(request: &HttpRequest) -> Result<ureq::http::Request<&[u8]>, J
 /// request and HTTP/2 header compression never expose it (RSH-001).
 ///
 /// A value that is not a valid header value gives the same `INPUT_INVALID`
-/// error as any other bad request, without the key in its text. (`ResolvedApiKey`
-/// already refuses control characters, so this is defence in depth and has
-/// no reachable failing input to test.)
+/// error as any other bad request, without the key in its text.
+/// `ResolvedApiKey::try_new` owns the rule: it refuses whitespace, control
+/// characters and anything outside visible ASCII, which is stricter than
+/// `http`'s header-value check (that accepts a non-ASCII character), so this
+/// is defence in depth and has no reachable failing input.
 fn secret_header_value(
     secret: &crate::request::SecretHeader,
 ) -> Result<ureq::http::HeaderValue, JevError> {
@@ -205,16 +207,20 @@ fn read_response(mut response: ureq::http::Response<ureq::Body>) -> Result<HttpR
         .as_reader()
         .take(MAX_RESPONSE_BYTES.saturating_add(1));
     let mut body = Vec::new();
+    // The request was already accepted by the time the body is read, so a
+    // failure here is `other` (not retryable): the provider may have processed
+    // and billed it, and resending could double-charge.
     reader.read_to_end(&mut body).map_err(|error| {
         JevError::network(
-            io_error_kind(&error),
+            NetworkErrorKind::Other,
             format!("reading the response failed: {error}"),
         )
     })?;
     if body.len() as u64 > MAX_RESPONSE_BYTES {
-        return Err(JevError::response_invalid(format!(
-            "HTTP {status} response exceeds {MAX_RESPONSE_BYTES} bytes"
-        )));
+        return Err(JevError::response_invalid_because(
+            ResponseInvalidCause::TooLarge,
+            format!("HTTP {status} response exceeds {MAX_RESPONSE_BYTES} bytes"),
+        ));
     }
     Ok(HttpResponse::new(status, headers, body))
 }
@@ -250,19 +256,29 @@ pub(crate) fn is_valid_url(url: &str) -> bool {
 /// `NETWORK_ERROR` of [`ureq_error_kind`].
 fn ureq_error(error: ureq::Error) -> JevError {
     if let ureq::Error::BodyExceedsLimit(limit) = error {
-        return JevError::response_invalid(format!("response exceeds {limit} bytes"));
+        return JevError::response_invalid_because(
+            ResponseInvalidCause::TooLarge,
+            format!("response exceeds {limit} bytes"),
+        );
     }
-    JevError::network(
-        ureq_error_kind(&error),
-        format!("connection failed: {error}"),
-    )
+    let kind = ureq_error_kind(&error);
+    // Word the failure by what happened, not always as a connection failure.
+    let what = match kind {
+        NetworkErrorKind::Timeout => "request timed out",
+        NetworkErrorKind::Connect => "could not connect",
+        NetworkErrorKind::Tls => "TLS failed",
+        NetworkErrorKind::Cancelled => "request cancelled",
+        _ => "transport error",
+    };
+    JevError::network(kind, format!("{what}: {error}"))
 }
 
 /// Classifies a ureq failure for [`JevError::retryable`].
 ///
 /// TLS, certificate and https-only refusals are `Tls` (not retryable); a
-/// timeout is `Timeout`; everything else that fails before a response, DNS
-/// included, is `Connect`.
+/// timeout is `Timeout`; a connection-class I/O error, DNS or proxy-connect failure is `Connect`;
+/// any other I/O error and an
+/// error that is none of these is `Other` (not retryable).
 fn ureq_error_kind(error: &ureq::Error) -> NetworkErrorKind {
     match error {
         ureq::Error::Timeout(_) => NetworkErrorKind::Timeout,
@@ -272,16 +288,36 @@ fn ureq_error_kind(error: &ureq::Error) -> NetworkErrorKind {
         | ureq::Error::RequireHttpsOnly(_)
         | ureq::Error::Pem(_)
         | ureq::Error::Rustls(_) => NetworkErrorKind::Tls,
-        _ => NetworkErrorKind::Connect,
+        ureq::Error::BodyStalled => NetworkErrorKind::Timeout,
+        ureq::Error::HostNotFound
+        | ureq::Error::ConnectionFailed
+        | ureq::Error::ConnectProxyFailed(_) => NetworkErrorKind::Connect,
+        // Anything else (a bad URI, a protocol error, too many redirects, a
+        // decode failure, a future variant) is not known to be transient.
+        _ => NetworkErrorKind::Other,
     }
 }
 
-/// `Timeout` for a timed-out read, otherwise `Connect`.
+/// The kind of an I/O error from the connection: `Timeout` for a timed-out
+/// read, `Connect` only for connection-class kinds (refused, reset, aborted,
+/// not connected, broken pipe, unreachable, address unavailable), and `Other`
+/// (not retryable) for anything else, which is not known to be transient.
+/// `UnexpectedEof` is `Other`: it happens when the peer closes mid-reply,
+/// after the request was sent, and resending could double-charge.
 fn io_error_kind(error: &std::io::Error) -> NetworkErrorKind {
-    if error.kind() == std::io::ErrorKind::TimedOut {
-        NetworkErrorKind::Timeout
-    } else {
-        NetworkErrorKind::Connect
+    use std::io::ErrorKind as Kind;
+    match error.kind() {
+        Kind::TimedOut => NetworkErrorKind::Timeout,
+        Kind::ConnectionRefused
+        | Kind::ConnectionReset
+        | Kind::ConnectionAborted
+        | Kind::NotConnected
+        | Kind::BrokenPipe
+        | Kind::HostUnreachable
+        | Kind::NetworkUnreachable
+        | Kind::NetworkDown
+        | Kind::AddrNotAvailable => NetworkErrorKind::Connect,
+        _ => NetworkErrorKind::Other,
     }
 }
 
@@ -316,6 +352,65 @@ mod tests {
         assert_eq!(header.as_bytes(), key.as_bytes());
         let rendered = format!("{outbound:?}");
         assert!(!rendered.contains(key), "{rendered}");
+    }
+
+    /// ERR-QA-7/22: only connection-class I/O kinds are `Connect`; a timeout
+    /// is `Timeout`; any other I/O error is `Other`, which is not retryable,
+    /// and its message says what happened rather than "connection failed".
+    #[test]
+    fn io_errors_are_classified_by_what_happened() {
+        use std::io::ErrorKind as Kind;
+        for kind in [
+            Kind::ConnectionRefused,
+            Kind::ConnectionReset,
+            Kind::BrokenPipe,
+        ] {
+            assert_eq!(
+                io_error_kind(&std::io::Error::from(kind)),
+                NetworkErrorKind::Connect
+            );
+        }
+        assert_eq!(
+            io_error_kind(&std::io::Error::from(Kind::TimedOut)),
+            NetworkErrorKind::Timeout
+        );
+        for kind in [
+            Kind::PermissionDenied,
+            Kind::InvalidData,
+            Kind::Other,
+            Kind::OutOfMemory,
+            Kind::UnexpectedEof,
+        ] {
+            assert_eq!(
+                io_error_kind(&std::io::Error::from(kind)),
+                NetworkErrorKind::Other
+            );
+        }
+        let other = ureq_error(ureq::Error::Io(std::io::Error::from(Kind::InvalidData)));
+        assert!(!other.retryable());
+        assert!(
+            other.message().contains("transport error"),
+            "{}",
+            other.message()
+        );
+        assert!(!other.suggested_action().contains("retry once"));
+        let refused = ureq_error(ureq::Error::Io(std::io::Error::from(
+            Kind::ConnectionRefused,
+        )));
+        assert!(refused.retryable());
+        assert!(refused.message().contains("could not connect"));
+        let unknown = ureq_error(ureq::Error::BadUri("x".to_owned()));
+        assert!(!unknown.retryable());
+    }
+
+    /// Why `ResolvedApiKey::try_new` owns the visible-ASCII rule: `http`
+    /// itself accepts a non-ASCII character in a header value and refuses
+    /// only controls (DEL included).
+    #[test]
+    fn http_header_values_accept_non_ascii_but_not_controls() {
+        assert!(ureq::http::HeaderValue::from_str("Bearer abc\u{e9}").is_ok());
+        assert!(ureq::http::HeaderValue::from_str("Bearer abc\u{7f}").is_err());
+        assert!(ureq::http::HeaderValue::from_str("Bearer abc\n").is_err());
     }
 
     #[test]

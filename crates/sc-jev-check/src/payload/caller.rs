@@ -134,7 +134,8 @@ mod tests {
     fn malformed_request_hides_the_raw_document() {
         let error = parse_caller_request(br#"{"invalid":true}"#).expect_err("shape");
         assert_eq!(error.code(), "INPUT_INVALID");
-        assert!(!error.fix_hint().contains("invalid"));
+        assert!(!error.message().contains("\"invalid\""));
+        assert!(!error.message().contains("true"));
     }
 
     #[test]
@@ -142,7 +143,7 @@ mod tests {
         let bytes = br#"{"questions":[{"id":"q","prompt":"p","choices":["a","b"]}],"system_prompt":"INLINE-PROMPT-TOKEN"}"#;
         let error = parse_caller_request(bytes).expect_err("prompt");
         assert_eq!(error.code(), "INPUT_INVALID");
-        let hint = error.fix_hint();
+        let hint = error.message();
         assert!(hint.contains("--llm-system-prompt-file"));
         assert!(hint.contains("check.toml"));
         assert!(hint.contains("packaged default"));
@@ -158,7 +159,7 @@ mod tests {
         );
         let hint = parse_caller_request(score.as_bytes())
             .expect_err("score")
-            .fix_hint();
+            .message();
         assert!(
             hint.contains("question sev is a score question and needs 2 to 10 choices, got 11"),
             "{hint}"
@@ -166,14 +167,14 @@ mod tests {
         assert!(!hint.contains("SECRET-PROMPT"), "{hint}");
 
         let empty = br#"{"questions":[{"id":"q","prompt":"p","choices":[]}]}"#;
-        let hint = parse_caller_request(empty).expect_err("empty").fix_hint();
+        let hint = parse_caller_request(empty).expect_err("empty").message();
         assert!(
             hint.contains("question q is a choice question and needs 2 to 255 choices, got 0"),
             "{hint}"
         );
 
         let shape = br#"{"questions":[{"id":"q","prompt":"p"}]}"#;
-        let hint = parse_caller_request(shape).expect_err("shape").fix_hint();
+        let hint = parse_caller_request(shape).expect_err("shape").message();
         assert!(hint.contains("question is not valid: data error"), "{hint}");
         assert!(!hint.contains("\"prompt\""), "{hint}");
     }
@@ -190,13 +191,13 @@ mod tests {
     fn caller_json_uses_the_check_toml_rules() {
         let repeated_state = br#"{"questions":[{"id":"q","prompt":"p","choices":["a","b"]}],"state":[{"question_id":"q","choice":"a"},{"question_id":"q","choice":"b"}]}"#;
         let error = parse_caller_request(repeated_state).expect_err("repeat");
-        assert!(error.fix_hint().contains("repeats question q"));
+        assert!(error.message().contains("repeats question q"));
         let duplicate_id = br#"{"questions":[{"id":"q","prompt":"p","choices":["a","b"]},{"id":"q","prompt":"p","choices":["a","b"]}]}"#;
         let error = parse_caller_request(duplicate_id).expect_err("duplicate");
-        assert!(error.fix_hint().contains("repeated"));
+        assert!(error.message().contains("repeated"));
         let empty_prompt = br#"{"questions":[{"id":"q","prompt":"  ","choices":["a","b"]}]}"#;
         let error = parse_caller_request(empty_prompt).expect_err("empty");
-        assert!(error.fix_hint().contains("instructions are empty"));
+        assert!(error.message().contains("instructions are empty"));
         let empty_id = br#"{"questions":[{"id":"","prompt":"p","choices":["a"]}]}"#;
         assert_eq!(
             parse_caller_request(empty_id).expect_err("id").code(),
@@ -208,6 +209,6 @@ mod tests {
     fn state_choice_must_belong_to_the_question() {
         let bytes = br#"{"questions":[{"id":"q","prompt":"p","choices":["a","b"]}],"state":[{"question_id":"q","choice":"nope"}]}"#;
         let error = parse_caller_request(bytes).expect_err("state");
-        assert!(error.fix_hint().contains("not in the question"));
+        assert!(error.message().contains("not in the question"));
     }
 }

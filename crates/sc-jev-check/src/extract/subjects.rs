@@ -77,7 +77,7 @@ mod tests {
         let repo = RepoRoot::new(workspace_root());
         let error = extract_subjects(&repo, &Rev::worktree(), &rel("-")).expect_err("stdin");
         assert_eq!(error.code(), "CONFIG_INVALID");
-        assert!(error.fix_hint().contains("--request-json -"));
+        assert!(error.message().contains("--request-json -"));
     }
 
     #[test]

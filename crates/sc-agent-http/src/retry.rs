@@ -4,7 +4,11 @@
 //! [`BusyPolicy::default`] encodes the decided numbers:
 //!
 //! - Busy statuses are 429, 502 and 529, and only those. The same body is
-//!   resent. At most 5 sends.
+//!   resent. At most 5 sends. A reply whose body says the account is out of
+//!   quota (documented Anthropic and OpenAI shapes, see
+//!   [`api_failure`](crate::api_failure)) is not busy: no wait helps, so it
+//!   is returned at once for the caller to map to `QUOTA_EXHAUSTED`. An
+//!   unknown 429 body stays busy.
 //! - A valid `Retry-After` is honoured, clamped to 0–30 s. Valid is 1–32
 //!   bytes matching `^[0-9]+(\.[0-9]+)?$`. The digits are parsed as integers,
 //!   so sign, exponent, `inf`, `NaN` and overflow cannot occur; a long
@@ -33,10 +37,14 @@ use std::hash::{BuildHasher, RandomState};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use sc_agent_types::{CancelToken, JevError, NetworkErrorKind, RequestSha256, SendTrace};
+use sc_agent_types::{
+    BusyCause, CancelToken, JevError, NetworkErrorKind, RequestSha256, SendTrace,
+};
 
+use crate::failure::{busy_reply, is_quota_reply};
 use crate::redact::redact;
 use crate::request::{HttpRequest, HttpResponse};
+use crate::retry_after::RetryAfter;
 use crate::transport::Transport;
 
 #[cfg(feature = "test-util")]
@@ -51,12 +59,6 @@ const DEFAULT_MAX_SENDS: u32 = 5;
 /// Most sends per call under any policy (RSH-002). [`BusyPolicy::new`] and
 /// [`BusyPolicy::with_max_sends`] clamp to `1..=MAX_SENDS`.
 const MAX_SENDS: u32 = 5;
-
-/// Upper clamp of an honoured `Retry-After`.
-const RETRY_AFTER_MAX: Duration = Duration::from_secs(30);
-
-/// Longest valid `Retry-After` value, in bytes.
-const RETRY_AFTER_MAX_LEN: usize = 32;
 
 /// First backoff wait when `Retry-After` is absent or malformed.
 const BACKOFF_FIRST: Duration = Duration::from_secs(1);
@@ -250,10 +252,11 @@ impl Hooks {
 ///
 /// - `NETWORK_ERROR` kind `Cancelled` when `cancel` is set before an attempt
 ///   or during a wait.
-/// - `NETWORK_ERROR` kind `Busy` (`retryable() == true`) when the last
-///   allowed send was busy (detail "… N sends exhausted") or when the 90 s
-///   budget leaves no time for another attempt (detail "… retry budget
-///   exhausted").
+/// - `PROVIDER_BUSY` (`retryable() == true`) when the last allowed send was
+///   busy (cause `sends`) or when the 90 s budget leaves no time for another
+///   attempt (cause `budget`). It carries the last busy status, the number
+///   of sends and the provider's `Retry-After` in seconds when it sent a
+///   valid one.
 /// - Any error of [`Transport::send`], unchanged except for redaction, and
 ///   never retried. A connect or DNS failure is `NETWORK_ERROR` kind
 ///   `Connect` (`retryable() == true`) and returns at once.
@@ -433,90 +436,49 @@ fn retry_loop(
         sends += 1;
         let response = transport.send(request)?;
         let status = response.status();
-        if !BUSY_STATUSES.contains(&status) {
+        if !is_busy(&response) {
             return Ok(response);
         }
+        let retry_after = RetryAfter::parse(response.header("retry-after"));
+        let reported_wait = retry_after.map(RetryAfter::report_seconds);
         if sends >= policy.max_sends {
-            return Err(JevError::network(
-                NetworkErrorKind::Busy,
-                format!(
-                    "HTTP {status} busy; {sends} {}{}",
-                    plural(sends),
-                    BusyExhaustion::SENDS_SUFFIX
-                ),
-            ));
+            return Err(JevError::provider_busy(
+                format!("HTTP {status} busy; {sends} {} exhausted", plural(sends)),
+                status,
+                sends,
+                BusyCause::Sends,
+                reported_wait,
+            )
+            .with_busy_reply(busy_reply(request, &response)));
         }
         let remaining = BUDGET.saturating_sub(hooks.elapsed(started));
         if remaining.is_zero() {
-            return Err(JevError::network(
-                NetworkErrorKind::Busy,
+            return Err(JevError::provider_busy(
                 format!(
-                    "HTTP {status} busy after {sends} {}{}",
-                    plural(sends),
-                    BusyExhaustion::BUDGET_SUFFIX
+                    "HTTP {status} busy after {sends} {}; retry budget exhausted",
+                    plural(sends)
                 ),
-            ));
+                status,
+                sends,
+                BusyCause::Budget,
+                reported_wait,
+            )
+            .with_busy_reply(busy_reply(request, &response)));
         }
-        let base =
-            parse_retry_after(response.header("retry-after")).unwrap_or_else(|| backoff(sends));
+        let base = retry_after.map_or_else(|| backoff(sends), RetryAfter::wait);
         let wait = base.saturating_add(hooks.jitter()).min(remaining);
         hooks.wait(wait, cancel)?;
     }
 }
 
-/// Why busy retry gave up (QA-002): both causes are `NETWORK_ERROR` kind
-/// `Busy` with `retryable() == true`, and the owner decision only asks that
-/// they be distinguishable. The cause is the fixed ending of the detail text
-/// this crate writes; callers that add a prefix (`Jev …`, `luna …`) keep it.
+/// Whether `response` is a busy reply that is worth resending.
 ///
-/// # Examples
-///
-/// ```
-/// use sc_agent_http::BusyExhaustion;
-/// use sc_agent_types::{JevError, NetworkErrorKind};
-///
-/// let error = JevError::network(
-///     NetworkErrorKind::Busy,
-///     "luna HTTP 429 busy after 2 sends; retry budget exhausted",
-/// );
-/// assert_eq!(BusyExhaustion::of(&error), Some(BusyExhaustion::Budget));
-/// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum BusyExhaustion {
-    /// The last allowed send was busy ("… N sends exhausted").
-    Sends,
-    /// The 90 s budget left no time for another attempt ("… retry budget
-    /// exhausted").
-    Budget,
-}
-
-impl BusyExhaustion {
-    /// Detail ending for [`Self::Sends`].
-    pub const SENDS_SUFFIX: &'static str = " exhausted";
-    /// Detail ending for [`Self::Budget`].
-    pub const BUDGET_SUFFIX: &'static str = "; retry budget exhausted";
-
-    /// The cause of a busy-exhaustion error, or `None` for any other error.
-    #[must_use]
-    pub fn of(error: &JevError) -> Option<Self> {
-        let JevError::NetworkError {
-            kind: NetworkErrorKind::Busy,
-            detail,
-            ..
-        } = error
-        else {
-            return None;
-        };
-        if detail.ends_with(Self::BUDGET_SUFFIX) {
-            Some(Self::Budget)
-        } else if detail.ends_with(Self::SENDS_SUFFIX)
-            && (detail.ends_with(" sends exhausted") || detail.ends_with(" send exhausted"))
-        {
-            Some(Self::Sends)
-        } else {
-            None
-        }
-    }
+/// The classification hook: a busy status ([`BUSY_STATUSES`]) whose body
+/// says the account is out of quota is not busy, because waiting cannot
+/// help. Retry timing is unaffected.
+fn is_busy(response: &HttpResponse) -> bool {
+    BUSY_STATUSES.contains(&response.status())
+        && !is_quota_reply(response.status(), response.body())
 }
 
 fn plural(sends: u32) -> &'static str {
@@ -536,44 +498,18 @@ fn backoff(nth: u32) -> Duration {
     BACKOFF_FIRST.saturating_mul(factor).min(BACKOFF_MAX)
 }
 
-/// The honoured wait of a valid `Retry-After`, clamped to 0–30 s.
-///
-/// `None` when the header is absent or malformed. No floating point is
-/// involved: the integer part saturates, and only the first nine fraction
-/// digits (nanoseconds) count.
+/// The honoured wait of a valid `Retry-After`, clamped to 0–30 s (the one
+/// parser, [`RetryAfter`]; `None` when absent or malformed). The table tests
+/// below drive it.
+#[cfg(test)]
 fn parse_retry_after(header: Option<&str>) -> Option<Duration> {
-    let text = header?;
-    if text.is_empty() || text.len() > RETRY_AFTER_MAX_LEN {
-        return None;
-    }
-    let (whole, fraction) = match text.split_once('.') {
-        Some((whole, fraction)) => (whole, Some(fraction)),
-        None => (text, None),
-    };
-    let all_digits =
-        |part: &str| !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_digit());
-    if !all_digits(whole) || fraction.is_some_and(|part| !all_digits(part)) {
-        return None;
-    }
-    let seconds = whole.bytes().fold(0_u64, |acc, byte| {
-        acc.saturating_mul(10)
-            .saturating_add(u64::from(byte - b'0'))
-    });
-    let nanos = fraction.map_or(0, |part| {
-        part.bytes()
-            .chain(std::iter::repeat(b'0'))
-            .take(9)
-            .fold(0_u32, |acc, byte| acc * 10 + u32::from(byte - b'0'))
-    });
-    if seconds >= RETRY_AFTER_MAX.as_secs() {
-        return Some(RETRY_AFTER_MAX);
-    }
-    Some(Duration::new(seconds, nanos).min(RETRY_AFTER_MAX))
+    RetryAfter::parse(header).map(RetryAfter::wait)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::retry_after::WAIT_MAX as RETRY_AFTER_MAX;
 
     #[test]
     fn backoff_doubles_to_the_cap() {

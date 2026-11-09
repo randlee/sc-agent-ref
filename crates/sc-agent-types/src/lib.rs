@@ -4,8 +4,8 @@
 //!
 //! [`JevError`] is the only CLI and PyO3 error-id source (ADR-SAG-0001,
 //! ADR-SAG-0027). [`JevError::code`] returns an [`ErrorCode`];
-//! [`JevError::fix_hint`] is the one renderer of recovery text. The stderr
-//! JSON shape is [`ScAgentErrorResponse`].
+//! [`JevError::message`] and [`JevError::suggested_action`] are the two
+//! renderers of text. The stderr JSON shape is [`ScAgentErrorResponse`].
 //!
 //! # Backends
 //!
@@ -67,9 +67,14 @@ pub use cancel::CancelToken;
 #[doc(inline)]
 pub use catalog::{BACKENDS, BackendDescriptor, BackendFamily};
 #[doc(inline)]
-pub use envelope::ScAgentErrorResponse;
+pub use envelope::{
+    ERROR_TEXT_MAX_BYTES, EXIT_FAILURE, EXIT_RETRYABLE, ErrorDetails, ScAgentErrorResponse,
+};
 #[doc(inline)]
-pub use error::{ErrorCode, JevError, NetworkErrorKind, OperationalArea};
+pub use error::{
+    BusyCause, ErrorCategory, ErrorCode, IO_KIND_IDS, JevError, LimitUnit, NetworkErrorKind,
+    PROVIDER_TEXT_MAX_BYTES, ProviderFailure, ResponseInvalidCause, bound_provider_text,
+};
 #[doc(inline)]
 pub use ids::{
     AnswerId, BackendId, BackendKeyId, BackendSet, BlobSha, Operation, PayloadSha256, ProjectLabel,
