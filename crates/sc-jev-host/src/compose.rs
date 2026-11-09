@@ -33,7 +33,9 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use sc_agent_types::observability::v2::{NoopSessionLog, SharedSessionLog};
+use sc_agent_types::observability::v2::{
+    NoopGeneralLog, NoopSessionLog, SharedGeneralLog, SharedSessionLog,
+};
 use sc_agent_types::{BackendSet, CancelToken, JevError, ProjectLabel, RepoRoot, Rev, SessionId};
 use sc_decision_schema::MultiBackendMode;
 use sc_jev_check::registry::BackendRegistry;
@@ -83,6 +85,8 @@ pub struct ComposeInputs {
     cancel: CancelToken,
     registry: Option<Arc<BackendRegistry>>,
     project: Option<ProjectLabel>,
+    session_log: Option<SharedSessionLog>,
+    general_log: Option<SharedGeneralLog>,
 }
 
 impl std::fmt::Debug for ComposeInputs {
@@ -101,6 +105,8 @@ impl std::fmt::Debug for ComposeInputs {
             .field("mode", &self.mode)
             .field("registry", &self.registry.is_some())
             .field("project", &self.project)
+            .field("session_log", &self.session_log.is_some())
+            .field("general_log", &self.general_log.is_some())
             .finish_non_exhaustive()
     }
 }
@@ -137,6 +143,8 @@ impl ComposeInputs {
             cancel: CancelToken::new(),
             registry: None,
             project: None,
+            session_log: None,
+            general_log: None,
         }
     }
 
@@ -226,6 +234,28 @@ impl ComposeInputs {
         self
     }
 
+    /// Injects the session log (one row per judge send).
+    ///
+    /// Unset, the run opens sc-agent's default session log under the
+    /// resolved log root. An injected log replaces that default; the caller
+    /// owns its flush.
+    #[must_use]
+    pub fn session_log(mut self, log: SharedSessionLog) -> Self {
+        self.session_log = Some(log);
+        self
+    }
+
+    /// Injects the general log (operator diagnostics, separate from the
+    /// session log).
+    ///
+    /// Unset, the run falls back to sc-agent's default general log under the
+    /// resolved log root. An injected log replaces that default.
+    #[must_use]
+    pub fn general_log(mut self, log: SharedGeneralLog) -> Self {
+        self.general_log = Some(log);
+        self
+    }
+
     /// Resolves the repo root and the log and session paths.
     ///
     /// The repo root is the explicit one ([`Self::repo_root`]), else
@@ -269,8 +299,14 @@ impl ComposeInputs {
         LogContext::new(repo, self.project.clone())
     }
 
-    fn run_config(&self, resolved: &ResolvedPaths, log: SharedSessionLog) -> RunConfig {
+    fn run_config(
+        &self,
+        resolved: &ResolvedPaths,
+        log: SharedSessionLog,
+        general: SharedGeneralLog,
+    ) -> RunConfig {
         let mut config = RunConfig::new(resolved.repo_root.clone(), log)
+            .general_log(general)
             .log_context(self.log_context(resolved))
             .dry_run(self.dry_run)
             .sessions_dir(resolved.sessions_dir.clone())
@@ -372,7 +408,7 @@ impl HostRun {
 /// Any [`JevError`] from root discovery, logger start or `prepare`.
 pub fn prepare_from(source: CheckSource, inputs: ComposeInputs) -> Result<HostRun, JevError> {
     let resolved = inputs.resolve()?;
-    let adapter = if inputs.dry_run {
+    let adapter = if inputs.dry_run || inputs.session_log.is_some() {
         None
     } else {
         Some(ObservabilityAdapter::open(
@@ -380,11 +416,16 @@ pub fn prepare_from(source: CheckSource, inputs: ComposeInputs) -> Result<HostRu
             &resolved.log_root,
         )?)
     };
-    let log: SharedSessionLog = match &adapter {
-        Some(adapter) => adapter.shared(),
-        None => Arc::new(NoopSessionLog),
+    let log: SharedSessionLog = match (&inputs.session_log, &adapter) {
+        (Some(injected), _) => Arc::clone(injected),
+        (None, Some(adapter)) => adapter.shared(),
+        (None, None) => Arc::new(NoopSessionLog),
     };
-    let config = inputs.run_config(&resolved, log);
+    let general: SharedGeneralLog = inputs
+        .general_log
+        .clone()
+        .unwrap_or_else(|| Arc::new(NoopGeneralLog));
+    let config = inputs.run_config(&resolved, log, general);
     Ok(HostRun {
         prepared: prepare(source, config)?,
         adapter,
@@ -426,18 +467,34 @@ pub fn ask_from(
     inputs: ComposeInputs,
 ) -> Result<AskResponse, JevError> {
     let resolved = inputs.resolve()?;
-    let adapter = ObservabilityAdapter::open(&inputs.policy, &resolved.log_root)?;
+    let adapter = match inputs.session_log {
+        Some(_) => None,
+        None => Some(ObservabilityAdapter::open(
+            &inputs.policy,
+            &resolved.log_root,
+        )?),
+    };
     let sessions = FileSessionStore::new(&resolved.sessions_dir)?;
-    let config = inputs.run_config(&resolved, adapter.shared());
+    let log: SharedSessionLog = match (&inputs.session_log, &adapter) {
+        (Some(injected), _) => Arc::clone(injected),
+        (None, Some(adapter)) => adapter.shared(),
+        (None, None) => Arc::new(NoopSessionLog),
+    };
+    let general: SharedGeneralLog = inputs
+        .general_log
+        .clone()
+        .unwrap_or_else(|| Arc::new(NoopGeneralLog));
+    let config = inputs.run_config(&resolved, log, general);
+    let flush = || adapter.as_ref().and_then(finish_log);
     match ask(&sessions, session_id, follow_up, config) {
         Ok(mut response) => {
-            if let Some(warning) = finish_log(&adapter) {
+            if let Some(warning) = flush() {
                 response = response.with_warning(warning);
             }
             Ok(response)
         }
         // Flush before propagating: a failed send wrote its row too.
-        Err(error) => Err(note_flush(error, finish_log(&adapter))),
+        Err(error) => Err(note_flush(error, flush())),
     }
 }
 

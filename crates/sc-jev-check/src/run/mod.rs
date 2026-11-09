@@ -105,7 +105,7 @@ use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 use std::time::SystemTime;
 
-use sc_agent_types::observability::v2::SharedSessionLog;
+use sc_agent_types::observability::v2::{NoopGeneralLog, SharedGeneralLog, SharedSessionLog};
 use sc_agent_types::schema::subjects::SubjectsProducer;
 use sc_agent_types::{
     BackendId, BackendSet, CancelToken, JevError, ModelAliases, Operation, RepoRelativePath,
@@ -276,6 +276,7 @@ pub struct RunConfig {
     mode: MultiBackendMode,
     models: Option<ModelAliases>,
     log_context: Option<LogContext>,
+    general_log: SharedGeneralLog,
 }
 
 impl RunConfig {
@@ -296,7 +297,19 @@ impl RunConfig {
             mode: MultiBackendMode::Independent,
             models: None,
             log_context: None,
+            general_log: Arc::new(NoopGeneralLog),
         }
+    }
+
+    /// Injects the general (operator diagnostics) log.
+    ///
+    /// Separate from the session log given to [`RunConfig::new`]. The
+    /// default discards events; composition roots pass the sc-agent default
+    /// or a caller's logger. Logging never changes a result.
+    #[must_use]
+    pub fn general_log(mut self, log: SharedGeneralLog) -> Self {
+        self.general_log = log;
+        self
     }
 
     /// Sets the `repo` and `project` columns of every log row this config
