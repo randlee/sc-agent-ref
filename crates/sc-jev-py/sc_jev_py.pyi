@@ -74,6 +74,22 @@ class CheckResult:
     def session(self) -> Session | None: ...
     def ask(self, follow_up: str, *, project: str | None = None) -> dict[str, Any]: ...
 
+def ask(
+    session_id: str,
+    follow_up: str,
+    *,
+    project: str | None = None,
+    repo_root: StrPath | None = None,
+    session_dir: StrPath | None = None,
+    log_dir: StrPath | None = None,
+    models_file: StrPath | None = None,
+    session_log: Callable[[dict[str, Any]], object] | None = None,
+    general_log: Callable[[dict[str, Any]], object] | None = None,
+) -> dict[str, Any]:
+    """Send a follow-up to a stored session, from this or an earlier process
+    (`sc-ai jev ask --session-id`). `session_id` is a ULID, else `INPUT_INVALID`.
+    Raises `JevError` (`SESSION_NOT_FOUND`, `SESSION_EXPIRED`, ...)."""
+
 def build_request(
     check_path: StrPath | None = None,
     *,

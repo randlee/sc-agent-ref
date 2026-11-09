@@ -73,7 +73,9 @@ directory, first match: `session_dir`, `SC_AGENT_SESSION_DIR`, then
 through the `sc-jev-host` adapter over the v2 `LoggerBuilder` file sink, one
 session-log row (ADR-SAG-0031) in each line's `fields`
 (ADR-SAG-0013, ADR-SAG-0016 r-3b amendment). This crate keeps argument
-conversion, the GIL release and exception mapping only (ADR-SAG-0011 r-3b).
+conversion, the GIL release and exception mapping (ADR-SAG-0011 r-3b), plus
+opening the default host general log and applying `repo_root`, `log_dir` and
+`sessions_dir` (ADR-SAG-0011 phase-end amendment).
 
 ## Project label and session ids (REQ-SAG-0615, REQ-SAG-0612)
 

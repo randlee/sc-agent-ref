@@ -380,6 +380,157 @@ fn ask_with(
     to_py(py, "outcome JSON", serde_json::to_value(response.outcome()))
 }
 
+/// One Python `ask` invocation, with owned arguments.
+struct AskRun {
+    session_id: SessionId,
+    follow_up: String,
+    project: Option<ProjectLabel>,
+    repo_root: Option<PathBuf>,
+    session_dir: Option<PathBuf>,
+    log_dir: Option<PathBuf>,
+    models_file: Option<PathBuf>,
+    loggers: Injected,
+    #[cfg(any(test, feature = "test-util"))]
+    scripted_answers: Option<Value>,
+}
+
+/// Parses a session id the way `sc-ai jev ask --session-id` does: a ULID
+/// only. Caller text echoed in the error is cut short.
+fn parse_session_id(value: &str) -> Result<SessionId, JevError> {
+    value.parse().map_err(|_| {
+        let shown: String = value.chars().take(64).collect();
+        let cut = if shown.len() < value.len() { "..." } else { "" };
+        JevError::input_invalid_field(
+            "session_id",
+            format!(
+                "session id {shown:?}{cut} is not a ULID; session ids are ULIDs since Phase A.1; start a new session with `run_check`"
+            ),
+        )
+    })
+}
+
+fn execute_ask(spec: AskRun) -> Result<Value, JevError> {
+    let mut inputs = base_inputs(spec.repo_root.as_deref(), spec.log_dir, spec.session_dir)?;
+    if let Some(path) = spec.models_file {
+        inputs = inputs.models_file(path);
+    }
+    if let Some(project) = spec.project {
+        inputs = inputs.project(project);
+    }
+    #[cfg(any(test, feature = "test-util"))]
+    if let Some(answers) = spec.scripted_answers {
+        inputs = inputs.registry(scripted_registry(answers)?);
+    }
+    if let Some(log) = spec.loggers.session.clone() {
+        inputs = inputs.session_log(log);
+    }
+    let resolved = inputs.resolve()?;
+    let mut general = None;
+    match spec.loggers.general.clone() {
+        Some(log) => inputs = inputs.general_log(log),
+        None => {
+            if let Ok(host) = HostGeneralLog::open(&PathPolicy::python(), &resolved.log_root) {
+                inputs = inputs.general_log(host.shared());
+                general = Some(Arc::new(host));
+            }
+        }
+    }
+    let _flush = FlushOnDrop(general);
+    let inputs = inputs
+        .repo_root(resolved.repo_root)
+        .log_dir(resolved.log_root)
+        .sessions_dir(resolved.sessions_dir);
+    let response = ask_from(spec.session_id, &spec.follow_up, inputs)?;
+    serde_json::to_value(response.outcome())
+        .map_err(|error| JevError::encode_failed("outcome JSON", &error))
+}
+
+fn finish_ask(py: Python<'_>, spec: AskRun) -> PyResult<Py<PyAny>> {
+    let outcome = py.detach(move || execute_ask(spec));
+    let outcome = map_err(py, outcome)?;
+    to_py(py, "outcome JSON", Ok(outcome))
+}
+
+#[expect(clippy::too_many_arguments, reason = "mirrors the Python keyword API")]
+fn ask_run(
+    session_id: &str,
+    follow_up: &str,
+    project: Option<String>,
+    repo_root: Option<PathBuf>,
+    session_dir: Option<PathBuf>,
+    log_dir: Option<PathBuf>,
+    models_file: Option<PathBuf>,
+    loggers: Injected,
+) -> Result<AskRun, JevError> {
+    Ok(AskRun {
+        session_id: parse_session_id(session_id)?,
+        follow_up: follow_up.to_owned(),
+        project: parse_project(project)?,
+        repo_root: non_empty(repo_root),
+        session_dir: non_empty(session_dir),
+        log_dir: non_empty(log_dir),
+        models_file: non_empty(models_file),
+        loggers,
+        #[cfg(any(test, feature = "test-util"))]
+        scripted_answers: None,
+    })
+}
+
+/// Sends `follow_up` to the saved session `session_id`, from this process or
+/// an earlier one (`sc-ai jev ask`, through the same `ask_from`).
+///
+/// `session_id` is a ULID; anything else is `INPUT_INVALID`. Paths, `project`
+/// and the two log callables behave as in `run_check`; the GIL is released
+/// while the follow-up is sent.
+///
+/// # Errors
+///
+/// Raises `JevError`: `SESSION_NOT_FOUND`, `SESSION_EXPIRED` or
+/// `INPUT_INVALID` from the session, plus the registry and backend errors of
+/// the CLI.
+#[pyfunction]
+#[pyo3(signature = (
+    session_id,
+    follow_up,
+    *,
+    project=None,
+    repo_root=None,
+    session_dir=None,
+    log_dir=None,
+    models_file=None,
+    session_log=None,
+    general_log=None,
+))]
+#[expect(clippy::too_many_arguments, reason = "Python keyword API")]
+pub(crate) fn ask(
+    py: Python<'_>,
+    session_id: &str,
+    follow_up: &str,
+    project: Option<String>,
+    repo_root: Option<PathBuf>,
+    session_dir: Option<PathBuf>,
+    log_dir: Option<PathBuf>,
+    models_file: Option<PathBuf>,
+    session_log: Option<Py<PyAny>>,
+    general_log: Option<Py<PyAny>>,
+) -> PyResult<Py<PyAny>> {
+    let loggers = map_err(py, logging::injected(session_log, general_log, py))?;
+    let spec = map_err(
+        py,
+        ask_run(
+            session_id,
+            follow_up,
+            project,
+            repo_root,
+            session_dir,
+            log_dir,
+            models_file,
+            loggers,
+        ),
+    )?;
+    finish_ask(py, spec)
+}
+
 /// Result of `run_check`, built from the engine's `RunResponse`.
 ///
 /// Immutable. `outcomes` (the `ok` results, in backend order), `equal_input`
@@ -793,6 +944,62 @@ pub(crate) fn run_check(
 #[cfg(any(test, feature = "test-util"))]
 pub(crate) mod testing {
     use super::*;
+
+    /// `ask` with scripted judge answers instead of HTTP backends.
+    ///
+    /// # Errors
+    ///
+    /// Raises `JevError` like `ask`.
+    #[pyfunction]
+    #[pyo3(signature = (
+        session_id,
+        follow_up,
+        *,
+        scripted_answers,
+        project=None,
+        repo_root=None,
+        session_dir=None,
+        log_dir=None,
+        models_file=None,
+        session_log=None,
+        general_log=None,
+    ))]
+    #[cfg_attr(
+        not(feature = "test-util"),
+        expect(dead_code, reason = "registered only by the test-util module")
+    )]
+    #[expect(clippy::too_many_arguments, reason = "Python keyword API")]
+    pub(crate) fn ask_scripted(
+        py: Python<'_>,
+        session_id: &str,
+        follow_up: &str,
+        scripted_answers: Bound<'_, PyAny>,
+        project: Option<String>,
+        repo_root: Option<PathBuf>,
+        session_dir: Option<PathBuf>,
+        log_dir: Option<PathBuf>,
+        models_file: Option<PathBuf>,
+        session_log: Option<Py<PyAny>>,
+        general_log: Option<Py<PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
+        let loggers = map_err(py, logging::injected(session_log, general_log, py))?;
+        let answers = map_err(py, py_to_value(&scripted_answers))?;
+        let mut spec = map_err(
+            py,
+            ask_run(
+                session_id,
+                follow_up,
+                project,
+                repo_root,
+                session_dir,
+                log_dir,
+                models_file,
+                loggers,
+            ),
+        )?;
+        spec.scripted_answers = Some(answers);
+        finish_ask(py, spec)
+    }
 
     /// `run_check` with scripted judge answers instead of HTTP backends.
     ///

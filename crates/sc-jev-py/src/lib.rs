@@ -114,6 +114,7 @@ fn sc_jev_py(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(stream::run_many, module)?)?;
     module.add_function(wrap_pyfunction!(run::build_request, module)?)?;
     module.add_function(wrap_pyfunction!(run::run_check, module)?)?;
+    module.add_function(wrap_pyfunction!(run::ask, module)?)?;
     module.add_function(wrap_pyfunction!(run::canonical_bytes, module)?)?;
     module.add_function(wrap_pyfunction!(run::canonical_sha256, module)?)?;
     module.add_function(wrap_pyfunction!(run::models, module)?)?;
@@ -134,6 +135,7 @@ fn sc_jev_py(module: &Bound<'_, PyModule>) -> PyResult<()> {
             run::testing::run_check_scripted,
             &testing
         )?)?;
+        testing.add_function(wrap_pyfunction!(run::testing::ask_scripted, &testing)?)?;
         testing.add_function(wrap_pyfunction!(
             stream::testing::decision_stream_scripted,
             &testing
