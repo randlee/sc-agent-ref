@@ -1112,6 +1112,7 @@ mod tests {
             &Input::Check(PathBuf::from("check.toml")),
             Some(repo),
             "WORKTREE",
+            None,
         )
         .expect("build");
         assert!(built.payload.contains("Transition.GIVE_BACK"));
@@ -1123,6 +1124,7 @@ mod tests {
             &Input::Check(PathBuf::from("check.toml")),
             Some(repo),
             "WORKTREE",
+            None,
         )
         .expect("rebuild");
         assert_eq!(built.payload_sha256, again.payload_sha256);
@@ -1134,7 +1136,7 @@ mod tests {
     fn request_json_builds_the_same_payload_as_the_cli_document() {
         let repo = tempfile::tempdir().expect("repo");
         let input = Input::Request(REQUEST.as_bytes().to_vec());
-        let built = build(&input, Some(repo.path()), "WORKTREE").expect("build");
+        let built = build(&input, Some(repo.path()), "WORKTREE", None).expect("build");
         assert_eq!(
             built.payload,
             r#"{"questions":[{"choices":["no","yes"],"id":"relevant","prompt":"Does it apply?"}],"state":[]}"#
@@ -1252,6 +1254,7 @@ mod tests {
                 &Input::Check(PathBuf::from("check.toml")),
                 Some(root.path()),
                 rev,
+                None,
             )
             .err()
             .expect("malformed rev");
@@ -1335,6 +1338,7 @@ mod tests {
                 None,
                 Some(repo.clone()),
                 "WORKTREE",
+                None,
             )
             .expect("build_request");
             let digest: String = built
@@ -1353,6 +1357,7 @@ mod tests {
                 true,
                 Some(repo.clone()),
                 "WORKTREE",
+                None,
                 None,
                 None,
                 None,
@@ -1394,6 +1399,7 @@ mod tests {
                 "WORKTREE",
                 Some(logs.clone()),
                 Some(root.path().join("sessions")),
+                None,
                 None,
                 false,
                 None,
@@ -1513,6 +1519,7 @@ mod tests {
                 None,
                 Some(repo.to_path_buf()),
                 "WORKTREE",
+                None,
             )
             .expect_err("extractor output is not a subjects document");
             let code: String = error
