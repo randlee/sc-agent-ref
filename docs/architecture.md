@@ -1225,7 +1225,7 @@ the table's row for file or process I/O now reads `IO_FAILED`.)*
 | `sc_jev_py.run_check` / `_testing.run_check_scripted` | unknown backend name | `CONFIG_INVALID` | `INPUT_INVALID` (`BackendId::from_str`, same as `sc-ai` and `check.toml`) |
 | same | kebab-case alias (`anthropic-haiku`, `openai-luna`) | accepted | `INPUT_INVALID` (one documented spelling) |
 | any crate | `serde_json` encode / decode failure (`JevError::encode_failed`) | mixed (`INPUT_INVALID`, `EXTRACTION_FAILED`) or raw text | `INPUT_INVALID`, detail keeps only category and line/column |
-| any crate | file or process I/O failure (`JevError::io_failed`) | mixed (`INPUT_MISSING` for any read error, `EXTRACTION_FAILED` for git spawn) | `INPUT_INVALID` with the `io::ErrorKind`; a missing file stays `INPUT_MISSING` | *(Superseded by agt-2a3: `IO_FAILED` with `details.what` and `details.io_kind`; a missing file stays `INPUT_MISSING`.)*
+| any crate | file or process I/O failure (`JevError::io_failed`) | mixed (`INPUT_MISSING` for any read error, `EXTRACTION_FAILED` for git spawn) | `INPUT_INVALID` with the `io::ErrorKind`; a missing file stays `INPUT_MISSING` *(Superseded by agt-2a3: `IO_FAILED` with `details.what` and `details.io_kind`; a missing file stays `INPUT_MISSING`.)* |
 | `sc-treesitter` CLI | missing positional source path | `INPUT_MISSING` | `INPUT_INVALID` (an argument error, not a missing file) |
 | `sc-treesitter` library | span or line number does not fit `u32` | `INPUT_TOO_LARGE` | `INPUT_INVALID` naming the field and value |
 | `sc-treesitter` CLI | revision starting with `-`, path outside the repo or with a forbidden component, unresolvable revision, non-blob object | mixed | `INPUT_INVALID` (absent path at a revision stays `INPUT_MISSING`) |

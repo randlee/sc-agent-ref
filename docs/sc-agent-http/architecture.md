@@ -31,7 +31,7 @@ All modules are private; the crate root re-exports the public items, plus the
 `Transport::send(&self, &HttpRequest) -> Result<HttpResponse, JevError>` sends
 once. Every HTTP status is `Ok`; connection, send, read and timeout failures
 are `NETWORK_ERROR` with a `NetworkErrorKind` (`timeout`, `connect`, `tls`,
-`cancelled`); a body over the cap is `RESPONSE_INVALID` with cause
+`cancelled`, `other`); a body over the cap is `RESPONSE_INVALID` with cause
 `too_large`. The trait is open (ADR-SAG-0006) and object-safe, with
 blanket impls for `&T` and `Arc<T>`. A direct `send` caller bypasses busy
 retry **and** redaction; production code calls only `send_and_parse` (which wraps `send_with_busy_retry`).
