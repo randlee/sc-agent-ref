@@ -226,6 +226,22 @@ impl ComposeInputs {
         self
     }
 
+    pub(crate) fn policy(&self) -> &PathPolicy {
+        &self.policy
+    }
+
+    pub(crate) fn cancel_token(&self) -> &CancelToken {
+        &self.cancel
+    }
+
+    pub(crate) fn injected_registry(&self) -> Option<&Arc<BackendRegistry>> {
+        self.registry.as_ref()
+    }
+
+    pub(crate) fn selected_backends(&self) -> Option<&BackendSet> {
+        self.backends.as_ref()
+    }
+
     /// Resolves the repo root and the log and session paths.
     ///
     /// The repo root is the explicit one ([`Self::repo_root`]), else
@@ -256,7 +272,7 @@ impl ComposeInputs {
     /// repository of the explicit repo root, else of the working directory; a
     /// discovery failure falls back to the resolved root, because the log is
     /// best effort.
-    fn log_context(&self, resolved: &ResolvedPaths) -> LogContext {
+    pub(crate) fn log_context(&self, resolved: &ResolvedPaths) -> LogContext {
         if self.dry_run {
             // A dry run logs nothing, so it does not run git for `repo`.
             return LogContext::new(resolved.repo_root.clone(), self.project.clone());
@@ -269,9 +285,15 @@ impl ComposeInputs {
         LogContext::new(repo, self.project.clone())
     }
 
-    fn run_config(&self, resolved: &ResolvedPaths, log: SharedSessionLog) -> RunConfig {
+    /// `context` is passed in so a stream computes it (a git call) once.
+    pub(crate) fn run_config(
+        &self,
+        resolved: &ResolvedPaths,
+        log: SharedSessionLog,
+        context: LogContext,
+    ) -> RunConfig {
         let mut config = RunConfig::new(resolved.repo_root.clone(), log)
-            .log_context(self.log_context(resolved))
+            .log_context(context)
             .dry_run(self.dry_run)
             .sessions_dir(resolved.sessions_dir.clone())
             .mode(self.mode)
@@ -384,7 +406,7 @@ pub fn prepare_from(source: CheckSource, inputs: ComposeInputs) -> Result<HostRu
         Some(adapter) => adapter.shared(),
         None => Arc::new(NoopSessionLog),
     };
-    let config = inputs.run_config(&resolved, log);
+    let config = inputs.run_config(&resolved, log, inputs.log_context(&resolved));
     Ok(HostRun {
         prepared: prepare(source, config)?,
         adapter,
@@ -428,7 +450,7 @@ pub fn ask_from(
     let resolved = inputs.resolve()?;
     let adapter = ObservabilityAdapter::open(&inputs.policy, &resolved.log_root)?;
     let sessions = FileSessionStore::new(&resolved.sessions_dir)?;
-    let config = inputs.run_config(&resolved, adapter.shared());
+    let config = inputs.run_config(&resolved, adapter.shared(), inputs.log_context(&resolved));
     match ask(&sessions, session_id, follow_up, config) {
         Ok(mut response) => {
             if let Some(warning) = finish_log(&adapter) {

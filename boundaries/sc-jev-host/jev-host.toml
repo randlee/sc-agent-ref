@@ -15,7 +15,7 @@ owner_crate_path = "sc_jev_host"
 name = "jev-host"
 
 [public]
-facade = "sc_jev_host::obs::ObservabilityAdapter, sc_jev_host::paths::PathPolicy, sc_jev_host::paths::DefaultRoot, sc_jev_host::paths::SessionDefault, sc_jev_host::compose::run_from, sc_jev_host::compose::ask_from, sc_jev_host::compose::ComposeInputs, sc_jev_host::compose::ResolvedPaths, sc_jev_host::compose::explicit_repo_root"
+facade = "sc_jev_host::obs::ObservabilityAdapter, sc_jev_host::paths::PathPolicy, sc_jev_host::paths::DefaultRoot, sc_jev_host::paths::SessionDefault, sc_jev_host::compose::run_from, sc_jev_host::compose::ask_from, sc_jev_host::compose::ComposeInputs, sc_jev_host::compose::ResolvedPaths, sc_jev_host::compose::explicit_repo_root, sc_jev_host::stream::DecisionStream, sc_jev_host::stream::serve_jsonl, sc_jev_host::stream::Concurrency, sc_jev_host::stream::StreamAnswer, sc_jev_host::stream::StreamSummary"
 notes = "Composition-root support for sc-ai and sc-jev-py. Published as internal support, =-pinned by both, no semver promise of its own (owner decision 2026-11-06). The only crate that links sc-observability. Signatures name sc-jev-check and sc-agent-types types; compose re-exports none of them (one path per item)."
 
 [implementation]
@@ -25,12 +25,12 @@ visibility = "public"
 constructor = "none"
 
 [composition]
-roots = ["obs", "paths", "compose"]
+roots = ["obs", "paths", "compose", "stream"]
 
 [dependencies]
 # "workspace-tests" is listed because dev edges are counted (r-1 D0 outcome 4).
 allowed_dependents = ["sc-ai", "sc-jev-py", "workspace-tests"]
-allowed_dependencies = ["sc-agent-types", "sc-decision-schema", "sc-jev-check", "sc-observability", "serde_json"]
+allowed_dependencies = ["sc-agent-types", "sc-decision-schema", "sc-jev-check", "sc-observability", "serde", "serde_json"]
 forbidden_edges = [
     { from = "sc-jev-host", to = "sc-jev" },
     { from = "sc-jev-host", to = "sc-jev-backends" },
