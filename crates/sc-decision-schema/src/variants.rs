@@ -41,7 +41,7 @@ pub mod canonical {
     use crate::payload::{CanonicalJudgePayload, DecisionAnswers, PayloadBundle};
 
     /// The model input: the canonical payload itself. Its serialization
-    /// equals `PayloadBundle::bytes()`, so `prompt_sha256` is the digest of
+    /// equals `PayloadBundle::bytes()`, so `payload_sha256` is the digest of
     /// what is embedded.
     #[must_use]
     pub fn input(payload: &CanonicalJudgePayload) -> &CanonicalJudgePayload {

@@ -14,6 +14,9 @@ use sc_decision_schema::{CanonicalJudgePayload, PayloadBundle};
 use sc_jev_check::config::{CheckSpec, InputName, InputSpec};
 use sc_jev_check::run::{CheckSource, RunConfig, prepare, run};
 
+/// Criteria equal to their keys are no tuned descriptions, so the payload
+/// carries none and keeps the pinned digest. Tuned wording is tested in
+/// `payload::questions` (agt-lh5).
 const QUESTIONS: &str = r#"{
   "schema": "plan-anchoring/questions/1",
   "version": 1,
@@ -21,7 +24,7 @@ const QUESTIONS: &str = r#"{
     "branches": {
       "type": "choice",
       "instructions": "Which branch applies?\n\n{branches}",
-      "criteria": {"no": "No.", "yes": "Yes."}
+      "criteria": {"no": "no", "yes": "yes"}
     }
   }
 }"#;
@@ -68,7 +71,7 @@ fn cross_impl_branches() {
     assert!(payload.contains("Transition.GIVE_BACK"));
     assert!(payload.contains("Transition.KEEP"));
     assert!(payload.contains("Transition.STOP"));
-    assert_eq!(prepared.prompt_sha256(), expected.sha256());
+    assert_eq!(prepared.payload_sha256(), expected.sha256());
     assert_eq!(prepared.request().payload().bytes(), expected.bytes());
 
     let producer = prepared.producer().expect("producer");
@@ -78,7 +81,7 @@ fn cross_impl_branches() {
     assert_eq!(producer.mode().as_str(), "matches");
 
     let dry = run(prepared).expect("dry-run");
-    assert_eq!(dry.prompt_sha256(), expected.sha256());
+    assert_eq!(dry.payload_sha256(), expected.sha256());
     assert!(dry.session_id().is_none());
     assert!(dry.results().is_empty());
     assert_eq!(dry.equal_input().producer(), Some(producer_of(&document)));

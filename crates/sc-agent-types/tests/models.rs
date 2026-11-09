@@ -95,3 +95,22 @@ fn test_alias_override_wins() {
         assert!(hint.contains(alias), "{hint}");
     }
 }
+
+/// `jev` is accepted as the latest Jev model (agt-cac) and is not a `MODELS`
+/// row, so it never becomes the `jev` alias default.
+#[test]
+fn test_bare_jev_is_the_latest_model() {
+    let model: ModelId = "jev".parse().expect("jev");
+    assert_eq!(model, ModelId::Jev);
+    assert_eq!(model.as_str(), "jev");
+    assert_eq!(model.family(), ModelFamily::TypeSafeJev);
+    assert_eq!(
+        serde_json::from_value::<ModelId>(serde_json::json!("jev")).expect("serde"),
+        ModelId::Jev
+    );
+    assert!(MODELS.iter().all(|row| row.model().as_str() != "jev"));
+    assert_eq!(
+        ModelAliases::builtin().latest("jev"),
+        Some(ModelId::Jev1_13_0)
+    );
+}

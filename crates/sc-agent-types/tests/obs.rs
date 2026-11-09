@@ -11,7 +11,7 @@ fn event(operation: Operation) -> LogEvent {
     let mut fields = serde_json::Map::new();
     fields.insert("backend".to_owned(), BackendId::Jev.as_str().into());
     fields.insert(
-        "prompt_sha256".to_owned(),
+        "payload_sha256".to_owned(),
         Sha256Digest::of_text("payload").as_str().into(),
     );
     LogEvent::new(SessionId::new(), operation, fields)

@@ -30,7 +30,7 @@ const QUESTIONS: &str = r#"{
     "branches": {
       "type": "choice",
       "instructions": "Which branch applies?\n\n{branches}",
-      "criteria": {"no": "No.", "yes": "Yes."}
+      "criteria": {"no": "no", "yes": "yes"}
     }
   }
 }"#;
@@ -123,7 +123,7 @@ fn test_e2e_producer_digest_matches_fixture() {
     .expect("expected payload");
     let expected = PayloadBundle::encode(&expected).expect("expected bundle");
 
-    assert_eq!(response.prompt_sha256(), expected.sha256());
+    assert_eq!(response.payload_sha256(), expected.sha256());
     assert!(response.dry_run());
     assert!(response.results().is_empty());
     let producer = response.equal_input().producer().expect("producer");

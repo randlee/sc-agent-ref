@@ -59,3 +59,37 @@ fn test_cli_and_python_data_match_golden() {
     .expect("golden json");
     assert_eq!(Value::Object(data.clone()), golden);
 }
+
+/// `--request-json` and Python's `request_json=` read the same document and
+/// give the same digest; `tests/fixtures/jev-python/tests/test_request_json.py`
+/// pins the same literal (REQ-QA-002).
+#[test]
+fn test_cli_request_json_matches_the_python_pin() {
+    let binary = bin_path("sc-ai", "sc-ai");
+    let dir = tempfile::tempdir().expect("temp");
+    let request = dir.path().join("request.json");
+    std::fs::write(
+        &request,
+        r#"{"questions":[{"id":"relevant","prompt":"Does it apply?","choices":["no","yes"]}],"state":[]}"#,
+    )
+    .expect("request");
+    let output = spawn_with_deadline(
+        sc_ai(&binary)
+            .args(["jev", "dry-run", "--repo-root"])
+            .arg(dir.path())
+            .arg("--request-json")
+            .arg(&request)
+            .env_remove("SC_LOG_ROOT"),
+        None,
+    );
+    assert!(
+        output.status.success(),
+        "sc-ai failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let envelope: Value = serde_json::from_slice(&output.stdout).expect("envelope");
+    assert_eq!(
+        envelope["data"]["payload_sha256"],
+        "79b58710e937c53180dc2f263c9e09fce6afc2168b4a3f019b4f600aac30e0a3"
+    );
+}

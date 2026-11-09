@@ -8,7 +8,7 @@ Root rows live in [`../requirements.md`](../requirements.md#phase-a1--refinement
 | REQ-SAG-0140 | Published, data-only crate above `sc-agent-types`: dependencies `sc-agent-types` (core only), `serde`, `serde_json`; no I/O | r-7 |
 | REQ-SAG-0141 | Decision types move (not copy) here from `sc-agent-types`, with no re-export | r-7 |
 | REQ-SAG-0142 | `DecisionSchemaId` versions (`canonical.v1`); readers accept `KNOWN` and refuse others; the version is outside the hashed bytes | r-7 |
-| REQ-SAG-0143 | `jev::v1`: one serde request and response type per Jev API call known today (`CheckRequest`, `CheckResponse`); every documented question type (`choice`, `score`, `noul`), state form (string, object, array) and answer; data only, `sc-jev` owns every operation | r-5 |
+| REQ-SAG-0143 | `jev::v1`: one serde request and response type per Jev API call known today (`CheckRequest`, `CheckResponse`); every documented question type (`choice`, `score`, `noul`), state form (string, object, array) and answer; a reply model that differs from the request model is accepted; `wire_model` maps `jev` to the documented `jev-latest`; data only, `sc-jev` owns every operation | r-5 |
 | REQ-SAG-0144 | Haiku/Luna on the same schema: canonical bytes in, `DecisionAnswers` out (`llm::v1`) | r-7 |
 | REQ-SAG-0145 | `schema_for(ModelFamily)`, static dispatch keyed by `SchemaFamily`; canonical variant is the identity | r-7 |
 | REQ-SAG-0146 | Authoritative SQLite DDL (`session_log/schema.sql`) and the `fields{}` projection with `SessionLogRow` | r-7 |

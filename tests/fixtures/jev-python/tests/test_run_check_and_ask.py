@@ -145,8 +145,8 @@ def test_dry_run_git_repo_returns_digest(tmp_path: Path) -> None:
     assert result.equal_input["backends"] == [
         {"backend": "jev", "attestation": {"status": "not_sent"}}
     ]
-    assert result.equal_input["prompt_sha256"] == result.prompt_sha256
-    assert len(result.prompt_sha256) == 64
+    assert result.equal_input["payload_sha256"] == result.payload_sha256
+    assert len(result.payload_sha256) == 64
     assert "alpha note" in result.payload
     assert _lines(tmp_path / "log") == []
     assert not (tmp_path / "log").exists()
@@ -186,11 +186,11 @@ def test_run_check_and_ask_append_jsonl_without_secrets(
     assert result.equal_input["backends"] == [
         {"backend": "anthropic_haiku", "attestation": {"status": "matched"}}
     ]
-    assert result.equal_input["prompt_sha256"] == result.prompt_sha256
+    assert result.equal_input["payload_sha256"] == result.payload_sha256
     lines = _lines(log_dir)
     assert len(lines) == 1
     assert "judge" in lines[0]
-    assert result.prompt_sha256 in lines[0]
+    assert result.payload_sha256 in lines[0]
     assert sentinel not in lines[0]
     assert SECRET not in lines[0]
     asked = result.ask("why this choice?")
@@ -268,7 +268,7 @@ def test_project_kwarg_reaches_log(tmp_path: Path) -> None:
         assert row["session_id"] == result.session_id
         assert row["send_outcome"] == "ok"
         assert row["model_id"]
-        assert row["prompt_sha256"] == result.prompt_sha256
+        assert row["payload_sha256"] == result.payload_sha256
     assert "project" in inspect.signature(sc_jev_py.run_check).parameters
 
 

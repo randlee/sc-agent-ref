@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use sc_agent_types::{BackendId, JevError, SendTrace, Sha256Digest};
+use sc_agent_types::{BackendId, JevError, PayloadSha256, SendTrace};
 use sc_decision_schema::{
     Attestation, BackendAttestation, BackendCapabilities, CanonicalJudgePayload, ChoiceId,
     EqualInputRecord, JudgeBackend, JudgeOutcome, JudgeRequest, LlmWireContext, MultiBackendMode,
@@ -175,7 +175,7 @@ fn test_equal_input_equal_is_derived() {
 
     for other in [
         Attestation::Mismatched {
-            reported: Sha256Digest::of_text("other"),
+            reported: PayloadSha256::of_text("other"),
         },
         Attestation::Unattested,
         Attestation::Failed,
@@ -223,7 +223,7 @@ fn test_equal_input_equal_is_derived() {
 #[test]
 fn test_payload_bundle_encode_and_question_choices() {
     let bundle = bundle();
-    assert_eq!(bundle.sha256(), &Sha256Digest::of_text(bundle.as_str()));
+    assert_eq!(bundle.sha256(), &PayloadSha256::of_text(bundle.as_str()));
     let ids: Vec<&str> = bundle.question_ids().map(QuestionId::as_str).collect();
     assert_eq!(ids, ["relevant", "risk"]);
     assert!(bundle.question_choices()[&qid("risk")].contains(&choice("high")));

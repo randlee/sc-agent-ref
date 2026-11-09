@@ -188,6 +188,7 @@ fn top_level_keys(text: &str) -> Vec<String> {
 fn single_jev() -> RunResponse {
     RunResponse::test_builder()
         .payload_bytes(payload_bytes())
+        .questions_sha256(payload().questions_sha256().expect("questions digest"))
         .ok(outcome(BackendId::Jev, "no", a10_jev_body()))
         .build(equal_input(
             &[(BackendId::Jev, Attestation::Unattested)],
@@ -199,6 +200,7 @@ fn jev_haiku() -> RunResponse {
     RunResponse::test_builder()
         .session_saved(session_id())
         .payload_bytes(payload_bytes())
+        .questions_sha256(payload().questions_sha256().expect("questions digest"))
         .ok(outcome(BackendId::Jev, "no", a10_jev_body()))
         .ok(outcome(BackendId::AnthropicHaiku, "yes", haiku_meta()))
         .build(equal_input(
@@ -214,6 +216,7 @@ fn jev_failed_haiku_ok() -> RunResponse {
     RunResponse::test_builder()
         .session_saved(session_id())
         .payload_bytes(payload_bytes())
+        .questions_sha256(payload().questions_sha256().expect("questions digest"))
         .failed(
             BackendId::Jev,
             JevError::network(NetworkErrorKind::Connect, "connect to the Jev API failed"),
@@ -231,6 +234,7 @@ fn jev_failed_haiku_ok() -> RunResponse {
 fn session_save_failed() -> RunResponse {
     RunResponse::test_builder()
         .payload_bytes(payload_bytes())
+        .questions_sha256(payload().questions_sha256().expect("questions digest"))
         .ok(outcome(BackendId::AnthropicHaiku, "yes", haiku_meta()))
         .warning("session not saved: IO_FAILED")
         .build(equal_input(
@@ -246,7 +250,7 @@ const QUESTIONS: &str = r#"{
     "relevant": {
       "type": "choice",
       "instructions": "Does it apply?",
-      "criteria": {"no": "No.", "yes": "Yes."}
+      "criteria": {"no": "no", "yes": "yes"}
     }
   }
 }"#;
@@ -311,7 +315,9 @@ fn test_run_response_contract() {
             "primary_backend",
             "session_id",
             "session_saved",
-            "prompt_sha256",
+            "payload_sha256",
+            "questions_sha256",
+            "request_sha256",
             "payload_bytes",
             "results",
             "equal_input"
@@ -414,14 +420,14 @@ fn test_run_response_contract() {
                 "equal",
                 "leak",
                 "mode",
-                "producer",
-                "prompt_sha256"
+                "payload_sha256",
+                "producer"
             ]
         );
         assert_eq!(sample["equal_input"]["mode"], "chain_context");
         assert_eq!(
-            sample["equal_input"]["prompt_sha256"],
-            sample["prompt_sha256"]
+            sample["equal_input"]["payload_sha256"],
+            sample["payload_sha256"]
         );
     }
 
@@ -572,14 +578,14 @@ fn test_prepared_run_owns_config() {
             .registry(Arc::clone(&registry)),
     )
     .expect("prepare");
-    let digest = prepared.prompt_sha256().clone();
+    let digest = prepared.payload_sha256().clone();
     let system_prompt = prepared
         .request()
         .llm()
         .map(|llm| llm.system_prompt.clone())
         .expect("prompt resolved at prepare time");
     let response = run(prepared).expect("live run");
-    assert_eq!(response.prompt_sha256(), &digest);
+    assert_eq!(response.payload_sha256(), &digest);
     let requests = haiku.requests();
     assert_eq!(requests.len(), 1, "the injected registry was used");
     assert_eq!(requests[0].payload().sha256(), &digest);

@@ -44,7 +44,7 @@ doubles through the dev-dependency.
    `request_limit_bytes` is `INPUT_TOO_LARGE` and is not sent.
 3. `input_sha256` is recovered by parsing the final body with `CheckRequest`
    and inverting it to canonical bytes (ADR-SAG-0025); for an unmodified body
-   it equals `prompt_sha256`.
+   it equals `payload_sha256`.
 4. The reply parses through `CheckResponse` and `into_answers` (model, ids,
    types, criteria, probabilities) to a `JudgeOutcome`; `noul` answers map to
    `yes`/`no` with no confidence. There is no byte-splice.

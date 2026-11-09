@@ -35,7 +35,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::marker::PhantomData;
 
-use sc_agent_types::{JevError, ModelId, ResponseInvalidCause};
+use sc_agent_types::{JevError, ModelId, QuestionsSha256, ResponseInvalidCause};
 use serde::de::value::MapAccessDeserializer;
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::ser::SerializeMap;
@@ -46,7 +46,7 @@ use crate::ids::{ChoiceId, QuestionId};
 use crate::judge::QuestionAnswer;
 use crate::payload::{
     CanonicalJudgePayload, ChoiceAnswer, DecisionAnswers, PayloadBundle, Question, QuestionKind,
-    decode_failed,
+    canonical_json_bytes, decode_failed,
 };
 use crate::probability::Probability;
 
@@ -56,11 +56,151 @@ const MIN_CRITERIA: usize = 2;
 const MAX_CHOICE_CRITERIA: usize = 255;
 /// Most levels a `score` question has (the documented Jev limit).
 const MAX_SCORE_CRITERIA: usize = 10;
-/// How far a probability sum may sit from 1. Jev rounds its probabilities, so
-/// the sum is never exact; a wider gap is a malformed reply.
-const PROBABILITY_SUM_TOLERANCE: f64 = 1e-6;
-/// The model the reply must name is reported with this text.
+/// How far a probability sum may sit from 1, per option. Jev rounds each
+/// probability it sends, so the sum is never exact; plan-anchor allows 0.01
+/// per option (`PROBABILITY_ROUNDING`) and so does this check. A wider gap is
+/// a malformed reply. It validates only: values pass through unchanged.
+const PROBABILITY_SUM_TOLERANCE_PER_OPTION: f64 = 0.01;
+/// The wire value `jev-api.md` (plan-anchor) documents for the latest Jev
+/// model. UNVERIFIED against the live API: plan-anchor sends `jev-latest`
+/// (`jev_judge.py` `DEFAULT_MODEL`), and nothing confirms the API accepts the
+/// bare `jev`. This constant is the one place that mapping lives.
+const JEV_LATEST_WIRE: &str = "jev-latest";
+/// A reply that is not a check reply is reported with this text.
 const MODEL_OR_SHAPE: &str = "unexpected Jev response model or shape";
+
+/// The model string sent on the wire for `model`.
+///
+/// `jev` (the latest Jev model, [`ModelId::Jev`]) is sent as `jev-latest`,
+/// the value `jev-api.md` documents; every other model is sent as is.
+/// UNVERIFIED against the live API (see the `JEV_LATEST_WIRE` constant).
+///
+/// # Examples
+///
+/// ```
+/// use sc_decision_schema::jev::v1::wire_model;
+///
+/// assert_eq!(wire_model(&"jev".parse()?), "jev-latest");
+/// assert_eq!(wire_model(&"jev-1.13.0".parse()?), "jev-1.13.0");
+/// # Ok::<(), sc_agent_types::JevError>(())
+/// ```
+#[must_use]
+pub fn wire_model(model: &ModelId) -> &str {
+    match model {
+        ModelId::Jev => JEV_LATEST_WIRE,
+        other => other.as_str(),
+    }
+}
+
+/// The canonical text of a question set, the bytes `questions_sha256` hashes.
+///
+/// It is the JSON object of the questions keyed by question id, each value
+/// `{"criteria": ..., "instructions": prompt, "type": kind}` (a `noul`
+/// question has no `criteria`). Object keys are sorted at every level,
+/// separators are `,` and `:` with no spaces, and the text is UTF-8 with
+/// non-ASCII characters left as is. For `choice` questions this is plan-anchor's
+/// `questions_digest` (`json.dumps(questions, sort_keys=True, separators=(",",
+/// ":"), ensure_ascii=False)`) over the same question map: `criteria` is the
+/// object `{option: description}` (the option label where a question has no
+/// tuned description), so options sort and a reorder of options or of
+/// questions does not change the text.
+///
+/// One deliberate departure from plan-anchor: a `score` question's levels are
+/// ordered, and reversing them changes what the question means, so its
+/// `criteria` is the array `[[level, description], ...]` in level order and a
+/// reversal changes the text. plan-anchor uses `choice` only, so no
+/// plan-anchor digest is affected.
+///
+/// # Errors
+///
+/// `INPUT_INVALID` when a question id repeats or a question breaks its kind's
+/// criteria count.
+pub fn questions_canonical_text(questions: &[Question]) -> Result<String, JevError> {
+    let pairs = questions
+        .iter()
+        .map(|question| Ok((question.id().clone(), JevQuestion::from_question(question)?)))
+        .collect::<Result<Vec<_>, JevError>>()?;
+    let map = OrderedMap::try_from_pairs(pairs)?;
+    let mut object = Map::new();
+    for (id, question) in map.iter() {
+        let (kind, instructions, criteria) = match question {
+            JevQuestion::Choice {
+                instructions,
+                criteria,
+            } => (
+                "choice",
+                instructions,
+                Some(Value::Object(
+                    criteria
+                        .iter()
+                        .map(|(option, text)| (option.to_string(), Value::String(text.clone())))
+                        .collect(),
+                )),
+            ),
+            JevQuestion::Score {
+                instructions,
+                criteria,
+            } => (
+                "score",
+                instructions,
+                Some(Value::Array(
+                    criteria
+                        .iter()
+                        .map(|(level, text)| {
+                            Value::Array(vec![
+                                Value::String(level.to_string()),
+                                Value::String(text.clone()),
+                            ])
+                        })
+                        .collect(),
+                )),
+            ),
+            JevQuestion::Noul { instructions } => ("noul", instructions, None),
+        };
+        let mut entry = Map::new();
+        entry.insert("type".to_owned(), Value::String(kind.to_owned()));
+        entry.insert(
+            "instructions".to_owned(),
+            Value::String(instructions.clone()),
+        );
+        if let Some(criteria) = criteria {
+            entry.insert("criteria".to_owned(), criteria);
+        }
+        object.insert(id.to_string(), Value::Object(entry));
+    }
+    let bytes = canonical_json_bytes(&Value::Object(object))?;
+    String::from_utf8(bytes).map_err(|_| JevError::input_invalid("question set is not UTF-8"))
+}
+
+/// The sc-sha SHA-256 of a question set, for a consumer's cache lookup.
+///
+/// The digest is of [`questions_canonical_text`]. It identifies a question set:
+/// it covers the question ids, kinds, instructions and criteria descriptions,
+/// and nothing about the state or the model, so runs of the same questions
+/// against different state share it. It does not depend on question order or
+/// `choice` option order; `score` level order is part of it. sc-agent computes it; it builds no cache.
+///
+/// # Errors
+///
+/// As [`questions_canonical_text`].
+///
+/// # Examples
+///
+/// ```
+/// use sc_decision_schema::CanonicalJudgePayload;
+/// use sc_decision_schema::jev::v1::questions_sha256;
+///
+/// let payload = CanonicalJudgePayload::from_bytes(
+///     br#"{"questions":[{"id":"q","prompt":"Is it?","choices":["no","yes"]}],"state":[]}"#,
+/// )?;
+/// assert_eq!(questions_sha256(payload.questions())?.as_str().len(), 64);
+/// # Ok::<(), sc_agent_types::JevError>(())
+/// ```
+pub fn questions_sha256(questions: &[Question]) -> Result<QuestionsSha256, JevError> {
+    Ok(QuestionsSha256::of_text(&questions_canonical_text(
+        questions,
+    )?))
+}
 
 fn duplicate_message(key: &dyn fmt::Display) -> String {
     format!("duplicate key `{key}`; give every key once")
@@ -546,6 +686,10 @@ impl CheckRequest {
                     .map_err(|error| JevError::encode_failed("prior answer", &error))
             })
             .collect::<Result<Vec<_>, _>>()?;
+        // The wire form of the requested model (`jev` becomes `jev-latest`).
+        let model = wire_model(&model)
+            .parse()
+            .map_err(|_| JevError::input_invalid("model id is not a valid model string"))?;
         Ok(Self {
             model,
             state: JevState::Array(state),
@@ -618,7 +762,7 @@ impl CheckRequest {
         PayloadBundle::encode(&self.to_canonical()?)
     }
 
-    /// The model the request names.
+    /// The model the request names on the wire (`jev-latest` for `jev`).
     #[must_use]
     pub fn model(&self) -> &ModelId {
         &self.model
@@ -877,10 +1021,12 @@ impl CheckResponse {
 
     /// Checks this reply against `request` and maps it to answers.
     ///
-    /// The reply `model` equals the request model; answer ids equal the
+    /// The reply `model` may differ from the request model (`jev` is
+    /// answered by a concrete version such as `jev-1.13.0`); it is not an
+    /// error and is read with [`Self::model`]. Answer ids equal the
     /// question ids; each answer type matches its question type; a `choice`
     /// or `score` answer names a criteria option, its probability keys equal
-    /// the criteria keys and sum to 1 within 1e-6, and its confidence and
+    /// the criteria keys and sum to 1 within 0.01 per option (Jev rounds, so values pass through unchanged), and its confidence and
     /// every probability lie in `[0, 1]`. A `noul` answer becomes `yes` when
     /// `p >= 0.5` else `no`, with probabilities `{yes: p, no: 1 - p}` and no
     /// confidence.
@@ -889,9 +1035,6 @@ impl CheckResponse {
     ///
     /// `RESPONSE_INVALID` on any rule above.
     pub fn into_answers(self, request: &CheckRequest) -> Result<DecisionAnswers, JevError> {
-        if self.model != request.model {
-            return Err(JevError::response_invalid(MODEL_OR_SHAPE));
-        }
         let ids_differ = || JevError::response_invalid("answer ids differ from the question ids");
         // Answer ids are unique, so equal counts and one answer per question
         // make the two id sets equal.
@@ -977,7 +1120,12 @@ fn check_ranked(
         )));
     }
     let sum: f64 = probabilities.values().map(|value| value.get()).sum();
-    if (sum - 1.0).abs() > PROBABILITY_SUM_TOLERANCE {
+    // `criteria` has at least two options, and `probabilities` has the same keys.
+    let tolerance: f64 = probabilities
+        .values()
+        .map(|_| PROBABILITY_SUM_TOLERANCE_PER_OPTION)
+        .sum();
+    if (sum - 1.0).abs() > tolerance {
         return Err(JevError::response_invalid(format!(
             "answer {id} probabilities sum to {sum}, not 1"
         )));

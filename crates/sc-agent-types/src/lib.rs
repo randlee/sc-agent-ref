@@ -77,8 +77,8 @@ pub use error::{
 };
 #[doc(inline)]
 pub use ids::{
-    AnswerId, BackendId, BackendKeyId, BackendSet, BlobSha, Operation, ProjectLabel,
-    RepoRelativePath, RepoRoot, Rev, SessionId, Sha256Digest,
+    AnswerId, BackendId, BackendKeyId, BackendSet, BlobSha, Operation, PayloadSha256, ProjectLabel,
+    QuestionsSha256, RepoRelativePath, RepoRoot, RequestSha256, Rev, SessionId, Sha256Digest,
 };
 #[doc(inline)]
 pub use models::{MODELS, ModelAliases, ModelDescriptor, ModelFamily, ModelId, UnknownModel};

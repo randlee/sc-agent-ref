@@ -1,11 +1,15 @@
 {
   "session_id": null,
   "session_saved": false,
-  "prompt_sha256": "db1717b314bddc4df41d31336ed0904363d32d69314f825468d1300f8e0b7600",
-  "payload_bytes": 156,
+  "payload_sha256": "c91ab4bb9b6d098f811382479b93896ab688e866862bb7d56856ba2e7f97ea34",
+  "questions_sha256": "506f055301f1a67dfcd00bfefa10a1851e192648fa8d03a7118da8182cdab3bc",
+  "request_sha256": {
+    "jev": "6f89d6e91d0c46e1b5c22b3a926db784053c349660209d1cf84bc66eb0a45d1b"
+  },
+  "payload_bytes": 220,
   "results": [],
   "equal_input": {
-    "prompt_sha256": "db1717b314bddc4df41d31336ed0904363d32d69314f825468d1300f8e0b7600",
+    "payload_sha256": "c91ab4bb9b6d098f811382479b93896ab688e866862bb7d56856ba2e7f97ea34",
     "mode": "independent",
     "backends": [
       {
@@ -25,6 +29,10 @@
         "choices": [
           "no",
           "yes"
+        ],
+        "descriptions": [
+          "The note does not apply.",
+          "The note applies."
         ],
         "id": "relevant",
         "prompt": "Does the note apply?\n\nalpha note\n"

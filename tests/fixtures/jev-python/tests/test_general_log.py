@@ -112,7 +112,7 @@ def test_a_raising_logger_changes_nothing(tmp_path: Path) -> None:
 
     plain = _run(repo, tmp_path / "a")
     noisy = _run(repo, tmp_path / "b", session_log=boom, general_log=boom)
-    assert plain.prompt_sha256 == noisy.prompt_sha256
+    assert plain.payload_sha256 == noisy.payload_sha256
     assert [o["backend"] for o in plain.outcomes] == [o["backend"] for o in noisy.outcomes]
 
 

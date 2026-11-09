@@ -10,7 +10,7 @@ use sc_agent_http::test_util::{FakeClock, RecordingSleeper, ScriptedTransport};
 use sc_agent_http::{
     BusyPolicy, Endpoint, HttpRequest, HttpResponse, Method, SecretHeader, send_with_busy_retry,
 };
-use sc_agent_types::{BackendKeyId, CancelToken, ResolvedApiKey, SendTrace, Sha256Digest};
+use sc_agent_types::{BackendKeyId, CancelToken, RequestSha256, ResolvedApiKey, SendTrace};
 
 const BODY: &str = "{\"same\":\"body\"}";
 const KEY: &str = "sk-trace-secret";
@@ -57,9 +57,9 @@ fn test_request_sha256_is_digest_of_sent_body() {
     assert_eq!(sent.len(), 1);
     assert_eq!(
         trace.request_sha256(),
-        Some(Sha256Digest::of_text(sent[0].body()))
+        Some(RequestSha256::of_text(sent[0].body()))
     );
-    assert_eq!(trace.request_sha256(), Some(Sha256Digest::of_text(BODY)));
+    assert_eq!(trace.request_sha256(), Some(RequestSha256::of_text(BODY)));
 }
 
 /// Four busy replies and a success: five sends, one recorded value.
@@ -76,7 +76,7 @@ fn test_request_sha256_recorded_once_across_retries() {
     )
     .expect("fifth send succeeds");
     assert_eq!(transport.sends(), 5);
-    assert_eq!(trace.request_sha256(), Some(Sha256Digest::of_text(BODY)));
+    assert_eq!(trace.request_sha256(), Some(RequestSha256::of_text(BODY)));
 }
 
 /// A cancel seen before the first attempt sends nothing and records nothing.
