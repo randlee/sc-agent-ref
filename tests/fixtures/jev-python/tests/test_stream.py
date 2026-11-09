@@ -261,3 +261,116 @@ def test_an_infinite_or_huge_timeout_means_no_deadline(tmp_path: Path, huge: flo
     assert got == {"a", "b"}
     stream.close_input()
     assert stream.next(timeout=huge) is None
+
+
+def _read_rows(path: Path) -> list[dict]:
+    import json
+
+    if not path.exists():
+        return []
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
+
+
+def test_a_stream_takes_session_and_general_log_callables(tmp_path: Path) -> None:
+    general: list[dict] = []
+    session: list[dict] = []
+    with _stream(tmp_path, general_log=general.append, session_log=session.append) as stream:
+        assert stream.submit("a", REQUEST)
+        stream.close_input()
+        assert [a["id"] for a in stream] == ["a"]
+        stream.finish()
+    actions = [event["action"] for event in general]
+    for expected in ("stream.start", "stream.request.start", "run.done", "stream.end"):
+        assert expected in actions, actions
+    assert len(session) == 1, session
+    started = next(e for e in general if e["action"] == "stream.request.start")
+    assert started["fields"]["run_id"] != next(
+        e for e in general if e["action"] == "stream.start"
+    )["fields"]["run_id"]
+
+
+def test_the_default_general_log_is_the_shared_host_logger_file(tmp_path: Path) -> None:
+    with _stream(tmp_path) as stream:
+        assert stream.submit("a", REQUEST)
+        stream.close_input()
+        assert len(list(stream)) == 1
+        stream.finish()
+    rows = _read_rows(sc_jev_py.general_log_file(tmp_path / "log"))
+    actions = [row["action"] for row in rows]
+    assert "stream.start" in actions and "stream.end" in actions, actions
+    assert actions.count("stream.end") == 1
+
+
+def test_a_repeated_finish_writes_one_stream_end(tmp_path: Path) -> None:
+    stream = _stream(tmp_path)
+    stream.close_input()
+    first = stream.finish()
+    second = stream.finish()
+    assert first["answered"] == second["answered"] == 0
+    rows = _read_rows(sc_jev_py.general_log_file(tmp_path / "log"))
+    assert [r["action"] for r in rows].count("stream.end") == 1
+
+
+_EXIT_CHILD = r"""
+import os, signal, sys, threading
+from pathlib import Path
+import sc_jev_py
+
+work = Path(sys.argv[1]); mode = sys.argv[2]; workers = int(sys.argv[3])
+repo = work / "repo"; repo.mkdir()
+request = {"questions": [{"id": "q", "prompt": "p", "choices": ["a", "b"]}]}
+common = dict(scripted_answers={"q": "a"}, repo_root=repo, log_dir=work / "log",
+              session_dir=work / "sessions", concurrency=workers)
+
+def with_exit():
+    stream = sc_jev_py._testing.decision_stream_scripted(**common)
+    with stream:
+        for i in range(stream.capacity):
+            stream.submit(f"r{i}", request, timeout=0.05)
+
+def plain_iteration():
+    stream = sc_jev_py._testing.decision_stream_scripted(**common)
+    for i in range(stream.capacity):
+        stream.submit(f"r{i}", request, timeout=0.05)
+    stream.close_input()
+    for _ in stream:
+        pass
+
+def interrupted_run_many():
+    threading.Timer(0.01, lambda: os.kill(os.getpid(), signal.SIGINT)).start()
+    try:
+        sc_jev_py._testing.run_many_scripted({f"r{i}": request for i in range(4000)}, **common)
+    except KeyboardInterrupt:
+        pass
+
+try:
+    {"with": with_exit, "iter": plain_iteration, "sigint": interrupted_run_many}[mode]()
+except KeyboardInterrupt:
+    pass
+"""
+
+
+@pytest.mark.parametrize("attempt", range(8))
+@pytest.mark.parametrize("mode", ["with", "iter", "sigint"])
+@pytest.mark.parametrize("workers", [2, 8])
+def test_every_way_out_of_a_stream_leaves_its_rows_on_disk(
+    tmp_path: Path, mode: str, workers: int, attempt: int
+) -> None:
+    """A fresh process that leaves a busy stream and exits at once still has
+    `stream.end` and the session flush row, and every row is whole JSON."""
+    import subprocess
+    import sys
+
+    work = tmp_path / f"{mode}-{workers}-{attempt}"
+    work.mkdir()
+    done = subprocess.run(
+        [sys.executable, "-c", _EXIT_CHILD, str(work), mode, str(workers)],
+        capture_output=True, text=True, timeout=120, check=False,
+    )
+    assert done.returncode == 0, done.stderr
+    rows = _read_rows(sc_jev_py.general_log_file(work / "log"))
+    actions = [row["action"] for row in rows]
+    assert actions.count("stream.start") == 1, actions[:5]
+    assert actions.count("stream.end") == 1, actions[-5:]
+    assert "session_log.flushed" in actions
+    _read_rows(sc_jev_py.log_file(work / "log"))  # every session row is whole JSON

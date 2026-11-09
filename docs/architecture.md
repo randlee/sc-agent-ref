@@ -776,6 +776,19 @@ in `sc-jev-backends` against documented REST endpoints. **HTTP timeouts:** conne
 REQ-SAG-0505. *Superseded in part by the r-3 amendment below:* timeouts are
 configured on the injected `UreqTransport`, not on a backend builder.
 
+### Amendment (agt-1aq, stream cancel)
+
+- (Active) **The judge request's `CancelToken` governs the send.** A cancel
+  set on `JudgeRequest::cancel()` (the `RunConfig::cancel` token, and a
+  stream's own) ends a busy-retry wait within the 100 ms wait slice and stops
+  any further send, the same as the client's own token; either one cancelling
+  is enough. `HttpClient::send_and_parse_for` takes the request's token and
+  `JevClient` and the LLM backends pass it. A request already on the wire is
+  not interrupted. Proof: `sc-ai` `stream_cancel_ends_a_real_busy_wait_and_sends_nothing_more`
+  (a real `Retry-After: 30` wait over loopback HTTP). `UreqTransport` keeps up to
+  64 idle connections per host (one constant), so a stream at its maximum
+  concurrency reuses connections.
+
 ### Amendment (Phase A.1, r-3)
 
 **Status:** Active (Phase A.1) — landed in r-3. Numbers decided by the
@@ -1022,7 +1035,7 @@ needs to see what happened.
   `operation.failed`) carries the fixed `stage` name, the `backend` and
   `session_id` when known, `duration_ms` and the typed `error_code`. A stage
   is a fixed string, never provider or prompt text.
-- (Active, 2026-11-09) **Durability.** When `run_check` returns, its default general-log rows are on disk, including with several threads: the runtime allows one flush at a time and refuses a second, so the wheel serializes its flushes and retries a refusal (a failed flush is a Warn row `general_log.flush_failed`). A fresh-process test with eight concurrent runs that exits at once checks it. The wheel job also builds on macOS; `.cargo/config.toml` sets `-undefined dynamic_lookup` for both darwin targets.
+- (Active, 2026-11-09) **Durability.** When `run_check` returns, its default general-log rows are on disk, including with several threads: the runtime allows one flush at a time and refuses a second, so the wheel serializes its flushes and retries a refusal (a failed flush is a Warn row `general_log.flush_failed`). A fresh-process test that exits at once checks it with two and three concurrent runs (20 repeats each, where the loss showed) and eight (5 repeats). The wheel job also builds on macOS. maturin 1.16 links the darwin wheel with no `-undefined dynamic_lookup`; maturin 1.9.4 does not, so the flag is not set in `.cargo/config.toml` (where it applied to every darwin build, `sc-ai` included, and a missing symbol there would link and then crash). The floor is `maturin>=1.16,<2` (`crates/sc-jev-py/pyproject.toml`) and the CI pin is 1.16.0. The kit-managed release workflows still install maturin 1.9.4 for wheel builds (`.github/actions/setup-python-release-build`); they need a kit repin to 1.16.0 before a macOS release wheel is built.
 - (Active, 2026-11-09) **Failures before the run.** Root discovery in
   `prepare_from` and `ask_from`, and in `sc-ai` the repo root, `--request-json`
   and the check source, log `operation.failed` by typed id
@@ -2398,6 +2411,16 @@ queries, so callers do not spawn a process per query.
   `.backend_failed` (backend id and `error_code`) are the rows. Never a prompt,
   a question, state or a secret; a request id is caller text, so it must
   carry no secret. All of it goes through `stream/log.rs`.
+- (Active) **Leaving a stream flushes, within a bound.** Every way out
+  other than `finish` (`abandon`, a drop, a Python `with` exit, an interrupted
+  `run_many`, `Batch` drop) cancels, waits at most **2 s** (`ABANDON_WAIT`) for
+  the workers, then writes `stream.end` and flushes the default session and
+  general logs, once (a repeated `finish` writes no second `stream.end`). A
+  request still on the wire after the bound can lose its rows; no exit waits
+  longer than the bound. Python `DecisionStream` and `run_many` take
+  `session_log=` and `general_log=` like `run_check` and default to the shared
+  host logger, flushed on every exit, so `get_host_logger()` shares its writer.
+  A leading UTF-8 byte order mark on the input is ignored.
 - (Active) **Lifecycle edges.** `finish` closes the input and drops unread
   answers instead of waiting for a reader, so it never hangs on them. An
   unread answer holds capacity: a caller that submits more than `capacity`

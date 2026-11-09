@@ -8,15 +8,3 @@ rustflags = ["-C", "target-feature=+crt-static"]
 
 [target.aarch64-pc-windows-msvc]
 rustflags = ["-C", "target-feature=+crt-static"]
-
-# macOS: `sc-observability-py` builds a cdylib as well as an rlib, and the
-# linker cannot resolve the Python C API symbols it uses (undefined
-# `__Py_NoneStruct`) because the interpreter provides them at load time.
-# `maturin build` for the wheel passes this itself for the wheel's own crate
-# but not for that dependency's cdylib, so it is set for both darwin targets
-# (agt-9eh; upstream: randlee/sc-observability#1368).
-[target.aarch64-apple-darwin]
-rustflags = ["-C", "link-arg=-undefined", "-C", "link-arg=dynamic_lookup"]
-
-[target.x86_64-apple-darwin]
-rustflags = ["-C", "link-arg=-undefined", "-C", "link-arg=dynamic_lookup"]
