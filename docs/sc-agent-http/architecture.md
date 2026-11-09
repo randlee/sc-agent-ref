@@ -21,6 +21,7 @@ All modules are private; the crate root re-exports the public items, plus the
 | `transport` | `Transport`, `Timeouts` | The open transport trait; connect and request deadlines (10 s / 120 s default) |
 | `ureq_transport` | `UreqTransport` | The production transport and the single secret read site |
 | `retry` | `BusyPolicy`, `send_with_busy_retry`, `send_and_parse`, `HttpClient` | Busy retry with the decided numbers and the cancel hook; the one exchange (send, retry, parse, redact) and the transport + policy + token state every backend holds |
+| `retry_after` | (crate-private) | The one `Retry-After` parser: a wait view (clamped 0–30 s) for the retry loop and a report view (whole seconds, rounded up, capped at a day) for error fields |
 | `failure` | `api_failure` | Maps a reply with a failing status to its error id, keeping the provider's status, type, code, message, parameter and request id (bounded); also the quota hook of the busy retry |
 | `redact` | `redact` | Removes the request's secret from every text field of an error |
 | `test_util` (`test-util`) | `FakeClock`, `RecordingSleeper`, `ScriptedTransport`, `RecordingTransport` | Doubles for this crate's and the backend crates' tests |
@@ -30,7 +31,7 @@ All modules are private; the crate root re-exports the public items, plus the
 `Transport::send(&self, &HttpRequest) -> Result<HttpResponse, JevError>` sends
 once. Every HTTP status is `Ok`; connection, send, read and timeout failures
 are `NETWORK_ERROR` with a `NetworkErrorKind` (`timeout`, `connect`, `tls`,
-`cancelled`); a body over the cap is `RESPONSE_INVALID` with cause
+`cancelled`, `other`); a body over the cap is `RESPONSE_INVALID` with cause
 `too_large`. The trait is open (ADR-SAG-0006) and object-safe, with
 blanket impls for `&T` and `Arc<T>`. A direct `send` caller bypasses busy
 retry **and** redaction; production code calls only `send_and_parse` (which wraps `send_with_busy_retry`).

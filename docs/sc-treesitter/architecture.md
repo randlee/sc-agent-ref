@@ -68,8 +68,10 @@ Recorded by the Phase A phase-end hardening (a-10):
   of exactly those bytes on every platform.
 - Reads are capped at 8 MiB (`INPUT_TOO_LARGE`), matching `sc-jev-check`.
 - Failure codes from git reads and argument parsing use the existing
-  `INPUT_INVALID`, `INPUT_MISSING` and `EXTRACTION_FAILED` ids (ADR-SAG-0029,
-  error-code dispositions). No new ids.
+  `INPUT_INVALID`, `INPUT_MISSING`, `INPUT_TOO_LARGE` and `IO_FAILED` ids
+  (ADR-SAG-0029 error-code dispositions, as amended by agt-2a3: git and file
+  I/O failures are `IO_FAILED`, not `EXTRACTION_FAILED`). No new ids; the
+  exit code is 2, or 3 for a retryable error.
 
 ## Library + tests
 

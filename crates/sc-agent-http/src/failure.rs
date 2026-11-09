@@ -56,9 +56,6 @@ use serde_json::Value;
 use crate::request::{HttpRequest, HttpResponse};
 use crate::retry_after::RetryAfter;
 
-/// How much of an unparsed body is read for the raw-text fallback.
-const RAW_FALLBACK_BYTES: usize = 4096;
-
 /// `error.code`, `error.type` or `error.details.error_code` values that
 /// mean the account is out of tokens, credit or spend allowance.
 const QUOTA_MARKERS: [&str; 4] = [
@@ -318,8 +315,9 @@ fn read_failure(
     };
     let bytes = response.body();
     let body = Body::read(bytes);
-    let raw_len = bytes.len().min(RAW_FALLBACK_BYTES);
-    let raw = String::from_utf8_lossy(&bytes[..raw_len]);
+    // The whole body is scrubbed before anything is cut: the 1024-byte bound
+    // happens in `ProviderFailure`, after the key is gone.
+    let raw = String::from_utf8_lossy(bytes);
     let message = body.message.as_deref().map_or_else(|| scrub(&raw), scrub);
     let mut failure = ProviderFailure::new(provider, response.status(), &message)
         .with_retry_after(retry_after_seconds(response.header("retry-after")));
@@ -579,6 +577,33 @@ mod tests {
             api_failure("haiku", ReplyShape::Llm, &req(), &reply(400, other)).code(),
             "API_REQUEST_INVALID"
         );
+    }
+
+    /// A body far over any read cut, with the key straddling the 1024-byte
+    /// bound: nothing of the key survives.
+    #[test]
+    fn key_in_a_large_raw_body_is_scrubbed_before_the_cut() {
+        use sc_agent_types::{BackendKeyId, ResolvedApiKey};
+        const KEY: &str = "sk-big-body-secret-0123456789";
+        let key = ResolvedApiKey::try_new(BackendKeyId::OpenAi, KEY.to_owned()).expect("key");
+        let request = HttpRequest::new(
+            crate::Method::Post,
+            crate::Endpoint::parse("https://api.example.test/v1/x").expect("https"),
+            std::sync::Arc::from("{}"),
+        )
+        .with_secret(crate::SecretHeader::bearer(key));
+        for lead in [1000_usize, 1010, 1020, 4090, 4096, 4100] {
+            let body = format!("{}{KEY}{}", "a".repeat(lead), "z".repeat(6000));
+            let error = api_failure("p", ReplyShape::Llm, &request, &reply(500, &body));
+            let rendered = error.message();
+            for size in 4..=KEY.len() {
+                assert!(
+                    !rendered.contains(&KEY[..size])
+                        && !rendered.contains(&KEY[KEY.len() - size..]),
+                    "lead {lead}: a {size}-byte key fragment survived"
+                );
+            }
+        }
     }
 
     /// ERR-QA-3: the key is removed before the 1024-byte cut, so a key that

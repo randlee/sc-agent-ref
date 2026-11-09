@@ -109,10 +109,10 @@ the **`sc-ai`** CLI. Behavioural contract for errors and parity rows:
 | ID | Requirement |
 | --- | --- |
 | REQ-SAG-0700 | `sc-ai jev` subcommands with versioned JSON envelope |
-| REQ-SAG-0701 | stderr `{"error","message"}`, exit 2 *(reshaped, exit 3 for a retryable error: see the agt-2a3 amendments below)* |
+| REQ-SAG-0701 | stderr `{"error","message"}`, exit 2 *(reshaped; exit 2 or 3: see the agt-2a3 amendment rows REQ-SAG-0701 (error shape, and exit codes) below)* |
 | REQ-SAG-0702 | Readback pairs per sc-ai-cli |
 | REQ-SAG-0703 | Documented install path for `sc-ai` binary |
-| REQ-SAG-0710 | Blocking CLI: stdout = versioned envelope (ADR-SAG-0014) with Jev answer JSON in `data` + `session_id`; stderr errors; exit 2 *(or 3 for a retryable error: agt-2a3)* |
+| REQ-SAG-0710 | Blocking CLI: stdout = versioned envelope (ADR-SAG-0014) with Jev answer JSON in `data` + `session_id`; stderr errors; exit 2 *(or 3: see the agt-2a3 REQ-SAG-0701 exit-codes row below)* |
 | NFR-SAG-0002 | Secrets never appear in CLI output or logs |
 | NFR-SAG-0003 | Session JSONL retained on disk (path configurable; default documented) |
 | REQ-SAG-0711 | `sc-ai` wires the logger through `sc_jev_host::obs` into `SharedSessionLog` for `sc-jev-check` (amended in r-3b; was `v2::LoggerBuilder` + a local adapter) |
@@ -226,8 +226,8 @@ Made before the first release; nothing is kept for compatibility.
 | NFR-SAG-0001 | `ScAgentErrorResponse` is `{error, kind, message, suggested_action, retryable, retry_after_seconds?, field?, details?, schema_version}` in that key order; `retryable` is always present; `message` never holds the fix; `schema_version` stays `1` because nothing was published (from the first release, removing or renaming a key bumps it; an added key does not, because readers ignore unknown keys); readers require only `error` and `message` — (Active, agt-2a3; supersedes the r-1 field rule) |
 | REQ-SAG-0701 | stderr is one `ScAgentErrorResponse` line per NFR-SAG-0001 (agt-2a3 shape), exit 2, or 3 when every failed backend's error is retryable; a command-line usage error is `INPUT_INVALID` naming the argument in `field`, never `CONFIG_INVALID` — (Active, agt-2a3) |
 | REQ-SAG-0505 | Busy exhaustion is `PROVIDER_BUSY` with `cause` (`sends`, `budget`), `attempts` and `retry_after_seconds`; a busy status whose body marks quota is returned unretried and becomes `QUOTA_EXHAUSTED`; retry timing is unchanged — (Active, agt-2a3) |
-| REQ-SAG-0604 | An all-failed run returns the response like a partial one (no answers, one typed error per backend, each with `details.backend`); `sc-ai` prints the envelope and the first failure and exits 2 or 3; `sc-jev-py` raises with `.response` — (Active, agt-2a3; ADR-SAG-0025 amendment) |
-| REQ-SAG-0701 | Exit codes: 0 success, 2 a failure that is not retryable, 3 a retryable failure (`retryable` in the stderr line), for `sc-ai` and `sc-treesitter` (`docs/stability.md`) — (Active, agt-2a3) |
+| REQ-SAG-0604 | An all-failed run returns the response like a partial one (no answers, one typed error per backend, each with `details.backend`); `sc-ai` prints the envelope and the first failure, and exits 3 only if every failed backend's error is retryable, otherwise 2; `sc-jev-py` raises with `.response` — (Active, agt-2a3; ADR-SAG-0025 amendment) |
+| REQ-SAG-0701 | Exit codes: 0 success, 2 a failure that is not retryable, 3 a retryable failure (`sc-treesitter`: its error's `retryable`; `sc-ai`: 3 only if **every** failed backend's error is retryable, whatever the order of the backends), for `sc-ai` and `sc-treesitter` (`docs/stability.md`) — (Active, agt-2a3) |
 | REQ-SAG-0167 | The `sc-ai` binary has a `test-util`-only `--loopback-port` flag that aims the real HTTP backends at a loopback server; the published binary rejects it — (Active, agt-2a3; ADR-SAG-0022 test seam) |
 | NFR-SAG-0002 | Provider error text (status, type, code, message, parameter, request id, or the raw body when it is not error JSON) may appear in an error, bounded to 1024 bytes per field and single-line, and always passes through `redact`; prompt text and model output are never added — (Active, agt-2a3; ADR-SAG-0020 amendment) |
 

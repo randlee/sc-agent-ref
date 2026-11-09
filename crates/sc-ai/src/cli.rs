@@ -204,7 +204,9 @@ where
         {
             Ok(Parsed::Print(error.render().to_string()))
         }
-        Err(error) => Err(value_parser_error(&error).unwrap_or_else(|| usage_error(&error))),
+        Err(error) => Err(value_parser_error(&error)
+            .map(|parsed| with_blamed_flag(parsed, &error))
+            .unwrap_or_else(|| usage_error(&error))),
     }
 }
 
@@ -325,6 +327,19 @@ fn value_parser_error(error: &clap::Error) -> Option<JevError> {
     std::error::Error::source(error)?
         .downcast_ref::<JevError>()
         .cloned()
+}
+
+/// A value parser's own error, with the flag clap blames as its `field` when
+/// the parser did not name one (an empty value does not know its flag).
+fn with_blamed_flag(parsed: JevError, error: &clap::Error) -> JevError {
+    match error
+        .get(clap::error::ContextKind::InvalidArg)
+        .map(ToString::to_string)
+        .and_then(|argument| JevError::usage_field(&argument))
+    {
+        Some(flag) => parsed.with_field(flag),
+        None => parsed,
+    }
 }
 
 /// `INPUT_INVALID` for a command-line usage error, naming the argument clap

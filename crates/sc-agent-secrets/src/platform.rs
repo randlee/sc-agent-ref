@@ -55,41 +55,114 @@ pub struct PlatformKeyring;
 /// A keystore that waits for the user (a locked macOS Keychain with no way to
 /// show its prompt, a Secret Service with no agent) can block a read forever.
 /// A headless run must not hang on it, so the read gets a deadline and a
-/// typed, retryable error (`IO_FAILED`, `timed_out`).
+/// typed, non-retryable error (`IO_FAILED`, `other`).
 pub(crate) const KEYRING_READ_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15);
 
 /// Why a bounded read returned nothing.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum DeadlineMiss {
-    /// The deadline passed with the read still running.
+    /// The deadline passed with the read still running, or an earlier read is
+    /// still stuck.
     TimedOut,
     /// The reader thread ended without an answer (it panicked), or could not
     /// be started.
     Failed,
 }
 
-/// Runs `read` on its own thread and waits at most `timeout`.
+/// Runs reads on their own threads with a deadline, and remembers one stuck
+/// read.
 ///
-/// On timeout the thread is left to finish (or stay blocked) on its own; it
-/// only reads the keystore and holds no state, so abandoning it is safe, and
-/// the process can still exit. A thread that cannot be started, or that
-/// panics before answering, is [`DeadlineMiss::Failed`], not a timeout.
-pub(crate) fn read_with_deadline<T: Send + 'static>(
-    timeout: std::time::Duration,
-    read: impl FnOnce() -> T + Send + 'static,
-) -> Result<T, DeadlineMiss> {
-    let (sender, receiver) = std::sync::mpsc::channel();
-    std::thread::Builder::new()
-        .name("sc-keyring-read".to_owned())
-        .spawn(move || {
-            let _ = sender.send(read());
-        })
-        .map_err(|_| DeadlineMiss::Failed)?;
-    receiver.recv_timeout(timeout).map_err(|error| match error {
-        std::sync::mpsc::RecvTimeoutError::Timeout => DeadlineMiss::TimedOut,
-        std::sync::mpsc::RecvTimeoutError::Disconnected => DeadlineMiss::Failed,
-    })
+/// The state is one number: the id of the read that timed out and has not
+/// finished (0 for none). It is set on the timeout path and cleared only by
+/// that same reader finishing (a drop guard, so a panic clears it too). While
+/// it is set, every `run` returns [`DeadlineMiss::TimedOut`] at once, without
+/// starting a thread: several backends cost one wait and at most one thread is
+/// stranded. No clock is compared. Tests build their own gate, so none shares
+/// a process global.
+pub(crate) struct ReadGate {
+    stuck: std::sync::Arc<std::sync::atomic::AtomicU64>,
+    next_id: std::sync::atomic::AtomicU64,
 }
+
+/// Clears the gate's stuck mark if (and only if) it names this reader.
+struct Finished {
+    id: u64,
+    finished: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    stuck: std::sync::Arc<std::sync::atomic::AtomicU64>,
+}
+
+impl Drop for Finished {
+    fn drop(&mut self) {
+        use std::sync::atomic::Ordering;
+        self.finished.store(true, Ordering::SeqCst);
+        let _ = self
+            .stuck
+            .compare_exchange(self.id, 0, Ordering::SeqCst, Ordering::SeqCst);
+    }
+}
+
+impl ReadGate {
+    pub(crate) fn new() -> Self {
+        Self {
+            stuck: std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            next_id: std::sync::atomic::AtomicU64::new(1),
+        }
+    }
+
+    /// Whether a timed-out read is still running.
+    pub(crate) fn is_stuck(&self) -> bool {
+        self.stuck.load(std::sync::atomic::Ordering::SeqCst) != 0
+    }
+
+    /// Runs `read` on its own thread and waits at most `timeout`.
+    ///
+    /// On timeout the thread is left to finish (or stay blocked) on its own;
+    /// it only reads the keystore and holds no state, so abandoning it is
+    /// safe and the process can still exit. A thread that cannot be started,
+    /// or that panics before answering, is [`DeadlineMiss::Failed`].
+    pub(crate) fn run<T: Send + 'static>(
+        &self,
+        timeout: std::time::Duration,
+        read: impl FnOnce() -> T + Send + 'static,
+    ) -> Result<T, DeadlineMiss> {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        if self.is_stuck() {
+            return Err(DeadlineMiss::TimedOut);
+        }
+        let id = self.next_id.fetch_add(1, Ordering::SeqCst);
+        let finished = std::sync::Arc::new(AtomicBool::new(false));
+        let guard = Finished {
+            id,
+            finished: std::sync::Arc::clone(&finished),
+            stuck: std::sync::Arc::clone(&self.stuck),
+        };
+        let (sender, receiver) = std::sync::mpsc::channel();
+        std::thread::Builder::new()
+            .name("sc-keyring-read".to_owned())
+            .spawn(move || {
+                let _guard = guard;
+                let _ = sender.send(read());
+            })
+            .map_err(|_| DeadlineMiss::Failed)?;
+        receiver.recv_timeout(timeout).map_err(|error| match error {
+            std::sync::mpsc::RecvTimeoutError::Timeout => {
+                self.stuck.store(id, Ordering::SeqCst);
+                // The reader may have finished between the timeout and the
+                // store above; if so it will not clear the mark again.
+                if finished.load(Ordering::SeqCst) {
+                    let _ = self
+                        .stuck
+                        .compare_exchange(id, 0, Ordering::SeqCst, Ordering::SeqCst);
+                }
+                DeadlineMiss::TimedOut
+            }
+            std::sync::mpsc::RecvTimeoutError::Disconnected => DeadlineMiss::Failed,
+        })
+    }
+}
+
+/// The process-wide gate of [`PlatformKeyring`].
+static GATE: std::sync::LazyLock<ReadGate> = std::sync::LazyLock::new(ReadGate::new);
 
 /// A keyring read that could not run to an answer and did not time out:
 /// not retryable, since repeating it fails the same way.
@@ -99,20 +172,6 @@ fn keyring_read_failed() -> JevError {
         std::io::ErrorKind::Other,
         Some(KEYRING_RECOVERY.to_owned()),
     )
-}
-
-/// When the oldest keyring read still running started. A read sets it before
-/// it asks the keystore and clears it when it returns. A new read that finds
-/// one older than the deadline knows an earlier read is stuck and returns the
-/// timeout at once, so several backends cost one wait and at most one thread
-/// is stranded. A fresh concurrent read (younger than the deadline) is not
-/// treated as stuck.
-static OLDEST_READ: std::sync::Mutex<Option<std::time::Instant>> = std::sync::Mutex::new(None);
-
-fn oldest_read() -> std::sync::MutexGuard<'static, Option<std::time::Instant>> {
-    OLDEST_READ
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 fn keyring_timed_out() -> JevError {
@@ -127,17 +186,8 @@ fn keyring_timed_out() -> JevError {
 
 impl KeyringSource for PlatformKeyring {
     fn password(&self, service: &str, account: &str) -> Result<Option<String>, JevError> {
-        if oldest_read().is_some_and(|started| started.elapsed() >= KEYRING_READ_TIMEOUT) {
-            return Err(keyring_timed_out());
-        }
         let (service, account) = (service.to_owned(), account.to_owned());
-        let result = read_with_deadline(KEYRING_READ_TIMEOUT, move || {
-            oldest_read().get_or_insert_with(std::time::Instant::now);
-            let result = read_entry(&service, &account);
-            *oldest_read() = None;
-            result
-        });
-        match result {
+        match GATE.run(KEYRING_READ_TIMEOUT, move || read_entry(&service, &account)) {
             Ok(result) => result,
             Err(DeadlineMiss::TimedOut) => Err(keyring_timed_out()),
             Err(DeadlineMiss::Failed) => Err(keyring_read_failed()),
@@ -263,60 +313,101 @@ mod tests {
         assert!(!rendered.contains(secret), "{rendered}");
     }
 
-    /// A keystore read that never answers returns a typed, retryable error
-    /// at the deadline instead of hanging (the macOS Keychain prompt case).
-    /// The blocked reader waits on a channel, so the test depends on no
-    /// wall-clock sleep: it ends when the test releases the gate.
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    /// Short deadline for tests; no test waits on a clock for its result.
+    const SHORT: Duration = Duration::from_millis(20);
+    /// A deadline long enough that only the read finishing ends the wait.
+    const LONG: Duration = Duration::from_secs(60);
+
+    /// Waits (by yielding, no sleep) until the gate's stuck mark clears.
+    fn wait_until_unstuck(gate: &ReadGate) {
+        let mut spins = 0_u64;
+        while gate.is_stuck() {
+            spins += 1;
+            assert!(spins < 50_000_000, "the stuck mark never cleared");
+            std::thread::yield_now();
+        }
+    }
+
+    /// A read that never answers returns a typed, non-retryable error at the
+    /// deadline instead of hanging. The blocked reader waits on a channel, so
+    /// the test depends on no sleep: it ends when the test releases the gate.
     #[test]
     fn a_blocked_keyring_read_times_out_with_a_typed_error() {
-        let (release, gate) = std::sync::mpsc::channel::<()>();
-        let blocked = read_with_deadline(std::time::Duration::from_millis(20), move || {
-            let _ = gate.recv();
+        let gate = ReadGate::new();
+        let (release, held) = mpsc::channel::<()>();
+        let blocked = gate.run(SHORT, move || {
+            let _ = held.recv();
             1_u8
         });
         assert_eq!(blocked, Err(DeadlineMiss::TimedOut));
+        assert!(gate.is_stuck());
+        // While it is stuck a later read fails at once and never runs.
+        let ran = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let flag = std::sync::Arc::clone(&ran);
+        let later = gate.run(LONG, move || {
+            flag.store(true, std::sync::atomic::Ordering::SeqCst);
+        });
+        assert_eq!(later, Err(DeadlineMiss::TimedOut));
+        assert!(!ran.load(std::sync::atomic::Ordering::SeqCst));
+        // Releasing the stuck reader clears the mark, and reads work again.
         drop(release);
+        wait_until_unstuck(&gate);
+        assert_eq!(gate.run(LONG, || 7_u8), Ok(7));
         let error = keyring_timed_out();
         assert_eq!(error.code(), "IO_FAILED");
         assert!(!error.retryable(), "a retry meets the same stuck keystore");
         assert!(error.suggested_action().contains("process environment"));
         assert!(error.suggested_action().contains("blocks again"));
-        // A prompt answer is returned as is.
-        assert_eq!(
-            read_with_deadline(std::time::Duration::from_secs(60), || 7_u8),
-            Ok(7)
-        );
     }
 
-    /// A reader that panics before answering is not a timeout and is not
-    /// retryable.
+    /// A reader that panics before answering is not a timeout, is not
+    /// retryable, and leaves the gate usable.
     #[test]
-    fn a_failed_keyring_reader_is_not_a_timeout() {
-        let result = read_with_deadline(std::time::Duration::from_secs(60), || -> u8 {
+    fn a_panicking_keyring_read_is_not_a_timeout_and_the_next_read_works() {
+        let gate = ReadGate::new();
+        let result = gate.run(LONG, || -> u8 {
             panic!("keystore reader failed (expected in this test)")
         });
         assert_eq!(result, Err(DeadlineMiss::Failed));
+        assert!(!gate.is_stuck());
+        assert_eq!(gate.run(LONG, || 3_u8), Ok(3));
         let error = keyring_read_failed();
         assert_eq!(error.code(), "IO_FAILED");
         assert!(!error.retryable());
     }
 
-    /// ERR-QA-28: once an earlier read is stuck past the deadline, a later
-    /// read returns the typed error at once instead of waiting again.
+    /// A quick read that was already running when an older one was declared
+    /// stuck does not clear the older one's mark when it finishes.
     #[test]
-    fn a_read_after_a_stuck_one_returns_at_once() {
-        let Some(old) = std::time::Instant::now().checked_sub(KEYRING_READ_TIMEOUT * 2) else {
-            return;
-        };
-        *oldest_read() = Some(old);
-        let started = std::time::Instant::now();
-        let error = PlatformKeyring
-            .password("sc-agent-test-service", "nobody")
-            .unwrap_err();
-        *oldest_read() = None;
-        assert_eq!(error.code(), "IO_FAILED");
-        assert!(!error.retryable());
-        // No new 15 s wait: far under the deadline.
-        assert!(started.elapsed() < KEYRING_READ_TIMEOUT);
+    fn a_quick_read_finishing_does_not_clear_an_older_stuck_one() {
+        let gate = std::sync::Arc::new(ReadGate::new());
+        let (started_tx, started_rx) = mpsc::channel::<()>();
+        let (finish_quick, quick_held) = mpsc::channel::<()>();
+        let quick_gate = std::sync::Arc::clone(&gate);
+        // The quick read starts first and waits to be told to finish.
+        let quick = std::thread::spawn(move || {
+            quick_gate.run(LONG, move || {
+                let _ = started_tx.send(());
+                let _ = quick_held.recv();
+                5_u8
+            })
+        });
+        started_rx.recv().expect("the quick read started");
+        // Another read, started later, times out and is stuck.
+        let (release_stuck, stuck_held) = mpsc::channel::<()>();
+        let stuck = gate.run(SHORT, move || {
+            let _ = stuck_held.recv();
+        });
+        assert_eq!(stuck, Err(DeadlineMiss::TimedOut));
+        assert!(gate.is_stuck());
+        // The quick read finishes now; the stuck mark is not its to clear.
+        finish_quick.send(()).expect("release the quick read");
+        assert_eq!(quick.join().expect("quick thread"), Ok(5));
+        assert!(gate.is_stuck(), "the stuck read's mark must survive");
+        drop(release_stuck);
+        wait_until_unstuck(&gate);
     }
 }
