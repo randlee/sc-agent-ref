@@ -135,7 +135,7 @@ own row's Status cell and its own marker text, and added or removed no entry).
 | ADR-SAG-0008 | Sessions carry prior answers to later backends | Active | A.1 subsection (Active, r-1); amended by ADR-SAG-0025 (Active, r-2b); ADR-SAG-0031 (Active, r-6) |
 | ADR-SAG-0009 | Local backend registers without caller changes | Active | Amended by ADR-SAG-0022; ADR-SAG-0027 (Active, r-1); ADR-SAG-0024 (Active, r-2); ADR-SAG-0030 (Active, r-7) |
 | ADR-SAG-0010 | CLI thin adapter | Active | Amended by ADR-SAG-0026 (Active, r-3b) |
-| ADR-SAG-0011 | Python via sc-jev-py wheel | Active | Amended by ADR-SAG-0026 (Active, r-3b) |
+| ADR-SAG-0011 | Python via sc-jev-py wheel | Active | Amended by ADR-SAG-0026 (Active, r-3b); phase-end amendment (Active) |
 | ADR-SAG-0012 | sc-jev owns Jev API | Active | Amended by ADR-SAG-0030 (Active, r-5) |
 | ADR-SAG-0013 | Session and general logs via sc-observability v2 | Active | Amended by ADR-SAG-0021; ADR-SAG-0026 (Active, r-3b); ADR-SAG-0031 (Active, r-6); general log (Active, 2026-11-09, agt-9eh); ADR-SAG-0032 (Active, agt-1aq: row admission waits, bounded) |
 | ADR-SAG-0014 | CLI success body | Active | A.1 subsection (Active, r-1); amended by ADR-SAG-0024 (Active, r-2); ADR-SAG-0032 (Active, agt-1aq) |
@@ -872,10 +872,17 @@ or canonicalization.
   `sc-jev-check`. `sc-jev-py` keeps only argument conversion, the GIL release
   and exception mapping; path policy, logging adapter and run wiring are
   `sc-jev-host`'s (`PathPolicy::python()`).
-  *(Amended, phase-end: opening the default host general log and applying the
-  Python `repo_root`, `log_dir` and `sessions_dir` stay in `sc-jev-py`, in
-  `execute` and `execute_ask`, beside `logging.rs`, because the host logger is
-  Python-only. Other run wiring stays in `sc-jev-host`.)*
+
+
+### Amendment (Phase A.1, phase-end)
+
+**Status:** Active (Phase A.1). Amends the r-3b bullet above and the
+ADR-SAG-0026 host half.
+
+- (Active, phase-end) `sc-jev-py` also opens the default host general log and
+  applies the Python `repo_root`, `log_dir` and `sessions_dir`, in `execute`
+  and `execute_ask`, beside `logging.rs`, because the host logger is
+  Python-only. All other run wiring stays in `sc-jev-host`.
 
 ## ADR-SAG-0018 — sc-publish kit owns release surface
 
