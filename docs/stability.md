@@ -59,7 +59,7 @@ Every `sc-ai` stderr line is one JSON object (ADR-SAG-0027, amended by bead
 | `retryable` | always | `true` or `false`; advice to the caller, not a promise that sc-agent resends |
 | `retry_after_seconds` | when known | The provider's `Retry-After` in whole seconds (rounded up, capped at one day), on `PROVIDER_BUSY` and on an `API_ERROR` that carried the header |
 | `field` | when known | The failing flag, argument or provider-named request field |
-| `details` | when the id has any | A closed object of machine fields (below) |
+| `details` | when the id has any | An object of machine fields (below); a reader ignores keys it does not know |
 | `schema_version` | always | `1` |
 
 The ids added before the first release are `AUTH_FAILED` (401, 403),
@@ -71,7 +71,7 @@ now covers the token cap and a provider's own "too long" refusal as well as
 the byte cap.
 
 `details` keys, each present only when the error has it: `producer`,
-`provider`, `http_status`, `provider_type`, `provider_code`,
+`backend`, `provider`, `http_status`, `provider_type`, `provider_code`,
 `provider_request_id`, `cause`, `attempts`, `limit`, `actual`, `unit`, `what`,
 `io_kind`, `network_kind`, `path`, `log_flush_failure`. By id:
 
@@ -81,10 +81,11 @@ the byte cap.
 | `AUTH_FAILED`, `API_REQUEST_INVALID`, `QUOTA_EXHAUSTED`, `API_ERROR` | `provider`, `http_status`, `provider_type`, `provider_code`, `provider_request_id` (each when the provider sent it) |
 | `INPUT_TOO_LARGE` | `unit` (`bytes` or `tokens`), `limit` and `actual` (absent when only the provider refused and gave no numbers), plus the provider keys above when the provider refused |
 | `IO_FAILED` | `what`, `io_kind` (snake_case `std::io::ErrorKind`, such as `not_found`, `permission_denied`) |
-| `NETWORK_ERROR` | `network_kind` (`timeout`, `connect`, `tls`, `cancelled`) |
+| `NETWORK_ERROR` | `network_kind` (`timeout`, `connect`, `tls`, `cancelled`, `other`) |
 | `RESPONSE_INVALID` | `cause` (`truncated`, `too_large`, `not_json`, `schema`) |
 | `INPUT_MISSING`, `PROMPT_FILE_MISSING` | `path` |
 | a producer's error | the producer's own `details`, plus `producer` |
+| any stored backend failure (a result in `results`, the first failure on stderr) | `backend` (the descriptor name, such as `jev` or `anthropic_haiku`) |
 | any, when the session log could not be flushed as the error left | `log_flush_failure` |
 
 `details.io_kind` is one of a closed set, from an explicit table (never the
@@ -104,7 +105,10 @@ future Rust adds is `other`. A test pins every id (`sc_agent_types::IO_KIND_IDS`
 **Exit codes** (the same for `sc-ai` and `sc-treesitter`): `0` success; `2`
 a failure whose `retryable` is `false`; `3` a failure whose `retryable` is
 `true`. A partial or all-failed `sc-ai jev run` prints the envelope on stdout
-and exits by its first failure's `retryable`. Usage errors and every other
+and exits 3 only if every failed backend's error is retryable, otherwise 2, whatever
+the order of the backends. Exit 3 means "retry the failed backends": a backend
+that answered may already have its answer in the envelope, so a retry should
+send only the backends that failed. Usage errors and every other
 caller mistake are `2`. A caller that only sees the exit status can tell
 "retry later" (3) from "fix something" (2); the id and `kind` say more.
 
@@ -115,11 +119,14 @@ Python argument, and the provider's own parameter name for
 `API_REQUEST_INVALID`.
 
 **Retryable edge cases.** `IO_FAILED` is retryable only for `interrupted` and
-`timed_out`. Both timeout ids follow one rule, "would the same attempt,
-unchanged, plausibly succeed?": `EXTRACTION_TIMEOUT` from a stalled `git` (a
-lock file, a slow disk) is retryable; `EXTRACTION_TIMEOUT` from a `command`
-extractor over its configured `timeout_seconds` is not (it will exceed the
-limit again; raise it or shrink the input). A 503 (any 5xx) is retryable but
+`timed_out`. One id, one answer: `EXTRACTION_TIMEOUT` is not retryable for
+either cause. A stalled `git` (a lock file, a slow disk) needs the stall fixed
+and a `command` extractor over its `timeout_seconds` needs a larger limit or a
+smaller input; an unchanged retry meets the same cause, and each action names
+its likely cause. A platform keyring read that does not answer in 15 s is
+`IO_FAILED` with `io_kind` `other` and is not retryable (a retry blocks again
+until the user unlocks the keystore); later reads in the same process return
+the same error at once. A 503 (any 5xx) is retryable but
 not resent automatically. `Retry-After` takes precedence over the default
 backoff for the busy wait, as REQ-SAG-0505 allows. `NETWORK_ERROR` kind
 `other` (an unclassified transport error) is not retryable.

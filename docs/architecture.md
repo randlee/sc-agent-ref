@@ -146,8 +146,8 @@ own row's Status cell and its own marker text, and added or removed no entry).
 | ADR-SAG-0022 | Scripted backends are a test-util feature | Active | Amends ADR-SAG-0009; amended by ADR-SAG-0029; A.1 subsection (Active, r-1); ADR-SAG-0024 (Active, r-2); ADR-SAG-0025 (Active, r-2b); ADR-SAG-0030 (Active, r-7) |
 | ADR-SAG-0023 | Dependency pins, allocator, released binaries | Active (r-4; host pin r-3b; Windows CRT phase-end) | Amends ADR-SAG-0016, ADR-SAG-0017 |
 | ADR-SAG-0024 | Engine entry point and response contract | Active (r-2) | Amends ADR-SAG-0003, ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0014, ADR-SAG-0019, ADR-SAG-0022; supersedes the ADR-SAG-0014 A.1 r-1 interim subsection |
-| ADR-SAG-0025 | Multi-backend semantics and equal-input attestation | Active (r-2b) | Amends ADR-SAG-0004, ADR-SAG-0008, ADR-SAG-0019, ADR-SAG-0022 |
-| ADR-SAG-0026 | Shared HTTP crate and host crate | Active (HTTP half, r-3; host half, r-3b) | Amends ADR-SAG-0006, ADR-SAG-0007, ADR-SAG-0020, ADR-SAG-0017 (HTTP half); ADR-SAG-0010, ADR-SAG-0011, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0017 (host half); amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6) |
+| ADR-SAG-0025 | Multi-backend semantics and equal-input attestation | Active (r-2b) | Amends ADR-SAG-0004, ADR-SAG-0008, ADR-SAG-0019, ADR-SAG-0022; amended by agt-2a3 (all-failed runs keep every error) (Active) |
+| ADR-SAG-0026 | Shared HTTP crate and host crate | Active (HTTP half, r-3; host half, r-3b) | Amends ADR-SAG-0006, ADR-SAG-0007, ADR-SAG-0020, ADR-SAG-0017 (HTTP half); ADR-SAG-0010, ADR-SAG-0011, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0017 (host half); amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6); agt-2a3 provider failure classification (Active) |
 | ADR-SAG-0027 | Error taxonomy and extensibility | Active (r-1) | Amends ADR-SAG-0001, ADR-SAG-0009, ADR-SAG-0016; amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6); agt-2a3 error contract (Active) |
 | ADR-SAG-0028 | workspace-tests crate | Active (r-3b) | Amended by ADR-SAG-0030 (Active, r-7) |
 | ADR-SAG-0029 | Phase A hardening amendments | Active (a-10) | Amends ADR-SAG-0020 and ADR-SAG-0022; A.1 supersedes named sentences of (a) (Active, r-1), (Active, r-3) and of (b) (Active, r-1), (Active, r-2) |
@@ -717,6 +717,22 @@ Both use test doubles for unit tests.
   fallback reads at most 4096 bytes of the body before bounding. Session
   logs still store only the `error_code`, never the text (NFR-SAG-0002,
   ADR-SAG-0031).
+- (Active, agt-2a3) **Keyring read deadline.** A platform keyring read
+  (`PlatformKeyring::password`) runs on its own thread with a fixed 15 s
+  deadline (`KEYRING_READ_TIMEOUT`, not configurable). A keystore that waits
+  for a prompt it cannot show (a locked macOS Keychain in a headless run)
+  gives `IO_FAILED` with `io_kind` `other` (not retryable: the blocked
+  read does not clear until the user unlocks the keystore, so a retry
+  blocks again) instead of hanging. A read that has been stuck past the
+  deadline makes every later read in the process return the same error at
+  once, so several backends cost one wait and at most one thread is
+  stranded. The blocked thread is detached and left to finish; it holds no
+  state and reads only the keystore, so abandoning it is safe and the
+  process can still exit. A reader thread that cannot start or that panics
+  is a non-retryable `IO_FAILED` (`other`). The deadline applies to the
+  keyring only; the environment and `.env` sources are unchanged. The Python
+  entry points resolve keys inside `py.detach`, so the GIL is released
+  during the wait.
 
 ## ADR-SAG-0007 — API-direct LLM backends
 
@@ -1418,13 +1434,15 @@ consumer-output bullet in r-3b.
   `BackendStatus::Ok | Failed(BackendFailure)` (the `JevError`; its
   `ScAgentErrorResponse` is derived when serialized); a failure
   does not discard other answers; `leak = any Failed`; if all fail, `run`
-  returns `Err`. `judge` is called once per backend; only `BusyPolicy`
+  returns `Err` *(superseded by the agt-2a3 amendment (all-failed runs keep
+  every error): `run` returns the response)*. `judge` is called once per backend; only `BusyPolicy`
   retries; a session-save failure keeps the answers with
   `session_saved = false` and one `warnings` entry. REQ-SAG-0604 (engine part).
 - (Active, r-3b) REQ-SAG-0604 consumer output: on a partial result
   (`RunResponse::is_partial()`) `sc-ai` prints the envelope with the
   successful answers on stdout, the first failure's
-  `ScAgentErrorResponse` on stderr, and exits 2; `sc-jev-py` raises
+  `ScAgentErrorResponse` on stderr, and exits 2 *(2, or 3 when every failed
+  backend's error is retryable: agt-2a3 amendment)*; `sc-jev-py` raises
   `JevError` with a `.response` attribute holding the envelope `data`.
   All-failed stays a plain error. *(Superseded by the agt-2a3 amendment
   below: an all-failed run returns the same response.)*
@@ -1449,11 +1467,13 @@ consumer-output bullet in r-3b.
   and one typed failure per backend in `results`, exactly like a partial run
   (`is_partial()` is true). `sc-ai` prints that envelope on stdout (no
   `answers` or `primary_backend` keys), the first failure on stderr, and
-  exits 2, or 3 when that failure is retryable (ADR-SAG-0027 agt-2a3
+  exits 2, or 3 when every failed backend's error is retryable (ADR-SAG-0027 agt-2a3
   amendment). `sc-jev-py` raises `JevError` for the first failure with
   `.response` set to the same body. A run that selected no backend stays an
   `INPUT_INVALID` error. This supersedes "All-failed stays a plain error" in
-  the (Active, r-2b) bullet above. REQ-SAG-0604 is amended to match.
+  the (Active, r-3b) consumer-output bullet above and the (Active, r-2b)
+  engine bullet "if all fail, `run` returns `Err`". REQ-SAG-0604 is amended
+  to match.
 - (Active, agt-2a3) Each stored backend failure names its backend in
   `details.backend` (the descriptor name), so a failure read on its own,
   for instance the stderr line, says which backend it came from.
@@ -1476,7 +1496,8 @@ HTTP half amends ADR-SAG-0006, 0007,
   `send_with_busy_retry` (with `CancelToken`) and redaction of every error it
   returns, and is the single secret-read site (ADR-SAG-0020 r-3 amendment).
   It depends only on `sc-agent-types` (`default-features = false`,
-  `features = ["secret"]`) and `ureq`; no `ureq` type is public. Its
+  `features = ["secret"]`) and `ureq` *(and `serde_json`, for reading a
+  failing reply's error JSON only: agt-2a3 amendment below)*; no `ureq` type is public. Its
   non-default `test-util` feature (test hooks for clock, sleeper and jitter;
   loopback-only `http` endpoint; test transports) is enabled only by
   dev-dependencies. Phase B provider agents reuse it. REQ-SAG-0402.
@@ -1510,7 +1531,12 @@ HTTP half amends ADR-SAG-0006, 0007,
   other environment read in a library `src/` is `GIT_CEILING_DIRECTORIES` in
   `crates/sc-jev-check/src/run/mod.rs` (`enclosing_git_entry`, repo-root
   discovery): a git setting, neither a log, session nor API-key variable, and
-  allowed by name in `test_env_reads_only_in_owners`.
+  allowed by name in `test_env_reads_only_in_owners`. The extractor child
+  environment allowlist and the secret-value scan also read the whole
+  environment (`std::env::vars_os()` in `apply_env_allowlist` and
+  `secret_values`, `crates/sc-jev-check/src/extract/sanitize.rs`); that file
+  is in the scan's owner list, and the scan's needles include `vars_os(`, so
+  an unlisted file reading the environment that way fails the test.
 
 ### Amendment (Phase A.1, r-7)
 
@@ -1552,7 +1578,15 @@ HTTP half of ADR-SAG-0026.
   (`api_failure`) and answers the busy retry's quota question
   (`is_quota_reply`). It reads only the error fields of a non-success reply
   (type, code, message, parameter, request id, `Retry-After`), never a
-  success body, a request, or a Jev answer.
+  success body, a request, or a Jev answer. The shapes it reads: the
+  Anthropic and OpenAI `{"error": {type, code, message, param, details}}`
+  and `request_id`; for Jev (undocumented here) `{"detail": "..."}`,
+  `{"detail": [{"loc", "msg"}]}`, `{"message": "..."}`, a top-level
+  `code`, and, for any other body, the first 4096 bytes as bounded raw text.
+  For Haiku and Luna "the input is too long" is recognised only from
+  structured markers, status 413 and Anthropic's "prompt is too long"
+  message (unverified wording); only Jev's message text is matched for
+  `max_tokens`.
 - (Active, agt-2a3) This squares with "the crate only carries bytes" and
   ADR-SAG-0012: Jev API semantics (the check wire body, the reply parser,
   every Jev operation) stay in `sc-jev`; this crate still owns no wire
@@ -1600,6 +1634,8 @@ HTTP half of ADR-SAG-0026.
   `1`, denies unknown fields at the top level and inside `details`, and
   treats anything else as not an error response; so adding any key, top
   level or in `details`, is a breaking change and bumps `schema_version`.
+  *(Superseded by the agt-2a3 amendment: readers ignore unknown keys and an
+  added key does not bump the version.)*
   Every stderr line gains `"schema_version":1`; NFR-SAG-0001 and
   REQ-SAG-0701 are amended and a golden stderr test pins the bytes.
   *The key order and the `retryable`, `details` and message rules are
@@ -1732,10 +1768,14 @@ the (Active, r-1) bullets on `retryable()` and on the field rule, and the
   optional explicit recovery. `InputInvalid` takes an optional `field`.
   `ProducerError` carries the producer's `suggested_action`, `retryable`,
   `retry_after_seconds`, `field` and `details`, so re-raising a producer's
-  error drops nothing. A session-log flush failure that happens while an
-  error leaves is its own `LogFlushFailed` wrapper (id, message and action
-  are the inner error's; `details.log_flush_failure` carries the reason), not
-  text appended to a detail. This replaces the r-1 variant list.
+  error drops nothing. The wrapper variant `Annotated { error, flush_failure,
+  backend }` (id, message, action and retryability are the inner error's)
+  carries `details.backend` (the failing backend's descriptor name, set on
+  every stored backend failure) and `details.log_flush_failure` (a
+  session-log flush failure that happens while an error leaves), so neither
+  is text appended to a detail. (It replaces the first-draft name
+  `LogFlushFailed`.) `NetworkErrorKind` gains `other` (an unclassified
+  transport error, not retryable). This replaces the r-1 variant list.
 - (Active, agt-2a3) **Which id (the rule).** `INPUT_INVALID` is what the
   caller handed in being malformed or breaking a rule, command-line usage
   errors included. `CONFIG_INVALID` is a configuration source being wrong
@@ -1743,8 +1783,11 @@ the (Active, r-1) bullets on `retryable()` and on the field rule, and the
   setup a flag selects). `INPUT_MISSING` is a named path that does not exist
   (the OS said not found), whichever code path reads it
   (`JevError::read_failed` is the one helper). `IO_FAILED` is the operating
-  system or a dependency failing during the work. The `JevError` module
-  documentation states the rule; call sites follow it.
+  system or a dependency failing during the work (a producer that cannot
+  be spawned or waited on, a git that fails, a reader that stops). The
+  `EXTRACTION_*` ids stay for the extraction pipeline's own results (empty,
+  invalid output, a producer's exit). The `JevError` module documentation
+  states the rule; call sites follow it.
 - (Active, agt-2a3) **Retryability.** `retryable()` is true for
   `NETWORK_ERROR` of kind `timeout` or `connect`, for `PROVIDER_BUSY`, for
   `API_ERROR` with status 500 or above (500, 503 and 504 included), and for a
@@ -1757,7 +1800,10 @@ the (Active, r-1) bullets on `retryable()` and on the field rule, and the
   lost or failed reply can mean the provider already processed and billed the
   request. `QUOTA_EXHAUSTED`, `AUTH_FAILED`, `API_REQUEST_INVALID`,
   `RESPONSE_INVALID` and `INPUT_TOO_LARGE` are not retryable: the same
-  request fails the same way. Every non-retryable action says so; a test
+  request fails the same way. `IO_FAILED` is retryable for `interrupted`
+  and `timed_out` only; both `EXTRACTION_TIMEOUT` variants (a stalled git,
+  a `command` extractor over its limit) are not, with an action naming the
+  likely cause of each. Every non-retryable action says so; a test
   checks that no non-retryable action tells the caller to retry unchanged.
 - (Active, agt-2a3) **Quota is not busy.** A 429 (or 502, 529) whose body
   says the account is out of tokens, credit or spend allowance is returned at
@@ -1782,7 +1828,7 @@ the (Active, r-1) bullets on `retryable()` and on the field rule, and the
   failed and why) and never holds the fix; `suggested_action` is
   `JevError::suggested_action()`. `fix_hint()` is removed. `kind` is
   `validation`, `not_found`, `invalid_state`, `dependency`, `permission`,
-  `timeout` or `capacity`. `details` is a closed object whose keys are
+  `timeout` or `capacity`. `details` is an object (a reader ignores unknown keys) whose keys are
   listed in `docs/stability.md`. Reading ignores unknown keys, at the top
   level and in `details`, so a producer's new key does not make its line
   unparseable (ERR-QA-16), and accepts `schema_version` absent or `1`; only `error` and `message` are

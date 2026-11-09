@@ -109,10 +109,10 @@ the **`sc-ai`** CLI. Behavioural contract for errors and parity rows:
 | ID | Requirement |
 | --- | --- |
 | REQ-SAG-0700 | `sc-ai jev` subcommands with versioned JSON envelope |
-| REQ-SAG-0701 | stderr `{"error","message"}`, exit 2 |
+| REQ-SAG-0701 | stderr `{"error","message"}`, exit 2 *(reshaped, exit 3 for a retryable error: see the agt-2a3 amendments below)* |
 | REQ-SAG-0702 | Readback pairs per sc-ai-cli |
 | REQ-SAG-0703 | Documented install path for `sc-ai` binary |
-| REQ-SAG-0710 | Blocking CLI: stdout = versioned envelope (ADR-SAG-0014) with Jev answer JSON in `data` + `session_id`; stderr errors; exit 2 |
+| REQ-SAG-0710 | Blocking CLI: stdout = versioned envelope (ADR-SAG-0014) with Jev answer JSON in `data` + `session_id`; stderr errors; exit 2 *(or 3 for a retryable error: agt-2a3)* |
 | NFR-SAG-0002 | Secrets never appear in CLI output or logs |
 | NFR-SAG-0003 | Session JSONL retained on disk (path configurable; default documented) |
 | REQ-SAG-0711 | `sc-ai` wires the logger through `sc_jev_host::obs` into `SharedSessionLog` for `sc-jev-check` (amended in r-3b; was `v2::LoggerBuilder` + a local adapter) |
@@ -170,7 +170,7 @@ verbatim. Plan: [`plans/phase-a-refine/plan.md`](plans/phase-a-refine/plan.md).
 | REQ-SAG-0314 | Request byte cap has one owner per backend (descriptor limit), enforced in `validate_for_send` before any send; dry-run reports `payload_bytes` and per-backend `over_limit` without failing — (Active, r-2) |
 | REQ-SAG-0402 | One shared HTTP layer (`sc-agent-http`) for all backend families — (Active, r-3) |
 | REQ-SAG-0403 | Both backends validate `CanonicalJudgePayload` by deserializing; the Jev body is the documented flat `{model, state, questions}` object (no byte-splice) — (Active, r-5) |
-| REQ-SAG-0604 | Per-backend results; a failure keeps other answers; `leak` = any failed; consumers print the envelope on stdout and the first failure on stderr and exit 2 / raise with `.response` — (Active, r-3b) |
+| REQ-SAG-0604 | Per-backend results; a failure keeps other answers; `leak` = any failed; consumers print the envelope on stdout and the first failure on stderr and exit 2 / raise with `.response` — (Active, r-3b; exit code 2 or 3 and the all-failed case superseded by the agt-2a3 amendment below) |
 | REQ-SAG-0605 | Multi-backend runs independent by default; `chain_context` explicit (CLI flag, Python kwarg) and recorded — (Active, r-3b) |
 | REQ-SAG-0606 | `equal` computed from backend-reported digests of the canonical blob recovered from each final wire body — (Active, r-2b) |
 | REQ-SAG-0607 | Stateless `FileSessionStore` with a written no-lock concurrency model; session written once per run, only when an `ask`-capable backend returned `Ok` — (Active, r-2) |
@@ -201,8 +201,8 @@ verbatim. Plan: [`plans/phase-a-refine/plan.md`](plans/phase-a-refine/plan.md).
 | REQ-SAG-0103 | The a-1 frozen contract is unfrozen once by r-1 (types break) and re-frozen at r-1 merge; later changes are additive — (Active, r-1) |
 | REQ-SAG-0120 | The `observability::v2::SessionLog` port stays in `sc-agent-types` but no longer depends on `sc-observability-types`: `emit` returns the local `LogRejected`; the module is behind the default `obs` feature — (Active, r-1) |
 | REQ-SAG-0121 | Noop and test-util doubles stay; "trim deps" is done for `sc-observability-types` (dependency and root entry removed); module deletion still waits on upstream v2 — (Active, r-1) |
-| NFR-SAG-0001 | `ScAgentErrorResponse` is `{error, message}` plus `schema_version` (always `1`), `retryable` (only when `true`) and `details` (only for producer errors), in that key order; readers accept `schema_version` absent or `1` and deny unknown keys, so any added key (top level or in `details`) is breaking and bumps `schema_version` — (Active, r-1) |
-| REQ-SAG-0701 | stderr is one `ScAgentErrorResponse` line per NFR-SAG-0001 (amended): `{error, message, schema_version, ...}`, exit 2 — (Active, r-1) |
+| NFR-SAG-0001 | *(Superseded by the agt-2a3 amendment below.)* `ScAgentErrorResponse` is `{error, message}` plus `schema_version` (always `1`), `retryable` (only when `true`) and `details` (only for producer errors), in that key order; readers accept `schema_version` absent or `1` and deny unknown keys, so any added key (top level or in `details`) is breaking and bumps `schema_version` — (Active, r-1) |
+| REQ-SAG-0701 | stderr is one `ScAgentErrorResponse` line per NFR-SAG-0001 (amended): `{error, message, schema_version, ...}`, exit 2 — (Active, r-1; superseded by the agt-2a3 amendment below) |
 | REQ-SAG-0601 | `prepare`/`run` library API; dry-run via `RunConfig::dry_run` (replaces the Phase A `run_check` / dry-run API) — (Active, r-2) |
 | REQ-SAG-0710 | `data` is the `RunResponse` serialization (ADR-SAG-0014 r-2 amendment): the primary backend is the first `Ok` backend in `BackendSet` order and its answers are at the top level (the verbatim Jev response when Jev is primary); plus `session_id` (null unless `session_saved`), `results`, `equal_input`, `warnings` — (Active, r-2) |
 | REQ-SAG-0505 | Busy retry (owner decision 2026-11-06, amended 2026-11-08): 429/502/529 only; 5 sends in total (4 delays: 1, 2, 4, 8 s, 15 s before jitter); no policy or backend may exceed 5 sends; valid Retry-After honoured, clamped 0–30 s; Retry-After grammar ASCII digits with optional fraction, ≤ 32 bytes, else malformed; absent or malformed Retry-After → exponential backoff 1, 2, 4, 8 … s capped at 30 s; ≤ 250 ms jitter; 90 s budget for starting attempts (in-flight attempt keeps its request timeout); transport deadlines are bounded in the shared layer: request 1 ms–120 s, connect 1 ms–10 s; timeouts and other network errors, including connect/DNS failures, are not retried — `NETWORK_ERROR`, `retryable() == true`, caller decides — (Active, r-3; amended 2026-11-08) |
@@ -224,10 +224,11 @@ Made before the first release; nothing is kept for compatibility.
 | REQ-SAG-0101 | `errors.json` gains `AUTH_FAILED`, `API_REQUEST_INVALID`, `QUOTA_EXHAUSTED`, `PROVIDER_BUSY`, `API_ERROR` and `IO_FAILED`; every variant still maps to exactly one id. `fix_hint()` is replaced by `message()` (what failed) and `suggested_action()` (what to do) — (Active, agt-2a3) |
 | REQ-SAG-0106 | `retryable()` is true for `NETWORK_ERROR` kinds `timeout` and `connect`, `PROVIDER_BUSY`, `API_ERROR` from status 500 and above, and a producer's error as the producer says; `Operational`, `OperationalArea` and `SessionStoreIo` are removed; `ProducerError` carries the producer's `retryable`, `retry_after_seconds`, `field`, `details` and `suggested_action` — (Active, agt-2a3) |
 | NFR-SAG-0001 | `ScAgentErrorResponse` is `{error, kind, message, suggested_action, retryable, retry_after_seconds?, field?, details?, schema_version}` in that key order; `retryable` is always present; `message` never holds the fix; `schema_version` stays `1` because nothing was published (from the first release, removing or renaming a key bumps it; an added key does not, because readers ignore unknown keys); readers require only `error` and `message` — (Active, agt-2a3; supersedes the r-1 field rule) |
-| REQ-SAG-0701 | stderr is one `ScAgentErrorResponse` line per NFR-SAG-0001 (agt-2a3 shape), exit 2; a command-line usage error is `INPUT_INVALID` naming the argument in `field`, never `CONFIG_INVALID` — (Active, agt-2a3) |
+| REQ-SAG-0701 | stderr is one `ScAgentErrorResponse` line per NFR-SAG-0001 (agt-2a3 shape), exit 2, or 3 when every failed backend's error is retryable; a command-line usage error is `INPUT_INVALID` naming the argument in `field`, never `CONFIG_INVALID` — (Active, agt-2a3) |
 | REQ-SAG-0505 | Busy exhaustion is `PROVIDER_BUSY` with `cause` (`sends`, `budget`), `attempts` and `retry_after_seconds`; a busy status whose body marks quota is returned unretried and becomes `QUOTA_EXHAUSTED`; retry timing is unchanged — (Active, agt-2a3) |
 | REQ-SAG-0604 | An all-failed run returns the response like a partial one (no answers, one typed error per backend, each with `details.backend`); `sc-ai` prints the envelope and the first failure and exits 2 or 3; `sc-jev-py` raises with `.response` — (Active, agt-2a3; ADR-SAG-0025 amendment) |
 | REQ-SAG-0701 | Exit codes: 0 success, 2 a failure that is not retryable, 3 a retryable failure (`retryable` in the stderr line), for `sc-ai` and `sc-treesitter` (`docs/stability.md`) — (Active, agt-2a3) |
+| REQ-SAG-0167 | The `sc-ai` binary has a `test-util`-only `--loopback-port` flag that aims the real HTTP backends at a loopback server; the published binary rejects it — (Active, agt-2a3; ADR-SAG-0022 test seam) |
 | NFR-SAG-0002 | Provider error text (status, type, code, message, parameter, request id, or the raw body when it is not error JSON) may appear in an error, bounded to 1024 bytes per field and single-line, and always passes through `redact`; prompt text and model output are never added — (Active, agt-2a3; ADR-SAG-0020 amendment) |
 
 Known limit (ERR-QA-6): Jev's own quota signal is not documented. Only 402

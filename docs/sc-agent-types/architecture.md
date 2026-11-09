@@ -53,7 +53,11 @@ carry a `ProviderFailure`, and `ProviderBusy` carries `status`, `sends`,
 own `code` and every other field the producer sent. Every struct-like variant
 has a snake-case constructor. `message()` (the `Display` text, what failed)
 and `suggested_action()` (what to do) are the two renderers of text, and
-`details()` is the machine fields; `fix_hint()` is gone. `retryable()` is
+`details()` is the machine fields; `fix_hint()` is gone. The wrapper variant
+`Annotated { error, flush_failure, backend }` carries `details.backend` and
+`details.log_flush_failure` while keeping the inner error's id, message,
+action and retryability (ADR-SAG-0027 agt-2a3 amendment). `NetworkErrorKind`
+includes `other` (unclassified, not retryable). `retryable()` is
 true for `NetworkError` of kind `Timeout` or `Connect`, `ProviderBusy`,
 `ApiError` from status 500 and above, and a producer's error as the producer says;
 `Error::source()` is `None` for every variant. The id rule (`INPUT_INVALID`

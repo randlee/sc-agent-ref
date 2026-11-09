@@ -40,11 +40,15 @@ The keyring service is the environment variable name. Anthropic lookups honor
 it without depending on this crate. `Debug` and `Display` redact the secret.
 `as_str` is the only read, and only that transport may call it. This crate
 emits no log lines (NFR-SAG-0002, ADR-SAG-0013).
-A platform keyring read has a 15 s deadline (`KEYRING_READ_TIMEOUT`): a keystore
+A platform keyring read has a 15 s deadline (`KEYRING_READ_TIMEOUT`; ADR-SAG-0020
+agt-2a3 amendment, "Keyring read deadline"): a keystore
 that waits for a prompt it cannot show (a locked macOS Keychain in a headless
-run) returns `IO_FAILED` with `io_kind` `timed_out` (retryable) and an action
-that points at the process environment and `.env`, instead of hanging. The
-blocked read stays on its own detached thread; it holds no state.
+run) returns `IO_FAILED` with `io_kind` `other` (not retryable: a retry blocks again
+until the keystore is reachable) and an action that points at the process
+environment and `.env`, instead of hanging. The blocked read stays on its own
+detached thread; it holds no state, and later reads in the same process return
+the same error at once (so several backends cost one wait and strand at most
+one thread).
 
 Unreadable `.env` or keyring failures are `IO_FAILED` (a runtime I/O failure,
 not a configuration error) with a sanitized cause in `what`, the I/O class in

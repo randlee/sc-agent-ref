@@ -36,8 +36,9 @@ through `ComposeInputs::project`; it is per call and not scrubbed (REQ-SAG-0615)
 
 When `RunResponse::is_partial()`, stdout carries the envelope with the
 successful answers, stderr carries the first failure
-(`RunResponse::first_failure()`), and the exit code is 2, or 3 when that failure
-is retryable. When every backend fails, `run` still returns the response: the
+(`RunResponse::first_failure()`), and the exit code is 2, or 3 when every failed
+backend's error is retryable (retry only the failed backends; the order of the
+backends does not matter). When every backend fails, `run` still returns the response: the
 envelope has no answers and one typed error per backend (each with
 `details.backend`), stderr carries the first failure, and the exit code follows
 it the same way (agt-2a3; ADR-SAG-0025 amendment).
@@ -57,5 +58,13 @@ The `test-util` feature (= `sc-jev-check/test-util`) adds the hidden
 `--scripted-answers <file>` flag to the binary only; the file is the r-2b D5
 scripted-answers JSON, injected through `ComposeInputs::registry`. The
 published binary has no such flag (`workspace-tests --test test_util_off_binary`).
+The same feature adds the hidden `--loopback-port <PORT>` flag to `jev run`: it
+builds the real HTTP backends (`BackendRegistry::loopback_from_env`, keys from
+the environment) aimed at `http://127.0.0.1:<PORT>` with one send each, so a
+binary test can drive a real HTTP failure (a mapped 401, a busy reply, a key
+redacted in the stderr line). The endpoint override exists only behind
+`test-util` (`JevClient::loopback`, `AnthropicHaikuBackend::loopback`,
+`OpenAiLunaBackend::loopback`, `JevClientConfig::with_loopback_port`) and the
+published binary rejects the flag (`test_release_binary_rejects_loopback_port`).
 Every `sc-ai` test drives the built binary; the a-10 library seam
 `execute_with_overrides` is gone.

@@ -67,14 +67,15 @@ Success writes one JSON object to stdout:
 
 `data` includes the Jev answer fields and `session_id`. `data.readback`
 echoes the repo root, `check.toml`, and `--llm-system-prompt-file` path that
-the command consumed. Failure exits 2 and writes one JSON line to stderr:
+the command consumed. Failure exits 2, or 3 for a retryable error, and writes one JSON line to stderr:
 `{"error","kind","message","suggested_action","retryable","schema_version"}`
 plus `retry_after_seconds`, `field` and `details` when the error has them.
 `error` is a stable id, `kind` its broad class, `message` what failed,
 `suggested_action` what to do next; `schema_version` versions that error
-shape and is `1`. Field list and per-id `details`: [`docs/stability.md`](docs/stability.md). When some, not all, backends fail, stdout carries the
-envelope with the successful answers, stderr carries the first failure, and the
-exit code is 2.
+shape and is `1`. Field list and per-id `details`: [`docs/stability.md`](docs/stability.md). When any backend fails, stdout carries the
+envelope (the successful answers, if any, and each failed backend's error),
+stderr carries the first failure, and the exit code is 2, or 3 when every
+failed backend's error is retryable (retry only the failed backends).
 
 ## Development
 
