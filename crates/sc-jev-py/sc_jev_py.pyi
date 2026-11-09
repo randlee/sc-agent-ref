@@ -2,7 +2,7 @@
 
 import os
 import pathlib
-from typing import Any, Sequence
+from typing import Any, Callable, Sequence
 
 StrPath = str | os.PathLike[str]
 
@@ -88,9 +88,20 @@ def run_check(
     system_prompt_file: StrPath | None = None,
     chain_context: bool = False,
     project: str | None = None,
+    session_log: Callable[[dict[str, Any]], object] | None = None,
+    general_log: Callable[[dict[str, Any]], object] | None = None,
 ) -> CheckResult:
     """Run a check. `project` labels this run's log rows (at most 256 bytes,
-    no control characters; stored as given, not scrubbed)."""
+    no control characters; stored as given, not scrubbed).
+
+    Two logs are written to separate files. `session_log` receives
+    `{"session_id", "operation", "fields"}` for each judge send; `general_log`
+    receives `{"level", "target", "action", "message", "fields"}` for each
+    diagnostic event. Each replaces its sc-agent default; unset, the session
+    log is `log_file(log_dir)` and the general log is
+    `general_log_file(log_dir)`. A callable that raises is ignored: logging
+    never changes a result. A callable needs the GIL once per row; the
+    default general log does not."""
 def canonical_bytes(json_text: str) -> bytes: ...
 def canonical_sha256(json_text: str) -> str: ...
 def default_log_root() -> pathlib.Path: ...
@@ -99,4 +110,13 @@ def resolve_session_dir(
     log_dir: StrPath, *, session_dir: StrPath | None = None
 ) -> pathlib.Path: ...
 def log_file(log_dir: StrPath) -> pathlib.Path: ...
+def general_log_file(log_dir: StrPath) -> pathlib.Path:
+    """`{log_dir}/logs/sc-jev-py-general.log.jsonl`, the default general log."""
+def install_host_logger(log_dir: StrPath | None = None) -> pathlib.Path:
+    """Start the shared host logger and return the file it writes.
 
+    Rust writes the default general log through this logger with no GIL, and
+    `sc_observability.get_host_logger()` returns a logger over the same queue
+    and file. Import `sc_jev_py` before `sc_observability`. One process has
+    one host logger: a later call returns the first logger's file.
+    """

@@ -279,13 +279,8 @@ fn open_shared(
     Ok((inner, service_name))
 }
 
-fn start_logger(
-    service: ServiceName,
-    log_root: &Path,
-    flag: &str,
-    level: Level,
-    label: &str,
-) -> Result<Logger, JevError> {
+/// The file-only logger configuration at `level` for `service`.
+fn logger_config(service: ServiceName, log_root: &Path, level: Level) -> LoggerConfig {
     let mut config = LoggerConfig::default_for(service, log_root.to_path_buf());
     // `LevelFilter` is not re-exported by `sc-observability` and
     // `sc-observability-types` is not a direct dependency, so the filter is
@@ -295,6 +290,17 @@ fn start_logger(
         serde_json::from_value(Value::String(format!("{level:?}"))).unwrap_or(config.level);
     config.enable_console_sink = false;
     config.enable_file_sink = true;
+    config
+}
+
+fn start_logger(
+    service: ServiceName,
+    log_root: &Path,
+    flag: &str,
+    level: Level,
+    label: &str,
+) -> Result<Logger, JevError> {
+    let config = logger_config(service, log_root, level);
     LoggerBuilder::new(config)
         .and_then(LoggerBuilder::build)
         .map_err(|error| {
@@ -378,6 +384,28 @@ impl GeneralLogAdapter {
             "general log",
         )?;
         Ok(Self { inner, service })
+    }
+
+    /// The `sc-observability` configuration of the default general log for
+    /// `policy` at `log_root`: service `<service>-general`, file sink on,
+    /// console sink off, `debug` and above.
+    ///
+    /// For a root that runs its own writer (the Python wheel hands this to
+    /// the `sc-observability` Python runtime) so the file name, level and
+    /// sinks match the default [`GeneralLogAdapter::open`] writes.
+    ///
+    /// # Errors
+    ///
+    /// `CONFIG_INVALID` when the service name is not valid.
+    pub fn logger_config(policy: &PathPolicy, log_root: &Path) -> Result<LoggerConfig, JevError> {
+        let name = Self::service_name(policy);
+        let service = ServiceName::new(&name).map_err(|error| {
+            JevError::config_invalid_with(
+                format!("general log service name {name:?} is not valid ({error})"),
+                "Use a name of letters, digits, '-' and '_'.",
+            )
+        })?;
+        Ok(logger_config(service, log_root, Level::Debug))
     }
 
     /// This adapter as the port libraries take.

@@ -26,7 +26,7 @@
 # (depth-1 rows for sc-jev, sc-jev-backends, sc-jev-check; positive control on
 # sc-agent-http), sc-agent-http's forbidden packages, and the graph rows
 # below (no workspace `test-util` in any normal graph; sc-agent-http reaches
-# sc-agent-types with feature `secret` only). Rows added by r-3b (REQ-SAG-0135,
+# sc-agent-types with features `secret` and `obs` only; `obs` is the general-log port, agt-9eh). Rows added by r-3b (REQ-SAG-0135,
 # ADR-SAG-0026 host half): every remaining row of the plan table. clap in both
 # libraries, ureq / pyo3 / tree-sitter / sc-observability absences, the
 # sc-jev-host depth-1 row, and the duplicate-version rows for sc-ai and
@@ -71,6 +71,7 @@ rows=(
   "sc-ai|dup||sc-jev-check sc-agent-types sc-jev-host"
   "sc-jev-py|dup||sc-jev-check sc-agent-types sc-jev-host"
   "sc-ai|present||mimalloc"
+  "sc-jev-py|present|--depth 1|sc-observability-py sc-observability-binding-runtime"
   "sc-treesitter|present||mimalloc"
   "sc-jev|both|--depth 1|ureq sc-observability pyo3"
   "sc-jev-backends|both|--depth 1|ureq sc-observability pyo3"
@@ -86,7 +87,8 @@ rows=(
 graph_rows=(
   "test-util off in normal graphs;--workspace -e normal,features;feature \"test-util\";"
   "test-util control (dev edges);--workspace -e normal,dev,features;;^sc-agent-http feature \"test-util\""
-  "sc-agent-http -> sc-agent-types secret only;-p sc-agent-http -e normal,features -i sc-agent-types;^sc-agent-types feature \"(obs|git|default|test-util)\";^sc-agent-types feature \"secret\""
+  "sc-agent-http -> sc-agent-types secret and obs only;-p sc-agent-http -e normal,features -i sc-agent-types;^sc-agent-types feature \"(git|default|test-util)\";^sc-agent-types feature \"secret\""
+  "sc-agent-http -> sc-agent-types obs (general-log port);-p sc-agent-http -e normal,features -i sc-agent-types;^sc-agent-types feature \"(git|default|test-util)\";^sc-agent-types feature \"obs\""
 )
 
 # crate | mode (lib|present) | inverted package | features (space-separated)

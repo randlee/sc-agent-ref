@@ -9,7 +9,6 @@
 //! Python threads keep running.
 
 use std::path::{Path, PathBuf};
-#[cfg(any(test, feature = "test-util"))]
 use std::sync::Arc;
 
 use pyo3::prelude::*;
@@ -23,6 +22,7 @@ use sc_jev_host::paths::PathPolicy;
 use serde_json::Value;
 
 use crate::error::{self, map_err};
+use crate::logging::{self, FlushOnDrop, HostGeneralLog, Injected};
 
 /// One Python `run_check` invocation, with owned arguments.
 struct CheckRun {
@@ -39,6 +39,8 @@ struct CheckRun {
     chain_context: bool,
     /// `project=`: label for this run's log rows (REQ-SAG-0615).
     project: Option<ProjectLabel>,
+    /// Loggers the caller injected; unset ones use the sc-agent defaults.
+    loggers: Injected,
     /// Scripted judge answers; only `cargo test` and the `test-util` feature
     /// can set this (ADR-SAG-0022).
     #[cfg(any(test, feature = "test-util"))]
@@ -50,6 +52,8 @@ struct CheckRun {
 #[derive(Clone)]
 struct LiveSession {
     inputs: ComposeInputs,
+    /// The default general log, flushed after every follow-up.
+    general: Option<Arc<HostGeneralLog>>,
 }
 
 /// Engine result for one run. `live` is `None` on dry-run.
@@ -137,7 +141,25 @@ fn execute(spec: CheckRun) -> Result<FinishedRun, JevError> {
     if let Some(answers) = spec.scripted_answers {
         inputs = inputs.registry(scripted_registry(answers)?);
     }
+    if let Some(log) = spec.loggers.session.clone() {
+        inputs = inputs.session_log(log);
+    }
     let resolved = inputs.resolve()?;
+    // The general log: the caller's, else the shared host logger at this
+    // call's log root. A dry run opens no default log, and a default that
+    // cannot start leaves the sc-jev-host default in place.
+    let mut general = None;
+    match spec.loggers.general.clone() {
+        Some(log) => inputs = inputs.general_log(log),
+        None if !spec.dry_run => {
+            if let Ok(host) = HostGeneralLog::open(&PathPolicy::python(), &resolved.log_root) {
+                inputs = inputs.general_log(host.shared());
+                general = Some(Arc::new(host));
+            }
+        }
+        None => {}
+    }
+    let _flush = FlushOnDrop(general.clone());
     let source = CheckSource::check_file(&resolved.repo_root, &spec.check_path)?;
     // The root is resolved once; the host does not discover it again.
     let inputs = inputs.repo_root(resolved.repo_root.clone());
@@ -157,6 +179,7 @@ fn execute(spec: CheckRun) -> Result<FinishedRun, JevError> {
         inputs: inputs
             .log_dir(resolved.log_root)
             .sessions_dir(resolved.sessions_dir),
+        general,
     });
     Ok(FinishedRun {
         response,
@@ -269,7 +292,11 @@ fn ask_with(
     if let Some(project) = project {
         inputs = inputs.project(project);
     }
-    let outcome = py.detach(move || ask_from(id, &follow_up, inputs));
+    let general = live.general.clone();
+    let outcome = py.detach(move || {
+        let _flush = FlushOnDrop(general);
+        ask_from(id, &follow_up, inputs)
+    });
     let response = map_err(py, outcome)?;
     to_py(py, "outcome JSON", serde_json::to_value(response.outcome()))
 }
@@ -498,6 +525,7 @@ fn check_run(
     system_prompt_file: Option<PathBuf>,
     chain_context: bool,
     project: Option<String>,
+    loggers: Injected,
 ) -> Result<CheckRun, JevError> {
     Ok(CheckRun {
         check_path: check_path.to_path_buf(),
@@ -510,6 +538,7 @@ fn check_run(
         system_prompt_file: non_empty(system_prompt_file),
         chain_context,
         project: parse_project(project)?,
+        loggers,
         #[cfg(any(test, feature = "test-util"))]
         scripted_answers: None,
     })
@@ -580,6 +609,8 @@ fn finish_check(py: Python<'_>, spec: CheckRun) -> PyResult<CheckResult> {
     system_prompt_file=None,
     chain_context=false,
     project=None,
+    session_log=None,
+    general_log=None,
 ))]
 #[expect(clippy::too_many_arguments, reason = "Python keyword API")]
 pub(crate) fn run_check(
@@ -594,7 +625,10 @@ pub(crate) fn run_check(
     system_prompt_file: Option<PathBuf>,
     chain_context: bool,
     project: Option<String>,
+    session_log: Option<Py<PyAny>>,
+    general_log: Option<Py<PyAny>>,
 ) -> PyResult<CheckResult> {
+    let loggers = map_err(py, logging::injected(session_log, general_log, py))?;
     let spec = map_err(
         py,
         check_run(
@@ -608,6 +642,7 @@ pub(crate) fn run_check(
             system_prompt_file,
             chain_context,
             project,
+            loggers,
         ),
     )?;
     finish_check(py, spec)
@@ -643,6 +678,8 @@ pub(crate) mod testing {
         system_prompt_file=None,
         chain_context=false,
         project=None,
+        session_log=None,
+        general_log=None,
     ))]
     #[expect(clippy::too_many_arguments, reason = "Python keyword API")]
     pub(crate) fn run_check_scripted(
@@ -658,7 +695,10 @@ pub(crate) mod testing {
         system_prompt_file: Option<PathBuf>,
         chain_context: bool,
         project: Option<String>,
+        session_log: Option<Py<PyAny>>,
+        general_log: Option<Py<PyAny>>,
     ) -> PyResult<CheckResult> {
+        let loggers = map_err(py, logging::injected(session_log, general_log, py))?;
         let answers = map_err(py, py_to_value(&scripted_answers))?;
         let mut spec = map_err(
             py,
@@ -673,6 +713,7 @@ pub(crate) mod testing {
                 system_prompt_file,
                 chain_context,
                 project,
+                loggers,
             ),
         )?;
         spec.scripted_answers = Some(answers);
@@ -754,6 +795,40 @@ pub(crate) fn log_file(log_dir: PathBuf) -> PathBuf {
     PathPolicy::python().jsonl_path(&log_dir)
 }
 
+/// Returns `{log_dir}/logs/sc-jev-py-general.log.jsonl`, the default
+/// general log (separate from the session log, `log_file`).
+#[pyfunction]
+#[must_use]
+pub(crate) fn general_log_file(log_dir: PathBuf) -> PathBuf {
+    let policy = PathPolicy::python();
+    log_dir.join("logs").join(format!(
+        "{}.log.jsonl",
+        sc_jev_host::obs::GeneralLogAdapter::service_name(&policy)
+    ))
+}
+
+/// Starts the shared host logger now and returns its log file.
+///
+/// The logger is the `sc-observability` core logger this wheel links, and
+/// Rust writes its general log through it with no GIL. After this call,
+/// `sc_observability.get_host_logger()` returns a logger over the same queue
+/// and file (import `sc_jev_py` first). `log_dir` follows `resolve_log_root`.
+/// One process has one host logger; a second call with another root returns
+/// the first installed logger's file, not the requested root's. The return
+/// value is always the file Python's logger writes to.
+///
+/// # Errors
+///
+/// Raises `JevError` (`CONFIG_INVALID`) when the `sc_observability` runtime
+/// was already loaded by another wheel, or the logger cannot start;
+/// (`IO_FAILED`) when the root cannot be created.
+#[pyfunction]
+#[pyo3(signature = (log_dir=None))]
+pub(crate) fn install_host_logger(py: Python<'_>, log_dir: Option<PathBuf>) -> PyResult<PathBuf> {
+    let root = PathPolicy::python().resolve_log_root(log_dir.as_deref(), &policy_root());
+    map_err(py, py.detach(move || logging::install_at(&root)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -811,6 +886,7 @@ mod tests {
             system_prompt_file: None,
             chain_context: false,
             project: None,
+            loggers: Injected::default(),
             scripted_answers: Some(serde_json::json!({"relevant": "yes"})),
         }
     }
@@ -1086,6 +1162,8 @@ mod tests {
                 None,
                 false,
                 None,
+                None,
+                None,
             )
             .expect("dry run");
             assert_eq!(result.prompt_sha256(), digest);
@@ -1121,6 +1199,8 @@ mod tests {
                 Some(root.path().join("sessions")),
                 None,
                 false,
+                None,
+                None,
                 None,
             )
             .expect("scripted run");

@@ -33,7 +33,15 @@ extension-module = ["pyo3/extension-module"]
 test-util = ["sc-jev-check/test-util"]
 
 [dependencies]
-pyo3 = { version = "0.29", features = ["abi3-py311"] }
+# Exact: sc-observability-py pins `=0.29.2`, and the two share one Python
+# runtime in this binary (ADR-SAG-0023 lockstep list).
+pyo3 = { version = "=0.29.2", features = ["abi3-py311"] }
+# The sc-observability Python runtime, linked as an rlib (lib name `_native`)
+# so this wheel registers it inside its own binary and Rust writes rows with
+# no GIL (sc-observability ADR-015; ADR-SAG-0013 amendment 2026-11-09).
+sc-observability-py = { version = "=1.5.0", default-features = false }
+sc-observability-binding-runtime = "=1.5.0"
+sc-observability-dto = "=1.5.0"
 sc-agent-types = { path = "../sc-agent-types", version = "0.1.0" }
 sc-decision-schema = { path = "../sc-decision-schema", version = "0.1.0" }
 sc-jev-check = { path = "../sc-jev-check", version = "0.1.0" }
