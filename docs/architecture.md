@@ -966,7 +966,7 @@ Jev session/prompt logging uses **`sc-observability` v2** (`LoggerBuilder`,
 file/console sinks). **`sc-jev-check`** emits `LogEvent`s through
 **`SharedSessionLog`** (see ADR-SAG-0016). Composition roots **`sc-ai`** and
 **`sc-jev-py`** link full `sc-observability` and adapt to `SharedSessionLog`.
-**`sc-jev`** does not log and does not depend on observability crates. No bespoke
+**`sc-jev`** does not log and does not depend on observability crates *(superseded 2026-11-09, agt-9eh: `sc-jev` logs only through the injected `GeneralLog` port and still has no observability dependency; see the amendment below)*. No bespoke
 JSONL writers. Secrets never appear in log lines. Path precedence for the two
 composition roots is ADR-SAG-0021.
 
@@ -1022,6 +1022,7 @@ needs to see what happened.
   `operation.failed`) carries the fixed `stage` name, the `backend` and
   `session_id` when known, `duration_ms` and the typed `error_code`. A stage
   is a fixed string, never provider or prompt text.
+- (Active, 2026-11-09) **Durability.** When `run_check` returns, its default general-log rows are on disk, including with several threads: the runtime allows one flush at a time and refuses a second, so the wheel serializes its flushes and retries a refusal (a failed flush is a Warn row `general_log.flush_failed`). A fresh-process test with eight concurrent runs that exits at once checks it. The wheel job also builds on macOS; `.cargo/config.toml` sets `-undefined dynamic_lookup` for both darwin targets.
 - (Active, 2026-11-09) **Failures before the run.** Root discovery in
   `prepare_from` and `ask_from`, and in `sc-ai` the repo root, `--request-json`
   and the check source, log `operation.failed` by typed id

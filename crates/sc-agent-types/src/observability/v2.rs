@@ -189,7 +189,7 @@ impl fmt::Display for GeneralLevel {
 /// One general-log record: a level, a stable `target`, a message and
 /// structured `fields`.
 ///
-/// `target` names the emitting area (for example `"sc_jev_check::run"`) and
+/// `target` names the emitting area (for example `"jev.run"`) and
 /// `action` is a short stable verb phrase (`"run.start"`). The message and
 /// fields never carry secrets, API keys, prompt text, session state or
 /// provider bodies (NFR-SAG-0002).
@@ -199,7 +199,7 @@ impl fmt::Display for GeneralLevel {
 /// ```
 /// use sc_agent_types::observability::v2::{GeneralEvent, GeneralLevel};
 ///
-/// let event = GeneralEvent::new(GeneralLevel::Info, "sc_jev_check::run", "run.start", "run started")
+/// let event = GeneralEvent::new(GeneralLevel::Info, "jev.run", "run.start", "run started")
 ///     .with_field("backends", 2);
 /// assert_eq!(event.action(), "run.start");
 /// assert_eq!(event.fields()["backends"], 2);
@@ -222,6 +222,11 @@ impl GeneralEvent {
         action: &'static str,
         message: impl Into<String>,
     ) -> Self {
+        debug_assert!(
+            valid_name(target) && valid_name(action),
+            "general-log target {target:?} and action {action:?} must match [A-Za-z0-9._-]+ \
+             (dotted, e.g. \"host.stream\"); the sc-observability adapter rejects anything else"
+        );
         Self {
             level,
             target,
@@ -316,6 +321,16 @@ impl GeneralEvent {
     pub fn fields(&self) -> &serde_json::Map<String, serde_json::Value> {
         &self.fields
     }
+}
+
+/// Whether `name` is a valid sc-observability target or action: non-empty
+/// and only ASCII letters, digits, `.`, `_` and `-`. `::` is not allowed.
+#[must_use]
+pub fn valid_name(name: &str) -> bool {
+    !name.is_empty()
+        && name
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '.' | '_' | '-'))
 }
 
 /// Best-effort general logger.
@@ -430,6 +445,19 @@ mod general_tests {
         assert_eq!(event.message(), "msg");
         assert_eq!(event.fields()["n"], 3);
         assert_eq!(event.fields()["error_code"], "INPUT_INVALID");
+    }
+
+    #[test]
+    fn name_rule_matches_the_adapter() {
+        assert!(valid_name("jev.session") && valid_name("host.stream-1"));
+        assert!(!valid_name("sc_jev_host::stream") && !valid_name("") && !valid_name("a b"));
+    }
+
+    #[test]
+    #[should_panic(expected = "must match")]
+    #[cfg(debug_assertions)]
+    fn an_invalid_target_fails_at_construction() {
+        let _ = GeneralEvent::info(concat!("sc_jev_host", "::stream"), "a.b", "m");
     }
 
     #[test]
