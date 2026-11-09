@@ -133,6 +133,7 @@ class DecisionStream:
         system_prompt_file: StrPath | None = None,
         chain_context: bool = False,
         project: str | None = None,
+        models_file: StrPath | None = None,
         session_log: Callable[[dict[str, Any]], object] | None = None,
         general_log: Callable[[dict[str, Any]], object] | None = None,
     ) -> None: ...
@@ -181,6 +182,7 @@ def run_many(
     system_prompt_file: StrPath | None = None,
     chain_context: bool = False,
     project: str | None = None,
+    models_file: StrPath | None = None,
     session_log: Callable[[dict[str, Any]], object] | None = None,
     general_log: Callable[[dict[str, Any]], object] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:

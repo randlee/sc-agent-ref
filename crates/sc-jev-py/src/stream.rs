@@ -43,6 +43,7 @@ struct StreamSpec {
     system_prompt_file: Option<PathBuf>,
     chain_context: bool,
     project: Option<String>,
+    models_file: Option<PathBuf>,
     loggers: Injected,
     #[cfg(any(test, feature = "test-util"))]
     scripted_answers: Option<Value>,
@@ -59,6 +60,7 @@ impl StreamSpec {
         system_prompt_file: Option<PathBuf>,
         chain_context: bool,
         project: Option<String>,
+        models_file: Option<PathBuf>,
         loggers: Injected,
     ) -> Result<Self, JevError> {
         Ok(Self {
@@ -70,6 +72,7 @@ impl StreamSpec {
             system_prompt_file: non_empty(system_prompt_file),
             chain_context,
             project,
+            models_file: non_empty(models_file),
             loggers,
             #[cfg(any(test, feature = "test-util"))]
             scripted_answers: None,
@@ -95,6 +98,9 @@ impl StreamSpec {
         }
         if let Some(project) = parse_project(self.project)? {
             inputs = inputs.project(project);
+        }
+        if let Some(path) = self.models_file {
+            inputs = inputs.models_file(path);
         }
         #[cfg(any(test, feature = "test-util"))]
         if let Some(answers) = self.scripted_answers {
@@ -185,6 +191,7 @@ impl DecisionStream {
         system_prompt_file=None,
         chain_context=false,
         project=None,
+        models_file=None,
         session_log=None,
         general_log=None,
     ))]
@@ -199,6 +206,7 @@ impl DecisionStream {
         system_prompt_file: Option<PathBuf>,
         chain_context: bool,
         project: Option<String>,
+        models_file: Option<PathBuf>,
         session_log: Option<Py<PyAny>>,
         general_log: Option<Py<PyAny>>,
     ) -> PyResult<Self> {
@@ -214,6 +222,7 @@ impl DecisionStream {
                 system_prompt_file,
                 chain_context,
                 project,
+                models_file,
                 loggers,
             ),
         )?;
@@ -486,6 +495,7 @@ fn remaining(deadline: Option<Instant>, slice: Duration) -> Duration {
     system_prompt_file=None,
     chain_context=false,
     project=None,
+    models_file=None,
     session_log=None,
     general_log=None,
 ))]
@@ -501,6 +511,7 @@ pub(crate) fn run_many(
     system_prompt_file: Option<PathBuf>,
     chain_context: bool,
     project: Option<String>,
+    models_file: Option<PathBuf>,
     session_log: Option<Py<PyAny>>,
     general_log: Option<Py<PyAny>>,
 ) -> PyResult<(Vec<Py<PyAny>>, Py<PyAny>)> {
@@ -516,6 +527,7 @@ pub(crate) fn run_many(
             system_prompt_file,
             chain_context,
             project,
+            models_file,
             loggers,
         ),
     )?;
@@ -620,6 +632,7 @@ pub(crate) mod testing {
                 None,
                 false,
                 None,
+                None,
                 loggers,
             ),
         )?;
@@ -666,6 +679,7 @@ pub(crate) mod testing {
                 session_dir,
                 None,
                 false,
+                None,
                 None,
                 loggers,
             ),

@@ -487,3 +487,24 @@ def test_python_rows_on_the_shared_logger_are_not_starved(tmp_path: Path) -> Non
     assert actions.count("py.row") == 2 * py_rows
     assert actions.count("stream.request.done") == count
     assert actions.count("run.done") == count
+
+
+def test_streams_take_models_file(tmp_path: Path) -> None:
+    """`models_file=` reaches a stream as it reaches `run_check`: a malformed
+    file is `CONFIG_INVALID`, a missing one is fine (no file, no pins)."""
+    bad = tmp_path / "models.toml"
+    bad.write_text("this is = = not toml", encoding="utf-8")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    with pytest.raises(sc_jev_py.JevError) as caught:
+        sc_jev_py.DecisionStream(repo_root=repo, log_dir=tmp_path / "log", models_file=bad)
+    assert caught.value.code == "CONFIG_INVALID"
+    with pytest.raises(sc_jev_py.JevError) as caught:
+        sc_jev_py.run_many([("a", REQUEST)], repo_root=repo, log_dir=tmp_path / "log2",
+                           models_file=bad)
+    assert caught.value.code == "CONFIG_INVALID"
+    stream = sc_jev_py.DecisionStream(
+        repo_root=repo, log_dir=tmp_path / "log3", models_file=tmp_path / "absent.toml"
+    )
+    stream.close_input()
+    assert stream.finish()["answered"] == 0
