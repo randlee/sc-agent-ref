@@ -582,7 +582,7 @@ fn test_prepared_run_owns_config() {
     let system_prompt = prepared
         .request()
         .llm()
-        .map(|llm| llm.system_prompt.clone())
+        .map(|llm| llm.system_prompt().to_owned())
         .expect("prompt resolved at prepare time");
     let response = run(prepared).expect("live run");
     assert_eq!(response.payload_sha256(), &digest);
@@ -590,7 +590,7 @@ fn test_prepared_run_owns_config() {
     assert_eq!(requests.len(), 1, "the injected registry was used");
     assert_eq!(requests[0].payload().sha256(), &digest);
     assert_eq!(
-        requests[0].llm().expect("llm").system_prompt,
+        requests[0].llm().expect("llm").system_prompt(),
         system_prompt,
         "the prompt resolved by prepare is the one sent"
     );

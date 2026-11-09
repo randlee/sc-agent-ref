@@ -175,6 +175,12 @@ First release. Channels once published: crates.io (ten crates), PyPI
 - `sc_decision_schema::jev::v1::JevAnswer` struct variants and
   `sc_decision_schema::QuestionKind` are `#[non_exhaustive]`: match struct
   variants with `..` and add a wildcard arm for `QuestionKind`.
+- `sc_decision_schema::LlmWireContext` has a private `system_prompt` field;
+  read it with `system_prompt() -> &str`. `LlmWireContext::new` is the only
+  constructor.
+- `sc_decision_schema::session_log::SendOutcome` is `#[non_exhaustive]`: add a
+  wildcard arm when matching it outside the crate. Serde values (`ok` /
+  `failed`) are unchanged.
 - `BackendSet` implements `From<BackendId>` (a one-backend set, infallible).
 - `sc_agent_types::schema::subjects::SubjectsProducer::new` takes a named
   `GrammarRef { language, grammar, grammar_version }` instead of three

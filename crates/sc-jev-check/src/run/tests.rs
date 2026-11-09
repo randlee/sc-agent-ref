@@ -86,7 +86,7 @@ fn check_file() -> CheckSource {
 }
 
 fn system_prompt(request: &JudgeRequest) -> &str {
-    &request.llm().expect("llm prompt").system_prompt
+    request.llm().expect("llm prompt").system_prompt()
 }
 
 #[test]
@@ -561,7 +561,7 @@ fn ask_sends_through_the_engine_and_refuses_unaskable_sessions() {
     assert_eq!(asked.outcome().answers()["relevant"].choice(), "no");
     assert_eq!(follow.validations(), 1, "ask validates before its send");
     let requests = follow.requests();
-    let prompt = &requests[0].llm().expect("llm").system_prompt;
+    let prompt = &requests[0].llm().expect("llm").system_prompt();
     assert!(prompt.starts_with(PACKAGED_SYSTEM_PROMPT));
     assert!(prompt.ends_with("Follow-up:\nwhy?"), "{prompt}");
     let line: serde_json::Value =

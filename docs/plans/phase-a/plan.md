@@ -79,7 +79,7 @@ future agent launchers.
 ```rust
 pub struct PayloadBundle { pub bytes: Vec<u8>, pub sha256: Sha256Digest }
 
-pub struct LlmWireContext { pub system_prompt: String }
+pub struct LlmWireContext { system_prompt: String } // read via system_prompt()
 
 pub struct JudgeRequest {
     pub payload: PayloadBundle,

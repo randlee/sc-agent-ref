@@ -168,7 +168,7 @@ fn test_session_round_trip() {
     assert_eq!(outcome.backend(), BackendId::Haiku);
     assert_eq!(outcome.answers()["relevant"].choice(), "yes");
     let requests = haiku.requests();
-    let prompt = &requests[0].llm().expect("prompt").system_prompt;
+    let prompt = requests[0].llm().expect("prompt").system_prompt();
     assert!(prompt.contains("base prompt"));
     assert!(prompt.contains("why?"));
     let again = store.load(&id).expect("reload");
@@ -391,7 +391,7 @@ fn test_multi_backend_one_payload() {
     );
     assert_eq!(jev_seen[0].payload().bytes(), payload.bytes());
     assert!(jev_seen[0].llm().is_none());
-    let prompt = &haiku_seen[0].llm().expect("prompt").system_prompt;
+    let prompt = haiku_seen[0].llm().expect("prompt").system_prompt();
     assert!(prompt.starts_with(PACKAGED_SYSTEM_PROMPT));
     assert!(prompt.contains(SESSION_CONTEXT_HEADER));
     assert!(prompt.contains("\"choice\":\"yes\""));
@@ -480,16 +480,13 @@ fn test_packaged_default_prompt_available() {
         .registry(Arc::new(registry(&[&haiku])));
     let prepared = prepare(CheckSource::Spec(spec), config).expect("prepare");
     assert_eq!(
-        prepared
-            .request()
-            .llm()
-            .map(|llm| llm.system_prompt.as_str()),
+        prepared.request().llm().map(|llm| llm.system_prompt()),
         Some(PACKAGED_SYSTEM_PROMPT)
     );
     let payload = prepared.request().payload().clone();
     let result = run(prepared).expect("run");
     let requests = haiku.requests();
-    let prompt = &requests[0].llm().expect("llm").system_prompt;
+    let prompt = requests[0].llm().expect("llm").system_prompt();
     assert_eq!(prompt, PACKAGED_SYSTEM_PROMPT);
     assert!(!String::from_utf8_lossy(payload.bytes()).contains(PACKAGED_SYSTEM_PROMPT.trim()));
     assert_eq!(result.equal_input().payload_sha256(), payload.sha256());

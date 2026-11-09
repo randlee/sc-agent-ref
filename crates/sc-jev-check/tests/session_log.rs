@@ -268,7 +268,7 @@ impl JudgeBackend for RefusesContext {
     fn validate_for_send(&self, request: &JudgeRequest) -> Result<(), JevError> {
         let chained = request
             .llm()
-            .is_some_and(|llm| llm.system_prompt.contains("Session context:"));
+            .is_some_and(|llm| llm.system_prompt().contains("Session context:"));
         if chained {
             return Err(JevError::input_too_large(10, 20));
         }

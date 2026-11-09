@@ -808,8 +808,9 @@ ADR-SAG-0018's kit files are untouched.
 **`#[non_exhaustive]` triage additions:** `SubjectsSource`, `SubjectsProducer`
 and `ChoiceAnswer` keep public fields: they are frozen wire types whose
 fields are fixed by `sc/subjects/1` and the canonical payload, and a field
-change is a schema version. `LlmWireContext` keeps its public
-`system_prompt` beside `new` (one field, set by the facade). `ExtractInput`
+change is a schema version. `LlmWireContext` kept its public
+`system_prompt` beside `new` in r-1 (one field, set by the facade); a later
+API fix made the field private behind `system_prompt()`. `ExtractInput`
 keeps public fields and drops `#[non_exhaustive]`.
 
 **Deferred to r-2, with reason:** `BackendSet` adoption in `sc-ai` and
