@@ -1,0 +1,7 @@
+{
+  "questions": [
+    {"id": "relevant", "prompt": "Does the note apply?", "choices": ["no", "yes"]}
+  ],
+  "state": [],
+  "backends": ["jev"]
+}

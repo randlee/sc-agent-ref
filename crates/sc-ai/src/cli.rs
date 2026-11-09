@@ -43,6 +43,12 @@ to the most recent released. --models-file reads another file. check.toml
 --llm-system-prompt-file overrides the LLM system prompt. It changes the
 provider wire, not payload_sha256.
 --rev defaults to WORKTREE.
+dry-run builds the payload without sending, but it still runs every `command`
+input of check.toml (an argv, no shell), so a check.toml from an untrusted
+change is code execution; review it first.
+ask needs a session id from a haiku or luna run. A jev run saves no session
+(session_id is null). sc-ai and the Python wheel use different default log and
+session roots (see docs/stability.md); pass --sessions-dir to share sessions.
 --project labels this call's session-log rows (at most 256 bytes of UTF-8, no
 control characters). The text is stored as given and is not scrubbed, so put
 no secret in it. The default is none.
@@ -93,7 +99,7 @@ directory outside git.";
     name = "sc-ai",
     bin_name = "sc-ai",
     version,
-    about = "Jev check client: run, dry-run, and ask.",
+    about = "Jev check client: run, dry-run, ask, stream, and models.",
     after_help = NOTES
 )]
 struct Cli {
@@ -115,9 +121,9 @@ enum JevCmd {
     Run(RunArgs),
     /// List the resolved models and where each came from.
     Models(ModelsArgs),
-    /// Build the payload and report limits without sending.
+    /// Build the payload and report limits without sending (runs check.toml `command` inputs).
     DryRun(RunArgs),
-    /// Send a follow-up to a saved session.
+    /// Send a follow-up to a saved haiku or luna session (a jev run saves none).
     Ask(AskArgs),
     /// Answer many requests (JSONL in, JSONL out) through one process.
     Stream(StreamArgs),
