@@ -9,12 +9,10 @@ use std::fmt;
 use std::sync::Arc;
 
 use sc_agent_http::{
-    BusyPolicy, HeaderName, HttpClient, HttpRequest, Method, SecretHeader, Timeouts, Transport,
-    UreqTransport,
+    BusyPolicy, HeaderName, HttpClient, HttpRequest, Method, ReplyShape, SecretHeader, Timeouts,
+    Transport, UreqTransport, api_failure,
 };
-use sc_agent_types::{
-    BackendId, CancelToken, JevError, ModelId, NetworkErrorKind, ResolvedApiKey, SendTrace,
-};
+use sc_agent_types::{BackendId, CancelToken, JevError, ModelId, ResolvedApiKey, SendTrace};
 use sc_decision_schema::{JudgeBackend, JudgeOutcome, JudgeRequest};
 
 #[cfg(feature = "test-util")]
@@ -92,6 +90,21 @@ impl JevClient<UreqTransport> {
         let transport =
             UreqTransport::new(Timeouts::new(Timeouts::DEFAULT_CONNECT, config.timeout()));
         Self::with_config(config, api_key, transport)
+    }
+}
+
+#[cfg(feature = "test-util")]
+impl JevClient<UreqTransport> {
+    /// A client for `http://127.0.0.1:<port>` over a real loopback HTTP
+    /// transport, making at most `sends` sends (feature `test-util`).
+    ///
+    /// For the binary's loopback test seam only. Production builds have no
+    /// such constructor.
+    #[must_use]
+    pub fn loopback(api_key: ResolvedApiKey, port: u16, sends: u32) -> Self {
+        let config = JevClientConfig::packaged().with_loopback_port(port);
+        let transport = UreqTransport::loopback_for_tests(Timeouts::default());
+        Self::with_config(config, api_key, transport).with_busy_policy(BusyPolicy::new(sends))
     }
 }
 
@@ -215,14 +228,11 @@ impl<T: Transport> JevClient<T> {
         self.http
             .send_and_parse(&request, trace.clone(), |response| {
                 if response.status() != 200 {
-                    return Err(JevError::network(
-                        NetworkErrorKind::Status,
-                        format!("HTTP {}", response.status()),
-                    ));
+                    return Err(api_failure("Jev", ReplyShape::Jev, &request, &response));
                 }
                 check::parse_outcome(response.body(), &check, judged)
             })
-            .map_err(|error| error.map_detail(|detail| format!("Jev {detail}")))
+            .map_err(|error| error.prefix_detail("Jev"))
     }
 }
 

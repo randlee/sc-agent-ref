@@ -49,7 +49,7 @@ fn api_key_header() -> SecretHeader {
 }
 
 fn assert_no_key(error: &JevError) {
-    let rendered = format!("{error} {error:?} {}", error.fix_hint());
+    let rendered = format!("{error} {error:?} {}", error.message());
     assert!(!rendered.contains(KEY), "{rendered}");
 }
 

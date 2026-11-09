@@ -11,7 +11,7 @@ use std::sync::{Arc, Mutex};
 
 use sc_agent_types::observability::v2::{LogEvent, LogRejected, SessionLog, SharedSessionLog};
 use sc_agent_types::{
-    BackendId, BackendSet, JevError, ModelId, NetworkErrorKind, Operation, ProjectLabel, RepoRoot,
+    BackendId, BackendSet, BusyCause, JevError, ModelId, Operation, ProjectLabel, RepoRoot,
     SendTrace, SessionId, Sha256Digest,
 };
 use sc_decision_schema::session_log::{SendOutcome, SessionLogRow};
@@ -91,7 +91,7 @@ fn mock(id: BackendId, choice: &str) -> MockJudgeBackend {
 }
 
 fn busy() -> JevError {
-    JevError::network(NetworkErrorKind::Busy, "scripted busy")
+    JevError::provider_busy("scripted busy", 429, 4, BusyCause::Sends, None)
 }
 
 fn registry(judges: Vec<Arc<dyn JudgeBackend>>) -> Arc<BackendRegistry> {
@@ -175,7 +175,7 @@ fn test_failed_before_body_row_has_null_request_sha256() {
         &[BackendId::Jev],
         vec![judge],
     )
-    .expect_err("every backend failed");
+    .expect("an all-failed run still returns its response");
     let rows = sink.rows();
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].send_outcome(), SendOutcome::Failed);
@@ -328,7 +328,7 @@ fn test_one_row_per_send_failed_included_not_sent_none() {
     assert_ne!(rows[0].context().answer_id, rows[1].context().answer_id);
     assert_eq!(
         rows[1].error_code().map(|code| code.to_string()).as_deref(),
-        Some("NETWORK_ERROR")
+        Some("PROVIDER_BUSY")
     );
 
     // A base-request refusal fails the run before any send: no row at all.

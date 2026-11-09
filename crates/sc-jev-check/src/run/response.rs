@@ -214,12 +214,36 @@ impl RunResponse {
         })
     }
 
+    /// True when every failed backend's error is retryable (and at least one
+    /// backend failed). The exit-code rule: 3 only if this is true, else 2,
+    /// whatever the order of the backends.
+    #[must_use]
+    pub fn all_failures_retryable(&self) -> bool {
+        let mut failed = self
+            .results
+            .iter()
+            .filter_map(|result| match &result.status {
+                BackendStatus::Failed(failure) => Some(failure.error().retryable()),
+                _ => None,
+            });
+        let mut any = false;
+        for retryable in failed.by_ref() {
+            if !retryable {
+                return false;
+            }
+            any = true;
+        }
+        any
+    }
+
     /// True when at least one backend failed.
     ///
     /// The one exit / exception decision for every consumer: print the
-    /// envelope, report [`Self::first_failure`], and exit 2 (CLI) or raise
-    /// (Python). `run` produces a partial response when some, not all,
-    /// backends failed (ADR-SAG-0025).
+    /// envelope, report [`Self::first_failure`], and exit 2, or 3 when every
+    /// failed backend's error is retryable ([`Self::all_failures_retryable`])
+    /// (CLI), or raise (Python). `run` produces such a
+    /// response when any backend failed, every backend included
+    /// (ADR-SAG-0025 as amended by agt-2a3).
     #[must_use]
     pub fn is_partial(&self) -> bool {
         self.first_failure().is_some()
@@ -397,7 +421,9 @@ impl BackendResult {
     pub fn failed(backend: BackendId, error: JevError) -> Self {
         Self {
             backend,
-            status: BackendStatus::Failed(BackendFailure::new(error)),
+            status: BackendStatus::Failed(BackendFailure::new(
+                error.with_backend(backend.to_string()),
+            )),
         }
     }
 

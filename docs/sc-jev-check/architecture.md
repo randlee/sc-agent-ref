@@ -34,7 +34,8 @@ run(PreparedRun) -> RunResponse
              → judge each in order, once; Independent by default, ChainContext
                (RunConfig::mode) gives later LLM backends prior Ok answers
              → a failed backend keeps the others' answers (leak = any Failed;
-               all failed = Err); attest each reported digest
+               all failed = still a response, no answers, one typed error
+               per backend with details.backend); attest each reported digest
              → save the session once when an ask-capable backend answered
                (a save failure is a warning, answers kept)
 ```

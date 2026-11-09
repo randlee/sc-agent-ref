@@ -34,10 +34,10 @@ pub(crate) fn load_dotenv(repo_root: &Path) -> Result<BTreeMap<String, String>, 
     match fs::read_to_string(&path) {
         Ok(text) => Ok(parse_dotenv(&text)),
         Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(BTreeMap::new()),
-        Err(error) => Err(JevError::credential_store_invalid(
-            DOTENV_UNREADABLE,
-            sanitized_io_cause(&error),
-            DOTENV_RECOVERY,
+        Err(error) => Err(JevError::io_failed_with(
+            format!("{DOTENV_UNREADABLE} ({})", sanitized_io_cause(&error)),
+            error.kind(),
+            Some(DOTENV_RECOVERY.to_owned()),
         )),
     }
 }
@@ -224,15 +224,18 @@ mod tests {
     fn unreadable_cause_omits_raw_error_text() {
         let secret = "super-secret-value";
         let error = io::Error::new(io::ErrorKind::PermissionDenied, secret);
-        let rendered = JevError::credential_store_invalid(
-            DOTENV_UNREADABLE,
-            super::sanitized_io_cause(&error),
-            DOTENV_RECOVERY,
+        let rendered = JevError::io_failed_with(
+            format!(
+                "{DOTENV_UNREADABLE} ({})",
+                super::sanitized_io_cause(&error)
+            ),
+            error.kind(),
+            Some(DOTENV_RECOVERY.to_owned()),
         );
-        let text = format!("{rendered} {rendered:?} {}", rendered.fix_hint());
-        assert!(text.contains("cause: permission denied"), "{text}");
+        let text = format!("{rendered} {rendered:?} {}", rendered.suggested_action());
+        assert!(text.contains("(permission denied)"), "{text}");
         assert!(text.contains(DOTENV_RECOVERY), "{text}");
         assert!(!text.contains(secret), "{text}");
-        assert!(!rendered.fix_hint().contains("check.toml"));
+        assert!(!rendered.suggested_action().contains("check.toml"));
     }
 }

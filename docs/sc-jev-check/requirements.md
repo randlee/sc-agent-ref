@@ -43,3 +43,4 @@ Question-set files (`plan-anchoring/questions/1`, `check.toml`) stay
 (`choice` 2 to 255, `score` 2 to 10, `noul` none) and a violation is reported
 with the rule text (question id, kind and counts, never the prompt). Haiku and
 Luna refuse a `noul` question before any send; only `jev` answers it.
+| REQ-SAG-0166 | A session-log flush failure as an error leaves is `details.log_flush_failure` on every variant (`JevError::with_log_flush_failure`), not text in the message; the session store is `IO_FAILED` (REQ-SAG-0162) | agt-2a3 |

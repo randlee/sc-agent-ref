@@ -25,7 +25,7 @@ default = []
 # this off. The `wire` test target declares `required-features =
 # ["test-util"]`; there is no self dev-dependency (boundaries/README.md
 # "Dev-dependency and self edges").
-test-util = []
+test-util = ["sc-agent-http/test-util"]
 
 [dependencies]
 sc-agent-http.workspace = true

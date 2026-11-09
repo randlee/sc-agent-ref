@@ -259,7 +259,11 @@ mod jev_api {
             .client
             .judge(&request(payload("x"), None), &SendTrace::new())
             .expect_err("status");
-        assert_eq!(error.code(), "NETWORK_ERROR");
+        assert_eq!(error.code(), "API_ERROR");
+        assert!(
+            error.retryable(),
+            "a 500 may succeed later, but is not resent"
+        );
         assert_eq!(harness.sent().len(), 1);
         assert!(harness.waits().is_empty());
     }
@@ -271,10 +275,10 @@ mod jev_api {
             .client
             .judge(&request(payload("x"), None), &SendTrace::new())
             .expect_err("exhausted");
-        assert_eq!(error.code(), "NETWORK_ERROR");
+        assert_eq!(error.code(), "PROVIDER_BUSY");
         assert_eq!(
             error.to_string(),
-            "network error: Jev HTTP 429 busy; 3 sends exhausted"
+            "provider is busy: Jev HTTP 429 busy; 3 sends exhausted"
         );
         assert!(error.retryable());
         assert_eq!(harness.sent().len(), 3);
@@ -435,7 +439,7 @@ mod jev_api {
         let spaced = ResolvedApiKey::try_new(BackendKeyId::TypeSafe, "super secret".to_owned())
             .expect_err("interior space");
         assert_eq!(spaced.code(), "CONFIG_INVALID");
-        assert!(!spaced.fix_hint().contains("super secret"));
+        assert!(!spaced.message().contains("super secret"));
     }
 
     #[test]
@@ -458,9 +462,9 @@ mod jev_api {
         );
         assert_eq!(
             error.to_string(),
-            "network error: Jev boom Bearer [redacted]"
+            "network error (connect): Jev boom Bearer [redacted]"
         );
-        assert!(!error.fix_hint().contains(KEY));
+        assert!(!error.message().contains(KEY));
         assert_eq!(harness.sent().len(), 1);
         assert!(harness.waits().is_empty());
     }
@@ -525,7 +529,7 @@ mod jev_api {
             .expect_err("cancelled");
         assert_eq!(
             error.to_string(),
-            "network error: Jev request cancelled before a send"
+            "network error (cancelled): Jev request cancelled before a send"
         );
         assert_eq!(harness.sent().len(), 0);
     }
@@ -543,7 +547,7 @@ mod jev_api {
             .expect_err("json");
         assert_eq!(
             error.to_string(),
-            "response is invalid: Jev response is not JSON"
+            "response is invalid (not_json): Jev response is not JSON"
         );
     }
 }

@@ -4,7 +4,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use sc_agent_types::{BackendId, NetworkErrorKind, SendTrace};
+use sc_agent_types::{BackendId, SendTrace};
 use sc_decision_schema::{CanonicalJudgePayload, JudgeRequest, LlmWireContext, PayloadBundle};
 use sc_jev_check::registry::register_scripted_backends;
 use serde_json::{Value, json};
@@ -48,7 +48,7 @@ fn test_scripted_per_backend_failure() {
     let registry = register_scripted_backends(
         &IDS,
         json!({"backends": {
-            "jev": {"failure": {"error": "NETWORK_ERROR", "kind": "busy"}},
+            "jev": {"failure": {"error": "PROVIDER_BUSY"}},
             "anthropic_haiku": {"relevant": "yes"}
         }}),
     )
@@ -58,14 +58,8 @@ fn test_scripted_per_backend_failure() {
         .expect("jev")
         .judge(&request(), &SendTrace::new())
         .expect_err("scripted failure");
-    assert_eq!(failure.code(), "NETWORK_ERROR");
-    assert!(matches!(
-        failure,
-        sc_agent_types::JevError::NetworkError {
-            kind: NetworkErrorKind::Busy,
-            ..
-        }
-    ));
+    assert_eq!(failure.code(), "PROVIDER_BUSY");
+    assert!(failure.retryable());
     let outcome = registry
         .get(BackendId::AnthropicHaiku)
         .expect("haiku")
@@ -126,10 +120,9 @@ fn test_scripted_invalid_form_rejected() {
         let error = register_scripted_backends(&IDS, answers).expect_err(name);
         assert_eq!(error.code(), "INPUT_INVALID", "{name}");
         assert!(
-            error.fix_hint().contains("shared form")
-                && error.fix_hint().contains("per-backend form"),
+            error.message().contains("shared form") && error.message().contains("per-backend form"),
             "{name}: the hint names both forms: {}",
-            error.fix_hint()
+            error.message()
         );
     }
 }

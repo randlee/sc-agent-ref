@@ -55,7 +55,7 @@ def test_partial_failure_raises_with_response(tmp_path: Path) -> None:
     answers = {
         "backends": {
             "jev": {"relevant": "yes"},
-            "anthropic_haiku": {"failure": {"error": "NETWORK_ERROR", "kind": "busy"}},
+            "anthropic_haiku": {"failure": {"error": "PROVIDER_BUSY"}},
         }
     }
     with pytest.raises(sc_jev_py.JevError) as caught:
@@ -68,15 +68,15 @@ def test_partial_failure_raises_with_response(tmp_path: Path) -> None:
             session_dir=tmp_path / "sessions",
         )
     error = caught.value
-    assert error.code == "NETWORK_ERROR"
+    assert error.code == "PROVIDER_BUSY"
     response = error.response
     assert isinstance(response, dict)
     assert response["primary_backend"] == "jev"
     assert response["answers"]["relevant"]["choice"] == "yes"
     assert [entry["status"] for entry in response["results"]] == ["ok", "failed"]
 
-    # All backends failed: a plain error, no response.
-    failing = {"failure": {"error": "NETWORK_ERROR", "kind": "busy"}}
+    # All backends failed.
+    failing = {"failure": {"error": "PROVIDER_BUSY"}}
     with pytest.raises(sc_jev_py.JevError) as plain:
         run_check_scripted(
             "check.toml",
@@ -86,8 +86,17 @@ def test_partial_failure_raises_with_response(tmp_path: Path) -> None:
             log_dir=tmp_path / "log",
             session_dir=tmp_path / "sessions",
         )
-    assert plain.value.code == "NETWORK_ERROR"
-    assert plain.value.response is None
+    assert plain.value.code == "PROVIDER_BUSY"
+    # All backends failed: the response is still set (no answers, one typed
+    # error per backend, each naming its backend).
+    response = plain.value.response
+    assert isinstance(response, dict)
+    assert "answers" not in response
+    assert [entry["status"] for entry in response["results"]] == ["failed", "failed"]
+    assert [entry["error"]["details"]["backend"] for entry in response["results"]] == [
+        "jev",
+        "anthropic_haiku",
+    ]
 
 
 def test_chain_context_kwarg(tmp_path: Path) -> None:

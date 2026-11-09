@@ -60,33 +60,42 @@ pub(crate) fn read_blob(rev: &Rev, path_arg: &str) -> Result<Blob, JevError> {
     })
 }
 
+/// `INPUT_MISSING` for a source path argument; the fix names the argument,
+/// not `check.toml`.
+fn missing_path(path: &str) -> JevError {
+    JevError::input_missing_with(
+        path,
+        "Pass a source path that exists, relative to the repository root, at the revision read (--rev).",
+    )
+}
+
 fn read_worktree(repo: &RepoRoot, path: RepoRelativePath) -> Result<Blob, JevError> {
     let full = match std::fs::canonicalize(repo.as_path().join(path.as_path())) {
         Ok(full) => full,
         Err(error) if error.kind() == io::ErrorKind::NotFound => {
-            return Err(JevError::input_missing(path.as_str()));
+            return Err(missing_path(path.as_str()));
         }
-        Err(error) => return Err(JevError::io_failed(path.as_str(), &error)),
+        Err(error) => return Err(JevError::read_failed(path.as_str(), path.as_str(), &error)),
     };
     if !full.starts_with(repo.as_path()) {
         return Err(JevError::input_invalid(format!(
             "{path} resolves outside the repository"
         )));
     }
-    let metadata =
-        std::fs::metadata(&full).map_err(|error| JevError::io_failed(path.as_str(), &error))?;
+    let metadata = std::fs::metadata(&full)
+        .map_err(|error| JevError::read_failed(path.as_str(), path.as_str(), &error))?;
     if !metadata.is_file() {
         return Err(JevError::input_invalid(format!(
             "{path} is not a regular file"
         )));
     }
     too_large(metadata.len())?;
-    let file =
-        std::fs::File::open(&full).map_err(|error| JevError::io_failed(path.as_str(), &error))?;
+    let file = std::fs::File::open(&full)
+        .map_err(|error| JevError::read_failed(path.as_str(), path.as_str(), &error))?;
     let mut bytes = Vec::new();
     file.take(MAX_INPUT_BYTES.saturating_add(1))
         .read_to_end(&mut bytes)
-        .map_err(|error| JevError::io_failed(path.as_str(), &error))?;
+        .map_err(|error| JevError::read_failed(path.as_str(), path.as_str(), &error))?;
     too_large(u64::try_from(bytes.len()).unwrap_or(u64::MAX))?;
     let sha = git::hash_blob(repo, &bytes)?;
     Ok(Blob { path, bytes, sha })
@@ -106,15 +115,21 @@ fn too_large(actual_bytes: u64) -> Result<(), JevError> {
 /// [`canonicalize_lenient`] before the prefix check.
 fn repo_relative(repo: &Path, path_arg: &str) -> Result<RepoRelativePath, JevError> {
     let invalid = || {
-        JevError::input_invalid(format!(
-            "{path_arg} must be a repo-relative path inside the repository"
-        ))
+        JevError::input_invalid_field_with(
+            "path",
+            format!("{path_arg} must be a repo-relative path inside the repository"),
+            "Pass a path relative to the repository root, with no `..` components.",
+        )
     };
     let relative = if Path::new(path_arg).is_absolute() {
         let resolved = canonicalize_lenient(Path::new(path_arg))
             .map_err(|error| JevError::io_failed(path_arg, &error))?;
         let inside = resolved.strip_prefix(repo).map_err(|_| {
-            JevError::input_invalid(format!("{path_arg} is outside the repository"))
+            JevError::input_invalid_field_with(
+                "path",
+                format!("{path_arg} is outside the repository"),
+                "Pass a path inside the repository that sc-treesitter runs in.",
+            )
         })?;
         let mut parts = Vec::new();
         for component in inside.components() {
@@ -174,14 +189,15 @@ fn canonicalize_lenient(path: &Path) -> io::Result<PathBuf> {
 ///
 /// `sc-ai`'s `resolve_repo` runs the same lookup with a different error
 /// mapping (QA-007): it can tell the caller to pass `--repo-root`
-/// (`CONFIG_INVALID`); this producer has no such flag, so a failure is
-/// `EXTRACTION_FAILED`. Both use [`git::discover_toplevel`] (decision D2).
+/// (`CONFIG_INVALID`); this producer has no such flag, so it is the same
+/// `CONFIG_INVALID` with an action that says to run inside a repository. Both use [`git::discover_toplevel`] (decision D2).
 fn repo_root() -> Result<RepoRoot, JevError> {
     let cwd = std::env::current_dir()
         .map_err(|error| JevError::io_failed("current directory", &error))?;
     let toplevel = git::discover_toplevel(&cwd)?.ok_or_else(|| {
-        JevError::extraction_failed(
-            "git rev-parse --show-toplevel failed; run sc-treesitter inside a repository",
+        JevError::config_invalid_with(
+            "the current directory is not inside a git repository",
+            "Run sc-treesitter inside a repository.",
         )
     })?;
     std::fs::canonicalize(toplevel.as_path())

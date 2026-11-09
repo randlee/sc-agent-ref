@@ -33,7 +33,7 @@ use crate::request::HttpRequest;
 /// let error = JevError::network(NetworkErrorKind::Connect, "echo: Bearer sk-test");
 /// assert_eq!(
 ///     redact(error, &request).to_string(),
-///     "network error: echo: Bearer [redacted]"
+///     "network error (connect): echo: Bearer [redacted]"
 /// );
 /// # Ok::<(), JevError>(())
 /// ```

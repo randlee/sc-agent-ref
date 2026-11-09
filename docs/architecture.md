@@ -141,14 +141,14 @@ own row's Status cell and its own marker text, and added or removed no entry).
 | ADR-SAG-0017 | First release surfaces | Active | Amended by ADR-SAG-0023 (Active, r-4); ADR-SAG-0026 (Active, r-3), (Active, r-3b); ADR-SAG-0030 (Active, r-7) |
 | ADR-SAG-0018 | sc-publish kit owns release surface | Active | — |
 | ADR-SAG-0019 | LLM wire envelope vs canonical payload | Active | A.1 subsection (Active, r-1); amended by ADR-SAG-0024 (Active, r-2); ADR-SAG-0025 (Active, r-2b); ADR-SAG-0030 (Active, r-7) |
-| ADR-SAG-0020 | Secret injection and redaction | Active | Amends ADR-SAG-0003; amended by ADR-SAG-0029; A.1 subsection (Active, r-1); ADR-SAG-0026 (Active, r-3); A.1 subsection (Active, r-3b) |
+| ADR-SAG-0020 | Secret injection and redaction | Active | Amends ADR-SAG-0003; amended by ADR-SAG-0029; A.1 subsection (Active, r-1); ADR-SAG-0026 (Active, r-3); A.1 subsection (Active, r-3b); agt-2a3 provider error detail (Active) |
 | ADR-SAG-0021 | Log and session path precedence | Active | Amends ADR-SAG-0013 |
-| ADR-SAG-0022 | Scripted backends are a test-util feature | Active | Amends ADR-SAG-0009; amended by ADR-SAG-0029; A.1 subsection (Active, r-1); ADR-SAG-0024 (Active, r-2); ADR-SAG-0025 (Active, r-2b); ADR-SAG-0030 (Active, r-7) |
+| ADR-SAG-0022 | Scripted backends are a test-util feature | Active | Amends ADR-SAG-0009; amended by ADR-SAG-0029; A.1 subsection (Active, r-1); ADR-SAG-0024 (Active, r-2); ADR-SAG-0025 (Active, r-2b); ADR-SAG-0030 (Active, r-7); agt-2a3 loopback test seam (Active) |
 | ADR-SAG-0023 | Dependency pins, allocator, released binaries | Active (r-4; host pin r-3b; Windows CRT phase-end) | Amends ADR-SAG-0016, ADR-SAG-0017 |
 | ADR-SAG-0024 | Engine entry point and response contract | Active (r-2) | Amends ADR-SAG-0003, ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0014, ADR-SAG-0019, ADR-SAG-0022; supersedes the ADR-SAG-0014 A.1 r-1 interim subsection |
-| ADR-SAG-0025 | Multi-backend semantics and equal-input attestation | Active (r-2b) | Amends ADR-SAG-0004, ADR-SAG-0008, ADR-SAG-0019, ADR-SAG-0022 |
-| ADR-SAG-0026 | Shared HTTP crate and host crate | Active (HTTP half, r-3; host half, r-3b) | Amends ADR-SAG-0006, ADR-SAG-0007, ADR-SAG-0020, ADR-SAG-0017 (HTTP half); ADR-SAG-0010, ADR-SAG-0011, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0017 (host half); amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6) |
-| ADR-SAG-0027 | Error taxonomy and extensibility | Active (r-1) | Amends ADR-SAG-0001, ADR-SAG-0009, ADR-SAG-0016; amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6) |
+| ADR-SAG-0025 | Multi-backend semantics and equal-input attestation | Active (r-2b) | Amends ADR-SAG-0004, ADR-SAG-0008, ADR-SAG-0019, ADR-SAG-0022; amended by agt-2a3 (all-failed runs keep every error) (Active) |
+| ADR-SAG-0026 | Shared HTTP crate and host crate | Active (HTTP half, r-3; host half, r-3b) | Amends ADR-SAG-0006, ADR-SAG-0007, ADR-SAG-0020, ADR-SAG-0017 (HTTP half); ADR-SAG-0010, ADR-SAG-0011, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0017 (host half); amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6); agt-2a3 provider failure classification (Active) |
+| ADR-SAG-0027 | Error taxonomy and extensibility | Active (r-1) | Amends ADR-SAG-0001, ADR-SAG-0009, ADR-SAG-0016; amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6); agt-2a3 error contract (Active) |
 | ADR-SAG-0028 | workspace-tests crate | Active (r-3b) | Amended by ADR-SAG-0030 (Active, r-7) |
 | ADR-SAG-0029 | Phase A hardening amendments | Active (a-10) | Amends ADR-SAG-0020 and ADR-SAG-0022; A.1 supersedes named sentences of (a) (Active, r-1), (Active, r-3) and of (b) (Active, r-1), (Active, r-2) |
 | ADR-SAG-0030 | Decision schema crate and model catalog | Active (r-7); jev::v1 (Active, r-5) | Amends ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0012, ADR-SAG-0016, ADR-SAG-0017, ADR-SAG-0019, ADR-SAG-0022, ADR-SAG-0026, ADR-SAG-0027, ADR-SAG-0028 |
@@ -454,6 +454,33 @@ and not a second `run_check` policy.
   `sc-decision-schema`); `sc-jev-check`'s `test-util` feature enables it and
   `register_scripted_backends` is built over it as before (ADR-SAG-0030).
 
+### Amendment (agt-2a3, loopback test seam)
+
+**Status:** Active (bead `agt-2a3`, before the first release).
+
+- (Active, agt-2a3) The hidden `sc-ai jev run --loopback-port <PORT>` flag is
+  a second test seam next to `--scripted-answers`. It builds the **real HTTP**
+  backends (`BackendRegistry::loopback_from_env`) aimed at
+  `http://127.0.0.1:<PORT>`, one send each, so a binary test can drive a
+  mapped 401, a busy reply and a redacted key through the whole path.
+- (Active, agt-2a3) **Limits.** Only under the `test-util` cargo feature;
+  keys still come from the environment and `.env` like a real run (nothing is
+  faked); the only endpoint it can build is `Endpoint::loopback_http`, which
+  is `127.0.0.1` over plain HTTP and cannot name another host. The published
+  binary has neither the flag nor the code:
+  `workspace-tests --test test_util_off_binary`
+  (`test_release_binary_rejects_loopback_port`) builds the release binary and
+  asserts the flag is refused, and the dev-only graph check
+  (`test_util_off`) keeps `test-util` out of the normal graph.
+- (Active, agt-2a3) **Gated items** (all `#[cfg(feature = "test-util")]`):
+  `sc_jev::JevClient::loopback` (and the crate-private
+  `JevClientConfig::with_loopback_port`),
+  `sc_jev_backends::{AnthropicHaikuBackend, OpenAiLunaBackend}::loopback`,
+  `sc_jev_check::registry::BackendRegistry::loopback_from_env`, and the
+  `--loopback-port` argument in the `sc-ai` binary. The `test-util` features of
+  `sc-jev`, `sc-jev-backends` and `sc-jev-check` enable `sc-agent-http`'s
+  `test-util` (`Endpoint::loopback_http`, `UreqTransport::loopback_for_tests`).
+
 ## ADR-SAG-0019 — LLM wire envelope vs canonical payload
 
 **Status:** Active
@@ -592,7 +619,9 @@ points and the secret-bearing return type.
   (`JevError::credential_store_invalid`). The cause is an I/O kind or a
   keyring variant label. It never includes secret bytes, passwords, or the
   raw platform error text. The fix hint names that cause and the recovery
-  step. A miss stays `KEY_MISSING` (ADR-SAG-0001).
+  step. A miss stays `KEY_MISSING` (ADR-SAG-0001). *Amended (agt-2a3): an
+  unreadable store is `IO_FAILED`; `CONFIG_INVALID` is kept for a credential
+  whose content is unusable.*
 - This crate writes no log lines. Secrets in CLI output and logs remain
   NFR-SAG-0002 and ADR-SAG-0013.
 
@@ -654,6 +683,49 @@ points and the secret-bearing return type.
   `ResolvedApiKey`; `test_every_crate_inherits_workspace_lints` fails if a
   crate stops inheriting the workspace lints or adds a per-crate
   `[lints.*]` override. From r-3b this replaces r-3's local `rg` check.
+
+### Amendment (agt-2a3, provider error detail)
+
+**Status:** Active (bead `agt-2a3`, before the first release).
+
+- (Active, agt-2a3) **Provider error text is allowed in errors.** The rule
+  that a failing reply's body is never echoed (status only) is replaced.
+  An error built from a non-200 reply from Jev, Haiku or Luna carries the
+  provider's status, error type, error code, message, blamed parameter and
+  request id, falling back to the raw body text when the body is not a
+  recognised error JSON. Prompt text and model output stay out: they can
+  appear only if the provider's own error text repeats them.
+- (Active, agt-2a3) **Scrubbing.** Provider text is made single-line
+  (control characters become spaces) and bounded to **1024 bytes per field**,
+  cut at a character boundary and ending in `...`
+  (`sc_agent_types::bound_provider_text`, `PROVIDER_TEXT_MAX_BYTES`), when the
+  error is built; the request's key is removed from the provider text
+  *before* the cut (`ResolvedApiKey::redact_text`), so a key straddling the
+  1024-byte boundary leaves no fragment (ERR-QA-3). The error then leaves
+  through `redact`, once, in
+  `send_and_parse` (r-3 amendment), so every occurrence of the request's key,
+  in any provider field or in the raw fallback, becomes `[redacted]`.
+  `ResolvedApiKey::redact_error` covers the provider fields and `details`
+  strings (`JevError::map_detail` reaches them; a test proves it). The raw
+  fallback scrubs the whole body, then bounds it. Session
+  logs still store only the `error_code`, never the text (NFR-SAG-0002,
+  ADR-SAG-0031).
+- (Active, agt-2a3) **Keyring read deadline.** A platform keyring read
+  (`PlatformKeyring::password`) runs on its own thread with a fixed 15 s
+  deadline (`KEYRING_READ_TIMEOUT`, not configurable). A keystore that waits
+  for a prompt it cannot show (a locked macOS Keychain in a headless run)
+  gives `IO_FAILED` with `io_kind` `other` (not retryable: the blocked
+  read does not clear until the user unlocks the keystore, so a retry
+  blocks again) instead of hanging. A read that has been stuck past the
+  deadline makes every later read in the process return the same error at
+  once, so several backends cost one wait and at most one thread is
+  stranded. The blocked thread is detached and left to finish; it holds no
+  state and reads only the keystore, so abandoning it is safe and the
+  process can still exit. A reader thread that cannot start or that panics
+  is a non-retryable `IO_FAILED` (`other`). The deadline applies to the
+  keyring only; the environment and `.env` sources are unchanged. The Python
+  entry points resolve keys inside `py.detach`, so the GIL is released
+  during the wait.
 
 ## ADR-SAG-0004 — One check, one request
 
@@ -1144,14 +1216,16 @@ REQ-SAG-0800).** Phase A hardening moved some failures to a different
 existing id. Every id below is in
 `tests/fixtures/jev/README-contract/errors.json` and is a `JevError`
 variant; no id was added or removed, and `JevError::code()` still matches
-the snapshot (test `codes_match_readme_contract_snapshot`).
+the snapshot (test `codes_match_readme_contract_snapshot`). *(Superseded by the
+agt-2a3 amendment to ADR-SAG-0027: six ids were added to `errors.json`, and
+the table's row for file or process I/O now reads `IO_FAILED`.)*
 
 | Surface | Failure | Before | After |
 | --- | --- | --- | --- |
 | `sc_jev_py.run_check` / `_testing.run_check_scripted` | unknown backend name | `CONFIG_INVALID` | `INPUT_INVALID` (`BackendId::from_str`, same as `sc-ai` and `check.toml`) |
 | same | kebab-case alias (`anthropic-haiku`, `openai-luna`) | accepted | `INPUT_INVALID` (one documented spelling) |
 | any crate | `serde_json` encode / decode failure (`JevError::encode_failed`) | mixed (`INPUT_INVALID`, `EXTRACTION_FAILED`) or raw text | `INPUT_INVALID`, detail keeps only category and line/column |
-| any crate | file or process I/O failure (`JevError::io_failed`) | mixed (`INPUT_MISSING` for any read error, `EXTRACTION_FAILED` for git spawn) | `INPUT_INVALID` with the `io::ErrorKind`; a missing file stays `INPUT_MISSING` |
+| any crate | file or process I/O failure (`JevError::io_failed`) | mixed (`INPUT_MISSING` for any read error, `EXTRACTION_FAILED` for git spawn) | `INPUT_INVALID` with the `io::ErrorKind`; a missing file stays `INPUT_MISSING` *(Superseded by agt-2a3: `IO_FAILED` with `details.what` and `details.io_kind`; a missing file stays `INPUT_MISSING`.)* |
 | `sc-treesitter` CLI | missing positional source path | `INPUT_MISSING` | `INPUT_INVALID` (an argument error, not a missing file) |
 | `sc-treesitter` library | span or line number does not fit `u32` | `INPUT_TOO_LARGE` | `INPUT_INVALID` naming the field and value |
 | `sc-treesitter` CLI | revision starting with `-`, path outside the repo or with a forbidden component, unresolvable revision, non-blob object | mixed | `INPUT_INVALID` (absent path at a revision stays `INPUT_MISSING`) |
@@ -1389,15 +1463,18 @@ consumer-output bullet in r-3b.
   `BackendStatus::Ok | Failed(BackendFailure)` (the `JevError`; its
   `ScAgentErrorResponse` is derived when serialized); a failure
   does not discard other answers; `leak = any Failed`; if all fail, `run`
-  returns `Err`. `judge` is called once per backend; only `BusyPolicy`
+  returns `Err` *(superseded by the agt-2a3 amendment (all-failed runs keep
+  every error): `run` returns the response)*. `judge` is called once per backend; only `BusyPolicy`
   retries; a session-save failure keeps the answers with
   `session_saved = false` and one `warnings` entry. REQ-SAG-0604 (engine part).
 - (Active, r-3b) REQ-SAG-0604 consumer output: on a partial result
   (`RunResponse::is_partial()`) `sc-ai` prints the envelope with the
   successful answers on stdout, the first failure's
-  `ScAgentErrorResponse` on stderr, and exits 2; `sc-jev-py` raises
+  `ScAgentErrorResponse` on stderr, and exits 2 *(2, or 3 when every failed
+  backend's error is retryable: agt-2a3 amendment)*; `sc-jev-py` raises
   `JevError` with a `.response` attribute holding the envelope `data`.
-  All-failed stays a plain error.
+  All-failed stays a plain error. *(Superseded by the agt-2a3 amendment
+  below: an all-failed run returns the same response.)*
 - (Active, r-2b) `equal` is derived from per-backend `Attestation`
   (`Matched`, `Mismatched`, `Unattested`, `Failed`, `NotSent`). Each backend
   reports `input_sha256`: the digest of the canonical blob recovered from its
@@ -1408,6 +1485,27 @@ consumer-output bullet in r-3b.
   r-1 interim clause 'null until r-2b backend hashing' no longer holds
   (`input_sha256` is null only for a backend that was not sent, failed,
   or reported no digest — `Unattested`).
+
+### Amendment (agt-2a3, all-failed runs keep every error)
+
+**Status:** Active (bead `agt-2a3`, before the first release).
+
+- (Active, agt-2a3) A run in which every selected backend failed is no
+  longer a plain error that keeps only the first backend's failure. `run`
+  returns the `RunResponse` with no primary answers, `session_saved: false`
+  and one typed failure per backend in `results`, exactly like a partial run
+  (`is_partial()` is true). `sc-ai` prints that envelope on stdout (no
+  `answers` or `primary_backend` keys), the first failure on stderr, and
+  exits 2, or 3 when every failed backend's error is retryable (ADR-SAG-0027 agt-2a3
+  amendment). `sc-jev-py` raises `JevError` for the first failure with
+  `.response` set to the same body. A run that selected no backend stays an
+  `INPUT_INVALID` error. This supersedes "All-failed stays a plain error" in
+  the (Active, r-3b) consumer-output bullet above and the (Active, r-2b)
+  engine bullet "if all fail, `run` returns `Err`". REQ-SAG-0604 is amended
+  to match.
+- (Active, agt-2a3) Each stored backend failure names its backend in
+  `details.backend` (the descriptor name), so a failure read on its own,
+  for instance the stderr line, says which backend it came from.
 
 ## ADR-SAG-0026 — Shared HTTP crate and host crate
 
@@ -1427,7 +1525,8 @@ HTTP half amends ADR-SAG-0006, 0007,
   `send_with_busy_retry` (with `CancelToken`) and redaction of every error it
   returns, and is the single secret-read site (ADR-SAG-0020 r-3 amendment).
   It depends only on `sc-agent-types` (`default-features = false`,
-  `features = ["secret"]`) and `ureq`; no `ureq` type is public. Its
+  `features = ["secret"]`) and `ureq` *(and `serde_json`, for reading a
+  failing reply's error JSON only: agt-2a3 amendment below)*; no `ureq` type is public. Its
   non-default `test-util` feature (test hooks for clock, sleeper and jitter;
   loopback-only `http` endpoint; test transports) is enabled only by
   dev-dependencies. Phase B provider agents reuse it. REQ-SAG-0402.
@@ -1461,7 +1560,12 @@ HTTP half amends ADR-SAG-0006, 0007,
   other environment read in a library `src/` is `GIT_CEILING_DIRECTORIES` in
   `crates/sc-jev-check/src/run/mod.rs` (`enclosing_git_entry`, repo-root
   discovery): a git setting, neither a log, session nor API-key variable, and
-  allowed by name in `test_env_reads_only_in_owners`.
+  allowed by name in `test_env_reads_only_in_owners`. The extractor child
+  environment allowlist and the secret-value scan also read the whole
+  environment (`std::env::vars_os()` in `apply_env_allowlist` and
+  `secret_values`, `crates/sc-jev-check/src/extract/sanitize.rs`); that file
+  is in the scan's owner list, and the scan's needles include `vars_os(`, so
+  an unlisted file reading the environment that way fails the test.
 
 ### Amendment (Phase A.1, r-7)
 
@@ -1491,6 +1595,37 @@ HTTP half amends ADR-SAG-0006, 0007,
   `repo` (`sc_jev_check::discover_main_repo_root`) reach the engine as log
   context. `PathPolicy` and ADR-SAG-0021 are unchanged.
 
+### Amendment (agt-2a3, provider failure classification)
+
+**Status:** Active (bead `agt-2a3`, before the first release). Amends the
+HTTP half of ADR-SAG-0026.
+
+- (Active, agt-2a3) `sc-agent-http` adds `serde_json` to its allowed
+  dependencies (`boundaries/sc-agent-http/agent-http.toml`; no other new
+  edge). `sc_agent_http::failure` is the one place that reads a provider's
+  error JSON: it maps a failing HTTP status and body to an error id
+  (`api_failure`) and answers the busy retry's quota question
+  (`is_quota_reply`). It reads only the error fields of a non-success reply
+  (type, code, message, parameter, request id, `Retry-After`), never a
+  success body, a request, or a Jev answer. The shapes it reads: the
+  Anthropic and OpenAI `{"error": {type, code, message, param, details}}`
+  and `request_id`; for Jev (undocumented here) `{"detail": "..."}`,
+  `{"detail": [{"loc", "msg"}]}`, `{"detail": {"error_type", "message"}}`
+  (seen in live replies, 2026-11-08), `{"message": "..."}`, a top-level
+  `code`, and, for any other body, the whole body, scrubbed then bounded, as raw text.
+  For Haiku and Luna "the input is too long" is recognised only from
+  structured markers, status 413 and Anthropic's "prompt is too long"
+  message (unverified wording); only Jev's message text is matched for
+  `max_tokens`.
+- (Active, agt-2a3) This squares with "the crate only carries bytes" and
+  ADR-SAG-0012: Jev API semantics (the check wire body, the reply parser,
+  every Jev operation) stay in `sc-jev`; this crate still owns no wire
+  document and no answer type. The failure classifier is generic transport
+  error handling shared by all three backends, so it lives next to the retry
+  loop that needs the same quota test, instead of being copied into `sc-jev`
+  and `sc-jev-backends`. Bounds and redaction are ADR-SAG-0020's
+  agt-2a3 amendment; ids and retryability are ADR-SAG-0027's.
+
 ## ADR-SAG-0027 — Error taxonomy and extensibility
 
 **Status:** Active (Phase A.1, landed in r-1). Amends ADR-SAG-0001.
@@ -1501,7 +1636,8 @@ HTTP half amends ADR-SAG-0006, 0007,
   struct-like variant has a public constructor. Recovery
   categories are explicit variants (`CredentialStoreInvalid`,
   `RegistryInvalid`, `SessionStoreIo`, `Operational { area }`,
-  `SessionDocumentInvalid`, `EncodeFailed`, `IoFailed`). Producer variants are
+  `SessionDocumentInvalid`, `EncodeFailed`, `IoFailed`; *the variant list is
+  replaced by the agt-2a3 amendment (Variants)*). Producer variants are
   neutral (`LanguageUnavailable { producer, language }`); producer stderr is
   re-raised as `ProducerError { producer: String, code: ErrorCode, message:
   String }`, whose `code()` is the carried id; every `producer` field is a
@@ -1513,9 +1649,10 @@ HTTP half amends ADR-SAG-0006, 0007,
   have several variants (REQ-SAG-0101 amended). The variant → id table is in
   sprint r-1 and pinned by a golden test. A new stable code requires
   changing the README `errors.json` contract shared with Python. Revisit
-  when Phase B needs an `INTERNAL` class.
+  when Phase B needs an `INTERNAL` class. *"Its ids are unchanged" is
+  superseded: the agt-2a3 amendment adds six ids.*
 - (Active, r-1) `retryable()` is true only for `NetworkError` kinds Busy,
-  Timeout, Connect.
+  Timeout, Connect. *Superseded by the agt-2a3 amendment (Retryability).*
 - (Active, r-1) `ScAgentErrorResponse::from_jev_error` (name unchanged)
   fills fields by one rule, in the fixed key order `error`, `message`,
   `schema_version`, `retryable`, `details`: `schema_version` is always `1`
@@ -1527,8 +1664,12 @@ HTTP half amends ADR-SAG-0006, 0007,
   `1`, denies unknown fields at the top level and inside `details`, and
   treats anything else as not an error response; so adding any key, top
   level or in `details`, is a breaking change and bumps `schema_version`.
+  *(Superseded by the agt-2a3 amendment: readers ignore unknown keys and an
+  added key does not bump the version.)*
   Every stderr line gains `"schema_version":1`; NFR-SAG-0001 and
   REQ-SAG-0701 are amended and a golden stderr test pins the bytes.
+  *The key order and the `retryable`, `details` and message rules are
+  superseded by the agt-2a3 amendment (Envelope).*
 - (Active, r-1) **Consumer rule.** Agents and CLI/MCP clients may read
   `schema_version` from every stderr line. A value other than `1` means
   "unknown error shape": fall back to the exit code and the raw line. A bump
@@ -1537,6 +1678,8 @@ HTTP half amends ADR-SAG-0006, 0007,
 - (Active, r-1) `Error::source()` is `None` for every redacted-cause
   variant (`CredentialStoreInvalid`, `NetworkError`, `EncodeFailed`,
   `IoFailed`, `SessionStoreIo`); no A.1 variant carries a non-redacted source.
+  *`SessionStoreIo` no longer exists and the list is `CredentialStoreInvalid`,
+  `NetworkError`, `EncodeFailed`, `IoFailed` (agt-2a3 amendment).*
 - (Active, r-1) Serde spelling of backend ids matches `Display`
   (`openai_luna`, `openai`), with a one-release read alias for
   `open_ai_luna` / `open_ai` in config and caller-request input. Whether and
@@ -1555,7 +1698,9 @@ HTTP half amends ADR-SAG-0006, 0007,
   `test_util`; `error`, `ids`, `judge`, `payload`, `secret`, `cancel`, and
   the `catalog` / `code` modules are private. The catalog
   (`BackendDescriptor`, `BACKENDS`, `BackendFamily`) and the error-code
-  enums (`ErrorCode`, `NetworkErrorKind`, `OperationalArea`) sit in their
+  enums (`ErrorCode`, `NetworkErrorKind`, `OperationalArea`; *`OperationalArea`
+  is removed and `ErrorCategory`, `BusyCause`, `ResponseInvalidCause` and
+  `LimitUnit` are added by the agt-2a3 amendment*) sit in their
   own private modules because sc-boundary 0.8 reports a type cycle inside
   one module (SCB-CYCLE-001); callers reach them only through the crate
   root.
@@ -1621,6 +1766,118 @@ HTTP half amends ADR-SAG-0006, 0007,
   and `sc-sha` (caret, ADR-SAG-0023). `observability::v2::LogEvent`'s
   constructor and accessors change (ADR-SAG-0016 r-6 amendment), a
   stable-surface change made before any publish (ADR-SAG-0031).
+
+### Amendment (agt-2a3, error contract)
+
+**Status:** Active (bead `agt-2a3`, before the first release). Owner rules:
+the error body returns at least the detail the Jev service returns, with a
+discriminated id and a message on every path; out of tokens, busy and API
+error are distinct ids handled differently inside sc-agent; nothing has been
+released, so there are no compatibility shims. This subsection supersedes
+the (Active, r-1) bullets on `retryable()` and on the field rule, and the
+(Active, r-1) variant list, as marked.
+
+- (Active, agt-2a3) **New ids.** `errors.json` gains `AUTH_FAILED` (401, 403),
+  `API_REQUEST_INVALID` (400, 422), `QUOTA_EXHAUSTED` (out of tokens, credit
+  or spend allowance), `PROVIDER_BUSY` (rate limit or overload after the busy
+  retry), `API_ERROR` (every other failing provider status, 5xx included) and
+  `IO_FAILED` (a file, process, stream or dependency failed, with `what` and
+  the `io::ErrorKind`). `NetworkErrorKind` is now `timeout`, `connect`, `tls`,
+  `cancelled`: a reply with a failing status is never a network error, so
+  `busy`, `status` and `body_too_large` are removed. `INPUT_TOO_LARGE` has
+  one shape for the byte cap, the token cap and a provider's own refusal:
+  `limit`, `actual`, `unit` (`bytes` or `tokens`). `RESPONSE_INVALID` has a
+  `cause` (`truncated`, `too_large`, `not_json`, `schema`) and its action
+  differs per cause.
+- (Active, agt-2a3) **Variants.** `Operational { area }`, `OperationalArea`,
+  `SessionStoreIo` and `BusyExhaustion` are removed. The session store, a
+  credential store that cannot be opened (`.env`, keyring) and every
+  process, git, log, stdin, stdout and working-directory failure are
+  `IoFailed`. `CredentialStoreInvalid` keeps only a credential whose content
+  is unusable (`CONFIG_INVALID`). `ConfigInvalid` and `IoFailed` take an
+  optional explicit recovery. `InputInvalid` takes an optional `field`.
+  `ProducerError` carries the producer's `suggested_action`, `retryable`,
+  `retry_after_seconds`, `field` and `details`, so re-raising a producer's
+  error drops nothing. The wrapper variant `Annotated { error, flush_failure,
+  backend }` (id, message, action and retryability are the inner error's)
+  carries `details.backend` (the failing backend's descriptor name, set on
+  every stored backend failure) and `details.log_flush_failure` (a
+  session-log flush failure that happens while an error leaves), so neither
+  is text appended to a detail. (It replaces the first-draft name
+  `LogFlushFailed`.) `NetworkErrorKind` gains `other` (an unclassified
+  transport error, not retryable). This replaces the r-1 variant list.
+- (Active, agt-2a3) **Which id (the rule).** `INPUT_INVALID` is what the
+  caller handed in being malformed or breaking a rule, command-line usage
+  errors included. `CONFIG_INVALID` is a configuration source being wrong
+  (`check.toml`, `jev.toml`, the backend registry, a credential's content, log
+  setup a flag selects). `INPUT_MISSING` is a named path that does not exist
+  (the OS said not found), whichever code path reads it
+  (`JevError::read_failed` is the one helper). `IO_FAILED` is the operating
+  system or a dependency failing during the work (a producer that cannot
+  be spawned or waited on, a git that fails, a reader that stops). The
+  `EXTRACTION_*` ids stay for the extraction pipeline's own results (empty,
+  invalid output, a producer's exit). The `JevError` module documentation
+  states the rule; call sites follow it.
+- (Active, agt-2a3) **Retryability.** `retryable()` is true for
+  `NETWORK_ERROR` of kind `timeout` or `connect`, for `PROVIDER_BUSY`, for
+  `API_ERROR` with status 500 or above (500, 503 and 504 included), and for a
+  producer's error whose producer said so. It is advice to the caller, not a
+  promise that sc-agent resends: only busy statuses (429, 502, 529) are
+  resent automatically. A 5xx is flagged retryable because the provider
+  failed on its side and a later attempt can get past it (Anthropic's own
+  guidance for 500 is to retry with backoff, and the `plan-anchor` Jev client
+  treats every 5xx as transient); it is not resent automatically because a
+  lost or failed reply can mean the provider already processed and billed the
+  request. `QUOTA_EXHAUSTED`, `AUTH_FAILED`, `API_REQUEST_INVALID`,
+  `RESPONSE_INVALID` and `INPUT_TOO_LARGE` are not retryable: the same
+  request fails the same way. `IO_FAILED` is retryable for `interrupted`
+  and `timed_out` only; both `EXTRACTION_TIMEOUT` variants (a stalled git,
+  a `command` extractor over its limit) are not, with an action naming the
+  likely cause of each. Every non-retryable action says so; a test
+  checks that no non-retryable action tells the caller to retry unchanged.
+- (Active, agt-2a3) **Quota is not busy.** A 429 (or 502, 529) whose body
+  says the account is out of tokens, credit or spend allowance is returned at
+  once by the busy retry (one send, no wait) and becomes `QUOTA_EXHAUSTED`.
+  The recognized markers are the documented ones: Anthropic's tier spend cap
+  (429 `rate_limit_error` with `error.details.error_code ==
+  "enforced_spend_limit_reached"`, no `retry-after`), a customer spend limit
+  (400 `invalid_request_error`, message starting `You have reached your
+  specified`), 402 `billing_error`; OpenAI's `insufficient_quota` and
+  `credit_balance_exhausted` codes; Jev's 402 with `detail.error_type ==
+  "billing_error"` (seen in live replies, 2026-11-08, unfunded organization,
+  checked after authentication and before body validation). A marker in
+  `detail.error_type` counts the same at any status, so a Jev 429 saying
+  `billing_error` is quota too. An unknown 429 body stays busy. The
+  hook is `sc_agent_http::failure` (`is_quota_reply`), called by the retry
+  loop; retry timing is untouched.
+- (Active, agt-2a3) **Busy exhausted.** `PROVIDER_BUSY` carries
+  `retry_after_seconds` (the last valid `Retry-After`, rounded up, capped at
+  one day; absent when the provider sent none or an HTTP-date), `cause`
+  (`sends` or `budget`) and `attempts`, as machine fields, so no caller
+  matches a text suffix.
+- (Active, agt-2a3) **Envelope.** `ScAgentErrorResponse` keys, in order:
+  `error`, `kind`, `message`, `suggested_action`, `retryable`,
+  `retry_after_seconds`, `field`, `details`, `schema_version`. `retryable` is
+  always present, `false` included. `message` is `JevError::message()` (what
+  failed and why) and never holds the fix; `suggested_action` is
+  `JevError::suggested_action()`. `fix_hint()` is removed. `kind` is
+  `validation`, `not_found`, `invalid_state`, `dependency`, `permission`,
+  `timeout` or `capacity`. `details` is an object (a reader ignores unknown keys) whose keys are
+  listed in `docs/stability.md`. Reading ignores unknown keys, at the top
+  level and in `details`, so a producer's new key does not make its line
+  unparseable (ERR-QA-16), and accepts `schema_version` absent or `1`; only `error` and `message` are
+  required on read. This replaces the r-1 field rule.
+- (Active, agt-2a3) **`schema_version` stays `1`.** Nothing has been
+  published, so no consumer has read an earlier shape; from the first published release on,
+  removing or renaming a key or changing its meaning bumps the version, while
+  an added key does not because readers ignore unknown keys
+  (`docs/stability.md` "Versioning").
+- (Active, agt-2a3) **Python.** The `sc_jev_py.JevError` exception carries
+  the CLI body's fields as attributes (`code` is the body's `error`), built
+  from the serialized body, so CLI and Python cannot drift (ADR-SAG-0011).
+- (Active, agt-2a3) `Error::source()` is `None` for every redacted-cause
+  variant (`CredentialStoreInvalid`, `NetworkError`, `EncodeFailed`,
+  `IoFailed`); `SessionStoreIo` no longer exists.
 
 ## ADR-SAG-0028 — workspace-tests crate
 

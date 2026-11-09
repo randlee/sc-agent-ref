@@ -47,7 +47,7 @@ fn test_unknown_model_string_parses_as_other() {
         assert_eq!(error.code(), "INPUT_INVALID");
         assert!(
             error
-                .fix_hint()
+                .message()
                 .contains("non-empty model string or an alias")
         );
         assert!(serde_json::from_value::<ModelId>(serde_json::json!(bad)).is_err());
@@ -90,7 +90,7 @@ fn test_alias_override_wins() {
         .with_override("sonnet", ModelId::Gpt6Luna)
         .expect_err("unknown alias");
     assert_eq!(error.code(), "CONFIG_INVALID");
-    let hint = error.fix_hint();
+    let hint = error.message();
     for alias in ["jev", "haiku", "luna"] {
         assert!(hint.contains(alias), "{hint}");
     }

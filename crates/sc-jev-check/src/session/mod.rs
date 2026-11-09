@@ -31,7 +31,7 @@
 //!   this only happens when a caller saves the same `StoredSession` twice.
 //!   On Windows, replacing a file that another writer is replacing at the
 //!   same instant can fail with a sharing error; that save returns
-//!   `SessionStoreIo` and removes its temporary file, and the other write
+//!   `IO_FAILED` and removes its temporary file, and the other write
 //!   stands.
 //! - Readers re-verify every document they load: the stored id must match
 //!   the file name's id and the payload must match its stored SHA-256, and
@@ -135,15 +135,15 @@ impl FileSessionStore {
     ///
     /// # Errors
     ///
-    /// Returns [`JevError::session_store_io`] when `dir` cannot be created.
-    /// The code is `CONFIG_INVALID`. The fix hint names `dir`.
+    /// Returns [`JevError::io_failed_with`] (`IO_FAILED`) when `dir` cannot be created.
+    /// The code is `IO_FAILED`; the message names `dir`.
     pub fn new(dir: impl Into<PathBuf>) -> Result<Self, JevError> {
         let dir = dir.into();
         create_private_dir(&dir).map_err(|error| {
-            JevError::session_store_io(
-                format!("Create session directory {}", dir.display()),
+            JevError::io_failed_with(
+                format!("session directory {} (create)", dir.display()),
                 error.kind(),
-                "Choose a writable directory, then retry.",
+                Some("Choose a writable directory, then retry.".to_owned()),
             )
         })?;
         let now = SystemTime::now();
@@ -196,9 +196,9 @@ impl FileSessionStore {
     ///
     /// # Errors
     ///
-    /// Returns [`JevError::SessionStoreIo`] (`CONFIG_INVALID`, naming the
-    /// session file) when the file cannot be written, and `CONFIG_INVALID`
-    /// when `created_at` is before the Unix epoch.
+    /// Returns [`JevError::IoFailed`] (`IO_FAILED`, naming the session file)
+    /// when the file cannot be written or when `created_at` is before the
+    /// Unix epoch.
     #[cfg(any(test, feature = "test-util"))]
     pub fn save(&self, session: &StoredSession) -> Result<(), JevError> {
         self.write_session(session)
@@ -238,7 +238,7 @@ impl FileSessionStore {
     ///
     /// Returns [`JevError::SessionNotFound`] when the file is absent,
     /// [`JevError::SessionExpired`] when `created_at` is past the TTL,
-    /// [`JevError::session_store_io`] when the file cannot be read, and
+    /// [`JevError::io_failed_with`] when the file cannot be read, and
     /// [`JevError::session_document_invalid`] when the file is not a valid
     /// session document for `id`.
     #[cfg(any(test, feature = "test-util"))]
@@ -353,12 +353,14 @@ pub(crate) fn contextual_prompt(
 pub(crate) fn check_follow_up(stored: &StoredSession, follow_up: &str) -> Result<(), JevError> {
     if follow_up.trim().is_empty() {
         return Err(follow_up_invalid(
-            "The follow-up text is empty. Pass non-empty text to ask.",
+            "follow_up",
+            "the follow-up text is empty; pass non-empty text to ask",
         ));
     }
     if !stored.backend.descriptor().supports_session_ask() {
         return Err(follow_up_invalid(
-            "Jev sessions have no rationale field. Ask a Haiku or Luna session instead.",
+            "session_id",
+            "Jev sessions have no rationale field, so they cannot be asked; ask a Haiku or Luna session instead",
         ));
     }
     Ok(())
@@ -375,13 +377,13 @@ fn json_cause(error: &serde_json::Error) -> String {
 }
 
 fn session_io(path: &Path, dir: &Path, op: &str, kind: std::io::ErrorKind) -> JevError {
-    JevError::session_store_io(
-        format!("Session file {} {op}", path.display()),
+    JevError::io_failed_with(
+        format!("session file {} ({op})", path.display()),
         kind,
-        format!(
+        Some(format!(
             "Check that session directory {} is accessible, then retry.",
             dir.display()
-        ),
+        )),
     )
 }
 
@@ -417,22 +419,25 @@ fn check_version(path: &Path, value: &Value) -> Result<(), JevError> {
     }
 }
 
-/// `INPUT_INVALID` for a refused `ask` whose fix hint is `recovery` verbatim.
-fn follow_up_invalid(recovery: &str) -> JevError {
-    JevError::operational_io(recovery)
+/// `INPUT_INVALID` for a refused `ask`: `field` names the argument and
+/// `detail` says why it is refused.
+fn follow_up_invalid(field: &str, detail: &str) -> JevError {
+    JevError::input_invalid_field(field, detail)
 }
 
 fn unix_ms(time: SystemTime) -> Result<u64, JevError> {
-    let elapsed = time
-        .duration_since(UNIX_EPOCH)
-        .map_err(|_| {
-            JevError::operational_config(
-                "the system clock is before the unix epoch, so the session timestamp cannot be written. Fix the system clock and retry.",
-            )
-        })?;
+    let elapsed = time.duration_since(UNIX_EPOCH).map_err(|_| {
+        JevError::io_failed_with(
+            "system clock (before the unix epoch, so the session timestamp cannot be written)",
+            std::io::ErrorKind::Other,
+            Some("Fix the system clock and retry.".to_owned()),
+        )
+    })?;
     u64::try_from(elapsed.as_millis()).map_err(|_| {
-        JevError::operational_config(
-            "the system clock is out of range for a session timestamp. Fix the system clock and retry.",
+        JevError::io_failed_with(
+            "system clock (out of range for a session timestamp)",
+            std::io::ErrorKind::Other,
+            Some("Fix the system clock and retry.".to_owned()),
         )
     })
 }

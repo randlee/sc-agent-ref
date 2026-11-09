@@ -92,7 +92,10 @@ fn resolve_worktree_file(
 ) -> Result<(std::path::PathBuf, std::fs::Metadata), JevError> {
     let root = std::fs::canonicalize(repo.as_path()).map_err(|error| {
         if error.kind() == std::io::ErrorKind::NotFound {
-            JevError::input_missing(repo.as_path().display().to_string())
+            JevError::input_missing_with(
+                repo.as_path().display().to_string(),
+                "Pass an existing directory as the repository root (--repo-root, or repo_root in Python).",
+            )
         } else {
             JevError::io_failed("repo root", &error)
         }
@@ -100,17 +103,20 @@ fn resolve_worktree_file(
     let full = match std::fs::canonicalize(repo.as_path().join(relative)) {
         Ok(full) => full,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            return Err(JevError::input_missing(relative.to_owned()));
+            return Err(JevError::input_missing_with(
+                relative.to_owned(),
+                "Create it or correct the path: it is the --check file, or an input path named in check.toml.",
+            ));
         }
-        Err(error) => return Err(JevError::io_failed(relative, &error)),
+        Err(error) => return Err(JevError::read_failed(relative, relative, &error)),
     };
     if !full.starts_with(&root) {
         return Err(JevError::input_invalid(format!(
             "input path {relative} resolves outside the repo root"
         )));
     }
-    let metadata =
-        std::fs::metadata(&full).map_err(|error| JevError::io_failed(relative, &error))?;
+    let metadata = std::fs::metadata(&full)
+        .map_err(|error| JevError::read_failed(relative, relative, &error))?;
     if !metadata.is_file() {
         return Err(JevError::input_invalid(format!(
             "input path {relative} is not a regular file"
@@ -121,11 +127,12 @@ fn resolve_worktree_file(
 
 fn read_worktree(repo: &RepoRoot, relative: &str) -> Result<Vec<u8>, JevError> {
     let (full, metadata) = resolve_worktree_file(repo, relative)?;
-    let file = File::open(&full).map_err(|error| JevError::io_failed(relative, &error))?;
+    let file =
+        File::open(&full).map_err(|error| JevError::read_failed(relative, relative, &error))?;
     let mut bytes = Vec::new();
     file.take(MAX_INPUT_BYTES.saturating_add(1))
         .read_to_end(&mut bytes)
-        .map_err(|error| JevError::io_failed(relative, &error))?;
+        .map_err(|error| JevError::read_failed(relative, relative, &error))?;
     let actual_bytes = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
     if actual_bytes > MAX_INPUT_BYTES {
         return Err(JevError::input_too_large(

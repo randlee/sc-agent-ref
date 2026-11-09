@@ -116,31 +116,35 @@ impl ObservabilityAdapter {
     ///
     /// # Errors
     ///
-    /// Returns `CONFIG_INVALID` ([`JevError::operational_config`]) when the
-    /// service is not a valid service name, `log_root` cannot be created or
-    /// resolved, or the logger refuses the configuration. The fix hint names
-    /// the directory and the policy's log-root argument
-    /// ([`PathPolicy::log_root_flag`]), and does not mention `check.toml` or
-    /// secret material.
+    /// Returns `CONFIG_INVALID` when the service is not a valid service name
+    /// or the logger refuses the configuration, and `IO_FAILED` when
+    /// `log_root` cannot be created or resolved. The suggested action names
+    /// the policy's log-root argument ([`PathPolicy::log_root_flag`]), and
+    /// does not mention `check.toml` or secret material.
     pub fn open(policy: &PathPolicy, log_root: &Path) -> Result<Self, JevError> {
         let service = policy.service;
         let flag = policy.log_root_flag;
         let service_name = ServiceName::new(service).map_err(|error| {
-            JevError::operational_config(format!(
-                "session log service name {service:?} is not valid ({error}). Use a name of letters, digits, '-' and '_'."
-            ))
+            JevError::config_invalid_with(
+                format!("session log service name {service:?} is not valid ({error})"),
+                "Use a name of letters, digits, '-' and '_'.",
+            )
         })?;
         std::fs::create_dir_all(log_root).map_err(|error| {
-            JevError::operational_config(format!(
-                "Create log directory {} or pass a writable {flag} ({error}).",
-                log_root.display()
-            ))
+            JevError::io_failed_with(
+                format!("log directory {} (create)", log_root.display()),
+                error.kind(),
+                Some(format!(
+                    "Pass a writable {flag} or fix the directory's permissions, then retry."
+                )),
+            )
         })?;
         let key = std::fs::canonicalize(log_root).map_err(|error| {
-            JevError::operational_config(format!(
-                "Resolve log directory {} ({error}). Pass a readable {flag} and retry.",
-                log_root.display()
-            ))
+            JevError::io_failed_with(
+                format!("log directory {} (resolve)", log_root.display()),
+                error.kind(),
+                Some(format!("Pass a readable {flag} and retry.")),
+            )
         })?;
         let mut live = registry().lock().unwrap_or_else(PoisonError::into_inner);
         live.retain(|_, weak| weak.strong_count() > 0);
@@ -169,14 +173,15 @@ impl ObservabilityAdapter {
     ///
     /// # Errors
     ///
-    /// Returns `CONFIG_INVALID` when the sink cannot flush. The hint tells
-    /// the caller to check the log root and does not mention `check.toml`.
+    /// Returns `IO_FAILED` when the sink cannot flush. The action tells the
+    /// caller to check the log root and does not mention `check.toml`.
     pub fn flush(&self) -> Result<(), JevError> {
         self.inner.0.flush().map_err(|error| {
-            JevError::operational_config(format!(
-                "session log flush failed ({}). Check that the log root is writable.",
-                error.diagnostic().message
-            ))
+            JevError::io_failed_with(
+                format!("session log flush ({})", error.diagnostic().message),
+                std::io::ErrorKind::Other,
+                Some("Check that the log root is writable.".to_owned()),
+            )
         })
     }
 
@@ -251,11 +256,14 @@ fn start_logger(service: ServiceName, log_root: &Path, flag: &str) -> Result<Log
     LoggerBuilder::new(config)
         .and_then(LoggerBuilder::build)
         .map_err(|error| {
-            JevError::operational_config(format!(
-                "Start the session logger at {} ({}). Pass a writable {flag} and retry.",
-                log_root.display(),
-                error.diagnostic().message
-            ))
+            JevError::config_invalid_with(
+                format!(
+                    "the session logger could not start at {} ({})",
+                    log_root.display(),
+                    error.diagnostic().message
+                ),
+                format!("Pass a writable {flag} and retry."),
+            )
         })
 }
 

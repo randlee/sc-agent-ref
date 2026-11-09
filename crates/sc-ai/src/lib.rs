@@ -18,9 +18,10 @@
 //!
 //! # Partial failure
 //!
-//! When some, not all, requested backends fail, [`Output`] carries the
+//! When any requested backend fails (every one included), [`Output`] carries the
 //! envelope with the successful answers on stdout and the first failure's
-//! `ScAgentErrorResponse` for stderr; the process exits 2 (REQ-SAG-0604).
+//! `ScAgentErrorResponse` for stderr; the process exits 2, or 3 when every failed backend's error is
+//! retryable (REQ-SAG-0604, [`Output::exit_code`]).
 //!
 //! # Examples
 //!

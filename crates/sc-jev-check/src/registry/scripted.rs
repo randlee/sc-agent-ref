@@ -14,7 +14,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use sc_agent_types::{BackendId, JevError, NetworkErrorKind};
+use sc_agent_types::{BackendId, BusyCause, JevError, NetworkErrorKind, ProviderFailure};
 use sc_decision_schema::test_util::MockJudgeBackend;
 use sc_decision_schema::{JudgeBackend, QuestionAnswer, QuestionId};
 use serde_json::Value;
@@ -43,8 +43,9 @@ fn scripted_body(id: BackendId) -> String {
 ///   each backend id in `ids` (its descriptor name) to a shared-form answer
 ///   object or a failure entry
 ///   `{"failure": {"error", "kind"?, "stage"?}}`. `error` is
-///   `NETWORK_ERROR` (needs `kind`, such as `"busy"`), `INPUT_TOO_LARGE` or
-///   `RESPONSE_INVALID`. `stage` `"judge"` (the default) sends and fails;
+///   `NETWORK_ERROR` (needs `kind`, such as `"timeout"`), `PROVIDER_BUSY`,
+///   `AUTH_FAILED`, `API_REQUEST_INVALID`, `QUOTA_EXHAUSTED`, `API_ERROR`,
+///   `INPUT_TOO_LARGE` or `RESPONSE_INVALID`. `stage` `"judge"` (the default) sends and fails;
 ///   `"validate"` refuses before any send.
 ///
 /// Each judge is a [`MockJudgeBackend`]: it answers at `judge` time against
@@ -203,16 +204,28 @@ fn parse_failure(id: BackendId, name: &str, failure: &Value) -> Result<Entry, Je
         )));
     }
     let text = |key: &str| map.get(key).map(|value| value.as_str());
+    let scripted = |status: u16| ProviderFailure::new(id.as_str(), status, "scripted failure");
     let error = match text("error") {
         Some(Some("NETWORK_ERROR")) => {
             let Some(Some(kind)) = text("kind") else {
                 return Err(forms_error(format!(
-                    "the NETWORK_ERROR failure for {name} needs a string \"kind\", such as \"busy\""
+                    "the NETWORK_ERROR failure for {name} needs a string \"kind\", such as \"timeout\""
                 )));
             };
             let kind: NetworkErrorKind = kind.parse()?;
             JevError::network(kind, "scripted failure")
         }
+        Some(Some("PROVIDER_BUSY")) => JevError::provider_busy(
+            "HTTP 429 busy; 4 sends exhausted",
+            429,
+            4,
+            BusyCause::Sends,
+            None,
+        ),
+        Some(Some("AUTH_FAILED")) => JevError::auth_failed(scripted(401)),
+        Some(Some("API_REQUEST_INVALID")) => JevError::api_request_invalid(scripted(422)),
+        Some(Some("QUOTA_EXHAUSTED")) => JevError::quota_exhausted(scripted(402)),
+        Some(Some("API_ERROR")) => JevError::api_error(scripted(500)),
         Some(Some("INPUT_TOO_LARGE")) => {
             let limit = id.descriptor().request_limit_bytes();
             JevError::input_too_large(limit, limit.saturating_add(1))
@@ -220,7 +233,7 @@ fn parse_failure(id: BackendId, name: &str, failure: &Value) -> Result<Entry, Je
         Some(Some("RESPONSE_INVALID")) => JevError::response_invalid("scripted failure"),
         _ => {
             return Err(forms_error(format!(
-                "the failure for {name} needs \"error\" of NETWORK_ERROR, INPUT_TOO_LARGE or RESPONSE_INVALID"
+                "the failure for {name} needs \"error\" of NETWORK_ERROR, PROVIDER_BUSY, AUTH_FAILED, API_REQUEST_INVALID, QUOTA_EXHAUSTED, API_ERROR, INPUT_TOO_LARGE or RESPONSE_INVALID"
             )));
         }
     };

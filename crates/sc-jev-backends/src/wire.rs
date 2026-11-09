@@ -6,7 +6,7 @@
 //! by `sc-jev` from the same payload (`sc_decision_schema::jev::v1`).
 
 use sc_agent_http::{HeaderName, SecretHeader};
-use sc_agent_types::{JevError, ResolvedApiKey, Sha256Digest};
+use sc_agent_types::{JevError, ResolvedApiKey, ResponseInvalidCause, Sha256Digest};
 use sc_decision_schema::canonical_json_bytes;
 use serde_json::{Map, Value};
 
@@ -237,22 +237,27 @@ pub(crate) struct VendorReply {
 }
 
 pub(crate) fn parse_count(body: &[u8]) -> Result<u64, JevError> {
-    let value: Value = serde_json::from_slice(body)
-        .map_err(|_| JevError::response_invalid("token count is not JSON"))?;
+    let value: Value = serde_json::from_slice(body).map_err(|_| {
+        JevError::response_invalid_because(ResponseInvalidCause::NotJson, "token count is not JSON")
+    })?;
     let tokens = value.get("input_tokens");
-    tokens
-        .and_then(Value::as_u64)
-        .ok_or_else(|| JevError::response_invalid("token count has no input_tokens"))
+    tokens.and_then(Value::as_u64).ok_or_else(|| {
+        JevError::response_invalid_because(
+            ResponseInvalidCause::NotJson,
+            "token count has no input_tokens",
+        )
+    })
 }
 
 /// Parses a vendor reply. Error details carry no provider name; the caller
 /// labels them.
 pub(crate) fn parse_vendor(kind: ProviderKind, body: &[u8]) -> Result<VendorReply, JevError> {
-    let value: Value = serde_json::from_slice(body)
-        .map_err(|_| JevError::response_invalid("reply is not JSON"))?;
-    let object = value
-        .as_object()
-        .ok_or_else(|| JevError::response_invalid("reply is not JSON"))?;
+    let value: Value = serde_json::from_slice(body).map_err(|_| {
+        JevError::response_invalid_because(ResponseInvalidCause::NotJson, "reply is not JSON")
+    })?;
+    let object = value.as_object().ok_or_else(|| {
+        JevError::response_invalid_because(ResponseInvalidCause::NotJson, "reply is not JSON")
+    })?;
     let usage = object.get("usage").and_then(Value::as_object);
     let (text, non_text_blocks, input_tokens) = match kind {
         ProviderKind::Anthropic => parse_anthropic(object, usage)?,
@@ -268,7 +273,10 @@ pub(crate) fn parse_vendor(kind: ProviderKind, body: &[u8]) -> Result<VendorRepl
         .map(str::to_owned);
     let truncation = truncation_reason(object, stop_reason.as_deref(), status.as_deref());
     if text.is_none() && truncation.is_none() {
-        return Err(JevError::response_invalid("reply has no text"));
+        return Err(JevError::response_invalid_because(
+            ResponseInvalidCause::NotJson,
+            "reply has no text",
+        ));
     }
     Ok(VendorReply {
         text: text.unwrap_or_default(),

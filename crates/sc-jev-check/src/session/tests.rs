@@ -41,19 +41,11 @@ fn check_follow_up_refuses_empty_text_and_jev_sessions_with_explicit_hints() {
     let saved = session(BackendId::Jev, bundle(), &store);
     let empty = check_follow_up(&saved, "  ").expect_err("empty");
     assert_eq!(empty.code(), "INPUT_INVALID");
-    assert!(
-        empty.fix_hint().contains("non-empty"),
-        "{}",
-        empty.fix_hint()
-    );
+    assert!(empty.message().contains("non-empty"), "{}", empty.message());
     let jev = check_follow_up(&saved, "why?").expect_err("jev");
     assert_eq!(jev.code(), "INPUT_INVALID");
-    assert!(
-        jev.fix_hint().contains("Haiku or Luna"),
-        "{}",
-        jev.fix_hint()
-    );
-    assert!(!jev.fix_hint().contains("schema"), "{}", jev.fix_hint());
+    assert!(jev.message().contains("Haiku or Luna"), "{}", jev.message());
+    assert!(!jev.message().contains("schema"), "{}", jev.message());
 }
 
 #[test]
@@ -75,7 +67,7 @@ fn session_parse_hint_names_the_file() {
     fs::write(&path, b"not-json").expect("corrupt");
     let error = store.load(&saved.session_id).expect_err("parse");
     assert_eq!(error.code(), "INPUT_INVALID");
-    let hint = error.fix_hint();
+    let hint = error.message();
     assert!(
         hint.contains(&path.display().to_string()),
         "parse hint names the session file: {hint}"
@@ -99,9 +91,9 @@ fn a_document_under_another_id_is_invalid() {
     fs::copy(store.path(&saved.session_id), store.path(&other)).expect("copy");
     let error = store.load(&other).expect_err("id mismatch");
     assert!(
-        error.fix_hint().contains("does not match this session id"),
+        error.message().contains("does not match this session id"),
         "{}",
-        error.fix_hint()
+        error.message()
     );
 }
 
@@ -112,15 +104,18 @@ fn session_directory_failure_names_the_directory() {
     fs::write(&blocker, b"x").expect("blocker");
     let nested = blocker.join("sessions");
     let error = FileSessionStore::new(nested.as_path()).expect_err("dir");
-    assert_eq!(error.code(), "CONFIG_INVALID");
-    let hint = error.fix_hint();
+    assert_eq!(error.code(), "IO_FAILED");
+    let message = error.message();
     assert!(
-        hint.contains(&nested.display().to_string()),
-        "directory hint names the session directory: {hint}"
+        message.contains(&nested.display().to_string()),
+        "the message names the session directory: {message}"
     );
+    let details = error.details().expect("details");
+    assert!(details.io_kind.is_some());
     assert!(
-        !hint.contains("check.toml"),
-        "directory hint is not a check.toml hint: {hint}"
+        !error.suggested_action().contains("check.toml"),
+        "the action is not a check.toml hint: {}",
+        error.suggested_action()
     );
 }
 
@@ -188,10 +183,10 @@ fn created_session_directory_is_mode_0700() {
 fn clock_and_payload_faults_name_their_own_recovery() {
     let before_epoch = UNIX_EPOCH - Duration::from_secs(1);
     let clock = unix_ms(before_epoch).expect_err("before epoch");
-    assert_eq!(clock.code(), "CONFIG_INVALID");
-    let hint = clock.fix_hint();
+    assert_eq!(clock.code(), "IO_FAILED");
+    let hint = clock.message();
     assert!(hint.contains("system clock"), "{hint}");
-    assert!(!hint.contains("check.toml"), "{hint}");
+    assert!(!clock.suggested_action().contains("check.toml"));
 }
 
 /// RBP-F201: a stored outcome is checked against its stored payload on load.
@@ -227,5 +222,5 @@ fn tampered_stored_outcome_is_session_document_invalid() {
         matches!(error, JevError::SessionDocumentInvalid { .. }),
         "{error:?}"
     );
-    assert!(error.fix_hint().contains("does not match its payload"));
+    assert!(error.message().contains("does not match its payload"));
 }

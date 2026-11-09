@@ -401,6 +401,11 @@ fn test_llm_input_is_refused_like_jev_and_nothing_is_sent() {
         .judge(&oversized, &SendTrace::new())
         .expect_err("oversize");
     assert_eq!(too_big.code(), "INPUT_TOO_LARGE");
+    let details = too_big.details().expect("details");
+    assert_eq!(details.unit.as_deref(), Some("bytes"));
+    assert_eq!(details.limit, Some(96_000));
+    assert!(details.actual.expect("actual") > 96_000);
+    assert!(too_big.suggested_action().contains("never split"));
     assert!(posts(&recorded).is_empty());
 
     // `Question::new_unchecked` does not check the choice count, so a caller can build
@@ -421,6 +426,11 @@ fn test_llm_input_is_refused_like_jev_and_nothing_is_sent() {
         .judge(&short, &SendTrace::new())
         .expect_err("one choice");
     assert_eq!(invalid.code(), "INPUT_INVALID");
+    assert_eq!(
+        invalid.category(),
+        sc_agent_types::ErrorCategory::Validation
+    );
+    assert!(!invalid.retryable());
     assert!(invalid.to_string().contains("needs 2 to 255 choices"));
     assert!(posts(&recorded).is_empty());
 
@@ -429,6 +439,11 @@ fn test_llm_input_is_refused_like_jev_and_nothing_is_sent() {
         .judge(&missing_prompt, &SendTrace::new())
         .expect_err("prompt");
     assert_eq!(missing.code(), "INPUT_INVALID");
+    assert!(
+        missing
+            .to_string()
+            .contains("LLM system prompt is required")
+    );
     assert!(posts(&recorded).is_empty());
 }
 
@@ -464,6 +479,16 @@ fn test_llm_bad_reply_is_typed() {
             .judge(&standard_request(PROMPT), &SendTrace::new())
             .expect_err(reply);
         assert_eq!(error.code(), "RESPONSE_INVALID", "{reply} -> {error}");
+        assert!(!error.retryable(), "{reply}");
+        let cause = error.details().and_then(|d| d.cause).expect("cause");
+        assert!(
+            ["not_json", "schema"].contains(&cause.as_str()),
+            "{reply}: {cause}"
+        );
+        assert!(
+            error.to_string().starts_with("response is invalid ("),
+            "{error}"
+        );
         assert_eq!(posts(&recorded).len(), 2, "{reply}");
     }
 }
@@ -478,6 +503,11 @@ fn test_llm_stop_reason_truncation_is_response_invalid() {
         .judge(&standard_request(PROMPT), &SendTrace::new())
         .expect_err("truncated haiku");
     assert_eq!(haiku_error.code(), "RESPONSE_INVALID");
+    assert_eq!(
+        haiku_error.details().and_then(|d| d.cause).as_deref(),
+        Some("truncated")
+    );
+    assert!(!haiku_error.retryable());
     assert!(haiku_error.to_string().contains("max_tokens"));
     assert!(haiku_error.to_string().contains("stop_reason"));
     assert_eq!(posts(&haiku_recorded).len(), 2);
@@ -490,6 +520,10 @@ fn test_llm_stop_reason_truncation_is_response_invalid() {
         .judge(&standard_request(PROMPT), &SendTrace::new())
         .expect_err("truncated luna");
     assert_eq!(luna_error.code(), "RESPONSE_INVALID");
+    assert_eq!(
+        luna_error.details().and_then(|d| d.cause).as_deref(),
+        Some("truncated")
+    );
     assert!(luna_error.to_string().contains("max_tokens"));
     assert!(luna_error.to_string().contains("incomplete"));
     assert_eq!(posts(&luna_recorded).len(), 2);
@@ -543,19 +577,30 @@ fn test_llm_busy_exhausted_wording_and_decimal_retry_after() {
         response(
             429,
             vec![("retry-after", "1.5")],
-            json!({"error": "slow down"}),
+            json!({"type": "error", "error": {"type": "rate_limit_error", "message": "slow down"}, "request_id": "req_busy"}),
         )
     };
     let (backend, recorded) = luna(vec![busy(), busy(), busy(), busy(), busy()]);
     let error = backend
         .judge(&standard_request(PROMPT), &SendTrace::new())
         .expect_err("exhausted");
-    assert_eq!(error.code(), "NETWORK_ERROR");
+    assert_eq!(error.code(), "PROVIDER_BUSY");
     assert_eq!(
         error.to_string(),
-        "network error: luna HTTP 429 busy; 5 sends exhausted"
+        "provider is busy: luna HTTP 429 busy; 5 sends exhausted (rate_limit_error: slow down)"
     );
     assert!(error.retryable());
+    // The provider's `Retry-After` (1.5 s, rounded up) is reported.
+    assert_eq!(error.retry_after_seconds(), Some(2));
+    // The last busy reply's words and ids are kept, like any provider error.
+    let details = error.details().expect("details");
+    assert_eq!(details.provider.as_deref(), Some("luna"));
+    assert_eq!(details.provider_type.as_deref(), Some("rate_limit_error"));
+    assert_eq!(details.provider_request_id.as_deref(), Some("req_busy"));
+    assert!(
+        error.message().contains("rate_limit_error: slow down"),
+        "{error}"
+    );
     assert_eq!(posts(&recorded).len(), 5);
     assert_eq!(recorded.delays(), [Duration::from_millis(1_500); 4]);
 }
@@ -585,11 +630,18 @@ fn test_llm_non_2xx_detail_is_redacted() {
     let error = backend
         .judge(&standard_request(PROMPT), &SendTrace::new())
         .expect_err("401");
-    assert_eq!(error.code(), "NETWORK_ERROR");
-    // Status only: the response body is never echoed.
-    assert_eq!(error.to_string(), "network error: haiku HTTP 401");
-    let rendered = format!("{error} {}", error.fix_hint());
-    assert!(!rendered.contains("SENTINEL-RESPONSE-BODY"), "{rendered}");
+    assert_eq!(error.code(), "AUTH_FAILED");
+    assert!(!error.retryable());
+    // The provider's own text is kept (bounded), with the key scrubbed.
+    assert_eq!(
+        error.to_string(),
+        "provider rejected the credential: haiku HTTP 401: invalid x-api-key [redacted] SENTINEL-RESPONSE-BODY"
+    );
+    let body = serde_json::to_string(&sc_agent_types::ScAgentErrorResponse::from_jev_error(
+        &error,
+    ))
+    .expect("json");
+    let rendered = format!("{error} {} {body}", error.suggested_action());
     assert!(!rendered.contains(KEY), "{rendered}");
     assert_eq!(posts(&recorded).len(), 1);
 }
@@ -604,9 +656,65 @@ fn test_llm_non_busy_is_not_retried() {
     let error = backend
         .judge(&standard_request(PROMPT), &SendTrace::new())
         .expect_err("400");
-    assert_eq!(error.code(), "NETWORK_ERROR");
+    assert_eq!(error.code(), "API_REQUEST_INVALID");
+    assert!(error.message().contains("bad request"), "{error}");
     assert_eq!(posts(&recorded).len(), 1);
     assert!(recorded.delays().is_empty());
+}
+
+/// A 5xx is an `API_ERROR`, flagged retryable for the caller but not resent
+/// by the backend; the provider's type, message and request id are kept.
+#[test]
+fn test_llm_5xx_is_api_error_with_provider_fields() {
+    let body = json!({
+        "type": "error",
+        "error": {"type": "api_error", "message": "internal hiccup"},
+        "request_id": "req_abc"
+    });
+    let (backend, recorded) = haiku(vec![response(500, Vec::new(), body)]);
+    let error = backend
+        .judge(&standard_request(PROMPT), &SendTrace::new())
+        .expect_err("500");
+    assert_eq!(error.code(), "API_ERROR");
+    assert!(error.retryable());
+    let details = error.details().expect("details");
+    assert_eq!(details.http_status, Some(500));
+    assert_eq!(details.provider_type.as_deref(), Some("api_error"));
+    assert_eq!(details.provider_request_id.as_deref(), Some("req_abc"));
+    assert!(error.message().contains("internal hiccup"), "{error}");
+    assert_eq!(posts(&recorded).len(), 1, "not resent");
+}
+
+/// Out of quota is its own id and is not retried, where a 429 with an
+/// unknown body is busy and is.
+#[test]
+fn test_llm_quota_429_is_not_retried_and_plain_429_is() {
+    let quota = json!({"error": {
+        "message": "You exceeded your current quota", "type": "insufficient_quota",
+        "param": null, "code": "insufficient_quota"
+    }});
+    let (backend, recorded) = haiku(vec![response(429, Vec::new(), quota)]);
+    let error = backend
+        .judge(&standard_request(PROMPT), &SendTrace::new())
+        .expect_err("quota");
+    assert_eq!(error.code(), "QUOTA_EXHAUSTED");
+    assert!(!error.retryable());
+    assert_eq!(posts(&recorded).len(), 1);
+    assert!(recorded.delays().is_empty(), "no wait for a quota reply");
+
+    let (backend, recorded) = haiku(vec![
+        response(429, Vec::new(), json!({"error": "slow down"})),
+        response(429, Vec::new(), json!({"error": "slow down"})),
+        response(429, Vec::new(), json!({"error": "slow down"})),
+        response(429, Vec::new(), json!({"error": "slow down"})),
+        response(429, Vec::new(), json!({"error": "slow down"})),
+    ]);
+    let error = backend
+        .judge(&standard_request(PROMPT), &SendTrace::new())
+        .expect_err("busy");
+    assert_eq!(error.code(), "PROVIDER_BUSY");
+    assert!(error.retryable());
+    assert_eq!(posts(&recorded).len(), 5);
 }
 
 #[test]
@@ -629,7 +737,7 @@ fn test_llm_missing_key_does_not_build() {
     let control = ResolvedApiKey::try_new(BackendKeyId::OpenAi, format!("{KEY}\u{7}"))
         .expect_err("control character");
     assert_eq!(control.code(), "CONFIG_INVALID");
-    assert!(!control.fix_hint().contains(KEY));
+    assert!(!control.message().contains(KEY));
     let rendered = format!(
         "{:?}",
         OpenAiLunaBackend::new(credential(), script(Vec::new()))
@@ -667,8 +775,13 @@ fn test_provider_token_count_over_limit_does_not_send_judge() {
     let error = backend
         .judge(&standard_request(PROMPT), &SendTrace::new())
         .expect_err("provider tokens");
-    assert_eq!(error.code(), "INPUT_INVALID");
+    assert_eq!(error.code(), "INPUT_TOO_LARGE");
     assert!(error.to_string().contains("32001"));
+    let details = error.details().expect("details");
+    assert_eq!(
+        (details.limit, details.actual, details.unit.as_deref()),
+        (Some(32_000), Some(32_001), Some("tokens"))
+    );
     let seen = posts(&recorded);
     assert_eq!(seen.len(), 1);
     assert!(url(&seen[0]).ends_with("/count_tokens"));
@@ -684,6 +797,14 @@ fn test_llm_text_reply_is_not_json_vendor_envelope() {
         .judge(&standard_request(PROMPT), &SendTrace::new())
         .expect_err("envelope");
     assert_eq!(error.code(), "RESPONSE_INVALID");
+    assert_eq!(
+        error.details().and_then(|d| d.cause).as_deref(),
+        Some("not_json")
+    );
+    assert!(
+        error.to_string().contains("haiku reply is not JSON"),
+        "{error}"
+    );
 }
 
 /// A cancelled token stops the call before any send (`with_cancel`).
@@ -699,7 +820,7 @@ fn test_llm_cancel_before_send_sends_nothing() {
     assert_eq!(error.code(), "NETWORK_ERROR");
     assert_eq!(
         error.to_string(),
-        "network error: haiku request cancelled before a send"
+        "network error (cancelled): haiku request cancelled before a send"
     );
     assert!(!error.retryable());
     assert_eq!(transport.sends(), 0);
@@ -715,7 +836,7 @@ fn test_llm_reply_errors_are_labelled_once() {
         .expect_err("count");
     assert_eq!(
         error.to_string(),
-        "response is invalid: haiku token count is not JSON"
+        "response is invalid (not_json): haiku token count is not JSON"
     );
     let (backend, _) = luna(vec![text_response(200, Vec::new(), "[]"), count_reply(1)]);
     let error = backend
@@ -723,7 +844,7 @@ fn test_llm_reply_errors_are_labelled_once() {
         .expect_err("vendor");
     assert_eq!(
         error.to_string(),
-        "response is invalid: luna reply is not JSON"
+        "response is invalid (not_json): luna reply is not JSON"
     );
 }
 

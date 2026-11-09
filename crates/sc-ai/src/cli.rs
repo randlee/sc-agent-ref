@@ -20,9 +20,13 @@ use sc_ai::{AskCommand, Command, RunCommand};
 /// Usage notes appended to `--help`.
 const NOTES: &str = "\
 Success writes one JSON envelope to stdout: {\"version\",\"operation\",\"data\"}.
-Failure writes one {\"schema_version\",\"error\",\"message\"} line to stderr and
-exits 2. When some, not all, backends fail, stdout carries the envelope with the
-successful answers, stderr carries the first failure, and the exit code is 2.
+Failure writes one JSON line to stderr and exits 2, or 3 for a retryable error. Its keys are error (a stable
+id), kind, message (what failed), suggested_action, retryable (always present),
+retry_after_seconds, field and details (the last three only when the error has
+them) and schema_version (1). When any backend fails, stdout carries the envelope
+(the successful answers, if any, and each failed backend's error), stderr carries
+the first failure, and the exit code is 2, or 3 when every failed backend's error
+is retryable (retry only the failed backends).
 
 --check is a repo-relative check.toml (default check.toml).
 --request-json is a caller-built questions document, or - for stdin.
@@ -131,6 +135,11 @@ struct RunArgs {
     #[cfg(feature = "test-util")]
     #[arg(long, value_name = "FILE", hide = true, value_parser = non_empty_path)]
     scripted_answers: Option<PathBuf>,
+    /// Send over real HTTP to `http://127.0.0.1:<PORT>` instead of the
+    /// providers (test builds only; keys still come from the environment).
+    #[cfg(feature = "test-util")]
+    #[arg(long, value_name = "PORT", hide = true)]
+    loopback_port: Option<u16>,
 }
 
 /// Arguments of `jev ask`.
@@ -195,10 +204,9 @@ where
         {
             Ok(Parsed::Print(error.render().to_string()))
         }
-        Err(error) => {
-            Err(value_parser_error(&error)
-                .unwrap_or_else(|| JevError::input_invalid(message(&error))))
-        }
+        Err(error) => Err(value_parser_error(&error)
+            .map(|parsed| with_blamed_flag(parsed, &error))
+            .unwrap_or_else(|| usage_error(&error))),
     }
 }
 
@@ -223,6 +231,8 @@ fn into_command(cli: Cli) -> Result<Command, JevError> {
 }
 
 fn run_command(args: RunArgs, dry_run: bool) -> Result<RunCommand, JevError> {
+    #[cfg(feature = "test-util")]
+    let registry = run_registry(&args)?;
     Ok(RunCommand {
         dry_run,
         repo_root: args.repo_root,
@@ -236,10 +246,38 @@ fn run_command(args: RunArgs, dry_run: bool) -> Result<RunCommand, JevError> {
         chain_context: args.chain_context,
         project: args.project,
         #[cfg(feature = "test-util")]
-        registry: scripted_registry(args.scripted_answers.as_deref())?,
+        registry,
         #[cfg(not(feature = "test-util"))]
         registry: None,
     })
+}
+
+/// The test registry of a `run`: `--scripted-answers` wins; otherwise
+/// `--loopback-port` builds real HTTP backends aimed at the loopback server.
+#[cfg(feature = "test-util")]
+fn run_registry(
+    args: &RunArgs,
+) -> Result<Option<std::sync::Arc<sc_jev_check::registry::BackendRegistry>>, JevError> {
+    if let Some(registry) = scripted_registry(args.scripted_answers.as_deref())? {
+        return Ok(Some(registry));
+    }
+    let Some(port) = args.loopback_port else {
+        return Ok(None);
+    };
+    let ids = if args.backends.is_empty() {
+        vec![BackendId::Jev]
+    } else {
+        args.backends.clone()
+    };
+    let backends = sc_agent_types::BackendSet::try_from(ids)?;
+    let root = args.repo_root.clone().unwrap_or_else(|| PathBuf::from("."));
+    sc_jev_check::registry::BackendRegistry::loopback_from_env(
+        &backends,
+        &sc_agent_types::RepoRoot::new(root),
+        port,
+        1,
+    )
+    .map(|registry| Some(std::sync::Arc::new(registry)))
 }
 
 /// The scripted registry for `--scripted-answers FILE` (ADR-SAG-0022, r-2b
@@ -254,7 +292,12 @@ fn scripted_registry(
         return Ok(None);
     };
     let text = std::fs::read_to_string(file).map_err(|error| {
-        JevError::io_failed(format!("scripted answers {}", file.display()), &error)
+        JevError::read_failed_with(
+            file.display().to_string(),
+            format!("scripted answers {}", file.display()),
+            "Pass an existing file as --scripted-answers.",
+            &error,
+        )
     })?;
     let answers: serde_json::Value = serde_json::from_str(&text).map_err(|error| {
         JevError::input_invalid(format!("scripted answers are not JSON: {error}"))
@@ -286,6 +329,36 @@ fn value_parser_error(error: &clap::Error) -> Option<JevError> {
         .cloned()
 }
 
+/// A value parser's own error, with the flag clap blames as its `field` when
+/// the parser did not name one (an empty value does not know its flag).
+fn with_blamed_flag(parsed: JevError, error: &clap::Error) -> JevError {
+    match error
+        .get(clap::error::ContextKind::InvalidArg)
+        .map(ToString::to_string)
+        .and_then(|argument| JevError::usage_field(&argument))
+    {
+        Some(flag) => parsed.with_field(flag),
+        None => parsed,
+    }
+}
+
+/// `INPUT_INVALID` for a command-line usage error, naming the argument clap
+/// blames when it names one.
+///
+/// Usage errors are `INPUT_INVALID`, never `CONFIG_INVALID`: the caller's
+/// command line is input, and no configuration source is wrong.
+fn usage_error(error: &clap::Error) -> JevError {
+    let detail = message(error);
+    let field = error
+        .get(clap::error::ContextKind::InvalidArg)
+        .map(ToString::to_string)
+        .and_then(|argument| JevError::usage_field(&argument));
+    match field {
+        Some(field) => JevError::input_invalid_field(field, detail),
+        None => JevError::input_invalid(detail),
+    }
+}
+
 /// One-line, colour-free description of a clap error.
 fn message(error: &clap::Error) -> String {
     if error.kind() == ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand
@@ -313,25 +386,33 @@ fn non_empty_path(value: &str) -> Result<PathBuf, JevError> {
 }
 
 fn parse_rev(value: &str) -> Result<Rev, JevError> {
-    Rev::parse(value)
+    Rev::parse(value).map_err(|error| error.with_field("--rev"))
 }
 
 fn parse_backend(value: &str) -> Result<BackendId, JevError> {
-    value.parse()
+    value
+        .parse()
+        .map_err(|error: JevError| error.with_field("--backend"))
 }
 
 /// A session id is a ULID since Phase A.1; anything else, a UUID included,
 /// is one `INPUT_INVALID` line whose fix hint says how to start over.
 fn parse_session_id(value: &str) -> Result<SessionId, JevError> {
     value.parse().map_err(|_| {
-        JevError::operational_io(format!(
-            "session id {value:?} is not a ULID; session ids are ULIDs since Phase A.1; start a new session with `sc-ai jev run`."
-        ))
+        // Caller text echoed in an error is cut short (it can be any length).
+        let shown: String = value.chars().take(64).collect();
+        let cut = if shown.len() < value.len() { "..." } else { "" };
+        JevError::input_invalid_field(
+            "--session-id",
+            format!(
+                "session id {shown:?}{cut} is not a ULID; session ids are ULIDs since Phase A.1; start a new session with `sc-ai jev run`"
+            ),
+        )
     })
 }
 
 fn parse_project(value: &str) -> Result<ProjectLabel, JevError> {
-    ProjectLabel::new(value)
+    ProjectLabel::new(value).map_err(|error| error.with_field("--project"))
 }
 
 #[cfg(test)]
@@ -350,11 +431,37 @@ mod tests {
         for bad in ["3f2b8a9e-6c1d-4e7a-9b25-0d4c1a7e5f10", "nope", ""] {
             let error = parse_session_id(bad).expect_err("not a ULID");
             assert_eq!(error.code(), "INPUT_INVALID");
-            let hint = error.fix_hint();
-            assert!(hint.contains("ULID"), "{hint}");
-            assert!(hint.contains("sc-ai jev run"), "{hint}");
+            let message = error.message();
+            assert!(message.contains("ULID"), "{message}");
+            assert!(message.contains("sc-ai jev run"), "{message}");
+            assert_eq!(error.field(), Some("--session-id"));
+            assert!(error.message().len() < 400);
         }
         assert!(parse_session_id("01JC4Z7A5B0000000000000001").is_ok());
+    }
+
+    /// The `--help` notes list the amended stderr keys (REQ-SAG-0701).
+    #[test]
+    fn help_notes_list_the_error_body_keys() {
+        let Ok(Parsed::Print(text)) = parse(["sc-ai", "--help"]) else {
+            panic!("--help must print");
+        };
+        for key in [
+            "error (a stable",
+            "kind,",
+            "message (what failed)",
+            "suggested_action",
+            "retryable (always present)",
+            "retry_after_seconds",
+            "field and details",
+            "schema_version (1)",
+            "exits 2, or 3 for a retryable error",
+            "or 3 when every failed backend's error",
+            "retry only the failed backends",
+        ] {
+            assert!(text.contains(key), "{key}: {text}");
+        }
+        assert!(!text.contains("{\"schema_version\",\"error\",\"message\"}"));
     }
 
     /// Usage text names `sc-ai`, never argv\[0\] such as `sc-ai.exe`.

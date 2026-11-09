@@ -79,6 +79,7 @@ pub struct AskCommand {
 pub struct Output {
     stdout: Vec<u8>,
     failure: Option<ScAgentErrorResponse>,
+    exit_code: u8,
 }
 
 impl Output {
@@ -89,10 +90,20 @@ impl Output {
     }
 
     /// The first failed backend's error, present only for a partial
-    /// response. The binary prints it as one stderr line and exits 2.
+    /// or all-failed response. The binary prints it as one stderr line.
     #[must_use]
     pub fn failure(&self) -> Option<&ScAgentErrorResponse> {
         self.failure.as_ref()
+    }
+
+    /// The process exit code: 0 with no failure; otherwise 3 only when
+    /// **every** failed backend's error is retryable, else 2. It does not
+    /// depend on the order of the backends. Exit 3 means "retry the failed
+    /// backends": a backend that answered may already have its answer in the
+    /// envelope, so a retry should send only the backends that failed.
+    #[must_use]
+    pub fn exit_code(&self) -> u8 {
+        self.exit_code
     }
 }
 
@@ -127,10 +138,11 @@ fn base_inputs(
         // An explicit repo root never needs the working directory.
         Err(_) if explicit.is_some() => PathBuf::from("."),
         Err(error) => {
-            return Err(JevError::operational_config(format!(
-                "current directory is unavailable ({}). Pass --repo-root.",
-                error.kind()
-            )));
+            return Err(JevError::io_failed_with(
+                "current directory",
+                error.kind(),
+                Some("Pass --repo-root.".to_owned()),
+            ));
         }
     };
     let mut inputs = ComposeInputs::new(cwd, PathPolicy::cli());
@@ -193,9 +205,19 @@ fn dispatch_run(command: RunCommand, stdin: &mut dyn Read) -> Result<Output, Jev
     } else {
         None
     };
+    let exit_code = if response.is_partial() {
+        if response.all_failures_retryable() {
+            sc_agent_types::EXIT_RETRYABLE
+        } else {
+            sc_agent_types::EXIT_FAILURE
+        }
+    } else {
+        0
+    };
     Ok(Output {
         stdout: envelope::to_bytes(&Envelope::run(&response).with_readback(&readback)?)?,
         failure,
+        exit_code,
     })
 }
 
@@ -225,6 +247,7 @@ fn dispatch_ask(command: AskCommand) -> Result<Output, JevError> {
     Ok(Output {
         stdout: envelope::to_bytes(&Envelope::ask(&response).with_readback(&readback)?)?,
         failure: None,
+        exit_code: 0,
     })
 }
 
@@ -283,11 +306,12 @@ fn request_bytes(repo: &RepoRoot, spec: &str, stdin: &mut dyn Read) -> Result<Ve
     }
     let path = joined_path(repo.as_path(), Path::new(spec));
     std::fs::read(&path).map_err(|error| {
-        if error.kind() == std::io::ErrorKind::NotFound {
-            JevError::input_missing(path.display().to_string())
-        } else {
-            JevError::io_failed(format!("request JSON {}", path.display()), &error)
-        }
+        JevError::read_failed_with(
+            path.display().to_string(),
+            format!("request JSON {}", path.display()),
+            "Pass an existing file as --request-json (or - for stdin).",
+            &error,
+        )
     })
 }
 
