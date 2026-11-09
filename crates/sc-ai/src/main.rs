@@ -1,7 +1,9 @@
-//! `sc-ai` binary. JSON on stdout, typed errors on stderr, exit 2 on failure (3 when the error is retryable).
+//! `sc-ai` binary. JSON on stdout, typed errors on stderr, exit 2 on failure (3 when the error is retryable, or when every failed backend's is).
 //!
 //! Argv is parsed by [`cli::parse`] (clap). A partial multi-backend failure
-//! prints the envelope on stdout, the first failure on stderr, and exits 2.
+//! prints the envelope on stdout, the first failure on stderr, and exits 2, or 3 when
+//! every failed backend's error is retryable (retry only the failed backends).
+//! An all-failed run does the same, with no answers.
 
 use std::io::{self, Write};
 use std::process::ExitCode;
@@ -27,7 +29,10 @@ fn main() -> ExitCode {
         Ok(output) => {
             let printed = print_stdout(output.stdout());
             match output.failure() {
-                Some(failure) => emit(failure),
+                Some(failure) => {
+                    emit(failure);
+                    ExitCode::from(output.exit_code())
+                }
                 None => printed,
             }
         }
@@ -43,12 +48,13 @@ fn print_stdout(bytes: &[u8]) -> ExitCode {
 }
 
 fn fail(error: &JevError) -> ExitCode {
-    emit(&ScAgentErrorResponse::from_jev_error(error))
+    let body = ScAgentErrorResponse::from_jev_error(error);
+    emit(&body);
+    ExitCode::from(body.exit_code())
 }
 
-/// One `ScAgentErrorResponse` line on stderr (NFR-SAG-0001); returns the exit
-/// code it asks for: 2, or 3 for a retryable error.
-fn emit(body: &ScAgentErrorResponse) -> ExitCode {
+/// One `ScAgentErrorResponse` line on stderr (NFR-SAG-0001).
+fn emit(body: &ScAgentErrorResponse) {
     let line = serde_json::to_string(body).unwrap_or_else(|_| {
         serde_json::to_string(&ScAgentErrorResponse::from_jev_error(
             &JevError::io_failed_with(
@@ -61,5 +67,4 @@ fn emit(body: &ScAgentErrorResponse) -> ExitCode {
     });
     // Best effort: a closed stderr leaves nowhere to report the failure.
     let _ = writeln!(io::stderr(), "{line}");
-    ExitCode::from(body.exit_code())
 }

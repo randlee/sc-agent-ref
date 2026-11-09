@@ -72,6 +72,39 @@ use crate::ids::{BackendKeyId, SessionId};
 /// at a character boundary and ends in `...`.
 pub const PROVIDER_TEXT_MAX_BYTES: usize = 1024;
 
+/// Longest caller-supplied path, flag name or label echoed in an error, in
+/// bytes. The echo is cut here, at the point it is built, so a cap never has
+/// to cut the instruction off a `suggested_action`.
+pub const ECHO_MAX_BYTES: usize = 512;
+
+/// Longest caller-supplied detail text echoed in an error, in bytes.
+pub const DETAIL_MAX_BYTES: usize = 1024;
+
+fn cut_to(text: &str, max: usize) -> String {
+    let cleaned: String = text
+        .chars()
+        .map(|ch| if ch.is_control() { ' ' } else { ch })
+        .collect();
+    if cleaned.len() <= max {
+        return cleaned;
+    }
+    let mut end = max - 3;
+    while !cleaned.is_char_boundary(end) {
+        end -= 1;
+    }
+    format!("{}...", &cleaned[..end])
+}
+
+/// A caller-supplied path, flag or name, cut to [`ECHO_MAX_BYTES`].
+fn echo(text: impl Into<String>) -> String {
+    cut_to(&text.into(), ECHO_MAX_BYTES)
+}
+
+/// A caller-supplied detail, cut to [`DETAIL_MAX_BYTES`].
+fn detail_echo(text: impl Into<String>) -> String {
+    cut_to(&text.into(), DETAIL_MAX_BYTES)
+}
+
 /// Makes provider-supplied `text` safe to carry in an error.
 ///
 /// Control characters (newlines included) become spaces, surrounding space
@@ -445,6 +478,8 @@ pub enum JevError {
         detail: String,
         /// The failing field, flag or argument, when known.
         field: Option<String>,
+        /// The caller-facing fix; `None` means the generic one.
+        recovery: Option<String>,
     },
     /// Extraction succeeded and produced zero subjects.
     #[error("extraction produced no subjects")]
@@ -522,8 +557,9 @@ pub enum JevError {
     },
     /// A producer reported a stable error on stderr; `code()` is the carried id.
     ///
-    /// Every field of the producer's response is carried through, so
-    /// re-raising it loses nothing the producer said.
+    /// Every field this build knows of the producer's response is carried
+    /// through; a key it does not know is ignored on read (so it is not
+    /// re-emitted).
     #[error("{producer} failed with {code}: {message}")]
     #[non_exhaustive]
     ProducerError {
@@ -664,7 +700,7 @@ impl JevError {
     #[must_use]
     pub fn config_invalid(detail: impl Into<String>) -> Self {
         Self::ConfigInvalid {
-            detail: detail.into(),
+            detail: detail_echo(detail),
             recovery: None,
         }
     }
@@ -691,7 +727,7 @@ impl JevError {
     #[must_use]
     pub fn config_invalid_with(detail: impl Into<String>, recovery: impl Into<String>) -> Self {
         Self::ConfigInvalid {
-            detail: detail.into(),
+            detail: detail_echo(detail),
             recovery: Some(recovery.into()),
         }
     }
@@ -853,7 +889,7 @@ impl JevError {
         recovery: Option<String>,
     ) -> Self {
         Self::IoFailed {
-            what: what.into(),
+            what: echo(what),
             kind,
             recovery,
         }
@@ -883,6 +919,22 @@ impl JevError {
     ) -> Self {
         if error.kind() == io::ErrorKind::NotFound {
             Self::input_missing(path)
+        } else {
+            Self::io_failed(what, error)
+        }
+    }
+
+    /// Like [`Self::read_failed`], with its own fix for the "not found" case
+    /// (for a path that is a flag value, not a `check.toml` entry).
+    #[must_use]
+    pub fn read_failed_with(
+        path: impl Into<String>,
+        what: impl Into<String>,
+        missing_recovery: impl Into<String>,
+        error: &io::Error,
+    ) -> Self {
+        if error.kind() == io::ErrorKind::NotFound {
+            Self::input_missing_with(path, missing_recovery)
         } else {
             Self::io_failed(what, error)
         }
@@ -932,8 +984,9 @@ impl JevError {
     #[must_use]
     pub fn input_invalid(detail: impl Into<String>) -> Self {
         Self::InputInvalid {
-            detail: detail.into(),
+            detail: detail_echo(detail),
             field: None,
+            recovery: None,
         }
     }
 
@@ -950,8 +1003,24 @@ impl JevError {
     #[must_use]
     pub fn input_invalid_field(field: impl Into<String>, detail: impl Into<String>) -> Self {
         Self::InputInvalid {
-            detail: detail.into(),
-            field: Some(field.into()),
+            detail: detail_echo(detail),
+            field: Some(echo(field)),
+            recovery: None,
+        }
+    }
+
+    /// `INPUT_INVALID` naming `field` with its own fix (not the generic
+    /// "correct the argument" action).
+    #[must_use]
+    pub fn input_invalid_field_with(
+        field: impl Into<String>,
+        detail: impl Into<String>,
+        recovery: impl Into<String>,
+    ) -> Self {
+        Self::InputInvalid {
+            detail: detail_echo(detail),
+            field: Some(echo(field)),
+            recovery: Some(recovery.into()),
         }
     }
 
@@ -1046,8 +1115,20 @@ impl JevError {
     #[must_use]
     pub fn input_missing(path: impl Into<String>) -> Self {
         Self::InputMissing {
-            path: path.into(),
+            path: echo(path),
             recovery: None,
+        }
+    }
+
+    /// `INPUT_MISSING` for a path that came from `check.toml`; the action
+    /// points back at it.
+    #[must_use]
+    pub fn input_missing_from_check(path: impl Into<String>) -> Self {
+        let path = echo(path);
+        let recovery = format!("Create {path} or correct the path in check.toml, then retry.");
+        Self::InputMissing {
+            path,
+            recovery: Some(recovery),
         }
     }
 
@@ -1056,9 +1137,22 @@ impl JevError {
     #[must_use]
     pub fn input_missing_with(path: impl Into<String>, recovery: impl Into<String>) -> Self {
         Self::InputMissing {
-            path: path.into(),
+            path: echo(path),
             recovery: Some(recovery.into()),
         }
+    }
+
+    /// The flag a command-line parser blamed, as a `field` value: the first
+    /// word of `argument` when it starts with `-` (`--backend`), else `None`.
+    ///
+    /// A stray positional value, such as the `hello` in `unexpected argument
+    /// 'hello'`, is the caller's text, not an argument name, so it is never
+    /// a `field`.
+    #[must_use]
+    pub fn usage_field(argument: &str) -> Option<String> {
+        let first = argument.split_whitespace().next()?;
+        let first = first.trim_end_matches(',');
+        first.starts_with('-').then(|| echo(first))
     }
 
     /// Names `field` on an `INPUT_INVALID` that has none; any other error is
@@ -1073,9 +1167,20 @@ impl JevError {
             Self::InputInvalid {
                 detail,
                 field: None,
+                recovery,
             } => Self::InputInvalid {
                 detail,
-                field: Some(field.into()),
+                field: Some(echo(field)),
+                recovery,
+            },
+            Self::Annotated {
+                error,
+                flush_failure,
+                backend,
+            } => Self::Annotated {
+                error: Box::new(error.with_field(field)),
+                flush_failure,
+                backend,
             },
             other => other,
         }
@@ -1178,7 +1283,7 @@ impl JevError {
     /// `PROMPT_FILE_MISSING` for `path`.
     #[must_use]
     pub fn prompt_file_missing(path: impl Into<String>) -> Self {
-        Self::PromptFileMissing { path: path.into() }
+        Self::PromptFileMissing { path: echo(path) }
     }
 
     /// `SESSION_NOT_FOUND` for `session_id`.
@@ -1298,10 +1403,21 @@ impl JevError {
                 field: response.field().map(Box::from),
                 details: response.details().cloned().map(Box::new),
             },
-            Err(_) => Self::extraction_failed(format!(
-                "{producer} reported unknown error id {}",
-                response.error()
-            )),
+            Err(_) => {
+                // Keep what the producer said (bounded), so an id this build
+                // does not know loses neither its message nor its action.
+                let said = bound_provider_text(response.message());
+                let advice = bound_provider_text(response.suggested_action());
+                let advice = if advice.is_empty() {
+                    String::new()
+                } else {
+                    format!("; it suggested: {advice}")
+                };
+                Self::extraction_failed(format!(
+                    "{producer} reported unknown error id {}: {said}{advice}",
+                    bound_provider_text(response.error())
+                ))
+            }
         }
     }
 
@@ -1357,9 +1473,14 @@ impl JevError {
                 kind,
                 recovery: recovery.as_deref().map(map),
             },
-            Self::InputInvalid { detail, field } => Self::InputInvalid {
+            Self::InputInvalid {
+                detail,
+                field,
+                recovery,
+            } => Self::InputInvalid {
                 detail: map(&detail),
                 field: field.as_deref().map(map),
+                recovery: recovery.as_deref().map(map),
             },
             Self::ExtractionParseError { path, line } => {
                 Self::extraction_parse_error(map(&path), line)
@@ -1605,12 +1726,12 @@ impl JevError {
     /// - `IO_FAILED`: true for `interrupted` and `timed_out`, which are
     ///   transient by definition; false for the rest (a permission or a
     ///   missing file does not fix itself).
-    /// - `EXTRACTION_TIMEOUT`: one rule for both variants, "would the same
-    ///   attempt, unchanged, plausibly succeed?". A git subprocess that did
-    ///   not finish ([`Self::GitTimeout`]) was stalled by a lock or a slow
-    ///   disk, so true. A `command` extractor that exceeded its configured
-    ///   `timeout_seconds` ([`Self::ExtractionTimeout`]) will exceed it again
-    ///   on the same input, so false: raise the limit or shrink the input.
+    /// - `EXTRACTION_TIMEOUT`: one id, one answer, false for both variants
+    ///   ([`Self::GitTimeout`], [`Self::ExtractionTimeout`]). Each timed out
+    ///   because of something the caller or the machine has to fix (a stuck
+    ///   git, a lock file, a slow disk; a limit too small for the input), and
+    ///   an unchanged retry meets the same cause. The action names the likely
+    ///   cause for each.
     /// - A producer's error: the producer's own flag.
     /// - Everything else, `QUOTA_EXHAUSTED`, `AUTH_FAILED`,
     ///   `API_REQUEST_INVALID` and `RESPONSE_INVALID` included: false.
@@ -1624,7 +1745,6 @@ impl JevError {
             Self::IoFailed { kind, .. } => {
                 matches!(kind, io::ErrorKind::Interrupted | io::ErrorKind::TimedOut)
             }
-            Self::GitTimeout { .. } => true,
             Self::Annotated { error, .. } => error.retryable(),
             _ => false,
         }
@@ -1802,12 +1922,16 @@ impl JevError {
                 ),
             },
             Self::InputEmpty => "Provide a non-empty input and retry.".to_owned(),
-            Self::InputInvalid { field, .. } => match field {
-                Some(field) => format!(
-                    "Correct {field} so it matches what sc-ai expects (see --help), then retry."
-                ),
-                None => "Correct the input so it matches the expected schema, then retry."
-                    .to_owned(),
+            Self::InputInvalid {
+                field, recovery, ..
+            } => match (recovery, field) {
+                (Some(recovery), _) => recovery.clone(),
+                (None, Some(field)) => {
+                    format!("Correct {field} as the message says (see --help), then retry.")
+                }
+                (None, None) => {
+                    "Correct the input so it matches the expected schema, then retry.".to_owned()
+                }
             },
             Self::ExtractionEmpty => {
                 "Change the query or input so extraction emits at least one subject.".to_owned()
@@ -1826,7 +1950,7 @@ impl JevError {
                 "Raise timeout_seconds above {timeout_seconds} or reduce the input so extraction finishes in time."
             ),
             Self::GitTimeout { seconds } => format!(
-                "git did not finish within {seconds}s. Check for a stalled git process, a lock file (such as .git/index.lock) or a slow filesystem, then retry."
+                "Check for a stalled git process, a lock file (such as .git/index.lock) or a slow filesystem; the same call times out again after {seconds}s until that is fixed."
             ),
             Self::LanguageUnavailable { producer, language } => {
                 format!("Use a language built into {producer} instead of {language}.")
@@ -1850,7 +1974,7 @@ impl JevError {
             }
             Self::InputMissing { path, recovery } => match recovery {
                 Some(recovery) => recovery.clone(),
-                None => format!("Create {path} or correct the path in check.toml, then retry."),
+                None => format!("Create {path} or correct the path, then retry."),
             },
             Self::ResponseInvalid { cause, .. } => match cause {
                 ResponseInvalidCause::Truncated => "The provider stopped at its output limit. Ask fewer questions per check or shorten the state, then run it again; retrying the same check gives the same cut-off.".to_owned(),
@@ -1863,7 +1987,7 @@ impl JevError {
                 NetworkErrorKind::Connect => "Check connectivity and DNS to the provider, then retry.".to_owned(),
                 NetworkErrorKind::Tls => "Fix the TLS setup (system clock, certificates, proxy) before retrying; retrying alone will fail again.".to_owned(),
                 NetworkErrorKind::Cancelled => "The request was cancelled. Run it again if you still need the result.".to_owned(),
-                NetworkErrorKind::Other => "The transport failed in a way sc-agent could not classify. Check the endpoint, proxy and network, then retry once; if it repeats, report it.".to_owned(),
+                NetworkErrorKind::Other => "The transport failed in a way sc-agent could not classify, so it is not assumed to be transient. Check the endpoint, proxy and network; if it keeps happening, report it with the detail above.".to_owned(),
             },
             Self::AuthFailed { failure } => format!(
                 "Check that the {} credential is valid, not revoked, and allowed to use this model; replace it in the process environment, the repo-root .env file or the keyring. Retrying with the same credential fails again.",
@@ -1975,7 +2099,9 @@ mod tests {
             JevError::CredentialStoreInvalid { .. } => 3,
             JevError::ConfigInvalid { recovery, .. } => 1 + usize::from(recovery.is_some()),
             JevError::IoFailed { recovery, .. } => 1 + usize::from(recovery.is_some()),
-            JevError::InputInvalid { field, .. } => 1 + usize::from(field.is_some()),
+            JevError::InputInvalid {
+                field, recovery, ..
+            } => 1 + usize::from(field.is_some()) + usize::from(recovery.is_some()),
             JevError::ProducerError { field, details, .. } => {
                 3 + usize::from(field.is_some())
                     + details

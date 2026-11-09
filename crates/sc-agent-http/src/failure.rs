@@ -10,7 +10,7 @@
 //! | --- | --- |
 //! | 401, 403 | `AUTH_FAILED` |
 //! | 402, or a quota body (below) | `QUOTA_EXHAUSTED` |
-//! | 413, or 400/422 with a structured marker (`context_length_exceeded`, `request_too_large`), or, for Jev only ([`ReplyShape::Jev`]), a message naming `max_tokens` or tokens exceeded (below) | `INPUT_TOO_LARGE` (unit `bytes` for 413, else `tokens`) |
+//! | 413, or 400/422 with a structured marker (`context_length_exceeded`, `request_too_large`), or, for Haiku and Luna ([`ReplyShape::Llm`]), Anthropic's `invalid_request_error` whose message starts "prompt is too long" (unverified wording), or, for Jev only ([`ReplyShape::Jev`]), a message naming `max_tokens` or tokens exceeded (below) | `INPUT_TOO_LARGE` (unit `bytes` for 413, else `tokens`) |
 //! | 400, 422 | `API_REQUEST_INVALID` |
 //! | every other status, 5xx included | `API_ERROR` |
 //!
@@ -54,12 +54,7 @@ use sc_agent_types::{JevError, LimitUnit, ProviderFailure};
 use serde_json::Value;
 
 use crate::request::{HttpRequest, HttpResponse};
-
-/// Largest `Retry-After` reported, in seconds (one day).
-const RETRY_AFTER_REPORT_MAX: u64 = 86_400;
-
-/// Longest `Retry-After` value read, in bytes.
-const RETRY_AFTER_MAX_LEN: usize = 32;
+use crate::retry_after::RetryAfter;
 
 /// How much of an unparsed body is read for the raw-text fallback.
 const RAW_FALLBACK_BYTES: usize = 4096;
@@ -174,45 +169,28 @@ pub(crate) fn is_quota_reply(status: u16, body: &[u8]) -> bool {
     status == 402 || Body::read(body).marks_quota(status)
 }
 
-/// Whole seconds of a valid `Retry-After` header, for reporting.
-///
-/// Valid is 1 to 32 bytes of digits with an optional decimal part; a
-/// fraction rounds up. The value is capped at one day. An HTTP-date, a
-/// negative number and anything else is `None`. This is for the error
-/// fields only; the wait the retry loop honours is clamped separately.
+/// Whole seconds of a valid `Retry-After` header, for reporting (the report
+/// view of the one parser, [`RetryAfter`]).
 pub(crate) fn retry_after_seconds(header: Option<&str>) -> Option<u64> {
-    let text = header?;
-    if text.is_empty() || text.len() > RETRY_AFTER_MAX_LEN {
-        return None;
-    }
-    let (whole, fraction) = match text.split_once('.') {
-        Some((whole, fraction)) => (whole, Some(fraction)),
-        None => (text, None),
-    };
-    let digits = |part: &str| !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_digit());
-    if !digits(whole) || fraction.is_some_and(|part| !digits(part)) {
-        return None;
-    }
-    let seconds = whole.bytes().fold(0_u64, |acc, byte| {
-        acc.saturating_mul(10)
-            .saturating_add(u64::from(byte - b'0'))
-    });
-    let rounds_up = fraction.is_some_and(|part| part.bytes().any(|byte| byte != b'0'));
-    Some(
-        seconds
-            .saturating_add(u64::from(rounds_up))
-            .min(RETRY_AFTER_REPORT_MAX),
-    )
+    RetryAfter::parse(header).map(RetryAfter::report_seconds)
 }
 
 /// Which provider family sent a failing reply; decides how "the input is
 /// too long" is recognised.
 ///
 /// The Jev service has no documented error code for it, so its 4xx message
-/// text is matched (the rule of `plan-anchor`'s `jev_judge.py.j2`). Haiku and
+/// text is matched. This is a tightening of `plan-anchor`'s `jev_judge.py.j2`
+/// rule, not the same rule: that script treats any 4xx whose body mentions
+/// `max_tokens` as a context overflow, which would turn "max_tokens must be
+/// positive" into `INPUT_TOO_LARGE`. Here the message must name tokens
+/// (`max_tokens` contains "token") AND say something is over (`exceed`,
+/// `too long`, `too large`, `too many`). Haiku and
 /// Luna document structured markers, so only those and status 413 count: a
 /// message that merely mentions `max_tokens` (the output cap, a request
-/// parameter) is an ordinary invalid request there.
+/// parameter) is an ordinary invalid request there. The one text rule for
+/// them is Anthropic's "prompt is too long" 400 (type
+/// `invalid_request_error`); that wording is reported widely but is not in the
+/// documented error table, so it is unverified against a live reply.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum ReplyShape {
@@ -240,8 +218,10 @@ fn says_input_too_long(shape: ReplyShape, status: u16, body: &Body, text_lower: 
     }
     match shape {
         ReplyShape::Jev => {
-            text_lower.contains("max_tokens")
-                || (text_lower.contains("token") && text_lower.contains("exceed"))
+            let says_over = ["exceed", "too long", "too large", "too many"]
+                .iter()
+                .any(|word| text_lower.contains(word));
+            text_lower.contains("token") && says_over
         }
         // Anthropic reports an over-long prompt as an ordinary 400
         // `invalid_request_error` whose message starts "prompt is too long".
@@ -366,6 +346,7 @@ fn read_failure(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::retry_after::REPORT_MAX_SECONDS;
 
     fn req() -> HttpRequest {
         HttpRequest::new(
@@ -387,7 +368,7 @@ mod tests {
             (Some("2.5"), Some(3)),
             (Some("2.0"), Some(2)),
             (Some("0"), Some(0)),
-            (Some("99999999"), Some(RETRY_AFTER_REPORT_MAX)),
+            (Some("99999999"), Some(REPORT_MAX_SECONDS)),
             (Some(&"9".repeat(33)), None),
             (Some("-1"), None),
             (Some("Wed, 21 Oct 2026 07:28:00 GMT"), None),
@@ -474,6 +455,7 @@ mod tests {
         for body in [
             "request exceeds max_tokens",
             r#"{"detail":"prompt tokens exceed the window"}"#,
+            r#"{"detail":"too many tokens"}"#,
         ] {
             let error = api_failure("Jev", ReplyShape::Jev, &req(), &reply(422, body));
             assert_eq!(error.code(), "INPUT_TOO_LARGE", "{body}");
@@ -495,6 +477,18 @@ mod tests {
         for body in [output_cap, exceed, "max_tokens is too large"] {
             let error = api_failure("haiku", ReplyShape::Llm, &req(), &reply(400, body));
             assert_eq!(error.code(), "API_REQUEST_INVALID", "{body}");
+        }
+        // ERR-QA-26: a Jev message that names max_tokens without saying it is
+        // over something is an ordinary invalid request.
+        for body in [
+            r#"{"detail":"max_tokens must be positive"}"#,
+            "max_tokens is required",
+        ] {
+            assert_eq!(
+                api_failure("Jev", ReplyShape::Jev, &req(), &reply(422, body)).code(),
+                "API_REQUEST_INVALID",
+                "{body}"
+            );
         }
         // Jev matching looks at the message, not at JSON key names.
         let key_only = r#"{"detail":"bad","max_tokens":1}"#;

@@ -352,6 +352,76 @@ fn cli_paths_outside_the_repo_are_rejected() {
     }
 }
 
+/// ERR-QA-9/10: a bad `--rev` names the flag; "outside the repository" names
+/// its argument and gets its own action; a stray positional is never a
+/// `field`; no sc-treesitter action mentions `check.toml`.
+#[cfg(feature = "python")]
+#[test]
+fn cli_usage_errors_name_flags_and_give_specific_actions() {
+    let dir = identifier_repo(None);
+    let value = error_json(&run(
+        dir.path(),
+        &[
+            "extract",
+            "--language",
+            "python",
+            "--query",
+            "branches",
+            "--rev",
+            "--bad",
+            "a.py",
+        ],
+    ));
+    assert_eq!(value["error"], "INPUT_INVALID");
+    assert_eq!(value["field"], "--rev");
+
+    let value = error_json(&run(dir.path(), &extract_args("HEAD", "../x.py")));
+    assert_eq!(value["error"], "INPUT_INVALID");
+    assert_eq!(value["field"], "path");
+    let action = value["suggested_action"].as_str().expect("action");
+    assert!(action.contains("repository"), "{action}");
+    assert!(!action.contains("check.toml"), "{action}");
+
+    let value = error_json(&run(dir.path(), &extract_args("HEAD", "missing.py")));
+    assert_eq!(value["error"], "INPUT_MISSING");
+    assert!(
+        !value["suggested_action"]
+            .as_str()
+            .expect("action")
+            .contains("check.toml")
+    );
+
+    // A stray positional value is the caller's text, not an argument name.
+    let value = error_json(&run(
+        dir.path(),
+        &[
+            "extract",
+            "--language",
+            "python",
+            "--query",
+            "branches",
+            "a.py",
+            "stray",
+        ],
+    ));
+    assert_eq!(value["error"], "INPUT_INVALID");
+    assert!(value.get("field").is_none(), "{value}");
+}
+
+/// ERR-QA-11/24: a 20,000-character path is cut where it is echoed (and is
+/// under the Windows command-line limit).
+#[cfg(feature = "python")]
+#[test]
+fn cli_long_path_echo_is_bounded() {
+    let dir = identifier_repo(None);
+    let long = "p".repeat(20_000);
+    let value = error_json(&run(dir.path(), &extract_args("HEAD", &long)));
+    let message = value["message"].as_str().expect("message");
+    assert!(message.len() < 2_000, "{}", message.len());
+    let action = value["suggested_action"].as_str().expect("action");
+    assert!(action.len() < 2_000, "{}", action.len());
+}
+
 #[test]
 fn cli_missing_positional_is_input_invalid() {
     let dir = TempDir::new().expect("temp");

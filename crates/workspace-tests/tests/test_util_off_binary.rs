@@ -50,3 +50,23 @@ fn test_release_binary_rejects_scripted_answers() {
         "{value}"
     );
 }
+
+/// ERR-QA-18: the loopback endpoint override is a test seam too: the published
+/// binary rejects `--loopback-port`, so nothing can aim it at another host.
+#[test]
+fn test_release_binary_rejects_loopback_port() {
+    let binary = bin_path("sc-ai", "sc-ai");
+    let output = spawn_with_deadline(
+        command(&binary)
+            .args(["jev", "run", "--loopback-port", "1"])
+            .env_remove("SC_LOG_ROOT"),
+        None,
+    );
+    assert_eq!(output.status.code(), Some(2), "{:?}", output.status);
+    assert!(output.stdout.is_empty());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    let value: serde_json::Value =
+        serde_json::from_str(stderr.lines().next().expect("a line")).expect("json");
+    assert_eq!(value["error"], "INPUT_INVALID");
+    assert_eq!(value["field"], "--loopback-port");
+}

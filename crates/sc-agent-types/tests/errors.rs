@@ -345,7 +345,6 @@ fn test_retryable_decisions() {
         "NetworkError.Connect",
         "ApiError.500",
         "ApiError.503",
-        "GitTimeout",
         "Annotated.Backend",
         "IoFailed.TimedOut",
         "IoFailed.Interrupted",
@@ -592,6 +591,15 @@ fn test_from_error_response_round_trip() {
     let error = JevError::from_error_response("tool", &unknown);
     assert_eq!(error.code(), "EXTRACTION_FAILED");
     assert!(error.message().contains("NOT_A_CODE"));
+    // An id this build does not know still keeps the producer's words.
+    let said: ScAgentErrorResponse = serde_json::from_str(
+        r#"{"error":"NEWER_CODE","message":"the disk is on fire","suggested_action":"call the fire brigade"}"#,
+    )
+    .expect("newer id");
+    let error = JevError::from_error_response("tool", &said);
+    assert_eq!(error.code(), "EXTRACTION_FAILED");
+    assert!(error.message().contains("the disk is on fire"), "{error}");
+    assert!(error.message().contains("call the fire brigade"), "{error}");
 }
 
 #[test]
@@ -697,8 +705,72 @@ fn test_retryable_io_kinds_are_the_transient_ones() {
     ] {
         assert!(!JevError::io_failed("x", &io::Error::from(kind)).retryable());
     }
-    // One rule for both timeouts: a stalled git is transient, a command
-    // extractor over its configured limit is not.
-    assert!(JevError::git_timeout(60).retryable());
+    // One id, one answer: neither EXTRACTION_TIMEOUT variant is retryable;
+    // each action names its own likely cause.
+    assert!(!JevError::git_timeout(60).retryable());
     assert!(!JevError::extraction_timeout(30).retryable());
+    assert!(
+        JevError::git_timeout(60)
+            .suggested_action()
+            .contains("index.lock")
+    );
+    assert!(
+        JevError::extraction_timeout(30)
+            .suggested_action()
+            .contains("timeout_seconds")
+    );
+}
+
+/// ERR-QA-25: an annotation never wipes the other, and `with_field` reaches
+/// the inner error.
+#[test]
+fn test_annotations_compose_without_overwriting() {
+    let base = JevError::input_invalid("bad");
+    let both = base
+        .clone()
+        .with_backend("jev")
+        .with_log_flush_failure("disk full");
+    assert_eq!(both.backend(), Some("jev"));
+    assert_eq!(both.log_flush_failure(), Some("disk full"));
+    let reversed = base
+        .clone()
+        .with_log_flush_failure("disk full")
+        .with_backend("jev");
+    assert_eq!(reversed.backend(), Some("jev"));
+    assert_eq!(reversed.log_flush_failure(), Some("disk full"));
+    // A second call does not replace the first.
+    let again = both.with_backend("haiku").with_log_flush_failure("other");
+    assert_eq!(again.backend(), Some("jev"));
+    assert_eq!(again.log_flush_failure(), Some("disk full"));
+    // with_field reaches the inner error through the annotation.
+    let fielded = reversed.with_field("--rev");
+    assert_eq!(fielded.field(), Some("--rev"));
+    assert_eq!(fielded.backend(), Some("jev"));
+}
+
+/// ERR-QA-11/24: echoed caller text is cut where it is echoed, and a cap
+/// never cuts the instruction off the action.
+#[test]
+fn test_echoed_caller_text_is_bounded_at_the_echo() {
+    let long = "p".repeat(20_000);
+    let errors = [
+        JevError::input_missing(long.clone()),
+        JevError::input_missing_from_check(long.clone()),
+        JevError::input_invalid_field(long.clone(), long.clone()),
+        JevError::io_failed("x", &io::Error::from(io::ErrorKind::NotFound)),
+        JevError::io_failed_with(long.clone(), io::ErrorKind::Other, None),
+        JevError::prompt_file_missing(long.clone()),
+        JevError::config_invalid(long.clone()),
+    ];
+    for error in errors {
+        let body = ScAgentErrorResponse::from_jev_error(&error);
+        assert!(body.message().len() < 2_500, "{}", body.message().len());
+        assert!(body.suggested_action().len() < 2_500);
+        assert!(body.field().is_none_or(|field| field.len() <= 512));
+        let details = serde_json::to_string(&body.details()).expect("json");
+        assert!(details.len() < 2_000, "{}", details.len());
+    }
+    // The instruction survives a long path.
+    let action = JevError::input_missing_from_check(long).suggested_action();
+    assert!(action.ends_with("in check.toml, then retry."), "{action}");
 }

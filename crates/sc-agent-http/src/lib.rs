@@ -78,6 +78,7 @@ mod failure;
 mod redact;
 mod request;
 mod retry;
+mod retry_after;
 mod transport;
 mod ureq_transport;
 

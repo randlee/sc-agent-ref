@@ -93,6 +93,21 @@ impl JevClient<UreqTransport> {
     }
 }
 
+#[cfg(feature = "test-util")]
+impl JevClient<UreqTransport> {
+    /// A client for `http://127.0.0.1:<port>` over a real loopback HTTP
+    /// transport, making at most `sends` sends (feature `test-util`).
+    ///
+    /// For the binary's loopback test seam only. Production builds have no
+    /// such constructor.
+    #[must_use]
+    pub fn loopback(api_key: ResolvedApiKey, port: u16, sends: u32) -> Self {
+        let config = JevClientConfig::packaged().with_loopback_port(port);
+        let transport = UreqTransport::loopback_for_tests(Timeouts::default());
+        Self::with_config(config, api_key, transport).with_busy_policy(BusyPolicy::new(sends))
+    }
+}
+
 impl<T: Transport> JevClient<T> {
     /// Creates a client for the packaged TypeSafe endpoint over `transport`.
     ///

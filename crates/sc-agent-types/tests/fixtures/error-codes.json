@@ -162,9 +162,9 @@
     "error": "EXTRACTION_TIMEOUT",
     "kind": "timeout",
     "message": "git did not finish within 60s",
-    "retryable": true,
+    "retryable": false,
     "schema_version": 1,
-    "suggested_action": "git did not finish within 60s. Check for a stalled git process, a lock file (such as .git/index.lock) or a slow filesystem, then retry."
+    "suggested_action": "Check for a stalled git process, a lock file (such as .git/index.lock) or a slow filesystem; the same call times out again after 60s until that is fixed."
   },
   "InputEmpty": {
     "error": "INPUT_EMPTY",
@@ -189,7 +189,7 @@
     "message": "input is invalid: unknown backend nope",
     "retryable": false,
     "schema_version": 1,
-    "suggested_action": "Correct --backend so it matches what sc-ai expects (see --help), then retry."
+    "suggested_action": "Correct --backend as the message says (see --help), then retry."
   },
   "InputMissing": {
     "details": {
@@ -200,7 +200,7 @@
     "message": "input path gone.toml is missing",
     "retryable": false,
     "schema_version": 1,
-    "suggested_action": "Create gone.toml or correct the path in check.toml, then retry."
+    "suggested_action": "Create gone.toml or correct the path, then retry."
   },
   "InputMissing.Recovery": {
     "details": {
@@ -360,7 +360,7 @@
     "message": "network error (other): bad uri",
     "retryable": false,
     "schema_version": 1,
-    "suggested_action": "The transport failed in a way sc-agent could not classify. Check the endpoint, proxy and network, then retry once; if it repeats, report it."
+    "suggested_action": "The transport failed in a way sc-agent could not classify, so it is not assumed to be transient. Check the endpoint, proxy and network; if it keeps happening, report it with the detail above."
   },
   "NetworkError.Timeout": {
     "details": {

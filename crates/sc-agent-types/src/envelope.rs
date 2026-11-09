@@ -23,7 +23,7 @@ pub(crate) const ERROR_RESPONSE_SCHEMA_VERSION: u32 = 1;
 ///   `suggested_action` says what to do next. Neither holds a secret.
 /// - `retryable` is always present, `false` included.
 /// - `retry_after_seconds`, `field` and `details` are present only when the
-///   error has them. `details` is a closed object ([`ErrorDetails`]).
+///   error has them. `details` is an object of machine keys ([`ErrorDetails`]).
 /// - `schema_version` is always `1` from [`Self::from_jev_error`]. It
 ///   versions this error shape only, independent of the stdout envelope
 ///   `version`.
@@ -141,7 +141,8 @@ pub struct ErrorDetails {
     /// `permission_denied`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub io_kind: Option<String>,
-    /// The `NETWORK_ERROR` class: `timeout`, `connect`, `tls`, `cancelled`.
+    /// The `NETWORK_ERROR` class: `timeout`, `connect`, `tls`, `cancelled`,
+    /// `other`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub network_kind: Option<String>,
     /// The missing path of `INPUT_MISSING` and `PROMPT_FILE_MISSING`.
@@ -198,8 +199,10 @@ impl ErrorDetails {
 #[derive(Deserialize)]
 struct RawErrorResponse {
     error: String,
+    /// Read as text: a category this build does not know is `None`, not a
+    /// parse failure (a newer producer may add one).
     #[serde(default)]
-    kind: Option<ErrorCategory>,
+    kind: Option<String>,
     message: String,
     #[serde(default)]
     suggested_action: String,
@@ -222,7 +225,9 @@ impl TryFrom<RawErrorResponse> for ScAgentErrorResponse {
         match raw.schema_version {
             None | Some(ERROR_RESPONSE_SCHEMA_VERSION) => Ok(Self {
                 error: raw.error,
-                kind: raw.kind,
+                kind: raw
+                    .kind
+                    .and_then(|text| serde_json::from_value(serde_json::Value::String(text)).ok()),
                 message: raw.message,
                 suggested_action: raw.suggested_action,
                 retryable: raw.retryable,
@@ -377,15 +382,17 @@ mod tests {
         )
         .expect("unknown keys are ignored");
         assert_eq!(tolerated.producer(), Some("p"));
-        for line in [
-            r#"{"error":"INPUT_EMPTY","message":"m","schema_version":2}"#,
-            r#"{"error":"INPUT_EMPTY","message":"m","kind":"nope"}"#,
-        ] {
-            assert!(
-                serde_json::from_str::<ScAgentErrorResponse>(line).is_err(),
-                "{line}"
-            );
-        }
+        // An unknown category is ignored too; the id and the rest still parse.
+        let newer: ScAgentErrorResponse =
+            serde_json::from_str(r#"{"error":"INPUT_EMPTY","message":"m","kind":"quantum"}"#)
+                .expect("unknown kind is tolerated");
+        assert_eq!(newer.kind(), None);
+        assert_eq!(newer.error(), "INPUT_EMPTY");
+        let line = r#"{"error":"INPUT_EMPTY","message":"m","schema_version":2}"#;
+        assert!(
+            serde_json::from_str::<ScAgentErrorResponse>(line).is_err(),
+            "{line}"
+        );
         let short: ScAgentErrorResponse =
             serde_json::from_str(r#"{"error":"INPUT_EMPTY","message":"m"}"#).expect("short");
         assert_eq!(short.schema_version(), 1);

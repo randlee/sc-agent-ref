@@ -551,7 +551,8 @@ fn payload_len(bundle: &PayloadBundle) -> u64 {
 /// cannot be created; the [`BackendRegistry::from_env`] errors (no
 /// registry injected); `CONFIG_INVALID` when a selected backend is not in
 /// the registry; the first base-request `validate_for_send` refusal, before
-/// any send; and, when every backend failed, the first backend's error. A
+/// any send; and when no backend was selected. A run in which every backend
+/// failed is not an error: it is the response. A
 /// session write error is a warning, not an error. Every error before the
 /// first send leaves no log line and no session file.
 pub fn run(prepared: PreparedRun) -> Result<RunResponse, JevError> {

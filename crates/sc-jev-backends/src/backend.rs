@@ -284,6 +284,28 @@ macro_rules! llm_backend {
             }
         }
 
+        #[cfg(feature = "test-util")]
+        impl $name<UreqTransport> {
+            /// A backend for `http://127.0.0.1:<port>` over a real loopback
+            /// HTTP transport, making at most `sends` sends per call
+            /// (feature `test-util`).
+            ///
+            /// For the binary's loopback test seam only. Production builds
+            /// have no such constructor.
+            #[must_use]
+            pub fn loopback(api_key: ResolvedApiKey, port: u16, sends: u32) -> Self {
+                let mut backend = Self::new(
+                    api_key,
+                    UreqTransport::loopback_for_tests(Timeouts::default()),
+                )
+                .with_busy_policy(BusyPolicy::new(sends));
+                let provider = &mut backend.client.provider;
+                provider.message_endpoint = Endpoint::loopback_http(port, "/message");
+                provider.count_endpoint = Endpoint::loopback_http(port, "/count");
+                backend
+            }
+        }
+
         impl<T: Transport> $name<T> {
             #[doc = concat!("Builds a ", stringify!($name), " over `transport`.")]
             ///

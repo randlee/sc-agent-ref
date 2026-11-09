@@ -39,9 +39,10 @@ use std::time::{Duration, Instant};
 
 use sc_agent_types::{BusyCause, CancelToken, JevError, NetworkErrorKind, SendTrace, Sha256Digest};
 
-use crate::failure::{busy_reply, is_quota_reply, retry_after_seconds};
+use crate::failure::{busy_reply, is_quota_reply};
 use crate::redact::redact;
 use crate::request::{HttpRequest, HttpResponse};
+use crate::retry_after::RetryAfter;
 use crate::transport::Transport;
 
 #[cfg(feature = "test-util")]
@@ -56,12 +57,6 @@ const DEFAULT_MAX_SENDS: u32 = 5;
 /// Most sends per call under any policy (RSH-002). [`BusyPolicy::new`] and
 /// [`BusyPolicy::with_max_sends`] clamp to `1..=MAX_SENDS`.
 const MAX_SENDS: u32 = 5;
-
-/// Upper clamp of an honoured `Retry-After`.
-const RETRY_AFTER_MAX: Duration = Duration::from_secs(30);
-
-/// Longest valid `Retry-After` value, in bytes.
-const RETRY_AFTER_MAX_LEN: usize = 32;
 
 /// First backoff wait when `Retry-After` is absent or malformed.
 const BACKOFF_FIRST: Duration = Duration::from_secs(1);
@@ -442,7 +437,8 @@ fn retry_loop(
         if !is_busy(&response) {
             return Ok(response);
         }
-        let reported_wait = retry_after_seconds(response.header("retry-after"));
+        let retry_after = RetryAfter::parse(response.header("retry-after"));
+        let reported_wait = retry_after.map(RetryAfter::report_seconds);
         if sends >= policy.max_sends {
             return Err(JevError::provider_busy(
                 format!("HTTP {status} busy; {sends} {} exhausted", plural(sends)),
@@ -467,8 +463,7 @@ fn retry_loop(
             )
             .with_busy_reply(busy_reply(request, &response)));
         }
-        let base =
-            parse_retry_after(response.header("retry-after")).unwrap_or_else(|| backoff(sends));
+        let base = retry_after.map_or_else(|| backoff(sends), RetryAfter::wait);
         let wait = base.saturating_add(hooks.jitter()).min(remaining);
         hooks.wait(wait, cancel)?;
     }
@@ -501,44 +496,18 @@ fn backoff(nth: u32) -> Duration {
     BACKOFF_FIRST.saturating_mul(factor).min(BACKOFF_MAX)
 }
 
-/// The honoured wait of a valid `Retry-After`, clamped to 0–30 s.
-///
-/// `None` when the header is absent or malformed. No floating point is
-/// involved: the integer part saturates, and only the first nine fraction
-/// digits (nanoseconds) count.
+/// The honoured wait of a valid `Retry-After`, clamped to 0–30 s (the one
+/// parser, [`RetryAfter`]; `None` when absent or malformed). The table tests
+/// below drive it.
+#[cfg(test)]
 fn parse_retry_after(header: Option<&str>) -> Option<Duration> {
-    let text = header?;
-    if text.is_empty() || text.len() > RETRY_AFTER_MAX_LEN {
-        return None;
-    }
-    let (whole, fraction) = match text.split_once('.') {
-        Some((whole, fraction)) => (whole, Some(fraction)),
-        None => (text, None),
-    };
-    let all_digits =
-        |part: &str| !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_digit());
-    if !all_digits(whole) || fraction.is_some_and(|part| !all_digits(part)) {
-        return None;
-    }
-    let seconds = whole.bytes().fold(0_u64, |acc, byte| {
-        acc.saturating_mul(10)
-            .saturating_add(u64::from(byte - b'0'))
-    });
-    let nanos = fraction.map_or(0, |part| {
-        part.bytes()
-            .chain(std::iter::repeat(b'0'))
-            .take(9)
-            .fold(0_u32, |acc, byte| acc * 10 + u32::from(byte - b'0'))
-    });
-    if seconds >= RETRY_AFTER_MAX.as_secs() {
-        return Some(RETRY_AFTER_MAX);
-    }
-    Some(Duration::new(seconds, nanos).min(RETRY_AFTER_MAX))
+    RetryAfter::parse(header).map(RetryAfter::wait)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::retry_after::WAIT_MAX as RETRY_AFTER_MAX;
 
     #[test]
     fn backoff_doubles_to_the_cap() {

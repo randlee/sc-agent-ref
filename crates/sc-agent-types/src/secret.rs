@@ -13,7 +13,7 @@ use crate::error::JevError;
 use crate::ids::BackendKeyId;
 
 /// Recovery text for a key that fails [`ResolvedApiKey::try_new`].
-const MALFORMED_KEY_RECOVERY: &str = "Store the key again in the process environment, the repo-root .env file, or the keyring without spaces, line breaks, or other control characters, then retry.";
+const MALFORMED_KEY_RECOVERY: &str = "Store the key again in the process environment, the repo-root .env file, or the keyring without spaces, line breaks, control characters, or non-ASCII characters, then retry.";
 
 /// API key accepted by a sending transport.
 ///
@@ -73,6 +73,18 @@ impl ResolvedApiKey {
             return Err(JevError::credential_store_invalid(
                 format!("the {id} API key"),
                 "key contains whitespace or a control character",
+                MALFORMED_KEY_RECOVERY,
+            ));
+        }
+        // The key travels as an HTTP header value, which `http` accepts for
+        // any byte but controls (so it takes a non-ASCII character).
+        // Providers issue visible-ASCII keys only, so this is the one rule: a
+        // key outside visible ASCII is refused here, and no later layer has a
+        // failing header value to handle.
+        if !trimmed.chars().all(|ch| ch.is_ascii_graphic()) {
+            return Err(JevError::credential_store_invalid(
+                format!("the {id} API key"),
+                "key contains a character outside visible ASCII",
                 MALFORMED_KEY_RECOVERY,
             ));
         }
@@ -151,6 +163,7 @@ mod tests {
                 format!("{SECRET}\u{7}"),
                 format!("a\u{0}{SECRET}"),
                 format!("{SECRET}\u{a0}x"),
+                format!("{SECRET}\u{7f}"),
             ] {
                 let error = ResolvedApiKey::try_new(id, bad.clone()).unwrap_err();
                 assert_eq!(error.code(), "CONFIG_INVALID", "{id} {bad:?}");
@@ -159,6 +172,22 @@ mod tests {
                 assert!(hint.contains("whitespace or a control character"), "{hint}");
                 assert!(!hint.contains("check.toml"), "{hint}");
                 let rendered = format!("{error} {error:?} {hint}");
+                assert!(!rendered.contains(SECRET), "{rendered}");
+            }
+        }
+    }
+
+    /// The one header-value rule is here: a key outside visible ASCII is
+    /// refused, with the credential recovery text and no key bytes.
+    #[test]
+    fn try_new_refuses_non_ascii_keys() {
+        for id in BackendKeyId::ALL.iter().copied() {
+            for bad in [format!("{SECRET}é"), format!("日本{SECRET}")] {
+                let error = ResolvedApiKey::try_new(id, bad.clone()).unwrap_err();
+                assert_eq!(error.code(), "CONFIG_INVALID", "{id} {bad:?}");
+                assert!(error.message().contains("outside visible ASCII"));
+                assert!(error.suggested_action().contains("non-ASCII"));
+                let rendered = format!("{error} {error:?} {}", error.suggested_action());
                 assert!(!rendered.contains(SECRET), "{rendered}");
             }
         }

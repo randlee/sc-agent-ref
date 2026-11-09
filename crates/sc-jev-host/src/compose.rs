@@ -342,7 +342,8 @@ impl HostRun {
     ///
     /// # Errors
     ///
-    /// Any [`JevError`] from `run`, including the all-backends-failed case.
+    /// Any [`JevError`] from `run`. An all-backends-failed run is not an
+    /// error: it is the response (`RunResponse::is_partial`).
     /// The log is flushed on this path too, so the rows of the sends that
     /// failed are durable; a flush failure there is appended to the error
     /// detail (`session log was not flushed: <hint>`) because no response
@@ -402,8 +403,8 @@ pub fn prepare_from(source: CheckSource, inputs: ComposeInputs) -> Result<HostRu
 ///
 /// # Errors
 ///
-/// Any [`JevError`] from root discovery, logger start, `prepare` or `run`,
-/// including the all-backends-failed case.
+/// Any [`JevError`] from root discovery, logger start, `prepare` or `run`.
+/// An all-backends-failed run is not an error: it is the response.
 pub fn run_from(source: CheckSource, inputs: ComposeInputs) -> Result<RunResponse, JevError> {
     prepare_from(source, inputs)?.run()
 }

@@ -84,28 +84,7 @@ fn cli(args: &[&str]) -> Command {
         .env_remove("TYPESAFE_API_KEY")
         .env_remove("ANTHROPIC_API_KEY")
         .env_remove("OPENAI_API_KEY");
-    if let Some(profile) = child_profile_file() {
-        command.env("LLVM_PROFILE_FILE", profile);
-    }
     command
-}
-
-/// A coverage profile file name that only this child process writes, when the
-/// test run is instrumented (`LLVM_PROFILE_FILE` is set).
-///
-/// Hypothesis, not a proven cause: a coverage run's intermittent failure may
-/// come from several instrumented children sharing one profile file and the
-/// runtime reporting a merge problem on stderr, which these tests require to
-/// be exactly one JSON line. `%p` (process id) and `%m` (binary signature)
-/// give each child its own file in the same directory. Stderr is not filtered.
-fn child_profile_file() -> Option<PathBuf> {
-    let base = std::env::var_os("LLVM_PROFILE_FILE")?;
-    let dir = Path::new(&base).parent().map(Path::to_path_buf);
-    let name = "sc-ai-cli-child-%p-%m.profraw";
-    Some(match dir {
-        Some(dir) if !dir.as_os_str().is_empty() => dir.join(name),
-        _ => PathBuf::from(name),
-    })
 }
 
 fn run_cli(args: &[&str]) -> Output {
@@ -357,6 +336,216 @@ fn test_cli_partial_failure_both_streams_exit_2() {
     assert_eq!(error["kind"], "permission");
     assert_eq!(error["retryable"], false);
     assert_eq!(error["details"]["backend"], "jev");
+    assert_eq!(output.status.code(), Some(2));
+}
+
+/// ERR-QA-21: the exit code is independent of backend order. 3 only if every
+/// failed backend is retryable, otherwise 2; success is 0.
+#[test]
+fn test_cli_exit_code_ignores_backend_order() {
+    let repo = temp_dir("exit-order");
+    write_repo(repo.path());
+    let sessions = temp_dir("exit-order-sessions");
+    let busy = json!({"failure": {"error": "PROVIDER_BUSY"}});
+    let auth = json!({"failure": {"error": "AUTH_FAILED"}});
+    let ok = json!({"relevant": "yes"});
+    type Case<'a> = (&'a str, [(&'a str, &'a Value); 2], i32);
+    let cases: [Case<'_>; 6] = [
+        (
+            "busy-then-auth",
+            [("jev", &busy), ("anthropic_haiku", &auth)],
+            2,
+        ),
+        (
+            "auth-then-busy",
+            [("jev", &auth), ("anthropic_haiku", &busy)],
+            2,
+        ),
+        (
+            "busy-and-busy",
+            [("jev", &busy), ("anthropic_haiku", &busy)],
+            3,
+        ),
+        (
+            "ok-then-busy",
+            [("jev", &ok), ("anthropic_haiku", &busy)],
+            3,
+        ),
+        (
+            "busy-then-ok",
+            [("jev", &busy), ("anthropic_haiku", &ok)],
+            3,
+        ),
+        (
+            "ok-then-auth",
+            [("jev", &ok), ("anthropic_haiku", &auth)],
+            2,
+        ),
+    ];
+    for (name, backends, expected) in cases {
+        let answers = scripted(
+            repo.path(),
+            &json!({"backends": {
+                backends[0].0: backends[0].1,
+                backends[1].0: backends[1].1,
+            }}),
+        );
+        let output = run_cli(&[
+            "jev",
+            "run",
+            "--repo-root",
+            text(repo.path()),
+            "--sessions-dir",
+            text(sessions.path()),
+            "--backend",
+            "jev",
+            "--backend",
+            "anthropic_haiku",
+            "--scripted-answers",
+            text(&answers),
+        ]);
+        assert_eq!(output.status.code(), Some(expected), "{name}");
+        // Reversing the backend flags gives the same code.
+        let reversed = run_cli(&[
+            "jev",
+            "run",
+            "--repo-root",
+            text(repo.path()),
+            "--sessions-dir",
+            text(sessions.path()),
+            "--backend",
+            "anthropic_haiku",
+            "--backend",
+            "jev",
+            "--scripted-answers",
+            text(&answers),
+        ]);
+        assert_eq!(reversed.status.code(), Some(expected), "{name} reversed");
+    }
+}
+
+/// One-shot HTTP/1.1 server on loopback: answers the first request with
+/// `status`, `headers` and `body`, then closes. Returns its port and a handle.
+fn serve_once(
+    status: u16,
+    headers: &'static [(&'static str, &'static str)],
+    body: String,
+) -> (u16, std::thread::JoinHandle<()>) {
+    use std::io::{Read, Write};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+    let port = listener.local_addr().expect("addr").port();
+    let handle = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept");
+        let mut received = Vec::new();
+        let mut chunk = [0_u8; 4096];
+        loop {
+            let read = stream.read(&mut chunk).expect("read");
+            received.extend_from_slice(&chunk[..read]);
+            let text = String::from_utf8_lossy(&received).to_ascii_lowercase();
+            if let Some(end) = text.find("\r\n\r\n") {
+                let length = text
+                    .lines()
+                    .find_map(|line| line.strip_prefix("content-length:"))
+                    .and_then(|value| value.trim().parse::<usize>().ok())
+                    .unwrap_or(0);
+                if received.len() >= end + 4 + length {
+                    break;
+                }
+            }
+            if read == 0 {
+                break;
+            }
+        }
+        let mut reply = format!("HTTP/1.1 {status} X\r\n");
+        for (name, value) in headers {
+            reply.push_str(&format!("{name}: {value}\r\n"));
+        }
+        reply.push_str(&format!(
+            "Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
+            body.len()
+        ));
+        stream.write_all(reply.as_bytes()).expect("write");
+    });
+    (port, handle)
+}
+
+/// ERR-QA-18: the binary, over real HTTP to a loopback server (test builds
+/// only): a key from the environment is redacted in the stderr line, a 401
+/// maps to `AUTH_FAILED` (exit 2), a busy reply to `PROVIDER_BUSY` (exit 3).
+#[test]
+fn test_cli_real_http_failures_map_to_ids_and_exit_codes() {
+    const KEY: &str = "sk-loopback-secret-1234567890";
+    let repo = temp_dir("loopback");
+    write_repo(repo.path());
+    let sessions = temp_dir("loopback-sessions");
+    let run = |port: u16| {
+        let port = port.to_string();
+        spawn_with_deadline(
+            cli(&[
+                "jev",
+                "run",
+                "--repo-root",
+                text(repo.path()),
+                "--sessions-dir",
+                text(sessions.path()),
+                "--backend",
+                "jev",
+                "--loopback-port",
+                &port,
+            ])
+            .env("TYPESAFE_API_KEY", KEY),
+            None,
+        )
+    };
+
+    // 401 whose body echoes the key.
+    let (port, server) = serve_once(
+        401,
+        &[("Content-Type", "application/json")],
+        format!(r#"{{"detail":"invalid key {KEY} for this account"}}"#),
+    );
+    let output = run(port);
+    server.join().expect("server");
+    let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+    assert!(!stderr.contains(KEY), "{stderr}");
+    assert!(!stderr.contains("sk-loopback"), "{stderr}");
+    let error = stderr_json(&output);
+    assert_eq!(error["error"], "AUTH_FAILED");
+    assert_eq!(error["kind"], "permission");
+    assert_eq!(error["retryable"], false);
+    assert!(
+        error["message"]
+            .as_str()
+            .expect("message")
+            .contains("[redacted]")
+    );
+    assert_eq!(error["details"]["http_status"], 401);
+    assert_eq!(error["details"]["backend"], "jev");
+    assert_eq!(output.status.code(), Some(2));
+    assert!(!String::from_utf8_lossy(&output.stdout).contains(KEY));
+
+    // A busy reply with Retry-After: 0 (no sleep; one send).
+    let (port, server) = serve_once(
+        529,
+        &[("Retry-After", "0"), ("Content-Type", "application/json")],
+        r#"{"detail":"overloaded"}"#.to_owned(),
+    );
+    let output = run(port);
+    server.join().expect("server");
+    let error = stderr_json(&output);
+    assert_eq!(error["error"], "PROVIDER_BUSY");
+    assert_eq!(error["retryable"], true);
+    assert_eq!(error["retry_after_seconds"], 0);
+    assert_eq!(error["details"]["cause"], "sends");
+    assert_eq!(error["details"]["http_status"], 529);
+    assert_eq!(output.status.code(), Some(3));
+
+    // Quota: 402.
+    let (port, server) = serve_once(402, &[], r#"{"detail":"payment required"}"#.to_owned());
+    let output = run(port);
+    server.join().expect("server");
+    let error = stderr_json(&output);
+    assert_eq!(error["error"], "QUOTA_EXHAUSTED");
     assert_eq!(output.status.code(), Some(2));
 }
 
@@ -988,13 +1177,39 @@ fn cli_usage_errors_are_input_invalid_and_name_the_argument() {
     let error = stderr_json(&output);
     assert_eq!(error["error"], "INPUT_INVALID");
     assert_eq!(error["field"], "--session-id");
-    let long = "x".repeat(100_000);
+    // 20,000 characters: over the 4096-byte cap under test, and under the
+    // 32,767-character Windows command-line limit.
+    let long = "x".repeat(20_000);
     let output = run_cli(&["jev", "ask", "--session-id", &long, "--text", "hello"]);
     let error = stderr_json(&output);
     assert!(
         error["message"].as_str().expect("message").len() < 400,
         "{error}"
     );
+    // A stray positional is the caller's text, never a `field`.
+    let output = run_cli(&["jev", "run", "stray-value"]);
+    let error = stderr_json(&output);
+    assert_eq!(error["error"], "INPUT_INVALID");
+    assert!(error.get("field").is_none(), "{error}");
+    // ERR-QA-11/24: a 20,000-character flag value and path are cut at the
+    // echo, and the action keeps its instruction.
+    let output = run_cli(&["jev", "run", "--backend", &long]);
+    let error = stderr_json(&output);
+    assert_eq!(error["field"], "--backend");
+    assert!(error["message"].as_str().expect("message").len() < 2_000);
+    let output = run_cli(&["jev", "run", "--request-json", &long]);
+    let error = stderr_json(&output);
+    assert!(matches!(
+        error["error"].as_str(),
+        Some("INPUT_MISSING" | "IO_FAILED")
+    ));
+    assert!(
+        error["message"].as_str().expect("message").len() < 2_000,
+        "{error}"
+    );
+    let action = error["suggested_action"].as_str().expect("action");
+    assert!(action.len() < 2_000, "{action}");
+    assert!(!action.contains("check.toml"), "{action}");
     let output = run_cli(&["jev", "run", "--backend", "nope"]);
     let error = stderr_json(&output);
     assert_eq!(error["error"], "INPUT_INVALID");

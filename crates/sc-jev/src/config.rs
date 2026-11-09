@@ -54,6 +54,17 @@ impl JevClientConfig {
         Self::from_toml(include_str!("jev.toml")).expect("packaged jev.toml is valid")
     }
 
+    /// The same config pointed at `http://127.0.0.1:<port><path>` (feature
+    /// `test-util`): the packaged host and path are replaced by a loopback
+    /// endpoint for a binary test through real HTTP. Production builds have
+    /// no such method.
+    #[cfg(feature = "test-util")]
+    #[must_use]
+    pub fn with_loopback_port(mut self, port: u16) -> Self {
+        self.endpoint = Endpoint::loopback_http(port, &self.path);
+        self
+    }
+
     /// Parses a Jev client config document.
     ///
     /// # Errors

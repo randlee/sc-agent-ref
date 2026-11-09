@@ -183,11 +183,11 @@ fn run_argv(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     let mut child = command.spawn().map_err(|error| {
-        JevError::extraction_failed(format!(
-            "failed to spawn {} (cause: {})",
-            argv[0],
-            error.kind()
-        ))
+        JevError::io_failed_with(
+            format!("spawn {}", argv[0]),
+            error.kind(),
+            Some("Check that the check.toml command exists, is executable, and its working directory is readable, then retry.".to_owned()),
+        )
     })?;
     // Both pipes were requested above, so both handles exist; a missing one
     // is reported rather than unwrapped.
@@ -218,10 +218,10 @@ fn run_argv(
                 kill_and_reap(child, deadline);
                 let _ = stdout_reader.finish_by(deadline);
                 let _ = stderr_reader.finish_by(deadline);
-                return Err(JevError::extraction_failed(format!(
-                    "failed to wait for command (cause: {})",
-                    error.kind()
-                )));
+                return Err(JevError::io_failed(
+                    format!("waiting for {}", argv[0]),
+                    &error,
+                ));
             }
         }
     };
@@ -231,12 +231,18 @@ fn run_argv(
         Ok(stdout) => stdout,
         Err(ReaderStop::Stopped) => {
             let _ = stderr_reader.finish_by(deadline);
-            return Err(JevError::extraction_failed("command stdout reader stopped"));
+            return Err(JevError::io_failed_with(
+                "producer stdout reader (it stopped)",
+                std::io::ErrorKind::Other,
+                None,
+            ));
         }
         Err(ReaderStop::TimedOut) => {
             let _ = stderr_reader.finish_by(deadline);
-            return Err(JevError::extraction_failed(
-                "command stdout reader did not finish before the cleanup deadline",
+            return Err(JevError::io_failed_with(
+                "producer stdout reader (it did not finish before the cleanup deadline)",
+                std::io::ErrorKind::TimedOut,
+                None,
             ));
         }
     };

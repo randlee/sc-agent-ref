@@ -254,6 +254,31 @@ fn test_exhaustion_reason_distinguishable() {
     );
 }
 
+/// REQ-QA-010: when busy replies differ (429 then 529), the exhausted error
+/// carries the LAST reply's type, code, message and request id, not the first's.
+#[test]
+fn test_busy_error_carries_the_last_reply_not_the_first() {
+    let hooks = fake(Duration::ZERO);
+    let first = br#"{"type":"error","error":{"type":"rate_limit_error","code":"first_code","message":"first message"},"request_id":"req_first"}"#;
+    let last = br#"{"type":"error","error":{"type":"overloaded_error","code":"last_code","message":"last message"},"request_id":"req_last"}"#;
+    let transport = ScriptedTransport::responses(vec![
+        HttpResponse::new(429, Vec::new(), first.to_vec()),
+        HttpResponse::new(529, Vec::new(), last.to_vec()),
+    ]);
+    let policy = hooks.policy.clone().with_max_sends(2);
+    let error = run(&transport, &policy).expect_err("exhausted");
+    assert_eq!(transport.sends(), 2);
+    let details = error.details().expect("details");
+    assert_eq!(details.http_status, Some(529));
+    assert_eq!(details.provider_type.as_deref(), Some("overloaded_error"));
+    assert_eq!(details.provider_code.as_deref(), Some("last_code"));
+    assert_eq!(details.provider_request_id.as_deref(), Some("req_last"));
+    let message = error.message();
+    assert!(message.contains("last message"), "{message}");
+    assert!(!message.contains("first message"), "{message}");
+    assert!(!format!("{details:?}").contains("first"), "{details:?}");
+}
+
 /// A missing or malformed `Retry-After` leaves the field out; a valid one
 /// beyond the 30 s wait clamp is reported as the provider sent it.
 #[test]

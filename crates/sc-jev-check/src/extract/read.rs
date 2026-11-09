@@ -92,7 +92,10 @@ fn resolve_worktree_file(
 ) -> Result<(std::path::PathBuf, std::fs::Metadata), JevError> {
     let root = std::fs::canonicalize(repo.as_path()).map_err(|error| {
         if error.kind() == std::io::ErrorKind::NotFound {
-            JevError::input_missing(repo.as_path().display().to_string())
+            JevError::input_missing_with(
+                repo.as_path().display().to_string(),
+                "Pass an existing directory as the repository root (--repo-root, or repo_root in Python).",
+            )
         } else {
             JevError::io_failed("repo root", &error)
         }
@@ -100,7 +103,10 @@ fn resolve_worktree_file(
     let full = match std::fs::canonicalize(repo.as_path().join(relative)) {
         Ok(full) => full,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            return Err(JevError::input_missing(relative.to_owned()));
+            return Err(JevError::input_missing_with(
+                relative.to_owned(),
+                "Create it or correct the path: it is the --check file, or an input path named in check.toml.",
+            ));
         }
         Err(error) => return Err(JevError::read_failed(relative, relative, &error)),
     };

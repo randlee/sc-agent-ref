@@ -36,10 +36,17 @@ impl EnvSource for ProcessEnv {
 /// On Linux and BSD it is the Secret Service. Other targets have no keystore
 /// and lookups miss.
 ///
-/// # Panics
-///
-/// Panics if the process-global keyring builder lock is poisoned. That poison
-/// means another thread already panicked while building an entry.
+/// The read runs on its own thread with a 15 s deadline
+/// (`KEYRING_READ_TIMEOUT`); a keystore that waits for a prompt it cannot
+/// show gives an `IO_FAILED` (`other`, not retryable: the blocked read does
+/// not clear until the user unlocks the keystore) instead of hanging. Once a
+/// read has timed out, every later read in the same process returns that error
+/// at once, without another 15 s wait, until the stuck read finishes; so
+/// several backends cost one wait, and at most one thread is stranded. A
+/// reader thread that fails or panics is the same non-retryable `IO_FAILED`.
+/// This method does not panic: the reader runs on its own thread, so a panic
+/// there (such as a poisoned process-global keyring builder lock) is reported
+/// as that `IO_FAILED`, not propagated.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct PlatformKeyring;
 
@@ -51,36 +58,89 @@ pub struct PlatformKeyring;
 /// typed, retryable error (`IO_FAILED`, `timed_out`).
 pub(crate) const KEYRING_READ_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15);
 
+/// Why a bounded read returned nothing.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum DeadlineMiss {
+    /// The deadline passed with the read still running.
+    TimedOut,
+    /// The reader thread ended without an answer (it panicked), or could not
+    /// be started.
+    Failed,
+}
+
 /// Runs `read` on its own thread and waits at most `timeout`.
 ///
 /// On timeout the thread is left to finish (or stay blocked) on its own; it
 /// only reads the keystore and holds no state, so abandoning it is safe, and
-/// the process can still exit.
+/// the process can still exit. A thread that cannot be started, or that
+/// panics before answering, is [`DeadlineMiss::Failed`], not a timeout.
 pub(crate) fn read_with_deadline<T: Send + 'static>(
     timeout: std::time::Duration,
     read: impl FnOnce() -> T + Send + 'static,
-) -> Option<T> {
+) -> Result<T, DeadlineMiss> {
     let (sender, receiver) = std::sync::mpsc::channel();
-    std::thread::spawn(move || {
-        let _ = sender.send(read());
-    });
-    receiver.recv_timeout(timeout).ok()
+    std::thread::Builder::new()
+        .name("sc-keyring-read".to_owned())
+        .spawn(move || {
+            let _ = sender.send(read());
+        })
+        .map_err(|_| DeadlineMiss::Failed)?;
+    receiver.recv_timeout(timeout).map_err(|error| match error {
+        std::sync::mpsc::RecvTimeoutError::Timeout => DeadlineMiss::TimedOut,
+        std::sync::mpsc::RecvTimeoutError::Disconnected => DeadlineMiss::Failed,
+    })
+}
+
+/// A keyring read that could not run to an answer and did not time out:
+/// not retryable, since repeating it fails the same way.
+fn keyring_read_failed() -> JevError {
+    JevError::io_failed_with(
+        format!("{KEYRING_UNREADABLE} (the read thread failed)"),
+        std::io::ErrorKind::Other,
+        Some(KEYRING_RECOVERY.to_owned()),
+    )
+}
+
+/// When the oldest keyring read still running started. A read sets it before
+/// it asks the keystore and clears it when it returns. A new read that finds
+/// one older than the deadline knows an earlier read is stuck and returns the
+/// timeout at once, so several backends cost one wait and at most one thread
+/// is stranded. A fresh concurrent read (younger than the deadline) is not
+/// treated as stuck.
+static OLDEST_READ: std::sync::Mutex<Option<std::time::Instant>> = std::sync::Mutex::new(None);
+
+fn oldest_read() -> std::sync::MutexGuard<'static, Option<std::time::Instant>> {
+    OLDEST_READ
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 fn keyring_timed_out() -> JevError {
+    // `other`, not `timed_out`: an identical retry meets the same stuck
+    // keystore, so this is not retryable until the user unlocks it.
     JevError::io_failed_with(
         format!("{KEYRING_UNREADABLE} (it did not answer in time)"),
-        std::io::ErrorKind::TimedOut,
-        Some("Unlock or allow the platform keystore for this OS user and retry, or provide the key in the process environment or the repo-root .env file instead.".to_owned()),
+        std::io::ErrorKind::Other,
+        Some("Unlock or allow the platform keystore for this OS user, then run again (a retry blocks again until the keystore is reachable), or provide the key in the process environment or the repo-root .env file instead.".to_owned()),
     )
 }
 
 impl KeyringSource for PlatformKeyring {
     fn password(&self, service: &str, account: &str) -> Result<Option<String>, JevError> {
+        if oldest_read().is_some_and(|started| started.elapsed() >= KEYRING_READ_TIMEOUT) {
+            return Err(keyring_timed_out());
+        }
         let (service, account) = (service.to_owned(), account.to_owned());
-        match read_with_deadline(KEYRING_READ_TIMEOUT, move || read_entry(&service, &account)) {
-            Some(result) => result,
-            None => Err(keyring_timed_out()),
+        let result = read_with_deadline(KEYRING_READ_TIMEOUT, move || {
+            oldest_read().get_or_insert_with(std::time::Instant::now);
+            let result = read_entry(&service, &account);
+            *oldest_read() = None;
+            result
+        });
+        match result {
+            Ok(result) => result,
+            Err(DeadlineMiss::TimedOut) => Err(keyring_timed_out()),
+            Err(DeadlineMiss::Failed) => Err(keyring_read_failed()),
         }
     }
 }
@@ -205,23 +265,58 @@ mod tests {
 
     /// A keystore read that never answers returns a typed, retryable error
     /// at the deadline instead of hanging (the macOS Keychain prompt case).
+    /// The blocked reader waits on a channel, so the test depends on no
+    /// wall-clock sleep: it ends when the test releases the gate.
     #[test]
     fn a_blocked_keyring_read_times_out_with_a_typed_error() {
-        let started = std::time::Instant::now();
-        let blocked = read_with_deadline(std::time::Duration::from_millis(50), || {
-            std::thread::sleep(std::time::Duration::from_secs(30));
+        let (release, gate) = std::sync::mpsc::channel::<()>();
+        let blocked = read_with_deadline(std::time::Duration::from_millis(20), move || {
+            let _ = gate.recv();
             1_u8
         });
-        assert!(blocked.is_none());
-        assert!(started.elapsed() < std::time::Duration::from_secs(5));
+        assert_eq!(blocked, Err(DeadlineMiss::TimedOut));
+        drop(release);
         let error = keyring_timed_out();
         assert_eq!(error.code(), "IO_FAILED");
-        assert!(error.retryable());
+        assert!(!error.retryable(), "a retry meets the same stuck keystore");
         assert!(error.suggested_action().contains("process environment"));
+        assert!(error.suggested_action().contains("blocks again"));
         // A prompt answer is returned as is.
         assert_eq!(
-            read_with_deadline(std::time::Duration::from_secs(5), || 7_u8),
-            Some(7)
+            read_with_deadline(std::time::Duration::from_secs(60), || 7_u8),
+            Ok(7)
         );
+    }
+
+    /// A reader that panics before answering is not a timeout and is not
+    /// retryable.
+    #[test]
+    fn a_failed_keyring_reader_is_not_a_timeout() {
+        let result = read_with_deadline(std::time::Duration::from_secs(60), || -> u8 {
+            panic!("keystore reader failed (expected in this test)")
+        });
+        assert_eq!(result, Err(DeadlineMiss::Failed));
+        let error = keyring_read_failed();
+        assert_eq!(error.code(), "IO_FAILED");
+        assert!(!error.retryable());
+    }
+
+    /// ERR-QA-28: once an earlier read is stuck past the deadline, a later
+    /// read returns the typed error at once instead of waiting again.
+    #[test]
+    fn a_read_after_a_stuck_one_returns_at_once() {
+        let Some(old) = std::time::Instant::now().checked_sub(KEYRING_READ_TIMEOUT * 2) else {
+            return;
+        };
+        *oldest_read() = Some(old);
+        let started = std::time::Instant::now();
+        let error = PlatformKeyring
+            .password("sc-agent-test-service", "nobody")
+            .unwrap_err();
+        *oldest_read() = None;
+        assert_eq!(error.code(), "IO_FAILED");
+        assert!(!error.retryable());
+        // No new 15 s wait: far under the deadline.
+        assert!(started.elapsed() < KEYRING_READ_TIMEOUT);
     }
 }
