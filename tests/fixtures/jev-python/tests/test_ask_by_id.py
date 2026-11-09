@@ -1,4 +1,4 @@
-"""`sc_jev_py.ask` by session id (REQ-SAG-0605, REQ-SAG-0621)."""
+"""`sc_jev_py.ask` by session id (REQ-SAG-0731)."""
 
 from __future__ import annotations
 

@@ -872,6 +872,10 @@ or canonicalization.
   `sc-jev-check`. `sc-jev-py` keeps only argument conversion, the GIL release
   and exception mapping; path policy, logging adapter and run wiring are
   `sc-jev-host`'s (`PathPolicy::python()`).
+  *(Amended, phase-end: opening the default host general log and applying the
+  Python `repo_root`, `log_dir` and `sessions_dir` stay in `sc-jev-py`, in
+  `execute` and `execute_ask`, beside `logging.rs`, because the host logger is
+  Python-only. Other run wiring stays in `sc-jev-host`.)*
 
 ## ADR-SAG-0018 — sc-publish kit owns release surface
 
