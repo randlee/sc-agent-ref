@@ -68,9 +68,9 @@ fn constant_endpoint(host: &str, path: &str) -> Endpoint {
 impl Provider {
     fn haiku() -> Self {
         Self {
-            id: BackendId::AnthropicHaiku,
+            id: BackendId::Haiku,
             name: "haiku",
-            model: BackendId::AnthropicHaiku.descriptor().default_model(),
+            model: BackendId::Haiku.descriptor().default_model(),
             host: wire::ANTHROPIC_HOST,
             message_endpoint: constant_endpoint(wire::ANTHROPIC_HOST, wire::HAIKU_MESSAGE_PATH),
             count_endpoint: constant_endpoint(wire::ANTHROPIC_HOST, wire::HAIKU_COUNT_PATH),
@@ -80,9 +80,9 @@ impl Provider {
 
     fn luna() -> Self {
         Self {
-            id: BackendId::OpenAiLuna,
+            id: BackendId::Luna,
             name: "luna",
-            model: BackendId::OpenAiLuna.descriptor().default_model(),
+            model: BackendId::Luna.descriptor().default_model(),
             host: wire::OPENAI_HOST,
             message_endpoint: constant_endpoint(wire::OPENAI_HOST, wire::LUNA_MESSAGE_PATH),
             count_endpoint: constant_endpoint(wire::OPENAI_HOST, wire::LUNA_COUNT_PATH),
@@ -110,8 +110,8 @@ pub fn request_sha256(
     request: &JudgeRequest,
 ) -> Result<RequestSha256, JevError> {
     let kind = match id {
-        BackendId::AnthropicHaiku => ProviderKind::Anthropic,
-        BackendId::OpenAiLuna => ProviderKind::OpenAi,
+        BackendId::Haiku => ProviderKind::Anthropic,
+        BackendId::Luna => ProviderKind::OpenAi,
         other => {
             return Err(JevError::input_invalid(format!(
                 "backend {other} is not an LLM backend"

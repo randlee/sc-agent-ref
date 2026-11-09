@@ -103,7 +103,7 @@ impl SendOutcome {
 ///     .question_ids(vec![QuestionId::try_from("q")?])
 ///     .ts(ts)
 ///     .operation(Operation::Judge)
-///     .backend(BackendId::OpenAiLuna)
+///     .backend(BackendId::Luna)
 ///     .model_id(ModelId::Gpt6Luna)
 ///     .build()?;
 /// assert_eq!(context.repo, "/work/repo");

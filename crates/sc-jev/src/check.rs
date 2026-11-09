@@ -294,7 +294,7 @@ mod refusals {
         let prepared = prepare(&JevClientConfig::packaged(), 96_000, &bundle).expect("accepted");
         assert_eq!(
             prepared.body,
-            r#"{"model":"jev-1.13.0","state":[],"questions":{"q":{"type":"choice","instructions":"p","criteria":{"no":"no","yes":"yes"}}}}"#
+            r#"{"model":"jev-latest","state":[],"questions":{"q":{"type":"choice","instructions":"p","criteria":{"no":"no","yes":"yes"}}}}"#
         );
     }
 

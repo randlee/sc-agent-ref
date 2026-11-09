@@ -519,7 +519,7 @@ mod jev_api {
                 packaged.timeout()
             ),
             (
-                "jev-1.13.0",
+                "jev",
                 "api.typesafe.ai",
                 "/v1/systemone",
                 96_000,

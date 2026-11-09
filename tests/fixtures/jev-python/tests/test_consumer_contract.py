@@ -55,14 +55,14 @@ def test_partial_failure_raises_with_response(tmp_path: Path) -> None:
     answers = {
         "backends": {
             "jev": {"relevant": "yes"},
-            "anthropic_haiku": {"failure": {"error": "PROVIDER_BUSY"}},
+            "haiku": {"failure": {"error": "PROVIDER_BUSY"}},
         }
     }
     with pytest.raises(sc_jev_py.JevError) as caught:
         run_check_scripted(
             "check.toml",
             scripted_answers=answers,
-            backends=["jev", "anthropic_haiku"],
+            backends=["jev", "haiku"],
             repo_root=repo,
             log_dir=tmp_path / "log",
             session_dir=tmp_path / "sessions",
@@ -80,8 +80,8 @@ def test_partial_failure_raises_with_response(tmp_path: Path) -> None:
     with pytest.raises(sc_jev_py.JevError) as plain:
         run_check_scripted(
             "check.toml",
-            scripted_answers={"backends": {"jev": failing, "anthropic_haiku": failing}},
-            backends=["jev", "anthropic_haiku"],
+            scripted_answers={"backends": {"jev": failing, "haiku": failing}},
+            backends=["jev", "haiku"],
             repo_root=repo,
             log_dir=tmp_path / "log",
             session_dir=tmp_path / "sessions",
@@ -95,7 +95,7 @@ def test_partial_failure_raises_with_response(tmp_path: Path) -> None:
     assert [entry["status"] for entry in response["results"]] == ["failed", "failed"]
     assert [entry["error"]["details"]["backend"] for entry in response["results"]] == [
         "jev",
-        "anthropic_haiku",
+        "haiku",
     ]
 
 
@@ -103,7 +103,7 @@ def test_chain_context_kwarg(tmp_path: Path) -> None:
     repo = _repo(tmp_path)
     kwargs = dict(
         scripted_answers={"relevant": "yes"},
-        backends=["jev", "anthropic_haiku"],
+        backends=["jev", "haiku"],
         repo_root=repo,
         log_dir=tmp_path / "log",
         session_dir=tmp_path / "sessions",

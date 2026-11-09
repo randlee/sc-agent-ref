@@ -99,7 +99,7 @@ fn dry_run_sends_nothing_and_needs_no_registry_or_store() {
         check_file(),
         config(repo.path(), &sessions_dir)
             .dry_run(true)
-            .backends(set(&[BackendId::Jev, BackendId::AnthropicHaiku]))
+            .backends(set(&[BackendId::Jev, BackendId::Haiku]))
             .registry(registry_of(&[&jev])),
     )
     .expect("prepare");
@@ -137,11 +137,11 @@ fn packaged_prompt_is_injected_and_override_does_not_change_digest() {
     let repo = bare_repo();
     let sessions = test_support::temp_dir("prompt-sessions");
     std::fs::write(repo.path().join("override.md"), "OVERRIDE-PROMPT-TOKEN").expect("override");
-    let first_judge = judge(BackendId::AnthropicHaiku, "yes");
+    let first_judge = judge(BackendId::Haiku, "yes");
     let first = run(prepare(
         check_file(),
         config(repo.path(), sessions.path())
-            .backends(set(&[BackendId::AnthropicHaiku]))
+            .backends(set(&[BackendId::Haiku]))
             .registry(registry_of(&[&first_judge])),
     )
     .expect("prepare"))
@@ -150,11 +150,11 @@ fn packaged_prompt_is_injected_and_override_does_not_change_digest() {
         system_prompt(&first_judge.requests()[0]),
         PACKAGED_SYSTEM_PROMPT
     );
-    let second_judge = judge(BackendId::AnthropicHaiku, "yes");
+    let second_judge = judge(BackendId::Haiku, "yes");
     let second = run(prepare(
         check_file(),
         config(repo.path(), sessions.path())
-            .backends(set(&[BackendId::AnthropicHaiku]))
+            .backends(set(&[BackendId::Haiku]))
             .system_prompt_override(repo.path().join("override.md"))
             .registry(registry_of(&[&second_judge])),
     )
@@ -171,11 +171,11 @@ fn packaged_prompt_is_injected_and_override_does_not_change_digest() {
 fn check_file_prompt_beats_packaged_asset() {
     let repo = copy_fixture();
     let sessions = test_support::temp_dir("check-prompt");
-    let luna = judge(BackendId::OpenAiLuna, "yes");
+    let luna = judge(BackendId::Luna, "yes");
     run(prepare(
         check_file(),
         config(repo.path(), sessions.path())
-            .backends(set(&[BackendId::OpenAiLuna]))
+            .backends(set(&[BackendId::Luna]))
             .registry(registry_of(&[&luna])),
     )
     .expect("prepare"))
@@ -195,11 +195,11 @@ fn missing_llm_prompt_fails_in_prepare_and_jev_ignores_it() {
     )
     .expect("check");
     let sessions = test_support::temp_dir("missing-prompt");
-    let haiku = judge(BackendId::AnthropicHaiku, "yes");
+    let haiku = judge(BackendId::Haiku, "yes");
     let error = prepare(
         check_file(),
         config(repo.path(), sessions.path())
-            .backends(set(&[BackendId::AnthropicHaiku]))
+            .backends(set(&[BackendId::Haiku]))
             .registry(registry_of(&[&haiku])),
     )
     .expect_err("missing prompt");
@@ -225,7 +225,7 @@ fn refusing_backend_does_not_log_or_save() {
     let log = Arc::new(JsonlSink {
         path: log_path.clone(),
     });
-    let haiku = judge(BackendId::AnthropicHaiku, "yes");
+    let haiku = judge(BackendId::Haiku, "yes");
     let mut registry = BackendRegistry::new();
     registry
         .register(Arc::new(MockJudgeBackend::refusing(
@@ -240,7 +240,7 @@ fn refusing_backend_does_not_log_or_save() {
         check_file(),
         RunConfig::new(RepoRoot::new(repo.path()), log)
             .sessions_dir(sessions.path())
-            .backends(set(&[BackendId::AnthropicHaiku, BackendId::Jev]))
+            .backends(set(&[BackendId::Haiku, BackendId::Jev]))
             .registry(Arc::new(registry)),
     )
     .expect("prepare"))
@@ -257,11 +257,11 @@ fn refusing_backend_does_not_log_or_save() {
 #[test]
 fn ask_capable_live_run_without_sessions_dir_is_config_invalid_before_send() {
     let repo = bare_repo();
-    let haiku = judge(BackendId::AnthropicHaiku, "yes");
+    let haiku = judge(BackendId::Haiku, "yes");
     let error = run(prepare(
         check_file(),
         RunConfig::new(RepoRoot::new(repo.path()), Arc::new(NoopSessionLog))
-            .backends(set(&[BackendId::AnthropicHaiku]))
+            .backends(set(&[BackendId::Haiku]))
             .registry(registry_of(&[&haiku])),
     )
     .expect("prepare"))
@@ -349,12 +349,12 @@ fn caller_request_uses_file_override_not_inline_prompt() {
         "INPUT_INVALID"
     );
 
-    let bytes = br#"{"questions":[{"id":"q","prompt":"Judge this","choices":["no","yes"]}],"backends":["anthropic_haiku"]}"#;
+    let bytes = br#"{"questions":[{"id":"q","prompt":"Judge this","choices":["no","yes"]}],"backends":["haiku"]}"#;
     let request = CallerRequest::from_json(bytes).expect("request");
     let base = RunConfig::new(RepoRoot::new(repo.path()), Arc::new(NoopSessionLog));
     let packaged =
         prepare(CheckSource::CallerRequest(request.clone()), base.clone()).expect("packaged");
-    assert_eq!(packaged.backends().as_slice(), [BackendId::AnthropicHaiku]);
+    assert_eq!(packaged.backends().as_slice(), [BackendId::Haiku]);
     assert_eq!(system_prompt(packaged.request()), PACKAGED_SYSTEM_PROMPT);
     let jev_only = prepare(
         CheckSource::CallerRequest(request.clone()),
@@ -382,12 +382,12 @@ fn validate_for_send_repeats_only_for_context_bearing_requests() {
     let repo = bare_repo();
     let sessions = test_support::temp_dir("validate-sessions");
     let jev = judge(BackendId::Jev, "yes");
-    let haiku = judge(BackendId::AnthropicHaiku, "no");
+    let haiku = judge(BackendId::Haiku, "no");
     run(prepare(
         check_file(),
         config(repo.path(), sessions.path())
             .mode(MultiBackendMode::ChainContext)
-            .backends(set(&[BackendId::Jev, BackendId::AnthropicHaiku]))
+            .backends(set(&[BackendId::Jev, BackendId::Haiku]))
             .registry(registry_of(&[&jev, &haiku])),
     )
     .expect("prepare"))
@@ -414,10 +414,10 @@ fn every_judge_send_logs_once_under_the_saved_session_id() {
         check_file(),
         RunConfig::new(RepoRoot::new(repo.path()), log)
             .sessions_dir(sessions.path())
-            .backends(set(&[BackendId::Jev, BackendId::OpenAiLuna]))
+            .backends(set(&[BackendId::Jev, BackendId::Luna]))
             .registry(registry_of(&[
                 &judge(BackendId::Jev, "yes"),
-                &judge(BackendId::OpenAiLuna, "no"),
+                &judge(BackendId::Luna, "no"),
             ])),
     )
     .expect("prepare"))
@@ -429,7 +429,7 @@ fn every_judge_send_logs_once_under_the_saved_session_id() {
         .collect();
     assert_eq!(lines.len(), 2);
     let session_id = response.session_id().expect("saved").to_string();
-    for (line, backend) in lines.iter().zip(["jev", "openai_luna"]) {
+    for (line, backend) in lines.iter().zip(["jev", "luna"]) {
         assert_eq!(line["session_id"], session_id);
         assert_eq!(line["backend"], backend);
         assert_eq!(line["payload_sha256"], response.payload_sha256().as_str());
@@ -532,11 +532,11 @@ fn enclosing_git_entry_finds_the_nearest_dot_git() {
 fn ask_sends_through_the_engine_and_refuses_unaskable_sessions() {
     let repo = bare_repo();
     let sessions = test_support::temp_dir("ask-sessions");
-    let haiku = judge(BackendId::AnthropicHaiku, "yes");
+    let haiku = judge(BackendId::Haiku, "yes");
     let response = run(prepare(
         check_file(),
         config(repo.path(), sessions.path())
-            .backends(set(&[BackendId::AnthropicHaiku]))
+            .backends(set(&[BackendId::Haiku]))
             .registry(registry_of(&[&haiku])),
     )
     .expect("prepare"))
@@ -548,7 +548,7 @@ fn ask_sends_through_the_engine_and_refuses_unaskable_sessions() {
     let log = Arc::new(JsonlSink {
         path: log_path.clone(),
     });
-    let follow = judge(BackendId::AnthropicHaiku, "no");
+    let follow = judge(BackendId::Haiku, "no");
     let asked = ask(
         &store,
         id,
@@ -591,7 +591,7 @@ fn ask_envelope_carries_digest_warnings_and_readback_in_order() {
     .expect("bundle");
     let request = JudgeRequest::new(Arc::new(payload.clone()), None);
     let outcome = JudgeOutcome::new(
-        BackendId::AnthropicHaiku,
+        BackendId::Haiku,
         &request,
         std::collections::BTreeMap::new(),
     )

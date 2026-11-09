@@ -55,7 +55,7 @@ fn spec() -> CheckSpec {
 }
 
 fn backends() -> BackendSet {
-    BackendSet::try_from(vec![BackendId::Jev, BackendId::AnthropicHaiku]).expect("set")
+    BackendSet::try_from(vec![BackendId::Jev, BackendId::Haiku]).expect("set")
 }
 
 fn config(dir: &Path) -> RunConfig {
@@ -95,7 +95,7 @@ fn test_live_run_reports_the_digests_a_dry_run_does() {
         serde_json::from_value(json!({"relevant": {"choice": choice}})).expect("answers")
     };
     let mut registry = BackendRegistry::new();
-    for id in [BackendId::Jev, BackendId::AnthropicHaiku] {
+    for id in [BackendId::Jev, BackendId::Haiku] {
         registry
             .register(Arc::new(MockJudgeBackend::new(id, answers("no"))))
             .expect("register");
@@ -119,7 +119,7 @@ fn test_request_digest_changes_with_question_state_model_and_system_prompt() {
     let base = dry(base_dir.path(), None);
     let (jev, haiku) = (
         digest(&base, BackendId::Jev),
-        digest(&base, BackendId::AnthropicHaiku),
+        digest(&base, BackendId::Haiku),
     );
     // Stable for the same inputs.
     assert_eq!(
@@ -133,17 +133,17 @@ fn test_request_digest_changes_with_question_state_model_and_system_prompt() {
         None,
     );
     assert_ne!(digest(&other, BackendId::Jev), jev);
-    assert_ne!(digest(&other, BackendId::AnthropicHaiku), haiku);
+    assert_ne!(digest(&other, BackendId::Haiku), haiku);
 
     // The state: both change.
     let other = dry(repo("Does it apply?", "no", "judge carefully").path(), None);
     assert_ne!(digest(&other, BackendId::Jev), jev);
-    assert_ne!(digest(&other, BackendId::AnthropicHaiku), haiku);
+    assert_ne!(digest(&other, BackendId::Haiku), haiku);
 
     // The LLM system prompt: only the LLM backend changes (Jev takes none).
     let other = dry(repo("Does it apply?", "yes", "judge harshly").path(), None);
     assert_eq!(digest(&other, BackendId::Jev), jev);
-    assert_ne!(digest(&other, BackendId::AnthropicHaiku), haiku);
+    assert_ne!(digest(&other, BackendId::Haiku), haiku);
     // `payload_sha256` (the payload digest) does not see the system prompt.
     assert_eq!(other.payload_sha256(), base.payload_sha256());
 
@@ -153,7 +153,7 @@ fn test_request_digest_changes_with_question_state_model_and_system_prompt() {
         .expect("alias");
     let other = dry(base_dir.path(), Some(aliases));
     assert_ne!(digest(&other, BackendId::Jev), jev);
-    assert_eq!(digest(&other, BackendId::AnthropicHaiku), haiku);
+    assert_eq!(digest(&other, BackendId::Haiku), haiku);
     assert_eq!(other.payload_sha256(), base.payload_sha256());
 
     // The question set alone does not see the state.

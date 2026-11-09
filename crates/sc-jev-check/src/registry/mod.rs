@@ -33,7 +33,8 @@ mod scripted;
 use sc_agent_secrets::{resolve_key, resolve_key_logged};
 use sc_agent_types::observability::v2::{GeneralEvent, NoopGeneralLog, SharedGeneralLog};
 use sc_agent_types::{
-    BackendId, BackendKeyId, BackendSet, JevError, ModelAliases, ModelId, RepoRoot, ResolvedApiKey,
+    BackendFamily, BackendId, BackendKeyId, BackendSet, JevError, ModelAliases, ModelId,
+    ModelSource, RepoRoot, ResolvedApiKey,
 };
 use sc_decision_schema::JudgeBackend;
 use sc_jev::JevClient;
@@ -53,19 +54,45 @@ const TARGET: &str = "registry";
 /// One row per built-in backend (test-and-review convention, ADR-SAG-0027).
 static FACTORIES: &[(BackendId, Factory)] = &[
     (BackendId::Jev, jev_factory),
-    (BackendId::AnthropicHaiku, haiku_factory),
-    (BackendId::OpenAiLuna, luna_factory),
+    (BackendId::Haiku, haiku_factory),
+    (BackendId::Luna, luna_factory),
 ];
 
 /// The model `id` runs with: `aliases.latest(descriptor.default_model_alias())`.
 ///
-/// `aliases` always holds the descriptor's alias (`ModelAliases` keeps its
-/// key set), so the catalog default is only a defensive answer.
+/// `jev` is the exception: it means the latest Jev model, sent as
+/// `jev-latest`, so it runs [`BackendDescriptor::default_model`]
+/// (`ModelId::Jev`) unless the alias was overridden (a `check.toml`
+/// `[models]` entry or a `jev-1.14.0` pin). A `models.toml` row for `jev`
+/// therefore only changes listing and what `jev` resolves to for display.
 pub(crate) fn model_for(id: BackendId, aliases: &ModelAliases) -> ModelId {
     let descriptor = id.descriptor();
+    let alias = descriptor.default_model_alias();
+    let latest_by_name = descriptor.family() == BackendFamily::TypeSafeJev
+        && aliases.source(alias) != Some(ModelSource::Override);
+    if latest_by_name {
+        return descriptor.default_model();
+    }
     aliases
-        .latest(descriptor.default_model_alias())
+        .latest(alias)
         .unwrap_or_else(|| descriptor.default_model())
+}
+
+/// `models` with each pinned backend's model (`--backend claude-haiku-5-5`)
+/// set over its alias, as an override. A composition root that builds its
+/// own registries calls this so a pin is honoured the same way.
+#[must_use]
+pub fn pin_models(models: ModelAliases, backends: &BackendSet) -> ModelAliases {
+    backends.iter().fold(models, |models, id| {
+        match backends.pin(id) {
+            // The alias is the descriptor's, so it is always a known alias.
+            Some(pin) => models
+                .clone()
+                .with_override(id.descriptor().default_model_alias(), pin.clone())
+                .unwrap_or(models),
+            None => models,
+        }
+    })
 }
 
 fn jev_factory(
@@ -87,7 +114,7 @@ fn haiku_factory(
 ) -> Arc<dyn JudgeBackend> {
     Arc::new(
         AnthropicHaikuBackend::with_default_transport(key)
-            .with_model(model_for(BackendId::AnthropicHaiku, aliases))
+            .with_model(model_for(BackendId::Haiku, aliases))
             .with_general_log(Arc::clone(log)),
     )
 }
@@ -99,7 +126,7 @@ fn luna_factory(
 ) -> Arc<dyn JudgeBackend> {
     Arc::new(
         OpenAiLunaBackend::with_default_transport(key)
-            .with_model(model_for(BackendId::OpenAiLuna, aliases))
+            .with_model(model_for(BackendId::Luna, aliases))
             .with_general_log(Arc::clone(log)),
     )
 }
@@ -249,11 +276,11 @@ impl BackendRegistry {
     /// use sc_agent_types::{BackendId, BackendSet, ResolvedApiKey};
     /// use sc_jev_check::registry::BackendRegistry;
     ///
-    /// let backends: BackendSet = "jev,anthropic_haiku".parse()?;
+    /// let backends: BackendSet = "jev,haiku".parse()?;
     /// let registry = BackendRegistry::from_resolver(&backends, |key_id| {
     ///     ResolvedApiKey::try_new(key_id, "example-key".to_owned())
     /// })?;
-    /// assert!(registry.contains(BackendId::AnthropicHaiku));
+    /// assert!(registry.contains(BackendId::Haiku));
     /// # Ok::<(), sc_agent_types::JevError>(())
     /// ```
     pub fn from_resolver(
@@ -292,14 +319,12 @@ impl BackendRegistry {
             let key = resolve_key(key_id, repo_root)?;
             let backend: Arc<dyn JudgeBackend> = match id {
                 BackendId::Jev => Arc::new(JevClient::loopback(key, port, sends)),
-                BackendId::AnthropicHaiku => {
-                    Arc::new(AnthropicHaikuBackend::loopback(key, port, sends))
-                }
-                BackendId::OpenAiLuna => Arc::new(OpenAiLunaBackend::loopback(key, port, sends)),
+                BackendId::Haiku => Arc::new(AnthropicHaikuBackend::loopback(key, port, sends)),
+                BackendId::Luna => Arc::new(OpenAiLunaBackend::loopback(key, port, sends)),
                 other => {
                     return Err(JevError::registry_invalid(
                         format!("Backend {other} has no loopback constructor"),
-                        "Use jev, anthropic_haiku or openai_luna.",
+                        "Use jev, haiku or luna.",
                     ));
                 }
             };
@@ -349,6 +374,12 @@ impl BackendRegistry {
             GeneralEvent::info(TARGET, "backend.selected", "backend built")
                 .with_field("backend", id.to_string())
                 .with_field("model", backend.model_id().to_string())
+                .with_field(
+                    "model_source",
+                    models
+                        .source(id.descriptor().default_model_alias())
+                        .map_or("unknown", ModelSource::as_str),
+                )
                 .emit(log.as_ref());
             registry.register(backend)?;
         }
@@ -430,20 +461,20 @@ mod tests {
         assert!(duplicate_hint.contains("jev"), "{duplicate_hint}");
         assert!(!duplicate_hint.contains("check.toml"), "{duplicate_hint}");
         assert!(registry.get(BackendId::Jev).is_ok());
-        let missing = match registry.get(BackendId::OpenAiLuna) {
-            Ok(_) => panic!("openai_luna must be absent"),
+        let missing = match registry.get(BackendId::Luna) {
+            Ok(_) => panic!("luna must be absent"),
             Err(error) => error,
         };
         assert_eq!(missing.code(), "CONFIG_INVALID");
         let missing_hint = missing.message();
-        assert!(missing_hint.contains("openai_luna"), "{missing_hint}");
+        assert!(missing_hint.contains("luna"), "{missing_hint}");
         assert!(!missing_hint.contains("check.toml"), "{missing_hint}");
     }
 
     #[test]
     fn resolver_builds_backends_in_set_order_and_no_send() {
         let seen = std::sync::Mutex::new(Vec::new());
-        let backends: BackendSet = "jev,anthropic_haiku".parse().expect("set");
+        let backends: BackendSet = "jev,haiku".parse().expect("set");
         let registry = BackendRegistry::from_resolver(&backends, |id| {
             seen.lock().expect("seen").push(id);
             ResolvedApiKey::try_new(id, "test-key".to_owned())
@@ -454,7 +485,7 @@ mod tests {
             [BackendKeyId::TypeSafe, BackendKeyId::Anthropic]
         );
         assert!(registry.contains(BackendId::Jev));
-        assert!(registry.contains(BackendId::AnthropicHaiku));
+        assert!(registry.contains(BackendId::Haiku));
         let rendered = format!("{registry:?}");
         assert!(!rendered.contains("test-key"));
     }

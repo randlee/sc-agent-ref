@@ -38,6 +38,7 @@ struct StreamSpec {
     repo_root: Option<PathBuf>,
     log_dir: Option<PathBuf>,
     session_dir: Option<PathBuf>,
+    models_file: Option<PathBuf>,
     system_prompt_file: Option<PathBuf>,
     chain_context: bool,
     project: Option<String>,
@@ -53,6 +54,7 @@ impl StreamSpec {
         repo_root: Option<PathBuf>,
         log_dir: Option<PathBuf>,
         session_dir: Option<PathBuf>,
+        models_file: Option<PathBuf>,
         system_prompt_file: Option<PathBuf>,
         chain_context: bool,
         project: Option<String>,
@@ -63,6 +65,7 @@ impl StreamSpec {
             repo_root: non_empty(repo_root),
             log_dir: non_empty(log_dir),
             session_dir: non_empty(session_dir),
+            models_file: non_empty(models_file),
             system_prompt_file: non_empty(system_prompt_file),
             chain_context,
             project,
@@ -78,6 +81,9 @@ impl StreamSpec {
             } else {
                 sc_decision_schema::MultiBackendMode::Independent
             });
+        if let Some(path) = self.models_file {
+            inputs = inputs.models_file(path);
+        }
         if let Some(backends) = parse_backends(self.backends.as_deref())? {
             inputs = inputs.backends(backends);
         }
@@ -151,6 +157,7 @@ impl DecisionStream {
         repo_root=None,
         log_dir=None,
         session_dir=None,
+        models_file=None,
         system_prompt_file=None,
         chain_context=false,
         project=None,
@@ -163,6 +170,7 @@ impl DecisionStream {
         repo_root: Option<PathBuf>,
         log_dir: Option<PathBuf>,
         session_dir: Option<PathBuf>,
+        models_file: Option<PathBuf>,
         system_prompt_file: Option<PathBuf>,
         chain_context: bool,
         project: Option<String>,
@@ -175,6 +183,7 @@ impl DecisionStream {
                 repo_root,
                 log_dir,
                 session_dir,
+                models_file,
                 system_prompt_file,
                 chain_context,
                 project,
@@ -416,6 +425,7 @@ fn remaining(deadline: Option<Instant>, slice: Duration) -> Duration {
     repo_root=None,
     log_dir=None,
     session_dir=None,
+    models_file=None,
     system_prompt_file=None,
     chain_context=false,
     project=None,
@@ -429,6 +439,7 @@ pub(crate) fn run_many(
     repo_root: Option<PathBuf>,
     log_dir: Option<PathBuf>,
     session_dir: Option<PathBuf>,
+    models_file: Option<PathBuf>,
     system_prompt_file: Option<PathBuf>,
     chain_context: bool,
     project: Option<String>,
@@ -441,6 +452,7 @@ pub(crate) fn run_many(
             repo_root,
             log_dir,
             session_dir,
+            models_file,
             system_prompt_file,
             chain_context,
             project,
@@ -524,6 +536,7 @@ pub(crate) mod testing {
                 log_dir,
                 session_dir,
                 None,
+                None,
                 false,
                 None,
             ),
@@ -564,6 +577,7 @@ pub(crate) mod testing {
                 repo_root,
                 log_dir,
                 session_dir,
+                None,
                 None,
                 false,
                 None,

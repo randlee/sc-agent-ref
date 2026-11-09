@@ -164,7 +164,7 @@ fn test_multi_backend_cli_equal_input() {
         repo.path(),
         &json!({"backends": {
             "jev": {"relevant": "yes"},
-            "anthropic_haiku": {"relevant": "no"}
+            "haiku": {"relevant": "no"}
         }}),
     );
     let output = run_cli(&[
@@ -179,7 +179,7 @@ fn test_multi_backend_cli_equal_input() {
         "--backend",
         "jev",
         "--backend",
-        "anthropic_haiku",
+        "haiku",
         "--scripted-answers",
         text(&answers),
     ]);
@@ -193,7 +193,7 @@ fn test_multi_backend_cli_equal_input() {
     assert_eq!(data["answers"]["relevant"]["choice"], "yes");
     assert_eq!(data["results"][0]["backend"], "jev");
     assert_eq!(data["results"][0]["status"], "ok");
-    assert_eq!(data["results"][1]["backend"], "anthropic_haiku");
+    assert_eq!(data["results"][1]["backend"], "haiku");
     assert_eq!(
         data["results"][1]["outcome"]["answers"]["relevant"]["choice"],
         "no"
@@ -217,7 +217,7 @@ fn test_multi_backend_cli_equal_input() {
         data["equal_input"]["backends"],
         json!([
             {"backend": "jev", "attestation": {"status": "matched"}},
-            {"backend": "anthropic_haiku", "attestation": {"status": "matched"}}
+            {"backend": "haiku", "attestation": {"status": "matched"}}
         ])
     );
     // Independent by default: the saved Haiku prompt is the packaged one.
@@ -245,7 +245,7 @@ fn test_cli_partial_failure_both_streams_exit_2() {
         repo.path(),
         &json!({"backends": {
             "jev": {"relevant": "yes"},
-            "anthropic_haiku": {"failure": {"error": "PROVIDER_BUSY"}}
+            "haiku": {"failure": {"error": "PROVIDER_BUSY"}}
         }}),
     );
     let output = run_cli(&[
@@ -258,7 +258,7 @@ fn test_cli_partial_failure_both_streams_exit_2() {
         "--backend",
         "jev",
         "--backend",
-        "anthropic_haiku",
+        "haiku",
         "--scripted-answers",
         text(&answers),
     ]);
@@ -272,7 +272,7 @@ fn test_cli_partial_failure_both_streams_exit_2() {
     assert_eq!(data["primary_backend"], "jev");
     assert_eq!(data["answers"]["relevant"]["choice"], "yes");
     assert_eq!(data["results"][0]["status"], "ok");
-    assert_eq!(data["results"][1]["backend"], "anthropic_haiku");
+    assert_eq!(data["results"][1]["backend"], "haiku");
     assert_eq!(data["results"][1]["status"], "failed");
     // stderr: exactly one ScAgentErrorResponse, the first failure.
     let error = stderr_json(&output);
@@ -287,13 +287,10 @@ fn test_cli_partial_failure_both_streams_exit_2() {
             .expect("action")
             .contains("Wait")
     );
-    assert_eq!(error["details"]["backend"], "anthropic_haiku");
+    assert_eq!(error["details"]["backend"], "haiku");
     assert_eq!(error["details"]["cause"], "sends");
     assert_eq!(error["details"]["attempts"], 4);
-    assert_eq!(
-        data["results"][1]["error"]["details"]["backend"],
-        "anthropic_haiku"
-    );
+    assert_eq!(data["results"][1]["error"]["details"]["backend"], "haiku");
     assert_no_prompt_leak(&String::from_utf8_lossy(&output.stderr));
 
     // All backends failed: the same envelope with no answers and every
@@ -302,7 +299,7 @@ fn test_cli_partial_failure_both_streams_exit_2() {
         repo.path(),
         &json!({"backends": {
             "jev": {"failure": {"error": "AUTH_FAILED"}},
-            "anthropic_haiku": {"failure": {"error": "QUOTA_EXHAUSTED"}}
+            "haiku": {"failure": {"error": "QUOTA_EXHAUSTED"}}
         }}),
     );
     let output = run_cli(&[
@@ -315,7 +312,7 @@ fn test_cli_partial_failure_both_streams_exit_2() {
         "--backend",
         "jev",
         "--backend",
-        "anthropic_haiku",
+        "haiku",
         "--scripted-answers",
         text(&all_failed),
     ]);
@@ -327,12 +324,9 @@ fn test_cli_partial_failure_both_streams_exit_2() {
     assert_eq!(data["results"][0]["backend"], "jev");
     assert_eq!(data["results"][0]["error"]["error"], "AUTH_FAILED");
     assert_eq!(data["results"][0]["error"]["details"]["backend"], "jev");
-    assert_eq!(data["results"][1]["backend"], "anthropic_haiku");
+    assert_eq!(data["results"][1]["backend"], "haiku");
     assert_eq!(data["results"][1]["error"]["error"], "QUOTA_EXHAUSTED");
-    assert_eq!(
-        data["results"][1]["error"]["details"]["backend"],
-        "anthropic_haiku"
-    );
+    assert_eq!(data["results"][1]["error"]["details"]["backend"], "haiku");
     // The first failure is on stderr; a non-retryable one exits 2.
     let error = stderr_json(&output);
     assert_eq!(error["error"], "AUTH_FAILED");
@@ -354,36 +348,12 @@ fn test_cli_exit_code_ignores_backend_order() {
     let ok = json!({"relevant": "yes"});
     type Case<'a> = (&'a str, [(&'a str, &'a Value); 2], i32);
     let cases: [Case<'_>; 6] = [
-        (
-            "busy-then-auth",
-            [("jev", &busy), ("anthropic_haiku", &auth)],
-            2,
-        ),
-        (
-            "auth-then-busy",
-            [("jev", &auth), ("anthropic_haiku", &busy)],
-            2,
-        ),
-        (
-            "busy-and-busy",
-            [("jev", &busy), ("anthropic_haiku", &busy)],
-            3,
-        ),
-        (
-            "ok-then-busy",
-            [("jev", &ok), ("anthropic_haiku", &busy)],
-            3,
-        ),
-        (
-            "busy-then-ok",
-            [("jev", &busy), ("anthropic_haiku", &ok)],
-            3,
-        ),
-        (
-            "ok-then-auth",
-            [("jev", &ok), ("anthropic_haiku", &auth)],
-            2,
-        ),
+        ("busy-then-auth", [("jev", &busy), ("haiku", &auth)], 2),
+        ("auth-then-busy", [("jev", &auth), ("haiku", &busy)], 2),
+        ("busy-and-busy", [("jev", &busy), ("haiku", &busy)], 3),
+        ("ok-then-busy", [("jev", &ok), ("haiku", &busy)], 3),
+        ("busy-then-ok", [("jev", &busy), ("haiku", &ok)], 3),
+        ("ok-then-auth", [("jev", &ok), ("haiku", &auth)], 2),
     ];
     for (name, backends, expected) in cases {
         let answers = scripted(
@@ -403,7 +373,7 @@ fn test_cli_exit_code_ignores_backend_order() {
             "--backend",
             "jev",
             "--backend",
-            "anthropic_haiku",
+            "haiku",
             "--scripted-answers",
             text(&answers),
         ]);
@@ -417,7 +387,7 @@ fn test_cli_exit_code_ignores_backend_order() {
             "--sessions-dir",
             text(sessions.path()),
             "--backend",
-            "anthropic_haiku",
+            "haiku",
             "--backend",
             "jev",
             "--scripted-answers",
@@ -690,7 +660,7 @@ fn test_cli_chain_context_flag() {
             "--backend",
             "jev",
             "--backend",
-            "anthropic_haiku",
+            "haiku",
             "--scripted-answers",
             text(&answers),
         ];
@@ -739,7 +709,7 @@ fn test_cli_log_flush_warning_in_data() {
         "--log-dir",
         text(logs.path()),
         "--backend",
-        "anthropic_haiku",
+        "haiku",
         "--scripted-answers",
         text(&answers),
     ]);
@@ -802,7 +772,7 @@ fn test_cli_system_prompt_file_overrides_check_toml() {
             "--sessions-dir",
             text(sessions.path()),
             "--backend",
-            "anthropic_haiku",
+            "haiku",
             "--scripted-answers",
             text(&answers),
         ];
@@ -869,7 +839,7 @@ fn cli_dry_run_readback_run_ask_and_expiry() {
         "--sessions-dir",
         text(sessions.path()),
         "--backend",
-        "anthropic_haiku",
+        "haiku",
         "--llm-system-prompt-file",
         text(&prompt),
     ]));
@@ -882,7 +852,7 @@ fn cli_dry_run_readback_run_ask_and_expiry() {
         64
     );
     assert!(dry["data"]["payload"]["questions"].is_array());
-    assert_eq!(dry["data"]["limits"][0]["backend"], "anthropic_haiku");
+    assert_eq!(dry["data"]["limits"][0]["backend"], "haiku");
     assert_eq!(dry["data"]["limits"][0]["over_limit"], false);
     assert_eq!(dry["data"]["results"], json!([]));
     assert_eq!(
@@ -909,7 +879,7 @@ fn cli_dry_run_readback_run_ask_and_expiry() {
         "--sessions-dir",
         text(sessions.path()),
         "--backend",
-        "anthropic_haiku",
+        "haiku",
         "--llm-system-prompt-file",
         text(&prompt),
         "--scripted-answers",
@@ -1025,7 +995,7 @@ fn cli_logger_adapter_records_session_without_secrets() {
         "--log-dir",
         text(logs.path()),
         "--backend",
-        "anthropic_haiku",
+        "haiku",
         "--llm-system-prompt-file",
         text(&prompt),
         "--scripted-answers",
@@ -1039,7 +1009,7 @@ fn cli_logger_adapter_records_session_without_secrets() {
     assert!(log.contains(session_id), "{log}");
     assert!(log.contains(digest), "{log}");
     assert!(log.contains("judge"), "{log}");
-    assert!(log.contains("anthropic_haiku"), "{log}");
+    assert!(log.contains("haiku"), "{log}");
     assert_no_prompt_leak(&log);
     assert_no_prompt_leak(&value.to_string());
     // The general log is a separate file with the operator view of the run
@@ -1112,7 +1082,7 @@ fn test_cli_project_flag_reaches_log() {
     let run = stdout_json(&common(&[
         "run",
         "--backend",
-        "anthropic_haiku",
+        "haiku",
         "--project",
         "billing-service",
     ]));
@@ -1430,7 +1400,7 @@ fn cli_log_and_git_errors_do_not_blame_check_toml() {
         "--log-dir",
         text(&file.join("nested")),
         "--backend",
-        "anthropic_haiku",
+        "haiku",
         "--scripted-answers",
         text(&answers),
     ]);

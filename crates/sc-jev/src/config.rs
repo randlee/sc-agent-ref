@@ -195,7 +195,7 @@ mod tests {
     #[test]
     fn from_toml_reads_every_field() {
         let config = JevClientConfig::from_toml(VALID).expect("valid");
-        assert_eq!(config.model(), &ModelId::Jev1_13_0);
+        assert_eq!(config.model(), &ModelId::Jev);
         assert_eq!(config.endpoint().as_str(), "https://h.example/v1/x");
         assert_eq!(config.attempts(), 2);
         assert_eq!(config.timeout(), Duration::from_secs(5));

@@ -171,7 +171,7 @@ fn test_fields_roundtrip() {
         .request_sha256(None)
         .ts(ts)
         .operation(Operation::Judge)
-        .backend(BackendId::OpenAiLuna)
+        .backend(BackendId::Luna)
         .model_id(ModelId::Gpt6Luna)
         .build()
         .expect("context");

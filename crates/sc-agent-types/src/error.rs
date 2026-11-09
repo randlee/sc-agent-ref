@@ -1338,7 +1338,7 @@ impl JevError {
 
     /// Records which backend this error belongs to (`details.backend`).
     ///
-    /// `backend` is the backend's descriptor name, such as `anthropic_haiku`.
+    /// `backend` is the backend's descriptor name, such as `haiku`.
     /// Only the first call counts. Id, message, action and retryability stay
     /// those of `self`.
     ///

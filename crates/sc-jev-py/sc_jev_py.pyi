@@ -80,6 +80,7 @@ def build_request(
     request_json: str | bytes | None = None,
     repo_root: StrPath | None = None,
     rev: str = "WORKTREE",
+    models_file: StrPath | None = None,
 ) -> dict[str, Any]: ...
 def run_check(
     check_path: StrPath | None = None,
@@ -91,6 +92,7 @@ def run_check(
     rev: str = "WORKTREE",
     log_dir: StrPath | None = None,
     session_dir: StrPath | None = None,
+    models_file: StrPath | None = None,
     system_prompt_file: StrPath | None = None,
     chain_context: bool = False,
     project: str | None = None,
@@ -130,6 +132,7 @@ class DecisionStream:
         repo_root: StrPath | None = None,
         log_dir: StrPath | None = None,
         session_dir: StrPath | None = None,
+        models_file: StrPath | None = None,
         system_prompt_file: StrPath | None = None,
         chain_context: bool = False,
         project: str | None = None,
@@ -176,6 +179,7 @@ def run_many(
     repo_root: StrPath | None = None,
     log_dir: StrPath | None = None,
     session_dir: StrPath | None = None,
+    models_file: StrPath | None = None,
     system_prompt_file: StrPath | None = None,
     chain_context: bool = False,
     project: str | None = None,
@@ -187,6 +191,14 @@ def run_many(
     """
 def canonical_bytes(json_text: str) -> bytes: ...
 def canonical_sha256(json_text: str) -> str: ...
+def models(models_file: StrPath | None = None) -> dict[str, Any]:
+    """The resolved models and where each came from.
+
+    Returns `{"models_file", "models_file_present", "models": [{"alias",
+    "model", "source", "released", "backend"}]}`; `source` is `"crate"` or
+    `"file"` (`~/.sc-agent/models.toml`). Raises `JevError` (`CONFIG_INVALID`)
+    for a malformed file.
+    """
 def default_log_root() -> pathlib.Path: ...
 def resolve_log_root(log_dir: StrPath | None = None) -> pathlib.Path: ...
 def resolve_session_dir(

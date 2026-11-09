@@ -1831,12 +1831,10 @@ HTTP half of ADR-SAG-0026.
   `IoFailed`, `SessionStoreIo`); no A.1 variant carries a non-redacted source.
   *`SessionStoreIo` no longer exists and the list is `CredentialStoreInvalid`,
   `NetworkError`, `EncodeFailed`, `IoFailed` (agt-2a3 amendment).*
-- (Active, r-1) Serde spelling of backend ids matches `Display`
-  (`openai_luna`, `openai`), with a one-release read alias for
-  `open_ai_luna` / `open_ai` in config and caller-request input. Whether and
-  when the alias is removed is the owner's decision, tracked by bead
-  `agt-ho2`; nothing has been released, so no release
-  has shipped the alias, and a removal would be announced in `CHANGELOG.md`.
+- (Active, r-1) Serde spelling of backend ids matches `Display`.
+  *Superseded by the ADR-SAG-0030 short-names amendment (agt-akp): the
+  spellings are `jev`, `haiku` and `luna`, and the read aliases
+  `open_ai_luna` and `open_ai` are gone (bead `agt-ho2` closed).*
 - (Active, r-1) Module seams are cargo features of `sc-agent-types`:
   `judge`, `secret`, `obs` (default-on), `git` and `test-util`
   (non-default); `error`, `envelope`, `ids`, `schema`, `cancel` are always
@@ -2200,6 +2198,64 @@ Owner decisions 2026-11-07.
   what it sends. The check validates only: values pass through unrounded
   (`f64` throughout, sc-agent never rounds), and the range check (finite, in
   `[0, 1]`) is unchanged. This supersedes the earlier 1e-6 bound.
+
+### ADR-SAG-0030 amendment: short backend names, model catalog and global additions
+
+**Status:** Active (agt-akp). Owner decisions 2026-11-08.
+
+- (Active, agt-akp) **Short names.** `--backend`, `backends=` and `check.toml`
+  `backends` take `jev`, `haiku` and `luna`, each meaning the latest model of
+  that line. `anthropic_haiku`, `openai_luna` and the read aliases
+  `open_ai_luna` and `open_ai` were removed outright (nothing was released);
+  `BackendId` variants are `Jev`, `Haiku`, `Luna`. This closes `agt-ho2`.
+- (Active, agt-akp) **Pinning.** The same places also take a known model id of
+  one of those backends (`claude-haiku-5-5`): that backend, pinned to that
+  model (`BackendChoice`, `BackendSet::pin`). The known ids are the crate's
+  `MODELS` rows of those three aliases. A pin is an override: it wins over
+  `check.toml` `[models]` and the global file.
+- (Active, agt-akp) **Definitions.** `MODELS` and `ModelId` also define
+  `sonnet` `claude-sonnet-5-5`, `opus` `claude-opus-5-5`, `fable`
+  `claude-fable-5-1`, `terra` `gpt-6.1-terra`, `sol` `gpt-6.1-sol` and `astra`
+  `gpt-6-astra`, for future agent work. They are not selectable: `--backend
+  sonnet` is `INPUT_INVALID` with the valid names listed. Only `jev`, `haiku`
+  and `luna` are decision backends. `jev-1.14.0` (the version live replies
+  answered) is added and is the `jev` alias's newest known version.
+  `--backend jev` still means the latest: it sends `ModelId::Jev`
+  (`jev-latest` on the wire), so it can break on a Jev API change and is fixed
+  by upgrading sc-agent. `jev-1.14.0` is a pin and has a different
+  `request_sha256`. A `models.toml` row for alias `jev` changes listing and
+  what the alias names, not what `jev` sends; a `check.toml` `[models]` entry
+  or a pin does.
+- (Active, agt-akp) **Family check.** An alias takes only ids of its family,
+  by prefix: `jev` takes `jev` or `jev-...`, `haiku`, `sonnet`, `opus` and
+  `fable` take `claude-...`, `luna`, `terra`, `sol` and `astra` take
+  `gpt-...`. A `models.toml` row or `check.toml` `[models]` entry that breaks
+  this is `CONFIG_INVALID`. (`claude-haiku-9-preview` stays valid under
+  `haiku`.)
+- (Active, agt-akp) **Global additions.** `~/.sc-agent/models.toml`
+  (`%USERPROFILE%` when `HOME` is unset), read at the start of each run,
+  holds `[[model]]` rows with `id`, `alias` and `released` (`YYYY-MM-DD`). A
+  short name resolves to the most recent `released` across the crate table and
+  the file; a tie goes to the file. A row only extends an existing alias, so it
+  cannot create a backend. A malformed file (bad TOML, an unknown key, an
+  unknown alias, a bad id or date) is `CONFIG_INVALID`; a missing file is not
+  an error. Layers, last wins: crate and file, `check.toml` `[models]`, a
+  `--backend` pin. The file is read by `sc-jev-check::models_file`; its
+  location (`sc_jev_host::paths::models_file`) and the read at run start
+  belong to `sc-jev-host`, so `sc-ai` and `sc_jev_py` behave the same.
+- (Active, agt-akp) **Listing.** `sc-ai jev models` and `sc_jev_py.models()`
+  print the resolved models, each with `source` (`crate` or `file`), the
+  models file path and whether it exists. The resolved model and its source
+  go to the injected general log (`backend.selected`: `model`,
+  `model_source`; `models.file`; `models.file_invalid` at `warn`); nothing
+  here logs at `error`.
+- (Active, agt-akp) **Freshness test.** `sc-agent-types/tests/model_freshness.rs`
+  is local-only (never when `CI` is set; a missing CLI or key skips with a
+  printed reason). It fails when a provider lists a newer model in a tracked
+  line than `MODELS`, using `codex debug models`, `claude -p ... --output-format
+  stream-json` (killed at the `init` event) and, with `TYPESAFE_API_KEY`,
+  `GET /v1/models`. It compares the crate table only, so `models.toml` does not
+  silence it. randlee/sc-agent#48 tracks it.
 
 ## ADR-SAG-0031 — Session log storage schema
 

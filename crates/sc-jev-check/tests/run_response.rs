@@ -202,11 +202,11 @@ fn jev_haiku() -> RunResponse {
         .payload_bytes(payload_bytes())
         .questions_sha256(payload().questions_sha256().expect("questions digest"))
         .ok(outcome(BackendId::Jev, "no", a10_jev_body()))
-        .ok(outcome(BackendId::AnthropicHaiku, "yes", haiku_meta()))
+        .ok(outcome(BackendId::Haiku, "yes", haiku_meta()))
         .build(equal_input(
             &[
                 (BackendId::Jev, Attestation::Unattested),
-                (BackendId::AnthropicHaiku, Attestation::Unattested),
+                (BackendId::Haiku, Attestation::Unattested),
             ],
             false,
         ))
@@ -221,11 +221,11 @@ fn jev_failed_haiku_ok() -> RunResponse {
             BackendId::Jev,
             JevError::network(NetworkErrorKind::Connect, "connect to the Jev API failed"),
         )
-        .ok(outcome(BackendId::AnthropicHaiku, "yes", haiku_meta()))
+        .ok(outcome(BackendId::Haiku, "yes", haiku_meta()))
         .build(equal_input(
             &[
                 (BackendId::Jev, Attestation::Failed),
-                (BackendId::AnthropicHaiku, Attestation::Unattested),
+                (BackendId::Haiku, Attestation::Unattested),
             ],
             true,
         ))
@@ -235,10 +235,10 @@ fn session_save_failed() -> RunResponse {
     RunResponse::test_builder()
         .payload_bytes(payload_bytes())
         .questions_sha256(payload().questions_sha256().expect("questions digest"))
-        .ok(outcome(BackendId::AnthropicHaiku, "yes", haiku_meta()))
+        .ok(outcome(BackendId::Haiku, "yes", haiku_meta()))
         .warning("session not saved: IO_FAILED")
         .build(equal_input(
-            &[(BackendId::AnthropicHaiku, Attestation::Unattested)],
+            &[(BackendId::Haiku, Attestation::Unattested)],
             false,
         ))
 }
@@ -285,7 +285,7 @@ fn real_dry_run() -> RunResponse {
     let prepared = prepare(
         check_file(),
         config(dir.path())
-            .backends(set(&[BackendId::Jev, BackendId::AnthropicHaiku]))
+            .backends(set(&[BackendId::Jev, BackendId::Haiku]))
             // The pinned samples record `chain_context` (r-2's data body);
             // the engine default is `Independent` (ADR-SAG-0025).
             .mode(MultiBackendMode::ChainContext)
@@ -360,7 +360,7 @@ fn test_run_response_contract() {
     let failure = response.first_failure().expect("failure");
     assert_eq!(failure.error().code(), "NETWORK_ERROR");
     let partial = assert_pinned("jev_failed_haiku_ok.json", &response);
-    assert_eq!(partial["primary_backend"], "anthropic_haiku");
+    assert_eq!(partial["primary_backend"], "haiku");
     assert_eq!(partial["answers"]["q"]["choice"], "yes");
     assert_eq!(partial["model"], "claude-haiku-test");
     for jev_field in ["usage", "confidence"] {
@@ -395,7 +395,7 @@ fn test_run_response_contract() {
 
     // session_save_failed.json: answers kept, session not saved, one warning.
     let unsaved = assert_pinned("session_save_failed.json", &session_save_failed());
-    assert_eq!(unsaved["primary_backend"], "anthropic_haiku");
+    assert_eq!(unsaved["primary_backend"], "haiku");
     assert_eq!(unsaved["session_saved"], false);
     assert!(unsaved["session_id"].is_null());
     assert_eq!(
@@ -495,21 +495,21 @@ fn test_backend_failure_response_derived_from_error() {
 #[test]
 fn test_backend_precedence() {
     let with_backends = repo(
-        "backends = [\"anthropic_haiku\", \"jev\"]\n[questions]\npath = \"questions.json\"\n",
+        "backends = [\"haiku\", \"jev\"]\n[questions]\npath = \"questions.json\"\n",
         None,
     );
     // 1. RunConfig::backends wins over the check.toml list.
     let flag = prepare(
         check_file(),
-        config(with_backends.path()).backends(set(&[BackendId::OpenAiLuna])),
+        config(with_backends.path()).backends(set(&[BackendId::Luna])),
     )
     .expect("flag");
-    assert_eq!(flag.backends().as_slice(), [BackendId::OpenAiLuna]);
+    assert_eq!(flag.backends().as_slice(), [BackendId::Luna]);
     // 2. Else the source document's list, in its order.
     let document = prepare(check_file(), config(with_backends.path())).expect("document");
     assert_eq!(
         document.backends().as_slice(),
-        [BackendId::AnthropicHaiku, BackendId::Jev]
+        [BackendId::Haiku, BackendId::Jev]
     );
     assert!(
         document.request().llm().is_some(),
@@ -526,7 +526,7 @@ fn test_backend_precedence() {
 
     // The same rule for a caller request document.
     let request = CallerRequest::from_json(
-        br#"{"questions":[{"id":"q","prompt":"p","choices":["no","yes"]}],"backends":["openai_luna"]}"#,
+        br#"{"questions":[{"id":"q","prompt":"p","choices":["no","yes"]}],"backends":["luna"]}"#,
     )
     .expect("request");
     let from_document = prepare(
@@ -534,7 +534,7 @@ fn test_backend_precedence() {
         config(plain.path()),
     )
     .expect("doc");
-    assert_eq!(from_document.backends().as_slice(), [BackendId::OpenAiLuna]);
+    assert_eq!(from_document.backends().as_slice(), [BackendId::Luna]);
     let from_flag = prepare(
         CheckSource::CallerRequest(request),
         config(plain.path()).backends(set(&[BackendId::Jev])),
@@ -560,7 +560,7 @@ fn judge(id: BackendId, choice: &str) -> Arc<MockJudgeBackend> {
 fn test_prepared_run_owns_config() {
     let dir = repo(PLAIN_CHECK, None);
     let sessions = tempfile::tempdir().expect("sessions");
-    let haiku = judge(BackendId::AnthropicHaiku, "yes");
+    let haiku = judge(BackendId::Haiku, "yes");
     let mut registry = BackendRegistry::new();
     registry
         .register(Arc::clone(&haiku) as Arc<dyn JudgeBackend>)
@@ -573,7 +573,7 @@ fn test_prepared_run_owns_config() {
     let prepared = prepare(
         check_file(),
         config(dir.path())
-            .backends(set(&[BackendId::AnthropicHaiku]))
+            .backends(set(&[BackendId::Haiku]))
             .sessions_dir(sessions.path())
             .registry(Arc::clone(&registry)),
     )
@@ -600,7 +600,7 @@ fn test_prepared_run_owns_config() {
     let dry = prepare(
         check_file(),
         config(dir.path())
-            .backends(set(&[BackendId::AnthropicHaiku]))
+            .backends(set(&[BackendId::Haiku]))
             .sessions_dir(sessions.path())
             .registry(registry)
             .dry_run(true),
@@ -660,7 +660,7 @@ fn test_repo_root_from_subdirectory() {
 fn test_dry_run_reports_over_limit() {
     let limit = BackendId::Jev.descriptor().request_limit_bytes();
     let big = repo(PLAIN_CHECK, Some(&"x".repeat(150_000)));
-    let backends = set(&[BackendId::Jev, BackendId::AnthropicHaiku]);
+    let backends = set(&[BackendId::Jev, BackendId::Haiku]);
     // No registry and no keys: a dry run constructs no backend, so it
     // cannot fail on a missing key.
     let response = run(prepare(

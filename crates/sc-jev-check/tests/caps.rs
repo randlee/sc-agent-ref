@@ -49,11 +49,7 @@ fn test_payload_between_old_caps_refused_by_backend_before_send() {
     let limit = BackendId::Jev.descriptor().request_limit_bytes();
     let dir = repo_with_payload_near(150_000);
     let sessions = tempfile::tempdir().expect("sessions");
-    for backend in [
-        BackendId::Jev,
-        BackendId::AnthropicHaiku,
-        BackendId::OpenAiLuna,
-    ] {
+    for backend in [BackendId::Jev, BackendId::Haiku, BackendId::Luna] {
         assert_eq!(backend.descriptor().request_limit_bytes(), limit);
         let backends = BackendSet::try_from(vec![backend]).expect("set");
         let registry = BackendRegistry::from_resolver(&backends, |key_id| {

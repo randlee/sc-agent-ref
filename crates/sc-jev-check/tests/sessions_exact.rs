@@ -131,7 +131,7 @@ fn bundle() -> PayloadBundle {
 #[test]
 fn test_session_round_trip() {
     let dir = temp_dir();
-    let haiku = judge(BackendId::AnthropicHaiku, "yes");
+    let haiku = judge(BackendId::Haiku, "yes");
     let store = FileSessionStore::new(dir.path()).expect("store");
     let payload = bundle();
     let request = JudgeRequest::new(Arc::new(payload.clone()), None);
@@ -141,12 +141,12 @@ fn test_session_round_trip() {
     store
         .save(&StoredSession {
             session_id: id,
-            backend: BackendId::AnthropicHaiku,
+            backend: BackendId::Haiku,
             created_at: store.now(),
             payload: payload.clone(),
             system_prompt: Some("base prompt".to_owned()),
             outcomes: vec![
-                JudgeOutcome::new(BackendId::AnthropicHaiku, &request, answers).expect("outcome"),
+                JudgeOutcome::new(BackendId::Haiku, &request, answers).expect("outcome"),
             ],
             follow_ups: Vec::new(),
         })
@@ -165,7 +165,7 @@ fn test_session_round_trip() {
     let asked = ask(&reopened, id, "why?", config).expect("ask");
     assert_eq!(asked.payload_sha256(), payload.sha256());
     let outcome = asked.outcome();
-    assert_eq!(outcome.backend(), BackendId::AnthropicHaiku);
+    assert_eq!(outcome.backend(), BackendId::Haiku);
     assert_eq!(outcome.answers()["relevant"].choice(), "yes");
     let requests = haiku.requests();
     let prompt = &requests[0].llm().expect("prompt").system_prompt;
@@ -331,11 +331,11 @@ fn test_equal_input_record() {
     let spec = load_check_at(&root, &Rev::worktree(), &check_toml()).expect("spec");
     let sessions = temp_dir();
     let jev = judge(BackendId::Jev, "yes");
-    let haiku = judge(BackendId::AnthropicHaiku, "no");
+    let haiku = judge(BackendId::Haiku, "no");
     let (prepared, result) = run_spec(
         spec,
         live(root, sessions.path(), Arc::new(NoopSessionLog))
-            .backends(set(&[BackendId::Jev, BackendId::AnthropicHaiku]))
+            .backends(set(&[BackendId::Jev, BackendId::Haiku]))
             .registry(Arc::new(registry(&[&jev, &haiku]))),
     );
     let equal = result.equal_input();
@@ -350,7 +350,7 @@ fn test_equal_input_record() {
         .iter()
         .map(|entry| entry.backend())
         .collect();
-    assert_eq!(ids, [BackendId::Jev, BackendId::AnthropicHaiku]);
+    assert_eq!(ids, [BackendId::Jev, BackendId::Haiku]);
     assert!(
         equal
             .backends()
@@ -373,10 +373,10 @@ fn test_multi_backend_one_payload() {
     let spec = load_check_at(&root, &Rev::worktree(), &check_toml()).expect("spec");
     let sessions = temp_dir();
     let jev = judge(BackendId::Jev, "yes");
-    let haiku = judge(BackendId::AnthropicHaiku, "no");
+    let haiku = judge(BackendId::Haiku, "no");
     let config = live(root, sessions.path(), Arc::new(NoopSessionLog))
         .mode(MultiBackendMode::ChainContext)
-        .backends(set(&[BackendId::Jev, BackendId::AnthropicHaiku]))
+        .backends(set(&[BackendId::Jev, BackendId::Haiku]))
         .registry(Arc::new(registry(&[&jev, &haiku])));
     let prepared = prepare(CheckSource::Spec(spec), config).expect("prepare");
     let payload = prepared.request().payload().clone();
@@ -415,7 +415,7 @@ fn test_multi_backend_one_payload() {
     let config =
         RunConfig::new(RepoRoot::new(repo.path()), log).registry(Arc::new(registry(&[&haiku])));
     let asked = ask(&store, session_id, "why the first answer?", config).expect("ask");
-    assert_eq!(asked.outcome().backend(), BackendId::AnthropicHaiku);
+    assert_eq!(asked.outcome().backend(), BackendId::Haiku);
 }
 
 #[test]
@@ -437,11 +437,11 @@ fn test_log_event_has_no_secrets() {
     let result = run(prepare(
         CheckSource::Spec(spec),
         live(root, sessions.path(), Arc::clone(&log) as _)
-            .backends(set(&[BackendId::Jev, BackendId::OpenAiLuna]))
+            .backends(set(&[BackendId::Jev, BackendId::Luna]))
             .system_prompt_override(repo.path().join("override.md"))
             .registry(Arc::new(registry(&[
                 &judge(BackendId::Jev, "yes"),
-                &judge(BackendId::OpenAiLuna, "no"),
+                &judge(BackendId::Luna, "no"),
             ]))),
     )
     .expect("prepare"))
@@ -453,7 +453,7 @@ fn test_log_event_has_no_secrets() {
     let session_id = result.session_id().expect("session").to_string();
     let lines: Vec<&str> = text.lines().collect();
     assert_eq!(lines.len(), 2);
-    for (line, backend) in lines.iter().zip(["jev", "openai_luna"]) {
+    for (line, backend) in lines.iter().zip(["jev", "luna"]) {
         let value: serde_json::Value = serde_json::from_str(line).expect("line");
         assert_eq!(value["session_id"], session_id);
         assert_eq!(value["fields"]["session_id"], session_id);
@@ -474,9 +474,9 @@ fn test_packaged_default_prompt_available() {
     let root = RepoRoot::new(repo.path());
     let spec = load_check_at(&root, &Rev::worktree(), &check_toml()).expect("spec");
     let sessions = temp_dir();
-    let haiku = judge(BackendId::AnthropicHaiku, "yes");
+    let haiku = judge(BackendId::Haiku, "yes");
     let config = live(root, sessions.path(), Arc::new(NoopSessionLog))
-        .backends(set(&[BackendId::AnthropicHaiku]))
+        .backends(set(&[BackendId::Haiku]))
         .registry(Arc::new(registry(&[&haiku])));
     let prepared = prepare(CheckSource::Spec(spec), config).expect("prepare");
     assert_eq!(

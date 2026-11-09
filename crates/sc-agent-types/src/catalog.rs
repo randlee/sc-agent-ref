@@ -27,7 +27,6 @@ pub enum BackendFamily {
 pub struct BackendDescriptor {
     id: BackendId,
     name: &'static str,
-    aliases: &'static [&'static str],
     key_id: Option<BackendKeyId>,
     family: BackendFamily,
     requires_llm_context: bool,
@@ -44,16 +43,11 @@ impl BackendDescriptor {
         self.id
     }
 
-    /// The documented spelling (`Display`, serde, CLI, `check.toml`).
+    /// The one spelling (`Display`, serde, CLI, `check.toml`): the short name
+    /// `jev`, `haiku` or `luna`, which also names the model alias.
     #[must_use]
     pub const fn name(&self) -> &'static str {
         self.name
-    }
-
-    /// Spellings accepted on read in addition to [`Self::name`].
-    #[must_use]
-    pub const fn aliases(&self) -> &'static [&'static str] {
-        self.aliases
     }
 
     /// The credential the backend sends, if any.
@@ -93,8 +87,10 @@ impl BackendDescriptor {
         self.default_model_alias
     }
 
-    /// The model this row names (equal to
-    /// `ModelAliases::builtin().latest(default_model_alias())`).
+    /// The model this row names: the alias's newest model
+    /// (`ModelAliases::builtin().latest(default_model_alias())`), except for
+    /// `jev`, whose default is [`ModelId::Jev`] (the latest, `jev-latest` on
+    /// the wire), not the newest known version.
     ///
     /// # Panics
     ///
@@ -111,25 +107,23 @@ impl BackendDescriptor {
 ///
 /// `test_backend_catalog_roundtrip` checks that serde, `Display`, `FromStr`
 /// and the aliases agree for every row.
-pub static BACKENDS: &[BackendDescriptor] = &[JEV, ANTHROPIC_HAIKU, OPENAI_LUNA];
+pub static BACKENDS: &[BackendDescriptor] = &[JEV, HAIKU, LUNA];
 
 pub(crate) const JEV: BackendDescriptor = BackendDescriptor {
     id: BackendId::Jev,
     name: "jev",
-    aliases: &[],
     key_id: Some(BackendKeyId::TypeSafe),
     family: BackendFamily::TypeSafeJev,
     requires_llm_context: false,
     supports_session_ask: false,
     request_limit_bytes: 96_000,
     default_model_alias: "jev",
-    default_model: "jev-1.13.0",
+    default_model: "jev",
 };
 
-pub(crate) const ANTHROPIC_HAIKU: BackendDescriptor = BackendDescriptor {
-    id: BackendId::AnthropicHaiku,
-    name: "anthropic_haiku",
-    aliases: &[],
+pub(crate) const HAIKU: BackendDescriptor = BackendDescriptor {
+    id: BackendId::Haiku,
+    name: "haiku",
     key_id: Some(BackendKeyId::Anthropic),
     family: BackendFamily::Llm,
     requires_llm_context: true,
@@ -139,10 +133,9 @@ pub(crate) const ANTHROPIC_HAIKU: BackendDescriptor = BackendDescriptor {
     default_model: "claude-haiku-5-5",
 };
 
-pub(crate) const OPENAI_LUNA: BackendDescriptor = BackendDescriptor {
-    id: BackendId::OpenAiLuna,
-    name: "openai_luna",
-    aliases: &["open_ai_luna"],
+pub(crate) const LUNA: BackendDescriptor = BackendDescriptor {
+    id: BackendId::Luna,
+    name: "luna",
     key_id: Some(BackendKeyId::OpenAi),
     family: BackendFamily::Llm,
     requires_llm_context: true,

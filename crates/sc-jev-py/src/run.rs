@@ -37,6 +37,8 @@ struct CheckRun {
     rev: String,
     log_dir: Option<PathBuf>,
     session_dir: Option<PathBuf>,
+    /// `models_file=`: read instead of `~/.sc-agent/models.toml`.
+    models_file: Option<PathBuf>,
     system_prompt_file: Option<PathBuf>,
     /// `chain_context=True` selects `MultiBackendMode::ChainContext`.
     chain_context: bool,
@@ -194,6 +196,9 @@ fn execute(spec: CheckRun) -> Result<FinishedRun, JevError> {
         } else {
             MultiBackendMode::Independent
         });
+    if let Some(path) = spec.models_file {
+        inputs = inputs.models_file(path);
+    }
     if let Some(backends) = backends {
         inputs = inputs.backends(backends);
     }
@@ -281,9 +286,13 @@ fn build(
     input: &Input,
     repo_root: Option<&Path>,
     rev_text: &str,
+    models_file: Option<&Path>,
 ) -> Result<PreparedRequest, JevError> {
     let rev = Rev::parse(rev_text)?;
-    let inputs = base_inputs(repo_root, None, None)?.dry_run(true).rev(rev);
+    let mut inputs = base_inputs(repo_root, None, None)?.dry_run(true).rev(rev);
+    if let Some(path) = models_file {
+        inputs = inputs.models_file(path);
+    }
     let resolved = inputs.resolve()?;
     let source = input.source(&resolved.repo_root)?;
     let host = prepare_from(source, inputs.repo_root(resolved.repo_root))?;
@@ -299,8 +308,9 @@ fn build(
 
 /// Parses `backends=` into a [`BackendSet`] with `BackendSet::from_str`.
 ///
-/// Only `jev`, `anthropic_haiku`, and `openai_luna` are accepted, matching
-/// `sc-ai` and the engine. Kebab-case aliases (`anthropic-haiku`) are not
+/// `jev`, `haiku`, and `luna` (each the latest model), or a known model id
+/// of one of them such as `claude-haiku-5-5` (that backend pinned to it), are
+/// accepted, matching `sc-ai` and the engine. Kebab-case aliases (`anthropic-haiku`) are not
 /// accepted. An unknown id is `INPUT_INVALID`; an empty or repeated list is
 /// `CONFIG_INVALID`. `None` leaves the selection to the engine.
 pub(crate) fn parse_backends(names: Option<&[String]>) -> Result<Option<BackendSet>, JevError> {
@@ -529,7 +539,7 @@ impl CheckResult {
                 py,
                 &JevError::input_invalid_field(
                     "backends",
-                    "this run saved no session: only Haiku and Luna support ask, and Jev has no rationale field; run with backends=[\"anthropic_haiku\"] or [\"openai_luna\"] to ask",
+                    "this run saved no session: only Haiku and Luna support ask, and Jev has no rationale field; run with backends=[\"haiku\"] or [\"luna\"] to ask",
                 ),
             ));
         };
@@ -607,18 +617,21 @@ impl Session {
 /// built = jev.build_request("check.toml", repo_root=pathlib.Path("/path/to/repo"))
 /// ```
 #[pyfunction]
-#[pyo3(signature = (check_path=None, *, request_json=None, repo_root=None, rev="WORKTREE"))]
+#[pyo3(signature = (check_path=None, *, request_json=None, repo_root=None, rev="WORKTREE", models_file=None))]
 pub(crate) fn build_request(
     py: Python<'_>,
     check_path: Option<PathBuf>,
     request_json: Option<Bound<'_, PyAny>>,
     repo_root: Option<PathBuf>,
     rev: &str,
+    models_file: Option<PathBuf>,
 ) -> PyResult<Py<PyAny>> {
     let input = map_err(py, Input::from_python(check_path, request_json.as_ref()))?;
     let repo_root = non_empty(repo_root);
+    let models_file = non_empty(models_file);
     let rev = rev.to_owned();
-    let built = py.detach(move || build(&input, repo_root.as_deref(), &rev));
+    let built =
+        py.detach(move || build(&input, repo_root.as_deref(), &rev, models_file.as_deref()));
     let built = map_err(py, built)?;
     let body = serde_json::json!({
         "payload": built.payload,
@@ -640,6 +653,7 @@ fn check_run(
     rev: String,
     log_dir: Option<PathBuf>,
     session_dir: Option<PathBuf>,
+    models_file: Option<PathBuf>,
     system_prompt_file: Option<PathBuf>,
     chain_context: bool,
     project: Option<String>,
@@ -653,6 +667,7 @@ fn check_run(
         rev,
         log_dir: non_empty(log_dir),
         session_dir: non_empty(session_dir),
+        models_file: non_empty(models_file),
         system_prompt_file: non_empty(system_prompt_file),
         chain_context,
         project: parse_project(project)?,
@@ -687,7 +702,8 @@ fn finish_check(py: Python<'_>, spec: CheckRun) -> PyResult<CheckResult> {
 /// as `str` or `bytes`; exactly one of the two) through `sc-jev-check`.
 ///
 /// `backends` wins over `check.toml`'s `backends`; with neither the run uses
-/// `["jev"]`. Ids are `jev`, `anthropic_haiku`, and `openai_luna`. `dry_run`
+/// `["jev"]`. Ids are `jev`, `haiku`, and `luna` (each the latest model) or a known
+/// model id such as `claude-haiku-5-5` (that backend pinned to it). `dry_run`
 /// returns the payload digest and does not resolve keys, send, or create a
 /// session store or log. `chain_context=True` lets later backends see earlier
 /// answers; the default is independent (ADR-SAG-0008). Path arguments accept
@@ -726,6 +742,7 @@ fn finish_check(py: Python<'_>, spec: CheckRun) -> PyResult<CheckResult> {
     rev="WORKTREE",
     log_dir=None,
     session_dir=None,
+    models_file=None,
     system_prompt_file=None,
     chain_context=false,
     project=None,
@@ -743,6 +760,7 @@ pub(crate) fn run_check(
     rev: &str,
     log_dir: Option<PathBuf>,
     session_dir: Option<PathBuf>,
+    models_file: Option<PathBuf>,
     system_prompt_file: Option<PathBuf>,
     chain_context: bool,
     project: Option<String>,
@@ -761,6 +779,7 @@ pub(crate) fn run_check(
             rev.to_owned(),
             log_dir,
             session_dir,
+            models_file,
             system_prompt_file,
             chain_context,
             project,
@@ -798,6 +817,7 @@ pub(crate) mod testing {
         rev="WORKTREE",
         log_dir=None,
         session_dir=None,
+        models_file=None,
         system_prompt_file=None,
         chain_context=false,
         project=None,
@@ -816,6 +836,7 @@ pub(crate) mod testing {
         rev: &str,
         log_dir: Option<PathBuf>,
         session_dir: Option<PathBuf>,
+        models_file: Option<PathBuf>,
         system_prompt_file: Option<PathBuf>,
         chain_context: bool,
         project: Option<String>,
@@ -835,6 +856,7 @@ pub(crate) mod testing {
                 rev.to_owned(),
                 log_dir,
                 session_dir,
+                models_file,
                 system_prompt_file,
                 chain_context,
                 project,
@@ -879,6 +901,33 @@ pub(crate) fn canonical_sha256(py: Python<'_>, json_text: &str) -> PyResult<Stri
 /// The Python path policy; the repo root does not enter its defaults.
 fn policy_root() -> sc_agent_types::RepoRoot {
     sc_agent_types::RepoRoot::new(".")
+}
+
+/// Lists the resolved models and where each came from.
+///
+/// Returns `{"models_file", "models_file_present", "models": [{"alias",
+/// "model", "source", "released", "backend"}]}`. `source` is `crate` or
+/// `file`; `backend` is the short name `backends=` takes, or `None` for a
+/// model that is only a definition today. The file is
+/// `~/.sc-agent/models.toml` (`%USERPROFILE%` when `HOME` is unset), or
+/// `models_file`; `run_check` reads the default file the same way, with the
+/// same rules as `sc-ai jev models`.
+///
+/// # Errors
+///
+/// Raises `JevError` (`CONFIG_INVALID`) for a malformed file.
+#[pyfunction]
+#[pyo3(signature = (models_file=None))]
+pub(crate) fn models(py: Python<'_>, models_file: Option<PathBuf>) -> PyResult<Py<PyAny>> {
+    let models_file = non_empty(models_file);
+    let listing = map_err(
+        py,
+        sc_jev_host::compose::list_models(
+            models_file.as_deref(),
+            &sc_agent_types::observability::v2::NoopGeneralLog,
+        ),
+    )?;
+    to_py(py, "models", serde_json::to_value(&listing))
 }
 
 /// Returns the default log root (`~/.sc-agent/log`).
@@ -1008,6 +1057,7 @@ mod tests {
             rev: "WORKTREE".to_owned(),
             log_dir: Some(logs.to_path_buf()),
             session_dir: Some(sessions.to_path_buf()),
+            models_file: None,
             system_prompt_file: None,
             chain_context: false,
             project: None,
@@ -1062,6 +1112,7 @@ mod tests {
             &Input::Check(PathBuf::from("check.toml")),
             Some(repo),
             "WORKTREE",
+            None,
         )
         .expect("build");
         assert!(built.payload.contains("Transition.GIVE_BACK"));
@@ -1073,6 +1124,7 @@ mod tests {
             &Input::Check(PathBuf::from("check.toml")),
             Some(repo),
             "WORKTREE",
+            None,
         )
         .expect("rebuild");
         assert_eq!(built.payload_sha256, again.payload_sha256);
@@ -1084,7 +1136,7 @@ mod tests {
     fn request_json_builds_the_same_payload_as_the_cli_document() {
         let repo = tempfile::tempdir().expect("repo");
         let input = Input::Request(REQUEST.as_bytes().to_vec());
-        let built = build(&input, Some(repo.path()), "WORKTREE").expect("build");
+        let built = build(&input, Some(repo.path()), "WORKTREE", None).expect("build");
         assert_eq!(
             built.payload,
             r#"{"questions":[{"choices":["no","yes"],"id":"relevant","prompt":"Does it apply?"}],"state":[]}"#
@@ -1128,8 +1180,7 @@ mod tests {
         std::fs::create_dir_all(&repo).expect("repo");
         let sentinel = "sentinel-question-text-not-for-logs";
         write_questions(&repo, sentinel);
-        let finished =
-            execute(run_spec(&repo, &logs, &sessions, "anthropic_haiku", false)).expect("run");
+        let finished = execute(run_spec(&repo, &logs, &sessions, "haiku", false)).expect("run");
         assert!(finished.session_id().is_some());
         assert!(finished.payload.contains(sentinel));
         assert!(!finished.system_prompt.as_deref().unwrap_or("").is_empty());
@@ -1137,12 +1188,12 @@ mod tests {
         assert_eq!(lines.len(), 1, "{lines:?}");
         assert!(lines[0].contains("judge"));
         assert!(lines[0].contains(finished.payload_sha256().as_str()));
-        assert!(lines[0].contains("anthropic_haiku"));
+        assert!(lines[0].contains("haiku"));
         assert!(!lines[0].contains(sentinel));
         assert!(!lines[0].to_ascii_lowercase().contains("api_key"));
         let follow = ask_live(&finished, "why?");
         let outcome = follow.expect("ask");
-        assert_eq!(outcome.backend(), BackendId::AnthropicHaiku);
+        assert_eq!(outcome.backend(), BackendId::Haiku);
         let lines = jsonl_lines(&logs);
         assert_eq!(lines.len(), 2, "{lines:?}");
         assert!(lines[1].contains("ask"));
@@ -1176,19 +1227,11 @@ mod tests {
     #[test]
     fn backend_ids_use_from_str_and_reject_kebab_aliases() {
         assert_eq!(
-            parse_backends(Some(&[
-                "jev".into(),
-                "anthropic_haiku".into(),
-                "openai_luna".into()
-            ]))
-            .expect("documented ids")
-            .expect("set")
-            .as_slice(),
-            [
-                BackendId::Jev,
-                BackendId::AnthropicHaiku,
-                BackendId::OpenAiLuna
-            ]
+            parse_backends(Some(&["jev".into(), "haiku".into(), "luna".into()]))
+                .expect("documented ids")
+                .expect("set")
+                .as_slice(),
+            [BackendId::Jev, BackendId::Haiku, BackendId::Luna]
         );
         assert!(parse_backends(None).expect("unset").is_none());
         for alias in ["anthropic-haiku", "openai-luna", "not-a-backend"] {
@@ -1211,6 +1254,7 @@ mod tests {
                 &Input::Check(PathBuf::from("check.toml")),
                 Some(root.path()),
                 rev,
+                None,
             )
             .err()
             .expect("malformed rev");
@@ -1294,6 +1338,7 @@ mod tests {
                 None,
                 Some(repo.clone()),
                 "WORKTREE",
+                None,
             )
             .expect("build_request");
             let digest: String = built
@@ -1312,6 +1357,7 @@ mod tests {
                 true,
                 Some(repo.clone()),
                 "WORKTREE",
+                None,
                 None,
                 None,
                 None,
@@ -1347,12 +1393,13 @@ mod tests {
                 None,
                 py.eval(c"{'relevant': 'yes'}", None, None)
                     .expect("answers"),
-                Some(vec!["anthropic_haiku".to_owned()]),
+                Some(vec!["haiku".to_owned()]),
                 false,
                 Some(repo.clone()),
                 "WORKTREE",
                 Some(logs.clone()),
                 Some(root.path().join("sessions")),
+                None,
                 None,
                 false,
                 None,
@@ -1368,7 +1415,7 @@ mod tests {
                 .expect("backend")
                 .extract()
                 .expect("str");
-            assert_eq!(backend, "anthropic_haiku");
+            assert_eq!(backend, "haiku");
             assert!(outcomes.is(live.outcomes(py)), "converted once");
             let session = live.session().expect("session");
             assert_eq!(Some(session.session_id()), live.session_id());
@@ -1472,6 +1519,7 @@ mod tests {
                 None,
                 Some(repo.to_path_buf()),
                 "WORKTREE",
+                None,
             )
             .expect_err("extractor output is not a subjects document");
             let code: String = error

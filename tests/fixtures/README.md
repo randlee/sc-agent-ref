@@ -129,8 +129,8 @@ not change.
 ### `request_sha256`
 
 `request_sha256` identifies an identical request, so a consumer can substitute a
-cached response. It is an object keyed by backend id (`jev`, `anthropic_haiku`,
-`openai_luna`) in `data.request_sha256`, `RunResponse::request_sha256()`,
+cached response. It is an object keyed by backend id (`jev`, `haiku`,
+`luna`) in `data.request_sha256`, `RunResponse::request_sha256()`,
 `CheckResult.request_sha256` and `build_request(...)["request_sha256"]`. Each
 value is the SHA-256 (lowercase hex, `sc-sha`) of the exact UTF-8 body of the
 first HTTP request that backend is sent, for the model it runs with:
