@@ -87,8 +87,10 @@ impl BackendDescriptor {
         self.default_model_alias
     }
 
-    /// The model this row names (equal to
-    /// `ModelAliases::builtin().latest(default_model_alias())`).
+    /// The model this row names: the alias's newest model
+    /// (`ModelAliases::builtin().latest(default_model_alias())`), except for
+    /// `jev`, whose default is [`ModelId::Jev`] (the latest, `jev-latest` on
+    /// the wire), not the newest known version.
     ///
     /// # Panics
     ///
@@ -116,7 +118,7 @@ pub(crate) const JEV: BackendDescriptor = BackendDescriptor {
     supports_session_ask: false,
     request_limit_bytes: 96_000,
     default_model_alias: "jev",
-    default_model: "jev-1.14.0",
+    default_model: "jev",
 };
 
 pub(crate) const HAIKU: BackendDescriptor = BackendDescriptor {

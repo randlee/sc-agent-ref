@@ -50,7 +50,7 @@ const CONTENT_TYPE: HeaderName = HeaderName::new("Content-Type");
 ///
 /// impl Transport for Scripted {
 ///     fn send(&self, request: &HttpRequest) -> Result<HttpResponse, JevError> {
-///         assert!(request.body().starts_with(r#"{"model":"jev-1.14.0","state":[],"questions":{"q":"#));
+///         assert!(request.body().starts_with(r#"{"model":"jev-latest","state":[],"questions":{"q":"#));
 ///         assert!(request.secret().expect("bearer").matches("test-key"));
 ///         Ok(HttpResponse::new(
 ///             200,

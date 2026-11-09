@@ -33,8 +33,8 @@ mod scripted;
 use sc_agent_secrets::{resolve_key, resolve_key_logged};
 use sc_agent_types::observability::v2::{GeneralEvent, NoopGeneralLog, SharedGeneralLog};
 use sc_agent_types::{
-    BackendId, BackendKeyId, BackendSet, JevError, ModelAliases, ModelId, ModelSource, RepoRoot,
-    ResolvedApiKey,
+    BackendFamily, BackendId, BackendKeyId, BackendSet, JevError, ModelAliases, ModelId,
+    ModelSource, RepoRoot, ResolvedApiKey,
 };
 use sc_decision_schema::JudgeBackend;
 use sc_jev::JevClient;
@@ -60,12 +60,21 @@ static FACTORIES: &[(BackendId, Factory)] = &[
 
 /// The model `id` runs with: `aliases.latest(descriptor.default_model_alias())`.
 ///
-/// `aliases` always holds the descriptor's alias (`ModelAliases` keeps its
-/// key set), so the catalog default is only a defensive answer.
+/// `jev` is the exception: it means the latest Jev model, sent as
+/// `jev-latest`, so it runs [`BackendDescriptor::default_model`]
+/// (`ModelId::Jev`) unless the alias was overridden (a `check.toml`
+/// `[models]` entry or a `jev-1.14.0` pin). A `models.toml` row for `jev`
+/// therefore only changes listing and what `jev` resolves to for display.
 pub(crate) fn model_for(id: BackendId, aliases: &ModelAliases) -> ModelId {
     let descriptor = id.descriptor();
+    let alias = descriptor.default_model_alias();
+    let latest_by_name = descriptor.family() == BackendFamily::TypeSafeJev
+        && aliases.source(alias) != Some(ModelSource::Override);
+    if latest_by_name {
+        return descriptor.default_model();
+    }
     aliases
-        .latest(descriptor.default_model_alias())
+        .latest(alias)
         .unwrap_or_else(|| descriptor.default_model())
 }
 

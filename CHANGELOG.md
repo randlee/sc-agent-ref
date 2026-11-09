@@ -16,7 +16,7 @@ First release. Channels once published: crates.io (ten crates), PyPI
   `luna` or a known model id of one of them; `anthropic_haiku`, `openai_luna`
   and the `open_ai_luna` / `open_ai` aliases are gone. `MODELS` and `ModelId`
   define `sonnet`, `opus`, `fable`, `terra`, `sol` and `astra` (not selectable
-  yet) and `jev-1.14.0`, now the `jev` default. `~/.sc-agent/models.toml`
+  yet) and `jev-1.14.0` (a pin; `jev` still means the latest). `~/.sc-agent/models.toml`
   adds models without recompiling; `sc-ai jev models` and
   `sc_jev_py.models()` list the resolved models and their source;
   `--models-file` reads another file. A local-only freshness test
