@@ -187,7 +187,9 @@ impl DecisionStream {
     ///
     /// Blocks while the bounded queue is full (the GIL is released). With
     /// `timeout` (seconds) it returns `False` if there was still no room
-    /// then. Raises `JevError` (`INPUT_INVALID`) for a bad `id` (1 to 256
+    /// then. `timeout` must be zero or more (NaN or negative is
+    /// `INPUT_INVALID`); `inf` or a value too large to represent means no
+    /// deadline. Raises `JevError` (`INPUT_INVALID`) for a bad `id` (1 to 256
     /// bytes, no control characters), text that is not JSON, or a closed or
     /// cancelled stream. `request` is the `--request-json` document as a dict
     /// or JSON text. Ids are not checked for uniqueness.
@@ -229,7 +231,7 @@ impl DecisionStream {
     /// The GIL is released while waiting.
     #[pyo3(signature = (timeout=None))]
     fn next(&self, py: Python<'_>, timeout: Option<f64>) -> PyResult<Option<Py<PyAny>>> {
-        let deadline = deadline_of(timeout);
+        let deadline = deadline_of(py, timeout)?;
         loop {
             let stream = Arc::clone(&self.inner);
             let slice = remaining(deadline, SLICE);
@@ -319,7 +321,7 @@ impl DecisionStream {
         timeout: Option<f64>,
         try_queue: impl Fn(&HostStream, Duration) -> Result<(), SubmitError> + Send + Sync,
     ) -> PyResult<bool> {
-        let deadline = deadline_of(timeout);
+        let deadline = deadline_of(py, timeout)?;
         loop {
             let slice = remaining(deadline, SLICE);
             let stream = &self.inner;
@@ -359,8 +361,27 @@ fn summary_dict(py: Python<'_>, summary: &StreamSummary) -> PyResult<Py<PyAny>> 
     Ok(dict.into_any().unbind())
 }
 
-fn deadline_of(timeout: Option<f64>) -> Option<Instant> {
-    timeout.map(|seconds| Instant::now() + Duration::from_secs_f64(seconds.max(0.0)))
+/// The one conversion of a Python `timeout` (seconds) at the boundary.
+///
+/// `None`, `inf` and any finite value too large for a `Duration` or an
+/// `Instant` mean no deadline. NaN and negative values are `INPUT_INVALID`
+/// naming `timeout`.
+fn deadline_of(py: Python<'_>, timeout: Option<f64>) -> PyResult<Option<Instant>> {
+    let Some(seconds) = timeout else {
+        return Ok(None);
+    };
+    if seconds.is_nan() || seconds < 0.0 {
+        return Err(to_py_err(
+            py,
+            &JevError::input_invalid_field(
+                "timeout",
+                "timeout must be a number of seconds, zero or more",
+            ),
+        ));
+    }
+    Ok(Duration::try_from_secs_f64(seconds)
+        .ok()
+        .and_then(|wait| Instant::now().checked_add(wait)))
 }
 
 fn expired(deadline: Option<Instant>) -> bool {

@@ -4,9 +4,10 @@
 //! generous failsafe deadline that turns a deadlock into a failure.
 
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::mpsc;
 use std::sync::{Arc, Condvar, Mutex, PoisonError};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use super::*;
 
@@ -62,12 +63,37 @@ fn pool_of<J: Send + 'static, A: Default + Send + 'static>(
     )
 }
 
+/// Polls `condition` every millisecond until it holds; fails with `what`
+/// after `FAILSAFE`.
+fn wait_until(what: &str, condition: impl Fn() -> bool) {
+    let deadline = Instant::now() + FAILSAFE;
+    while !condition() {
+        assert!(Instant::now() < deadline, "timed out waiting for: {what}");
+        thread::sleep(Duration::from_millis(1));
+    }
+}
+
+/// The next answer, failing clearly if none arrives within `FAILSAFE`.
+fn next<J: Send + 'static, A: Send + 'static>(pool: &WorkerPool<J, A>) -> Option<A> {
+    match pool.recv_within(Some(FAILSAFE)) {
+        Popped::Item(answer) => Some(answer),
+        Popped::Finished => None,
+        Popped::Empty => panic!("no answer within the failsafe"),
+    }
+}
+
 fn drain<J: Send + 'static, A: Send + 'static>(pool: &WorkerPool<J, A>) -> Vec<A> {
     let mut all = Vec::new();
-    while let Some(answer) = pool.recv() {
+    while let Some(answer) = next(pool) {
         all.push(answer);
     }
     all
+}
+
+/// Joins the workers after waiting (bounded) for all of them to exit.
+fn join<J: Send + 'static, A: Send + 'static>(pool: &WorkerPool<J, A>) {
+    wait_until("workers to exit", || pool.alive() == 0);
+    pool.join();
 }
 
 /// N jobs finish only if N workers are inside the run function at once.
@@ -88,7 +114,7 @@ fn workers_run_jobs_in_parallel_not_in_turn() {
         }
         pool.close_input();
         let mut answers = drain(&pool);
-        pool.join();
+        join(&pool);
         answers.sort_unstable();
         let expected: Vec<(usize, bool)> = (0..workers).map(|job| (job, true)).collect();
         assert_eq!(answers, expected, "{workers} workers must overlap");
@@ -111,44 +137,44 @@ fn a_slow_consumer_stops_the_producer_at_capacity() {
     let capacity = pool.capacity();
     assert_eq!(capacity, 2 * 2 + 3);
     let peak = Arc::new(AtomicUsize::new(0));
-    let producer = {
+    let (done_send, done_recv) = mpsc::channel();
+    {
         let pool = Arc::clone(&pool);
         let peak = Arc::clone(&peak);
-        thread::spawn(move || {
+        drop(thread::spawn(move || {
             for job in 0..JOBS {
                 if pool.submit(job, Some(FAILSAFE)).is_err() {
-                    return false;
+                    let _ = done_send.send(false);
+                    return;
                 }
                 peak.fetch_max(pool.in_flight(), Ordering::AcqRel);
             }
             pool.close_input();
-            true
-        })
-    };
-    // Consumer reads nothing until the pool is saturated.
-    let mut spins = 0_u32;
-    while pool.in_flight() < capacity {
-        thread::yield_now();
-        spins += 1;
-        assert!(spins < 50_000_000, "pool never saturated");
+            let _ = done_send.send(true);
+        }));
     }
+    // Consumer reads nothing until the pool is saturated.
+    wait_until("the pool to saturate", || pool.in_flight() >= capacity);
     assert_eq!(pool.in_flight(), capacity, "saturated at exactly capacity");
     // Now read everything, slowly: one answer at a time.
     let mut received = 0;
-    while pool.recv().is_some() {
+    while next(&pool).is_some() {
         received += 1;
         assert!(pool.in_flight() <= capacity);
     }
-    assert!(producer.join().expect("producer thread"));
-    pool.join();
-    assert_eq!(received, JOBS, "every job was answered");
-    // `received` is counted just after the pop that frees the room, so the
-    // producer's own sample can see the one answer the single consumer holds
-    // in between: the sampled peak is at most `capacity + 1`. The queues
-    // themselves are bounded by construction.
     assert!(
-        peak.load(Ordering::Acquire) <= capacity + 1,
-        "peak {} exceeded capacity {capacity} + 1",
+        done_recv
+            .recv_timeout(FAILSAFE)
+            .expect("the producer did not finish"),
+        "the producer was refused"
+    );
+    join(&pool);
+    assert_eq!(received, JOBS, "every job was answered");
+    // Counts are exact (atomic with push and pop) and sampled submitted-first,
+    // so a sample can read low but never above capacity.
+    assert!(
+        peak.load(Ordering::Acquire) <= capacity,
+        "peak {} exceeded capacity {capacity}",
         peak.load(Ordering::Acquire)
     );
 }
@@ -169,9 +195,7 @@ fn a_timed_submit_to_a_full_queue_returns_the_job() {
         |job, _| *job,
     );
     assert!(pool.submit(0, None).is_ok());
-    while pool.running() == 0 {
-        thread::yield_now();
-    }
+    wait_until("a worker to start", || pool.running() > 0);
     // The worker holds job 0; one job fits in the queue; the next does not.
     assert!(pool.submit(1, None).is_ok());
     match pool.submit(2, Some(Duration::from_millis(1))) {
@@ -181,7 +205,7 @@ fn a_timed_submit_to_a_full_queue_returns_the_job() {
     assert!(hold.arrive());
     pool.close_input();
     let mut answers = drain(&pool);
-    pool.join();
+    join(&pool);
     answers.sort_unstable();
     assert_eq!(answers, vec![0, 1]);
 }
@@ -209,15 +233,13 @@ fn cancel_skips_queued_jobs_and_refuses_new_ones() {
     for job in 0..4 {
         assert!(pool.submit(job, None).is_ok());
     }
-    while pool.running() == 0 {
-        thread::yield_now();
-    }
+    wait_until("a worker to start", || pool.running() > 0);
     pool.cancel();
     assert!(cancel.is_cancelled(), "the engine's token is the pool's");
     assert!(matches!(pool.submit(9, None), Err(PushError::Closed(9))));
     assert!(hold.arrive());
     let mut answers = drain(&pool);
-    pool.join();
+    join(&pool);
     answers.sort_by_key(|(job, _)| *job);
     assert_eq!(
         answers,
@@ -249,7 +271,7 @@ fn a_panicking_job_is_answered_and_the_worker_survives() {
     }
     pool.close_input();
     let answers = drain(&pool);
-    pool.join();
+    join(&pool);
     assert_eq!(
         answers,
         vec![(0, None), (1, Some(Skipped::Panicked)), (2, None)]
@@ -274,8 +296,8 @@ fn finished_needs_closed_input_empty_queue_and_idle_workers() {
     ));
     assert_eq!(pool.alive(), 2);
     pool.close_input();
-    assert!(pool.recv().is_none());
-    pool.join();
+    assert!(next(&pool).is_none());
+    join(&pool);
     assert_eq!(pool.alive(), 0);
     assert_eq!(pool.running(), 0);
 }
@@ -289,7 +311,7 @@ fn abandon_releases_workers_blocked_on_a_full_answer_queue() {
         assert!(pool.submit(job, Some(FAILSAFE)).is_ok());
     }
     pool.abandon();
-    pool.join();
+    join(&pool);
     assert_eq!(pool.alive(), 0);
 }
 
@@ -315,7 +337,7 @@ fn a_panicking_skipped_function_still_gives_one_answer_per_job() {
     }
     pool.close_input();
     let answers = drain(&pool);
-    pool.join();
+    join(&pool);
     assert_eq!(answers, vec![(0, "ran"), (1, "lost"), (2, "ran")]);
     assert_eq!(pool.alive(), 0);
 }
@@ -334,7 +356,7 @@ fn a_dead_worker_still_lets_the_stream_finish() {
     );
     assert!(pool.submit(0, Some(FAILSAFE)).is_ok());
     pool.close_input();
-    assert!(pool.recv().is_none(), "no answer, but the stream ends");
-    pool.join();
+    assert!(next(&pool).is_none(), "no answer, but the stream ends");
+    join(&pool);
     assert_eq!(pool.alive(), 0);
 }

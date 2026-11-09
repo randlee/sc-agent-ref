@@ -61,6 +61,10 @@ struct QueueState<T> {
     closed: bool,
     /// Nobody will pop: pushes are refused and queued items are dropped.
     discarded: bool,
+    /// Items ever pushed, counted under this lock with the push itself.
+    pushed: usize,
+    /// Items ever popped, counted under this lock with the pop itself.
+    popped: usize,
 }
 
 /// Why a push did not enqueue; the item comes back.
@@ -88,6 +92,8 @@ impl<T> BoundedQueue<T> {
                 items: VecDeque::new(),
                 closed: false,
                 discarded: false,
+                pushed: 0,
+                popped: 0,
             }),
             not_empty: Condvar::new(),
             not_full: Condvar::new(),
@@ -111,6 +117,7 @@ impl<T> BoundedQueue<T> {
             }
             if state.items.len() < self.capacity {
                 state.items.push_back(item);
+                state.pushed += 1;
                 drop(state);
                 self.not_empty.notify_one();
                 return Ok(());
@@ -140,6 +147,7 @@ impl<T> BoundedQueue<T> {
         let mut state = self.lock();
         loop {
             if let Some(item) = state.items.pop_front() {
+                state.popped += 1;
                 drop(state);
                 self.not_full.notify_one();
                 return Popped::Item(item);
@@ -166,6 +174,14 @@ impl<T> BoundedQueue<T> {
         }
     }
 
+    fn pushed(&self) -> usize {
+        self.lock().pushed
+    }
+
+    fn popped(&self) -> usize {
+        self.lock().popped
+    }
+
     fn close(&self) {
         self.lock().closed = true;
         self.not_empty.notify_all();
@@ -183,12 +199,8 @@ impl<T> BoundedQueue<T> {
     }
 }
 
-/// Jobs accepted but whose answer was not yet received.
+/// Counters that are not tied to a queue lock.
 struct Counters {
-    /// Pushed to the job queue.
-    submitted: AtomicUsize,
-    /// Taken off the answer queue by [`WorkerPool::recv`].
-    received: AtomicUsize,
     /// Workers currently running a job.
     running: AtomicUsize,
     /// Workers still alive.
@@ -229,8 +241,6 @@ impl<J: Send + 'static, A: Send + 'static> WorkerPool<J, A> {
         let jobs = Arc::new(BoundedQueue::new(queue_capacity));
         let answers = Arc::new(BoundedQueue::new(queue_capacity));
         let counters = Arc::new(Counters {
-            submitted: AtomicUsize::new(0),
-            received: AtomicUsize::new(0),
             running: AtomicUsize::new(0),
             alive: AtomicUsize::new(workers),
         });
@@ -264,9 +274,7 @@ impl<J: Send + 'static, A: Send + 'static> WorkerPool<J, A> {
         if self.cancel.is_cancelled() {
             return Err(PushError::Closed(job));
         }
-        self.jobs.push(job, wait)?;
-        self.counters.submitted.fetch_add(1, Ordering::AcqRel);
-        Ok(())
+        self.jobs.push(job, wait)
     }
 
     /// No more jobs will be submitted; the pool finishes when it drains.
@@ -290,18 +298,18 @@ impl<J: Send + 'static, A: Send + 'static> WorkerPool<J, A> {
 
     /// Waits at most `wait` (forever when `None`) for the next answer.
     pub(crate) fn recv_within(&self, wait: Option<Duration>) -> Popped<A> {
-        let popped = self.answers.pop(wait);
-        if matches!(popped, Popped::Item(_)) {
-            self.counters.received.fetch_add(1, Ordering::AcqRel);
-        }
-        popped
+        self.answers.pop(wait)
     }
 
-    /// Jobs submitted whose answer was not yet received. A sample taken from
-    /// a thread other than the receiver can be one too high for an instant.
+    /// Jobs submitted whose answer was not yet received.
+    ///
+    /// Both counts are kept under their queue's lock, atomic with the push
+    /// and the pop. They are read one after the other, `submitted` first, so
+    /// the sample can read **low** (a job was submitted in between) but never
+    /// high: it never exceeds [`Self::capacity`].
     pub(crate) fn in_flight(&self) -> usize {
-        let submitted = self.counters.submitted.load(Ordering::Acquire);
-        let received = self.counters.received.load(Ordering::Acquire);
+        let submitted = self.jobs.pushed();
+        let received = self.answers.popped();
         submitted.saturating_sub(received)
     }
 

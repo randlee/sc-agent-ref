@@ -128,7 +128,8 @@ class DecisionStream:
 
         An unread answer holds a place: past `capacity` unread answers a single
         thread blocks forever unless it reads from another thread or passes
-        `timeout=`.
+        `timeout=`. `timeout` is seconds, zero or more: NaN or negative is
+        `INPUT_INVALID` (field `timeout`); `inf` or a huge value means no deadline.
         """
     def submit_line(self, line: str, *, timeout: float | None = None) -> bool:
         """Queue one `{"id", "request"}` JSONL line, as `sc-ai jev stream` reads it."""

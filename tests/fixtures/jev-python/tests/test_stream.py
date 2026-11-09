@@ -233,3 +233,31 @@ def test_the_gil_is_released_while_waiting_for_an_answer(tmp_path: Path) -> None
     assert isinstance(answer, dict) and answer["id"] == "from-main"
     stream.close_input()
     assert stream.next(timeout=FAILSAFE) is None
+
+
+@pytest.mark.parametrize("bad", [float("nan"), -1.0, -0.5])
+def test_a_nan_or_negative_timeout_is_input_invalid(tmp_path: Path, bad: float) -> None:
+    stream = _stream(tmp_path)
+    for call in (
+        lambda: stream.submit("a", REQUEST, timeout=bad),
+        lambda: stream.submit_line("{}", timeout=bad),
+        lambda: stream.next(timeout=bad),
+    ):
+        with pytest.raises(sc_jev_py.JevError) as caught:
+            call()
+        assert caught.value.code == "INPUT_INVALID"
+        assert caught.value.field == "timeout"
+    assert stream.in_flight == 0
+    stream.close_input()
+
+
+@pytest.mark.parametrize("huge", [float("inf"), 1e19, 1.7976931348623157e308])
+def test_an_infinite_or_huge_timeout_means_no_deadline(tmp_path: Path, huge: float) -> None:
+    """`inf` and values too large for a deadline must not panic."""
+    stream = _stream(tmp_path)
+    assert stream.submit("a", REQUEST, timeout=huge) is True
+    assert stream.submit_line('{"id":"b","request":{"questions":[]}}', timeout=huge) is True
+    got = {stream.next(timeout=huge)["id"], stream.next(timeout=huge)["id"]}
+    assert got == {"a", "b"}
+    stream.close_input()
+    assert stream.next(timeout=huge) is None
