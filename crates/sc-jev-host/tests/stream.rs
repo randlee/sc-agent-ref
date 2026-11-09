@@ -783,3 +783,200 @@ fn concurrent_workers_write_whole_session_log_rows() {
     assert_eq!(rows.len(), count, "one row per send");
     assert!(!log.contains("\"prompt\""), "no prompt text in the log");
 }
+
+/// A parallel stream writes a real general log: every row is whole JSON, the
+/// stream's own rows carry the stream's id and counts, and each request is a
+/// run with its own `run_id` that picks out its rows (the engine's included)
+/// and ties them to the caller's request id. Prompt text never appears.
+#[test]
+fn a_parallel_stream_writes_a_whole_general_log_correlated_by_run_id() {
+    const MARKER: &str = "PROMPT-MARKER-7f3a9c";
+    const COUNT: usize = 40;
+    let repo = tempfile::tempdir().expect("repo");
+    let failing = Arc::new(
+        MockJudgeBackend::new(BackendId::AnthropicHaiku, answers())
+            .with_failure(JevError::network(NetworkErrorKind::Timeout, "slow")),
+    );
+    let ok = HeldJudge::new(BackendId::Jev, Hold::None);
+    let stream = start(&repo, registry(vec![ok, failing]), 8);
+    let good = format!(r#"{{"questions":[{{"id":"q","prompt":"{MARKER}","choices":["a","b"]}}]}}"#);
+    let partial = format!(
+        r#"{{"questions":[{{"id":"q","prompt":"{MARKER}","choices":["a","b"]}}],"backends":["jev","anthropic_haiku"]}}"#
+    );
+    let reader = {
+        let stream = Arc::clone(&stream);
+        let (send, recv) = mpsc::channel();
+        drop(thread::spawn(move || {
+            let _ = send.send(drain(&stream).len());
+        }));
+        recv
+    };
+    for index in 0..COUNT {
+        let id = format!("g{index}");
+        let body = match index % 10 {
+            3 => r#"{"questions":[]}"#.to_owned(),
+            7 => partial.clone(),
+            _ => good.clone(),
+        };
+        let request = StreamRequest::new(&id, &body).expect("request");
+        stream
+            .submit_request(request, Some(FAILSAFE))
+            .expect("submit");
+    }
+    stream.close_input();
+    assert_eq!(
+        reader
+            .recv_timeout(FAILSAFE)
+            .expect("the reader did not finish"),
+        COUNT
+    );
+    let summary = bounded("finish", {
+        let stream = Arc::clone(&stream);
+        move || stream.finish()
+    });
+    assert_eq!(summary.answered(), COUNT as u64);
+
+    let text = std::fs::read_to_string(repo.path().join(".sc-ai/logs/sc-ai-general.log.jsonl"))
+        .expect("general log");
+    assert!(!text.contains(MARKER), "prompt text must never be logged");
+    let rows: Vec<Value> = text
+        .lines()
+        .map(|row| serde_json::from_str(row).expect("every row is whole JSON"))
+        .collect();
+    let action = |row: &Value| row["action"].as_str().unwrap_or_default().to_owned();
+    let field = |row: &Value, key: &str| row["fields"][key].clone();
+
+    // The stream's own rows share one id and carry the counts.
+    let start_row = rows
+        .iter()
+        .find(|row| action(row) == "stream.start")
+        .expect("stream.start");
+    let end_row = rows
+        .iter()
+        .find(|row| action(row) == "stream.end")
+        .expect("stream.end");
+    let stream_id = field(start_row, "run_id");
+    assert_eq!(field(end_row, "run_id"), stream_id);
+    assert_eq!(field(start_row, "stream_id"), stream_id);
+    assert_eq!(field(start_row, "workers"), 8);
+    assert_eq!(field(end_row, "answered"), COUNT);
+    assert_eq!(field(end_row, "failed"), 8, "4 empty + 4 partial");
+
+    // Each request is a run with its own run_id.
+    let mut run_ids = BTreeSet::new();
+    for index in 0..COUNT {
+        let id = format!("g{index}");
+        let started = rows
+            .iter()
+            .filter(|row| {
+                action(row) == "stream.request.start" && field(row, "request_id") == id.as_str()
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(started.len(), 1, "{id}");
+        let run_id = field(started[0], "run_id");
+        assert!(run_ids.insert(run_id.to_string()), "run ids are unique");
+        assert_ne!(run_id, stream_id);
+        let run_rows: Vec<&Value> = rows
+            .iter()
+            .filter(|row| field(row, "run_id") == run_id)
+            .collect();
+        if index % 10 == 3 {
+            // Rejected at parse: started, then failed, in its own run.
+            let failed = run_rows
+                .iter()
+                .find(|row| action(row) == "stream.request.failed")
+                .unwrap_or_else(|| panic!("{id}: no failed row"));
+            assert_eq!(field(failed, "stage"), "parse");
+            assert_eq!(field(failed, "error_code"), "INPUT_INVALID");
+            assert_eq!(field(failed, "stream_id"), stream_id);
+            assert_eq!(field(failed, "request_id"), id.as_str());
+            continue;
+        }
+        let actions: Vec<String> = run_rows.iter().map(|row| action(row)).collect();
+        for expected in [
+            "stream.request.start",
+            "run.start",
+            "run.done",
+            "stream.request.done",
+        ] {
+            assert!(
+                actions.iter().any(|a| a == expected),
+                "{id}: {expected} in {actions:?}"
+            );
+        }
+        assert!(
+            run_rows
+                .iter()
+                .all(|row| row["fields"].get("request_id").is_none()
+                    || field(row, "request_id") == id.as_str()),
+            "{id}: a row of another request has this run_id"
+        );
+        let done = run_rows
+            .iter()
+            .find(|row| action(row) == "stream.request.done")
+            .expect("done");
+        if index % 10 == 7 {
+            assert_eq!(field(done, "ok"), false, "{id}");
+            let backend = run_rows
+                .iter()
+                .find(|row| action(row) == "stream.request.backend_failed")
+                .unwrap_or_else(|| panic!("{id}: no backend_failed row"));
+            assert_eq!(field(backend, "backend"), "anthropic_haiku");
+            assert_eq!(field(backend, "error_code"), "NETWORK_ERROR");
+        } else {
+            assert_eq!(field(done, "ok"), true, "{id}");
+        }
+        assert!(field(done, "duration_ms").is_u64(), "{id}");
+    }
+    assert_eq!(run_ids.len(), COUNT, "one run per request");
+
+    // The session log is whole too: one row per send (36 jev + 4 haiku).
+    let session = std::fs::read_to_string(repo.path().join(".sc-ai/logs/sc-ai.log.jsonl"))
+        .expect("session log");
+    let session_rows: Vec<Value> = session
+        .lines()
+        .map(|row| serde_json::from_str(row).expect("whole session row"))
+        .collect();
+    assert_eq!(session_rows.len(), COUNT - 4 + 4);
+}
+
+/// Injected logs replace the defaults: the stream's events reach the injected
+/// general log, no default log file is opened, and the caller owns the flush.
+#[test]
+fn injected_logs_replace_the_defaults() {
+    use sc_agent_types::observability::v2::{NoopSessionLog, RecordingGeneralLog};
+    let repo = tempfile::tempdir().expect("repo");
+    let recording = RecordingGeneralLog::new();
+    let stream = Arc::new(
+        DecisionStream::start(
+            inputs(
+                repo.path(),
+                registry(vec![HeldJudge::new(BackendId::Jev, Hold::None)]),
+            )
+            .general_log(Arc::new(recording.clone()))
+            .session_log(Arc::new(NoopSessionLog)),
+            Concurrency::new(2).expect("2"),
+        )
+        .expect("start"),
+    );
+    stream.submit_request(req("one"), None).expect("submit");
+    stream.close_input();
+    assert_eq!(drain(&stream).len(), 1);
+    let _ = bounded("finish", {
+        let stream = Arc::clone(&stream);
+        move || stream.finish()
+    });
+    let actions = recording.actions();
+    for expected in [
+        "stream.start",
+        "stream.request.start",
+        "run.done",
+        "stream.end",
+    ] {
+        assert!(actions.contains(&expected), "{expected} in {actions:?}");
+    }
+    assert!(
+        !repo.path().join(".sc-ai/logs").exists(),
+        "an injected pair opens no default log file"
+    );
+}

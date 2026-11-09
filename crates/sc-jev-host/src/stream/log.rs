@@ -40,7 +40,7 @@ use sc_agent_types::observability::v2::{
 };
 use sc_jev_check::run::{BackendStatus, RunResponse};
 
-const TARGET: &str = "sc_jev_host::stream";
+const TARGET: &str = "host.stream";
 
 /// Lifecycle events of one stream.
 pub(crate) struct StreamLog {

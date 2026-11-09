@@ -2273,10 +2273,18 @@ queries, so callers do not spawn a process per query.
   failure; it installs no signal handler (SIGINT ends the process, as for
   `jev run`).
 - (Active) **Logging.** All workers share one session logger (one writer;
-  concurrent writing is `sc-observability`'s). Lifecycle events (queue start
-  and end, worker counts, per-request start and failure ids and error codes)
-  go through the general-log port behind one internal seam
-  (`stream/log.rs`). Never a secret, a prompt, a question or state.
+  concurrent writing is `sc-observability`'s) and one general logger. An
+  injected `ComposeInputs::session_log` or `general_log` is used (its flush is
+  the caller's); otherwise the defaults under the log root are opened once and
+  flushed by `finish`. The stream has its own `run_id` (on `stream.start` and
+  `stream.end`, with worker counts, answered and failed counts and the
+  duration). **Each request is a run with its own `run_id`**, stamped on every
+  event of that request, the engine's included, together with the stream's id
+  and the caller's `request_id`; `stream.request.start`, `.done` (with
+  `duration_ms`), `.failed` (typed `error_code`, coarse `stage`) and
+  `.backend_failed` (backend id and `error_code`) are the rows. Never a prompt,
+  a question, state or a secret; a request id is caller text, so it must
+  carry no secret. All of it goes through `stream/log.rs`.
 - (Active) **Lifecycle edges.** `finish` closes the input and drops unread
   answers instead of waiting for a reader, so it never hangs on them. An
   unread answer holds capacity: a caller that submits more than `capacity`
