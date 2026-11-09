@@ -11,6 +11,9 @@ First release. Channels once published: crates.io (ten crates), PyPI
 
 ### Added
 
+- `sc_jev_py.ask(session_id, follow_up, *, project, repo_root, session_dir,
+  log_dir, models_file, session_log, general_log)` resumes a stored session by
+  ULID, from any process, through the same `ask_from` as `sc-ai jev ask`.
 - Short backend names and a model catalog (bead agt-akp, closes agt-ho2).
   `--backend`, `backends=` and `check.toml` `backends` take `jev`, `haiku`,
   `luna` or a known model id of one of them; `anthropic_haiku`, `openai_luna`
@@ -179,6 +182,9 @@ First release. Channels once published: crates.io (ten crates), PyPI
 
 ### Changed
 
+- Release kit re-pinned again to sc-publish `44cebf2`; the Windows `RUSTFLAGS`
+  re-qualification is done (ADR-SAG-0023 amendment). CI's `darwin-link` and
+  macOS wheel jobs run on `macos-15` (`macos-14` is unsupported).
 - Release kit re-pinned to sc-publish `34dab3f`. Scoop now shims both `sc-ai`
   and `sc-treesitter` (`[channels.scoop].binaries`; bead
   `agt-scoop-multi-shim` resolved). The kit pins Komac 2.16.0 for WinGet

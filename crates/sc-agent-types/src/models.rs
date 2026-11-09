@@ -54,9 +54,9 @@ pub enum ModelId {
     /// `jev`: the latest TypeSafe Jev model, whichever version that is.
     ///
     /// sc-agent accepts `jev` or any supported version such as
-    /// `jev-1.13.0`. `jev` follows the vendor's latest release, so an API
+    /// `jev-1.14.0` (the newest row; `jev-1.13.0` is older). `jev` follows the vendor's latest release, so an API
     /// change this build does not know can break it; that is expected, and
-    /// the remedy is upgrading sc-agent. Pin a version (`jev-1.13.0`) to
+    /// the remedy is upgrading sc-agent. Pin a version (`jev-1.14.0`) to
     /// avoid the exposure. The wire value `jev` is sent as is decided in one
     /// place, `sc_decision_schema::jev::v1::wire_model`.
     Jev,

@@ -964,6 +964,10 @@ pub(crate) mod testing {
         session_log=None,
         general_log=None,
     ))]
+    #[cfg_attr(
+        not(feature = "test-util"),
+        expect(dead_code, reason = "registered only by the test-util module")
+    )]
     #[expect(clippy::too_many_arguments, reason = "Python keyword API")]
     pub(crate) fn ask_scripted(
         py: Python<'_>,

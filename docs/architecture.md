@@ -131,14 +131,14 @@ own row's Status cell and its own marker text, and added or removed no entry).
 | ADR-SAG-0004 | One check, one request | Active | Amended by ADR-SAG-0025 (Active, r-2b) |
 | ADR-SAG-0005 | Facade owns payload assembly | Active | Amended by ADR-SAG-0024 (Active, r-2); A.1 subsections (Active, r-4), (Active, r-5); ADR-SAG-0030 (Active, r-7) |
 | ADR-SAG-0006 | Transport injection | Active | Amended by ADR-SAG-0026 (Active, r-3) |
-| ADR-SAG-0007 | API-direct LLM backends | Active (r-3; retry numbers phase-end) | Amended by ADR-SAG-0026 (Active, r-3) |
+| ADR-SAG-0007 | API-direct LLM backends | Active (r-3; retry numbers phase-end) | Amended by ADR-SAG-0026 (Active, r-3); ADR-SAG-0032 (Active, agt-1aq) |
 | ADR-SAG-0008 | Sessions carry prior answers to later backends | Active | A.1 subsection (Active, r-1); amended by ADR-SAG-0025 (Active, r-2b); ADR-SAG-0031 (Active, r-6) |
 | ADR-SAG-0009 | Local backend registers without caller changes | Active | Amended by ADR-SAG-0022; ADR-SAG-0027 (Active, r-1); ADR-SAG-0024 (Active, r-2); ADR-SAG-0030 (Active, r-7) |
 | ADR-SAG-0010 | CLI thin adapter | Active | Amended by ADR-SAG-0026 (Active, r-3b) |
 | ADR-SAG-0011 | Python via sc-jev-py wheel | Active | Amended by ADR-SAG-0026 (Active, r-3b) |
 | ADR-SAG-0012 | sc-jev owns Jev API | Active | Amended by ADR-SAG-0030 (Active, r-5) |
-| ADR-SAG-0013 | Session and general logs via sc-observability v2 | Active | Amended by ADR-SAG-0021; ADR-SAG-0026 (Active, r-3b); ADR-SAG-0031 (Active, r-6); general log (Active, 2026-11-09, agt-9eh) |
-| ADR-SAG-0014 | CLI success body | Active | A.1 subsection (Active, r-1); amended by ADR-SAG-0024 (Active, r-2) |
+| ADR-SAG-0013 | Session and general logs via sc-observability v2 | Active | Amended by ADR-SAG-0021; ADR-SAG-0026 (Active, r-3b); ADR-SAG-0031 (Active, r-6); general log (Active, 2026-11-09, agt-9eh); ADR-SAG-0032 (Active, agt-1aq: row admission waits, bounded) |
+| ADR-SAG-0014 | CLI success body | Active | A.1 subsection (Active, r-1); amended by ADR-SAG-0024 (Active, r-2); ADR-SAG-0032 (Active, agt-1aq) |
 | ADR-SAG-0015 | Subjects artifact outside the judge | Active | — |
 | ADR-SAG-0016 | v2 shim in sc-agent-types; adapter in sc-jev-host | Active | Amended by ADR-SAG-0023 (Active, r-4); ADR-SAG-0027 (Active, r-1); ADR-SAG-0026 (Active, r-3b); ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6) |
 | ADR-SAG-0017 | First release surfaces | Active | Amended by ADR-SAG-0023 (Active, r-4); ADR-SAG-0026 (Active, r-3), (Active, r-3b); ADR-SAG-0030 (Active, r-7) |
@@ -151,11 +151,11 @@ own row's Status cell and its own marker text, and added or removed no entry).
 | ADR-SAG-0024 | Engine entry point and response contract | Active (r-2) | Amends ADR-SAG-0003, ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0014, ADR-SAG-0019, ADR-SAG-0022; supersedes the ADR-SAG-0014 A.1 r-1 interim subsection |
 | ADR-SAG-0025 | Multi-backend semantics and equal-input attestation | Active (r-2b) | Amends ADR-SAG-0004, ADR-SAG-0008, ADR-SAG-0019, ADR-SAG-0022; amended by agt-2a3 (all-failed runs keep every error) (Active) |
 | ADR-SAG-0026 | Shared HTTP crate and host crate | Active (HTTP half, r-3, amended 2026-11-09 agt-9eh: `secret` and `obs`; host half, r-3b) | Amends ADR-SAG-0006, ADR-SAG-0007, ADR-SAG-0020, ADR-SAG-0017 (HTTP half); ADR-SAG-0010, ADR-SAG-0011, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0017 (host half); amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6); agt-2a3 provider failure classification (Active); ADR-SAG-0032 (Active, agt-1aq: `sc-jev-host` gains `stream` and a direct `serde` edge) |
-| ADR-SAG-0027 | Error taxonomy and extensibility | Active (r-1) | Amends ADR-SAG-0001, ADR-SAG-0009, ADR-SAG-0016; amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6); agt-2a3 error contract (Active) |
+| ADR-SAG-0027 | Error taxonomy and extensibility | Active (r-1) | Amends ADR-SAG-0001, ADR-SAG-0009, ADR-SAG-0016; amended by ADR-SAG-0030 (Active, r-7); ADR-SAG-0031 (Active, r-6); agt-2a3 error contract (Active); agt-akp (Active) |
 | ADR-SAG-0028 | workspace-tests crate | Active (r-3b) | Amended by ADR-SAG-0030 (Active, r-7) |
 | ADR-SAG-0029 | Phase A hardening amendments | Active (a-10) | Amends ADR-SAG-0020 and ADR-SAG-0022; A.1 supersedes named sentences of (a) (Active, r-1), (Active, r-3) and of (b) (Active, r-1), (Active, r-2) |
-| ADR-SAG-0030 | Decision schema crate and model catalog | Active (r-7); jev::v1 (Active, r-5) | Amends ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0012, ADR-SAG-0016, ADR-SAG-0017, ADR-SAG-0019, ADR-SAG-0022, ADR-SAG-0026, ADR-SAG-0027, ADR-SAG-0028 |
-| ADR-SAG-0031 | Session log storage schema | Active (r-7 storage schema, r-6 wiring) | Amends ADR-SAG-0008, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0026, ADR-SAG-0027 (wiring) |
+| ADR-SAG-0030 | Decision schema crate and model catalog | Active (r-7); jev::v1 (Active, r-5) | Amends ADR-SAG-0005, ADR-SAG-0009, ADR-SAG-0012, ADR-SAG-0016, ADR-SAG-0017, ADR-SAG-0019, ADR-SAG-0022, ADR-SAG-0026, ADR-SAG-0027, ADR-SAG-0028; agt-akp (Active) |
+| ADR-SAG-0031 | Session log storage schema | Active (r-7 storage schema, r-6 wiring) | Amends ADR-SAG-0008, ADR-SAG-0013, ADR-SAG-0016, ADR-SAG-0026, ADR-SAG-0027 (wiring); ADR-SAG-0027 agt-2a3 (`details.log_flush_failure` supersedes the r-6 "error detail" text) |
 | ADR-SAG-0032 | Streaming decision calls | Active (agt-1aq) | Amends ADR-SAG-0014 (one envelope per run), ADR-SAG-0026 (host crate gains `stream` and a direct `serde` edge); uses ADR-SAG-0013, ADR-SAG-0024, ADR-SAG-0027 |
 
 ## ADR-SAG-0001 — Error enum is CLI authority
@@ -912,7 +912,8 @@ preflight CI, and publish dry-run).
   Scoop: the upstream change landed in sc-publish as
   https://github.com/randlee/sc-publish/pull/176 (optional
   `[channels.scoop].binaries`; the owner directed a PR instead of an issue).
-  sc-agent has re-pinned the kit (sc-publish `34dab3f`) and sets
+  sc-agent has re-pinned the kit (sc-publish `34dab3f`; now `44cebf2`, see the ADR-SAG-0023
+  amendment) and sets
   `binaries = ["sc-ai", "sc-treesitter"]`, so Scoop shims both. Bead
   `agt-scoop-multi-shim` is resolved.
 
@@ -1191,6 +1192,10 @@ the module** and drop the types dependency if possible (bead:
   the row's `answer_id` and `correlation_id` is the session id (both ULIDs,
   built through serde because `sc-observability-types` is not a direct
   dependency), and the level follows `send_outcome` (ADR-SAG-0013 r-6).
+- (Active, agt-1aq) **Row admission waits, bounded.** The runtime queue can be
+  full at stream rates; a row waits for room (bounded) instead of being
+  dropped, and a row dropped after the bound is counted. See ADR-SAG-0032
+  (older text above, "there is no queue", describes injected callables).
 
 ## ADR-SAG-0014 — CLI success body
 
@@ -1473,6 +1478,10 @@ comparison flows.
   matrix is six wheels (Linux, macOS and Windows on x86_64 and arm64,
   `cp310-abi3`; amended agt-9eh from `abi3-py311`), declared in `release/sc-publish-consumer-input.json`
   (REQ-SAG-0802). Operational notes: `docs/development/sc-publish.md`.
+- (Active, 2026-11, fix/py-ask) **Kit re-pin amendment.** The pin is now
+  sc-publish `44cebf2` (was `34dab3f`). The re-qualification trigger above is
+  done for this bump: `.cargo/config.toml` `RUSTFLAGS` handling is unchanged
+  by the kit bump. The evidence is CI's Windows and wheel jobs on this stack.
 
 ## ADR-SAG-0024 — Engine entry point and response contract
 
@@ -2200,7 +2209,8 @@ Owner decisions 2026-11-07.
 - (Active, phase-end digests) **`ModelId::Jev` is a floating variant with no
   `MODELS` row.** It names the latest Jev model, not one release, so it has no
   release date and must not become the `jev` alias default
-  (`ModelAliases::latest("jev")` stays the newest pinned row, `jev-1.13.0`);
+  (`ModelAliases::latest("jev")` stays the newest pinned row, `jev-1.14.0`;
+  this said `jev-1.13.0` before `jev-1.14.0` was added);
   `ModelId::family()` answers `TypeSafeJev` for it directly. It may break on
   an API change this build does not know; that is expected and the remedy is
   upgrading sc-agent. Cache keys made with `jev` can go stale when Jev moves
@@ -2391,10 +2401,14 @@ ADR-SAG-0027 (an r-6 subsection in each). Owner decisions 2026-11-07.
   is a `data.warnings` entry (plan.md owner decisions 2026-11-07, item 9).
 - (Active, r-6) On the error path (`run` or `ask` returned an error) the log is
   still flushed; a flush failure there is appended once to the error detail
+  (superseded by ADR-SAG-0027 agt-2a3: it is `details.log_flush_failure`)
   and the error code is unchanged, because no response exists to carry a
   `data.warnings` entry.
 
 ## ADR-SAG-0032 — Streaming decision calls
+
+Amends ADR-SAG-0026 (host crate gains `stream`) and ADR-SAG-0014 (one
+envelope per run); see the index.
 
 **Status:** Active (agt-1aq). Owner decision 2026-11-08: streaming is a small
 change, not a redesign. One `sc-ai` instance answers thousands of decision
