@@ -15,10 +15,9 @@ fn key() -> ResolvedApiKey {
 fn test_jev_model_id_is_configured_model() {
     // The packaged config takes the catalog default, not a `jev.toml` key.
     let packaged = JevClientConfig::packaged();
-    assert_eq!(
-        packaged.model(),
-        &ModelAliases::builtin().latest("jev").expect("jev alias")
-    );
+    // `jev` means the latest: `ModelId::Jev`, `jev-latest` on the wire.
+    assert_eq!(packaged.model(), &ModelId::Jev);
+    assert!(ModelAliases::builtin().latest("jev").is_some());
     let default = JevClient::new(key(), ScriptedTransport::responses(Vec::new()));
     assert_eq!(
         default.model_id(),

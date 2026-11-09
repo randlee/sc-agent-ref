@@ -80,6 +80,7 @@ def build_request(
     request_json: str | bytes | None = None,
     repo_root: StrPath | None = None,
     rev: str = "WORKTREE",
+    models_file: StrPath | None = None,
 ) -> dict[str, Any]: ...
 def run_check(
     check_path: StrPath | None = None,
@@ -91,6 +92,7 @@ def run_check(
     rev: str = "WORKTREE",
     log_dir: StrPath | None = None,
     session_dir: StrPath | None = None,
+    models_file: StrPath | None = None,
     system_prompt_file: StrPath | None = None,
     chain_context: bool = False,
     project: str | None = None,
@@ -130,6 +132,7 @@ class DecisionStream:
         repo_root: StrPath | None = None,
         log_dir: StrPath | None = None,
         session_dir: StrPath | None = None,
+        models_file: StrPath | None = None,
         system_prompt_file: StrPath | None = None,
         chain_context: bool = False,
         project: str | None = None,
@@ -179,6 +182,7 @@ def run_many(
     repo_root: StrPath | None = None,
     log_dir: StrPath | None = None,
     session_dir: StrPath | None = None,
+    models_file: StrPath | None = None,
     system_prompt_file: StrPath | None = None,
     chain_context: bool = False,
     project: str | None = None,

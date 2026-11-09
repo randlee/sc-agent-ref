@@ -174,3 +174,42 @@ fn test_bare_jev_is_the_latest_model() {
         Some(ModelId::Jev1_14_0)
     );
 }
+
+/// An alias takes only ids of its own family, by prefix (file rows,
+/// `check.toml` `[models]` and pins all go through these two methods).
+#[test]
+fn test_alias_takes_only_its_own_family() {
+    let base = ModelAliases::builtin();
+    for (alias, id) in [
+        ("haiku", "gpt-6-luna"),
+        ("jev", "claude-haiku-5-5"),
+        ("luna", "claude-haiku-5-5"),
+        ("sol", "jev-1.14.0"),
+        ("opus", "gpt-6.1-sol"),
+        ("jevx", "x"),
+    ] {
+        let from_file = base.clone().with_file_model(id, alias, "2099-01-01");
+        let from_override = base.clone().with_override(alias, id.parse().expect("id"));
+        for result in [from_file, from_override] {
+            assert_eq!(
+                result.expect_err(id).code(),
+                "CONFIG_INVALID",
+                "{alias} {id}"
+            );
+        }
+    }
+    for (alias, id) in [
+        ("haiku", "claude-haiku-9-preview"),
+        ("jev", "jev-1.15.0"),
+        ("jev", "jev"),
+        ("astra", "gpt-7-astra"),
+        ("fable", "claude-fable-6"),
+    ] {
+        base.clone()
+            .with_file_model(id, alias, "2099-01-01")
+            .expect(id);
+        base.clone()
+            .with_override(alias, id.parse().expect("id"))
+            .expect(id);
+    }
+}

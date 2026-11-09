@@ -2232,7 +2232,19 @@ Owner decisions 2026-11-07.
   `gpt-6-astra`, for future agent work. They are not selectable: `--backend
   sonnet` is `INPUT_INVALID` with the valid names listed. Only `jev`, `haiku`
   and `luna` are decision backends. `jev-1.14.0` (the version live replies
-  answered) is added and is the `jev` alias's newest row.
+  answered) is added and is the `jev` alias's newest known version.
+  `--backend jev` still means the latest: it sends `ModelId::Jev`
+  (`jev-latest` on the wire), so it can break on a Jev API change and is fixed
+  by upgrading sc-agent. `jev-1.14.0` is a pin and has a different
+  `request_sha256`. A `models.toml` row for alias `jev` changes listing and
+  what the alias names, not what `jev` sends; a `check.toml` `[models]` entry
+  or a pin does.
+- (Active, agt-akp) **Family check.** An alias takes only ids of its family,
+  by prefix: `jev` takes `jev` or `jev-...`, `haiku`, `sonnet`, `opus` and
+  `fable` take `claude-...`, `luna`, `terra`, `sol` and `astra` take
+  `gpt-...`. A `models.toml` row or `check.toml` `[models]` entry that breaks
+  this is `CONFIG_INVALID`. (`claude-haiku-9-preview` stays valid under
+  `haiku`.)
 - (Active, agt-akp) **Global additions.** `~/.sc-agent/models.toml`
   (`%USERPROFILE%` when `HOME` is unset), read at the start of each run,
   holds `[[model]]` rows with `id`, `alias` and `released` (`YYYY-MM-DD`). A

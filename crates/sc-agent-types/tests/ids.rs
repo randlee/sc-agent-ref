@@ -31,12 +31,22 @@ fn test_backend_catalog_roundtrip() {
         );
         assert!(row.request_limit_bytes() > 0);
         // D7.2: the default alias resolves to the row's default model.
+        // `jev` is the exception: its default is `ModelId::Jev` (the latest,
+        // `jev-latest` on the wire); the alias names the newest known version.
+        let expected = if row.family() == BackendFamily::TypeSafeJev {
+            Some(ModelId::Jev1_14_0)
+        } else {
+            Some(row.default_model())
+        };
         assert_eq!(
             ModelAliases::builtin().latest(row.default_model_alias()),
-            Some(row.default_model()),
+            expected,
             "{}",
             row.name()
         );
+        if row.family() == BackendFamily::TypeSafeJev {
+            assert_eq!(row.default_model(), ModelId::Jev);
+        }
     }
     for rejected in [
         "anthropic-haiku",

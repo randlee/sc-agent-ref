@@ -134,6 +134,7 @@ mod tests {
             "[[model]]\nid = \"x\"\nalias = \"haiku\"\nreleased = \"soon\"\n",
             "[[model]]\nid = \"\"\nalias = \"haiku\"\nreleased = \"2099-01-01\"\n",
             "[[model]]\nid = \"x\"\nalias = \"haiku\"\nreleased = \"2099-01-01\"\nextra = 1\n",
+            "[[model]]\nid = \"gpt-6-luna\"\nalias = \"haiku\"\nreleased = \"2099-01-01\"\n",
             "model = 3\n",
             "not toml [",
         ] {

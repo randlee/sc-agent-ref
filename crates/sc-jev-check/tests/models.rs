@@ -60,8 +60,8 @@ fn test_check_toml_models_override_reaches_backend() {
         "claude-haiku-9-preview"
     );
     assert_eq!(model_of(&from_toml, BackendId::Luna), ModelId::Gpt6Luna);
-    // Unlisted aliases keep the catalog default.
-    assert_eq!(model_of(&from_toml, BackendId::Jev), ModelId::Jev1_14_0);
+    // Unlisted aliases keep the catalog default; `jev` is the latest.
+    assert_eq!(model_of(&from_toml, BackendId::Jev), ModelId::Jev);
 
     // No `[models]` table: the catalog defaults for every backend.
     let plain = prepared(&repo(""), |config| config);
@@ -151,4 +151,50 @@ fn test_global_models_check_toml_and_pin_layers() {
         with_pin.models().source("haiku"),
         Some(sc_agent_types::ModelSource::Override)
     );
+}
+
+/// `jev` means the latest (`jev-latest` on the wire); `jev-1.14.0` is a pin.
+/// They are different requests, so their digests differ (agt-akp).
+#[test]
+fn test_jev_is_latest_and_a_version_is_a_pin() {
+    let dir = repo("");
+    let digest = |backends: &str| {
+        let set: BackendSet = backends.parse().expect("set");
+        let run = prepared(&dir, |config| config.backends(set));
+        let model = model_of(&run, BackendId::Jev);
+        let digest = run.request_sha256()[0].1.clone();
+        (model, digest)
+    };
+    let (latest, latest_digest) = digest("jev");
+    let (pinned, pinned_digest) = digest("jev-1.14.0");
+    assert_eq!(latest, ModelId::Jev);
+    assert_eq!(pinned, ModelId::Jev1_14_0);
+    assert_ne!(latest_digest, pinned_digest);
+
+    // A models.toml row for `jev` does not pin `jev`; it only lists.
+    let global = sc_jev_check::models_file::models_from_str(
+        "[[model]]\nid = \"jev-9.9.9\"\nalias = \"jev\"\nreleased = \"2099-01-01\"\n",
+    )
+    .expect("file");
+    let with_file = prepared(&dir, |config| config.global_models(global.clone()));
+    assert_eq!(model_of(&with_file, BackendId::Jev), ModelId::Jev);
+    assert_eq!(
+        with_file.models().latest("jev").expect("jev").as_str(),
+        "jev-9.9.9"
+    );
+}
+
+#[test]
+fn test_check_toml_models_reject_another_family() {
+    for models in [
+        "\n[models]\nhaiku = \"gpt-6-luna\"\n",
+        "\n[models]\njev = \"claude-haiku-5-5\"\n",
+    ] {
+        let dir = repo(models);
+        let root = RepoRoot::new(dir.path());
+        let config = RunConfig::new(root.clone(), Arc::new(NoopSessionLog)).dry_run(true);
+        let source = CheckSource::check_file(&root, Path::new("check.toml")).expect("source");
+        let error = prepare(source, config).expect_err(models);
+        assert_eq!(error.code(), "CONFIG_INVALID", "{models}");
+    }
 }
