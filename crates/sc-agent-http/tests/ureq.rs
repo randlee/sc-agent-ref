@@ -237,6 +237,104 @@ fn test_timeout_is_network_error_without_the_key() {
     assert_eq!(server.finish().len(), received);
 }
 
+/// The kind and retryability of a real transport failure, key never shown.
+fn assert_network(error: &JevError, kind: NetworkErrorKind, retryable: bool) {
+    assert!(
+        matches!(error, JevError::NetworkError { kind: got, .. } if *got == kind),
+        "expected {kind:?}: {error:?}"
+    );
+    assert_eq!(error.retryable(), retryable, "{error:?}");
+    assert_no_key(error);
+}
+
+fn send_once(transport: &UreqTransport, endpoint: Endpoint) -> JevError {
+    transport
+        .send(&post(endpoint, Some(api_key_header())))
+        .expect_err("transport failure")
+}
+
+/// Binds a loopback listener and runs `serve` on its first connection.
+fn serve_once(
+    serve: impl FnOnce(std::net::TcpStream) + Send + 'static,
+) -> (u16, std::thread::JoinHandle<()>) {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+    let port = listener.local_addr().expect("addr").port();
+    let handle = std::thread::spawn(move || {
+        let (stream, _) = listener.accept().expect("accept");
+        serve(stream);
+    });
+    (port, handle)
+}
+
+/// A real refused connection (a port that was bound, then freed) is
+/// `connect`, retryable. Windows retries the SYN of a closed port until the
+/// connect deadline, so there it may surface as `timeout` (also retryable).
+#[test]
+fn test_real_connection_refused_is_connect() {
+    let port = {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+        listener.local_addr().expect("addr").port()
+    };
+    let error = send_once(&loopback(), Endpoint::loopback_http(port, "/closed"));
+    if cfg!(windows) {
+        assert!(error.retryable(), "{error:?}");
+    } else {
+        assert_network(&error, NetworkErrorKind::Connect, true);
+    }
+}
+
+/// A real failed name lookup (`.invalid` is reserved and never resolves) is
+/// `connect`, retryable: ureq reports `getaddrinfo` failures as an
+/// uncategorized I/O error, which the transport's resolver maps to
+/// `HostNotFound`.
+#[test]
+fn test_real_dns_failure_is_connect() {
+    let transport = UreqTransport::new(Timeouts::new(
+        Duration::from_secs(8),
+        Duration::from_secs(10),
+    ));
+    let endpoint = Endpoint::parse("https://sc-agent-no-such-host.invalid/v1").expect("https");
+    let error = send_once(&transport, endpoint);
+    assert_network(&error, NetworkErrorKind::Connect, true);
+    assert!(error.to_string().contains("could not connect"), "{error}");
+}
+
+/// A peer that resets the connection after reading the request is
+/// `connect`, retryable. Closing with unread data pending sends an RST.
+#[test]
+fn test_real_connection_reset_is_connect() {
+    let (port, server) = serve_once(|stream| {
+        let mut byte = [0_u8; 1];
+        // Blocks until the request bytes arrive, and leaves them unread.
+        let _ = stream.peek(&mut byte);
+        drop(stream);
+    });
+    let error = send_once(&loopback(), Endpoint::loopback_http(port, "/reset"));
+    server.join().expect("server");
+    assert_network(&error, NetworkErrorKind::Connect, true);
+}
+
+/// A server that does not speak TLS is a real rustls failure on the https
+/// path: `tls`, not retryable, not `other`.
+#[test]
+fn test_real_tls_failure_is_tls_and_not_retryable() {
+    let (port, server) = serve_once(|mut stream| {
+        use std::io::{Read, Write};
+        let mut hello = [0_u8; 1];
+        let _ = stream.read(&mut hello);
+        let _ = stream.write_all(b"HTTP/1.1 400 Bad Request\r\ncontent-length: 0\r\n\r\n");
+    });
+    let transport = UreqTransport::new(Timeouts::new(
+        Duration::from_secs(2),
+        Duration::from_secs(10),
+    ));
+    let endpoint = Endpoint::parse(&format!("https://127.0.0.1:{port}/tls")).expect("https");
+    let error = send_once(&transport, endpoint);
+    server.join().expect("server");
+    assert_network(&error, NetworkErrorKind::Tls, false);
+    assert!(error.to_string().contains("TLS failed"), "{error}");
+}
+
 /// A connect-phase failure returns at once, retryable, sent once. The
 /// failure is injected through the scripted transport double, so no freed
 /// port is probed and the result does not depend on the platform's TCP stack

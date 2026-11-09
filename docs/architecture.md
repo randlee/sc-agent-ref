@@ -1444,6 +1444,7 @@ comparison flows.
   sc-observability-py
   sc-observability-binding-runtime
   sc-observability-dto
+  ureq uses ureq::unversioned, outside upstream semver; rustls failures surface as InvalidData
   <!-- lockstep-pins:end -->
 
 - (Active, r-4) Global allocators and argv parsers are linked only by
