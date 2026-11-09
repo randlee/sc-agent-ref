@@ -27,6 +27,7 @@ use sc_agent_http::{
     BusyPolicy, Endpoint, HttpClient, HttpRequest, HttpResponse, Method, ReplyShape, Timeouts,
     Transport, UreqTransport, api_failure,
 };
+use sc_agent_types::observability::v2::{GeneralEvent, NoopGeneralLog, SharedGeneralLog};
 use sc_agent_types::{
     BackendId, CancelToken, JevError, ModelId, ResolvedApiKey, ResponseInvalidCause, SendTrace,
 };
@@ -37,6 +38,9 @@ use crate::validate;
 #[cfg(feature = "test-util")]
 use crate::wire::WireFault;
 use crate::wire::{self, ProviderKind};
+
+/// Logging target of this module.
+const TARGET: &str = "backends.llm";
 
 #[derive(Clone)]
 struct Provider {
@@ -96,6 +100,7 @@ struct Client<T> {
     provider: Provider,
     api_key: ResolvedApiKey,
     http: HttpClient<T>,
+    log: SharedGeneralLog,
     #[cfg(feature = "test-util")]
     wire_fault: Option<WireFault>,
 }
@@ -106,6 +111,7 @@ impl<T: Transport> Client<T> {
             provider,
             api_key,
             http: HttpClient::new(transport),
+            log: Arc::new(NoopGeneralLog),
             #[cfg(feature = "test-util")]
             wire_fault: None,
         }
@@ -155,6 +161,31 @@ impl<T: Transport> Client<T> {
     }
 
     fn judge(&self, request: &JudgeRequest, trace: &SendTrace) -> Result<JudgeOutcome, JevError> {
+        let log = self.log.as_ref();
+        GeneralEvent::debug(TARGET, "judge.start", "LLM judge started")
+            .with_field("backend", self.provider.name)
+            .with_field("model", self.provider.model.as_str())
+            .emit(log);
+        let result = self.judge_inner(request, trace);
+        match &result {
+            Ok(_) => GeneralEvent::debug(TARGET, "judge.done", "LLM judge answered")
+                .with_field("backend", self.provider.name)
+                .with_field("model", self.provider.model.as_str())
+                .emit(log),
+            Err(error) => GeneralEvent::warn(TARGET, "judge.failed", "LLM judge failed")
+                .with_field("backend", self.provider.name)
+                .with_field("model", self.provider.model.as_str())
+                .with_error_code(error.code().as_str())
+                .emit(log),
+        }
+        result
+    }
+
+    fn judge_inner(
+        &self,
+        request: &JudgeRequest,
+        trace: &SendTrace,
+    ) -> Result<JudgeOutcome, JevError> {
         let prepared = self.prepare_checked(request)?;
         // REQ-SAG-0606: the digest is recovered from the final serialized
         // message body before any request is handed to `send_with_busy_retry`.
@@ -166,6 +197,10 @@ impl<T: Transport> Client<T> {
             trace,
             |response| wire::parse_count(response.body()),
         )?;
+        GeneralEvent::debug(TARGET, "judge.counted", "provider token count received")
+            .with_field("backend", self.provider.name)
+            .with_field("prompt_tokens", prompt_tokens)
+            .emit(self.log.as_ref());
         validate::enforce_input_token_limit(prompt_tokens)?;
         let (reply, answers) = self.exchange(
             &self.provider.message_endpoint,
@@ -341,6 +376,16 @@ macro_rules! llm_backend {
             #[must_use]
             pub fn with_busy_policy(mut self, policy: BusyPolicy) -> Self {
                 self.client.http = self.client.http.with_busy_policy(policy);
+                self
+            }
+
+            /// Injects the general log: this backend's events and, through
+            /// the HTTP layer, its busy-retry events. Unset, nothing is
+            /// logged.
+            #[must_use]
+            pub fn with_general_log(mut self, log: SharedGeneralLog) -> Self {
+                self.client.http = self.client.http.with_general_log(Arc::clone(&log));
+                self.client.log = log;
                 self
             }
 

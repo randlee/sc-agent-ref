@@ -231,6 +231,55 @@ impl GeneralEvent {
         }
     }
 
+    /// An event at [`GeneralLevel::Trace`].
+    #[must_use]
+    pub fn trace(target: &'static str, action: &'static str, message: impl Into<String>) -> Self {
+        Self::new(GeneralLevel::Trace, target, action, message)
+    }
+
+    /// An event at [`GeneralLevel::Debug`].
+    #[must_use]
+    pub fn debug(target: &'static str, action: &'static str, message: impl Into<String>) -> Self {
+        Self::new(GeneralLevel::Debug, target, action, message)
+    }
+
+    /// An event at [`GeneralLevel::Info`].
+    #[must_use]
+    pub fn info(target: &'static str, action: &'static str, message: impl Into<String>) -> Self {
+        Self::new(GeneralLevel::Info, target, action, message)
+    }
+
+    /// An event at [`GeneralLevel::Warn`].
+    #[must_use]
+    pub fn warn(target: &'static str, action: &'static str, message: impl Into<String>) -> Self {
+        Self::new(GeneralLevel::Warn, target, action, message)
+    }
+
+    /// An event at [`GeneralLevel::Error`].
+    #[must_use]
+    pub fn error(target: &'static str, action: &'static str, message: impl Into<String>) -> Self {
+        Self::new(GeneralLevel::Error, target, action, message)
+    }
+
+    /// Adds the typed error id (`JevError::code`) as the `error_code` field.
+    ///
+    /// Only the id is recorded, never the error text, which can echo
+    /// provider replies.
+    #[must_use]
+    pub fn with_error_code(self, code: &str) -> Self {
+        self.with_field("error_code", code)
+    }
+
+    /// Sends the event to `log` and drops a rejection.
+    ///
+    /// Logging is best effort and never changes a result: a rejected event is
+    /// ignored.
+    pub fn emit(self, log: &dyn GeneralLog) {
+        // Best effort by contract (NFR-SAG-0002): a rejection has no caller
+        // that could act on it.
+        let _ = log.log(self);
+    }
+
     /// Adds one structured field.
     #[must_use]
     pub fn with_field(mut self, key: &str, value: impl Into<serde_json::Value>) -> Self {
@@ -294,5 +343,110 @@ pub struct NoopGeneralLog;
 impl GeneralLog for NoopGeneralLog {
     fn log(&self, _event: GeneralEvent) -> Result<(), LogRejected> {
         Ok(())
+    }
+}
+
+/// Keeps every event in memory so a test can assert on what was logged.
+///
+/// A test double for embedders and the workspace's own tests. Clones share
+/// one buffer.
+///
+/// # Examples
+///
+/// ```
+/// use sc_agent_types::observability::v2::{GeneralEvent, GeneralLog, RecordingGeneralLog};
+///
+/// let log = RecordingGeneralLog::new();
+/// GeneralEvent::info("t", "a.b", "hello").emit(&log);
+/// assert_eq!(log.events().len(), 1);
+/// assert!(log.rendered().contains("hello"));
+/// ```
+#[derive(Debug, Default, Clone)]
+pub struct RecordingGeneralLog {
+    events: Arc<std::sync::Mutex<Vec<GeneralEvent>>>,
+}
+
+impl RecordingGeneralLog {
+    /// An empty recorder.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// The events recorded so far, in order.
+    #[must_use]
+    pub fn events(&self) -> Vec<GeneralEvent> {
+        self.events
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+    }
+
+    /// Every recorded event as one debug string: for a leak check.
+    #[must_use]
+    pub fn rendered(&self) -> String {
+        format!("{:?}", self.events())
+    }
+
+    /// The actions recorded so far, in order.
+    #[must_use]
+    pub fn actions(&self) -> Vec<&'static str> {
+        self.events().iter().map(GeneralEvent::action).collect()
+    }
+}
+
+impl GeneralLog for RecordingGeneralLog {
+    fn log(&self, event: GeneralEvent) -> Result<(), LogRejected> {
+        self.events
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .push(event);
+        Ok(())
+    }
+}
+
+/// Rejects every event: for proving that a failing log changes nothing.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct RejectingGeneralLog;
+
+impl GeneralLog for RejectingGeneralLog {
+    fn log(&self, _event: GeneralEvent) -> Result<(), LogRejected> {
+        Err(LogRejected::new("rejected by test double"))
+    }
+}
+
+#[cfg(test)]
+mod general_tests {
+    use super::*;
+
+    #[test]
+    fn event_builder_keeps_level_target_action_message_and_fields() {
+        let event = GeneralEvent::warn("t.x", "a.b", "msg")
+            .with_field("n", 3)
+            .with_error_code("INPUT_INVALID");
+        assert_eq!(event.level(), GeneralLevel::Warn);
+        assert_eq!(event.target(), "t.x");
+        assert_eq!(event.action(), "a.b");
+        assert_eq!(event.message(), "msg");
+        assert_eq!(event.fields()["n"], 3);
+        assert_eq!(event.fields()["error_code"], "INPUT_INVALID");
+    }
+
+    #[test]
+    fn a_rejecting_log_is_ignored_by_emit() {
+        GeneralEvent::info("t", "a", "m").emit(&RejectingGeneralLog);
+    }
+
+    #[test]
+    fn levels_are_ordered_and_spelled() {
+        let levels = [
+            GeneralLevel::Trace,
+            GeneralLevel::Debug,
+            GeneralLevel::Info,
+            GeneralLevel::Warn,
+            GeneralLevel::Error,
+        ];
+        assert!(levels.windows(2).all(|pair| pair[0] < pair[1]));
+        assert_eq!(GeneralLevel::Error.to_string(), "error");
     }
 }

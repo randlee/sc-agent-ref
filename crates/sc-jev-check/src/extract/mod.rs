@@ -16,6 +16,7 @@ mod subjects;
 mod table;
 
 use crate::config::InputSpec;
+use sc_agent_types::observability::v2::{GeneralEvent, GeneralLog};
 use sc_agent_types::schema::subjects::{Subject, SubjectsDocument};
 use sc_agent_types::{JevError, RepoRoot, Rev};
 
@@ -42,7 +43,63 @@ pub(crate) use read::{read_repo_bytes, read_repo_text};
 /// unreadable path, `EXTRACTION_*` for a bad document or command result, or
 /// the producer's own code when a command reports an error response on
 /// stderr (REQ-SAG-0313).
+#[cfg(test)]
 pub fn extract_input(repo: &RepoRoot, rev: &Rev, input: &InputSpec) -> Result<Extracted, JevError> {
+    extract_input_logged(
+        repo,
+        rev,
+        input,
+        &sc_agent_types::observability::v2::NoopGeneralLog,
+    )
+}
+
+/// Logging target of this module.
+const TARGET: &str = "check.extract";
+
+/// The input kind as logged: the `check.toml` `kind` spelling.
+fn kind_of(input: &InputSpec) -> &'static str {
+    match input {
+        InputSpec::File { .. } => "file",
+        InputSpec::TableColumn { .. } => "table-column",
+        InputSpec::Subjects { .. } => "subjects",
+        InputSpec::Command(_) => "command",
+    }
+}
+
+/// [`extract_input`] that reports the extraction to `log`: input kind,
+/// whether it reads the working tree or a git revision, the subject count
+/// and, on failure, the typed error id. Subject text, command arguments and
+/// producer output are never logged.
+///
+/// # Errors
+///
+/// As [`extract_input`].
+pub fn extract_input_logged(
+    repo: &RepoRoot,
+    rev: &Rev,
+    input: &InputSpec,
+    log: &dyn GeneralLog,
+) -> Result<Extracted, JevError> {
+    let kind = kind_of(input);
+    GeneralEvent::debug(TARGET, "extract.start", "extraction started")
+        .with_field("kind", kind)
+        .with_field("git_rev", !rev.is_worktree())
+        .emit(log);
+    let result = extract_dispatch(repo, rev, input);
+    match &result {
+        Ok(extracted) => GeneralEvent::debug(TARGET, "extract.done", "extraction finished")
+            .with_field("kind", kind)
+            .with_field("subjects", extracted.subjects.len())
+            .emit(log),
+        Err(error) => GeneralEvent::warn(TARGET, "extract.failed", "extraction failed")
+            .with_field("kind", kind)
+            .with_error_code(error.code().as_str())
+            .emit(log),
+    }
+    result
+}
+
+fn extract_dispatch(repo: &RepoRoot, rev: &Rev, input: &InputSpec) -> Result<Extracted, JevError> {
     match input {
         InputSpec::File { path } => file::extract_file(repo, rev, path),
         InputSpec::TableColumn { path, column } => table::extract_table(repo, rev, path, column),

@@ -101,11 +101,16 @@ mod log;
 pub(crate) mod prompt;
 mod response;
 
+/// Logging target of this module.
+const TARGET: &str = "check.run";
+
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 use std::time::SystemTime;
 
-use sc_agent_types::observability::v2::{NoopGeneralLog, SharedGeneralLog, SharedSessionLog};
+use sc_agent_types::observability::v2::{
+    GeneralEvent, NoopGeneralLog, SharedGeneralLog, SharedSessionLog,
+};
 use sc_agent_types::schema::subjects::SubjectsProducer;
 use sc_agent_types::{
     BackendId, BackendSet, CancelToken, JevError, ModelAliases, Operation, RepoRelativePath,
@@ -118,7 +123,7 @@ use sc_decision_schema::{
 
 use crate::config::{CheckSpec, load_check_at};
 use crate::equal_input::{RunAttestation, producer_from_extractions, record};
-use crate::payload::build_payload;
+use crate::payload::build_payload_logged;
 use crate::payload::caller::parse_caller_request;
 use crate::registry::BackendRegistry;
 use crate::session::{FileSessionStore, StoredSession, check_follow_up, contextual_prompt};
@@ -299,6 +304,11 @@ impl RunConfig {
             log_context: None,
             general_log: Arc::new(NoopGeneralLog),
         }
+    }
+
+    /// The general log as the trait object the log helpers take.
+    fn general(&self) -> &dyn sc_agent_types::observability::v2::GeneralLog {
+        self.general_log.as_ref()
     }
 
     /// Injects the general (operator diagnostics) log.
@@ -491,8 +501,42 @@ impl std::fmt::Debug for PreparedRun {
 /// invalid, an input fails, or an LLM backend is selected and its prompt
 /// file is missing (`PROMPT_FILE_MISSING`) or empty.
 pub fn prepare(source: CheckSource, config: RunConfig) -> Result<PreparedRun, JevError> {
+    let source_kind = match &source {
+        CheckSource::CheckFile(_) => "check-file",
+        CheckSource::Spec(_) => "spec",
+        CheckSource::CallerRequest(_) => "caller-request",
+    };
+    GeneralEvent::info(TARGET, "prepare.start", "preparing a check")
+        .with_field("source", source_kind)
+        .with_field("rev", config.rev.to_string())
+        .with_field("dry_run", config.dry_run)
+        .emit(config.general());
+    let prepared = prepare_steps(source, config.clone());
+    match &prepared {
+        Ok(prepared) => GeneralEvent::info(TARGET, "prepare.done", "check prepared")
+            .with_field("backends", backend_names(&prepared.backends))
+            .with_field("payload_bytes", prepared.payload_bytes())
+            .with_field("payload_sha256", prepared.prompt_sha256().to_string())
+            .with_field("has_llm_prompt", prepared.request.llm().is_some())
+            .emit(config.general()),
+        Err(error) => GeneralEvent::error(TARGET, "prepare.failed", "check preparation failed")
+            .with_error_code(error.code().as_str())
+            .emit(config.general()),
+    }
+    prepared
+}
+
+/// The backend ids as logged, in judge order.
+fn backend_names(backends: &BackendSet) -> Vec<String> {
+    backends.iter().map(|id| id.to_string()).collect()
+}
+
+fn prepare_steps(source: CheckSource, config: RunConfig) -> Result<PreparedRun, JevError> {
     let (spec, bundle, producer, source_backends) = match source {
         CheckSource::CheckFile(path) => {
+            GeneralEvent::debug(TARGET, "check.load", "loading the check file")
+                .with_field("path", path.as_str())
+                .emit(config.general());
             let spec = load_check_at(&config.repo_root, &config.rev, &path)?;
             assemble(spec, &config)?
         }
@@ -508,6 +552,33 @@ pub fn prepare(source: CheckSource, config: RunConfig) -> Result<PreparedRun, Je
         .iter()
         .any(|id| id.descriptor().requires_llm_context());
     let override_path = config.system_prompt_override.as_deref();
+    GeneralEvent::debug(TARGET, "backends.selected", "backends selected")
+        .with_field("backends", backend_names(&backends))
+        .with_field("needs_llm_prompt", needs_llm)
+        .with_field(
+            "selected_by",
+            if config.backends.is_some() {
+                "run-config"
+            } else {
+                "check-or-default"
+            },
+        )
+        .emit(config.general());
+    if needs_llm {
+        GeneralEvent::debug(TARGET, "prompt.source", "system prompt source resolved")
+            .with_field(
+                "source",
+                match (override_path, &spec) {
+                    (Some(_), _) => "override-file",
+                    (None, Some(spec)) => match spec.resolve_prompt_path() {
+                        crate::config::ResolvedPromptPath::Packaged => "packaged",
+                        crate::config::ResolvedPromptPath::Repo(_) => "check-file",
+                    },
+                    (None, None) => "packaged",
+                },
+            )
+            .emit(config.general());
+    }
     let system_prompt = match &spec {
         Some(spec) => prompt::load_system_prompt(
             spec,
@@ -542,7 +613,7 @@ type Assembled = (
 );
 
 fn assemble(spec: CheckSpec, config: &RunConfig) -> Result<Assembled, JevError> {
-    let built = build_payload(&spec, &config.repo_root, &config.rev)?;
+    let built = build_payload_logged(&spec, &config.repo_root, &config.rev, config.general())?;
     let producer = producer_from_extractions(&built.extractions)?;
     let backends = spec.backends().cloned();
     Ok((Some(spec), built.bundle, producer, backends))
@@ -569,11 +640,30 @@ fn payload_len(bundle: &PayloadBundle) -> u64 {
 /// session write error is a warning, not an error. Every error before the
 /// first send leaves no log line and no session file.
 pub fn run(prepared: PreparedRun) -> Result<RunResponse, JevError> {
-    if prepared.config.dry_run {
+    let general = Arc::clone(&prepared.config.general_log);
+    let dry_run = prepared.config.dry_run;
+    GeneralEvent::info(TARGET, "run.start", "run started")
+        .with_field("dry_run", dry_run)
+        .with_field("backends", backend_names(&prepared.backends))
+        .with_field("mode", format!("{:?}", prepared.config.mode))
+        .emit(general.as_ref());
+    let result = if dry_run {
         dry_run_response(&prepared)
     } else {
         live_run(prepared)
+    };
+    match &result {
+        Ok(response) => GeneralEvent::info(TARGET, "run.done", "run finished")
+            .with_field("dry_run", dry_run)
+            .with_field("partial", response.is_partial())
+            .with_field("session_saved", response.session_id().is_some())
+            .with_field("warnings", response.warnings().len())
+            .emit(general.as_ref()),
+        Err(error) => GeneralEvent::error(TARGET, "run.failed", "run failed")
+            .with_error_code(error.code().as_str())
+            .emit(general.as_ref()),
     }
+    result
 }
 
 fn dry_run_response(prepared: &PreparedRun) -> Result<RunResponse, JevError> {
@@ -617,11 +707,16 @@ fn live_run(prepared: PreparedRun) -> Result<RunResponse, JevError> {
     } = prepared;
     let store = open_session_store(&config, &backends)?;
     let registry = match &config.registry {
-        Some(registry) => Arc::clone(registry),
-        None => Arc::new(BackendRegistry::from_env_with_models(
+        Some(registry) => {
+            GeneralEvent::debug(TARGET, "registry.injected", "using the injected registry")
+                .emit(config.general());
+            Arc::clone(registry)
+        }
+        None => Arc::new(BackendRegistry::from_env_with_models_logged(
             &config.repo_root,
             &backends,
             &models,
+            &config.general_log,
         )?),
     };
     let judges = backends
@@ -651,7 +746,26 @@ fn live_run(prepared: PreparedRun) -> Result<RunResponse, JevError> {
             MultiBackendMode::ChainContext => &answered,
             _ => &[],
         };
+        GeneralEvent::info(TARGET, "send.start", "sending to a backend")
+            .with_field("backend", id.to_string())
+            .with_field("model", judge.model_id().to_string())
+            .with_field("chained_answers", prior.len())
+            .emit(config.general());
         let step = judge_one(judge.as_ref(), *id, &request, prior, &log);
+        match &step {
+            Step::Answered(_) => GeneralEvent::info(TARGET, "send.done", "backend answered")
+                .with_field("backend", id.to_string())
+                .emit(config.general()),
+            Step::Failed(error) => GeneralEvent::warn(TARGET, "send.failed", "backend failed")
+                .with_field("backend", id.to_string())
+                .with_field("retryable", error.retryable())
+                .with_error_code(error.code().as_str())
+                .emit(config.general()),
+            Step::NotSent(error) => GeneralEvent::warn(TARGET, "send.not_sent", "nothing was sent")
+                .with_field("backend", id.to_string())
+                .with_error_code(error.code().as_str())
+                .emit(config.general()),
+        }
         let (result, attestation) = match step {
             Step::Answered(outcome) => {
                 let attestation = attest(request.payload().sha256(), &outcome);
@@ -684,8 +798,20 @@ fn live_run(prepared: PreparedRun) -> Result<RunResponse, JevError> {
         _ if answered.is_empty() => (false, None),
         Some(store) => {
             match save_session(store, session_id, session_created_at, &request, &answered) {
-                Ok(saved) => (saved, None),
-                Err(error) => (false, Some(format!("session not saved: {}", error.code()))),
+                Ok(saved) => {
+                    GeneralEvent::info(TARGET, "session.saved", "session saved")
+                        .with_field("session_id", session_id.to_string())
+                        .with_field("saved", saved)
+                        .emit(config.general());
+                    (saved, None)
+                }
+                Err(error) => {
+                    GeneralEvent::warn(TARGET, "session.save_failed", "session was not saved")
+                        .with_field("session_id", session_id.to_string())
+                        .with_error_code(error.code().as_str())
+                        .emit(config.general());
+                    (false, Some(format!("session not saved: {}", error.code())))
+                }
             }
         }
         None => (false, None),
@@ -780,7 +906,17 @@ fn open_session_store(
             "Set RunConfig::sessions_dir (sc-ai --sessions-dir), or use dry_run.",
         ));
     };
-    FileSessionStore::new(dir).map(Some)
+    let store = FileSessionStore::new(dir);
+    match &store {
+        Ok(_) => GeneralEvent::debug(TARGET, "session.store_opened", "session store opened")
+            .with_field("dir", dir.display().to_string())
+            .emit(config.general()),
+        Err(error) => GeneralEvent::error(TARGET, "session.store_failed", "session store failed")
+            .with_field("dir", dir.display().to_string())
+            .with_error_code(error.code().as_str())
+            .emit(config.general()),
+    }
+    store.map(Some)
 }
 
 /// Writes the session once, when an `ask`-capable backend returned `Ok`.
@@ -857,14 +993,43 @@ pub fn ask(
     follow_up: &str,
     config: RunConfig,
 ) -> Result<AskResponse, JevError> {
+    GeneralEvent::info(TARGET, "ask.start", "follow-up started")
+        .with_field("session_id", session_id.to_string())
+        .with_field("follow_up_chars", follow_up.chars().count())
+        .emit(config.general());
+    let result = ask_steps(store, session_id, follow_up, &config);
+    match &result {
+        Ok(_) => GeneralEvent::info(TARGET, "ask.done", "follow-up finished")
+            .with_field("session_id", session_id.to_string())
+            .emit(config.general()),
+        Err(error) => GeneralEvent::error(TARGET, "ask.failed", "follow-up failed")
+            .with_field("session_id", session_id.to_string())
+            .with_error_code(error.code().as_str())
+            .emit(config.general()),
+    }
+    result
+}
+
+fn ask_steps(
+    store: &FileSessionStore,
+    session_id: SessionId,
+    follow_up: &str,
+    config: &RunConfig,
+) -> Result<AskResponse, JevError> {
     let stored = store.read_session(&session_id)?;
+    GeneralEvent::debug(TARGET, "session.loaded", "session loaded")
+        .with_field("session_id", session_id.to_string())
+        .with_field("backend", stored.backend.to_string())
+        .with_field("prior_follow_ups", stored.follow_ups.len())
+        .emit(config.general());
     check_follow_up(&stored, follow_up)?;
     let registry = match &config.registry {
         Some(registry) => Arc::clone(registry),
-        None => Arc::new(BackendRegistry::from_env_with_models(
+        None => Arc::new(BackendRegistry::from_env_with_models_logged(
             &config.repo_root,
             &BackendSet::from(stored.backend),
             &config.models.clone().unwrap_or_else(ModelAliases::builtin),
+            &config.general_log,
         )?),
     };
     let judge = registry.get(stored.backend)?;
@@ -881,7 +1046,7 @@ pub fn ask(
     )
     .with_cancel(config.cancel.clone());
     judge.validate_for_send(&request)?;
-    let log = SendLog::new(&config, session_id, stored.created_at, Operation::Ask);
+    let log = SendLog::new(config, session_id, stored.created_at, Operation::Ask);
     let outcome = send(judge.as_ref(), &request, &log)?;
     Ok(AskResponse::new(
         outcome,

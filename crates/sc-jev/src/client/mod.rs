@@ -12,6 +12,7 @@ use sc_agent_http::{
     BusyPolicy, HeaderName, HttpClient, HttpRequest, Method, ReplyShape, SecretHeader, Timeouts,
     Transport, UreqTransport, api_failure,
 };
+use sc_agent_types::observability::v2::{GeneralEvent, NoopGeneralLog, SharedGeneralLog};
 use sc_agent_types::{BackendId, CancelToken, JevError, ModelId, ResolvedApiKey, SendTrace};
 use sc_decision_schema::{JudgeBackend, JudgeOutcome, JudgeRequest};
 
@@ -19,6 +20,9 @@ use sc_decision_schema::{JudgeBackend, JudgeOutcome, JudgeRequest};
 use crate::check::WireFault;
 use crate::check::{self, PreparedCheck};
 use crate::config::JevClientConfig;
+
+/// Logging target of this module.
+const TARGET: &str = "jev.client";
 
 const CONTENT_TYPE: HeaderName = HeaderName::new("Content-Type");
 
@@ -74,6 +78,7 @@ pub struct JevClient<T = UreqTransport> {
     config: JevClientConfig,
     api_key: ResolvedApiKey,
     http: HttpClient<T>,
+    log: SharedGeneralLog,
     #[cfg(feature = "test-util")]
     wire_fault: Option<WireFault>,
 }
@@ -133,6 +138,7 @@ impl<T: Transport> JevClient<T> {
             config,
             api_key,
             http,
+            log: Arc::new(NoopGeneralLog),
             #[cfg(feature = "test-util")]
             wire_fault: None,
         }
@@ -165,6 +171,15 @@ impl<T: Transport> JevClient<T> {
     #[must_use]
     pub fn with_busy_policy(mut self, policy: BusyPolicy) -> Self {
         self.http = self.http.with_busy_policy(policy);
+        self
+    }
+
+    /// Injects the general log: the client's own events and, through the
+    /// HTTP layer, its busy-retry events. Unset, nothing is logged.
+    #[must_use]
+    pub fn with_general_log(mut self, log: SharedGeneralLog) -> Self {
+        self.http = self.http.with_general_log(Arc::clone(&log));
+        self.log = log;
         self
     }
 
@@ -250,6 +265,27 @@ impl<T: Transport> JudgeBackend for JevClient<T> {
     }
 
     fn judge(&self, req: &JudgeRequest, trace: &SendTrace) -> Result<JudgeOutcome, JevError> {
+        let model = self.config.model().to_string();
+        GeneralEvent::debug(TARGET, "judge.start", "Jev judge started")
+            .with_field("model", model.as_str())
+            .with_field("endpoint", self.config.endpoint().as_str())
+            .emit(self.log.as_ref());
+        let result = self.judge_inner(req, trace);
+        match &result {
+            Ok(_) => GeneralEvent::debug(TARGET, "judge.done", "Jev judge answered")
+                .with_field("model", model.as_str())
+                .emit(self.log.as_ref()),
+            Err(error) => GeneralEvent::warn(TARGET, "judge.failed", "Jev judge failed")
+                .with_field("model", model.as_str())
+                .with_error_code(error.code().as_str())
+                .emit(self.log.as_ref()),
+        }
+        result
+    }
+}
+
+impl<T: Transport> JevClient<T> {
+    fn judge_inner(&self, req: &JudgeRequest, trace: &SendTrace) -> Result<JudgeOutcome, JevError> {
         let prepared = check::prepare(&self.config, self.limit_bytes(), req.payload())?;
         let prepared = self.apply_wire_fault(prepared);
         // REQ-SAG-0606: the digest is recovered from the final serialized

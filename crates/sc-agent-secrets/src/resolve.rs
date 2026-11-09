@@ -4,7 +4,11 @@ use std::collections::BTreeMap;
 #[cfg(test)]
 use std::fmt;
 
+use sc_agent_types::observability::v2::{GeneralEvent, GeneralLog, NoopGeneralLog};
 use sc_agent_types::{BackendKeyId, JevError, RepoRoot, ResolvedApiKey};
+
+/// Logging target of this module.
+const TARGET: &str = "secrets.resolve";
 
 use crate::dotenv::load_dotenv;
 use crate::platform::current_account;
@@ -88,12 +92,34 @@ pub trait KeyringSource: Send + Sync {
 /// # Ok::<(), sc_agent_types::JevError>(())
 /// ```
 pub fn resolve_key(id: BackendKeyId, repo_root: &RepoRoot) -> Result<ResolvedApiKey, JevError> {
-    resolve_key_with(
+    resolve_key_logged(id, repo_root, &NoopGeneralLog)
+}
+
+/// [`resolve_key`] that reports which source supplied the key to `log`.
+///
+/// The general log records the source (`env`, `dotenv` or `keyring`) and the
+/// variable name, never the value (NFR-SAG-0002). Logging is best effort and
+/// never changes the result.
+///
+/// # Errors
+///
+/// As [`resolve_key`].
+///
+/// # Panics
+///
+/// Panics if the process-global keyring builder lock is poisoned.
+pub fn resolve_key_logged(
+    id: BackendKeyId,
+    repo_root: &RepoRoot,
+    log: &dyn GeneralLog,
+) -> Result<ResolvedApiKey, JevError> {
+    resolve_key_with_logged(
         id,
         repo_root,
         &crate::ProcessEnv,
         &crate::PlatformKeyring,
         current_account(),
+        log,
     )
 }
 
@@ -122,12 +148,54 @@ pub fn resolve_key_with(
     keyring: &impl KeyringSource,
     account: impl AsRef<str>,
 ) -> Result<ResolvedApiKey, JevError> {
+    resolve_key_with_logged(id, repo_root, env, keyring, account, &NoopGeneralLog)
+}
+
+/// [`resolve_key_with`] that reports the winning source to `log`.
+///
+/// # Errors
+///
+/// As [`resolve_key_with`].
+pub fn resolve_key_with_logged(
+    id: BackendKeyId,
+    repo_root: &RepoRoot,
+    env: &impl EnvSource,
+    keyring: &impl KeyringSource,
+    account: impl AsRef<str>,
+    log: &dyn GeneralLog,
+) -> Result<ResolvedApiKey, JevError> {
+    let resolved = resolve_in_order(id, repo_root, env, keyring, account.as_ref());
+    match &resolved {
+        Ok((_, source)) => {
+            GeneralEvent::debug(TARGET, "credential.resolved", "credential resolved")
+                .with_field("key_id", id.to_string())
+                .with_field("source", *source)
+                .emit(log)
+        }
+        Err(error) => GeneralEvent::warn(TARGET, "credential.failed", "credential not resolved")
+            .with_field("key_id", id.to_string())
+            .with_error_code(error.code().as_str())
+            .emit(log),
+    }
+    resolved.map(|(key, _)| key)
+}
+
+/// The source that supplied a key, for the general log.
+type Source = &'static str;
+
+fn resolve_in_order(
+    id: BackendKeyId,
+    repo_root: &RepoRoot,
+    env: &impl EnvSource,
+    keyring: &impl KeyringSource,
+    account: &str,
+) -> Result<(ResolvedApiKey, Source), JevError> {
     let Some(var_name) = env_var_name(id) else {
         return Err(missing(id));
     };
     let process_value = env.var(var_name);
     if let Some(raw) = process_value.clone().filter(|value| is_present(value)) {
-        return ResolvedApiKey::try_new(id, raw);
+        return ResolvedApiKey::try_new(id, raw).map(|key| (key, "env"));
     }
 
     let key_from_dotenv = process_value.is_none();
@@ -140,16 +208,17 @@ pub fn resolve_key_with(
     };
 
     if key_from_dotenv && let Some(raw) = dotenv.get(var_name).filter(|value| is_present(value)) {
-        return ResolvedApiKey::try_new(id, raw.clone());
+        return ResolvedApiKey::try_new(id, raw.clone()).map(|key| (key, "dotenv"));
     }
 
     let service = keyring_service(id, env, &dotenv);
-    let account = account.as_ref();
     if account.is_empty() {
         return Err(missing(id));
     }
     match keyring.password(&service, account)? {
-        Some(raw) if is_present(&raw) => ResolvedApiKey::try_new(id, raw),
+        Some(raw) if is_present(&raw) => {
+            ResolvedApiKey::try_new(id, raw).map(|key| (key, "keyring"))
+        }
         _ => Err(missing(id)),
     }
 }

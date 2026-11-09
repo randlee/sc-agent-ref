@@ -27,7 +27,7 @@ test-util = []
 
 [dependencies]
 # `CancelToken` is in the always-on core; `secret` brings `ResolvedApiKey`.
-sc-agent-types = { version = "0.1.0", path = "../sc-agent-types", default-features = false, features = ["secret"] }
+sc-agent-types = { version = "0.1.0", path = "../sc-agent-types", default-features = false, features = ["secret", "obs"] }
 serde_json.workspace = true
 ureq.workspace = true
 
