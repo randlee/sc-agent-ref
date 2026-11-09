@@ -53,7 +53,7 @@ expected; the remedy is upgrading sc-agent. Pin a version such as
 The wire value for `jev` is `jev-latest`, the value plan-anchor's `jev-api.md`
 documents; `jev::v1::wire_model` is the one place that maps it. This is
 **unverified against the live API**: nothing confirms the API accepts the bare
-`jev`, and no test in this repository calls the live API.
+`jev`. No CI test calls the live API; a local-only test lists its models.
 
 A reply naming a different model than the request is not an error (`jev` is
 answered by a concrete version). The answered model is the reply's `model`,
