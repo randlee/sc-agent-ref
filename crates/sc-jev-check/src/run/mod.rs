@@ -108,8 +108,8 @@ use std::time::SystemTime;
 use sc_agent_types::observability::v2::SharedSessionLog;
 use sc_agent_types::schema::subjects::SubjectsProducer;
 use sc_agent_types::{
-    BackendId, BackendSet, CancelToken, JevError, ModelAliases, ModelId, Operation,
-    RepoRelativePath, RepoRoot, Rev, SessionId, Sha256Digest,
+    BackendId, BackendSet, CancelToken, JevError, ModelAliases, ModelId, Operation, PayloadSha256,
+    QuestionsSha256, RepoRelativePath, RepoRoot, RequestSha256, Rev, SessionId,
 };
 use sc_decision_schema::{
     Attestation, BackendAttestation, EqualInputRecord, JudgeBackend, JudgeOutcome, JudgeRequest,
@@ -419,7 +419,7 @@ pub struct PreparedRun {
 impl PreparedRun {
     /// SHA-256 of the canonical payload.
     #[must_use]
-    pub fn payload_sha256(&self) -> &Sha256Digest {
+    pub fn payload_sha256(&self) -> &PayloadSha256 {
         self.request.payload().sha256()
     }
 
@@ -428,7 +428,7 @@ impl PreparedRun {
     /// # Errors
     ///
     /// `INPUT_INVALID` when a question breaks its criteria count.
-    pub fn questions_sha256(&self) -> Result<Sha256Digest, JevError> {
+    pub fn questions_sha256(&self) -> Result<QuestionsSha256, JevError> {
         self.request.payload().questions_sha256()
     }
 
@@ -442,7 +442,7 @@ impl PreparedRun {
     /// carries the earlier answers), or one that refuses the questions (such
     /// as `noul`).
     #[must_use]
-    pub fn request_sha256(&self) -> Vec<(BackendId, Sha256Digest)> {
+    pub fn request_sha256(&self) -> Vec<(BackendId, RequestSha256)> {
         presend_request_sha256(&self.request, &self.backends, self.config.mode, |id| {
             model_for(id, &self.models)
         })
@@ -777,7 +777,7 @@ fn judge_one(
 /// The attestation of an `Ok` outcome: its reported digest against the
 /// run's `payload_sha256` (REQ-SAG-0606). The engine trusts the reported
 /// digest; a backend that reports none is `Unattested`.
-fn attest(expected: &Sha256Digest, outcome: &JudgeOutcome) -> Attestation {
+fn attest(expected: &PayloadSha256, outcome: &JudgeOutcome) -> Attestation {
     match outcome.input_sha256() {
         Some(reported) if reported == expected => Attestation::Matched,
         Some(reported) => Attestation::Mismatched {
@@ -840,7 +840,7 @@ fn presend_request_sha256(
     backends: &BackendSet,
     mode: MultiBackendMode,
     model: impl Fn(BackendId) -> ModelId,
-) -> Vec<(BackendId, Sha256Digest)> {
+) -> Vec<(BackendId, RequestSha256)> {
     let mut digests = Vec::new();
     for (index, id) in backends.iter().enumerate() {
         let llm = id.descriptor().requires_llm_context();

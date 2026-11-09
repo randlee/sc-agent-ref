@@ -64,6 +64,6 @@ pub use config::JevClientConfig;
 pub fn request_sha256(
     model: &sc_agent_types::ModelId,
     payload: &sc_decision_schema::PayloadBundle,
-) -> Result<sc_agent_types::Sha256Digest, sc_agent_types::JevError> {
+) -> Result<sc_agent_types::RequestSha256, sc_agent_types::JevError> {
     check::request_sha256(model, payload)
 }

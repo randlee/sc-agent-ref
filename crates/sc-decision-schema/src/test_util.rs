@@ -13,7 +13,7 @@ use serde_json::Value;
 use crate::ids::QuestionId;
 use crate::judge::{JudgeBackend, JudgeOutcome, JudgeRequest, QuestionAnswer};
 use sc_agent_types::JevError;
-use sc_agent_types::{BackendId, ModelId, SendTrace, Sha256Digest};
+use sc_agent_types::{BackendId, ModelId, PayloadSha256, RequestSha256, SendTrace};
 
 /// How a [`MockJudgeBackend`] ends a call.
 #[derive(Debug, Clone)]
@@ -53,7 +53,7 @@ pub struct MockJudgeBackend {
     id: BackendId,
     answers: BTreeMap<QuestionId, QuestionAnswer>,
     provider_meta: Option<Value>,
-    reported_digest: Option<Sha256Digest>,
+    reported_digest: Option<PayloadSha256>,
     model: Option<ModelId>,
     sent_body: Option<String>,
     behaviour: Behaviour,
@@ -95,7 +95,7 @@ impl MockJudgeBackend {
 
     /// Reports `digest` as `input_sha256` instead of the received bundle's.
     #[must_use]
-    pub fn with_reported_digest(mut self, digest: Sha256Digest) -> Self {
+    pub fn with_reported_digest(mut self, digest: PayloadSha256) -> Self {
         self.reported_digest = Some(digest);
         self
     }
@@ -108,7 +108,7 @@ impl MockJudgeBackend {
         self
     }
 
-    /// Records `Sha256Digest::of_text(body)` into each accepted call's
+    /// Records `RequestSha256::of_text(body)` into each accepted call's
     /// [`SendTrace`], as a real backend does for the body it sends.
     #[must_use]
     pub fn with_sent_body(mut self, body: impl Into<String>) -> Self {
@@ -171,7 +171,7 @@ impl JudgeBackend for MockJudgeBackend {
     fn judge(&self, request: &JudgeRequest, trace: &SendTrace) -> Result<JudgeOutcome, JevError> {
         self.check(request)?;
         if let Some(body) = &self.sent_body {
-            trace.record(Sha256Digest::of_text(body));
+            trace.record(RequestSha256::of_text(body));
         }
         self.requests
             .lock()

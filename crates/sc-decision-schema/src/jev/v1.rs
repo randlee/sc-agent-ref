@@ -35,7 +35,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::marker::PhantomData;
 
-use sc_agent_types::{JevError, ModelId, Sha256Digest};
+use sc_agent_types::{JevError, ModelId, QuestionsSha256};
 use serde::de::value::MapAccessDeserializer;
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::ser::SerializeMap;
@@ -94,14 +94,22 @@ pub fn wire_model(model: &ModelId) -> &str {
 
 /// The canonical text of a question set, the bytes `questions_sha256` hashes.
 ///
-/// It is the JSON object of the questions keyed by question id, each value the
-/// Jev question `{"criteria": {option: description}, "instructions": prompt,
-/// "type": kind}` (a `noul` question has no `criteria`). `criteria` carries
-/// the tuned descriptions (the option label where a question has none).
-/// Object keys are sorted at every level, separators are `,` and `:` with no
-/// spaces, and the text is UTF-8 with non-ASCII characters left as is. That is
-/// plan-anchor's `questions_digest` (`json.dumps(questions, sort_keys=True,
-/// separators=(",", ":"), ensure_ascii=False)`) over the same question map.
+/// It is the JSON object of the questions keyed by question id, each value
+/// `{"criteria": ..., "instructions": prompt, "type": kind}` (a `noul`
+/// question has no `criteria`). Object keys are sorted at every level,
+/// separators are `,` and `:` with no spaces, and the text is UTF-8 with
+/// non-ASCII characters left as is. For `choice` questions this is plan-anchor's
+/// `questions_digest` (`json.dumps(questions, sort_keys=True, separators=(",",
+/// ":"), ensure_ascii=False)`) over the same question map: `criteria` is the
+/// object `{option: description}` (the option label where a question has no
+/// tuned description), so options sort and a reorder of options or of
+/// questions does not change the text.
+///
+/// One deliberate departure from plan-anchor: a `score` question's levels are
+/// ordered, and reversing them changes what the question means, so its
+/// `criteria` is the array `[[level, description], ...]` in level order and a
+/// reversal changes the text. plan-anchor uses `choice` only, so no
+/// plan-anchor digest is affected.
 ///
 /// # Errors
 ///
@@ -113,18 +121,64 @@ pub fn questions_canonical_text(questions: &[Question]) -> Result<String, JevErr
         .map(|question| Ok((question.id().clone(), JevQuestion::from_question(question)?)))
         .collect::<Result<Vec<_>, JevError>>()?;
     let map = OrderedMap::try_from_pairs(pairs)?;
-    let value = serde_json::to_value(&map)
-        .map_err(|error| JevError::encode_failed("question set", &error))?;
-    let bytes = canonical_json_bytes(&value)?;
+    let mut object = Map::new();
+    for (id, question) in map.iter() {
+        let (kind, instructions, criteria) = match question {
+            JevQuestion::Choice {
+                instructions,
+                criteria,
+            } => (
+                "choice",
+                instructions,
+                Some(Value::Object(
+                    criteria
+                        .iter()
+                        .map(|(option, text)| (option.to_string(), Value::String(text.clone())))
+                        .collect(),
+                )),
+            ),
+            JevQuestion::Score {
+                instructions,
+                criteria,
+            } => (
+                "score",
+                instructions,
+                Some(Value::Array(
+                    criteria
+                        .iter()
+                        .map(|(level, text)| {
+                            Value::Array(vec![
+                                Value::String(level.to_string()),
+                                Value::String(text.clone()),
+                            ])
+                        })
+                        .collect(),
+                )),
+            ),
+            JevQuestion::Noul { instructions } => ("noul", instructions, None),
+        };
+        let mut entry = Map::new();
+        entry.insert("type".to_owned(), Value::String(kind.to_owned()));
+        entry.insert(
+            "instructions".to_owned(),
+            Value::String(instructions.clone()),
+        );
+        if let Some(criteria) = criteria {
+            entry.insert("criteria".to_owned(), criteria);
+        }
+        object.insert(id.to_string(), Value::Object(entry));
+    }
+    let bytes = canonical_json_bytes(&Value::Object(object))?;
     String::from_utf8(bytes).map_err(|_| JevError::input_invalid("question set is not UTF-8"))
 }
 
 /// The sc-sha SHA-256 of a question set, for a consumer's cache lookup.
 ///
-/// The digest is of [`questions_canonical_text`]. It covers the question ids,
-/// kinds, instructions and criteria descriptions, and nothing about the state
-/// or the model, so two runs that ask the same questions share it whatever
-/// they ask about. sc-agent computes it; it builds no cache.
+/// The digest is of [`questions_canonical_text`]. It identifies a question set:
+/// it covers the question ids, kinds, instructions and criteria descriptions,
+/// and nothing about the state or the model, so runs of the same questions
+/// against different state share it. It does not depend on question order or
+/// `choice` option order; `score` level order is part of it. sc-agent computes it; it builds no cache.
 ///
 /// # Errors
 ///
@@ -142,8 +196,10 @@ pub fn questions_canonical_text(questions: &[Question]) -> Result<String, JevErr
 /// assert_eq!(questions_sha256(payload.questions())?.as_str().len(), 64);
 /// # Ok::<(), sc_agent_types::JevError>(())
 /// ```
-pub fn questions_sha256(questions: &[Question]) -> Result<Sha256Digest, JevError> {
-    Ok(Sha256Digest::of_text(&questions_canonical_text(questions)?))
+pub fn questions_sha256(questions: &[Question]) -> Result<QuestionsSha256, JevError> {
+    Ok(QuestionsSha256::of_text(&questions_canonical_text(
+        questions,
+    )?))
 }
 
 fn duplicate_message(key: &dyn fmt::Display) -> String {

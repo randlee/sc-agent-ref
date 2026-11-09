@@ -5,7 +5,8 @@ use std::path::PathBuf;
 use std::time::{Duration, UNIX_EPOCH};
 
 use sc_agent_types::{
-    AnswerId, BackendId, ErrorCode, ModelId, Operation, ProjectLabel, SessionId, Sha256Digest,
+    AnswerId, BackendId, ErrorCode, ModelId, Operation, PayloadSha256, ProjectLabel,
+    QuestionsSha256, SessionId,
 };
 use sc_decision_schema::session_log::{
     COLUMNS, RowContextBuilder, SESSION_LOG_DDL, SESSION_LOG_SCHEMA_VERSION, SendOutcome,
@@ -163,8 +164,8 @@ fn test_fields_roundtrip() {
         .session_created_at(ts)
         .repo("/work/repo")
         .project(Some(ProjectLabel::new("p").expect("label")))
-        .payload_sha256(Sha256Digest::of_text("payload"))
-        .questions_sha256(Sha256Digest::of_text("questions"))
+        .payload_sha256(PayloadSha256::of_text("payload"))
+        .questions_sha256(QuestionsSha256::of_text("questions"))
         .decision_schema(CANONICAL_V1)
         .question_ids(vec![q.clone()])
         .request_sha256(None)

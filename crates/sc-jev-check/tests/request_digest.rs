@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use sc_agent_types::observability::v2::{NoopSessionLog, SharedSessionLog};
 use sc_agent_types::{
-    BackendId, BackendSet, ModelAliases, RepoRelativePath, RepoRoot, Sha256Digest,
+    BackendId, BackendSet, ModelAliases, RepoRelativePath, RepoRoot, RequestSha256,
 };
 use sc_decision_schema::test_util::MockJudgeBackend;
 use sc_jev_check::config::CheckSpec;
@@ -71,7 +71,7 @@ fn dry(dir: &Path, models: Option<ModelAliases>) -> RunResponse {
     run(prepare(CheckSource::Spec(spec()), config).expect("prepare")).expect("dry run")
 }
 
-fn digest(response: &RunResponse, id: BackendId) -> Sha256Digest {
+fn digest(response: &RunResponse, id: BackendId) -> RequestSha256 {
     response
         .request_sha256()
         .iter()
@@ -159,4 +159,33 @@ fn test_request_digest_changes_with_question_state_model_and_system_prompt() {
     // The question set alone does not see the state.
     let state_only = dry(repo("Does it apply?", "no", "judge carefully").path(), None);
     assert_eq!(state_only.questions_sha256(), base.questions_sha256());
+}
+
+/// A question reorder changes the payload and request digests (the payload
+/// array is ordered, and so is the body Jev reads) but not the digest of the
+/// question set.
+#[test]
+fn test_question_reorder_changes_payload_and_request_digests_only() {
+    use sc_jev_check::run::CallerRequest;
+    let dir = tempfile::tempdir().expect("temp");
+    let dry = |questions: &str| {
+        let document = format!(r#"{{"questions":{questions},"state":[],"backends":["jev"]}}"#);
+        let request = CallerRequest::from_json(document.as_bytes()).expect("request");
+        run(prepare(
+            CheckSource::CallerRequest(request),
+            config(dir.path()).dry_run(true),
+        )
+        .expect("prepare"))
+        .expect("dry run")
+    };
+    let q = |id: &str| format!(r#"{{"id":"{id}","prompt":"{id}?","choices":["no","yes"]}}"#);
+    let ab = dry(&format!("[{},{}]", q("a"), q("b")));
+    let ba = dry(&format!("[{},{}]", q("b"), q("a")));
+    assert_eq!(ab.questions_sha256(), ba.questions_sha256());
+    assert_ne!(ab.payload_sha256(), ba.payload_sha256());
+    assert_ne!(
+        digest(&ab, BackendId::Jev),
+        digest(&ba, BackendId::Jev),
+        "the request body keeps question order"
+    );
 }

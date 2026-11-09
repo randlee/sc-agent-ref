@@ -298,7 +298,7 @@ impl FileSessionStore {
         if document.session_id != *id {
             return Err(session_parse(&path, "does not match this session id"));
         }
-        if sc_agent_types::Sha256Digest::of_text(&document.payload_utf8) != document.payload_sha256
+        if sc_agent_types::PayloadSha256::of_text(&document.payload_utf8) != document.payload_sha256
         {
             return Err(session_parse(&path, "payload digest does not match"));
         }
@@ -634,7 +634,7 @@ struct SessionDocument {
     backend: BackendId,
     created_at: u64,
     payload_utf8: String,
-    payload_sha256: sc_agent_types::Sha256Digest,
+    payload_sha256: sc_agent_types::PayloadSha256,
     decision_schema: DecisionSchemaId,
     system_prompt: Option<String>,
     outcomes: Vec<JudgeOutcome>,

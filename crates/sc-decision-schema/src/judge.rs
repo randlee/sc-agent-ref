@@ -14,7 +14,7 @@ use serde_json::Value;
 use sc_agent_types::schema::subjects::SubjectsProducer;
 use sc_agent_types::{
     BackendDescriptor, BackendFamily, BackendId, BackendKeyId, CancelToken, JevError, ModelId,
-    SendTrace, Sha256Digest,
+    PayloadSha256, SendTrace,
 };
 
 use crate::ids::{ChoiceId, QuestionId};
@@ -182,7 +182,7 @@ pub struct JudgeOutcome {
     #[serde(default)]
     provider_meta: Option<Value>,
     #[serde(default)]
-    input_sha256: Option<Sha256Digest>,
+    input_sha256: Option<PayloadSha256>,
 }
 
 impl JudgeOutcome {
@@ -226,7 +226,7 @@ impl JudgeOutcome {
 
     /// Sets the digest of the canonical payload the backend reports it sent.
     #[must_use]
-    pub fn with_input_sha256(mut self, digest: Sha256Digest) -> Self {
+    pub fn with_input_sha256(mut self, digest: PayloadSha256) -> Self {
         self.input_sha256 = Some(digest);
         self
     }
@@ -269,7 +269,7 @@ impl JudgeOutcome {
 
     /// The reported input digest; `None` means "this backend does not attest".
     #[must_use]
-    pub fn input_sha256(&self) -> Option<&Sha256Digest> {
+    pub fn input_sha256(&self) -> Option<&PayloadSha256> {
         self.input_sha256.as_ref()
     }
 }
@@ -437,7 +437,7 @@ pub enum Attestation {
     /// The backend reported a different digest.
     Mismatched {
         /// The digest the backend reported.
-        reported: Sha256Digest,
+        reported: PayloadSha256,
     },
     /// The backend does not report a digest.
     Unattested,
@@ -487,7 +487,7 @@ impl BackendAttestation {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(try_from = "EqualInputWire")]
 pub struct EqualInputRecord {
-    payload_sha256: Sha256Digest,
+    payload_sha256: PayloadSha256,
     mode: MultiBackendMode,
     backends: Vec<BackendAttestation>,
     leak: bool,
@@ -497,7 +497,7 @@ pub struct EqualInputRecord {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct EqualInputWire {
-    payload_sha256: Sha256Digest,
+    payload_sha256: PayloadSha256,
     mode: MultiBackendMode,
     backends: Vec<BackendAttestation>,
     leak: bool,
@@ -552,7 +552,7 @@ impl EqualInputRecord {
     ///
     /// `INPUT_INVALID` when `backends` is empty or names a backend twice.
     pub fn new(
-        payload_sha256: Sha256Digest,
+        payload_sha256: PayloadSha256,
         mode: MultiBackendMode,
         backends: Vec<BackendAttestation>,
         leak: bool,
@@ -581,7 +581,7 @@ impl EqualInputRecord {
 
     /// SHA-256 of the canonical payload bytes.
     #[must_use]
-    pub fn payload_sha256(&self) -> &Sha256Digest {
+    pub fn payload_sha256(&self) -> &PayloadSha256 {
         &self.payload_sha256
     }
 

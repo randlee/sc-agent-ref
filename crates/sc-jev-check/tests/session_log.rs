@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex};
 use sc_agent_types::observability::v2::{LogEvent, LogRejected, SessionLog, SharedSessionLog};
 use sc_agent_types::{
     BackendId, BackendSet, JevError, ModelId, NetworkErrorKind, Operation, ProjectLabel, RepoRoot,
-    SendTrace, SessionId, Sha256Digest,
+    RequestSha256, SendTrace, SessionId,
 };
 use sc_decision_schema::session_log::{SendOutcome, SessionLogRow};
 use sc_decision_schema::test_util::MockJudgeBackend;
@@ -129,8 +129,8 @@ fn run_with(
     )?)
 }
 
-fn digest_of(body: &str) -> Sha256Digest {
-    Sha256Digest::of_text(body)
+fn digest_of(body: &str) -> RequestSha256 {
+    RequestSha256::of_text(body)
 }
 
 /// The scripted registry's pretend body for `id` (see `scripted.rs`).

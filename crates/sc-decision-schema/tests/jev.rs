@@ -531,3 +531,52 @@ fn test_questions_sha256_is_pinned_to_the_documented_bytes() {
     let bundle = sc_decision_schema::PayloadBundle::encode(&payload).expect("bundle");
     assert_eq!(bundle.questions_sha256().expect("bundle digest"), digest);
 }
+
+/// `questions_sha256` identifies a set: reordering the questions or a
+/// `choice`'s options does not change it, but a `score` question's levels are
+/// ordered, so reversing them does (the one departure from plan-anchor's form,
+/// which has no `score`).
+#[test]
+fn test_questions_sha256_order_rules() {
+    use sc_decision_schema::jev::v1::questions_sha256;
+    let parse = |json: &str| CanonicalJudgePayload::from_bytes(json.as_bytes()).expect("payload");
+    let score = |levels: &str, descriptions: &str| {
+        parse(&format!(
+            r#"{{"questions":[{{"id":"s","prompt":"How bad?","choices":{levels},"kind":"score","descriptions":{descriptions}}}],"state":[]}}"#
+        ))
+    };
+    let forward = score(r#"["low","mid","high"]"#, r#"["a","b","c"]"#);
+    let reversed = score(r#"["high","mid","low"]"#, r#"["c","b","a"]"#);
+    assert_ne!(
+        questions_sha256(forward.questions()).expect("forward"),
+        questions_sha256(reversed.questions()).expect("reversed"),
+        "reversed score levels change the digest"
+    );
+    // Same levels in the same order: stable.
+    assert_eq!(
+        questions_sha256(forward.questions()).expect("a"),
+        questions_sha256(score(r#"["low","mid","high"]"#, r#"["a","b","c"]"#).questions())
+            .expect("b")
+    );
+
+    // A choice's options and the questions' order do not matter.
+    let ab = parse(
+        r#"{"questions":[{"id":"a","prompt":"A?","choices":["no","yes"]},{"id":"b","prompt":"B?","choices":["no","yes"]}],"state":[]}"#,
+    );
+    let ba = parse(
+        r#"{"questions":[{"id":"b","prompt":"B?","choices":["yes","no"]},{"id":"a","prompt":"A?","choices":["yes","no"]}],"state":[]}"#,
+    );
+    assert_eq!(
+        questions_sha256(ab.questions()).expect("ab"),
+        questions_sha256(ba.questions()).expect("ba")
+    );
+    // The payload digest does see the order.
+    assert_ne!(
+        sc_decision_schema::PayloadBundle::encode(&ab)
+            .expect("ab")
+            .sha256(),
+        sc_decision_schema::PayloadBundle::encode(&ba)
+            .expect("ba")
+            .sha256()
+    );
+}

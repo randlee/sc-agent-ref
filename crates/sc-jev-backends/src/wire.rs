@@ -6,7 +6,7 @@
 //! by `sc-jev` from the same payload (`sc_decision_schema::jev::v1`).
 
 use sc_agent_http::{HeaderName, SecretHeader};
-use sc_agent_types::{JevError, ResolvedApiKey, Sha256Digest};
+use sc_agent_types::{JevError, PayloadSha256, ResolvedApiKey};
 use sc_decision_schema::canonical_json_bytes;
 use serde_json::{Map, Value};
 
@@ -64,7 +64,7 @@ pub(crate) fn message_body(
 /// `INPUT_INVALID` when the body or the embedded payload is not JSON, or the
 /// body has no user message. The error names the failure category and
 /// position only, never body bytes (ADR-SAG-0020).
-pub(crate) fn recovered_digest(kind: ProviderKind, body: &str) -> Result<Sha256Digest, JevError> {
+pub(crate) fn recovered_digest(kind: ProviderKind, body: &str) -> Result<PayloadSha256, JevError> {
     let value: Value = serde_json::from_str(body)
         .map_err(|error| JevError::encode_failed("provider wire body", &error))?;
     let messages = match kind {
@@ -84,7 +84,7 @@ pub(crate) fn recovered_digest(kind: ProviderKind, body: &str) -> Result<Sha256D
     // `canonical_json_bytes` is `serde_json` output, so UTF-8 by construction.
     let canonical = String::from_utf8(canonical)
         .map_err(|_| JevError::input_invalid("embedded payload is not UTF-8"))?;
-    Ok(Sha256Digest::of_text(&canonical))
+    Ok(PayloadSha256::of_text(&canonical))
 }
 
 /// A seeded defect in the provider wire builder (feature `test-util`).

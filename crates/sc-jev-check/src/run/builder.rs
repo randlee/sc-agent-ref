@@ -5,7 +5,7 @@
 
 use serde_json::Value;
 
-use sc_agent_types::{BackendId, JevError, SessionId, Sha256Digest};
+use sc_agent_types::{BackendId, JevError, QuestionsSha256, RequestSha256, SessionId};
 use sc_decision_schema::{EqualInputRecord, JudgeOutcome};
 
 use super::response::{BackendLimit, BackendResult, ResponseParts, RunResponse};
@@ -23,8 +23,8 @@ pub struct RunResponseBuilder {
     warnings: Vec<String>,
     payload: Option<Value>,
     limits: Vec<BackendLimit>,
-    questions_sha256: Option<Sha256Digest>,
-    request_sha256: Vec<(BackendId, Sha256Digest)>,
+    questions_sha256: Option<QuestionsSha256>,
+    request_sha256: Vec<(BackendId, RequestSha256)>,
 }
 
 impl RunResponse {
@@ -81,14 +81,14 @@ impl RunResponseBuilder {
 
     /// Sets `questions_sha256`; the default is the digest of empty text.
     #[must_use]
-    pub fn questions_sha256(mut self, digest: Sha256Digest) -> Self {
+    pub fn questions_sha256(mut self, digest: QuestionsSha256) -> Self {
         self.questions_sha256 = Some(digest);
         self
     }
 
     /// Adds a backend's pre-send `request_sha256`.
     #[must_use]
-    pub fn request_sha256(mut self, backend: BackendId, digest: Sha256Digest) -> Self {
+    pub fn request_sha256(mut self, backend: BackendId, digest: RequestSha256) -> Self {
         self.request_sha256.push((backend, digest));
         self
     }
@@ -101,7 +101,7 @@ impl RunResponseBuilder {
             request_sha256: self.request_sha256,
             questions_sha256: self
                 .questions_sha256
-                .unwrap_or_else(|| Sha256Digest::of_text("")),
+                .unwrap_or_else(|| QuestionsSha256::of_text("")),
             payload_bytes: self.payload_bytes,
             equal_input,
             results: self.results,

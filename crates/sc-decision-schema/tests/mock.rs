@@ -5,7 +5,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use sc_agent_types::{BackendId, JevError, ModelId, SendTrace, Sha256Digest};
+use sc_agent_types::{BackendId, JevError, ModelId, PayloadSha256, RequestSha256, SendTrace};
 use sc_decision_schema::test_util::MockJudgeBackend;
 use sc_decision_schema::{
     CanonicalJudgePayload, JudgeBackend, JudgeRequest, LlmWireContext, PayloadBundle,
@@ -54,7 +54,7 @@ fn test_mock_judge_backend_contract() {
     );
 
     // Provider meta and a reported digest override.
-    let reported = Sha256Digest::of_text("something else");
+    let reported = PayloadSha256::of_text("something else");
     let meta = MockJudgeBackend::new(BackendId::Jev, answers("no"))
         .with_provider_meta(serde_json::json!({"model": "mock"}))
         .with_reported_digest(reported.clone());
@@ -166,7 +166,7 @@ fn test_mock_records_sent_body_digest_into_trace() {
     sending.judge(&request, &trace).expect("judge");
     assert_eq!(
         trace.request_sha256(),
-        Some(Sha256Digest::of_text("{\"a\":1}"))
+        Some(RequestSha256::of_text("{\"a\":1}"))
     );
 
     let failing = MockJudgeBackend::new(BackendId::Jev, answers("yes"))

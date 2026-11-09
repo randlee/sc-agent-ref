@@ -17,8 +17,8 @@ mod time;
 use std::path::Path;
 
 use sc_agent_types::{
-    AnswerId, BackendId, ErrorCode, JevError, ModelId, Operation, ProjectLabel, SessionId,
-    Sha256Digest,
+    AnswerId, BackendId, ErrorCode, JevError, ModelId, Operation, PayloadSha256, ProjectLabel,
+    QuestionsSha256, RequestSha256, SessionId,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -87,7 +87,7 @@ impl SendOutcome {
 /// # Examples
 ///
 /// ```
-/// use sc_agent_types::{AnswerId, BackendId, ModelId, Operation, SessionId, Sha256Digest};
+/// use sc_agent_types::{AnswerId, BackendId, ModelId, Operation, PayloadSha256, QuestionsSha256, SessionId};
 /// use sc_decision_schema::session_log::{RowContextBuilder, TimestampMs};
 /// use sc_decision_schema::{CANONICAL_V1, QuestionId};
 ///
@@ -97,8 +97,8 @@ impl SendOutcome {
 ///     .session_id(SessionId::new())
 ///     .session_created_at(ts)
 ///     .repo("/work/repo")
-///     .payload_sha256(Sha256Digest::of_text("payload"))
-///     .questions_sha256(Sha256Digest::of_text("questions"))
+///     .payload_sha256(PayloadSha256::of_text("payload"))
+///     .questions_sha256(QuestionsSha256::of_text("questions"))
 ///     .decision_schema(CANONICAL_V1)
 ///     .question_ids(vec![QuestionId::try_from("q")?])
 ///     .ts(ts)
@@ -129,17 +129,17 @@ pub struct RowContext {
     /// is written as `null`.
     pub project: Option<ProjectLabel>,
     /// SHA-256 of the canonical payload bytes (questions and state).
-    pub payload_sha256: Sha256Digest,
+    pub payload_sha256: PayloadSha256,
     /// SHA-256 of the question set alone: the same for every send of the same
     /// questions, whatever the state. See `questions_sha256` in
     /// [`crate::jev::v1`].
-    pub questions_sha256: Sha256Digest,
+    pub questions_sha256: QuestionsSha256,
     /// The decision schema of this send.
     pub decision_schema: DecisionSchemaId,
     /// Question ids in payload order.
     pub question_ids: Vec<QuestionId>,
     /// SHA-256 of the exact body sent; `None` when no body was built.
-    pub request_sha256: Option<Sha256Digest>,
+    pub request_sha256: Option<RequestSha256>,
     /// When the send finished.
     pub ts: TimestampMs,
     /// Judge send or session ask.
@@ -159,11 +159,11 @@ pub struct RowContextBuilder {
     session_created_at: Option<TimestampMs>,
     repo: Option<String>,
     project: Option<ProjectLabel>,
-    payload_sha256: Option<Sha256Digest>,
-    questions_sha256: Option<Sha256Digest>,
+    payload_sha256: Option<PayloadSha256>,
+    questions_sha256: Option<QuestionsSha256>,
     decision_schema: Option<DecisionSchemaId>,
     question_ids: Option<Vec<QuestionId>>,
-    request_sha256: Option<Sha256Digest>,
+    request_sha256: Option<RequestSha256>,
     ts: Option<TimestampMs>,
     operation: Option<Operation>,
     backend: Option<BackendId>,
@@ -214,7 +214,7 @@ impl RowContextBuilder {
 
     /// SHA-256 of the canonical payload bytes.
     #[must_use]
-    pub fn payload_sha256(mut self, value: Sha256Digest) -> Self {
+    pub fn payload_sha256(mut self, value: PayloadSha256) -> Self {
         self.payload_sha256 = Some(value);
         self
     }
@@ -222,7 +222,7 @@ impl RowContextBuilder {
     /// SHA-256 of the question set alone; see
     /// [`RowContext::questions_sha256`].
     #[must_use]
-    pub fn questions_sha256(mut self, value: Sha256Digest) -> Self {
+    pub fn questions_sha256(mut self, value: QuestionsSha256) -> Self {
         self.questions_sha256 = Some(value);
         self
     }
@@ -243,7 +243,7 @@ impl RowContextBuilder {
 
     /// SHA-256 of the exact body sent; left out when no body was built.
     #[must_use]
-    pub fn request_sha256(mut self, value: Option<Sha256Digest>) -> Self {
+    pub fn request_sha256(mut self, value: Option<RequestSha256>) -> Self {
         self.request_sha256 = value;
         self
     }
@@ -486,14 +486,14 @@ impl SessionLogRow {
                         .map_err(|e| wrap("project", &e))
                 })
                 .transpose()?,
-            payload_sha256: Sha256Digest::parse(required_str(fields, "payload_sha256")?)
+            payload_sha256: PayloadSha256::parse(required_str(fields, "payload_sha256")?)
                 .map_err(|e| wrap("payload_sha256", &e))?,
-            questions_sha256: Sha256Digest::parse(required_str(fields, "questions_sha256")?)
+            questions_sha256: QuestionsSha256::parse(required_str(fields, "questions_sha256")?)
                 .map_err(|e| wrap("questions_sha256", &e))?,
             decision_schema: parse(fields, "decision_schema")?,
             question_ids: question_ids(fields)?,
             request_sha256: optional_str(fields, "request_sha256")?
-                .map(|text| Sha256Digest::parse(text).map_err(|e| wrap("request_sha256", &e)))
+                .map(|text| RequestSha256::parse(text).map_err(|e| wrap("request_sha256", &e)))
                 .transpose()?,
             ts: timestamp(fields, "ts")?,
             operation: parse(fields, "operation")?,

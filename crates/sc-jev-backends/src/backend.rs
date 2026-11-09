@@ -28,8 +28,8 @@ use sc_agent_http::{
     UreqTransport,
 };
 use sc_agent_types::{
-    BackendId, CancelToken, JevError, ModelId, NetworkErrorKind, ResolvedApiKey, SendTrace,
-    Sha256Digest,
+    BackendId, CancelToken, JevError, ModelId, NetworkErrorKind, RequestSha256, ResolvedApiKey,
+    SendTrace,
 };
 use sc_decision_schema::llm::v1;
 use sc_decision_schema::{JudgeBackend, JudgeOutcome, JudgeRequest};
@@ -104,7 +104,7 @@ pub fn request_sha256(
     id: BackendId,
     model: &ModelId,
     request: &JudgeRequest,
-) -> Result<Sha256Digest, JevError> {
+) -> Result<RequestSha256, JevError> {
     let kind = match id {
         BackendId::AnthropicHaiku => ProviderKind::Anthropic,
         BackendId::OpenAiLuna => ProviderKind::OpenAi,
@@ -124,7 +124,7 @@ pub fn request_sha256(
         request.payload().as_str(),
         &prompt.system_prompt,
     );
-    Ok(Sha256Digest::of_text(&body))
+    Ok(RequestSha256::of_text(&body))
 }
 
 struct Prepared {

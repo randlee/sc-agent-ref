@@ -27,14 +27,19 @@ def load(connection, fields):
         (fields["session_id"], fields["session_created_at"]),
     )
     connection.execute(
-        "INSERT OR IGNORE INTO question_sets (questions_sha256, question_ids, first_seen_at)"
-        " VALUES (?, ?, ?)",
-        (fields["questions_sha256"], json.dumps(fields["question_ids"]), fields["ts"]),
+        "INSERT OR IGNORE INTO question_sets (questions_sha256, first_seen_at)"
+        " VALUES (?, ?)",
+        (fields["questions_sha256"], fields["ts"]),
     )
     connection.execute(
-        "INSERT OR IGNORE INTO payloads (payload_sha256, questions_sha256, first_seen_at)"
-        " VALUES (?, ?, ?)",
-        (fields["payload_sha256"], fields["questions_sha256"], fields["ts"]),
+        "INSERT OR IGNORE INTO payloads (payload_sha256, questions_sha256, question_ids,"
+        " first_seen_at) VALUES (?, ?, ?, ?)",
+        (
+            fields["payload_sha256"],
+            fields["questions_sha256"],
+            json.dumps(fields["question_ids"]),
+            fields["ts"],
+        ),
     )
     answers_json = fields["answers_json"]
     connection.execute(

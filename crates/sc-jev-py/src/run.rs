@@ -15,7 +15,10 @@ use std::sync::Arc;
 use pyo3::prelude::*;
 use pyo3::types::{PyAnyMethods, PyBytes};
 use sc_agent_types::schema::subjects::SubjectsProducer;
-use sc_agent_types::{BackendId, BackendSet, JevError, ProjectLabel, Rev, SessionId, Sha256Digest};
+use sc_agent_types::{
+    BackendId, BackendSet, JevError, PayloadSha256, ProjectLabel, QuestionsSha256, RequestSha256,
+    Rev, SessionId, Sha256Digest,
+};
 use sc_decision_schema::{MultiBackendMode, canonical_json_bytes};
 use sc_jev_check::run::{CallerRequest, CheckSource, RunResponse};
 use sc_jev_host::compose::{ComposeInputs, ask_from, explicit_repo_root, prepare_from};
@@ -119,20 +122,20 @@ impl FinishedRun {
         self.response.session_id()
     }
 
-    fn payload_sha256(&self) -> &Sha256Digest {
+    fn payload_sha256(&self) -> &PayloadSha256 {
         self.response.payload_sha256()
     }
 
-    fn questions_sha256(&self) -> &Sha256Digest {
+    fn questions_sha256(&self) -> &QuestionsSha256 {
         self.response.questions_sha256()
     }
 }
 
 struct PreparedRequest {
     payload: String,
-    payload_sha256: Sha256Digest,
-    questions_sha256: Sha256Digest,
-    request_sha256: Vec<(BackendId, Sha256Digest)>,
+    payload_sha256: PayloadSha256,
+    questions_sha256: QuestionsSha256,
+    request_sha256: Vec<(BackendId, RequestSha256)>,
     producer: Option<SubjectsProducer>,
 }
 
@@ -355,7 +358,7 @@ pub(crate) struct CheckResult {
 }
 
 /// `request_sha256` as a backend-id to digest mapping.
-fn request_digest_map(digests: &[(BackendId, Sha256Digest)]) -> serde_json::Value {
+fn request_digest_map(digests: &[(BackendId, RequestSha256)]) -> serde_json::Value {
     serde_json::Value::Object(
         digests
             .iter()

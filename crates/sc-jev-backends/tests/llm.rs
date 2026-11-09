@@ -6,7 +6,9 @@ use std::time::Duration;
 
 use sc_agent_http::test_util::{FakeClock, RecordingSleeper, ScriptedTransport};
 use sc_agent_http::{BusyPolicy, HttpRequest, HttpResponse, Timeouts, UreqTransport};
-use sc_agent_types::{BackendId, BackendKeyId, ModelId, ResolvedApiKey, SendTrace, Sha256Digest};
+use sc_agent_types::{
+    BackendId, BackendKeyId, ModelId, PayloadSha256, RequestSha256, ResolvedApiKey, SendTrace,
+};
 use sc_decision_schema::test_util::judge_outcome_field_names;
 use sc_decision_schema::{
     CanonicalJudgePayload, JudgeBackend, JudgeOutcome, JudgeRequest, LlmWireContext, PayloadBundle,
@@ -369,7 +371,7 @@ fn test_prompt_change_does_not_alter_payload_sha256() {
     assert_eq!(first.payload().sha256(), second.payload().sha256());
     assert_eq!(
         first.payload().sha256(),
-        &Sha256Digest::of_text(first.payload().as_str())
+        &PayloadSha256::of_text(first.payload().as_str())
     );
     let (backend, recorded) = haiku(vec![
         haiku_message(&answer_text(), "end_turn", 4),
@@ -389,7 +391,7 @@ fn test_prompt_change_does_not_alter_payload_sha256() {
     assert_eq!(beta["system"], "prompt-beta");
     assert_ne!(
         first.payload().sha256(),
-        &Sha256Digest::of_text(seen[1].body())
+        &PayloadSha256::of_text(seen[1].body())
     );
 }
 
@@ -853,7 +855,7 @@ fn test_request_sha256_equals_the_digest_a_send_records() {
     backend.judge(&request, &trace).expect("judge");
     assert_eq!(trace.request_sha256(), Some(before.clone()));
     let first = posts(&recorded).remove(0);
-    assert_eq!(Sha256Digest::of_text(first.body()), before);
+    assert_eq!(RequestSha256::of_text(first.body()), before);
 
     let (luna_backend, luna_recorded) = luna(vec![
         luna_message(&answer_text(), "completed", 100),
@@ -866,7 +868,7 @@ fn test_request_sha256_equals_the_digest_a_send_records() {
     luna_backend.judge(&request, &trace).expect("judge");
     assert_eq!(trace.request_sha256(), Some(before.clone()));
     assert_eq!(
-        Sha256Digest::of_text(posts(&luna_recorded).remove(0).body()),
+        RequestSha256::of_text(posts(&luna_recorded).remove(0).body()),
         before
     );
 }

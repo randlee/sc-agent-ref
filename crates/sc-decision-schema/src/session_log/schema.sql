@@ -9,13 +9,13 @@ CREATE TABLE sessions (
   session_created_at  TEXT NOT NULL            -- RFC 3339 UTC, ms; fixed per session
 );
 CREATE TABLE question_sets (
-  questions_sha256 TEXT PRIMARY KEY,           -- SHA-256 of the question set alone (ids, kinds, instructions, criteria)
-  question_ids     TEXT NOT NULL,              -- JSON array, payload order (fixed by the digest)
+  questions_sha256 TEXT PRIMARY KEY,           -- SHA-256 of the question set alone (ids, kinds, instructions, criteria); independent of question order
   first_seen_at    TEXT NOT NULL               -- loader: ts of the first row for this question set
 );
 CREATE TABLE payloads (
   payload_sha256   TEXT PRIMARY KEY,           -- SHA-256 of the canonical payload bytes (questions and state)
   questions_sha256 TEXT NOT NULL REFERENCES question_sets(questions_sha256), -- fixed by the payload bytes
+  question_ids     TEXT NOT NULL,              -- JSON array, payload order (fixed by the payload digest, not by the question set)
   first_seen_at    TEXT NOT NULL,              -- loader: ts of the first row for this payload
   UNIQUE (payload_sha256, questions_sha256)    -- target of answers' composite key
 );

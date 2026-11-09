@@ -6,7 +6,7 @@
 //! canonical bytes (ADR-SAG-0002); `input_sha256` is recovered by inverting
 //! the final body back to canonical bytes (ADR-SAG-0025).
 
-use sc_agent_types::{BackendId, JevError, ModelId, Sha256Digest};
+use sc_agent_types::{BackendId, JevError, ModelId, PayloadSha256, RequestSha256};
 use sc_decision_schema::jev::v1::{CheckRequest, CheckResponse};
 use sc_decision_schema::{CanonicalJudgePayload, JudgeOutcome, JudgeRequest, PayloadBundle};
 use serde_json::Value;
@@ -59,10 +59,10 @@ pub(crate) fn prepare(
 pub(crate) fn request_sha256(
     model: &ModelId,
     payload: &PayloadBundle,
-) -> Result<Sha256Digest, JevError> {
+) -> Result<RequestSha256, JevError> {
     let canonical = CanonicalJudgePayload::from_bytes(payload.bytes())?;
     let request = CheckRequest::from_canonical(model.clone(), &canonical)?;
-    Ok(Sha256Digest::of_text(&request.to_body()?))
+    Ok(RequestSha256::of_text(&request.to_body()?))
 }
 
 /// The digest of the canonical blob recovered from a serialized Jev wire
@@ -79,7 +79,7 @@ pub(crate) fn request_sha256(
 /// `INPUT_INVALID` when `body` is not a check request. The error names the
 /// failure category and position (or a repeated key), never body bytes
 /// (ADR-SAG-0020).
-pub(crate) fn recovered_digest(body: &str) -> Result<Sha256Digest, JevError> {
+pub(crate) fn recovered_digest(body: &str) -> Result<PayloadSha256, JevError> {
     Ok(CheckRequest::parse(body)?
         .recovered_bundle()?
         .sha256()

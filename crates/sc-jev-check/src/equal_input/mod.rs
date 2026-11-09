@@ -88,7 +88,7 @@ pub fn producer_from_extractions(
 mod tests {
     use super::*;
     use sc_agent_types::schema::subjects::{GrammarRef, SubjectsDocument};
-    use sc_agent_types::{BackendId, Sha256Digest};
+    use sc_agent_types::{BackendId, PayloadSha256};
     use sc_decision_schema::{Attestation, CanonicalJudgePayload};
 
     fn bundle() -> PayloadBundle {
@@ -113,7 +113,7 @@ mod tests {
         .expect("record");
         assert_eq!(
             built.payload_sha256(),
-            &Sha256Digest::of_text(bundle.as_str())
+            &PayloadSha256::of_text(bundle.as_str())
         );
         assert!(built.leak());
         assert!(!built.equal());
@@ -213,8 +213,10 @@ mod tests {
                 grammar: "tree-sitter-python".to_owned(),
                 grammar_version: "0.23.6".to_owned(),
             },
-            Sha256Digest::parse("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-                .expect("digest"),
+            sc_agent_types::Sha256Digest::parse(
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            )
+            .expect("digest"),
         )
     }
 }

@@ -11,7 +11,8 @@ use serde::ser::{SerializeMap, Serializer};
 use serde_json::Value;
 
 use sc_agent_types::{
-    BackendFamily, BackendId, JevError, ScAgentErrorResponse, SessionId, Sha256Digest,
+    BackendFamily, BackendId, JevError, PayloadSha256, QuestionsSha256, RequestSha256,
+    ScAgentErrorResponse, SessionId,
 };
 use sc_decision_schema::{EqualInputRecord, JudgeOutcome};
 
@@ -92,9 +93,9 @@ const BODY_KEYS: &[&str] = &[
 pub struct RunResponse {
     session_id: Option<SessionId>,
     session_saved: bool,
-    payload_sha256: Sha256Digest,
-    questions_sha256: Sha256Digest,
-    request_sha256: Vec<(BackendId, Sha256Digest)>,
+    payload_sha256: PayloadSha256,
+    questions_sha256: QuestionsSha256,
+    request_sha256: Vec<(BackendId, RequestSha256)>,
     payload_bytes: u64,
     dry_run: bool,
     equal_input: EqualInputRecord,
@@ -107,8 +108,8 @@ pub struct RunResponse {
 /// Run-level facts shared by a live and a dry response.
 pub(crate) struct ResponseParts {
     pub(crate) session_id: Option<SessionId>,
-    pub(crate) questions_sha256: Sha256Digest,
-    pub(crate) request_sha256: Vec<(BackendId, Sha256Digest)>,
+    pub(crate) questions_sha256: QuestionsSha256,
+    pub(crate) request_sha256: Vec<(BackendId, RequestSha256)>,
     pub(crate) payload_bytes: u64,
     pub(crate) equal_input: EqualInputRecord,
     pub(crate) results: Vec<BackendResult>,
@@ -151,7 +152,7 @@ impl RunResponse {
 
     /// SHA-256 of the canonical payload every backend received.
     #[must_use]
-    pub fn payload_sha256(&self) -> &Sha256Digest {
+    pub fn payload_sha256(&self) -> &PayloadSha256 {
         &self.payload_sha256
     }
 
@@ -159,7 +160,7 @@ impl RunResponse {
     /// lookup. Unlike [`Self::payload_sha256`] it does not cover the state, and
     /// it covers the criteria descriptions. sc-agent builds no cache.
     #[must_use]
-    pub fn questions_sha256(&self) -> &Sha256Digest {
+    pub fn questions_sha256(&self) -> &QuestionsSha256 {
         &self.questions_sha256
     }
 
@@ -170,7 +171,7 @@ impl RunResponse {
     /// a backend whose bytes depend on an earlier answer (an LLM backend after
     /// another in `chain_context` mode) or that refuses the questions.
     #[must_use]
-    pub fn request_sha256(&self) -> &[(BackendId, Sha256Digest)] {
+    pub fn request_sha256(&self) -> &[(BackendId, RequestSha256)] {
         &self.request_sha256
     }
 
@@ -308,7 +309,7 @@ impl RunResponse {
 pub struct AskResponse {
     outcome: JudgeOutcome,
     session_id: SessionId,
-    payload_sha256: Sha256Digest,
+    payload_sha256: PayloadSha256,
     warnings: Vec<String>,
 }
 
@@ -316,7 +317,7 @@ impl AskResponse {
     pub(crate) fn new(
         outcome: JudgeOutcome,
         session_id: SessionId,
-        payload_sha256: Sha256Digest,
+        payload_sha256: PayloadSha256,
     ) -> Self {
         Self {
             outcome,
@@ -340,7 +341,7 @@ impl AskResponse {
 
     /// SHA-256 of the session's canonical payload.
     #[must_use]
-    pub fn payload_sha256(&self) -> &Sha256Digest {
+    pub fn payload_sha256(&self) -> &PayloadSha256 {
         &self.payload_sha256
     }
 
@@ -654,7 +655,7 @@ impl Serialize for Envelope {
 }
 
 /// `request_sha256` as a JSON object keyed by backend id, in backend order.
-struct RequestDigests<'a>(&'a [(BackendId, Sha256Digest)]);
+struct RequestDigests<'a>(&'a [(BackendId, RequestSha256)]);
 
 impl Serialize for RequestDigests<'_> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {

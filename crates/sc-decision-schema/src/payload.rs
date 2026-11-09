@@ -30,7 +30,7 @@ use serde_json::{Map, Value};
 use crate::ids::{ChoiceId, QuestionId};
 use crate::judge::QuestionAnswer;
 use sc_agent_types::JevError;
-use sc_agent_types::Sha256Digest;
+use sc_agent_types::{PayloadSha256, QuestionsSha256};
 
 /// The answers of one decision: the map [`JudgeOutcome`](crate::JudgeOutcome)
 /// carries for every backend (the same bytes as before the type existed).
@@ -452,7 +452,7 @@ impl CanonicalJudgePayload {
 pub struct PayloadBundle {
     /// Canonical JSON text; `serde_json` output, so UTF-8 by construction.
     text: String,
-    sha256: Sha256Digest,
+    sha256: PayloadSha256,
     question_choices: BTreeMap<QuestionId, BTreeSet<ChoiceId>>,
 }
 
@@ -499,7 +499,7 @@ impl PayloadBundle {
             .map_err(|error| JevError::encode_failed("canonical payload", &error))?;
         let text = serde_json::to_string(&sorted(&value))
             .map_err(|error| JevError::encode_failed("canonical JSON", &error))?;
-        let sha256 = Sha256Digest::of_text(&text);
+        let sha256 = PayloadSha256::of_text(&text);
         Ok(Self {
             text,
             sha256,
@@ -536,7 +536,7 @@ impl PayloadBundle {
     ///
     /// `INPUT_INVALID` when the stored payload cannot be read back as
     /// questions, or a question breaks its criteria count.
-    pub fn questions_sha256(&self) -> Result<Sha256Digest, JevError> {
+    pub fn questions_sha256(&self) -> Result<QuestionsSha256, JevError> {
         let payload = CanonicalJudgePayload::from_bytes(self.text.as_bytes())?;
         crate::jev::v1::questions_sha256(payload.questions())
     }
@@ -556,13 +556,13 @@ impl PayloadBundle {
 
     /// Returns the text and its digest, consuming the bundle.
     #[must_use]
-    pub fn into_text(self) -> (String, Sha256Digest) {
+    pub fn into_text(self) -> (String, PayloadSha256) {
         (self.text, self.sha256)
     }
 
     /// SHA-256 of [`Self::bytes`].
     #[must_use]
-    pub fn sha256(&self) -> &Sha256Digest {
+    pub fn sha256(&self) -> &PayloadSha256 {
         &self.sha256
     }
 
@@ -579,7 +579,7 @@ impl PayloadBundle {
 
     /// Returns the bytes and their digest, consuming the bundle.
     #[must_use]
-    pub fn into_parts(self) -> (Vec<u8>, Sha256Digest) {
+    pub fn into_parts(self) -> (Vec<u8>, PayloadSha256) {
         (self.text.into_bytes(), self.sha256)
     }
 }

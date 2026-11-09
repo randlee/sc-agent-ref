@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 
 use sc_agent_types::observability::v2::{LogEvent, LogRejected, SessionLog, SharedSessionLog};
 use sc_agent_types::{
-    BackendId, BackendSet, JevError, NetworkErrorKind, RepoRoot, SendTrace, Sha256Digest,
+    BackendId, BackendSet, JevError, NetworkErrorKind, PayloadSha256, RepoRoot, SendTrace,
 };
 use sc_decision_schema::test_util::MockJudgeBackend;
 use sc_decision_schema::{Attestation, JudgeBackend, JudgeOutcome, JudgeRequest, MultiBackendMode};
@@ -410,7 +410,7 @@ fn test_session_save_failure_keeps_answers() {
 #[test]
 fn test_equal_false_when_backend_digest_differs() {
     let (repo, sessions) = dirs();
-    let other = Sha256Digest::of_text("another payload");
+    let other = PayloadSha256::of_text("another payload");
     let jev = Arc::new(mock(BackendId::Jev, "yes"));
     let haiku = Arc::new(mock(BackendId::AnthropicHaiku, "no").with_reported_digest(other.clone()));
     let response = run_with(
