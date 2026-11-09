@@ -342,7 +342,7 @@ fn stream_registry(
         &backends,
         &sc_agent_types::RepoRoot::new(root),
         port,
-        1,
+        3,
     )
     .map(|registry| Some(std::sync::Arc::new(registry)))
 }

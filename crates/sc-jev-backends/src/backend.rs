@@ -236,6 +236,7 @@ impl<T: Transport> Client<T> {
             &self.provider.count_endpoint,
             &prepared.count_body,
             trace,
+            request.cancel(),
             |response| wire::parse_count(response.body()),
         )?;
         GeneralEvent::debug(TARGET, "judge.counted", "provider token count received")
@@ -247,6 +248,7 @@ impl<T: Transport> Client<T> {
             &self.provider.message_endpoint,
             &prepared.message_body,
             trace,
+            request.cancel(),
             |response| {
                 let reply = wire::parse_vendor(self.provider.kind, response.body())?;
                 if let Some(reason) = &reply.truncation {
@@ -301,11 +303,12 @@ impl<T: Transport> Client<T> {
         endpoint: &Endpoint,
         body: &Arc<str>,
         trace: &SendTrace,
+        cancel: &CancelToken,
         parse: impl FnOnce(HttpResponse) -> Result<R, JevError>,
     ) -> Result<R, JevError> {
         let request = self.http_request(endpoint, body);
         self.http
-            .send_and_parse(&request, trace.clone(), |response| {
+            .send_and_parse_for(&request, trace.clone(), Some(cancel), |response| {
                 if response.status() != 200 {
                     return Err(api_failure(
                         self.provider.name,

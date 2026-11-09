@@ -241,7 +241,7 @@ impl<T: Transport> JevClient<T> {
         // Every error, transport or reply, is redacted inside
         // `send_and_parse` and then labelled with the backend name.
         self.http
-            .send_and_parse(&request, trace.clone(), |response| {
+            .send_and_parse_for(&request, trace.clone(), Some(judged.cancel()), |response| {
                 if response.status() != 200 {
                     return Err(api_failure("Jev", ReplyShape::Jev, &request, &response));
                 }
