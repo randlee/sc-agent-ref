@@ -204,6 +204,10 @@ describes an older shape, the `Added` section above is what 0.1.0 does.
   aliases.
 - Windows binaries link the C runtime statically (`.cargo/config.toml`), so
   they run without the Visual C++ redistributable.
+- `NETWORK_ERROR` kinds on real failures: a DNS lookup failure is now
+  `connect` (retryable, exit 3) instead of `other`, and a TLS failure (an
+  untrusted or self-signed certificate, a peer that does not speak TLS) is now
+  `tls` (not retryable) instead of `other`.
 
 ### Known limits
 
